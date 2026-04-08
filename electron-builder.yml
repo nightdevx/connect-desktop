@@ -1,0 +1,31 @@
+appId: com.example.connect
+productName: Connect
+icon: public/images/logo.ico
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - public/images/logo.ico
+  - package.json
+asar: true
+publish:
+  provider: github
+  owner: ${env.GH_RELEASE_OWNER}
+  repo: ${env.GH_RELEASE_REPO}
+win:
+  icon: public/images/logo.ico
+  target:
+    - nsis
+nsis:
+  installerIcon: public/images/logo.ico
+  uninstallerIcon: public/images/logo.ico
+  installerHeaderIcon: public/images/logo.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - dmg
+linux:
+  target:
+    - AppImage
