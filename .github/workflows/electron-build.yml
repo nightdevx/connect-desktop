@@ -1,0 +1,71 @@
+name: Electron Build
+
+on:
+  pull_request:
+    paths:
+      - connect-desktop/**
+      - .github/workflows/electron-build.yml
+  push:
+    branches:
+      - main
+    paths:
+      - connect-desktop/**
+      - .github/workflows/electron-build.yml
+
+jobs:
+  build:
+    runs-on: windows-latest
+    environment: release-env
+    defaults:
+      run:
+        working-directory: connect-desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: connect-desktop/package-lock.json
+
+      - name: Create .env from release-env secrets
+        shell: pwsh
+        env:
+          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
+            throw "Missing release-env secret: CT_BACKEND_URL"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:CT_LIVEKIT_ROOM)) {
+            throw "Missing release-env secret: CT_LIVEKIT_ROOM"
+          }
+
+          $envLines = @(
+            "CT_BACKEND_URL=$($env:CT_BACKEND_URL)"
+            "CT_LIVEKIT_ROOM=$($env:CT_LIVEKIT_ROOM)"
+          )
+
+          $envLines | Out-File -FilePath .env -Encoding utf8NoBOM
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-dist
+          path: |
+            connect-desktop/dist
+            connect-desktop/release
+          if-no-files-found: ignore
+          retention-days: 3
