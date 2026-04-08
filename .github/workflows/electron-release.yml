@@ -35,19 +35,13 @@ jobs:
         shell: pwsh
         env:
           CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
-          CT_LIVEKIT_ROOM: ${{ secrets.CT_LIVEKIT_ROOM }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
             throw "Missing release-env secret: CT_BACKEND_URL"
           }
 
-          if ([string]::IsNullOrWhiteSpace($env:CT_LIVEKIT_ROOM)) {
-            throw "Missing release-env secret: CT_LIVEKIT_ROOM"
-          }
-
           $envLines = @(
             "CT_BACKEND_URL=$($env:CT_BACKEND_URL)"
-            "CT_LIVEKIT_ROOM=$($env:CT_LIVEKIT_ROOM)"
           )
 
           $envLines | Out-File -FilePath .env -Encoding utf8NoBOM

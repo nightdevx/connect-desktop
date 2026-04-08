@@ -17,7 +17,6 @@ Both workflows use the GitHub Environment named `release-env`.
 Create these environment secrets in `release-env`:
 
 - `CT_BACKEND_URL`
-- `CT_LIVEKIT_ROOM`
 
 During CI, workflows generate `.env` by writing these secrets one by one
 before install/build.
@@ -25,7 +24,6 @@ before install/build.
 Generated `.env` example:
 
 CT_BACKEND_URL=https://your-backend-url
-CT_LIVEKIT_ROOM=main-lobby
 
 Windows code-signing is disabled for now (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
 
