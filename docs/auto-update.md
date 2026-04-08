@@ -32,6 +32,11 @@ Windows code-signing is disabled for now (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
 `GH_RELEASE_OWNER` and `GH_RELEASE_REPO` are injected automatically by
 workflow environment in `.github/workflows/electron-release.yml`.
 
+Release workflow tag trigger supports both formats:
+
+- `v1.2.3`
+- `1.2.3`
+
 ## Manual local checks
 
 1. npm ci
