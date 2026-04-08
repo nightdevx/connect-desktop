@@ -13,6 +13,7 @@ publish:
   provider: github
   owner: ${env.GH_RELEASE_OWNER}
   repo: ${env.GH_RELEASE_REPO}
+  releaseType: release
 win:
   icon: public/images/logo.ico
   target:

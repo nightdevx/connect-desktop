@@ -53,8 +53,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Build distributables
-        run: npm run dist
+      - name: Build distributables and publish release
+        run: npm run build && npx electron-builder --publish always
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
