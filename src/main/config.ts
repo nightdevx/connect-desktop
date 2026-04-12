@@ -6,12 +6,15 @@ const loadEnvFile = (): string | null => {
   const candidates = [
     resolve(process.cwd(), ".env"),
     resolve(__dirname, "../../.env"),
+    resolve(process.resourcesPath, ".env.runtime"),
+    resolve(process.cwd(), ".env.runtime"),
+    resolve(__dirname, "../../.env.runtime"),
   ];
 
-  for (const path of candidates) {
-    if (existsSync(path)) {
-      loadDotenv({ path, override: false });
-      return path;
+  for (const candidatePath of candidates) {
+    if (existsSync(candidatePath)) {
+      loadDotenv({ path: candidatePath, override: false });
+      return candidatePath;
     }
   }
 

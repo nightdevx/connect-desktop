@@ -21,6 +21,9 @@ files:
   - "!**/test/**"
   - "!**/tests/**"
 asar: true
+extraResources:
+  - from: .env.runtime
+    to: .env.runtime
 publish:
   provider: github
   owner: nightdevx
