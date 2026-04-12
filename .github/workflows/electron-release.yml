@@ -13,7 +13,7 @@ jobs:
   release-windows:
     runs-on: windows-latest
     environment:
-      name: ${{ vars.DESKTOP_RELEASE_ENVIRONMENT || 'production' }}
+      name: release-env
     defaults:
       run:
         shell: pwsh
@@ -43,7 +43,7 @@ jobs:
 
       - name: Create .env from GitHub Secrets
         env:
-          CT_BACKEND_URL: ${{ secrets.release-env.CT_BACKEND_URL }}
+          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
             throw "Missing secret: CT_BACKEND_URL"
