@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
