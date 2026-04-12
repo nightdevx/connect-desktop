@@ -1,6 +1,10 @@
 appId: com.example.connect
 productName: Connect
 icon: public/images/logo.ico
+compression: maximum
+electronLanguages:
+  - en-US
+  - tr
 directories:
   output: release
   buildResources: build
@@ -8,11 +12,19 @@ files:
   - dist/**
   - public/images/logo.ico
   - package.json
+  - "!**/*.map"
+  - "!**/*.d.ts"
+  - "!**/*.d.cts"
+  - "!**/*.d.mts"
+  - "!**/tsconfig*.json"
+  - "!**/__tests__/**"
+  - "!**/test/**"
+  - "!**/tests/**"
 asar: true
 publish:
   provider: github
-  owner: ${env.GH_RELEASE_OWNER}
-  repo: ${env.GH_RELEASE_REPO}
+  owner: nightdevx
+  repo: connect-desktop
   releaseType: release
 win:
   icon: public/images/logo.ico

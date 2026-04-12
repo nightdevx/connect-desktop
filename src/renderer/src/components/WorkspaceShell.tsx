@@ -16,7 +16,7 @@ import { useWorkspaceUsers } from "../features/workspace/hooks/use-workspace-use
 import {
   LiveKitMediaSession,
   type ParticipantMediaMap,
-} from "../services/livekit-media-session";
+} from "../services/livekit-stream-manager";
 import { startScreenCapture } from "../services/screen-capture-service";
 import { soundCueService } from "../services/sound-cue-service";
 import workspaceService from "../services/workspace-service";

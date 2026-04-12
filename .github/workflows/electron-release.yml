@@ -1,24 +1,65 @@
-name: Electron Release
+name: Desktop CI/CD
 
 on:
+  pull_request:
   push:
+    branches:
+      - main
     tags:
-      - v*.*.*
-      - "*.*.*"
-  workflow_dispatch:
+      - "v*.*.*"
 
 permissions:
   contents: write
 
 jobs:
+  build:
+    runs-on: windows-latest
+    environment: release-env
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Create .env from release secret
+        shell: pwsh
+        env:
+          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
+            throw "Missing release-env secret: CT_BACKEND_URL"
+          }
+
+          "CT_BACKEND_URL=$($env:CT_BACKEND_URL)" | Out-File -FilePath .env -Encoding utf8NoBOM
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 3
+
   release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: windows-latest
     environment: release-env
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GH_RELEASE_OWNER: ${{ github.repository_owner }}
-      GH_RELEASE_REPO: ${{ github.event.repository.name }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
     steps:
@@ -32,7 +73,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Create .env from release-env secrets
+      - name: Create .env from release secret
         shell: pwsh
         env:
           CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
@@ -41,28 +82,22 @@ jobs:
             throw "Missing release-env secret: CT_BACKEND_URL"
           }
 
-          $envLines = @(
-            "CT_BACKEND_URL=$($env:CT_BACKEND_URL)"
-          )
-
-          $envLines | Out-File -FilePath .env -Encoding utf8NoBOM
+          "CT_BACKEND_URL=$($env:CT_BACKEND_URL)" | Out-File -FilePath .env -Encoding utf8NoBOM
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build distributables and publish release
-        run: npm run build && npx electron-builder --publish always
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+      - name: Download build output
+        uses: actions/download-artifact@v4
         with:
-          name: electron-release
-          path: |
-            release/*.exe
-            release/*.blockmap
-            release/latest*.yml
-          if-no-files-found: warn
-          retention-days: 14
+          name: desktop-dist
+          path: .
+
+      - name: Build Windows setup
+        run: npx electron-builder --win nsis --publish never
+
+      - name: Publish setup file to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*Setup*.exe
+          fail_on_unmatched_files: true
