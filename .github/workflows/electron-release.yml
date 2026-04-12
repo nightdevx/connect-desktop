@@ -1,24 +1,28 @@
-name: Desktop CI/CD
+name: Desktop Release
 
 on:
-  pull_request:
   push:
     branches:
       - main
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release-windows:
     runs-on: windows-latest
-    environment: release-env
+    environment:
+      name: ${{ vars.DESKTOP_RELEASE_ENVIRONMENT || 'production' }}
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,84 +31,44 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Create .env from release secret
-        shell: pwsh
+      - name: Resolve desktop version
+        id: version
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Create .env from GitHub Secrets
         env:
           CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
-            throw "Missing release-env secret: CT_BACKEND_URL"
+            throw "Missing secret: CT_BACKEND_URL"
           }
 
-          "CT_BACKEND_URL=$($env:CT_BACKEND_URL)" | Out-File -FilePath .env -Encoding utf8NoBOM
+          @(
+            "CT_BACKEND_URL=$($env:CT_BACKEND_URL)"
+          ) | Set-Content -Path .env -Encoding UTF8
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build app
-        run: npm run build
-
-      - name: Upload build output
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-dist
-          path: dist
-          if-no-files-found: error
-          retention-days: 3
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: windows-latest
-    environment: release-env
-
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Create .env from release secret
-        shell: pwsh
+      - name: Build desktop release artifacts
         env:
-          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
-            throw "Missing release-env secret: CT_BACKEND_URL"
-          }
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist:win
 
-          "CT_BACKEND_URL=$($env:CT_BACKEND_URL)" | Out-File -FilePath .env -Encoding utf8NoBOM
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download build output
-        uses: actions/download-artifact@v4
-        with:
-          name: desktop-dist
-          path: .
-
-      - name: Build Windows setup
-        run: npx electron-builder --win nsis --publish never
-
-      - name: Publish setup file to GitHub Release
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          repository: nightdevx/connect-desktop
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Connect Together Desktop v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          overwrite_files: true
           draft: false
           prerelease: false
-          generate_release_notes: true
-          files: release/*Setup*.exe
-          fail_on_unmatched_files: true
+          files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml

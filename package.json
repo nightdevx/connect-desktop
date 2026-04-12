@@ -22,7 +22,8 @@
     "build:main": "tsc -p tsconfig.json && node scripts/copy-streaming-proto.js",
     "build:renderer": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.0",
