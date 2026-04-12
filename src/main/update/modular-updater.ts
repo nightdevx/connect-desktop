@@ -381,10 +381,14 @@ class ModularUpdater {
       "installing",
       "Guncelleme kuruluyor, uygulama yeniden baslatilacak",
     );
+    this.showUpdaterWindow();
+    this.setUpdaterWindowState(
+      "Kurulum baslatiliyor. Lutfen uygulamayi kapatmayin.",
+      this.snapshot.progressPercent ?? 100,
+    );
 
     const helperLaunched = this.launchUpdaterHelperProcess();
     if (!helperLaunched) {
-      this.showUpdaterWindow();
       this.setUpdaterWindowState("Ana uygulama kapatiliyor...");
       this.hideMainWindowsForInstall();
     }
@@ -400,10 +404,11 @@ class ModularUpdater {
         "installing",
         "Updater yardimci sureci baslatildi, uygulama kapatiliyor",
       );
+      this.hideMainWindowsForInstall();
 
       setTimeout(() => {
         app.exit(0);
-      }, 250);
+      }, 900);
 
       return { accepted: true };
     }
@@ -436,18 +441,19 @@ class ModularUpdater {
         info,
         "Yeni bir surum bulundu, indiriliyor",
       );
+      this.showUpdaterWindow();
+      this.setUpdaterWindowState("Yeni surum bulundu. Indirme baslatildi...");
     });
 
     autoUpdater.on("download-progress", (progress) => {
       this.setSnapshotFromProgress(progress);
-      if (this.installing) {
-        this.setUpdaterWindowState(
-          "Guncelleme paketi indiriliyor...",
-          Number.isFinite(progress.percent)
-            ? Math.max(0, Math.min(100, Number(progress.percent.toFixed(2))))
-            : null,
-        );
-      }
+      this.showUpdaterWindow();
+      this.setUpdaterWindowState(
+        "Guncelleme paketi indiriliyor...",
+        Number.isFinite(progress.percent)
+          ? Math.max(0, Math.min(100, Number(progress.percent.toFixed(2))))
+          : null,
+      );
     });
 
     autoUpdater.on("update-downloaded", async (info) => {
@@ -455,6 +461,11 @@ class ModularUpdater {
         "downloaded",
         info,
         "Guncelleme indirildi, kurulum icin hazir",
+      );
+      this.showUpdaterWindow();
+      this.setUpdaterWindowState(
+        "Guncelleme indirildi. Kurulum onayi bekleniyor...",
+        100,
       );
       await this.promptInstallDialog(info);
     });
@@ -715,7 +726,7 @@ class ModularUpdater {
       const child = spawn(process.execPath, args, {
         detached: true,
         stdio: "ignore",
-        windowsHide: true,
+        windowsHide: false,
       });
 
       child.unref();
