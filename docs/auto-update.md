@@ -8,11 +8,23 @@ This app uses a modular updater layer located under src/main/update.
 2. Updater checks GitHub Releases after startup delay.
 3. If update exists, it downloads in the background.
 4. User gets a single prompt when download is ready.
-5. On user confirmation, app performs graceful cleanup and installs update.
+5. On user confirmation:
+   - A detached updater helper process is launched.
+   - Main app performs cleanup and exits.
+   - Helper process shows updater window and keeps update flow alive.
+   - Cleanup runs before install.
+   - Installer is launched silently.
+   - App relaunch is requested automatically after install.
+
+Helper mode is started with internal process args:
+
+- `--ct-updater-helper`
+- `--ct-updater-parent-pid=<pid>`
+- `--ct-updater-version=<version>`
 
 ## GitHub release-env configuration
 
-Both workflows use the GitHub Environment named `release-env`.
+Release workflow uses the GitHub Environment named `release-env`.
 
 Create these environment secrets in `release-env`:
 
@@ -27,20 +39,37 @@ CT_BACKEND_URL=https://your-backend-url
 
 Windows code-signing is disabled for now (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
 
-## Release metadata variables
+## Release workflow behavior
 
-`GH_RELEASE_OWNER` and `GH_RELEASE_REPO` are injected automatically by
-workflow environment in `.github/workflows/electron-release.yml`.
+Workflow file: `.github/workflows/electron-release.yml`
 
-Release workflow tag trigger supports both formats:
+1. Triggered on:
+   - Push to `main`
+   - `workflow_dispatch`
+2. `detect-version` job compares `package.json` version in current commit vs previous commit.
+3. `release-windows` runs only when:
+   - Version changed, or
+   - Workflow was started manually.
+4. Tag is always normalized as `v${version}`.
 
-- `v1.2.3`
-- `1.2.3`
+## Release artifact contract
+
+Windows artifacts must remain consistent for electron-updater:
+
+- Installer: `Connect-Setup-${version}.exe`
+- Blockmap: `Connect-Setup-${version}.exe.blockmap`
+- Metadata: `release/latest.yml` must reference installer filename exactly.
+
+CI includes an artifact validation step before publishing release assets.
 
 ## Manual local checks
 
 1. npm ci
 2. npm run typecheck
-3. npm run dist
+3. npm run dist:win
 
-After dist, ensure release directory includes installer and latest yml metadata.
+After build, ensure `release` includes:
+
+- `Connect-Setup-x.y.z.exe`
+- `Connect-Setup-x.y.z.exe.blockmap`
+- `latest.yml` referencing the same installer name.

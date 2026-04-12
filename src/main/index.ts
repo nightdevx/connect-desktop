@@ -11,9 +11,14 @@ import {
 } from "./streaming/ipc";
 import {
   checkForAppUpdates,
+  destroyModularUpdater,
   initializeModularUpdater,
   installDownloadedAppUpdate,
 } from "./update";
+import {
+  isUpdaterHelperModeProcess,
+  runUpdaterHelperMode,
+} from "./update/helper-mode";
 import { isDev } from "./utils/is-dev";
 
 let mainWindow: BrowserWindow | null = null;
@@ -39,10 +44,17 @@ const applyUserDataOverride = (): void => {
 
 applyUserDataOverride();
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
+const isUpdaterHelperMode = isUpdaterHelperModeProcess();
+const hasSingleInstanceLock = isUpdaterHelperMode
+  ? true
+  : app.requestSingleInstanceLock();
 
-if (!hasSingleInstanceLock) {
+if (!isUpdaterHelperMode && !hasSingleInstanceLock) {
   app.quit();
+}
+
+if (isUpdaterHelperMode) {
+  runUpdaterHelperMode();
 }
 
 const emitWindowState = (win: BrowserWindow): void => {
@@ -91,7 +103,7 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-if (hasSingleInstanceLock) {
+if (!isUpdaterHelperMode && hasSingleInstanceLock) {
   app.on("second-instance", () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;
@@ -154,6 +166,7 @@ if (hasSingleInstanceLock) {
     void Promise.race([cleanupBeforeAppQuit(), timeout]).finally(() => {
       unregisterStreamingIpcHandlers();
       adaptiveController.stop();
+      destroyModularUpdater();
       app.quit();
     });
   });

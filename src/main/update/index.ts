@@ -1,5 +1,6 @@
 export {
   checkForAppUpdates,
+  destroyModularUpdater,
   getAppUpdateSnapshot,
   initializeModularUpdater,
   installDownloadedAppUpdate,

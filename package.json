@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -11,6 +11,7 @@
   "private": true,
   "scripts": {
     "clean": "rimraf dist",
+    "clean:release": "rimraf release",
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:dual": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron:a\" \"npm:dev:electron:b\"",
     "dev:main": "tsc -p tsconfig.json --watch --preserveWatchOutput",
@@ -23,7 +24,7 @@
     "build:renderer": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win nsis --publish never"
+    "dist:win": "npm run build && npm run clean:release && electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.0",
