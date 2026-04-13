@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -10,6 +10,7 @@
   "main": "dist/main/index.js",
   "private": true,
   "scripts": {
+    "prepare": "husky",
     "clean": "rimraf dist .env.runtime",
     "clean:release": "rimraf release",
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
@@ -51,6 +52,7 @@
     "electronmon": "^2.0.4",
     "eslint": "^9.12.0",
     "eslint-plugin-react-hooks": "^5.1.0",
+    "husky": "^9.1.7",
     "livekit-client": "^2.18.0",
     "lucide-react": "^1.7.0",
     "postcss": "^8.5.8",
