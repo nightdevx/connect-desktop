@@ -4,29 +4,85 @@ import {
   type TrackProcessor,
 } from "livekit-client";
 import {
+  NoiseGateWorkletNode,
   RnnoiseWorkletNode,
   loadRnnoise,
 } from "@sapphi-red/web-noise-suppressor";
+import noiseGateWorkletPath from "@sapphi-red/web-noise-suppressor/noiseGateWorklet.js?url";
 import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
 import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
 import rnnoiseSimdWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
 
 interface ProcessorGraph {
   sourceNode: MediaStreamAudioSourceNode;
+  inputHighPassNode: BiquadFilterNode;
   rnnoiseNode: RnnoiseWorkletNode;
+  outputLowPassNode: BiquadFilterNode;
+  noiseGateNode: NoiseGateWorkletNode | null;
   destinationNode: MediaStreamAudioDestinationNode;
 }
 
+interface WorkletAvailability {
+  noiseGateSupported: boolean;
+}
+
+export type NoiseSuppressionPreset = "natural" | "balanced" | "aggressive";
+
+interface RnnoiseProcessingProfile {
+  inputHighPassHz: number;
+  outputLowPassHz: number;
+  gateOpenThresholdDb: number;
+  gateCloseThresholdDb: number;
+  gateHoldMs: number;
+}
+
+const RNNOISE_PROCESSING_PROFILES: Record<
+  NoiseSuppressionPreset,
+  RnnoiseProcessingProfile
+> = {
+  natural: {
+    inputHighPassHz: 90,
+    outputLowPassHz: 9000,
+    gateOpenThresholdDb: -60,
+    gateCloseThresholdDb: -66,
+    gateHoldMs: 110,
+  },
+  balanced: {
+    inputHighPassHz: 110,
+    outputLowPassHz: 7600,
+    gateOpenThresholdDb: -52,
+    gateCloseThresholdDb: -58,
+    gateHoldMs: 140,
+  },
+  aggressive: {
+    inputHighPassHz: 140,
+    outputLowPassHz: 6800,
+    gateOpenThresholdDb: -46,
+    gateCloseThresholdDb: -52,
+    gateHoldMs: 190,
+  },
+};
+
+const resolveProcessingProfile = (
+  preset: NoiseSuppressionPreset,
+): RnnoiseProcessingProfile => {
+  return (
+    RNNOISE_PROCESSING_PROFILES[preset] ?? RNNOISE_PROCESSING_PROFILES.balanced
+  );
+};
+
 export class RnnoiseTrackProcessorFactory {
-  private readonly loadedWorklets = new WeakSet<AudioContext>();
+  private readonly loadedWorklets = new WeakMap<
+    AudioContext,
+    WorkletAvailability
+  >();
   private rnnoiseWasmBinaryPromise: Promise<ArrayBuffer> | null = null;
 
   public constructor(private readonly onWarning?: (message: string) => void) {}
 
-  public async createProcessor(): Promise<TrackProcessor<
-    Track.Kind.Audio,
-    AudioProcessorOptions
-  > | null> {
+  public async createProcessor(
+    preset: NoiseSuppressionPreset = "balanced",
+  ): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null> {
     if (!this.isSupported()) {
       return null;
     }
@@ -45,9 +101,29 @@ export class RnnoiseTrackProcessorFactory {
       }
 
       try {
+        graph.inputHighPassNode.disconnect();
+      } catch {
+        // no-op
+      }
+
+      try {
         graph.rnnoiseNode.disconnect();
       } catch {
         // no-op
+      }
+
+      try {
+        graph.outputLowPassNode.disconnect();
+      } catch {
+        // no-op
+      }
+
+      if (graph.noiseGateNode) {
+        try {
+          graph.noiseGateNode.disconnect();
+        } catch {
+          // no-op
+        }
       }
 
       try {
@@ -71,25 +147,62 @@ export class RnnoiseTrackProcessorFactory {
         destroyGraph();
 
         try {
-          await this.ensureWorkletRegistered(opts.audioContext);
+          const profile = resolveProcessingProfile(preset);
+          const workletAvailability = await this.ensureWorkletRegistered(
+            opts.audioContext,
+          );
           const wasmBinary = await this.getRnnoiseWasmBinary();
 
           const sourceNode = opts.audioContext.createMediaStreamSource(
             new MediaStream([opts.track]),
           );
+          const inputHighPassNode = opts.audioContext.createBiquadFilter();
+          inputHighPassNode.type = "highpass";
+          inputHighPassNode.frequency.value = profile.inputHighPassHz;
+          inputHighPassNode.Q.value = 0.707;
+
           const rnnoiseNode = new RnnoiseWorkletNode(opts.audioContext, {
             maxChannels: 1,
             wasmBinary,
           });
+
+          const outputLowPassNode = opts.audioContext.createBiquadFilter();
+          outputLowPassNode.type = "lowpass";
+          outputLowPassNode.frequency.value = profile.outputLowPassHz;
+          outputLowPassNode.Q.value = 0.707;
+
+          const noiseGateNode = workletAvailability.noiseGateSupported
+            ? new NoiseGateWorkletNode(opts.audioContext, {
+                openThreshold: profile.gateOpenThresholdDb,
+                closeThreshold: profile.gateCloseThresholdDb,
+                holdMs: profile.gateHoldMs,
+                maxChannels: 1,
+              })
+            : null;
+
           const destinationNode =
             opts.audioContext.createMediaStreamDestination();
 
-          sourceNode.connect(rnnoiseNode);
-          rnnoiseNode.connect(destinationNode);
+          sourceNode.connect(inputHighPassNode);
+          inputHighPassNode.connect(rnnoiseNode);
+          rnnoiseNode.connect(outputLowPassNode);
+          if (noiseGateNode) {
+            outputLowPassNode.connect(noiseGateNode);
+            noiseGateNode.connect(destinationNode);
+          } else {
+            outputLowPassNode.connect(destinationNode);
+          }
 
           const processedTrack = destinationNode.stream.getAudioTracks()[0];
           processor.processedTrack = processedTrack ?? opts.track;
-          graph = { sourceNode, rnnoiseNode, destinationNode };
+          graph = {
+            sourceNode,
+            inputHighPassNode,
+            rnnoiseNode,
+            outputLowPassNode,
+            noiseGateNode,
+            destinationNode,
+          };
 
           if (opts.audioContext.state === "suspended") {
             await opts.audioContext.resume();
@@ -123,13 +236,27 @@ export class RnnoiseTrackProcessorFactory {
 
   private async ensureWorkletRegistered(
     audioContext: AudioContext,
-  ): Promise<void> {
-    if (this.loadedWorklets.has(audioContext)) {
-      return;
+  ): Promise<WorkletAvailability> {
+    const cached = this.loadedWorklets.get(audioContext);
+    if (cached) {
+      return cached;
     }
 
     await audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
-    this.loadedWorklets.add(audioContext);
+
+    let noiseGateSupported = true;
+    try {
+      await audioContext.audioWorklet.addModule(noiseGateWorkletPath);
+    } catch (error) {
+      noiseGateSupported = false;
+      this.onWarning?.(
+        `Noise gate modülü yüklenemedi, sadece RNNoise ile devam ediliyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+      );
+    }
+
+    const availability: WorkletAvailability = { noiseGateSupported };
+    this.loadedWorklets.set(audioContext, availability);
+    return availability;
   }
 
   private async getRnnoiseWasmBinary(): Promise<ArrayBuffer> {

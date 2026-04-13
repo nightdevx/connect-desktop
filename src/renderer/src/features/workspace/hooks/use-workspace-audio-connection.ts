@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import workspaceService from "../../../services/workspace-service";
 
 export type AudioConnectionTone = "ok" | "warn" | "error" | "idle";
@@ -97,6 +97,11 @@ export const useWorkspaceAudioConnection = ({
 }: UseWorkspaceAudioConnectionParams): AudioConnectionSnapshot => {
   const [audioConnection, setAudioConnection] =
     useState<AudioConnectionSnapshot>(createIdleAudioSnapshot);
+  const onProbeFailureRef = useRef(onProbeFailure);
+
+  useEffect(() => {
+    onProbeFailureRef.current = onProbeFailure;
+  }, [onProbeFailure]);
 
   useEffect(() => {
     if (!activeLobbyId) {
@@ -269,7 +274,7 @@ export const useWorkspaceAudioConnection = ({
       pushOutcome(false);
       const measuredAt = new Date().toISOString();
       publishSnapshot(smoothedPingMs, measuredAt);
-      onProbeFailure();
+      onProbeFailureRef.current();
       scheduleNextProbe();
     };
 
@@ -282,7 +287,7 @@ export const useWorkspaceAudioConnection = ({
         probeTimerId = null;
       }
     };
-  }, [activeLobbyId, onProbeFailure]);
+  }, [activeLobbyId]);
 
   return audioConnection;
 };

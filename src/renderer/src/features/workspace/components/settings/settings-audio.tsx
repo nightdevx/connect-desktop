@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AudioPreferences } from "./settings-main-panel-types";
+import { NOISE_SUPPRESSION_PRESET_OPTIONS } from "../../workspace-media-utils";
 
 interface SettingsAudioProps {
   audioPreferences: AudioPreferences;
@@ -145,7 +146,7 @@ export function SettingsAudio({
         )
       ) {
         setAudioNotice(
-          "Secili mikrofon su anda bagli degil. Test varsayilan mikrofonla denenecek.",
+          "Seçili mikrofon şu anda bağlı değil. Test varsayılan mikrofonla denenecek.",
         );
       }
 
@@ -174,7 +175,7 @@ export function SettingsAudio({
           video: false,
         });
         setAudioNotice(
-          "Secili mikrofon bulunamadi. Test varsayilan mikrofonla baslatildi.",
+          "Seçili mikrofon bulunamadı. Test varsayılan mikrofonla başlatıldı.",
         );
       }
 
@@ -206,7 +207,7 @@ export function SettingsAudio({
               await sinkTarget.setSinkId(selectedOutputDeviceId);
             } catch {
               setAudioNotice(
-                "Secili ses cikis cihazi testte kullanilamadi. Varsayilan cikisa gecildi.",
+                "Seçili ses çıkış cihazı testte kullanılamadı. Varsayılan çıkışa geçildi.",
               );
             }
           }
@@ -258,17 +259,17 @@ export function SettingsAudio({
         const deviceSuffix = usedDeviceLabel
           ? ` Aktif mikrofon: ${usedDeviceLabel}.`
           : "";
-        const monitorSuffix = " Konusurken kendi sesini duyabilirsin.";
+        const monitorSuffix = " Konuşurken kendi sesini duyabilirsin.";
 
         if (previous.length > 0) {
-          return `${previous} Konusarak seviye cubugunu kontrol et.${deviceSuffix}${monitorSuffix}`;
+          return `${previous} Konuşarak seviye çubuğunu kontrol et.${deviceSuffix}${monitorSuffix}`;
         }
 
-        return `Mikrofon testi baslatildi. Konusarak seviye cubugunu kontrol et.${deviceSuffix}${monitorSuffix}`;
+        return `Mikrofon testi başlatıldı. Konuşarak seviye çubuğunu kontrol et.${deviceSuffix}${monitorSuffix}`;
       });
     } catch (error) {
       setAudioNotice(
-        `Ses testi baslatilamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Ses testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
       setIsStartingAudioTest(false);
@@ -484,6 +485,29 @@ export function SettingsAudio({
               />
               <span className="ct-settings-switch-slider" />
             </div>
+          </label>
+
+          <label className="ct-settings-device-field">
+            <span>RNNoise kalite profili</span>
+            <select
+              className="ct-input"
+              value={draftAudioPreferences.noiseSuppressionPreset}
+              onChange={(event) => {
+                const nextPreset = event.target
+                  .value as AudioPreferences["noiseSuppressionPreset"];
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  noiseSuppressionPreset: nextPreset,
+                }));
+              }}
+              disabled={!draftAudioPreferences.enhancedNoiseSuppressionEnabled}
+            >
+              {NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label} - {preset.description}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 

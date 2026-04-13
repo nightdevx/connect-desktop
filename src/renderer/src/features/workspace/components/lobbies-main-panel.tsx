@@ -22,8 +22,10 @@ import type {
   DesktopResult,
   LobbyStateMember,
 } from "../../../../../shared/desktop-api-types";
-import type { ParticipantMediaMap } from "../../../services/livekit-media-session";
-import type { RemoteParticipantAudioPreference } from "../../../services/livekit-stream-manager";
+import type {
+  ParticipantMediaMap,
+  RemoteParticipantAudioPreference,
+} from "../../../services/livekit-stream-manager";
 import { getApiErrorMessage } from "../workspace-utils";
 import { LobbyChatPanel } from "./lobby-chat-panel";
 import {

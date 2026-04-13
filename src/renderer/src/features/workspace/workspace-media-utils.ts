@@ -1,6 +1,7 @@
 import type {
   AudioPreferences,
   CameraPreferences,
+  NoiseSuppressionPreset,
   StreamPreferences,
 } from "./components/settings/settings-main-panel-types";
 
@@ -19,6 +20,44 @@ export interface ScreenShareQualityOption {
 const CAMERA_SETTINGS_STORAGE_KEY = "ct.settings.camera";
 const AUDIO_SETTINGS_STORAGE_KEY = "ct.settings.audio";
 const STREAM_SETTINGS_STORAGE_KEY = "ct.settings.stream";
+
+export interface NoiseSuppressionPresetOption {
+  id: NoiseSuppressionPreset;
+  label: string;
+  description: string;
+}
+
+export const NOISE_SUPPRESSION_PRESET_OPTIONS: NoiseSuppressionPresetOption[] =
+  [
+    {
+      id: "natural",
+      label: "Doğal",
+      description: "Sesi daha canlı tutar, hafif arka plan temizliği yapar.",
+    },
+    {
+      id: "balanced",
+      label: "Dengeli",
+      description: "Konuşma netliği ve gürültü bastırma arasında denge kurar.",
+    },
+    {
+      id: "aggressive",
+      label: "Agresif",
+      description: "Klavye, tıklama ve fan gibi sesleri daha sert bastırır.",
+    },
+  ];
+
+export const DEFAULT_NOISE_SUPPRESSION_PRESET: NoiseSuppressionPreset =
+  "balanced";
+
+const normalizeNoiseSuppressionPreset = (
+  value: unknown,
+): NoiseSuppressionPreset => {
+  if (value === "natural" || value === "aggressive") {
+    return value;
+  }
+
+  return DEFAULT_NOISE_SUPPRESSION_PRESET;
+};
 
 export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
   {
@@ -93,6 +132,7 @@ export const readAudioPreferences = (): {
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
 } => {
@@ -104,6 +144,7 @@ export const readAudioPreferences = (): {
         defaultHeadphoneEnabled: true,
         notificationSoundsEnabled: true,
         enhancedNoiseSuppressionEnabled: false,
+        noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
         selectedAudioInputDeviceId: null,
         selectedAudioOutputDeviceId: null,
       };
@@ -114,6 +155,7 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled?: boolean;
       notificationSoundsEnabled?: boolean;
       enhancedNoiseSuppressionEnabled?: boolean;
+      noiseSuppressionPreset?: NoiseSuppressionPreset;
       selectedAudioInputDeviceId?: string | null;
       selectedAudioOutputDeviceId?: string | null;
     };
@@ -124,6 +166,9 @@ export const readAudioPreferences = (): {
       notificationSoundsEnabled: parsed.notificationSoundsEnabled !== false,
       enhancedNoiseSuppressionEnabled:
         parsed.enhancedNoiseSuppressionEnabled === true,
+      noiseSuppressionPreset: normalizeNoiseSuppressionPreset(
+        parsed.noiseSuppressionPreset,
+      ),
       selectedAudioInputDeviceId:
         typeof parsed.selectedAudioInputDeviceId === "string" &&
         parsed.selectedAudioInputDeviceId.trim().length > 0
@@ -141,6 +186,7 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled: true,
       notificationSoundsEnabled: true,
       enhancedNoiseSuppressionEnabled: false,
+      noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
       selectedAudioInputDeviceId: null,
       selectedAudioOutputDeviceId: null,
     };

@@ -17,9 +17,6 @@ import {
   type RoomEventCallbacks,
   type TrackPublication,
   type TrackPublishOptions,
-  type AudioCaptureOptions,
-  type AudioProcessorOptions,
-  type TrackProcessor,
 } from "livekit-client";
 import type {
   NetworkStats,
@@ -27,7 +24,9 @@ import type {
   QualityProfile,
   StreamingQualityProfileName,
 } from "../../../shared/streaming-contracts";
-import { RnnoiseTrackProcessorFactory } from "./rnnoise-track-processor";
+import { logLiveKitDebug } from "./livekit-debug-log";
+import { LiveKitMicrophoneController } from "./livekit-microphone-controller";
+import type { NoiseSuppressionPreset } from "./rnnoise-track-processor";
 import workspaceService from "./workspace-service";
 
 export interface ParticipantMediaStreams {
@@ -41,6 +40,7 @@ export type ScreenShareMode = "slides" | "motion";
 
 export interface LiveKitAudioProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
+  noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
 }
@@ -53,6 +53,7 @@ export interface RemoteParticipantAudioPreference {
 const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPreferences =
   {
     enhancedNoiseSuppressionEnabled: false,
+    noiseSuppressionPreset: "balanced",
     selectedAudioInputDeviceId: null,
     selectedAudioOutputDeviceId: null,
   };
@@ -138,7 +139,6 @@ const buildSingleTrackStream = (track: MediaStreamTrack): MediaStream => {
 export class LiveKitStreamManager {
   private room: Room | null = null;
   private currentLobbyId: string | null = null;
-  private liveKitAudioContext: AudioContext | null = null;
   private remoteStreams = new Map<string, ParticipantMediaStreams>();
   private remoteAudioElements = new Map<string, HTMLAudioElement>();
   private remoteAudioCleanups = new Map<string, () => void>();
@@ -161,10 +161,6 @@ export class LiveKitStreamManager {
   private audioProcessingPreferences: LiveKitAudioProcessingPreferences = {
     ...DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   };
-  private activeMicrophoneProcessor: TrackProcessor<
-    Track.Kind.Audio,
-    AudioProcessorOptions
-  > | null = null;
 
   private currentProfile: QualityProfile = HIGH_PROFILE;
   private activeNetworkStats: NetworkStats | null = null;
@@ -179,9 +175,12 @@ export class LiveKitStreamManager {
   private senderSamples = new Map<string, SenderSample>();
 
   private qualityEventUnsubscribe: (() => void) | null = null;
-  private readonly rnnoiseProcessorFactory: RnnoiseTrackProcessorFactory;
+  private readonly microphoneController: LiveKitMicrophoneController;
 
   private readonly handleConnected: RoomEventCallbacks["connected"] = () => {
+    logLiveKitDebug("stream-manager", "room-connected", {
+      lobbyId: this.currentLobbyId,
+    });
     this.callbacks.onConnectionStateChanged?.("connected");
     this.reconnectAttempt = 0;
     this.startBandwidthReporting();
@@ -190,6 +189,9 @@ export class LiveKitStreamManager {
 
   private readonly handleReconnecting: RoomEventCallbacks["reconnecting"] =
     () => {
+      logLiveKitDebug("stream-manager", "room-reconnecting", {
+        lobbyId: this.currentLobbyId,
+      });
       this.callbacks.onConnectionStateChanged?.("reconnecting");
     };
 
@@ -200,6 +202,9 @@ export class LiveKitStreamManager {
 
   private readonly handleReconnected: RoomEventCallbacks["reconnected"] =
     () => {
+      logLiveKitDebug("stream-manager", "room-reconnected", {
+        lobbyId: this.currentLobbyId,
+      });
       this.callbacks.onConnectionStateChanged?.("connected");
       void this.restorePublishingState();
     };
@@ -207,6 +212,11 @@ export class LiveKitStreamManager {
   private readonly handleDisconnected: RoomEventCallbacks["disconnected"] = (
     reason?: DisconnectReason,
   ) => {
+    logLiveKitDebug("stream-manager", "room-disconnected", {
+      lobbyId: this.currentLobbyId,
+      reason: reason ? String(reason) : "unknown",
+      manualDisconnect: this.manualDisconnect,
+    });
     this.callbacks.onConnectionStateChanged?.("disconnected");
     this.clearRemoteState();
 
@@ -252,6 +262,11 @@ export class LiveKitStreamManager {
 
   private readonly handleLocalTrackPublished: RoomEventCallbacks["localTrackPublished"] =
     (publication: LocalTrackPublication) => {
+      logLiveKitDebug("stream-manager", "local-track-published", {
+        source: publication.source,
+        sid: publication.trackSid,
+        muted: publication.isMuted,
+      });
       if (publication.source === Track.Source.Camera) {
         this.cameraPublication = publication;
       }
@@ -265,6 +280,11 @@ export class LiveKitStreamManager {
 
   private readonly handleLocalTrackUnpublished: RoomEventCallbacks["localTrackUnpublished"] =
     (publication: LocalTrackPublication) => {
+      logLiveKitDebug("stream-manager", "local-track-unpublished", {
+        source: publication.source,
+        sid: publication.trackSid,
+        muted: publication.isMuted,
+      });
       if (publication.source === Track.Source.Camera) {
         this.cameraPublication = null;
       }
@@ -291,6 +311,9 @@ export class LiveKitStreamManager {
 
   private readonly handleMediaDevicesError: RoomEventCallbacks["mediaDevicesError"] =
     (error: Error) => {
+      logLiveKitDebug("stream-manager", "media-devices-error", {
+        error,
+      });
       this.callbacks.onWarning?.(`Medya cihaz hatası: ${error.message}`);
     };
 
@@ -304,11 +327,13 @@ export class LiveKitStreamManager {
   public constructor(
     private readonly callbacks: LiveKitStreamManagerCallbacks,
   ) {
-    this.rnnoiseProcessorFactory = new RnnoiseTrackProcessorFactory(
-      (message) => {
-        this.callbacks.onWarning?.(message);
-      },
-    );
+    logLiveKitDebug("stream-manager", "constructed");
+    this.microphoneController = new LiveKitMicrophoneController((message) => {
+      logLiveKitDebug("stream-manager", "microphone-controller-warning", {
+        message,
+      });
+      this.callbacks.onWarning?.(message);
+    });
     this.bindQualityEvents();
   }
 
@@ -329,7 +354,7 @@ export class LiveKitStreamManager {
     ) {
       void this.applyAudioOutputDevicePreference().catch((error) => {
         this.callbacks.onWarning?.(
-          `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+          `Ses çıkış cihazı uygulanamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
         );
       });
     }
@@ -359,16 +384,46 @@ export class LiveKitStreamManager {
 
   public async refreshMicrophoneProcessing(): Promise<void> {
     if (!this.room || !this.desiredMicEnabled) {
+      logLiveKitDebug("stream-manager", "refresh-mic-processing-skipped", {
+        hasRoom: Boolean(this.room),
+        desiredMicEnabled: this.desiredMicEnabled,
+      });
       return;
     }
 
-    await this.room.localParticipant.setMicrophoneEnabled(false);
-    await this.destroyActiveMicrophoneProcessor();
-    await this.setMicrophoneEnabled(true);
+    logLiveKitDebug("stream-manager", "refresh-mic-processing-start", {
+      desiredMicEnabled: this.desiredMicEnabled,
+      selectedInputDeviceId:
+        this.audioProcessingPreferences.selectedAudioInputDeviceId ?? "default",
+      enhancedNoiseSuppressionEnabled:
+        this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset:
+        this.audioProcessingPreferences.noiseSuppressionPreset,
+    });
+
+    await this.microphoneController.refreshMicrophoneProcessing({
+      participant: this.room.localParticipant,
+      preferences: this.audioProcessingPreferences,
+      publishOptions: {
+        dtx: this.shouldEnableDtx(),
+        red: this.shouldEnableRed(),
+      },
+    });
+
+    logLiveKitDebug("stream-manager", "refresh-mic-processing-finished", {
+      participantMicEnabled: this.room.localParticipant.isMicrophoneEnabled,
+    });
   }
 
   // connect connects to the LiveKit room with reconnect support and state preservation.
   public async connect(lobbyId: string): Promise<void> {
+    logLiveKitDebug("stream-manager", "connect-requested", {
+      lobbyId,
+      alreadyConnected:
+        Boolean(this.room) &&
+        this.currentLobbyId === lobbyId &&
+        this.room?.state === "connected",
+    });
     this.manualDisconnect = false;
 
     if (
@@ -388,6 +443,9 @@ export class LiveKitStreamManager {
 
   // disconnect stops reconnect attempts and disconnects from the active room.
   public async disconnect(): Promise<void> {
+    logLiveKitDebug("stream-manager", "disconnect-requested", {
+      lobbyId: this.currentLobbyId,
+    });
     this.manualDisconnect = true;
     this.stopReconnectTimer();
     this.stopBandwidthReporting();
@@ -407,8 +465,7 @@ export class LiveKitStreamManager {
       await activeRoom.disconnect(false);
     }
 
-    await this.destroyActiveMicrophoneProcessor();
-    await this.closeLiveKitAudioContext();
+    await this.microphoneController.dispose();
 
     this.callbacks.onConnectionStateChanged?.("disconnected");
   }
@@ -425,103 +482,43 @@ export class LiveKitStreamManager {
 
   // setMicrophoneEnabled updates microphone publication state and resilience flags.
   public async setMicrophoneEnabled(enabled: boolean): Promise<void> {
+    logLiveKitDebug("stream-manager", "set-microphone-enabled-requested", {
+      enabled,
+      hasRoom: Boolean(this.room),
+      selectedInputDeviceId:
+        this.audioProcessingPreferences.selectedAudioInputDeviceId ?? "default",
+      enhancedNoiseSuppressionEnabled:
+        this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset:
+        this.audioProcessingPreferences.noiseSuppressionPreset,
+    });
     this.desiredMicEnabled = enabled;
 
     if (!this.room) {
+      logLiveKitDebug("stream-manager", "set-microphone-enabled-skipped", {
+        enabled,
+        reason: "room-not-ready",
+      });
       return;
     }
-
-    const captureOptions = await this.buildMicrophoneCaptureOptions(enabled);
 
     const publishOptions: TrackPublishOptions = {
       dtx: this.shouldEnableDtx(),
       red: this.shouldEnableRed(),
     };
 
-    const attempts: Array<{ options: AudioCaptureOptions; warning?: string }> =
-      [];
-    const attemptKeys = new Set<string>();
+    await this.microphoneController.applyMicrophoneState({
+      enabled,
+      participant: this.room.localParticipant,
+      preferences: this.audioProcessingPreferences,
+      publishOptions,
+    });
 
-    const addAttempt = (
-      options: AudioCaptureOptions,
-      warning?: string,
-    ): void => {
-      const key = `${typeof options.deviceId === "undefined" ? "default-device" : "selected-device"}:${options.processor ? "processor-on" : "processor-off"}`;
-      if (attemptKeys.has(key)) {
-        return;
-      }
-
-      attemptKeys.add(key);
-      attempts.push({ options, warning });
-    };
-
-    addAttempt(captureOptions);
-
-    const withoutProcessorOptions: AudioCaptureOptions | null =
-      enabled && captureOptions.processor
-        ? {
-            ...captureOptions,
-            processor: undefined,
-            noiseSuppression: true,
-          }
-        : null;
-
-    if (withoutProcessorOptions) {
-      addAttempt(
-        withoutProcessorOptions,
-        "RNNoise baslatilamadi, mikrofon tarayici ses filtreleri ile aciliyor.",
-      );
-    }
-
-    if (enabled && captureOptions.deviceId) {
-      addAttempt(
-        {
-          ...(withoutProcessorOptions ?? captureOptions),
-          deviceId: undefined,
-        },
-        "Secili mikrofon cihazi kullanilamadi, varsayilan mikrofona geri donuluyor.",
-      );
-    }
-
-    let lastError: unknown = null;
-    for (
-      let attemptIndex = 0;
-      attemptIndex < attempts.length;
-      attemptIndex += 1
-    ) {
-      const attempt = attempts[attemptIndex];
-
-      try {
-        await this.room.localParticipant.setMicrophoneEnabled(
-          enabled,
-          attempt.options,
-          publishOptions,
-        );
-        lastError = null;
-        break;
-      } catch (error) {
-        lastError = error;
-
-        if (
-          attempt.options.processor &&
-          !this.isProcessorAudioContextError(error)
-        ) {
-          throw error;
-        }
-
-        if (attempt.warning && attemptIndex < attempts.length - 1) {
-          this.callbacks.onWarning?.(attempt.warning);
-        }
-      }
-    }
-
-    if (lastError) {
-      throw lastError;
-    }
-
-    if (!enabled) {
-      await this.destroyActiveMicrophoneProcessor();
-    }
+    logLiveKitDebug("stream-manager", "set-microphone-enabled-finished", {
+      enabled,
+      participantMicEnabled: this.room.localParticipant.isMicrophoneEnabled,
+      desiredMicEnabled: this.desiredMicEnabled,
+    });
   }
 
   // publishCameraStream publishes camera with 3-layer simulcast and local override support.
@@ -721,6 +718,9 @@ export class LiveKitStreamManager {
   }
 
   private async establishConnection(lobbyId: string): Promise<void> {
+    logLiveKitDebug("stream-manager", "establish-connection-start", {
+      lobbyId,
+    });
     if (this.room) {
       await this.room.disconnect(false);
       this.room = null;
@@ -739,7 +739,13 @@ export class LiveKitStreamManager {
       stopLocalTrackOnUnpublish: false,
     };
 
-    const liveKitAudioContext = this.getOrCreateLiveKitAudioContext();
+    const liveKitAudioContext =
+      this.microphoneController.getOrCreateAudioContext();
+    logLiveKitDebug("stream-manager", "establish-connection-context", {
+      lobbyId,
+      contextAvailable: Boolean(liveKitAudioContext),
+      contextState: liveKitAudioContext?.state ?? "unavailable",
+    });
     if (liveKitAudioContext) {
       roomOptions.webAudioMix = {
         audioContext: liveKitAudioContext,
@@ -748,12 +754,22 @@ export class LiveKitStreamManager {
 
     const room = new Room(roomOptions);
 
+    this.microphoneController.prepareParticipantAudioContext(
+      room.localParticipant,
+    );
+
     this.bindRoomEvents(room);
     this.room = room;
 
     await room.connect(tokenResult.data.serverUrl, tokenResult.data.token, {
       autoSubscribe: true,
       maxRetries: 0,
+    });
+
+    logLiveKitDebug("stream-manager", "establish-connection-finished", {
+      lobbyId,
+      roomState: room.state,
+      participantIdentity: room.localParticipant.identity,
     });
   }
 
@@ -783,165 +799,6 @@ export class LiveKitStreamManager {
       this.handleConnectionQualityChanged,
     );
     room.on(RoomEvent.MediaDevicesError, this.handleMediaDevicesError);
-  }
-
-  private async buildMicrophoneCaptureOptions(
-    enabled: boolean,
-  ): Promise<AudioCaptureOptions> {
-    const options: AudioCaptureOptions = {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    };
-
-    const preferredInputDeviceId = await this.resolvePreferredInputDeviceId();
-    if (preferredInputDeviceId) {
-      options.deviceId = preferredInputDeviceId;
-    }
-
-    if (
-      !enabled ||
-      !this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled
-    ) {
-      return options;
-    }
-
-    const processor = await this.getOrCreateMicrophoneProcessor();
-    if (!processor) {
-      return options;
-    }
-
-    options.noiseSuppression = false;
-    options.processor = processor;
-    return options;
-  }
-
-  private isProcessorAudioContextError(error: unknown): boolean {
-    if (!(error instanceof Error)) {
-      return false;
-    }
-
-    return error.message.includes(
-      "Audio context needs to be set on LocalAudioTrack",
-    );
-  }
-
-  private getOrCreateLiveKitAudioContext(): AudioContext | null {
-    if (
-      this.liveKitAudioContext &&
-      this.liveKitAudioContext.state !== "closed"
-    ) {
-      return this.liveKitAudioContext;
-    }
-
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const Ctx =
-      window.AudioContext ||
-      (
-        window as typeof window & {
-          webkitAudioContext?: typeof AudioContext;
-        }
-      ).webkitAudioContext;
-
-    if (!Ctx) {
-      return null;
-    }
-
-    this.liveKitAudioContext = new Ctx({ latencyHint: "interactive" });
-    return this.liveKitAudioContext;
-  }
-
-  private async closeLiveKitAudioContext(): Promise<void> {
-    if (!this.liveKitAudioContext) {
-      return;
-    }
-
-    const context = this.liveKitAudioContext;
-    this.liveKitAudioContext = null;
-
-    if (context.state === "closed") {
-      return;
-    }
-
-    try {
-      await context.close();
-    } catch {
-      // no-op
-    }
-  }
-
-  private async resolvePreferredInputDeviceId(): Promise<string | undefined> {
-    const selectedInputDeviceId =
-      this.audioProcessingPreferences.selectedAudioInputDeviceId;
-
-    if (!selectedInputDeviceId) {
-      return undefined;
-    }
-
-    if (
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices ||
-      typeof navigator.mediaDevices.enumerateDevices !== "function"
-    ) {
-      return selectedInputDeviceId;
-    }
-
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasSelectedInput = devices.some(
-        (device) =>
-          device.kind === "audioinput" &&
-          device.deviceId === selectedInputDeviceId,
-      );
-
-      if (hasSelectedInput) {
-        return selectedInputDeviceId;
-      }
-
-      this.callbacks.onWarning?.(
-        "Secili mikrofon bulunamadi, varsayilan mikrofon kullanilacak.",
-      );
-      return undefined;
-    } catch {
-      return selectedInputDeviceId;
-    }
-  }
-
-  private async getOrCreateMicrophoneProcessor(): Promise<TrackProcessor<
-    Track.Kind.Audio,
-    AudioProcessorOptions
-  > | null> {
-    if (this.activeMicrophoneProcessor) {
-      return this.activeMicrophoneProcessor;
-    }
-
-    const processor = await this.rnnoiseProcessorFactory.createProcessor();
-    if (!processor) {
-      this.callbacks.onWarning?.(
-        "AudioWorklet desteklenmediği için RNNoise devreye alınamadı, tarayıcı filtreleri kullanılıyor.",
-      );
-      return null;
-    }
-
-    this.activeMicrophoneProcessor = processor;
-    return processor;
-  }
-
-  private async destroyActiveMicrophoneProcessor(): Promise<void> {
-    if (!this.activeMicrophoneProcessor) {
-      return;
-    }
-
-    try {
-      await this.activeMicrophoneProcessor.destroy();
-    } catch {
-      // no-op
-    }
-
-    this.activeMicrophoneProcessor = null;
   }
 
   private scheduleReconnect(): void {
@@ -1396,8 +1253,16 @@ export class LiveKitStreamManager {
     track: RemoteTrack,
     publication: RemoteTrackPublication,
   ): void {
+    logLiveKitDebug("stream-manager", "remote-track-subscribed", {
+      identity,
+      kind: track.kind,
+      source: publication.source,
+      sid: publication.trackSid,
+      muted: publication.isMuted,
+    });
+
     if (track.kind === Track.Kind.Audio) {
-      this.attachRemoteAudio(track, publication, identity);
+      void this.attachRemoteAudio(track, publication, identity);
       return;
     }
 
@@ -1428,6 +1293,13 @@ export class LiveKitStreamManager {
     track: RemoteTrack,
     publication: RemoteTrackPublication,
   ): void {
+    logLiveKitDebug("stream-manager", "remote-track-unsubscribed", {
+      identity,
+      kind: track.kind,
+      source: publication.source,
+      sid: publication.trackSid,
+    });
+
     if (track.kind === Track.Kind.Audio) {
       this.detachRemoteAudio(publication.trackSid);
       return;
@@ -1463,43 +1335,54 @@ export class LiveKitStreamManager {
     );
   }
 
-  private attachRemoteAudio(
+  private async attachRemoteAudio(
     track: RemoteTrack,
     publication: RemoteTrackPublication,
     participantIdentity: string,
-  ): void {
+  ): Promise<void> {
+    logLiveKitDebug("stream-manager", "remote-audio-attach-start", {
+      participantIdentity,
+      sid: publication.trackSid,
+      source: publication.source,
+    });
+
     this.detachRemoteAudio(publication.trackSid);
 
-    const stream = buildSingleTrackStream(track.mediaStreamTrack);
-    const webAudioCleanup = this.attachRemoteAudioWithWebAudio(
-      stream,
-      track.mediaStreamTrack,
-      publication.trackSid,
-    );
-
-    if (webAudioCleanup) {
-      this.remoteAudioCleanups.set(publication.trackSid, webAudioCleanup);
-      this.remoteAudioTrackOwners.set(
-        publication.trackSid,
-        participantIdentity,
-      );
-      this.applyRemoteAudioPreferenceToTrackSid(
-        publication.trackSid,
-        this.resolveRemoteParticipantAudioPreference(participantIdentity),
-      );
-      return;
-    }
+    logLiveKitDebug("stream-manager", "remote-audio-webaudio-bypassed", {
+      sid: publication.trackSid,
+      participantIdentity,
+      reason: "html-audio-primary-path",
+    });
 
     const audioElement = track.attach() as HTMLAudioElement;
     audioElement.autoplay = true;
+    audioElement.muted = false;
     audioElement.dataset.livekitTrackSid = publication.trackSid;
     audioElement.style.display = "none";
 
     void this.applySinkToAudioElement(audioElement).catch((error) => {
       this.callbacks.onWarning?.(
-        `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        `Ses çıkış cihazı uygulanamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
       );
     });
+
+    void audioElement.play().catch((error) => {
+      this.callbacks.onWarning?.(
+        `Uzak ses oynatımı başlatılamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+      );
+      logLiveKitDebug("stream-manager", "remote-audio-element-play-failed", {
+        sid: publication.trackSid,
+        participantIdentity,
+        error,
+      });
+    });
+
+    audioElement.onplaying = () => {
+      logLiveKitDebug("stream-manager", "remote-audio-element-playing", {
+        sid: publication.trackSid,
+        participantIdentity,
+      });
+    };
 
     document.body.appendChild(audioElement);
     this.remoteAudioElements.set(publication.trackSid, audioElement);
@@ -1508,9 +1391,18 @@ export class LiveKitStreamManager {
       publication.trackSid,
       this.resolveRemoteParticipantAudioPreference(participantIdentity),
     );
+
+    logLiveKitDebug("stream-manager", "remote-audio-attached-element", {
+      sid: publication.trackSid,
+      participantIdentity,
+    });
   }
 
   private detachRemoteAudio(trackSid: string): void {
+    logLiveKitDebug("stream-manager", "remote-audio-detach", {
+      sid: trackSid,
+    });
+
     const cleanup = this.remoteAudioCleanups.get(trackSid);
     if (cleanup) {
       cleanup();
@@ -1627,7 +1519,7 @@ export class LiveKitStreamManager {
     void this.applySinkToAudioContext(this.remoteAudioContext).catch(
       (error) => {
         this.callbacks.onWarning?.(
-          `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+          `Ses çıkış cihazı uygulanamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
         );
       },
     );
@@ -1664,7 +1556,7 @@ export class LiveKitStreamManager {
       if (sinkId) {
         await contextWithSink.setSinkId("");
         this.callbacks.onWarning?.(
-          `Secili ses cikis cihazi kullanilamadi, varsayilan cikisa geri donuldu: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+          `Seçili ses çıkış cihazı kullanılamadı, varsayılan çıkışa geri dönüldü: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
         );
       } else {
         throw error;
@@ -1690,7 +1582,7 @@ export class LiveKitStreamManager {
       if (sinkId) {
         await elementWithSink.setSinkId("");
         this.callbacks.onWarning?.(
-          `Secili ses cikis cihazi kullanilamadi, varsayilan cikisa geri donuldu: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+          `Seçili ses çıkış cihazı kullanılamadı, varsayılan çıkışa geri dönüldü: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
         );
       } else {
         throw error;
@@ -1698,49 +1590,129 @@ export class LiveKitStreamManager {
     }
   }
 
-  private attachRemoteAudioWithWebAudio(
+  private async attachRemoteAudioWithWebAudio(
     stream: MediaStream,
     track: MediaStreamTrack,
     trackSid: string,
-  ): (() => void) | null {
+  ): Promise<(() => void) | null> {
     const context = this.getRemoteAudioContext();
     if (!context) {
+      logLiveKitDebug("stream-manager", "remote-audio-webaudio-unavailable", {
+        sid: trackSid,
+      });
       return null;
     }
 
-    const source = context.createMediaStreamSource(stream);
-    const gainNode = context.createGain();
-    gainNode.gain.setValueAtTime(1, context.currentTime);
-    this.remoteAudioTrackGains.set(trackSid, gainNode);
-
+    let source: MediaStreamAudioSourceNode | null = null;
+    let gainNode: GainNode | null = null;
     let splitterNode: ChannelSplitterNode | null = null;
     let mergerNode: ChannelMergerNode | null = null;
-    let outputNode: AudioNode = source;
 
-    const channelCountFromSettings = track.getSettings().channelCount;
-    const effectiveChannelCount =
-      typeof channelCountFromSettings === "number" &&
-      Number.isFinite(channelCountFromSettings)
-        ? channelCountFromSettings
-        : source.channelCount;
+    try {
+      source = context.createMediaStreamSource(stream);
+      gainNode = context.createGain();
+      gainNode.gain.setValueAtTime(1, context.currentTime);
+      this.remoteAudioTrackGains.set(trackSid, gainNode);
 
-    if (effectiveChannelCount <= 1) {
-      splitterNode = context.createChannelSplitter(1);
-      mergerNode = context.createChannelMerger(2);
+      let outputNode: AudioNode = source;
 
-      source.connect(splitterNode);
-      splitterNode.connect(mergerNode, 0, 0);
-      splitterNode.connect(mergerNode, 0, 1);
-      outputNode = mergerNode;
+      const channelCountFromSettings = track.getSettings().channelCount;
+      const effectiveChannelCount =
+        typeof channelCountFromSettings === "number" &&
+        Number.isFinite(channelCountFromSettings)
+          ? channelCountFromSettings
+          : source.channelCount;
+
+      if (effectiveChannelCount <= 1) {
+        splitterNode = context.createChannelSplitter(1);
+        mergerNode = context.createChannelMerger(2);
+
+        source.connect(splitterNode);
+        splitterNode.connect(mergerNode, 0, 0);
+        splitterNode.connect(mergerNode, 0, 1);
+        outputNode = mergerNode;
+      }
+
+      outputNode.connect(gainNode);
+      gainNode.connect(context.destination);
+
+      if (context.state === "suspended") {
+        try {
+          await context.resume();
+        } catch {
+          // no-op
+        }
+      }
+
+      if (context.state !== "running") {
+        logLiveKitDebug("stream-manager", "remote-audio-webaudio-not-running", {
+          sid: trackSid,
+          state: context.state,
+        });
+
+        try {
+          source.disconnect();
+        } catch {
+          // no-op
+        }
+        try {
+          splitterNode?.disconnect();
+        } catch {
+          // no-op
+        }
+        try {
+          mergerNode?.disconnect();
+        } catch {
+          // no-op
+        }
+        try {
+          gainNode.disconnect();
+        } catch {
+          // no-op
+        }
+
+        this.remoteAudioTrackGains.delete(trackSid);
+        return null;
+      }
+
+      logLiveKitDebug("stream-manager", "remote-audio-webaudio-running", {
+        sid: trackSid,
+        state: context.state,
+      });
+    } catch (error) {
+      logLiveKitDebug("stream-manager", "remote-audio-webaudio-attach-failed", {
+        sid: trackSid,
+        error,
+      });
+
+      try {
+        source?.disconnect();
+      } catch {
+        // no-op
+      }
+      try {
+        splitterNode?.disconnect();
+      } catch {
+        // no-op
+      }
+      try {
+        mergerNode?.disconnect();
+      } catch {
+        // no-op
+      }
+      try {
+        gainNode?.disconnect();
+      } catch {
+        // no-op
+      }
+
+      this.remoteAudioTrackGains.delete(trackSid);
+      return null;
     }
-
-    outputNode.connect(gainNode);
-    gainNode.connect(context.destination);
-    void context.resume().catch(() => undefined);
 
     return () => {
       try {
-        source.disconnect();
+        source?.disconnect();
       } catch {
         // no-op
       }
@@ -1758,7 +1730,7 @@ export class LiveKitStreamManager {
       }
 
       try {
-        gainNode.disconnect();
+        gainNode?.disconnect();
       } catch {
         // no-op
       }

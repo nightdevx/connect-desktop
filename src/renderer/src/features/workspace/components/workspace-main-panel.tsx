@@ -22,8 +22,10 @@ import {
   type StreamPreferences,
 } from "./settings-main-panel";
 import { UsersDirectMessagesPanel } from "./users-direct-messages-panel";
-import type { ParticipantMediaMap } from "../../../services/livekit-media-session";
-import type { RemoteParticipantAudioPreference } from "../../../services/livekit-stream-manager";
+import type {
+  ParticipantMediaMap,
+  RemoteParticipantAudioPreference,
+} from "../../../services/livekit-stream-manager";
 
 interface WorkspaceMainPanelProps {
   sectionTitle: string;

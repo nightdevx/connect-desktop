@@ -3,11 +3,14 @@ export interface CameraPreferences {
   frameRate: 24 | 30;
 }
 
+export type NoiseSuppressionPreset = "natural" | "balanced" | "aggressive";
+
 export interface AudioPreferences {
   defaultMicEnabled: boolean;
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
 }

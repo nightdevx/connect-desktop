@@ -21,6 +21,7 @@ import type {
   StreamPreferences,
 } from "../features/workspace/components/settings/settings-main-panel-types";
 import {
+  NOISE_SUPPRESSION_PRESET_OPTIONS,
   readAudioPreferences,
   readCameraPreferences,
   readStreamPreferences,
@@ -103,6 +104,15 @@ const sortLobbiesWithMainFirst = (
 
     return left.createdAt.localeCompare(right.createdAt, "tr");
   });
+};
+
+const getNoiseSuppressionPresetLabel = (
+  preset: AudioPreferences["noiseSuppressionPreset"],
+): string => {
+  return (
+    NOISE_SUPPRESSION_PRESET_OPTIONS.find((option) => option.id === preset)
+      ?.label ?? "Dengeli"
+  );
 };
 
 function WorkspaceShell({
@@ -272,6 +282,7 @@ function WorkspaceShell({
     session.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled:
         initialAudioPreferences.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset: initialAudioPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId:
         initialAudioPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId:
@@ -1024,6 +1035,8 @@ function WorkspaceShell({
       next.defaultMicEnabled &&
       (next.enhancedNoiseSuppressionEnabled !==
         audioPreferences.enhancedNoiseSuppressionEnabled ||
+        next.noiseSuppressionPreset !==
+          audioPreferences.noiseSuppressionPreset ||
         next.selectedAudioInputDeviceId !==
           audioPreferences.selectedAudioInputDeviceId);
 
@@ -1032,6 +1045,7 @@ function WorkspaceShell({
 
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled: next.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset: next.noiseSuppressionPreset,
       selectedAudioInputDeviceId: next.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,
     });
@@ -1087,6 +1101,7 @@ function WorkspaceShell({
 
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled: nextEnabled,
+      noiseSuppressionPreset: nextPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
     });
@@ -1098,7 +1113,7 @@ function WorkspaceShell({
         .then(() => {
           setStatus(
             nextEnabled
-              ? "RNNoise gürültü bastırma etkinleştirildi."
+              ? `RNNoise (${getNoiseSuppressionPresetLabel(nextPreferences.noiseSuppressionPreset)}) etkinleştirildi.`
               : "RNNoise gürültü bastırma kapatıldı.",
             "ok",
           );
@@ -1114,7 +1129,7 @@ function WorkspaceShell({
 
     setStatus(
       nextEnabled
-        ? "RNNoise gürültü bastırma kaydedildi. Bir sonraki mikrofon açılışında uygulanacak."
+        ? `RNNoise (${getNoiseSuppressionPresetLabel(nextPreferences.noiseSuppressionPreset)}) kaydedildi. Bir sonraki mikrofon açılışında uygulanacak.`
         : "RNNoise gürültü bastırma kapatıldı. Bir sonraki mikrofon açılışında uygulanacak.",
       "ok",
     );
@@ -1132,6 +1147,7 @@ function WorkspaceShell({
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled:
         nextPreferences.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset: nextPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
     });
@@ -1169,6 +1185,7 @@ function WorkspaceShell({
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled:
         nextPreferences.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset: nextPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
     });
