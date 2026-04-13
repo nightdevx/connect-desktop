@@ -96,7 +96,7 @@ export class RnnoiseTrackProcessorFactory {
           }
         } catch (error) {
           this.onWarning?.(
-            `RNNoise isleme zinciri baslatilamadi, tarayici filtrelerine geri donuldu: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+            `RNNoise işleme zinciri başlatılamadı, tarayıcı filtrelerine geri dönüldü: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
           );
           processor.processedTrack = opts.track;
         }

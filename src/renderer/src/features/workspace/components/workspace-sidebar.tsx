@@ -346,10 +346,10 @@ export function WorkspaceSidebar({
                 <div className="ct-audio-popover-actions">
                   <label className="ct-settings-switch-item">
                     <div className="ct-settings-switch-item-content">
-                      <strong>RNNoise Gurultu Bastirma</strong>
+                      <strong>RNNoise Gürültü Bastırma</strong>
                       <span>
-                        Mikrofon gurultusunu azaltir. Acik degilse tarayici
-                        filtreleri kullanilir.
+                        Mikrofon gürültüsünü azaltır. Açık değilse tarayıcı
+                        filtreleri kullanılır.
                       </span>
                     </div>
                     <div className="ct-settings-switch">

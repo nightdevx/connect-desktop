@@ -920,7 +920,7 @@ function WorkspaceShell({
         ?.refreshMicrophoneProcessing()
         .catch(() => {
           setStatus(
-            "Mikrofon isleme zinciri yenilenemedi, ayar bir sonraki baglantida uygulanacak.",
+            "Mikrofon işleme zinciri yenilenemedi, ayar bir sonraki bağlantıda uygulanacak.",
             "warn",
           );
         });
@@ -948,14 +948,14 @@ function WorkspaceShell({
         .then(() => {
           setStatus(
             nextEnabled
-              ? "RNNoise gurultu bastirma etkinlestirildi."
-              : "RNNoise gurultu bastirma kapatildi.",
+              ? "RNNoise gürültü bastırma etkinleştirildi."
+              : "RNNoise gürültü bastırma kapatıldı.",
             "ok",
           );
         })
         .catch(() => {
           setStatus(
-            "Mikrofon isleme zinciri yenilenemedi, ayar bir sonraki baglantida uygulanacak.",
+            "Mikrofon işleme zinciri yenilenemedi, ayar bir sonraki bağlantıda uygulanacak.",
             "warn",
           );
         });
@@ -964,8 +964,8 @@ function WorkspaceShell({
 
     setStatus(
       nextEnabled
-        ? "RNNoise gurultu bastirma kaydedildi. Bir sonraki mikrofon acisinda uygulanacak."
-        : "RNNoise gurultu bastirma kapatildi. Bir sonraki mikrofon acisinda uygulanacak.",
+        ? "RNNoise gürültü bastırma kaydedildi. Bir sonraki mikrofon açılışında uygulanacak."
+        : "RNNoise gürültü bastırma kapatıldı. Bir sonraki mikrofon açılışında uygulanacak.",
       "ok",
     );
   };

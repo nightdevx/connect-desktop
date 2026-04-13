@@ -273,10 +273,10 @@ export function SettingsAudio({
 
           <label className="ct-settings-switch-item">
             <div className="ct-settings-switch-item-content">
-              <strong>Gelismis gurultu bastirma (RNNoise) kullan</strong>
+              <strong>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
               <span>
-                Mikrofon acikken arka plan seslerini azaltmak icin ucretsiz
-                RNNoise isleme katmani kullanilir.
+                Mikrofon açıkken arka plan seslerini azaltmak için ücretsiz
+                RNNoise işleme katmanı kullanılır.
               </span>
             </div>
             <div className="ct-settings-switch">

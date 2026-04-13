@@ -671,7 +671,7 @@ export class LiveKitStreamManager {
     const processor = await this.rnnoiseProcessorFactory.createProcessor();
     if (!processor) {
       this.callbacks.onWarning?.(
-        "AudioWorklet desteklenmedigi icin RNNoise devreye alinamadi, tarayici filtreleri kullaniliyor.",
+        "AudioWorklet desteklenmediği için RNNoise devreye alınamadı, tarayıcı filtreleri kullanılıyor.",
       );
       return null;
     }
