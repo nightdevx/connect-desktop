@@ -20,9 +20,14 @@ const STREAMING_REPORT_BANDWIDTH_CHANNEL = "streaming:report-bandwidth";
 
 const desktopApi: DesktopApi = {
   getAppVersion: async () => ipcRenderer.invoke("desktop:get-version"),
+  getAppPreferences: async () =>
+    ipcRenderer.invoke("desktop:app-preferences-get"),
+  setAppPreferences: async (payload) =>
+    ipcRenderer.invoke("desktop:app-preferences-set", payload),
   checkForAppUpdates: async () => ipcRenderer.invoke("desktop:update-check"),
   installDownloadedUpdate: async () =>
     ipcRenderer.invoke("desktop:update-install"),
+  launchMockUpdateDebug: async () => ipcRenderer.invoke("desktop:update-debug"),
   getUpdateState: async () => ipcRenderer.invoke("desktop:update-state"),
   onUpdateEvent: (listener) => {
     const wrappedListener = (

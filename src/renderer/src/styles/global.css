@@ -1160,6 +1160,10 @@
     background: rgba(24, 31, 54, 0.72);
   }
 
+  .ct-audio-popover-actions {
+    @apply mt-2;
+  }
+
   .ct-quick-controls.compact {
     @apply grid-cols-2;
   }
@@ -1878,12 +1882,46 @@
     color: var(--ct-text-secondary);
   }
 
+  .ct-screen-share-kind-tabs {
+    @apply mb-3 flex gap-2;
+  }
+
+  .ct-screen-share-kind-tab {
+    @apply inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
+    border-color: var(--ct-border);
+    color: var(--ct-text-secondary);
+    background: rgba(24, 31, 54, 0.8);
+    transition: all 0.16s ease;
+  }
+
+  .ct-screen-share-kind-tab:hover:not(:disabled) {
+    border-color: var(--ct-border-strong);
+    color: var(--ct-text-primary);
+  }
+
+  .ct-screen-share-kind-tab.active {
+    border-color: rgba(59, 130, 246, 0.52);
+    color: #dbeafe;
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  .ct-screen-share-kind-tab:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .ct-screen-share-source-list,
   .ct-screen-share-quality-list {
     @apply grid gap-2;
   }
 
-  .ct-screen-share-source,
+  .ct-screen-share-source {
+    @apply flex items-start gap-3 rounded-lg border px-3 py-2;
+    border-color: var(--ct-border);
+    background: rgba(15, 23, 42, 0.68);
+    transition: all 0.16s ease;
+  }
+
   .ct-screen-share-quality {
     @apply flex items-start gap-3 rounded-lg border px-3 py-2;
     border-color: var(--ct-border);
@@ -1903,6 +1941,27 @@
     color: var(--ct-text-primary);
   }
 
+  .ct-screen-share-source-preview {
+    @apply mt-0.5 h-14 w-24 shrink-0 overflow-hidden rounded-md border;
+    border-color: rgba(148, 163, 184, 0.32);
+    background: rgba(15, 23, 42, 0.82);
+  }
+
+  .ct-screen-share-source-preview img {
+    @apply block h-full w-full;
+    object-fit: cover;
+  }
+
+  .ct-screen-share-source-preview-fallback {
+    @apply grid h-full w-full place-items-center text-[10px] font-medium;
+    color: var(--ct-text-muted);
+    letter-spacing: 0.03em;
+  }
+
+  .ct-screen-share-source-meta {
+    @apply min-w-0;
+  }
+
   .ct-screen-share-source span,
   .ct-screen-share-quality span {
     @apply mt-1 block text-xs;
@@ -1913,6 +1972,32 @@
   .ct-screen-share-quality.active {
     border-color: rgba(59, 130, 246, 0.52);
     background: rgba(59, 130, 246, 0.18);
+  }
+
+  .ct-camera-share-modal {
+    @apply max-w-lg;
+  }
+
+  .ct-camera-share-modal .ct-user-popup-header {
+    @apply mb-2 flex-col items-start gap-1;
+  }
+
+  .ct-camera-share-modal .ct-user-popup-header p {
+    @apply m-0 text-sm;
+    color: var(--ct-text-secondary);
+  }
+
+  .ct-camera-preview-box {
+    @apply mt-2 grid min-h-[220px] place-items-center overflow-hidden rounded-xl border;
+    border-color: var(--ct-border);
+    background: rgba(3, 7, 18, 0.72);
+  }
+
+  .ct-camera-preview-video {
+    @apply h-full w-full;
+    max-height: 340px;
+    object-fit: cover;
+    background: #000;
   }
 
   .ct-user-popup-close {

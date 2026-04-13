@@ -1,5 +1,7 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow } from "electron";
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { autoUpdater } from "electron-updater";
 import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import {
@@ -35,9 +37,38 @@ export interface InstallUpdateResponse {
 const defaultStartupCheckDelayMs = 15_000;
 const defaultPeriodicCheckMs = 4 * 60 * 60 * 1_000;
 
-const createUpdaterWindowHtml = (): string => {
+const resolveLogoDataUrl = (): string | null => {
+  const candidates = [
+    join(__dirname, "../../public/images/logo.png"),
+    join(app.getAppPath(), "public/images/logo.png"),
+    join(app.getAppPath(), "dist/public/images/logo.png"),
+    join(process.resourcesPath, "public/images/logo.png"),
+    join(process.resourcesPath, "images/logo.png"),
+  ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+
+    try {
+      const raw = readFileSync(candidate);
+      return `data:image/png;base64,${raw.toString("base64")}`;
+    } catch {
+      // Try next candidate path.
+    }
+  }
+
+  return null;
+};
+
+const createUpdaterWindowHtml = (logoDataUrl: string | null): string => {
+  const logoMarkup = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="Connect logo" />`
+    : `<div class="brand-fallback">CT</div>`;
+
   return `<!doctype html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -45,44 +76,79 @@ const createUpdaterWindowHtml = (): string => {
     <style>
       :root {
         color-scheme: dark;
-        font-family: "Trebuchet MS", "Century Gothic", Verdana, sans-serif;
+        --bg-top: #0b1120;
+        --bg-mid: #111a31;
+        --bg-bottom: #090f1f;
+        --accent-a: #3b82f6;
+        --accent-b: #60a5fa;
+        --text-main: #e2e8f0;
+        --text-soft: #cbd5e1;
+        --text-muted: #94a3b8;
+        --surface: rgba(24, 31, 54, 0.9);
+        --surface-soft: rgba(15, 23, 42, 0.72);
+        --border: rgba(148, 163, 184, 0.26);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
+      * {
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+      }
+      html,
       body {
+        width: 100%;
+        height: 100%;
         margin: 0;
-        min-height: 100vh;
+        min-height: 100%;
+        overflow: hidden;
         display: grid;
         place-items: center;
         background:
-          radial-gradient(circle at 8% 12%, rgba(110, 231, 183, 0.15), transparent 40%),
-          radial-gradient(circle at 88% 85%, rgba(56, 189, 248, 0.2), transparent 42%),
-          linear-gradient(160deg, #07101d 0%, #0d1a2e 46%, #0b1120 100%);
-        color: #e6f6ff;
+          radial-gradient(circle at 8% 14%, rgba(52, 211, 153, 0.2), transparent 44%),
+          radial-gradient(circle at 86% 80%, rgba(56, 189, 248, 0.26), transparent 42%),
+          linear-gradient(165deg, var(--bg-top) 0%, var(--bg-mid) 50%, var(--bg-bottom) 100%);
+        color: var(--text-main);
       }
       .card {
-        width: min(500px, calc(100vw - 32px));
-        border: 1px solid rgba(125, 211, 252, 0.28);
-        border-radius: 18px;
-        padding: 18px;
-        background:
-          linear-gradient(170deg, rgba(5, 28, 50, 0.86), rgba(6, 18, 36, 0.9));
+        width: min(520px, calc(100vw - 32px));
+        max-height: calc(100vh - 24px);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 20px 20px 18px;
+        background: linear-gradient(165deg, var(--surface), rgba(11, 16, 32, 0.96));
         box-shadow:
-          0 24px 48px rgba(0, 0, 0, 0.42),
-          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+          0 20px 44px rgba(2, 6, 23, 0.56),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        animation: lift 420ms ease-out both;
       }
       .head {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
       }
       .brand-mark {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        background: linear-gradient(145deg, #38bdf8, #34d399);
-        color: #06253c;
-        display: grid;
-        place-items: center;
-        font-weight: 800;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.9);
+        box-shadow: 0 8px 16px rgba(2, 6, 23, 0.5);
+        overflow: hidden;
+      }
+      .brand-mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .brand-fallback {
+        color: #dbeafe;
+        font-weight: 700;
+        font-size: 12px;
         letter-spacing: 0.04em;
       }
       .title-wrap {
@@ -90,46 +156,79 @@ const createUpdaterWindowHtml = (): string => {
         gap: 2px;
       }
       .sub {
-        font-size: 11px;
+        font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: #9ad5f0;
+        color: #99cee8;
       }
       .title {
         margin: 0;
-        font-size: 17px;
+        font-size: 18px;
         font-weight: 700;
       }
-      .message {
+      .status {
         margin-top: 10px;
-        color: #c7e4f5;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-soft);
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 10px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #3b82f6;
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6);
+        animation: pulse 1.5s ease-out infinite;
+      }
+      .message {
+        margin-top: 14px;
+        color: #d3edf9;
         line-height: 1.45;
-        min-height: 44px;
+        min-height: 46px;
       }
       .progress-wrap {
-        margin-top: 12px;
+        margin-top: 16px;
       }
       .progress {
+        position: relative;
         width: 100%;
-        height: 11px;
+        height: 12px;
         border-radius: 999px;
-        border: 1px solid rgba(147, 197, 253, 0.25);
-        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid var(--border);
+        background: rgba(30, 41, 59, 0.7);
         overflow: hidden;
+      }
+      .progress::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -45%;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.34), transparent);
+        animation: sweep 1.9s linear infinite;
+        pointer-events: none;
       }
       .bar {
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, #38bdf8, #34d399);
+        background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
         transition: width 160ms ease;
       }
       .percent {
         margin-top: 7px;
         font-size: 12px;
-        color: #9dcfe8;
+        color: var(--text-soft);
+        letter-spacing: 0.02em;
       }
       .steps {
-        margin: 14px 0 0;
+        margin: 16px 0 0;
         padding: 0;
         list-style: none;
         display: grid;
@@ -137,51 +236,75 @@ const createUpdaterWindowHtml = (): string => {
         gap: 8px;
       }
       .step {
-        border: 1px solid rgba(148, 163, 184, 0.24);
+        border: 1px solid var(--border);
         border-radius: 10px;
         padding: 8px 6px;
         text-align: center;
         font-size: 11px;
-        color: #8fb0c3;
-        background: rgba(255, 255, 255, 0.02);
+        color: var(--text-muted);
+        background: rgba(30, 41, 59, 0.48);
       }
       .step.is-active {
-        color: #e7fbff;
-        border-color: rgba(56, 189, 248, 0.8);
-        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3) inset;
+        color: #eff6ff;
+        border-color: rgba(59, 130, 246, 0.8);
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.28) inset;
       }
       .step.is-done {
-        color: #d8ffed;
-        border-color: rgba(52, 211, 153, 0.9);
+        color: #dbeafe;
+        border-color: rgba(96, 165, 250, 0.9);
       }
       .step.is-error {
         color: #ffd2d2;
         border-color: rgba(248, 113, 113, 0.9);
       }
       .hint {
-        margin: 12px 0 0;
+        margin: 14px 0 0;
         font-size: 11px;
-        color: #7fa5b9;
+        color: var(--text-muted);
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
+        }
+        100% {
+          box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+        }
+      }
+      @keyframes sweep {
+        to {
+          left: 120%;
+        }
+      }
+      @keyframes lift {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
     </style>
   </head>
   <body>
     <main class="card">
       <header class="head">
-        <div class="brand-mark">CT</div>
+        <div class="brand-mark">${logoMarkup}</div>
         <div class="title-wrap">
           <span class="sub">Connect Together</span>
           <h1 class="title" id="title">Desktop Updater</h1>
         </div>
       </header>
+      <div class="status"><span class="status-dot"></span><span>Güncelleme servisi etkin</span></div>
 
-      <p class="message" id="message">Guncelleme hazirlaniyor...</p>
+      <p class="message" id="message">Güncelleme hazırlanıyor...</p>
 
       <ul class="steps">
         <li class="step" id="step-check">Kontrol</li>
-        <li class="step" id="step-download">Indir</li>
+        <li class="step" id="step-download">İndir</li>
         <li class="step" id="step-install">Kur</li>
-        <li class="step" id="step-relaunch">Yeniden Ac</li>
+        <li class="step" id="step-relaunch">Yeniden Aç</li>
       </ul>
 
       <div class="progress-wrap" id="progress-wrap">
@@ -189,7 +312,7 @@ const createUpdaterWindowHtml = (): string => {
         <div class="percent" id="percent">Bekleniyor</div>
       </div>
 
-      <p class="hint">Kurulum otomatik yapilir. Kullanici adimi gerekmez.</p>
+      <p class="hint">Kurulum otomatik yapılır. Kullanıcı adımı gerekmez.</p>
     </main>
     <script>
       window.__connectUpdaterSetState = (payload) => {
@@ -280,7 +403,6 @@ class ModularUpdater {
   private listenersBound = false;
   private startupCheckTimer: NodeJS.Timeout | null = null;
   private periodicTimer: NodeJS.Timeout | null = null;
-  private promptingForInstall = false;
   private installing = false;
   private updaterWindow: BrowserWindow | null = null;
   private updaterWindowLoaded = false;
@@ -293,7 +415,7 @@ class ModularUpdater {
     releaseName: null,
     releaseDate: null,
     progressPercent: null,
-    message: "Guncelleme henuz kontrol edilmedi",
+    message: "Güncelleme henüz kontrol edilmedi",
     timestamp: new Date().toISOString(),
   };
 
@@ -307,7 +429,7 @@ class ModularUpdater {
     this.initialized = true;
 
     if (!app.isPackaged) {
-      this.setSnapshot("disabled", "Gelistirme modunda guncelleme devre disi");
+      this.setSnapshot("disabled", "Geliştirme modunda güncelleme devre dışı");
       return;
     }
 
@@ -346,7 +468,7 @@ class ModularUpdater {
 
   public async checkForUpdates(): Promise<CheckForUpdatesResponse> {
     if (!app.isPackaged) {
-      this.setSnapshot("disabled", "Gelistirme modunda guncelleme devre disi");
+      this.setSnapshot("disabled", "Geliştirme modunda güncelleme devre dışı");
       return { requested: false, reason: "DEV_MODE" };
     }
 
@@ -379,18 +501,17 @@ class ModularUpdater {
     this.installing = true;
     this.setSnapshot(
       "installing",
-      "Guncelleme kuruluyor, uygulama yeniden baslatilacak",
-    );
-    this.showUpdaterWindow();
-    this.setUpdaterWindowState(
-      "Kurulum baslatiliyor. Lutfen uygulamayi kapatmayin.",
-      this.snapshot.progressPercent ?? 100,
+      "Güncelleyici yardımcı uygulaması başlatılıyor",
     );
 
     const helperLaunched = this.launchUpdaterHelperProcess();
     if (!helperLaunched) {
-      this.setUpdaterWindowState("Ana uygulama kapatiliyor...");
-      this.hideMainWindowsForInstall();
+      this.installing = false;
+      this.setSnapshot(
+        "error",
+        "Güncelleyici yardımcı uygulaması başlatılamadı. Lütfen tekrar deneyin.",
+      );
+      return { accepted: false, reason: "HELPER_LAUNCH_FAILED" };
     }
 
     try {
@@ -399,26 +520,14 @@ class ModularUpdater {
       // Best-effort pre-install cleanup.
     }
 
-    if (helperLaunched) {
-      this.setSnapshot(
-        "installing",
-        "Updater yardimci sureci baslatildi, uygulama kapatiliyor",
-      );
-      this.hideMainWindowsForInstall();
-
-      setTimeout(() => {
-        app.exit(0);
-      }, 900);
-
-      return { accepted: true };
-    }
-
-    this.setUpdaterWindowState(
-      "Guncelleme otomatik kuruluyor. Kurulum bitince uygulama tekrar acilacak.",
+    this.setSnapshot(
+      "installing",
+      "Güncelleyici yardımcı süreci çalışıyor, uygulama kapatılıyor",
     );
+    this.hideMainWindowsForInstall();
 
     setTimeout(() => {
-      this.triggerQuitAndInstall();
+      app.exit(0);
     }, 1200);
 
     return { accepted: true };
@@ -432,46 +541,35 @@ class ModularUpdater {
     this.listenersBound = true;
 
     autoUpdater.on("checking-for-update", () => {
-      this.setSnapshot("checking", "Yeni surum kontrol ediliyor");
+      this.setSnapshot("checking", "Yeni sürüm kontrol ediliyor");
     });
 
     autoUpdater.on("update-available", (info) => {
       this.setSnapshotFromInfo(
         "available",
         info,
-        "Yeni bir surum bulundu, indiriliyor",
+        "Yeni bir sürüm bulundu, indiriliyor",
       );
-      this.showUpdaterWindow();
-      this.setUpdaterWindowState("Yeni surum bulundu. Indirme baslatildi...");
     });
 
     autoUpdater.on("download-progress", (progress) => {
       this.setSnapshotFromProgress(progress);
-      this.showUpdaterWindow();
-      this.setUpdaterWindowState(
-        "Guncelleme paketi indiriliyor...",
-        Number.isFinite(progress.percent)
-          ? Math.max(0, Math.min(100, Number(progress.percent.toFixed(2))))
-          : null,
-      );
     });
 
-    autoUpdater.on("update-downloaded", async (info) => {
+    autoUpdater.on("update-downloaded", (info) => {
       this.setSnapshotFromInfo(
         "downloaded",
         info,
-        "Guncelleme indirildi, kurulum icin hazir",
+        "Güncelleme indirildi, kurulum için hazır",
       );
-      this.showUpdaterWindow();
-      this.setUpdaterWindowState(
-        "Guncelleme indirildi. Kurulum onayi bekleniyor...",
-        100,
-      );
-      await this.promptInstallDialog(info);
+
+      if (!this.installing) {
+        void this.installDownloadedUpdate();
+      }
     });
 
     autoUpdater.on("update-not-available", (info) => {
-      this.setSnapshotFromInfo("not-available", info, "Bu surum guncel");
+      this.setSnapshotFromInfo("not-available", info, "Bu sürüm güncel");
     });
 
     autoUpdater.on("error", (error) => {
@@ -502,49 +600,18 @@ class ModularUpdater {
     }
   }
 
-  private async promptInstallDialog(info: UpdateInfo): Promise<void> {
-    if (this.promptingForInstall || this.installing) {
-      return;
-    }
-
-    this.promptingForInstall = true;
-    const version =
-      info.version?.trim() || this.snapshot.nextVersion || "unknown";
-
-    try {
-      const result = await dialog.showMessageBox({
-        type: "info",
-        title: "Connect guncellemesi hazir",
-        message: `v${version} indirildi. Simdi guncellemek ister misin?`,
-        detail:
-          "Guncelle dediginde uygulama otomatik kapanir, guncellenir ve yeniden acilir.",
-        buttons: ["Guncelle", "Daha Sonra"],
-        defaultId: 0,
-        cancelId: 1,
-        noLink: true,
-      });
-
-      if (result.response === 0) {
-        await this.installDownloadedUpdate();
-      }
-    } finally {
-      this.promptingForInstall = false;
-    }
-  }
-
   private handleUpdaterError(error: unknown): void {
     const message =
-      error instanceof Error ? error.message : "Beklenmeyen guncelleme hatasi";
+      error instanceof Error ? error.message : "Beklenmeyen güncelleme hatası";
 
     this.setSnapshot("error", message);
     if (this.installing) {
-      this.setUpdaterWindowState(`Guncelleme hatasi: ${message}`);
       this.installing = false;
       this.restoreMainWindowsAfterInstallFailure();
       if (this.snapshot.nextVersion) {
         this.setSnapshot(
           "downloaded",
-          "Kurulum basarisiz oldu. Tekrar denemek icin Guncelle secenegini kullan.",
+          "Kurulum başarısız oldu. Tekrar denemek için Güncelle seçeneğini kullan.",
         );
       }
     }
@@ -589,8 +656,8 @@ class ModularUpdater {
       progressPercent: percent,
       message:
         percent == null
-          ? "Guncelleme indiriliyor"
-          : `Guncelleme indiriliyor (%${percent})`,
+          ? "Güncelleme indiriliyor"
+          : `Güncelleme indiriliyor (%${percent})`,
       timestamp: new Date().toISOString(),
     };
 
@@ -634,6 +701,7 @@ class ModularUpdater {
     const win = new BrowserWindow({
       width: 540,
       height: 340,
+      frame: false,
       resizable: false,
       minimizable: false,
       maximizable: false,
@@ -662,7 +730,7 @@ class ModularUpdater {
       this.flushUpdaterWindowState();
     });
 
-    const html = createUpdaterWindowHtml();
+    const html = createUpdaterWindowHtml(resolveLogoDataUrl());
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
     void win.loadURL(dataUrl).catch((error) => {
       this.handleUpdaterError(error);

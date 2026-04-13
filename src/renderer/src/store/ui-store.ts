@@ -8,7 +8,8 @@ export type SettingsSection =
   | "security"
   | "camera"
   | "audio"
-  | "stream";
+  | "stream"
+  | "application";
 
 interface UiState {
   activePage: AuthPage;

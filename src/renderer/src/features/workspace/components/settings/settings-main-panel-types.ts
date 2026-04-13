@@ -7,6 +7,7 @@ export interface AudioPreferences {
   defaultMicEnabled: boolean;
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
+  enhancedNoiseSuppressionEnabled: boolean;
 }
 
 export interface StreamPreferences {

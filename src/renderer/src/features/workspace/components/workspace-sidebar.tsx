@@ -76,6 +76,10 @@ interface WorkspaceSidebarProps {
     downlinkMbps: number | null;
     lastMeasuredAt: string | null;
   };
+  audioProcessingProps: {
+    enhancedNoiseSuppressionEnabled: boolean;
+    onToggleEnhancedNoiseSuppression: () => void;
+  };
 }
 
 export function WorkspaceSidebar({
@@ -86,6 +90,7 @@ export function WorkspaceSidebar({
   settingsProps,
   quickControlsProps,
   audioConnectionProps,
+  audioProcessingProps,
 }: WorkspaceSidebarProps) {
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
   const [newLobbyName, setNewLobbyName] = useState("");
@@ -336,6 +341,31 @@ export function WorkspaceSidebar({
                   <div className="ct-detail-item">
                     <span>Son Ölçüm: {measurementTimeText}</span>
                   </div>
+                </div>
+
+                <div className="ct-audio-popover-actions">
+                  <label className="ct-settings-switch-item">
+                    <div className="ct-settings-switch-item-content">
+                      <strong>RNNoise Gurultu Bastirma</strong>
+                      <span>
+                        Mikrofon gurultusunu azaltir. Acik degilse tarayici
+                        filtreleri kullanilir.
+                      </span>
+                    </div>
+                    <div className="ct-settings-switch">
+                      <input
+                        id="audio-popover-rnnoise-toggle"
+                        type="checkbox"
+                        checked={
+                          audioProcessingProps.enhancedNoiseSuppressionEnabled
+                        }
+                        onChange={() => {
+                          audioProcessingProps.onToggleEnhancedNoiseSuppression();
+                        }}
+                      />
+                      <span className="ct-settings-switch-slider" />
+                    </div>
+                  </label>
                 </div>
               </section>
             )}

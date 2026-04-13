@@ -194,7 +194,7 @@ export function SettingsAudio({
           </svg>
         </div>
         <div>
-          <h4>Ses Ayarlari</h4>
+          <h4>Ses Ayarları</h4>
           <p className="ct-settings-section-description">
             Ses için varsayılan başlangıç davranışını belirleyebilirsin.
           </p>
@@ -264,6 +264,30 @@ export function SettingsAudio({
                   setDraftAudioPreferences((previous) => ({
                     ...previous,
                     notificationSoundsEnabled: event.target.checked,
+                  }))
+                }
+              />
+              <span className="ct-settings-switch-slider" />
+            </div>
+          </label>
+
+          <label className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Gelismis gurultu bastirma (RNNoise) kullan</strong>
+              <span>
+                Mikrofon acikken arka plan seslerini azaltmak icin ucretsiz
+                RNNoise isleme katmani kullanilir.
+              </span>
+            </div>
+            <div className="ct-settings-switch">
+              <input
+                id="settings-audio-enhanced-noise-suppression"
+                type="checkbox"
+                checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
+                onChange={(event) =>
+                  setDraftAudioPreferences((previous) => ({
+                    ...previous,
+                    enhancedNoiseSuppressionEnabled: event.target.checked,
                   }))
                 }
               />

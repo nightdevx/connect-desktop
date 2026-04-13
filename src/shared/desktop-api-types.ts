@@ -32,6 +32,12 @@ export interface DesktopWindowState {
   isMaximized: boolean;
 }
 
+export interface DesktopAppPreferences {
+  launchOnStartup: boolean;
+  minimizeToTray: boolean;
+  closeToTray: boolean;
+}
+
 export interface LobbyStateMember {
   userId: string;
   username: string;
@@ -48,6 +54,7 @@ export interface ScreenCaptureSourceDescriptor {
   name: string;
   kind: "screen" | "window";
   displayId: string | null;
+  previewDataUrl: string | null;
 }
 
 export interface LiveKitMediaPolicy {
@@ -157,6 +164,16 @@ export type UserDirectoryStreamEvent =
 
 export interface DesktopApi {
   getAppVersion: () => Promise<string>;
+  getAppPreferences: () => Promise<
+    DesktopResult<{
+      preferences: DesktopAppPreferences;
+    }>
+  >;
+  setAppPreferences: (payload: Partial<DesktopAppPreferences>) => Promise<
+    DesktopResult<{
+      preferences: DesktopAppPreferences;
+    }>
+  >;
   checkForAppUpdates: () => Promise<
     DesktopResult<{
       requested: boolean;
@@ -166,6 +183,12 @@ export interface DesktopApi {
   installDownloadedUpdate: () => Promise<
     DesktopResult<{
       accepted: boolean;
+      reason?: string;
+    }>
+  >;
+  launchMockUpdateDebug: () => Promise<
+    DesktopResult<{
+      started: boolean;
       reason?: string;
     }>
   >;

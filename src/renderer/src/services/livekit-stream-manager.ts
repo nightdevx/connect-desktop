@@ -17,6 +17,9 @@ import {
   type RoomEventCallbacks,
   type TrackPublication,
   type TrackPublishOptions,
+  type AudioCaptureOptions,
+  type AudioProcessorOptions,
+  type TrackProcessor,
 } from "livekit-client";
 import type {
   NetworkStats,
@@ -24,6 +27,7 @@ import type {
   QualityProfile,
   StreamingQualityProfileName,
 } from "../../../shared/streaming-contracts";
+import { RnnoiseTrackProcessorFactory } from "./rnnoise-track-processor";
 import workspaceService from "./workspace-service";
 
 export interface ParticipantMediaStreams {
@@ -34,6 +38,15 @@ export interface ParticipantMediaStreams {
 export type ParticipantMediaMap = Record<string, ParticipantMediaStreams>;
 
 export type ScreenShareMode = "slides" | "motion";
+
+export interface LiveKitAudioProcessingPreferences {
+  enhancedNoiseSuppressionEnabled: boolean;
+}
+
+const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPreferences =
+  {
+    enhancedNoiseSuppressionEnabled: false,
+  };
 
 interface LiveKitStreamManagerCallbacks {
   onRemoteStreamsChanged: (streams: ParticipantMediaMap) => void;
@@ -116,6 +129,13 @@ export class LiveKitStreamManager {
   private desiredScreenStream: MediaStream | null = null;
   private desiredScreenMode: ScreenShareMode = "slides";
   private desiredMicEnabled = true;
+  private audioProcessingPreferences: LiveKitAudioProcessingPreferences = {
+    ...DEFAULT_AUDIO_PROCESSING_PREFERENCES,
+  };
+  private activeMicrophoneProcessor: TrackProcessor<
+    Track.Kind.Audio,
+    AudioProcessorOptions
+  > | null = null;
 
   private currentProfile: QualityProfile = HIGH_PROFILE;
   private activeNetworkStats: NetworkStats | null = null;
@@ -130,6 +150,7 @@ export class LiveKitStreamManager {
   private senderSamples = new Map<string, SenderSample>();
 
   private qualityEventUnsubscribe: (() => void) | null = null;
+  private readonly rnnoiseProcessorFactory: RnnoiseTrackProcessorFactory;
 
   private readonly handleConnected: RoomEventCallbacks["connected"] = () => {
     this.callbacks.onConnectionStateChanged?.("connected");
@@ -255,7 +276,31 @@ export class LiveKitStreamManager {
   public constructor(
     private readonly callbacks: LiveKitStreamManagerCallbacks,
   ) {
+    this.rnnoiseProcessorFactory = new RnnoiseTrackProcessorFactory(
+      (message) => {
+        this.callbacks.onWarning?.(message);
+      },
+    );
     this.bindQualityEvents();
+  }
+
+  public setAudioProcessingPreferences(
+    preferences: LiveKitAudioProcessingPreferences,
+  ): void {
+    this.audioProcessingPreferences = {
+      ...this.audioProcessingPreferences,
+      ...preferences,
+    };
+  }
+
+  public async refreshMicrophoneProcessing(): Promise<void> {
+    if (!this.room || !this.desiredMicEnabled) {
+      return;
+    }
+
+    await this.room.localParticipant.setMicrophoneEnabled(false);
+    await this.destroyActiveMicrophoneProcessor();
+    await this.setMicrophoneEnabled(true);
   }
 
   // connect connects to the LiveKit room with reconnect support and state preservation.
@@ -298,6 +343,8 @@ export class LiveKitStreamManager {
       await activeRoom.disconnect(false);
     }
 
+    await this.destroyActiveMicrophoneProcessor();
+
     this.callbacks.onConnectionStateChanged?.("disconnected");
   }
 
@@ -319,18 +366,20 @@ export class LiveKitStreamManager {
       return;
     }
 
+    const captureOptions = await this.buildMicrophoneCaptureOptions(enabled);
+
     await this.room.localParticipant.setMicrophoneEnabled(
       enabled,
-      {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+      captureOptions,
       {
         dtx: this.shouldEnableDtx(),
         red: this.shouldEnableRed(),
       },
     );
+
+    if (!enabled) {
+      await this.destroyActiveMicrophoneProcessor();
+    }
   }
 
   // publishCameraStream publishes camera with 3-layer simulcast and local override support.
@@ -583,6 +632,66 @@ export class LiveKitStreamManager {
       this.handleConnectionQualityChanged,
     );
     room.on(RoomEvent.MediaDevicesError, this.handleMediaDevicesError);
+  }
+
+  private async buildMicrophoneCaptureOptions(
+    enabled: boolean,
+  ): Promise<AudioCaptureOptions> {
+    const options: AudioCaptureOptions = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    };
+
+    if (
+      !enabled ||
+      !this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled
+    ) {
+      return options;
+    }
+
+    const processor = await this.getOrCreateMicrophoneProcessor();
+    if (!processor) {
+      return options;
+    }
+
+    options.noiseSuppression = false;
+    options.processor = processor;
+    return options;
+  }
+
+  private async getOrCreateMicrophoneProcessor(): Promise<TrackProcessor<
+    Track.Kind.Audio,
+    AudioProcessorOptions
+  > | null> {
+    if (this.activeMicrophoneProcessor) {
+      return this.activeMicrophoneProcessor;
+    }
+
+    const processor = await this.rnnoiseProcessorFactory.createProcessor();
+    if (!processor) {
+      this.callbacks.onWarning?.(
+        "AudioWorklet desteklenmedigi icin RNNoise devreye alinamadi, tarayici filtreleri kullaniliyor.",
+      );
+      return null;
+    }
+
+    this.activeMicrophoneProcessor = processor;
+    return processor;
+  }
+
+  private async destroyActiveMicrophoneProcessor(): Promise<void> {
+    if (!this.activeMicrophoneProcessor) {
+      return;
+    }
+
+    try {
+      await this.activeMicrophoneProcessor.destroy();
+    } catch {
+      // no-op
+    }
+
+    this.activeMicrophoneProcessor = null;
   }
 
   private scheduleReconnect(): void {

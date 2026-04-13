@@ -119,7 +119,7 @@ export function SettingsStream({
           </svg>
         </div>
         <div>
-          <h4>Yayın Ayarlari</h4>
+          <h4>Yayın Ayarları</h4>
           <p className="ct-settings-section-description">
             Yayın başlatılırken kullanılacak varsayılan kaliteyi
             belirleyebilirsin.

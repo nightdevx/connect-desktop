@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -29,6 +29,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.14.0",
     "@grpc/proto-loader": "^0.8.0",
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "dotenv": "^17.4.0",
     "electron-updater": "^6.3.9",
     "ws": "^8.20.0"

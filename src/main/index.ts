@@ -1,5 +1,9 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu, Tray } from "electron";
 import { join } from "node:path";
+import {
+  getDesktopAppPreferences,
+  onDesktopAppPreferencesChanged,
+} from "./app-preferences";
 import { backendConfig } from "./config";
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
 import { createAppMenu } from "./menu";
@@ -23,6 +27,8 @@ import { isDev } from "./utils/is-dev";
 
 let mainWindow: BrowserWindow | null = null;
 let quittingWithCleanup = false;
+let tray: Tray | null = null;
+let unsubscribePreferencesListener: (() => void) | null = null;
 const captureEngine = new CaptureEngine();
 const adaptiveController = new AdaptiveController({
   grpcTarget: process.env.CT_ADAPTIVE_GRPC_TARGET,
@@ -30,6 +36,7 @@ const adaptiveController = new AdaptiveController({
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const APP_ICON_PATH = join(__dirname, "../../public/images/logo.ico");
+const APP_DISPLAY_NAME = "Connect";
 
 const applyUserDataOverride = (): void => {
   const overridePath = process.env.CT_USER_DATA_DIR?.trim();
@@ -67,6 +74,95 @@ const emitWindowState = (win: BrowserWindow): void => {
   });
 };
 
+const showMainWindowFromTray = (): void => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createMainWindow();
+    return;
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.focus();
+};
+
+const destroyTray = (): void => {
+  if (!tray) {
+    return;
+  }
+
+  tray.destroy();
+  tray = null;
+};
+
+const buildTrayMenu = (): Menu => {
+  return Menu.buildFromTemplate([
+    {
+      label: "Connect'i Aç",
+      click: () => {
+        showMainWindowFromTray();
+      },
+    },
+    {
+      type: "separator",
+    },
+    {
+      label: "Çıkış",
+      click: () => {
+        app.quit();
+      },
+    },
+  ]);
+};
+
+const ensureTray = (): void => {
+  if (tray) {
+    return;
+  }
+
+  tray = new Tray(APP_ICON_PATH);
+  tray.setToolTip(APP_DISPLAY_NAME);
+  tray.setContextMenu(buildTrayMenu());
+  tray.on("click", () => {
+    showMainWindowFromTray();
+  });
+  tray.on("double-click", () => {
+    showMainWindowFromTray();
+  });
+};
+
+const hasTrayBehaviorEnabled = (): boolean => {
+  const preferences = getDesktopAppPreferences();
+  return preferences.minimizeToTray || preferences.closeToTray;
+};
+
+const syncTrayWithPreferences = (): void => {
+  if (hasTrayBehaviorEnabled()) {
+    ensureTray();
+    return;
+  }
+
+  if (!tray) {
+    return;
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+    return;
+  }
+
+  destroyTray();
+};
+
+const hideWindowToTray = (win: BrowserWindow): void => {
+  ensureTray();
+  win.hide();
+};
+
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -100,6 +196,24 @@ function createMainWindow(): BrowserWindow {
   win.on("maximize", () => emitWindowState(win));
   win.on("unmaximize", () => emitWindowState(win));
 
+  win.on("close", (event) => {
+    if (quittingWithCleanup) {
+      return;
+    }
+
+    const preferences = getDesktopAppPreferences();
+    if (!preferences.closeToTray) {
+      return;
+    }
+
+    event.preventDefault();
+    hideWindowToTray(win);
+  });
+
+  win.on("show", () => {
+    syncTrayWithPreferences();
+  });
+
   return win;
 }
 
@@ -107,6 +221,10 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
   app.on("second-instance", () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;
+    }
+
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
     }
 
     if (mainWindow.isMinimized()) {
@@ -132,6 +250,12 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     });
     adaptiveController.start();
 
+    if (!unsubscribePreferencesListener) {
+      unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {
+        syncTrayWithPreferences();
+      });
+    }
+
     createAppMenu({
       checkForUpdates: async () => {
         await checkForAppUpdates();
@@ -142,11 +266,14 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     });
 
     mainWindow = createMainWindow();
+    syncTrayWithPreferences();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createMainWindow();
       }
+
+      showMainWindowFromTray();
     });
   });
 
@@ -167,6 +294,11 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       unregisterStreamingIpcHandlers();
       adaptiveController.stop();
       destroyModularUpdater();
+      if (unsubscribePreferencesListener) {
+        unsubscribePreferencesListener();
+        unsubscribePreferencesListener = null;
+      }
+      destroyTray();
       app.quit();
     });
   });

@@ -226,6 +226,7 @@ export const workspaceService = {
             name: string;
             kind: "screen" | "window";
             displayId: string | null;
+            previewDataUrl: string | null;
           }[];
         }>,
       );

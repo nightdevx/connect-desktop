@@ -6,10 +6,15 @@ import { LobbyStreamManager } from "./lobby-stream-manager";
 import { UserDirectoryStreamManager } from "./user-directory-stream-manager";
 import { SessionStore } from "../session-store";
 import {
+  getDesktopAppPreferences,
+  updateDesktopAppPreferences,
+} from "../app-preferences";
+import {
   checkForAppUpdates,
   getAppUpdateSnapshot,
   installDownloadedAppUpdate,
 } from "../update";
+import { launchMockUpdaterWindow } from "../update/helper-mode";
 import type {
   LoginRequest,
   RegisterRequest,
@@ -18,6 +23,7 @@ import type {
 } from "../../shared/auth-contracts";
 import type {
   ApiErrorPayload,
+  DesktopAppPreferences,
   DesktopResult,
   SessionSnapshot,
 } from "../../shared/desktop-api-types";
@@ -84,9 +90,12 @@ const IPC_INVOKE_CHANNELS = [
   "app:ping",
   "app:get-version",
   "desktop:get-version",
+  "desktop:app-preferences-get",
+  "desktop:app-preferences-set",
   "desktop:update-check",
   "desktop:update-install",
   "desktop:update-state",
+  "desktop:update-debug",
   "desktop:auth-register",
   "desktop:auth-change-password",
   "desktop:auth-login",
@@ -489,6 +498,51 @@ const parseWindowAttentionPayload = (
   };
 };
 
+const parseAppPreferencesPayload = (
+  payload: unknown,
+): Partial<DesktopAppPreferences> => {
+  const source = ensureObject(payload, "app preferences payload");
+  const next: Partial<DesktopAppPreferences> = {};
+
+  if ("launchOnStartup" in source) {
+    if (typeof source.launchOnStartup !== "boolean") {
+      throw new DesktopApiError(
+        "VALIDATION_ERROR",
+        400,
+        "launchOnStartup must be a boolean",
+      );
+    }
+
+    next.launchOnStartup = source.launchOnStartup;
+  }
+
+  if ("minimizeToTray" in source) {
+    if (typeof source.minimizeToTray !== "boolean") {
+      throw new DesktopApiError(
+        "VALIDATION_ERROR",
+        400,
+        "minimizeToTray must be a boolean",
+      );
+    }
+
+    next.minimizeToTray = source.minimizeToTray;
+  }
+
+  if ("closeToTray" in source) {
+    if (typeof source.closeToTray !== "boolean") {
+      throw new DesktopApiError(
+        "VALIDATION_ERROR",
+        400,
+        "closeToTray must be a boolean",
+      );
+    }
+
+    next.closeToTray = source.closeToTray;
+  }
+
+  return next;
+};
+
 const getSessionSnapshot = (): SessionSnapshot => {
   const current = getSessionStore().get();
   if (!current) {
@@ -577,6 +631,25 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("app:get-version", async () => app.getVersion());
   ipcMain.handle("desktop:get-version", async () => app.getVersion());
 
+  ipcMain.handle("desktop:app-preferences-get", async () => {
+    try {
+      const preferences = getDesktopAppPreferences();
+      return ok({ preferences });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:app-preferences-set", async (_event, payload) => {
+    try {
+      const parsed = parseAppPreferencesPayload(payload);
+      const preferences = updateDesktopAppPreferences(parsed);
+      return ok({ preferences });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:update-check", async () => {
     try {
       const result = await checkForAppUpdates();
@@ -599,6 +672,19 @@ export function registerIpcHandlers(): void {
     try {
       const result = getAppUpdateSnapshot();
       return ok({ state: result });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:update-debug", async () => {
+    try {
+      if (app.isPackaged) {
+        return ok({ started: false, reason: "NOT_DEV_MODE" });
+      }
+
+      const result = launchMockUpdaterWindow();
+      return ok(result);
     } catch (error) {
       return fail(error);
     }
@@ -913,8 +999,8 @@ export function registerIpcHandlers(): void {
         types: ["screen", "window"],
         fetchWindowIcons: false,
         thumbnailSize: {
-          width: 0,
-          height: 0,
+          width: 320,
+          height: 180,
         },
       });
 
@@ -931,6 +1017,9 @@ export function registerIpcHandlers(): void {
 
       return ok({
         sources: ordered.map((source) => ({
+          previewDataUrl: source.thumbnail.isEmpty()
+            ? null
+            : source.thumbnail.toDataURL(),
           id: source.id,
           name:
             source.name ||
@@ -1119,6 +1208,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("desktop:window-minimize", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
+
+      const preferences = getDesktopAppPreferences();
+      if (preferences.minimizeToTray) {
+        win.hide();
+        return ok({ minimized: true });
+      }
+
       win.minimize();
       return ok({ minimized: true });
     } catch (error) {

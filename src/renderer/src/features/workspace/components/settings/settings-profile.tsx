@@ -38,7 +38,7 @@ const readFileAsDataURL = (file: File): Promise<string> => {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== "string") {
-        reject(new Error("Dosya okunamadi"));
+        reject(new Error("Dosya okunamadı"));
         return;
       }
 
@@ -46,7 +46,7 @@ const readFileAsDataURL = (file: File): Promise<string> => {
     };
 
     reader.onerror = () => {
-      reject(new Error("Dosya okunamadi"));
+      reject(new Error("Dosya okunamadı"));
     };
 
     reader.readAsDataURL(file);
@@ -88,7 +88,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
 
           if (!result.ok) {
             setProfileNotice(
-              `Profil bilgisi alinamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              `Profil bilgisi alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
             );
           }
           return;
@@ -112,7 +112,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
           avatarUrl: null,
         });
         setProfileNotice(
-          `Profil bilgisi alinamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+          `Profil bilgisi alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       })
       .finally(() => {
@@ -131,7 +131,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
 
     const normalizedDisplayName = profileSettings.displayName.trim();
     if (normalizedDisplayName.length < 3) {
-      setProfileNotice("Gorunen ad en az 3 karakter olmali.");
+      setProfileNotice("Görünen ad en az 3 karakter olmalı.");
       return;
     }
 
@@ -158,7 +158,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         avatarUrl: profile.avatarUrl ?? null,
       });
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      setProfileNotice("Profil ayarlari kaydedildi.");
+      setProfileNotice("Profil ayarları kaydedildi.");
     } catch (error) {
       setProfileNotice(
         `Profil kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
@@ -181,7 +181,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
 
       if (!result.ok || !result.data?.profile) {
         setProfileNotice(
-          `Profil sifirlanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Profil sıfırlanamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
@@ -192,10 +192,10 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         avatarUrl: result.data.profile.avatarUrl ?? null,
       });
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      setProfileNotice("Profil ayarlari varsayilana donduruldu.");
+      setProfileNotice("Profil ayarları varsayılana döndürüldü.");
     } catch (error) {
       setProfileNotice(
-        `Profil sifirlanamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Profil sıfırlanamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
       setIsSavingProfile(false);
@@ -228,10 +228,10 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         ...previous,
         avatarUrl: dataURL,
       }));
-      setProfileNotice("Logo secildi. Kaydet'e basarak profiline uygula.");
+      setProfileNotice("Logo seçildi. Kaydet'e basarak profiline uygula.");
     } catch (error) {
       setProfileNotice(
-        `Logo okunamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Logo okunamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     }
   };
@@ -241,21 +241,32 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       ...previous,
       avatarUrl: null,
     }));
-    setProfileNotice("Logo kaldirildi. Kaydet'e basarak degisikligi uygula.");
+    setProfileNotice("Logo kaldırıldı. Kaydet'e basarak değişikliği uygula.");
   };
 
   return (
     <div className="ct-settings-section">
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
         </div>
         <div>
-          <h4>Profil Ayarlari</h4>
-          <p className="ct-settings-section-description">Hesap görünüm bilgilerini buradan yönetebilirsin.</p>
+          <h4>Profil Ayarları</h4>
+          <p className="ct-settings-section-description">
+            Hesap görünüm bilgilerini buradan yönetebilirsin.
+          </p>
         </div>
       </div>
 
@@ -289,7 +300,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isProfileLoading || isSavingProfile}
               >
-                Logo Yukle
+                Logo Yükle
               </button>
 
               {profileSettings.avatarUrl && (
@@ -299,7 +310,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
                   onClick={handleAvatarClear}
                   disabled={isProfileLoading || isSavingProfile}
                 >
-                  Logoyu Kaldir
+                  Logoyu Kaldır
                 </button>
               )}
             </div>
@@ -349,7 +360,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         <div className="ct-settings-info-grid">
           <div className="ct-settings-info-item">
             <span className="ct-settings-info-label">Kullanıcı Adı</span>
-            <strong className="ct-settings-info-value">@{currentUsername}</strong>
+            <strong className="ct-settings-info-value">
+              @{currentUsername}
+            </strong>
           </div>
           <div className="ct-settings-info-item">
             <span className="ct-settings-info-label">Rol</span>
@@ -380,9 +393,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
           </button>
         </div>
 
-        {profileNotice && (
-          <p className="ct-settings-notice">{profileNotice}</p>
-        )}
+        {profileNotice && <p className="ct-settings-notice">{profileNotice}</p>}
       </div>
     </div>
   );
