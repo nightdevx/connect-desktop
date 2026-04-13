@@ -93,6 +93,8 @@ export const readAudioPreferences = (): {
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  selectedAudioInputDeviceId: string | null;
+  selectedAudioOutputDeviceId: string | null;
 } => {
   try {
     const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
@@ -102,6 +104,8 @@ export const readAudioPreferences = (): {
         defaultHeadphoneEnabled: true,
         notificationSoundsEnabled: true,
         enhancedNoiseSuppressionEnabled: false,
+        selectedAudioInputDeviceId: null,
+        selectedAudioOutputDeviceId: null,
       };
     }
 
@@ -110,6 +114,8 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled?: boolean;
       notificationSoundsEnabled?: boolean;
       enhancedNoiseSuppressionEnabled?: boolean;
+      selectedAudioInputDeviceId?: string | null;
+      selectedAudioOutputDeviceId?: string | null;
     };
 
     return {
@@ -118,6 +124,16 @@ export const readAudioPreferences = (): {
       notificationSoundsEnabled: parsed.notificationSoundsEnabled !== false,
       enhancedNoiseSuppressionEnabled:
         parsed.enhancedNoiseSuppressionEnabled === true,
+      selectedAudioInputDeviceId:
+        typeof parsed.selectedAudioInputDeviceId === "string" &&
+        parsed.selectedAudioInputDeviceId.trim().length > 0
+          ? parsed.selectedAudioInputDeviceId
+          : null,
+      selectedAudioOutputDeviceId:
+        typeof parsed.selectedAudioOutputDeviceId === "string" &&
+        parsed.selectedAudioOutputDeviceId.trim().length > 0
+          ? parsed.selectedAudioOutputDeviceId
+          : null,
     };
   } catch {
     return {
@@ -125,6 +141,8 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled: true,
       notificationSoundsEnabled: true,
       enhancedNoiseSuppressionEnabled: false,
+      selectedAudioInputDeviceId: null,
+      selectedAudioOutputDeviceId: null,
     };
   }
 };

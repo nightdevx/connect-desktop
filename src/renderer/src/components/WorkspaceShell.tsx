@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { LobbyDescriptor, UserRole } from "../../../shared/auth-contracts";
 import type { LobbyStateMember } from "../../../shared/desktop-api-types";
@@ -32,6 +32,7 @@ import {
 import {
   LiveKitMediaSession,
   type ParticipantMediaMap,
+  type RemoteParticipantAudioPreference,
 } from "../services/livekit-stream-manager";
 import { soundCueService } from "../services/sound-cue-service";
 import workspaceService from "../services/workspace-service";
@@ -53,6 +54,19 @@ const ACTIVE_LOBBY_RECONNECT_BASE_MS = 1_200;
 const ACTIVE_LOBBY_RECONNECT_MAX_MS = 15_000;
 const RECONNECT_MAX_EXPONENT = 5;
 const RECONNECT_JITTER_MAX_MS = 450;
+const DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE: RemoteParticipantAudioPreference =
+  {
+    muted: false,
+    volumePercent: 100,
+  };
+
+const clampRemoteParticipantVolumePercent = (volumePercent: number): number => {
+  if (!Number.isFinite(volumePercent)) {
+    return DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE.volumePercent;
+  }
+
+  return Math.min(200, Math.max(0, Math.round(volumePercent)));
+};
 
 const isBrowserOnline = (): boolean => {
   if (typeof navigator === "undefined") {
@@ -115,9 +129,19 @@ function WorkspaceShell({
   const [streamPreferences, setStreamPreferences] = useState<StreamPreferences>(
     readStreamPreferences,
   );
+  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>(
+    [],
+  );
+  const [audioOutputDevices, setAudioOutputDevices] = useState<
+    MediaDeviceInfo[]
+  >([]);
 
   const [remoteParticipantStreams, setRemoteParticipantStreams] =
     useState<ParticipantMediaMap>({});
+  const [
+    remoteParticipantAudioPreferences,
+    setRemoteParticipantAudioPreferences,
+  ] = useState<Record<string, RemoteParticipantAudioPreference>>({});
   const activeLobbyRef = useRef<string | null>(null);
   const workspaceSectionRef = useRef(workspaceSection);
   const lobbyStreamReconnectTimerRef = useRef<number | null>(null);
@@ -139,6 +163,14 @@ function WorkspaceShell({
     new Map(),
   );
   const liveKitSessionRef = useRef<LiveKitMediaSession | null>(null);
+  const remoteParticipantAudioPreferencesRef = useRef<
+    Record<string, RemoteParticipantAudioPreference>
+  >({});
+
+  useEffect(() => {
+    remoteParticipantAudioPreferencesRef.current =
+      remoteParticipantAudioPreferences;
+  }, [remoteParticipantAudioPreferences]);
 
   const shouldEmitReconnectStatus = (
     key: ReconnectStatusKey,
@@ -160,7 +192,56 @@ function WorkspaceShell({
     });
   }, [audioPreferences.notificationSoundsEnabled]);
 
+  const refreshAudioDevices = useCallback(async (): Promise<void> => {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.enumerateDevices !== "function"
+    ) {
+      return;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setAudioInputDevices(
+        devices.filter((device) => device.kind === "audioinput"),
+      );
+      setAudioOutputDevices(
+        devices.filter((device) => device.kind === "audiooutput"),
+      );
+    } catch {
+      // no-op
+    }
+  }, []);
+
   useEffect(() => {
+    void refreshAudioDevices();
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.addEventListener !== "function"
+    ) {
+      return;
+    }
+
+    const handleDeviceChange = (): void => {
+      void refreshAudioDevices();
+    };
+
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+
+    return () => {
+      navigator.mediaDevices.removeEventListener(
+        "devicechange",
+        handleDeviceChange,
+      );
+    };
+  }, [refreshAudioDevices]);
+
+  useEffect(() => {
+    const initialAudioPreferences = readAudioPreferences();
+
     const session = new LiveKitMediaSession({
       onRemoteStreamsChanged: (nextStreams) => {
         setRemoteParticipantStreams(nextStreams);
@@ -190,16 +271,79 @@ function WorkspaceShell({
 
     session.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled:
-        readAudioPreferences().enhancedNoiseSuppressionEnabled,
+        initialAudioPreferences.enhancedNoiseSuppressionEnabled,
+      selectedAudioInputDeviceId:
+        initialAudioPreferences.selectedAudioInputDeviceId,
+      selectedAudioOutputDeviceId:
+        initialAudioPreferences.selectedAudioOutputDeviceId,
     });
 
     liveKitSessionRef.current = session;
+
+    Object.entries(remoteParticipantAudioPreferencesRef.current).forEach(
+      ([participantUserId, preference]) => {
+        session.setRemoteParticipantAudioPreference(
+          participantUserId,
+          preference,
+        );
+      },
+    );
 
     return () => {
       liveKitSessionRef.current = null;
       void session.disconnect();
     };
   }, [setStatus]);
+
+  const handleSetRemoteParticipantMuted = useCallback(
+    (participantUserId: string, muted: boolean): void => {
+      const currentPreference =
+        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
+        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+
+      const nextPreference: RemoteParticipantAudioPreference = {
+        muted,
+        volumePercent: clampRemoteParticipantVolumePercent(
+          currentPreference.volumePercent,
+        ),
+      };
+
+      setRemoteParticipantAudioPreferences((previous) => ({
+        ...previous,
+        [participantUserId]: nextPreference,
+      }));
+
+      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
+        participantUserId,
+        nextPreference,
+      );
+    },
+    [],
+  );
+
+  const handleSetRemoteParticipantVolume = useCallback(
+    (participantUserId: string, volumePercent: number): void => {
+      const currentPreference =
+        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
+        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+
+      const nextPreference: RemoteParticipantAudioPreference = {
+        muted: currentPreference.muted,
+        volumePercent: clampRemoteParticipantVolumePercent(volumePercent),
+      };
+
+      setRemoteParticipantAudioPreferences((previous) => ({
+        ...previous,
+        [participantUserId]: nextPreference,
+      }));
+
+      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
+        participantUserId,
+        nextPreference,
+      );
+    },
+    [],
+  );
 
   const {
     usersQuery,
@@ -878,14 +1022,18 @@ function WorkspaceShell({
   const saveAudioPreferences = (next: AudioPreferences): void => {
     const shouldRefreshMicProcessing =
       next.defaultMicEnabled &&
-      next.enhancedNoiseSuppressionEnabled !==
-        audioPreferences.enhancedNoiseSuppressionEnabled;
+      (next.enhancedNoiseSuppressionEnabled !==
+        audioPreferences.enhancedNoiseSuppressionEnabled ||
+        next.selectedAudioInputDeviceId !==
+          audioPreferences.selectedAudioInputDeviceId);
 
     setAudioPreferences(next);
     persistAudioPreferences(next);
 
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled: next.enhancedNoiseSuppressionEnabled,
+      selectedAudioInputDeviceId: next.selectedAudioInputDeviceId,
+      selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,
     });
 
     setMicEnabled(next.defaultMicEnabled);
@@ -939,6 +1087,8 @@ function WorkspaceShell({
 
     liveKitSessionRef.current?.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled: nextEnabled,
+      selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
+      selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
     });
 
     const hasActiveMicSession = Boolean(activeLobbyId) && micEnabled;
@@ -968,6 +1118,62 @@ function WorkspaceShell({
         : "RNNoise gürültü bastırma kapatıldı. Bir sonraki mikrofon açılışında uygulanacak.",
       "ok",
     );
+  };
+
+  const handleSelectAudioInputDevice = (deviceId: string | null): void => {
+    const nextPreferences: AudioPreferences = {
+      ...audioPreferences,
+      selectedAudioInputDeviceId: deviceId,
+    };
+
+    setAudioPreferences(nextPreferences);
+    persistAudioPreferences(nextPreferences);
+
+    liveKitSessionRef.current?.setAudioProcessingPreferences({
+      enhancedNoiseSuppressionEnabled:
+        nextPreferences.enhancedNoiseSuppressionEnabled,
+      selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
+      selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
+    });
+
+    if (activeLobbyId && micEnabled) {
+      void liveKitSessionRef.current
+        ?.refreshMicrophoneProcessing()
+        .then(() => {
+          setStatus("Mikrofon giriş cihazı güncellendi.", "ok");
+        })
+        .catch(() => {
+          setStatus(
+            "Mikrofon giriş cihazı hemen uygulanamadı, bir sonraki bağlantıda kullanılacak.",
+            "warn",
+          );
+        });
+      return;
+    }
+
+    setStatus(
+      "Mikrofon giriş cihazı kaydedildi. Bir sonraki mikrofon açılışında uygulanacak.",
+      "ok",
+    );
+  };
+
+  const handleSelectAudioOutputDevice = (deviceId: string | null): void => {
+    const nextPreferences: AudioPreferences = {
+      ...audioPreferences,
+      selectedAudioOutputDeviceId: deviceId,
+    };
+
+    setAudioPreferences(nextPreferences);
+    persistAudioPreferences(nextPreferences);
+
+    liveKitSessionRef.current?.setAudioProcessingPreferences({
+      enhancedNoiseSuppressionEnabled:
+        nextPreferences.enhancedNoiseSuppressionEnabled,
+      selectedAudioInputDeviceId: nextPreferences.selectedAudioInputDeviceId,
+      selectedAudioOutputDeviceId: nextPreferences.selectedAudioOutputDeviceId,
+    });
+
+    setStatus("Ses çıkış cihazı güncellendi.", "ok");
   };
 
   const saveStreamPreferences = (next: StreamPreferences): void => {
@@ -1047,6 +1253,14 @@ function WorkspaceShell({
           isLeavingLobby,
           micEnabled,
           headphoneEnabled,
+          audioInputDevices,
+          audioOutputDevices,
+          selectedAudioInputDeviceId:
+            audioPreferences.selectedAudioInputDeviceId,
+          selectedAudioOutputDeviceId:
+            audioPreferences.selectedAudioOutputDeviceId,
+          onSelectAudioInputDevice: handleSelectAudioInputDevice,
+          onSelectAudioOutputDevice: handleSelectAudioOutputDevice,
           onToggleMic: handleMicToggle,
           onToggleHeadphone: handleHeadphoneToggle,
           onDisconnect: leaveActiveLobby,
@@ -1070,6 +1284,8 @@ function WorkspaceShell({
         isLoggingOut={isLoggingOut}
         cameraPreferences={cameraPreferences}
         audioPreferences={audioPreferences}
+        audioInputDevices={audioInputDevices}
+        audioOutputDevices={audioOutputDevices}
         streamPreferences={streamPreferences}
         onSaveCameraPreferences={saveCameraPreferences}
         onSaveAudioPreferences={saveAudioPreferences}
@@ -1081,6 +1297,7 @@ function WorkspaceShell({
         localCameraStream={localCameraStream}
         localScreenStream={localScreenStream}
         remoteParticipantStreams={remoteParticipantStreams}
+        remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
         avatarByUserId={avatarByUserId}
         workspaceSection={workspaceSection}
         settingsSection={settingsSection}
@@ -1089,6 +1306,8 @@ function WorkspaceShell({
         activeLobbyName={activeLobby?.name ?? null}
         joiningLobbyId={joiningLobbyId}
         onJoinLobby={joinLobby}
+        onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
+        onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
         lobbyStateQuery={lobbyStateQuery}
         lobbyMessagesQuery={lobbyMessagesQuery}
         lobbyMembers={lobbyMembers}

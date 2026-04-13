@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 import { Headphones, Mic, MicOff, MonitorUp, VolumeX } from "lucide-react";
 import type { LobbyStateMember } from "../../../../../shared/desktop-api-types";
 import { getDisplayInitials } from "../workspace-utils";
@@ -11,12 +11,14 @@ interface LobbyParticipantTileProps {
   participant: LobbyParticipantView;
   avatarUrl?: string | null;
   previewStream?: MediaStream | null;
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
 }
 
 export function LobbyParticipantTile({
   participant,
   avatarUrl,
   previewStream = null,
+  onContextMenu,
 }: LobbyParticipantTileProps) {
   const micOpen = !participant.muted;
   const headphoneOpen = !participant.deafened;
@@ -49,6 +51,8 @@ export function LobbyParticipantTile({
     <article
       className={`ct-lobby-participant-tile ${participant.speaking ? "speaking" : ""} ${participant.isLocalUser ? "local-user" : ""}`}
       aria-label={participant.username}
+      onContextMenu={onContextMenu}
+      title={participant.isLocalUser ? undefined : "Sag tik: kullanici sesi"}
     >
       {previewStream && (
         <video

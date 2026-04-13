@@ -23,6 +23,7 @@ import {
 } from "./settings-main-panel";
 import { UsersDirectMessagesPanel } from "./users-direct-messages-panel";
 import type { ParticipantMediaMap } from "../../../services/livekit-media-session";
+import type { RemoteParticipantAudioPreference } from "../../../services/livekit-stream-manager";
 
 interface WorkspaceMainPanelProps {
   sectionTitle: string;
@@ -35,6 +36,10 @@ interface WorkspaceMainPanelProps {
   localCameraStream: MediaStream | null;
   localScreenStream: MediaStream | null;
   remoteParticipantStreams: ParticipantMediaMap;
+  remoteParticipantAudioPreferences: Record<
+    string,
+    RemoteParticipantAudioPreference
+  >;
   avatarByUserId: Record<string, string | null | undefined>;
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
@@ -44,6 +49,8 @@ interface WorkspaceMainPanelProps {
   isLoggingOut: boolean;
   cameraPreferences: CameraPreferences;
   audioPreferences: AudioPreferences;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
   streamPreferences: StreamPreferences;
   onSaveCameraPreferences: (next: CameraPreferences) => void;
   onSaveAudioPreferences: (next: AudioPreferences) => void;
@@ -53,6 +60,14 @@ interface WorkspaceMainPanelProps {
   activeLobbyName: string | null;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
+  onSetRemoteParticipantMuted: (
+    participantUserId: string,
+    muted: boolean,
+  ) => void;
+  onSetRemoteParticipantVolume: (
+    participantUserId: string,
+    volumePercent: number,
+  ) => void;
   lobbyStateQuery: UseQueryResult<
     DesktopResult<{
       lobbyId: string;
@@ -105,6 +120,7 @@ export function WorkspaceMainPanel({
   localCameraStream,
   localScreenStream,
   remoteParticipantStreams,
+  remoteParticipantAudioPreferences,
   avatarByUserId,
   workspaceSection,
   settingsSection,
@@ -114,6 +130,8 @@ export function WorkspaceMainPanel({
   isLoggingOut,
   cameraPreferences,
   audioPreferences,
+  audioInputDevices,
+  audioOutputDevices,
   streamPreferences,
   onSaveCameraPreferences,
   onSaveAudioPreferences,
@@ -123,6 +141,8 @@ export function WorkspaceMainPanel({
   activeLobbyName,
   joiningLobbyId,
   onJoinLobby,
+  onSetRemoteParticipantMuted,
+  onSetRemoteParticipantVolume,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -195,9 +215,14 @@ export function WorkspaceMainPanel({
             localCameraStream={localCameraStream}
             localScreenStream={localScreenStream}
             remoteParticipantStreams={remoteParticipantStreams}
+            remoteParticipantAudioPreferences={
+              remoteParticipantAudioPreferences
+            }
             avatarByUserId={avatarByUserId}
             joiningLobbyId={joiningLobbyId}
             onJoinLobby={onJoinLobby}
+            onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
+            onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
             lobbyStateQuery={lobbyStateQuery}
             lobbyMessagesQuery={lobbyMessagesQuery}
             lobbyMembers={lobbyMembers}
@@ -227,6 +252,8 @@ export function WorkspaceMainPanel({
             isLoggingOut={isLoggingOut}
             cameraPreferences={cameraPreferences}
             audioPreferences={audioPreferences}
+            audioInputDevices={audioInputDevices}
+            audioOutputDevices={audioOutputDevices}
             streamPreferences={streamPreferences}
             onSaveCameraPreferences={onSaveCameraPreferences}
             onSaveAudioPreferences={onSaveAudioPreferences}

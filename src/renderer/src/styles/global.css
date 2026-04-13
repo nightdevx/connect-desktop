@@ -650,6 +650,148 @@
     color: #fee2e2;
   }
 
+  .ct-participant-context-menu {
+    @apply min-w-[300px] gap-2 p-2;
+    border-color: rgba(125, 211, 252, 0.42);
+    background:
+      radial-gradient(
+        circle at 100% 0%,
+        rgba(56, 189, 248, 0.1),
+        transparent 45%
+      ),
+      rgba(9, 16, 35, 0.98);
+    box-shadow:
+      0 18px 38px rgba(2, 6, 23, 0.56),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .ct-participant-context-menu-title {
+    @apply m-0 truncate px-1 text-xs font-semibold uppercase tracking-[0.08em];
+    color: var(--ct-text-secondary);
+  }
+
+  .ct-participant-context-menu-state-row {
+    @apply flex items-center justify-between px-1;
+  }
+
+  .ct-participant-context-menu-state {
+    @apply inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em];
+  }
+
+  .ct-participant-context-menu-state.active {
+    border-color: rgba(34, 197, 94, 0.42);
+    color: #dcfce7;
+    background: rgba(22, 101, 52, 0.45);
+  }
+
+  .ct-participant-context-menu-state.muted {
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #fee2e2;
+    background: rgba(127, 29, 29, 0.45);
+  }
+
+  .ct-participant-context-menu-hint {
+    @apply text-[10px] font-medium uppercase tracking-[0.08em];
+    color: rgba(148, 163, 184, 0.9);
+  }
+
+  .ct-participant-context-menu-actions {
+    @apply grid grid-cols-2 gap-1;
+  }
+
+  .ct-participant-context-menu-button {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold;
+    border-color: var(--ct-border);
+    color: var(--ct-text-secondary);
+    background: rgba(15, 23, 42, 0.78);
+  }
+
+  .ct-participant-context-menu-button:hover {
+    border-color: var(--ct-border-strong);
+    color: var(--ct-text-primary);
+    background: rgba(30, 41, 59, 0.85);
+  }
+
+  .ct-participant-context-menu-button.active {
+    border-color: rgba(239, 68, 68, 0.42);
+    color: #fee2e2;
+    background: rgba(127, 29, 29, 0.42);
+  }
+
+  .ct-participant-context-menu-volume {
+    @apply mt-1 flex flex-col gap-1.5 rounded-lg border px-2 py-2;
+    border-color: var(--ct-border);
+    background: rgba(30, 41, 59, 0.4);
+  }
+
+  .ct-participant-context-menu-volume-line {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .ct-participant-context-menu-volume-line span {
+    @apply text-xs font-medium;
+    color: var(--ct-text-secondary);
+  }
+
+  .ct-participant-context-menu-volume-line strong {
+    @apply text-sm font-semibold;
+    color: #e0f2fe;
+  }
+
+  .ct-participant-context-menu-volume input[type="range"] {
+    @apply h-1.5 w-full cursor-pointer;
+    accent-color: #38bdf8;
+  }
+
+  .ct-participant-context-menu-stepper {
+    @apply grid grid-cols-2 gap-1;
+  }
+
+  .ct-participant-context-menu-stepper button {
+    @apply rounded-md border px-2 py-1 text-xs font-semibold;
+    border-color: var(--ct-border);
+    color: var(--ct-text-secondary);
+    background: rgba(11, 16, 32, 0.58);
+  }
+
+  .ct-participant-context-menu-stepper button:hover {
+    border-color: var(--ct-border-strong);
+    color: var(--ct-text-primary);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .ct-participant-context-menu-scale {
+    @apply flex items-center justify-between px-0.5;
+  }
+
+  .ct-participant-context-menu-scale span {
+    @apply text-[10px] font-semibold;
+    color: rgba(148, 163, 184, 0.9);
+  }
+
+  .ct-participant-context-menu-presets {
+    @apply mt-1 grid grid-cols-5 gap-1;
+  }
+
+  .ct-participant-context-menu-presets button {
+    @apply rounded-md border px-2 py-1 text-xs font-semibold;
+    border-color: var(--ct-border);
+    color: var(--ct-text-secondary);
+    background: rgba(11, 16, 32, 0.58);
+  }
+
+  .ct-participant-context-menu-presets button:hover {
+    border-color: var(--ct-border-strong);
+    color: var(--ct-text-primary);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .ct-participant-context-menu-presets button.active {
+    border-color: rgba(56, 189, 248, 0.52);
+    color: #e0f2fe;
+    background: rgba(14, 116, 144, 0.44);
+  }
+
   .ct-list-state {
     @apply rounded-xl border px-3 py-3 text-sm;
     border-color: var(--ct-border);
@@ -853,6 +995,15 @@
 
   .ct-settings-switch-list {
     @apply grid gap-3;
+  }
+
+  .ct-settings-device-field {
+    @apply flex min-w-[220px] flex-1 flex-col gap-1.5;
+  }
+
+  .ct-settings-device-field span {
+    @apply text-xs font-semibold;
+    color: var(--ct-text-secondary);
   }
 
   .ct-settings-switch-item {
@@ -1207,6 +1358,44 @@
 
   .ct-quick-controls-inline {
     @apply flex items-center gap-2;
+  }
+
+  .ct-quick-device-menu {
+    position: fixed;
+    z-index: 70;
+    min-width: 220px;
+    max-width: 320px;
+    @apply rounded-lg border p-1.5;
+    border-color: var(--ct-border-strong);
+    background: rgba(11, 16, 32, 0.98);
+    box-shadow: 0 16px 30px rgba(2, 6, 23, 0.58);
+  }
+
+  .ct-quick-device-menu-header {
+    @apply px-2 py-1 text-[11px] font-semibold uppercase;
+    color: var(--ct-text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .ct-quick-device-menu-item {
+    @apply block w-full rounded-md px-2 py-1.5 text-left text-xs;
+    color: var(--ct-text-secondary);
+    transition: background-color 0.15s ease;
+  }
+
+  .ct-quick-device-menu-item:hover {
+    background: rgba(30, 41, 59, 0.82);
+    color: var(--ct-text-primary);
+  }
+
+  .ct-quick-device-menu-item.active {
+    background: rgba(37, 99, 235, 0.28);
+    color: #dbeafe;
+  }
+
+  .ct-quick-device-menu-empty {
+    @apply px-2 py-1.5 text-xs;
+    color: var(--ct-text-muted);
   }
 
   .ct-quick-icon-button {

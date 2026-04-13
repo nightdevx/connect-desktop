@@ -41,12 +41,35 @@ export type ScreenShareMode = "slides" | "motion";
 
 export interface LiveKitAudioProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
+  selectedAudioInputDeviceId: string | null;
+  selectedAudioOutputDeviceId: string | null;
+}
+
+export interface RemoteParticipantAudioPreference {
+  muted: boolean;
+  volumePercent: number;
 }
 
 const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPreferences =
   {
     enhancedNoiseSuppressionEnabled: false,
+    selectedAudioInputDeviceId: null,
+    selectedAudioOutputDeviceId: null,
   };
+
+const DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE: RemoteParticipantAudioPreference =
+  {
+    muted: false,
+    volumePercent: 100,
+  };
+
+const clampRemoteParticipantVolume = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE.volumePercent;
+  }
+
+  return Math.min(200, Math.max(0, Math.round(value)));
+};
 
 interface LiveKitStreamManagerCallbacks {
   onRemoteStreamsChanged: (streams: ParticipantMediaMap) => void;
@@ -115,10 +138,16 @@ const buildSingleTrackStream = (track: MediaStreamTrack): MediaStream => {
 export class LiveKitStreamManager {
   private room: Room | null = null;
   private currentLobbyId: string | null = null;
+  private liveKitAudioContext: AudioContext | null = null;
   private remoteStreams = new Map<string, ParticipantMediaStreams>();
   private remoteAudioElements = new Map<string, HTMLAudioElement>();
   private remoteAudioCleanups = new Map<string, () => void>();
+  private remoteAudioTrackGains = new Map<string, GainNode>();
   private remoteAudioTrackOwners = new Map<string, string>();
+  private remoteParticipantAudioPreferences = new Map<
+    string,
+    RemoteParticipantAudioPreference
+  >();
   private remoteAudioContext: AudioContext | null = null;
 
   private cameraPublication: LocalTrackPublication | null = null;
@@ -189,10 +218,9 @@ export class LiveKitStreamManager {
   };
 
   private readonly handleParticipantConnected: RoomEventCallbacks["participantConnected"] =
-    (participant: RemoteParticipant) => {
-      this.callbacks.onWarning?.(
-        `${participant.identity} odada, medya akışı bekleniyor`,
-      );
+    (_participant: RemoteParticipant) => {
+      // Participant connection can precede track subscribe events.
+      // Avoid pushing a sticky warning status for this transitional state.
     };
 
   private readonly handleParticipantDisconnected: RoomEventCallbacks["participantDisconnected"] =
@@ -285,12 +313,48 @@ export class LiveKitStreamManager {
   }
 
   public setAudioProcessingPreferences(
-    preferences: LiveKitAudioProcessingPreferences,
+    preferences: Partial<LiveKitAudioProcessingPreferences>,
   ): void {
+    const previousOutputDeviceId =
+      this.audioProcessingPreferences.selectedAudioOutputDeviceId;
+
     this.audioProcessingPreferences = {
       ...this.audioProcessingPreferences,
       ...preferences,
     };
+
+    if (
+      previousOutputDeviceId !==
+      this.audioProcessingPreferences.selectedAudioOutputDeviceId
+    ) {
+      void this.applyAudioOutputDevicePreference().catch((error) => {
+        this.callbacks.onWarning?.(
+          `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      });
+    }
+  }
+
+  public setRemoteParticipantAudioPreference(
+    participantIdentity: string,
+    preferencePatch: Partial<RemoteParticipantAudioPreference>,
+  ): void {
+    const current =
+      this.remoteParticipantAudioPreferences.get(participantIdentity) ??
+      DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+
+    const next: RemoteParticipantAudioPreference = {
+      muted:
+        typeof preferencePatch.muted === "boolean"
+          ? preferencePatch.muted
+          : current.muted,
+      volumePercent: clampRemoteParticipantVolume(
+        preferencePatch.volumePercent ?? current.volumePercent,
+      ),
+    };
+
+    this.remoteParticipantAudioPreferences.set(participantIdentity, next);
+    this.applyRemoteAudioPreferenceToIdentity(participantIdentity, next);
   }
 
   public async refreshMicrophoneProcessing(): Promise<void> {
@@ -344,6 +408,7 @@ export class LiveKitStreamManager {
     }
 
     await this.destroyActiveMicrophoneProcessor();
+    await this.closeLiveKitAudioContext();
 
     this.callbacks.onConnectionStateChanged?.("disconnected");
   }
@@ -368,14 +433,91 @@ export class LiveKitStreamManager {
 
     const captureOptions = await this.buildMicrophoneCaptureOptions(enabled);
 
-    await this.room.localParticipant.setMicrophoneEnabled(
-      enabled,
-      captureOptions,
-      {
-        dtx: this.shouldEnableDtx(),
-        red: this.shouldEnableRed(),
-      },
-    );
+    const publishOptions: TrackPublishOptions = {
+      dtx: this.shouldEnableDtx(),
+      red: this.shouldEnableRed(),
+    };
+
+    const attempts: Array<{ options: AudioCaptureOptions; warning?: string }> =
+      [];
+    const attemptKeys = new Set<string>();
+
+    const addAttempt = (
+      options: AudioCaptureOptions,
+      warning?: string,
+    ): void => {
+      const key = `${typeof options.deviceId === "undefined" ? "default-device" : "selected-device"}:${options.processor ? "processor-on" : "processor-off"}`;
+      if (attemptKeys.has(key)) {
+        return;
+      }
+
+      attemptKeys.add(key);
+      attempts.push({ options, warning });
+    };
+
+    addAttempt(captureOptions);
+
+    const withoutProcessorOptions: AudioCaptureOptions | null =
+      enabled && captureOptions.processor
+        ? {
+            ...captureOptions,
+            processor: undefined,
+            noiseSuppression: true,
+          }
+        : null;
+
+    if (withoutProcessorOptions) {
+      addAttempt(
+        withoutProcessorOptions,
+        "RNNoise baslatilamadi, mikrofon tarayici ses filtreleri ile aciliyor.",
+      );
+    }
+
+    if (enabled && captureOptions.deviceId) {
+      addAttempt(
+        {
+          ...(withoutProcessorOptions ?? captureOptions),
+          deviceId: undefined,
+        },
+        "Secili mikrofon cihazi kullanilamadi, varsayilan mikrofona geri donuluyor.",
+      );
+    }
+
+    let lastError: unknown = null;
+    for (
+      let attemptIndex = 0;
+      attemptIndex < attempts.length;
+      attemptIndex += 1
+    ) {
+      const attempt = attempts[attemptIndex];
+
+      try {
+        await this.room.localParticipant.setMicrophoneEnabled(
+          enabled,
+          attempt.options,
+          publishOptions,
+        );
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+
+        if (
+          attempt.options.processor &&
+          !this.isProcessorAudioContextError(error)
+        ) {
+          throw error;
+        }
+
+        if (attempt.warning && attemptIndex < attempts.length - 1) {
+          this.callbacks.onWarning?.(attempt.warning);
+        }
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
 
     if (!enabled) {
       await this.destroyActiveMicrophoneProcessor();
@@ -591,11 +733,20 @@ export class LiveKitStreamManager {
       throw new Error(tokenResult.error?.message ?? "LiveKit token alınamadı");
     }
 
-    const room = new Room({
+    const roomOptions: ConstructorParameters<typeof Room>[0] = {
       adaptiveStream: true,
       dynacast: true,
       stopLocalTrackOnUnpublish: false,
-    });
+    };
+
+    const liveKitAudioContext = this.getOrCreateLiveKitAudioContext();
+    if (liveKitAudioContext) {
+      roomOptions.webAudioMix = {
+        audioContext: liveKitAudioContext,
+      };
+    }
+
+    const room = new Room(roomOptions);
 
     this.bindRoomEvents(room);
     this.room = room;
@@ -643,6 +794,11 @@ export class LiveKitStreamManager {
       autoGainControl: true,
     };
 
+    const preferredInputDeviceId = await this.resolvePreferredInputDeviceId();
+    if (preferredInputDeviceId) {
+      options.deviceId = preferredInputDeviceId;
+    }
+
     if (
       !enabled ||
       !this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled
@@ -658,6 +814,100 @@ export class LiveKitStreamManager {
     options.noiseSuppression = false;
     options.processor = processor;
     return options;
+  }
+
+  private isProcessorAudioContextError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return error.message.includes(
+      "Audio context needs to be set on LocalAudioTrack",
+    );
+  }
+
+  private getOrCreateLiveKitAudioContext(): AudioContext | null {
+    if (
+      this.liveKitAudioContext &&
+      this.liveKitAudioContext.state !== "closed"
+    ) {
+      return this.liveKitAudioContext;
+    }
+
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const Ctx =
+      window.AudioContext ||
+      (
+        window as typeof window & {
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).webkitAudioContext;
+
+    if (!Ctx) {
+      return null;
+    }
+
+    this.liveKitAudioContext = new Ctx({ latencyHint: "interactive" });
+    return this.liveKitAudioContext;
+  }
+
+  private async closeLiveKitAudioContext(): Promise<void> {
+    if (!this.liveKitAudioContext) {
+      return;
+    }
+
+    const context = this.liveKitAudioContext;
+    this.liveKitAudioContext = null;
+
+    if (context.state === "closed") {
+      return;
+    }
+
+    try {
+      await context.close();
+    } catch {
+      // no-op
+    }
+  }
+
+  private async resolvePreferredInputDeviceId(): Promise<string | undefined> {
+    const selectedInputDeviceId =
+      this.audioProcessingPreferences.selectedAudioInputDeviceId;
+
+    if (!selectedInputDeviceId) {
+      return undefined;
+    }
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.enumerateDevices !== "function"
+    ) {
+      return selectedInputDeviceId;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasSelectedInput = devices.some(
+        (device) =>
+          device.kind === "audioinput" &&
+          device.deviceId === selectedInputDeviceId,
+      );
+
+      if (hasSelectedInput) {
+        return selectedInputDeviceId;
+      }
+
+      this.callbacks.onWarning?.(
+        "Secili mikrofon bulunamadi, varsayilan mikrofon kullanilacak.",
+      );
+      return undefined;
+    } catch {
+      return selectedInputDeviceId;
+    }
   }
 
   private async getOrCreateMicrophoneProcessor(): Promise<TrackProcessor<
@@ -1224,6 +1474,7 @@ export class LiveKitStreamManager {
     const webAudioCleanup = this.attachRemoteAudioWithWebAudio(
       stream,
       track.mediaStreamTrack,
+      publication.trackSid,
     );
 
     if (webAudioCleanup) {
@@ -1232,6 +1483,10 @@ export class LiveKitStreamManager {
         publication.trackSid,
         participantIdentity,
       );
+      this.applyRemoteAudioPreferenceToTrackSid(
+        publication.trackSid,
+        this.resolveRemoteParticipantAudioPreference(participantIdentity),
+      );
       return;
     }
 
@@ -1239,9 +1494,20 @@ export class LiveKitStreamManager {
     audioElement.autoplay = true;
     audioElement.dataset.livekitTrackSid = publication.trackSid;
     audioElement.style.display = "none";
+
+    void this.applySinkToAudioElement(audioElement).catch((error) => {
+      this.callbacks.onWarning?.(
+        `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+      );
+    });
+
     document.body.appendChild(audioElement);
     this.remoteAudioElements.set(publication.trackSid, audioElement);
     this.remoteAudioTrackOwners.set(publication.trackSid, participantIdentity);
+    this.applyRemoteAudioPreferenceToTrackSid(
+      publication.trackSid,
+      this.resolveRemoteParticipantAudioPreference(participantIdentity),
+    );
   }
 
   private detachRemoteAudio(trackSid: string): void {
@@ -1250,6 +1516,8 @@ export class LiveKitStreamManager {
       cleanup();
       this.remoteAudioCleanups.delete(trackSid);
     }
+
+    this.remoteAudioTrackGains.delete(trackSid);
 
     const existing = this.remoteAudioElements.get(trackSid);
     if (!existing) {
@@ -1288,8 +1556,50 @@ export class LiveKitStreamManager {
       element.remove();
     });
     this.remoteAudioElements.clear();
+    this.remoteAudioTrackGains.clear();
     this.remoteAudioTrackOwners.clear();
     this.closeRemoteAudioContextIfIdle();
+  }
+
+  private resolveRemoteParticipantAudioPreference(
+    participantIdentity: string,
+  ): RemoteParticipantAudioPreference {
+    return (
+      this.remoteParticipantAudioPreferences.get(participantIdentity) ??
+      DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE
+    );
+  }
+
+  private applyRemoteAudioPreferenceToIdentity(
+    participantIdentity: string,
+    preference: RemoteParticipantAudioPreference,
+  ): void {
+    this.remoteAudioTrackOwners.forEach((ownerIdentity, trackSid) => {
+      if (ownerIdentity !== participantIdentity) {
+        return;
+      }
+
+      this.applyRemoteAudioPreferenceToTrackSid(trackSid, preference);
+    });
+  }
+
+  private applyRemoteAudioPreferenceToTrackSid(
+    trackSid: string,
+    preference: RemoteParticipantAudioPreference,
+  ): void {
+    const gainValue = preference.muted ? 0 : preference.volumePercent / 100;
+    const gainNode = this.remoteAudioTrackGains.get(trackSid);
+    if (gainNode) {
+      const contextNow = gainNode.context.currentTime;
+      gainNode.gain.cancelScheduledValues(contextNow);
+      gainNode.gain.setTargetAtTime(gainValue, contextNow, 0.01);
+    }
+
+    const audioElement = this.remoteAudioElements.get(trackSid);
+    if (audioElement) {
+      audioElement.muted = preference.muted;
+      audioElement.volume = Math.min(1, Math.max(0, gainValue));
+    }
   }
 
   private getRemoteAudioContext(): AudioContext | null {
@@ -1314,12 +1624,84 @@ export class LiveKitStreamManager {
     }
 
     this.remoteAudioContext = new Ctx();
+    void this.applySinkToAudioContext(this.remoteAudioContext).catch(
+      (error) => {
+        this.callbacks.onWarning?.(
+          `Ses cikis cihazi uygulanamadi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      },
+    );
     return this.remoteAudioContext;
+  }
+
+  private async applyAudioOutputDevicePreference(): Promise<void> {
+    const tasks: Promise<void>[] = [];
+
+    if (this.remoteAudioContext) {
+      tasks.push(this.applySinkToAudioContext(this.remoteAudioContext));
+    }
+
+    this.remoteAudioElements.forEach((audioElement) => {
+      tasks.push(this.applySinkToAudioElement(audioElement));
+    });
+
+    await Promise.all(tasks);
+  }
+
+  private async applySinkToAudioContext(context: AudioContext): Promise<void> {
+    const sinkId = this.audioProcessingPreferences.selectedAudioOutputDeviceId;
+    const contextWithSink = context as AudioContext & {
+      setSinkId?: (id: string) => Promise<void>;
+    };
+
+    if (typeof contextWithSink.setSinkId !== "function") {
+      return;
+    }
+
+    try {
+      await contextWithSink.setSinkId(sinkId ?? "");
+    } catch (error) {
+      if (sinkId) {
+        await contextWithSink.setSinkId("");
+        this.callbacks.onWarning?.(
+          `Secili ses cikis cihazi kullanilamadi, varsayilan cikisa geri donuldu: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  private async applySinkToAudioElement(
+    audioElement: HTMLAudioElement,
+  ): Promise<void> {
+    const sinkId = this.audioProcessingPreferences.selectedAudioOutputDeviceId;
+    const elementWithSink = audioElement as HTMLAudioElement & {
+      setSinkId?: (id: string) => Promise<void>;
+    };
+
+    if (typeof elementWithSink.setSinkId !== "function") {
+      return;
+    }
+
+    try {
+      await elementWithSink.setSinkId(sinkId ?? "");
+    } catch (error) {
+      if (sinkId) {
+        await elementWithSink.setSinkId("");
+        this.callbacks.onWarning?.(
+          `Secili ses cikis cihazi kullanilamadi, varsayilan cikisa geri donuldu: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      } else {
+        throw error;
+      }
+    }
   }
 
   private attachRemoteAudioWithWebAudio(
     stream: MediaStream,
     track: MediaStreamTrack,
+    trackSid: string,
   ): (() => void) | null {
     const context = this.getRemoteAudioContext();
     if (!context) {
@@ -1329,6 +1711,7 @@ export class LiveKitStreamManager {
     const source = context.createMediaStreamSource(stream);
     const gainNode = context.createGain();
     gainNode.gain.setValueAtTime(1, context.currentTime);
+    this.remoteAudioTrackGains.set(trackSid, gainNode);
 
     let splitterNode: ChannelSplitterNode | null = null;
     let mergerNode: ChannelMergerNode | null = null;
@@ -1379,6 +1762,8 @@ export class LiveKitStreamManager {
       } catch {
         // no-op
       }
+
+      this.remoteAudioTrackGains.delete(trackSid);
     };
   }
 

@@ -28,6 +28,8 @@ interface SettingsMainPanelProps {
   isLoggingOut: boolean;
   cameraPreferences: CameraPreferences;
   audioPreferences: AudioPreferences;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
   streamPreferences: StreamPreferences;
   onSaveCameraPreferences: (next: CameraPreferences) => void;
   onSaveAudioPreferences: (next: AudioPreferences) => void;
@@ -43,6 +45,8 @@ export function SettingsMainPanel({
   isLoggingOut,
   cameraPreferences,
   audioPreferences,
+  audioInputDevices,
+  audioOutputDevices,
   streamPreferences,
   onSaveCameraPreferences,
   onSaveAudioPreferences,
@@ -66,6 +70,8 @@ export function SettingsMainPanel({
       {settingsSection === "audio" && (
         <SettingsAudio
           audioPreferences={audioPreferences}
+          audioInputDevices={audioInputDevices}
+          audioOutputDevices={audioOutputDevices}
           onSaveAudioPreferences={onSaveAudioPreferences}
         />
       )}

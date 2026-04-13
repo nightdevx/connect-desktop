@@ -3,6 +3,8 @@ import type { AudioPreferences } from "./settings-main-panel-types";
 
 interface SettingsAudioProps {
   audioPreferences: AudioPreferences;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
   onSaveAudioPreferences: (next: AudioPreferences) => void;
 }
 
@@ -17,8 +19,24 @@ const stopMediaStreamTracks = (stream: MediaStream | null): void => {
   });
 };
 
+const closeAudioContextSafely = async (
+  audioContext: AudioContext | null,
+): Promise<void> => {
+  if (!audioContext || audioContext.state === "closed") {
+    return;
+  }
+
+  try {
+    await audioContext.close();
+  } catch {
+    // no-op
+  }
+};
+
 export function SettingsAudio({
   audioPreferences,
+  audioInputDevices,
+  audioOutputDevices,
   onSaveAudioPreferences,
 }: SettingsAudioProps) {
   const [draftAudioPreferences, setDraftAudioPreferences] =
@@ -32,8 +50,15 @@ export function SettingsAudio({
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const audioAnimationRef = useRef<number | null>(null);
+  const audioTestStreamRef = useRef<MediaStream | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioTestStreamRef.current = audioTestStream;
+  }, [audioTestStream]);
 
   useEffect(() => {
     setDraftAudioPreferences(audioPreferences);
@@ -41,21 +66,37 @@ export function SettingsAudio({
 
   useEffect(() => {
     return () => {
-      stopMediaStreamTracks(audioTestStream);
+      stopMediaStreamTracks(audioTestStreamRef.current);
+
+      const previewElement = audioPreviewRef.current;
+      if (previewElement) {
+        previewElement.pause();
+        previewElement.srcObject = null;
+      }
 
       if (audioAnimationRef.current !== null) {
         window.cancelAnimationFrame(audioAnimationRef.current);
       }
 
-      if (audioContextRef.current) {
-        void audioContextRef.current.close();
-      }
+      audioAnalyserRef.current = null;
+      audioSourceRef.current = null;
+      audioDataRef.current = null;
+
+      const activeAudioContext = audioContextRef.current;
+      audioContextRef.current = null;
+      void closeAudioContextSafely(activeAudioContext);
     };
-  }, [audioTestStream]);
+  }, []);
 
   const stopAudioTest = async (): Promise<void> => {
     stopMediaStreamTracks(audioTestStream);
     setAudioTestStream(null);
+
+    const previewElement = audioPreviewRef.current;
+    if (previewElement) {
+      previewElement.pause();
+      previewElement.srcObject = null;
+    }
 
     if (audioAnimationRef.current !== null) {
       window.cancelAnimationFrame(audioAnimationRef.current);
@@ -63,13 +104,13 @@ export function SettingsAudio({
     }
 
     audioAnalyserRef.current = null;
+    audioSourceRef.current = null;
     audioDataRef.current = null;
     setMicLevelPercent(0);
 
-    if (audioContextRef.current) {
-      await audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
+    const activeAudioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    await closeAudioContextSafely(activeAudioContext);
   };
 
   const handleSaveAudioPreferences = (): void => {
@@ -84,27 +125,106 @@ export function SettingsAudio({
     try {
       await stopAudioTest();
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-        video: false,
+      const buildAudioConstraints = (
+        deviceId: string | null,
+      ): MediaTrackConstraints => ({
+        echoCancellation: true,
+        noiseSuppression: true,
+        deviceId: deviceId ? { exact: deviceId } : undefined,
       });
+
+      const preferredInputDeviceId =
+        draftAudioPreferences.selectedAudioInputDeviceId;
+
+      if (
+        preferredInputDeviceId &&
+        !audioInputDevices.some(
+          (device) =>
+            device.kind === "audioinput" &&
+            device.deviceId === preferredInputDeviceId,
+        )
+      ) {
+        setAudioNotice(
+          "Secili mikrofon su anda bagli degil. Test varsayilan mikrofonla denenecek.",
+        );
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: buildAudioConstraints(
+            preferredInputDeviceId &&
+              audioInputDevices.some(
+                (device) =>
+                  device.kind === "audioinput" &&
+                  device.deviceId === preferredInputDeviceId,
+              )
+              ? preferredInputDeviceId
+              : null,
+          ),
+          video: false,
+        });
+      } catch (error) {
+        if (!preferredInputDeviceId) {
+          throw error;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: buildAudioConstraints(null),
+          video: false,
+        });
+        setAudioNotice(
+          "Secili mikrofon bulunamadi. Test varsayilan mikrofonla baslatildi.",
+        );
+      }
 
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 512;
       analyser.smoothingTimeConstant = 0.8;
+      analyser.minDecibels = -100;
+      analyser.maxDecibels = -10;
 
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
 
+      const previewElement = audioPreviewRef.current;
+      if (previewElement) {
+        previewElement.srcObject = stream;
+        previewElement.muted = false;
+        previewElement.volume = 1;
+
+        const selectedOutputDeviceId =
+          draftAudioPreferences.selectedAudioOutputDeviceId;
+        if (selectedOutputDeviceId) {
+          const sinkTarget = previewElement as HTMLAudioElement & {
+            setSinkId?: (sinkId: string) => Promise<void>;
+          };
+
+          if (typeof sinkTarget.setSinkId === "function") {
+            try {
+              await sinkTarget.setSinkId(selectedOutputDeviceId);
+            } catch {
+              setAudioNotice(
+                "Secili ses cikis cihazi testte kullanilamadi. Varsayilan cikisa gecildi.",
+              );
+            }
+          }
+        }
+
+        await previewElement.play();
+      }
+
       const data = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
       audioContextRef.current = audioContext;
       audioAnalyserRef.current = analyser;
+      audioSourceRef.current = source;
       audioDataRef.current = data as Uint8Array<ArrayBuffer>;
       setAudioTestStream(stream);
+
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
 
       const updateMeter = (): void => {
         const activeAnalyser = audioAnalyserRef.current;
@@ -113,27 +233,42 @@ export function SettingsAudio({
           return;
         }
 
-        activeAnalyser.getByteTimeDomainData(activeData);
+        activeAnalyser.getByteFrequencyData(activeData);
 
-        let total = 0;
+        let peak = 0;
         for (let index = 0; index < activeData.length; index += 1) {
-          const centered = (activeData[index] - 128) / 128;
-          total += centered * centered;
+          if (activeData[index] > peak) {
+            peak = activeData[index];
+          }
         }
 
-        const rms = Math.sqrt(total / activeData.length);
-        const percent = Math.min(100, Math.round(rms * 260));
+        const percent = Math.min(100, Math.round((peak / 255) * 100));
         setMicLevelPercent(percent);
         audioAnimationRef.current = window.requestAnimationFrame(updateMeter);
       };
 
       updateMeter();
-      setAudioNotice(
-        "Mikrofon testi başlatıldı. Konuşarak seviye çubuğunu kontrol et.",
-      );
+      const activeTrack = stream.getAudioTracks()[0] ?? null;
+      const usedDeviceId = activeTrack?.getSettings().deviceId;
+      const usedDeviceLabel =
+        audioInputDevices.find((device) => device.deviceId === usedDeviceId)
+          ?.label ?? activeTrack?.label;
+
+      setAudioNotice((previous) => {
+        const deviceSuffix = usedDeviceLabel
+          ? ` Aktif mikrofon: ${usedDeviceLabel}.`
+          : "";
+        const monitorSuffix = " Konusurken kendi sesini duyabilirsin.";
+
+        if (previous.length > 0) {
+          return `${previous} Konusarak seviye cubugunu kontrol et.${deviceSuffix}${monitorSuffix}`;
+        }
+
+        return `Mikrofon testi baslatildi. Konusarak seviye cubugunu kontrol et.${deviceSuffix}${monitorSuffix}`;
+      });
     } catch (error) {
       setAudioNotice(
-        `Ses testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Ses testi baslatilamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
       setIsStartingAudioTest(false);
@@ -162,7 +297,7 @@ export function SettingsAudio({
       oscillator.start(now);
       oscillator.stop(now + 0.35);
       oscillator.onended = () => {
-        void audioContext.close();
+        void closeAudioContextSafely(audioContext);
       };
 
       setAudioNotice("Test sesi çalındı.");
@@ -202,6 +337,62 @@ export function SettingsAudio({
       </div>
 
       <div className="ct-settings-content">
+        <audio ref={audioPreviewRef} hidden playsInline />
+
+        <div className="ct-settings-actions">
+          <label className="ct-settings-device-field">
+            <span>Mikrofon giriş cihazı</span>
+            <select
+              className="ct-input"
+              value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
+              onChange={(event) => {
+                const nextValue = event.target.value.trim();
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  selectedAudioInputDeviceId:
+                    nextValue.length > 0 ? nextValue : null,
+                }));
+              }}
+            >
+              <option value="">Varsayılan mikrofon</option>
+              {audioInputDevices.map((device, index) => (
+                <option
+                  key={device.deviceId || `audio-input-${index}`}
+                  value={device.deviceId}
+                >
+                  {device.label || `Mikrofon ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="ct-settings-device-field">
+            <span>Ses çıkış cihazı</span>
+            <select
+              className="ct-input"
+              value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
+              onChange={(event) => {
+                const nextValue = event.target.value.trim();
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  selectedAudioOutputDeviceId:
+                    nextValue.length > 0 ? nextValue : null,
+                }));
+              }}
+            >
+              <option value="">Varsayılan ses çıkışı</option>
+              {audioOutputDevices.map((device, index) => (
+                <option
+                  key={device.deviceId || `audio-output-${index}`}
+                  value={device.deviceId}
+                >
+                  {device.label || `Çıkış ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="ct-settings-switch-list">
           <label className="ct-settings-switch-item">
             <div className="ct-settings-switch-item-content">

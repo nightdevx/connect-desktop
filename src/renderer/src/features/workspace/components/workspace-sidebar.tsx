@@ -59,6 +59,12 @@ interface WorkspaceSidebarProps {
     isLeavingLobby: boolean;
     micEnabled: boolean;
     headphoneEnabled: boolean;
+    audioInputDevices: MediaDeviceInfo[];
+    audioOutputDevices: MediaDeviceInfo[];
+    selectedAudioInputDeviceId: string | null;
+    selectedAudioOutputDeviceId: string | null;
+    onSelectAudioInputDevice: (deviceId: string | null) => void;
+    onSelectAudioOutputDevice: (deviceId: string | null) => void;
     onToggleMic: () => void;
     onToggleHeadphone: () => void;
     onDisconnect: () => void;
@@ -378,6 +384,20 @@ export function WorkspaceSidebar({
             isLeavingLobby={quickControlsProps.isLeavingLobby}
             micEnabled={quickControlsProps.micEnabled}
             headphoneEnabled={quickControlsProps.headphoneEnabled}
+            audioInputDevices={quickControlsProps.audioInputDevices}
+            audioOutputDevices={quickControlsProps.audioOutputDevices}
+            selectedAudioInputDeviceId={
+              quickControlsProps.selectedAudioInputDeviceId
+            }
+            selectedAudioOutputDeviceId={
+              quickControlsProps.selectedAudioOutputDeviceId
+            }
+            onSelectAudioInputDevice={
+              quickControlsProps.onSelectAudioInputDevice
+            }
+            onSelectAudioOutputDevice={
+              quickControlsProps.onSelectAudioOutputDevice
+            }
             onToggleMic={quickControlsProps.onToggleMic}
             onToggleHeadphone={quickControlsProps.onToggleHeadphone}
             onDisconnect={quickControlsProps.onDisconnect}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import {
   Camera,
   ChevronLeft,
@@ -8,7 +8,10 @@ import {
   Mic,
   MicOff,
   MonitorUp,
+  RotateCcw,
   PlugZap,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type {
@@ -20,6 +23,7 @@ import type {
   LobbyStateMember,
 } from "../../../../../shared/desktop-api-types";
 import type { ParticipantMediaMap } from "../../../services/livekit-media-session";
+import type { RemoteParticipantAudioPreference } from "../../../services/livekit-stream-manager";
 import { getApiErrorMessage } from "../workspace-utils";
 import { LobbyChatPanel } from "./lobby-chat-panel";
 import {
@@ -42,9 +46,21 @@ interface LobbiesMainPanelProps {
   localCameraStream: MediaStream | null;
   localScreenStream: MediaStream | null;
   remoteParticipantStreams: ParticipantMediaMap;
+  remoteParticipantAudioPreferences: Record<
+    string,
+    RemoteParticipantAudioPreference
+  >;
   avatarByUserId: Record<string, string | null | undefined>;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
+  onSetRemoteParticipantMuted: (
+    participantUserId: string,
+    muted: boolean,
+  ) => void;
+  onSetRemoteParticipantVolume: (
+    participantUserId: string,
+    volumePercent: number,
+  ) => void;
   lobbyStateQuery: UseQueryResult<
     DesktopResult<{
       lobbyId: string;
@@ -73,6 +89,19 @@ interface LobbiesMainPanelProps {
   onToggleCamera: () => void;
   onLeaveLobby: () => void;
 }
+
+const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
+  muted: false,
+  volumePercent: 100,
+};
+
+const clampRemoteVolumePercent = (volumePercent: number): number => {
+  if (!Number.isFinite(volumePercent)) {
+    return DEFAULT_REMOTE_AUDIO_PREFERENCE.volumePercent;
+  }
+
+  return Math.min(200, Math.max(0, Math.round(volumePercent)));
+};
 
 function resolvePreviewStream(
   participant: LobbyParticipantView,
@@ -122,9 +151,12 @@ export function LobbiesMainPanel({
   localCameraStream,
   localScreenStream,
   remoteParticipantStreams,
+  remoteParticipantAudioPreferences,
   avatarByUserId,
   joiningLobbyId,
   onJoinLobby,
+  onSetRemoteParticipantMuted,
+  onSetRemoteParticipantVolume,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -143,6 +175,11 @@ export function LobbiesMainPanel({
   onLeaveLobby,
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
+  const [participantContextMenu, setParticipantContextMenu] = useState<{
+    participant: LobbyParticipantView;
+    x: number;
+    y: number;
+  } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(
     () => new Date().toISOString(),
   );
@@ -213,6 +250,7 @@ export function LobbiesMainPanel({
 
   useEffect(() => {
     setIsLobbyChatOpen(true);
+    setParticipantContextMenu(null);
   }, [activeLobbyId]);
 
   useEffect(() => {
@@ -222,6 +260,98 @@ export function LobbiesMainPanel({
 
     setLocalFallbackJoinedAt(new Date().toISOString());
   }, [activeLobbyId]);
+
+  useEffect(() => {
+    if (!participantContextMenu) {
+      return;
+    }
+
+    const stillPresent = lobbyParticipants.some(
+      (participant) =>
+        !participant.isLocalUser &&
+        participant.userId === participantContextMenu.participant.userId,
+    );
+
+    if (!stillPresent) {
+      setParticipantContextMenu(null);
+    }
+  }, [lobbyParticipants, participantContextMenu]);
+
+  useEffect(() => {
+    if (!participantContextMenu) {
+      return;
+    }
+
+    const closeMenu = (): void => {
+      setParticipantContextMenu(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    };
+
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [participantContextMenu]);
+
+  const participantContextMenuStyle = useMemo(() => {
+    if (!participantContextMenu || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const menuWidth = 300;
+    const menuHeight = 300;
+    const padding = 8;
+
+    const clampedX = Math.min(
+      Math.max(participantContextMenu.x, padding),
+      window.innerWidth - menuWidth - padding,
+    );
+
+    const clampedY = Math.min(
+      Math.max(participantContextMenu.y, padding),
+      window.innerHeight - menuHeight - padding,
+    );
+
+    return {
+      left: clampedX,
+      top: clampedY,
+    };
+  }, [participantContextMenu]);
+
+  const selectedRemoteParticipant = participantContextMenu?.participant ?? null;
+  const selectedRemoteAudioPreference = selectedRemoteParticipant
+    ? (remoteParticipantAudioPreferences[selectedRemoteParticipant.userId] ??
+      DEFAULT_REMOTE_AUDIO_PREFERENCE)
+    : DEFAULT_REMOTE_AUDIO_PREFERENCE;
+  const selectedRemoteVolumePercent = clampRemoteVolumePercent(
+    selectedRemoteAudioPreference.volumePercent,
+  );
+
+  const handleParticipantContextMenu = (
+    event: MouseEvent<HTMLElement>,
+    participant: LobbyParticipantView,
+  ): void => {
+    if (participant.isLocalUser) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setParticipantContextMenu({
+      participant,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
 
   if (!activeLobbyId) {
     return (
@@ -316,6 +446,9 @@ export function LobbiesMainPanel({
                   localScreenStream,
                   remoteParticipantStreams,
                 )}
+                onContextMenu={(event) =>
+                  handleParticipantContextMenu(event, participant)
+                }
               />
             ))}
           </div>
@@ -376,6 +509,143 @@ export function LobbiesMainPanel({
               <PlugZap size={15} aria-hidden="true" />
             </button>
           </div>
+
+          {participantContextMenu && selectedRemoteParticipant && (
+            <div
+              className="ct-lobby-context-menu ct-participant-context-menu"
+              style={participantContextMenuStyle}
+              onClick={(event) => event.stopPropagation()}
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <p className="ct-participant-context-menu-title">
+                {selectedRemoteParticipant.username}
+              </p>
+
+              <div className="ct-participant-context-menu-state-row">
+                <span
+                  className={`ct-participant-context-menu-state ${selectedRemoteAudioPreference.muted ? "muted" : "active"}`}
+                >
+                  {selectedRemoteAudioPreference.muted
+                    ? "Susturuldu"
+                    : "Duyuluyor"}
+                </span>
+                <span className="ct-participant-context-menu-hint">
+                  Cikmak icin ESC
+                </span>
+              </div>
+
+              <div className="ct-participant-context-menu-actions">
+                <button
+                  type="button"
+                  className={`ct-participant-context-menu-button ${selectedRemoteAudioPreference.muted ? "active" : ""}`}
+                  onClick={() => {
+                    onSetRemoteParticipantMuted(
+                      selectedRemoteParticipant.userId,
+                      !selectedRemoteAudioPreference.muted,
+                    );
+                  }}
+                >
+                  {selectedRemoteAudioPreference.muted ? (
+                    <>
+                      <Volume2 size={14} aria-hidden="true" /> Sesi Ac
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX size={14} aria-hidden="true" /> Sustur
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className="ct-participant-context-menu-button"
+                  onClick={() => {
+                    onSetRemoteParticipantMuted(
+                      selectedRemoteParticipant.userId,
+                      false,
+                    );
+                    onSetRemoteParticipantVolume(
+                      selectedRemoteParticipant.userId,
+                      100,
+                    );
+                  }}
+                >
+                  <RotateCcw size={14} aria-hidden="true" /> Sifirla
+                </button>
+              </div>
+
+              <label className="ct-participant-context-menu-volume">
+                <div className="ct-participant-context-menu-volume-line">
+                  <span>Ses Seviyesi</span>
+                  <strong>%{selectedRemoteVolumePercent}</strong>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={200}
+                  step={5}
+                  value={selectedRemoteVolumePercent}
+                  onChange={(event) => {
+                    onSetRemoteParticipantVolume(
+                      selectedRemoteParticipant.userId,
+                      clampRemoteVolumePercent(Number(event.target.value)),
+                    );
+                  }}
+                />
+
+                <div className="ct-participant-context-menu-stepper">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSetRemoteParticipantVolume(
+                        selectedRemoteParticipant.userId,
+                        selectedRemoteVolumePercent - 10,
+                      );
+                    }}
+                  >
+                    -10
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSetRemoteParticipantVolume(
+                        selectedRemoteParticipant.userId,
+                        selectedRemoteVolumePercent + 10,
+                      );
+                    }}
+                  >
+                    +10
+                  </button>
+                </div>
+
+                <div className="ct-participant-context-menu-scale">
+                  <span>0</span>
+                  <span>100</span>
+                  <span>200</span>
+                </div>
+              </label>
+
+              <div className="ct-participant-context-menu-presets">
+                {[0, 80, 100, 150, 200].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className={
+                      selectedRemoteVolumePercent === preset ? "active" : ""
+                    }
+                    onClick={() => {
+                      onSetRemoteParticipantVolume(
+                        selectedRemoteParticipant.userId,
+                        preset,
+                      );
+                    }}
+                  >
+                    %{preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <aside

@@ -8,6 +8,8 @@ export interface AudioPreferences {
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  selectedAudioInputDeviceId: string | null;
+  selectedAudioOutputDeviceId: string | null;
 }
 
 export interface StreamPreferences {
