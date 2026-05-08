@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { Select, Switch, Button, Progress, message } from "antd";
+import {
+  AudioOutlined,
+  SaveOutlined,
+  PlayCircleOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+} from "@ant-design/icons";
 import type { AudioPreferences } from "./settings-main-panel-types";
 import { NOISE_SUPPRESSION_PRESET_OPTIONS } from "../../workspace-media-utils";
 
@@ -40,9 +48,9 @@ export function SettingsAudio({
   audioOutputDevices,
   onSaveAudioPreferences,
 }: SettingsAudioProps) {
+  const [messageApi, contextHolder] = message.useMessage();
   const [draftAudioPreferences, setDraftAudioPreferences] =
     useState<AudioPreferences>(audioPreferences);
-  const [audioNotice, setAudioNotice] = useState("");
   const [audioTestStream, setAudioTestStream] = useState<MediaStream | null>(
     null,
   );
@@ -116,11 +124,10 @@ export function SettingsAudio({
 
   const handleSaveAudioPreferences = (): void => {
     onSaveAudioPreferences(draftAudioPreferences);
-    setAudioNotice("Ses ayarları kaydedildi ve uygulandı.");
+    messageApi.success("Ses ayarları kaydedildi ve uygulandı.");
   };
 
   const handleStartAudioTest = async (): Promise<void> => {
-    setAudioNotice("");
     setIsStartingAudioTest(true);
 
     try {
@@ -145,7 +152,7 @@ export function SettingsAudio({
             device.deviceId === preferredInputDeviceId,
         )
       ) {
-        setAudioNotice(
+        messageApi.info(
           "Seçili mikrofon şu anda bağlı değil. Test varsayılan mikrofonla denenecek.",
         );
       }
@@ -174,7 +181,7 @@ export function SettingsAudio({
           audio: buildAudioConstraints(null),
           video: false,
         });
-        setAudioNotice(
+        messageApi.warning(
           "Seçili mikrofon bulunamadı. Test varsayılan mikrofonla başlatıldı.",
         );
       }
@@ -206,7 +213,7 @@ export function SettingsAudio({
             try {
               await sinkTarget.setSinkId(selectedOutputDeviceId);
             } catch {
-              setAudioNotice(
+              messageApi.warning(
                 "Seçili ses çıkış cihazı testte kullanılamadı. Varsayılan çıkışa geçildi.",
               );
             }
@@ -255,20 +262,11 @@ export function SettingsAudio({
         audioInputDevices.find((device) => device.deviceId === usedDeviceId)
           ?.label ?? activeTrack?.label;
 
-      setAudioNotice((previous) => {
-        const deviceSuffix = usedDeviceLabel
-          ? ` Aktif mikrofon: ${usedDeviceLabel}.`
-          : "";
-        const monitorSuffix = " Konuşurken kendi sesini duyabilirsin.";
-
-        if (previous.length > 0) {
-          return `${previous} Konuşarak seviye çubuğunu kontrol et.${deviceSuffix}${monitorSuffix}`;
-        }
-
-        return `Mikrofon testi başlatıldı. Konuşarak seviye çubuğunu kontrol et.${deviceSuffix}${monitorSuffix}`;
-      });
+      messageApi.success(
+        `Mikrofon testi başlatıldı.${usedDeviceLabel ? ` Aktif mikrofon: ${usedDeviceLabel}.` : ""} Konuşurken seviye çubuğunu kontrol et.`,
+      );
     } catch (error) {
-      setAudioNotice(
+      messageApi.error(
         `Ses testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -301,33 +299,36 @@ export function SettingsAudio({
         void closeAudioContextSafely(audioContext);
       };
 
-      setAudioNotice("Test sesi çalındı.");
+      messageApi.success("Test sesi çalındı.");
     } catch (error) {
-      setAudioNotice(
+      messageApi.error(
         `Test sesi çalınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     }
   };
 
+  const inputOptions = [
+    { value: "", label: "Varsayılan mikrofon" },
+    ...audioInputDevices.map((device, index) => ({
+      value: device.deviceId,
+      label: device.label || `Mikrofon ${index + 1}`,
+    })),
+  ];
+
+  const outputOptions = [
+    { value: "", label: "Varsayılan ses çıkışı" },
+    ...audioOutputDevices.map((device, index) => ({
+      value: device.deviceId,
+      label: device.label || `Çıkış ${index + 1}`,
+    })),
+  ];
+
   return (
     <div className="ct-settings-section">
+      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
+          <AudioOutlined style={{ fontSize: "20px" }} />
         </div>
         <div>
           <h4>Ses Ayarları</h4>
@@ -337,232 +338,244 @@ export function SettingsAudio({
         </div>
       </div>
 
-      <div className="ct-settings-content">
+      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
         <audio ref={audioPreviewRef} hidden playsInline />
 
-        <div className="ct-settings-actions">
-          <label className="ct-settings-device-field">
-            <span>Mikrofon giriş cihazı</span>
-            <select
-              className="ct-input"
+        <div className="ct-settings-grid" style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "16px",
+          marginBottom: "24px",
+        }}>
+          <div>
+            <label className="ct-label" htmlFor="settings-audio-input" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Mikrofon giriş cihazı
+            </label>
+            <Select
+              id="settings-audio-input"
               value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
-              onChange={(event) => {
-                const nextValue = event.target.value.trim();
+              onChange={(value) => {
+                const nextValue = value.trim();
                 setDraftAudioPreferences((previous) => ({
                   ...previous,
-                  selectedAudioInputDeviceId:
-                    nextValue.length > 0 ? nextValue : null,
+                  selectedAudioInputDeviceId: nextValue.length > 0 ? nextValue : null,
                 }));
               }}
-            >
-              <option value="">Varsayılan mikrofon</option>
-              {audioInputDevices.map((device, index) => (
-                <option
-                  key={device.deviceId || `audio-input-${index}`}
-                  value={device.deviceId}
-                >
-                  {device.label || `Mikrofon ${index + 1}`}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={inputOptions}
+              style={{ width: "100%", height: "40px" }}
+            />
+          </div>
 
-          <label className="ct-settings-device-field">
-            <span>Ses çıkış cihazı</span>
-            <select
-              className="ct-input"
+          <div>
+            <label className="ct-label" htmlFor="settings-audio-output" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Ses çıkış cihazı
+            </label>
+            <Select
+              id="settings-audio-output"
               value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
-              onChange={(event) => {
-                const nextValue = event.target.value.trim();
+              onChange={(value) => {
+                const nextValue = value.trim();
                 setDraftAudioPreferences((previous) => ({
                   ...previous,
-                  selectedAudioOutputDeviceId:
-                    nextValue.length > 0 ? nextValue : null,
+                  selectedAudioOutputDeviceId: nextValue.length > 0 ? nextValue : null,
                 }));
               }}
-            >
-              <option value="">Varsayılan ses çıkışı</option>
-              {audioOutputDevices.map((device, index) => (
-                <option
-                  key={device.deviceId || `audio-output-${index}`}
-                  value={device.deviceId}
-                >
-                  {device.label || `Çıkış ${index + 1}`}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={outputOptions}
+              style={{ width: "100%", height: "40px" }}
+            />
+          </div>
         </div>
 
-        <div className="ct-settings-switch-list">
-          <label className="ct-settings-switch-item">
-            <div className="ct-settings-switch-item-content">
-              <strong>Mikrofon varsayılan olarak açık olsun</strong>
-              <span>
+        <div className="ct-settings-switch-list" style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          background: "rgba(255,255,255,0.01)",
+          border: "1px solid rgba(255,255,255,0.03)",
+          borderRadius: "8px",
+          padding: "16px",
+          marginBottom: "24px",
+        }}>
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Mikrofon varsayılan olarak açık olsun</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
                 Lobiye girişte mikrofon durumu bu ayara göre uygulanır.
               </span>
             </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-audio-mic-default"
-                type="checkbox"
-                checked={draftAudioPreferences.defaultMicEnabled}
-                onChange={(event) =>
-                  setDraftAudioPreferences((previous) => ({
-                    ...previous,
-                    defaultMicEnabled: event.target.checked,
-                  }))
-                }
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
-
-          <label className="ct-settings-switch-item">
-            <div className="ct-settings-switch-item-content">
-              <strong>Kulaklık varsayılan olarak açık olsun</strong>
-              <span>Lobiye girişte duyma durumu bu ayara göre uygulanır.</span>
-            </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-audio-headphone-default"
-                type="checkbox"
-                checked={draftAudioPreferences.defaultHeadphoneEnabled}
-                onChange={(event) =>
-                  setDraftAudioPreferences((previous) => ({
-                    ...previous,
-                    defaultHeadphoneEnabled: event.target.checked,
-                  }))
-                }
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
-
-          <label className="ct-settings-switch-item">
-            <div className="ct-settings-switch-item-content">
-              <strong>Lobi bildirim sesleri açık olsun</strong>
-              <span>
-                Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses
-                bildirimi çalar.
-              </span>
-            </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-audio-notification-sounds"
-                type="checkbox"
-                checked={draftAudioPreferences.notificationSoundsEnabled}
-                onChange={(event) =>
-                  setDraftAudioPreferences((previous) => ({
-                    ...previous,
-                    notificationSoundsEnabled: event.target.checked,
-                  }))
-                }
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
-
-          <label className="ct-settings-switch-item">
-            <div className="ct-settings-switch-item-content">
-              <strong>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
-              <span>
-                Mikrofon açıkken arka plan seslerini azaltmak için ücretsiz
-                RNNoise işleme katmanı kullanılır.
-              </span>
-            </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-audio-enhanced-noise-suppression"
-                type="checkbox"
-                checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
-                onChange={(event) =>
-                  setDraftAudioPreferences((previous) => ({
-                    ...previous,
-                    enhancedNoiseSuppressionEnabled: event.target.checked,
-                  }))
-                }
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
-
-          <label className="ct-settings-device-field">
-            <span>RNNoise kalite profili</span>
-            <select
-              className="ct-input"
-              value={draftAudioPreferences.noiseSuppressionPreset}
-              onChange={(event) => {
-                const nextPreset = event.target
-                  .value as AudioPreferences["noiseSuppressionPreset"];
+            <Switch
+              checked={draftAudioPreferences.defaultMicEnabled}
+              onChange={(checked) =>
                 setDraftAudioPreferences((previous) => ({
                   ...previous,
-                  noiseSuppressionPreset: nextPreset,
-                }));
-              }}
-              disabled={!draftAudioPreferences.enhancedNoiseSuppressionEnabled}
-            >
-              {NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label} - {preset.description}
-                </option>
-              ))}
-            </select>
-          </label>
+                  defaultMicEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Kulaklık varsayılan olarak açık olsun</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Lobiye girişte duyma durumu bu ayara göre uygulanır.</span>
+            </div>
+            <Switch
+              checked={draftAudioPreferences.defaultHeadphoneEnabled}
+              onChange={(checked) =>
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  defaultHeadphoneEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Lobi bildirim sesleri açık olsun</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses bildirimi çalar.
+              </span>
+            </div>
+            <Switch
+              checked={draftAudioPreferences.notificationSoundsEnabled}
+              onChange={(checked) =>
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  notificationSoundsEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Mikrofon açıkken arka plan seslerini azaltmak için RNNoise işleme katmanı kullanılır.
+              </span>
+            </div>
+            <Switch
+              checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
+              onChange={(checked) =>
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  enhancedNoiseSuppressionEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          {draftAudioPreferences.enhancedNoiseSuppressionEnabled && (
+            <div style={{ marginTop: "8px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
+              <label className="ct-label" htmlFor="settings-audio-preset" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+                RNNoise kalite profili
+              </label>
+              <Select
+                id="settings-audio-preset"
+                value={draftAudioPreferences.noiseSuppressionPreset}
+                onChange={(value) => {
+                  setDraftAudioPreferences((previous) => ({
+                    ...previous,
+                    noiseSuppressionPreset: value as AudioPreferences["noiseSuppressionPreset"],
+                  }));
+                }}
+                options={NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => ({
+                  value: preset.id,
+                  label: `${preset.label} - ${preset.description}`,
+                }))}
+                style={{ width: "100%", height: "40px" }}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="ct-settings-actions">
-          <button
-            type="button"
-            className="ct-btn-primary"
+        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
             onClick={handleSaveAudioPreferences}
+            style={{
+              background: "#ffffff",
+              borderColor: "#ffffff",
+              color: "#000000",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
             Ses Ayarlarını Kaydet
-          </button>
-          <button
-            type="button"
-            className="ct-btn-secondary"
+          </Button>
+
+          <Button
+            type="text"
+            icon={audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
             onClick={() => {
               if (audioTestStream) {
                 void stopAudioTest().then(() => {
-                  setAudioNotice("Mikrofon testi durduruldu.");
+                  messageApi.info("Mikrofon testi durduruldu.");
                 });
                 return;
               }
 
               void handleStartAudioTest();
             }}
+            loading={isStartingAudioTest}
             disabled={isStartingAudioTest}
+            style={{
+              background: isStartingAudioTest 
+                ? "rgba(255, 255, 255, 0.02)" 
+                : audioTestStream 
+                  ? "rgba(239, 68, 68, 0.08)" 
+                  : "rgba(255, 255, 255, 0.05)",
+              color: isStartingAudioTest 
+                ? "rgba(255, 255, 255, 0.25)" 
+                : audioTestStream 
+                  ? "#ef4444" 
+                  : "#ffffff",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
-            {isStartingAudioTest
-              ? "Başlatılıyor..."
-              : audioTestStream
-                ? "Mikrofon Testini Durdur"
-                : "Mikrofon Testini Başlat"}
-          </button>
-          <button
-            type="button"
-            className="ct-btn-secondary"
-            onClick={() => {
-              void handlePlayTestTone();
+            {audioTestStream ? "Mikrofon Testini Durdur" : "Mikrofon Testini Başlat"}
+          </Button>
+
+          <Button
+            type="text"
+            icon={<PlayCircleOutlined />}
+            onClick={handlePlayTestTone}
+            style={{
+              background: "rgba(255, 255, 255, 0.05)",
+              color: "#ffffff",
+              height: "40px",
+              borderRadius: "6px",
             }}
           >
             Test Sesi Çal
-          </button>
+          </Button>
         </div>
 
-        <div className="ct-settings-audio-meter-wrap">
-          <span>Mikrofon Seviyesi</span>
-          <div className="ct-settings-audio-meter" role="presentation">
-            <div
-              className="ct-settings-audio-meter-fill"
-              style={{ width: `${micLevelPercent}%` }}
+        <div className="ct-settings-audio-meter-wrap" style={{
+          background: "rgba(255,255,255,0.01)",
+          border: "1px solid rgba(255,255,255,0.03)",
+          borderRadius: "8px",
+          padding: "16px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+        }}>
+          <span style={{ fontSize: "12px", fontWeight: "600", color: "rgba(255,255,255,0.45)" }}>Mikrofon Seviyesi</span>
+          <div style={{ flex: 1 }}>
+            <Progress
+              percent={micLevelPercent}
+              showInfo={false}
+              strokeColor="#ffffff"
+              trailColor="rgba(255,255,255,0.08)"
+              style={{ margin: 0 }}
             />
           </div>
-          <strong>%{micLevelPercent}</strong>
+          <strong style={{ fontSize: "12px", color: "#ffffff", minWidth: "32px", textAlign: "right" }}>%{micLevelPercent}</strong>
         </div>
-
-        {audioNotice && <p className="ct-settings-notice">{audioNotice}</p>}
       </div>
     </div>
   );

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, Plus, Wifi, WifiOff, X } from "lucide-react";
+import { Switch, Divider } from "antd";
+import { 
+  DashboardOutlined, 
+  DisconnectOutlined, 
+  SyncOutlined,
+  HourglassOutlined,
+  GlobalOutlined,
+  WifiOutlined
+} from "@ant-design/icons";
 import type { LobbyDescriptor } from "../../../../../shared/auth-contracts";
 import type {
   DesktopResult,
@@ -84,6 +93,8 @@ interface WorkspaceSidebarProps {
   };
   audioProcessingProps: {
     enhancedNoiseSuppressionEnabled: boolean;
+    /** Gerçek aktif mod: "none" (devre dışı) | "browser" (tarayıcı NS) | "processor" (RNNoise) */
+    activeNoiseMode: "none" | "browser" | "processor";
     onToggleEnhancedNoiseSuppression: () => void;
   };
 }
@@ -296,82 +307,220 @@ export function WorkspaceSidebar({
                 role="dialog"
                 aria-modal="false"
                 aria-label="Ses bağlantı detayları"
+                style={{
+                  padding: "16px",
+                  borderRadius: "12px",
+                  background: "rgba(10, 10, 10, 0.98)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  boxShadow: "0 20px 40px rgba(0, 0, 0, 0.8)",
+                  width: "calc(100% - 24px)",
+                  margin: "0 auto",
+                  left: "12px",
+                  right: "12px"
+                }}
               >
-                <header className="ct-audio-popover-header">
-                  <h4>Ses Bağlantı Durumu</h4>
+                <header className="ct-audio-popover-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Ses Bağlantı Durumu</h4>
                   <button
                     type="button"
                     className="ct-user-popup-close"
                     onClick={() => setIsAudioPopupOpen(false)}
                     aria-label="Detay penceresini kapat"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255, 255, 255, 0.45)",
+                      cursor: "pointer",
+                      padding: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "4px",
+                      transition: "all 0.15s"
+                    }}
                   >
-                    <X size={16} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </header>
 
-                <div className="ct-audio-details-grid">
-                  <div className="ct-detail-item">
-                    <span>Durum: {audioConnectionProps.statusText}</span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>Bağlantı Yorumu: {stabilityHint}</span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>Gecikme Yorumu: {latencyHint}</span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>
-                      Ping: {audioConnectionProps.pingMs ?? "-"}
-                      {audioConnectionProps.pingMs !== null ? " ms" : ""}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  {(() => {
+                    const tone = audioConnectionProps.tone;
+                    if (tone === "ok") {
+                      return (
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{
+                            width: "8px",
+                            height: "8px",
+                            background: "#22c55e",
+                            borderRadius: "50%",
+                            boxShadow: "0 0 8px #22c55e",
+                            display: "inline-block"
+                          }} />
+                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.65)", fontWeight: "500" }}>Gecikme Düşük</span>
+                        </span>
+                      );
+                    }
+                    if (tone === "warn") {
+                      return (
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{
+                            width: "8px",
+                            height: "8px",
+                            background: "#eab308",
+                            borderRadius: "50%",
+                            boxShadow: "0 0 8px #eab308",
+                            display: "inline-block"
+                          }} />
+                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.65)", fontWeight: "500" }}>Yüksek Ping</span>
+                        </span>
+                      );
+                    }
+                    if (tone === "error") {
+                      return (
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{
+                            width: "8px",
+                            height: "8px",
+                            background: "#ef4444",
+                            borderRadius: "50%",
+                            boxShadow: "0 0 8px #ef4444",
+                            display: "inline-block"
+                          }} />
+                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.65)", fontWeight: "500" }}>Bağlantı Kesildi</span>
+                        </span>
+                      );
+                    }
+                    return (
+                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{
+                          width: "8px",
+                          height: "8px",
+                          background: "rgba(255,255,255,0.25)",
+                          borderRadius: "50%",
+                          display: "inline-block"
+                        }} />
+                        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", fontWeight: "500" }}>Bağlanıyor</span>
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="ct-audio-details-grid" style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px",
+                  marginBottom: "12px"
+                }}>
+                  <div style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "6px", padding: "8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <DashboardOutlined style={{ fontSize: "11px" }} /> Gecikme (Ping)
                     </span>
+                    <strong style={{ fontSize: "12px", color: "#ffffff" }}>
+                      {audioConnectionProps.pingMs !== null ? `${audioConnectionProps.pingMs} ms` : "-"}
+                    </strong>
                   </div>
-                  <div className="ct-detail-item">
-                    <span>
-                      Paket Kaybı (Canlı):{" "}
-                      {audioConnectionProps.packetLossPct ?? "-"}
-                      {audioConnectionProps.packetLossPct !== null ? "%" : ""}
+
+                  <div style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "6px", padding: "8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <DisconnectOutlined style={{ fontSize: "11px" }} /> Paket Kaybı
                     </span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>
-                      Gecikme Dalgalanması:{" "}
-                      {audioConnectionProps.jitterMs ?? "-"}
-                      {audioConnectionProps.jitterMs !== null ? " ms" : ""}
-                    </span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>
-                      Toplam Ölçüm: {audioConnectionProps.successfulSamples}
-                    </span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <span>Son Ölçüm: {measurementTimeText}</span>
+                    <strong style={{ fontSize: "12px", color: audioConnectionProps.packetLossPct && audioConnectionProps.packetLossPct > 1 ? "#ff4d4f" : "#ffffff" }}>
+                      {audioConnectionProps.packetLossPct !== null ? `${audioConnectionProps.packetLossPct.toFixed(1)}%` : "%0.0"}
+                    </strong>
                   </div>
                 </div>
 
-                <div className="ct-audio-popover-actions">
-                  <label className="ct-settings-switch-item">
-                    <div className="ct-settings-switch-item-content">
-                      <strong>RNNoise Gürültü Bastırma</strong>
-                      <span>
-                        Mikrofon gürültüsünü azaltır. Açık değilse tarayıcı
-                        filtreleri kullanılır.
-                      </span>
+                <Divider style={{ margin: "12px 0", borderColor: "rgba(255,255,255,0.06)" }} />
+
+                <div className="ct-audio-popover-actions" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <strong style={{ fontSize: "12px", color: "#ffffff" }}>RNNoise Gürültü Bastırma</strong>
+                      <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>Arka plan seslerini temizler.</span>
                     </div>
-                    <div className="ct-settings-switch">
-                      <input
-                        id="audio-popover-rnnoise-toggle"
-                        type="checkbox"
-                        checked={
-                          audioProcessingProps.enhancedNoiseSuppressionEnabled
-                        }
-                        onChange={() => {
-                          audioProcessingProps.onToggleEnhancedNoiseSuppression();
-                        }}
-                      />
-                      <span className="ct-settings-switch-slider" />
+                    <Switch
+                      checked={audioProcessingProps.enhancedNoiseSuppressionEnabled}
+                      onChange={() => {
+                        audioProcessingProps.onToggleEnhancedNoiseSuppression();
+                      }}
+                      size="small"
+                      style={{
+                        background: audioProcessingProps.enhancedNoiseSuppressionEnabled ? "#ffffff" : "rgba(255, 255, 255, 0.15)",
+                      }}
+                    />
+                  </div>
+
+                  {audioProcessingProps.enhancedNoiseSuppressionEnabled && (
+                    <div
+                      className={`ct-ns-mode-badge ct-ns-mode-badge--${
+                        audioProcessingProps.activeNoiseMode
+                      }`}
+                      role="status"
+                      aria-live="polite"
+                      title="Aktif gürültü bastırma modu"
+                      style={{
+                        marginTop: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "10px",
+                        fontWeight: "600",
+                        color: "rgba(255,255,255,0.65)",
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.05)",
+                        padding: "6px 8px",
+                        borderRadius: "4px"
+                      }}
+                    >
+                      {audioProcessingProps.activeNoiseMode === "processor" && (
+                        <>
+                          <span
+                            className="ct-ns-mode-dot"
+                            aria-hidden="true"
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              background: "#52c41a",
+                              borderRadius: "50%",
+                              boxShadow: "0 0 6px #52c41a"
+                            }}
+                          />
+                          RNNoise Filtresi Aktif
+                        </>
+                      )}
+                      {audioProcessingProps.activeNoiseMode === "browser" && (
+                        <>
+                          <span
+                            className="ct-ns-mode-dot"
+                            aria-hidden="true"
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              background: "#faad14",
+                              borderRadius: "50%"
+                            }}
+                          />
+                          Tarayıcı Filtresi (Geri Dönüş)
+                        </>
+                      )}
+                      {audioProcessingProps.activeNoiseMode === "none" && (
+                        <>
+                          <span
+                            className="ct-ns-mode-dot"
+                            aria-hidden="true"
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              background: "rgba(255,255,255,0.25)",
+                              borderRadius: "50%"
+                            }}
+                          />
+                          Başlatılıyor...
+                        </>
+                      )}
                     </div>
-                  </label>
+                  )}
                 </div>
               </section>
             )}

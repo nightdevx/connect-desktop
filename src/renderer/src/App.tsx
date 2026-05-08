@@ -140,9 +140,6 @@ function App() {
 
           <div className="ct-app-header-actions">
             <span className="ct-meta-pill">Sürüm: v{appVersion}</span>
-            <span className="ct-meta-pill live" data-state={statusState}>
-              {isBooting ? "Yükleniyor" : statusMessage}
-            </span>
             {isAuthenticated && (
               <button
                 type="button"

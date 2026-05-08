@@ -1,5 +1,13 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Input, Button, Avatar, message } from "antd";
+import {
+  UserOutlined,
+  UploadOutlined,
+  DeleteOutlined,
+  SaveOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import { authService } from "../../../../services/auth-service";
 
 interface ProfileSettings {
@@ -56,6 +64,7 @@ const readFileAsDataURL = (file: File): Promise<string> => {
 export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
   const queryClient = useQueryClient();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
 
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
     displayName: currentUsername,
@@ -65,11 +74,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
 
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileNotice, setProfileNotice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    setProfileNotice("");
     setIsProfileLoading(true);
 
     void authService
@@ -87,7 +94,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
           });
 
           if (!result.ok) {
-            setProfileNotice(
+            messageApi.error(
               `Profil bilgisi alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
             );
           }
@@ -111,7 +118,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
           bio: "",
           avatarUrl: null,
         });
-        setProfileNotice(
+        messageApi.error(
           `Profil bilgisi alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       })
@@ -127,11 +134,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
   }, [currentUsername]);
 
   const handleSaveProfile = async (): Promise<void> => {
-    setProfileNotice("");
-
     const normalizedDisplayName = profileSettings.displayName.trim();
     if (normalizedDisplayName.length < 3) {
-      setProfileNotice("Görünen ad en az 3 karakter olmalı.");
+      messageApi.warning("Görünen ad en az 3 karakter olmalı.");
       return;
     }
 
@@ -145,7 +150,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       });
 
       if (!result.ok || !result.data?.profile) {
-        setProfileNotice(
+        messageApi.error(
           `Profil kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -158,9 +163,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         avatarUrl: profile.avatarUrl ?? null,
       });
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      setProfileNotice("Profil ayarları kaydedildi.");
+      messageApi.success("Profil ayarları kaydedildi.");
     } catch (error) {
-      setProfileNotice(
+      messageApi.error(
         `Profil kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -169,7 +174,6 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
   };
 
   const handleResetProfile = async (): Promise<void> => {
-    setProfileNotice("");
     setIsSavingProfile(true);
     try {
       const result = await authService.updateProfile({
@@ -180,7 +184,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       });
 
       if (!result.ok || !result.data?.profile) {
-        setProfileNotice(
+        messageApi.error(
           `Profil sıfırlanamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -192,9 +196,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         avatarUrl: result.data.profile.avatarUrl ?? null,
       });
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      setProfileNotice("Profil ayarları varsayılana döndürüldü.");
+      messageApi.success("Profil ayarları varsayılana döndürüldü.");
     } catch (error) {
-      setProfileNotice(
+      messageApi.error(
         `Profil sıfırlanamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -213,12 +217,12 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
     }
 
     if (!SUPPORTED_AVATAR_MIME_TYPES.has(file.type)) {
-      setProfileNotice("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
+      messageApi.warning("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
       return;
     }
 
     if (file.size > MAX_AVATAR_FILE_BYTES) {
-      setProfileNotice("Logo boyutu en fazla 512 KB olabilir.");
+      messageApi.warning("Logo boyutu en fazla 512 KB olabilir.");
       return;
     }
 
@@ -228,9 +232,9 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         ...previous,
         avatarUrl: dataURL,
       }));
-      setProfileNotice("Logo seçildi. Kaydet'e basarak profiline uygula.");
+      messageApi.info("Logo seçildi. Kaydet'e basarak profiline uygula.");
     } catch (error) {
-      setProfileNotice(
+      messageApi.error(
         `Logo okunamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     }
@@ -241,26 +245,15 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       ...previous,
       avatarUrl: null,
     }));
-    setProfileNotice("Logo kaldırıldı. Kaydet'e basarak değişikliği uygula.");
+    messageApi.info("Logo kaldırıldı. Kaydet'e basarak değişikliği uygula.");
   };
 
   return (
     <div className="ct-settings-section">
+      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+          <UserOutlined style={{ fontSize: "20px" }} />
         </div>
         <div>
           <h4>Profil Ayarları</h4>
@@ -270,19 +263,27 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         </div>
       </div>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-profile-avatar-row">
-          <div className="ct-settings-profile-avatar" aria-hidden="true">
-            {profileSettings.avatarUrl ? (
-              <img src={profileSettings.avatarUrl} alt="" />
-            ) : (
-              <span>
-                {getInitials(profileSettings.displayName || currentUsername)}
-              </span>
-            )}
-          </div>
+      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
+        <div className="ct-settings-profile-avatar-row" style={{ display: "flex", gap: "20px", alignItems: "center", marginBottom: "24px" }}>
+          <Avatar
+            size={80}
+            src={profileSettings.avatarUrl}
+            icon={!profileSettings.avatarUrl && <UserOutlined />}
+            style={{
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              color: "#ffffff",
+              fontSize: "24px",
+              fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {!profileSettings.avatarUrl && getInitials(profileSettings.displayName || currentUsername)}
+          </Avatar>
 
-          <div className="ct-settings-profile-avatar-actions">
+          <div className="ct-settings-profile-avatar-actions" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <input
               ref={avatarInputRef}
               type="file"
@@ -293,39 +294,48 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
               hidden
             />
 
-            <div className="ct-action-row mt-0">
-              <button
-                type="button"
-                className="ct-btn-secondary ct-btn-sm"
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Button
+                type="text"
+                icon={<UploadOutlined />}
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isProfileLoading || isSavingProfile}
+                style={{
+                  background: "rgba(255, 255, 255, 0.05)",
+                  borderColor: "rgba(255, 255, 255, 0.1)",
+                  color: "#ffffff",
+                }}
               >
                 Logo Yükle
-              </button>
+              </Button>
 
               {profileSettings.avatarUrl && (
-                <button
-                  type="button"
-                  className="ct-btn-secondary ct-btn-sm"
+                <Button
+                  danger
+                  type="text"
+                  icon={<DeleteOutlined />}
                   onClick={handleAvatarClear}
                   disabled={isProfileLoading || isSavingProfile}
+                  style={{
+                    background: "rgba(239, 68, 68, 0.08)",
+                  }}
                 >
                   Logoyu Kaldır
-                </button>
+                </Button>
               )}
             </div>
 
-            <small>PNG/JPG/WEBP/GIF - En fazla 512 KB</small>
+            <small style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>PNG/JPG/WEBP/GIF - En fazla 512 KB</small>
           </div>
         </div>
 
-        <div className="ct-settings-grid">
-          <label className="ct-label" htmlFor="settings-display-name">
-            Görünen Ad
-            <input
+        <div className="ct-settings-grid" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+          <div>
+            <label className="ct-label" htmlFor="settings-display-name" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Görünen Ad
+            </label>
+            <Input
               id="settings-display-name"
-              className="ct-input"
-              type="text"
               value={profileSettings.displayName}
               onChange={(event) =>
                 setProfileSettings((previous) => ({
@@ -335,14 +345,22 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
               }
               maxLength={40}
               disabled={isProfileLoading || isSavingProfile}
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
             />
-          </label>
+          </div>
 
-          <label className="ct-label" htmlFor="settings-profile-bio">
-            Hakkımda
-            <textarea
+          <div>
+            <label className="ct-label" htmlFor="settings-profile-bio" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Hakkımda
+            </label>
+            <Input.TextArea
               id="settings-profile-bio"
-              className="ct-input ct-textarea"
               value={profileSettings.bio}
               onChange={(event) =>
                 setProfileSettings((previous) => ({
@@ -353,47 +371,75 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
               maxLength={220}
               rows={4}
               disabled={isProfileLoading || isSavingProfile}
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+              }}
             />
-          </label>
+          </div>
         </div>
 
-        <div className="ct-settings-info-grid">
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Kullanıcı Adı</span>
-            <strong className="ct-settings-info-value">
+        <div className="ct-settings-info-grid" style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "16px",
+          background: "rgba(255, 255, 255, 0.02)",
+          border: "1px solid rgba(255, 255, 255, 0.04)",
+          borderRadius: "8px",
+          padding: "16px",
+          marginBottom: "24px",
+        }}>
+          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Kullanıcı Adı</span>
+            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
               @{currentUsername}
             </strong>
           </div>
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Rol</span>
-            <strong className="ct-settings-info-value">Yönetici</strong>
+          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Rol</span>
+            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>Yönetici</strong>
           </div>
         </div>
 
-        <div className="ct-settings-actions">
-          <button
-            type="button"
-            className="ct-btn-primary"
+        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
             onClick={() => {
               void handleSaveProfile();
             }}
+            loading={isSavingProfile}
             disabled={isProfileLoading || isSavingProfile}
+            style={{
+              background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              borderColor: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#000000",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
-            {isSavingProfile ? "Kaydediliyor..." : "Profili Kaydet"}
-          </button>
-          <button
-            type="button"
-            className="ct-btn-secondary"
+            Profili Kaydet
+          </Button>
+          <Button
+            type="text"
+            icon={<ReloadOutlined />}
             onClick={() => {
               void handleResetProfile();
             }}
             disabled={isProfileLoading || isSavingProfile}
+            style={{
+              background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
+              color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#ffffff",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
             Varsayılana Dön
-          </button>
+          </Button>
         </div>
-
-        {profileNotice && <p className="ct-settings-notice">{profileNotice}</p>}
       </div>
     </div>
   );

@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import type { MouseEvent } from "react";
+import { useEffect, useState } from "react";
+import { Dropdown, Modal, Input, Button, Avatar } from "antd";
 import {
-  Camera,
-  Headphones,
-  Mic,
-  MicOff,
-  MonitorUp,
-  VolumeX,
-} from "lucide-react";
+  EditOutlined,
+  DeleteOutlined,
+  AudioOutlined,
+  AudioMutedOutlined,
+  CustomerServiceOutlined,
+  MutedOutlined,
+  VideoCameraOutlined,
+  DesktopOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import type { LobbyDescriptor } from "../../../../../shared/auth-contracts";
 import type {
   DesktopResult,
@@ -47,11 +50,6 @@ export function LobbiesSidebarPanel({
   renamingLobbyId,
   deletingLobbyId,
 }: LobbiesSidebarPanelProps) {
-  const [contextMenu, setContextMenu] = useState<{
-    lobby: LobbyDescriptor;
-    x: number;
-    y: number;
-  } | null>(null);
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
     null,
   );
@@ -61,95 +59,6 @@ export function LobbiesSidebarPanel({
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
-  };
-
-  const closeContextMenu = (): void => {
-    setContextMenu(null);
-  };
-
-  useEffect(() => {
-    if (!contextMenu) {
-      return;
-    }
-
-    const handleWindowClick = (): void => {
-      closeContextMenu();
-    };
-
-    const handleEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        closeContextMenu();
-      }
-    };
-
-    window.addEventListener("click", handleWindowClick);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("click", handleWindowClick);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [contextMenu]);
-
-  const menuStyle = useMemo(() => {
-    if (!contextMenu || typeof window === "undefined") {
-      return undefined;
-    }
-
-    const menuWidth = 170;
-    const menuHeight = 92;
-    const padding = 8;
-
-    const clampedX = Math.min(
-      Math.max(contextMenu.x, padding),
-      window.innerWidth - menuWidth - padding,
-    );
-
-    const clampedY = Math.min(
-      Math.max(contextMenu.y, padding),
-      window.innerHeight - menuHeight - padding,
-    );
-
-    return {
-      left: clampedX,
-      top: clampedY,
-    };
-  }, [contextMenu]);
-
-  const handleLobbyContextMenu = (
-    event: MouseEvent<HTMLLIElement>,
-    lobby: LobbyDescriptor,
-  ): void => {
-    if (isDefaultLobby(lobby)) {
-      return;
-    }
-
-    event.preventDefault();
-    setContextMenu({
-      lobby,
-      x: event.clientX,
-      y: event.clientY,
-    });
-  };
-
-  const handleRenameStart = (): void => {
-    if (!contextMenu) {
-      return;
-    }
-
-    setEditingLobby(contextMenu.lobby);
-    setEditLobbyName(contextMenu.lobby.name);
-    closeContextMenu();
-  };
-
-  const handleDelete = async (): Promise<void> => {
-    if (!contextMenu) {
-      return;
-    }
-
-    const target = contextMenu.lobby;
-    closeContextMenu();
-    setPendingDeleteLobby(target);
   };
 
   const handleDeleteConfirm = async (): Promise<void> => {
@@ -179,7 +88,7 @@ export function LobbiesSidebarPanel({
 
   return (
     <>
-      <ul className="ct-list">
+      <ul className="ct-list" style={{ marginTop: "8px" }}>
         {lobbiesQuery.isPending && (
           <li className="ct-list-state">Lobiler yükleniyor...</li>
         )}
@@ -220,22 +129,89 @@ export function LobbiesSidebarPanel({
             onJoinLobby(lobby.id);
           };
 
-          return (
+          const contextMenuItems = [
+            {
+              key: "rename",
+              label: "Lobi Adını Düzenle",
+              icon: <EditOutlined />,
+              onClick: () => {
+                setEditingLobby(lobby);
+                setEditLobbyName(lobby.name);
+              },
+            },
+            {
+              key: "delete",
+              label: "Lobiyi Sil",
+              icon: <DeleteOutlined />,
+              danger: true,
+              onClick: () => {
+                setPendingDeleteLobby(lobby);
+              },
+            },
+          ];
+
+          const lobbyElement = (
             <li
               key={lobby.id}
               className={`ct-list-item clickable ${isActive ? "active" : ""}`}
               onClick={handleLobbyClick}
-              onContextMenu={(event) => handleLobbyContextMenu(event, lobby)}
+              style={{
+                padding: "12px 16px",
+                margin: "4px 8px",
+                borderRadius: "8px",
+                transition: "all 0.2s ease",
+                cursor: "pointer",
+                listStyleType: "none",
+              }}
             >
-              <div className="ct-lobby-list-content">
-                <p>{lobby.name}</p>
+              <div className="w-full flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "13.5px",
+                      fontWeight: "600",
+                      color: isActive ? "#000000" : "#ffffff",
+                    }}
+                  >
+                    # {lobby.name}
+                  </p>
+                  {members.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        fontSize: "11px",
+                        color: isActive ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.4)",
+                      }}
+                    >
+                      <TeamOutlined style={{ fontSize: "11px" }} />
+                      <span>{members.length}</span>
+                    </div>
+                  )}
+                </div>
 
                 {members.length === 0 ? (
-                  <span>Lobide kimse yok.</span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: isActive ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.35)",
+                    }}
+                  >
+                    Lobide kimse yok.
+                  </span>
                 ) : (
                   <ul
                     className="ct-lobby-member-list"
                     aria-label="Lobi üyeleri"
+                    style={{
+                      margin: 0,
+                      padding: "4px 0 0 0",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}
                   >
                     {members.map((member) => {
                       const micOpen = !member.muted;
@@ -245,70 +221,143 @@ export function LobbiesSidebarPanel({
                         <li
                           key={member.userId}
                           className="ct-lobby-member-item"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "6px 8px",
+                            borderRadius: "6px",
+                            background: isActive
+                              ? "rgba(0, 0, 0, 0.04)"
+                              : "rgba(255, 255, 255, 0.03)",
+                            border: isActive
+                              ? "1px solid rgba(0,0,0,0.06)"
+                              : "1px solid rgba(255,255,255,0.04)",
+                          }}
                         >
-                          <div className="ct-lobby-member-main">
-                            <div
-                              className="ct-user-avatar sm"
-                              aria-hidden="true"
+                          <div
+                            className="ct-lobby-member-main"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <Avatar
+                              size={20}
+                              src={avatarByUserId[member.userId]}
+                              style={{
+                                border: isActive
+                                  ? "1px solid rgba(0, 0, 0, 0.1)"
+                                  : "1px solid rgba(255, 255, 255, 0.1)",
+                                background: isActive ? "#ffffff" : "#1a1a1a",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: isActive ? "#000000" : "#ffffff",
+                                fontSize: "8px",
+                                fontWeight: "bold",
+                              }}
                             >
-                              {avatarByUserId[member.userId] ? (
-                                <img
-                                  className="ct-user-avatar-image"
-                                  src={
-                                    avatarByUserId[member.userId] ?? undefined
-                                  }
-                                  alt=""
-                                />
-                              ) : (
-                                <span className="ct-user-avatar-fallback">
-                                  {getDisplayInitials(member.username)}
-                                </span>
-                              )}
-                            </div>
+                              {getDisplayInitials(member.username)}
+                            </Avatar>
 
-                            <p className="ct-lobby-member-name">
+                            <p
+                              className="ct-lobby-member-name"
+                              style={{
+                                margin: 0,
+                                fontSize: "11.5px",
+                                fontWeight: "500",
+                                color: isActive ? "#000000" : "rgba(255,255,255,0.75)",
+                              }}
+                            >
                               {member.username}
                             </p>
                           </div>
 
-                          <div className="ct-lobby-member-icons">
+                          <div
+                            className="ct-lobby-member-icons"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
                             <div
-                              className={`ct-lobby-member-icon ${micOpen ? "active" : "inactive"}`}
                               title={`Mikrofon ${micOpen ? "açık" : "kapalı"}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                opacity: micOpen ? 1 : 0.4,
+                              }}
                             >
                               {micOpen ? (
-                                <Mic size={11} aria-hidden="true" />
+                                <AudioOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "#000000" : "#10b981",
+                                  }}
+                                />
                               ) : (
-                                <MicOff size={11} aria-hidden="true" />
+                                <AudioMutedOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "rgba(0,0,0,0.5)" : "#6b7280",
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div
-                              className={`ct-lobby-member-icon ${headphoneOpen ? "active" : "inactive"}`}
                               title={`Kulaklık ${headphoneOpen ? "açık" : "kapalı"}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                opacity: headphoneOpen ? 1 : 0.4,
+                              }}
                             >
                               {headphoneOpen ? (
-                                <Headphones size={11} aria-hidden="true" />
+                                <CustomerServiceOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "#000000" : "#10b981",
+                                  }}
+                                />
                               ) : (
-                                <VolumeX size={11} aria-hidden="true" />
+                                <MutedOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "rgba(0,0,0,0.5)" : "#6b7280",
+                                  }}
+                                />
                               )}
                             </div>
 
                             {member.cameraEnabled && (
                               <div
-                                className="ct-lobby-member-icon signal"
                                 title="Kamera açık"
+                                style={{ display: "flex", alignItems: "center" }}
                               >
-                                <Camera size={11} aria-hidden="true" />
+                                <VideoCameraOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "#000000" : "#ffffff",
+                                  }}
+                                />
                               </div>
                             )}
 
                             {member.screenSharing && (
                               <div
-                                className="ct-lobby-member-icon signal"
                                 title="Ekran paylaşımı açık"
+                                style={{ display: "flex", alignItems: "center" }}
                               >
-                                <MonitorUp size={11} aria-hidden="true" />
+                                <DesktopOutlined
+                                  style={{
+                                    fontSize: "11px",
+                                    color: isActive ? "#000000" : "#ffffff",
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
@@ -320,89 +369,92 @@ export function LobbiesSidebarPanel({
               </div>
             </li>
           );
+
+          if (isDefaultLobby(lobby)) {
+            return lobbyElement;
+          }
+
+          return (
+            <Dropdown
+              key={lobby.id}
+              menu={{ items: contextMenuItems }}
+              trigger={["contextMenu"]}
+            >
+              {lobbyElement}
+            </Dropdown>
+          );
         })}
       </ul>
 
-      {contextMenu && (
-        <div
-          className="ct-lobby-context-menu"
-          style={menuStyle}
-          onClick={(event) => event.stopPropagation()}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <button type="button" onClick={handleRenameStart}>
-            Düzenle
-          </button>
-          <button
-            type="button"
-            className="danger"
-            onClick={() => void handleDelete()}
-          >
-            Sil
-          </button>
-        </div>
-      )}
-
-      {editingLobby && (
-        <div
-          className="ct-user-popup-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Lobi adını düzenle"
-          onClick={() => setEditingLobby(null)}
-        >
-          <form
-            className="ct-user-popup"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleRenameSubmit();
+      <Modal
+        title={
+          <span style={{ color: "#ffffff", fontWeight: "bold" }}>
+            Lobi Adını Düzenle
+          </span>
+        }
+        open={editingLobby !== null}
+        onOk={handleRenameSubmit}
+        onCancel={() => setEditingLobby(null)}
+        okText="Kaydet"
+        cancelText="İptal"
+        okButtonProps={{
+          disabled: editLobbyName.trim().length < 2,
+          loading: renamingLobbyId !== null && editingLobby !== null && renamingLobbyId === editingLobby.id,
+          style: { background: "#ffffff", color: "#000000", fontWeight: "600" },
+        }}
+        cancelButtonProps={{
+          style: {
+            background: "transparent",
+            borderColor: "rgba(255,255,255,0.15)",
+            color: "#ffffff",
+          },
+        }}
+        styles={{
+          mask: {
+            backdropFilter: "blur(6px)",
+            background: "rgba(0, 0, 0, 0.6)",
+          },
+          body: {
+            background: "transparent",
+            color: "#f5f5f5",
+          },
+          header: {
+            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+            paddingBottom: "12px",
+          },
+        }}
+      >
+        <div style={{ padding: "20px 0" }}>
+          <label
+            className="ct-label"
+            htmlFor="edit-lobby-name"
+            style={{
+              display: "block",
+              fontSize: "12px",
+              color: "rgba(255,255,255,0.45)",
+              marginBottom: "8px",
             }}
-            onClick={(event) => event.stopPropagation()}
           >
-            <div className="ct-user-popup-header">
-              <h4>Lobi Düzenle</h4>
-            </div>
-
-            <label className="ct-label" htmlFor="edit-lobby-name">
-              Yeni lobi adı
-            </label>
-            <input
-              id="edit-lobby-name"
-              type="text"
-              className="ct-input"
-              value={editLobbyName}
-              onChange={(event) => setEditLobbyName(event.target.value)}
-              minLength={2}
-              maxLength={64}
-              disabled={renamingLobbyId === editingLobby.id}
-              autoFocus
-            />
-
-            <div className="ct-action-row">
-              <button
-                type="submit"
-                className="ct-btn-primary"
-                disabled={
-                  renamingLobbyId === editingLobby.id ||
-                  editLobbyName.trim().length < 2
-                }
-              >
-                {renamingLobbyId === editingLobby.id
-                  ? "Kaydediliyor..."
-                  : "Kaydet"}
-              </button>
-              <button
-                type="button"
-                className="ct-btn-secondary"
-                onClick={() => setEditingLobby(null)}
-                disabled={renamingLobbyId === editingLobby.id}
-              >
-                İptal
-              </button>
-            </div>
-          </form>
+            Yeni lobi adı
+          </label>
+          <Input
+            id="edit-lobby-name"
+            value={editLobbyName}
+            onChange={(event) => setEditLobbyName(event.target.value)}
+            minLength={2}
+            maxLength={64}
+            disabled={editingLobby !== null && renamingLobbyId === editingLobby.id}
+            autoFocus
+            style={{
+              background: "rgba(20, 20, 20, 0.8)",
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              color: "#f5f5f5",
+              borderRadius: "6px",
+              height: "40px",
+            }}
+          />
         </div>
-      )}
+      </Modal>
 
       <ConfirmActionModal
         isOpen={pendingDeleteLobby !== null}
@@ -418,9 +470,7 @@ export function LobbiesSidebarPanel({
           deletingLobbyId === pendingDeleteLobby.id
         }
         onCancel={() => setPendingDeleteLobby(null)}
-        onConfirm={() => {
-          void handleDeleteConfirm();
-        }}
+        onConfirm={handleDeleteConfirm}
       />
     </>
   );

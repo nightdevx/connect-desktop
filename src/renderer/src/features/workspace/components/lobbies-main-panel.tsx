@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Button, Tooltip } from "antd";
 import {
-  Camera,
-  ChevronLeft,
-  ChevronRight,
-  MessageSquare,
-  Headphones,
-  Mic,
-  MicOff,
-  MonitorUp,
-  RotateCcw,
-  PlugZap,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+  AudioOutlined,
+  AudioMutedOutlined,
+  CustomerServiceOutlined,
+  DesktopOutlined,
+  VideoCameraOutlined,
+  LogoutOutlined,
+  LeftOutlined,
+  RightOutlined,
+  MessageOutlined,
+  ExclamationCircleOutlined,
+  LoadingOutlined,
+} from "@ant-design/icons";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type {
   ChatMessage,
@@ -52,6 +52,7 @@ interface LobbiesMainPanelProps {
     string,
     RemoteParticipantAudioPreference
   >;
+  activeSpeakerIds: string[];
   avatarByUserId: Record<string, string | null | undefined>;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
@@ -97,46 +98,116 @@ const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
   volumePercent: 100,
 };
 
-const clampRemoteVolumePercent = (volumePercent: number): number => {
-  if (!Number.isFinite(volumePercent)) {
-    return DEFAULT_REMOTE_AUDIO_PREFERENCE.volumePercent;
+type ParticipantSourcePreference = "auto" | "screen" | "camera";
+
+interface StageParticipantSlot {
+  slotId: string;
+  participant: LobbyParticipantView;
+  sourcePreference: ParticipantSourcePreference;
+}
+
+function resolveMappedTracks(
+  participant: LobbyParticipantView,
+  remoteParticipantStreams: ParticipantMediaMap,
+) {
+  let mappedTracks = remoteParticipantStreams[participant.userId];
+
+  if (!mappedTracks) {
+    mappedTracks = remoteParticipantStreams[participant.username];
   }
 
-  return Math.min(200, Math.max(0, Math.round(volumePercent)));
-};
+  if (!mappedTracks) {
+    const entry = Object.entries(remoteParticipantStreams).find(
+      ([id]) =>
+        id.includes(participant.userId) || participant.userId.includes(id),
+    );
+    if (entry) {
+      mappedTracks = entry[1];
+    }
+  }
+
+  return mappedTracks;
+}
+
+function resolveSourceStream(
+  participant: LobbyParticipantView,
+  localCameraStream: MediaStream | null,
+  localScreenStream: MediaStream | null,
+  remoteParticipantStreams: ParticipantMediaMap,
+  source: "screen" | "camera",
+): MediaStream | any | null {
+  const mappedTracks = resolveMappedTracks(
+    participant,
+    remoteParticipantStreams,
+  );
+
+  if (source === "screen") {
+    if (participant.screenSharing) {
+      if (mappedTracks?.screen) return mappedTracks.screen;
+      if (participant.isLocalUser) return localScreenStream;
+    }
+    return null;
+  }
+
+  if (participant.cameraEnabled) {
+    if (mappedTracks?.camera) return mappedTracks.camera;
+    if (participant.isLocalUser) return localCameraStream;
+  }
+
+  return null;
+}
 
 function resolvePreviewStream(
   participant: LobbyParticipantView,
   localCameraStream: MediaStream | null,
   localScreenStream: MediaStream | null,
   remoteParticipantStreams: ParticipantMediaMap,
-): MediaStream | null {
-  const remoteStreams = remoteParticipantStreams[participant.userId];
-
-  if (participant.isLocalUser && participant.screenSharing) {
-    return localScreenStream;
+  sourcePreference: ParticipantSourcePreference = "auto",
+): MediaStream | any | null {
+  if (sourcePreference === "screen") {
+    return resolveSourceStream(
+      participant,
+      localCameraStream,
+      localScreenStream,
+      remoteParticipantStreams,
+      "screen",
+    );
   }
 
-  if (participant.isLocalUser && participant.cameraEnabled) {
-    return localCameraStream;
+  if (sourcePreference === "camera") {
+    return resolveSourceStream(
+      participant,
+      localCameraStream,
+      localScreenStream,
+      remoteParticipantStreams,
+      "camera",
+    );
   }
 
-  if (participant.screenSharing) {
-    return remoteStreams?.screen ?? null;
-  }
-
-  if (participant.cameraEnabled) {
-    return remoteStreams?.camera ?? null;
-  }
-
-  return null;
+  return (
+    resolveSourceStream(
+      participant,
+      localCameraStream,
+      localScreenStream,
+      remoteParticipantStreams,
+      "screen",
+    ) ??
+    resolveSourceStream(
+      participant,
+      localCameraStream,
+      localScreenStream,
+      remoteParticipantStreams,
+      "camera",
+    )
+  );
 }
 
 function resolveParticipantRenderKey(
   participant: LobbyParticipantView,
   activeLobbyId: string | null,
+  sourcePreference: ParticipantSourcePreference,
 ): string {
-  return `${activeLobbyId ?? "no-lobby"}:${participant.userId}:${participant.joinedAt}`;
+  return `${activeLobbyId ?? "no-lobby"}:${participant.userId}:${participant.joinedAt}:${sourcePreference}`;
 }
 
 export function LobbiesMainPanel({
@@ -154,6 +225,7 @@ export function LobbiesMainPanel({
   localScreenStream,
   remoteParticipantStreams,
   remoteParticipantAudioPreferences,
+  activeSpeakerIds,
   avatarByUserId,
   joiningLobbyId,
   onJoinLobby,
@@ -177,28 +249,57 @@ export function LobbiesMainPanel({
   onLeaveLobby,
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
-  const [participantContextMenu, setParticipantContextMenu] = useState<{
-    participant: LobbyParticipantView;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [focusedParticipantId, setFocusedParticipantId] = useState<
+    string | null
+  >(null);
+  const [audioPanelParticipantId, setAudioPanelParticipantId] = useState<
+    string | null
+  >(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(
     () => new Date().toISOString(),
   );
 
+  const activeSpeakerLookup = useMemo(() => {
+    const list = activeSpeakerIds
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+
+    return {
+      list,
+      set: new Set(list),
+    };
+  }, [activeSpeakerIds]);
+
   const lobbyParticipants = useMemo<LobbyParticipantView[]>(() => {
     const merged = lobbyMembers.map((member) => {
+      const isActiveSpeaker =
+        activeSpeakerLookup.set.has(member.userId) ||
+        activeSpeakerLookup.set.has(member.username) ||
+        activeSpeakerLookup.list.some(
+          (id) =>
+            id.includes(member.userId) ||
+            member.userId.includes(id) ||
+            id.includes(member.username) ||
+            member.username.includes(id),
+        );
+      const speaking = isActiveSpeaker || (member.speaking && !member.muted);
+
       if (member.userId !== currentUserId) {
         return {
           ...member,
+          speaking,
           isLocalUser: false,
         };
       }
 
+      const localMuted = !micEnabled;
+      const localSpeaking = isActiveSpeaker && !localMuted;
+
       return {
         ...member,
-        muted: !micEnabled,
+        muted: localMuted,
         deafened: !headphoneEnabled,
+        speaking: localSpeaking,
         cameraEnabled,
         screenSharing: screenEnabled,
         isLocalUser: true,
@@ -209,13 +310,24 @@ export function LobbiesMainPanel({
       !merged.some((member) => member.userId === currentUserId) &&
       activeLobbyId
     ) {
+      const localMuted = !micEnabled;
+      const localActiveSpeaker =
+        activeSpeakerLookup.set.has(currentUserId) ||
+        activeSpeakerLookup.set.has(currentUsername) ||
+        activeSpeakerLookup.list.some(
+          (id) =>
+            id.includes(currentUserId) ||
+            currentUserId.includes(id) ||
+            id.includes(currentUsername) ||
+            currentUsername.includes(id),
+        );
       merged.unshift({
         userId: currentUserId,
         username: currentUsername,
         joinedAt: localFallbackJoinedAt,
-        muted: !micEnabled,
+        muted: localMuted,
         deafened: !headphoneEnabled,
-        speaking: false,
+        speaking: localActiveSpeaker && !localMuted,
         cameraEnabled,
         screenSharing: screenEnabled,
         isLocalUser: true,
@@ -235,107 +347,164 @@ export function LobbiesMainPanel({
     });
   }, [
     activeLobbyId,
+    activeSpeakerLookup,
     cameraEnabled,
     currentUserId,
     currentUsername,
     headphoneEnabled,
     localFallbackJoinedAt,
     lobbyMembers,
+    localCameraStream,
+    localScreenStream,
     micEnabled,
     screenEnabled,
   ]);
 
+  const stageParticipantSlots = useMemo<StageParticipantSlot[]>(() => {
+    return lobbyParticipants.flatMap((participant): StageParticipantSlot[] => {
+      if (participant.cameraEnabled && participant.screenSharing) {
+        return [
+          {
+            slotId: resolveParticipantRenderKey(
+              participant,
+              activeLobbyId,
+              "screen",
+            ),
+            participant,
+            sourcePreference: "screen",
+          },
+          {
+            slotId: resolveParticipantRenderKey(
+              participant,
+              activeLobbyId,
+              "camera",
+            ),
+            participant,
+            sourcePreference: "camera",
+          },
+        ];
+      }
+
+      if (participant.screenSharing) {
+        return [
+          {
+            slotId: resolveParticipantRenderKey(
+              participant,
+              activeLobbyId,
+              "screen",
+            ),
+            participant,
+            sourcePreference: "screen",
+          },
+        ];
+      }
+
+      if (participant.cameraEnabled) {
+        return [
+          {
+            slotId: resolveParticipantRenderKey(
+              participant,
+              activeLobbyId,
+              "camera",
+            ),
+            participant,
+            sourcePreference: "camera",
+          },
+        ];
+      }
+
+      return [
+        {
+          slotId: resolveParticipantRenderKey(
+            participant,
+            activeLobbyId,
+            "auto",
+          ),
+          participant,
+          sourcePreference: "auto",
+        },
+      ];
+    });
+  }, [activeLobbyId, lobbyParticipants]);
+
   const { stagePanelRef, stageLayoutStyle } = useLobbyStageLayout(
-    lobbyParticipants.length,
+    stageParticipantSlots.length,
     isLobbyChatOpen,
   );
 
   useEffect(() => {
     setIsLobbyChatOpen(true);
-    setParticipantContextMenu(null);
+    setFocusedParticipantId(null);
+    setAudioPanelParticipantId(null);
   }, [activeLobbyId]);
 
   useEffect(() => {
     if (!activeLobbyId) {
       return;
     }
-
     setLocalFallbackJoinedAt(new Date().toISOString());
   }, [activeLobbyId]);
 
   useEffect(() => {
-    if (!participantContextMenu) {
+    if (!focusedParticipantId && !audioPanelParticipantId) {
       return;
     }
-
-    const stillPresent = lobbyParticipants.some(
-      (participant) =>
-        !participant.isLocalUser &&
-        participant.userId === participantContextMenu.participant.userId,
-    );
-
-    if (!stillPresent) {
-      setParticipantContextMenu(null);
-    }
-  }, [lobbyParticipants, participantContextMenu]);
-
-  useEffect(() => {
-    if (!participantContextMenu) {
-      return;
-    }
-
-    const closeMenu = (): void => {
-      setParticipantContextMenu(null);
-    };
-
-    const handleEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        closeMenu();
+    if (focusedParticipantId) {
+      const focusedStillPresent = lobbyParticipants.some(
+        (p) => !p.isLocalUser && p.userId === focusedParticipantId,
+      );
+      if (!focusedStillPresent) {
+        setFocusedParticipantId(null);
       }
-    };
-
-    window.addEventListener("click", closeMenu);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("click", closeMenu);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [participantContextMenu]);
-
-  const participantContextMenuStyle = useMemo(() => {
-    if (!participantContextMenu || typeof window === "undefined") {
-      return undefined;
     }
+    if (audioPanelParticipantId) {
+      const audioPanelStillPresent = lobbyParticipants.some(
+        (p) => !p.isLocalUser && p.userId === audioPanelParticipantId,
+      );
+      if (!audioPanelStillPresent) {
+        setAudioPanelParticipantId(null);
+      }
+    }
+  }, [audioPanelParticipantId, focusedParticipantId, lobbyParticipants]);
 
-    const menuWidth = 300;
-    const menuHeight = 300;
-    const padding = 8;
-
-    const clampedX = Math.min(
-      Math.max(participantContextMenu.x, padding),
-      window.innerWidth - menuWidth - padding,
-    );
-
-    const clampedY = Math.min(
-      Math.max(participantContextMenu.y, padding),
-      window.innerHeight - menuHeight - padding,
-    );
-
-    return {
-      left: clampedX,
-      top: clampedY,
-    };
-  }, [participantContextMenu]);
-
-  const selectedRemoteParticipant = participantContextMenu?.participant ?? null;
-  const selectedRemoteAudioPreference = selectedRemoteParticipant
-    ? (remoteParticipantAudioPreferences[selectedRemoteParticipant.userId] ??
+  const selectedPreference = audioPanelParticipantId
+    ? (remoteParticipantAudioPreferences[audioPanelParticipantId] ??
       DEFAULT_REMOTE_AUDIO_PREFERENCE)
     : DEFAULT_REMOTE_AUDIO_PREFERENCE;
-  const selectedRemoteVolumePercent = clampRemoteVolumePercent(
-    selectedRemoteAudioPreference.volumePercent,
+
+  const focusedParticipantSlot = useMemo(
+    () =>
+      focusedParticipantId
+        ? (stageParticipantSlots.find(
+            (slot) => slot.participant.userId === focusedParticipantId,
+          ) ?? null)
+        : null,
+    [focusedParticipantId, stageParticipantSlots],
   );
+
+  const nonFocusedParticipantSlots = useMemo(
+    () =>
+      focusedParticipantId
+        ? stageParticipantSlots.filter(
+            (slot) => slot.participant.userId !== focusedParticipantId,
+          )
+        : stageParticipantSlots,
+    [focusedParticipantId, stageParticipantSlots],
+  );
+
+  const handleParticipantFocus = (
+    event: MouseEvent<HTMLElement>,
+    participant: LobbyParticipantView,
+  ): void => {
+    if (participant.isLocalUser) {
+      return;
+    }
+    event.stopPropagation();
+    setAudioPanelParticipantId(null);
+    setFocusedParticipantId((prev) =>
+      prev === participant.userId ? null : participant.userId,
+    );
+  };
 
   const handleParticipantContextMenu = (
     event: MouseEvent<HTMLElement>,
@@ -344,361 +513,357 @@ export function LobbiesMainPanel({
     if (participant.isLocalUser) {
       return;
     }
-
     event.preventDefault();
     event.stopPropagation();
-
-    setParticipantContextMenu({
-      participant,
-      x: event.clientX,
-      y: event.clientY,
-    });
+    setAudioPanelParticipantId(participant.userId);
   };
 
-  if (!activeLobbyId) {
-    return (
-      <article className="ct-content-card">
-        <h3>Lobi Yönetimi</h3>
-        <p>Aktif lobi sayısı: {lobbiesCount}</p>
-        <p>
-          Bir lobiye katılarak üyeleri ve lobi sohbetini görüntüleyebilirsin.
-        </p>
+  const handleMute = (muted: boolean): void => {
+    if (!audioPanelParticipantId) return;
+    onSetRemoteParticipantMuted(audioPanelParticipantId, muted);
+  };
 
-        <ul className="ct-list mt-3">
-          {lobbies.map((lobby) => (
-            <li key={lobby.id} className="ct-list-item">
-              <div>
-                <p>{lobby.name}</p>
-                <span>{lobby.memberCount} uye</span>
-              </div>
-              <button
-                type="button"
-                className="ct-list-action"
-                onClick={() => onJoinLobby(lobby.id)}
-                disabled={joiningLobbyId !== null}
-              >
-                {joiningLobbyId === lobby.id ? "Bağlanıyor..." : "Katıl"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </article>
-    );
-  }
+  const handleVolume = (volumePercent: number): void => {
+    if (!audioPanelParticipantId) return;
+    onSetRemoteParticipantVolume(audioPanelParticipantId, volumePercent);
+  };
 
   return (
-    <article className="ct-content-card ct-lobby-room-card connected">
-      <div
-        className={`ct-lobby-room-grid ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      {/* 1. Lobi Odası Seç (Lobby Selection Screen) */}
+      <article
+        className="ct-content-card flex flex-col justify-between"
+        style={{
+          padding: "24px",
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          opacity: !activeLobbyId ? 1 : 0,
+          transform: !activeLobbyId ? "translateY(0) scale(1)" : "translateY(-16px) scale(0.97)",
+          pointerEvents: !activeLobbyId ? "auto" : "none",
+          transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          visibility: !activeLobbyId ? "visible" : "hidden"
+        }}
       >
-        <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
-          <button
-            type="button"
-            className="ct-lobby-chat-toggle in-stage"
-            onClick={() => setIsLobbyChatOpen((previous) => !previous)}
-            aria-label={`${activeLobbyName ?? "Lobi"} sohbetini ${isLobbyChatOpen ? "kapat" : "aç"}`}
-            title={isLobbyChatOpen ? "Sohbeti Kapat" : "Sohbeti Aç"}
-          >
-            {isLobbyChatOpen ? (
-              <>
-                <ChevronRight size={14} aria-hidden="true" /> Sohbeti Kapat
-              </>
-            ) : (
-              <>
-                <ChevronLeft size={14} aria-hidden="true" /> Sohbeti Aç
-              </>
-            )}
-          </button>
+        <div className="flex flex-col items-center justify-center text-center py-16" style={{ flex: 1 }}>
+          <ExclamationCircleOutlined style={{ fontSize: "32px", color: "rgba(255,255,255,0.15)", marginBottom: "16px" }} />
+          <h3 className="text-base font-semibold text-white mb-2">Lobi Odası Seç</h3>
+          <p className="text-xs text-[#8f8f8f] max-w-[340px] mb-8">
+            Katılmak istediğin lobi odasını seçerek diğer kullanıcılarla sesli, görüntülü veya yazılı iletişime geçebilirsin.
+          </p>
+        </div>
 
-          {lobbyStateQuery.isPending && (
-            <div className="ct-list-state">Üye durumları yükleniyor...</div>
-          )}
-
-          {!lobbyStateQuery.isPending && lobbyStateQuery.isError && (
-            <div className="ct-list-state error">
-              Üye durumları alınamadı: {lobbyStateQuery.error.message}
-            </div>
-          )}
-
-          {!lobbyStateQuery.isPending &&
-            !lobbyStateQuery.isError &&
-            !lobbyStateQuery.data?.ok && (
-              <div className="ct-list-state error">
-                Üye durumları alınamadı:{" "}
-                {getApiErrorMessage(lobbyStateQuery.data?.error)}
-              </div>
-            )}
-
-          {!lobbyStateQuery.isPending &&
-            !lobbyStateQuery.isError &&
-            lobbyStateQuery.data?.ok &&
-            lobbyParticipants.length === 0 && (
-              <div className="ct-list-state">Bu lobide henüz üye yok.</div>
-            )}
-
-          <div className="ct-lobby-stage-grid" style={stageLayoutStyle}>
-            {lobbyParticipants.map((participant) => (
-              <LobbyParticipantTile
-                key={resolveParticipantRenderKey(participant, activeLobbyId)}
-                participant={participant}
-                avatarUrl={avatarByUserId[participant.userId]}
-                previewStream={resolvePreviewStream(
-                  participant,
-                  localCameraStream,
-                  localScreenStream,
-                  remoteParticipantStreams,
-                )}
-                onContextMenu={(event) =>
-                  handleParticipantContextMenu(event, participant)
-                }
-              />
+        <div className="border-t border-[rgba(255,255,255,0.06)] pt-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">
+            Aktif Odalar ({lobbiesCount})
+          </p>
+          <ul className="ct-list flex flex-col gap-2">
+            {lobbies.map((lobby) => (
+              <li
+                key={lobby.id}
+                className="ct-list-item clickable flex items-center justify-between"
+                style={{ padding: "12px 16px", borderRadius: "8px", background: "rgba(255, 255, 255, 0.02)" }}
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white"># {lobby.name}</p>
+                  <span className="text-xs text-zinc-500">{lobby.memberCount} üye aktif</span>
+                </div>
+                <Button
+                  type="default"
+                  onClick={() => onJoinLobby(lobby.id)}
+                  disabled={joiningLobbyId !== null}
+                  style={{
+                    background: "#ffffff",
+                    color: "#000000",
+                    fontWeight: "600",
+                    fontSize: "12px",
+                    border: "none",
+                    borderRadius: "6px",
+                  }}
+                >
+                  {joiningLobbyId === lobby.id ? <LoadingOutlined /> : "Katıl"}
+                </Button>
+              </li>
             ))}
-          </div>
+          </ul>
+        </div>
+      </article>
 
-          <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
+      {/* 2. Aktif Lobi Odası (Active Lobby Room Stage View) */}
+      <article
+        className="ct-content-card ct-lobby-room-card connected"
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: activeLobbyId ? 1 : 0,
+          transform: activeLobbyId ? "translateY(0) scale(1)" : "translateY(16px) scale(1.03)",
+          pointerEvents: activeLobbyId ? "auto" : "none",
+          transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          visibility: activeLobbyId ? "visible" : "hidden"
+        }}
+      >
+        <div
+          className={`ct-lobby-room-grid ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
+        >
+          <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
             <button
               type="button"
-              className={`ct-lobby-stage-icon-action ${micEnabled ? "active" : ""}`}
-              onClick={onToggleMic}
-              title={`Mikrofon ${micEnabled ? "açık" : "kapalı"}`}
-              aria-label="Mikrofon"
+              className="ct-lobby-chat-toggle in-stage"
+              onClick={() => setIsLobbyChatOpen((previous) => !previous)}
+              aria-label={`${activeLobbyName ?? "Lobi"} sohbetini ${isLobbyChatOpen ? "kapat" : "aç"}`}
+              title={isLobbyChatOpen ? "Sohbeti Kapat" : "Sohbeti Aç"}
             >
-              {micEnabled ? (
-                <Mic size={15} aria-hidden="true" />
+              {isLobbyChatOpen ? (
+                <>
+                  <RightOutlined style={{ fontSize: "11px", marginRight: "4px" }} /> Sohbeti Kapat
+                </>
               ) : (
-                <MicOff size={15} aria-hidden="true" />
+                <>
+                  <LeftOutlined style={{ fontSize: "11px", marginRight: "4px" }} /> Sohbeti Aç
+                </>
               )}
             </button>
 
-            <button
-              type="button"
-              className={`ct-lobby-stage-icon-action ${headphoneEnabled ? "active" : ""}`}
-              onClick={onToggleHeadphone}
-              title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"}`}
-              aria-label="Kulaklık"
-            >
-              <Headphones size={15} aria-hidden="true" />
-            </button>
+            {lobbyStateQuery.isPending && (
+              <div className="ct-list-state">Üye durumları yükleniyor...</div>
+            )}
 
-            <button
-              type="button"
-              className={`ct-lobby-stage-icon-action ${screenEnabled ? "active" : ""}`}
-              onClick={onToggleScreen}
-              title={`Yayın ${screenEnabled ? "açık" : "kapalı"}`}
-              aria-label="Yayın"
-            >
-              <MonitorUp size={15} aria-hidden="true" />
-            </button>
+            {!lobbyStateQuery.isPending && lobbyStateQuery.isError && (
+              <div className="ct-list-state error">
+                Üye durumları alınamadı: {lobbyStateQuery.error.message}
+              </div>
+            )}
 
-            <button
-              type="button"
-              className={`ct-lobby-stage-icon-action ${cameraEnabled ? "active" : ""}`}
-              onClick={onToggleCamera}
-              title={`Kamera ${cameraEnabled ? "açık" : "kapalı"}`}
-              aria-label="Kamera"
-            >
-              <Camera size={15} aria-hidden="true" />
-            </button>
+            {!lobbyStateQuery.isPending &&
+              !lobbyStateQuery.isError &&
+              !lobbyStateQuery.data?.ok && (
+                <div className="ct-list-state error">
+                  Üye durumları alınamadı:{" "}
+                  {getApiErrorMessage(lobbyStateQuery.data?.error)}
+                </div>
+              )}
 
-            <button
-              type="button"
-              className="ct-lobby-stage-icon-action danger"
-              onClick={onLeaveLobby}
-              disabled={isLeavingLobby}
-              title={isLeavingLobby ? "Lobiden ayrılıyor" : "Lobiden ayrıl"}
-              aria-label="Lobiden ayrıl"
-            >
-              <PlugZap size={15} aria-hidden="true" />
-            </button>
-          </div>
+            {!lobbyStateQuery.isPending &&
+              !lobbyStateQuery.isError &&
+              lobbyStateQuery.data?.ok &&
+              lobbyParticipants.length === 0 && (
+                <div className="ct-list-state">Bu lobide henüz üye yok.</div>
+              )}
 
-          {participantContextMenu && selectedRemoteParticipant && (
             <div
-              className="ct-lobby-context-menu ct-participant-context-menu"
-              style={participantContextMenuStyle}
-              onClick={(event) => event.stopPropagation()}
-              onContextMenu={(event) => event.preventDefault()}
+              className={`ct-lobby-stage-grid ${focusedParticipantSlot ? "focused-layout" : ""}`}
+              style={stageLayoutStyle}
             >
-              <p className="ct-participant-context-menu-title">
-                {selectedRemoteParticipant.username}
-              </p>
+              {focusedParticipantSlot ? (
+                <>
+                  <div className="ct-lobby-focused-slot">
+                    <LobbyParticipantTile
+                      key={focusedParticipantSlot.slotId}
+                      participant={focusedParticipantSlot.participant}
+                      avatarUrl={
+                        avatarByUserId[focusedParticipantSlot.participant.userId]
+                      }
+                      previewStream={resolvePreviewStream(
+                        focusedParticipantSlot.participant,
+                        localCameraStream,
+                        localScreenStream,
+                        remoteParticipantStreams,
+                        focusedParticipantSlot.sourcePreference,
+                      )}
+                      isSelected={
+                        focusedParticipantId ===
+                          focusedParticipantSlot.participant.userId ||
+                        audioPanelParticipantId ===
+                          focusedParticipantSlot.participant.userId
+                      }
+                      isFocusedLayout
+                      showAudioControls={
+                        !focusedParticipantSlot.participant.isLocalUser &&
+                        audioPanelParticipantId ===
+                          focusedParticipantSlot.participant.userId
+                      }
+                      audioPreference={selectedPreference}
+                      onToggleMute={() => handleMute(!selectedPreference.muted)}
+                      onVolumeChange={handleVolume}
+                      onActivate={(event) =>
+                        handleParticipantFocus(
+                          event,
+                          focusedParticipantSlot.participant,
+                        )
+                      }
+                      onContextMenu={(event) =>
+                        handleParticipantContextMenu(
+                          event,
+                          focusedParticipantSlot.participant,
+                        )
+                      }
+                    />
+                  </div>
 
-              <div className="ct-participant-context-menu-state-row">
-                <span
-                  className={`ct-participant-context-menu-state ${selectedRemoteAudioPreference.muted ? "muted" : "active"}`}
-                >
-                  {selectedRemoteAudioPreference.muted
-                    ? "Susturuldu"
-                    : "Duyuluyor"}
-                </span>
-                <span className="ct-participant-context-menu-hint">
-                  Cikmak icin ESC
-                </span>
-              </div>
-
-              <div className="ct-participant-context-menu-actions">
-                <button
-                  type="button"
-                  className={`ct-participant-context-menu-button ${selectedRemoteAudioPreference.muted ? "active" : ""}`}
-                  onClick={() => {
-                    onSetRemoteParticipantMuted(
-                      selectedRemoteParticipant.userId,
-                      !selectedRemoteAudioPreference.muted,
-                    );
-                  }}
-                >
-                  {selectedRemoteAudioPreference.muted ? (
-                    <>
-                      <Volume2 size={14} aria-hidden="true" /> Sesi Ac
-                    </>
-                  ) : (
-                    <>
-                      <VolumeX size={14} aria-hidden="true" /> Sustur
-                    </>
+                  {nonFocusedParticipantSlots.length > 0 && (
+                    <div className="ct-lobby-participant-rail" role="list">
+                      {nonFocusedParticipantSlots.map((slot) => (
+                        <LobbyParticipantTile
+                          key={slot.slotId}
+                          participant={slot.participant}
+                          avatarUrl={avatarByUserId[slot.participant.userId]}
+                          previewStream={resolvePreviewStream(
+                            slot.participant,
+                            localCameraStream,
+                            localScreenStream,
+                            remoteParticipantStreams,
+                            slot.sourcePreference,
+                          )}
+                          isCompact
+                          isSelected={
+                            focusedParticipantId === slot.participant.userId ||
+                            audioPanelParticipantId === slot.participant.userId
+                          }
+                          showAudioControls={
+                            audioPanelParticipantId === slot.participant.userId
+                          }
+                          audioPreference={
+                            audioPanelParticipantId === slot.participant.userId
+                              ? selectedPreference
+                              : undefined
+                          }
+                          onToggleMute={() =>
+                            handleMute(!selectedPreference.muted)
+                          }
+                          onVolumeChange={handleVolume}
+                          onActivate={(event) =>
+                            handleParticipantFocus(event, slot.participant)
+                          }
+                          onContextMenu={(event) =>
+                            handleParticipantContextMenu(event, slot.participant)
+                          }
+                        />
+                      ))}
+                    </div>
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  className="ct-participant-context-menu-button"
-                  onClick={() => {
-                    onSetRemoteParticipantMuted(
-                      selectedRemoteParticipant.userId,
-                      false,
-                    );
-                    onSetRemoteParticipantVolume(
-                      selectedRemoteParticipant.userId,
-                      100,
-                    );
-                  }}
-                >
-                  <RotateCcw size={14} aria-hidden="true" /> Sifirla
-                </button>
-              </div>
-
-              <label className="ct-participant-context-menu-volume">
-                <div className="ct-participant-context-menu-volume-line">
-                  <span>Ses Seviyesi</span>
-                  <strong>%{selectedRemoteVolumePercent}</strong>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={200}
-                  step={5}
-                  value={selectedRemoteVolumePercent}
-                  onChange={(event) => {
-                    onSetRemoteParticipantVolume(
-                      selectedRemoteParticipant.userId,
-                      clampRemoteVolumePercent(Number(event.target.value)),
-                    );
-                  }}
-                />
-
-                <div className="ct-participant-context-menu-stepper">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSetRemoteParticipantVolume(
-                        selectedRemoteParticipant.userId,
-                        selectedRemoteVolumePercent - 10,
-                      );
-                    }}
-                  >
-                    -10
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSetRemoteParticipantVolume(
-                        selectedRemoteParticipant.userId,
-                        selectedRemoteVolumePercent + 10,
-                      );
-                    }}
-                  >
-                    +10
-                  </button>
-                </div>
-
-                <div className="ct-participant-context-menu-scale">
-                  <span>0</span>
-                  <span>100</span>
-                  <span>200</span>
-                </div>
-              </label>
-
-              <div className="ct-participant-context-menu-presets">
-                {[0, 80, 100, 150, 200].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={
-                      selectedRemoteVolumePercent === preset ? "active" : ""
+                </>
+              ) : (
+                stageParticipantSlots.map((slot) => (
+                  <LobbyParticipantTile
+                    key={slot.slotId}
+                    participant={slot.participant}
+                    avatarUrl={avatarByUserId[slot.participant.userId]}
+                    previewStream={resolvePreviewStream(
+                      slot.participant,
+                      localCameraStream,
+                      localScreenStream,
+                      remoteParticipantStreams,
+                      slot.sourcePreference,
+                    )}
+                    isSelected={
+                      focusedParticipantId === slot.participant.userId ||
+                      audioPanelParticipantId === slot.participant.userId
                     }
-                    onClick={() => {
-                      onSetRemoteParticipantVolume(
-                        selectedRemoteParticipant.userId,
-                        preset,
-                      );
-                    }}
-                  >
-                    %{preset}
-                  </button>
-                ))}
-              </div>
+                    showAudioControls={
+                      audioPanelParticipantId === slot.participant.userId
+                    }
+                    audioPreference={
+                      audioPanelParticipantId === slot.participant.userId
+                        ? selectedPreference
+                        : undefined
+                    }
+                    onToggleMute={() => handleMute(!selectedPreference.muted)}
+                    onVolumeChange={handleVolume}
+                    onActivate={(event) =>
+                      handleParticipantFocus(event, slot.participant)
+                    }
+                    onContextMenu={(event) =>
+                      handleParticipantContextMenu(event, slot.participant)
+                    }
+                  />
+                ))
+              )}
             </div>
-          )}
-        </section>
 
-        <aside
-          className={`ct-lobby-chat-slot ${isLobbyChatOpen ? "open" : ""}`}
-          aria-hidden={!isLobbyChatOpen}
-        >
-          <button
-            type="button"
-            className="ct-lobby-chat-backdrop"
-            onClick={() => setIsLobbyChatOpen(false)}
-            aria-label="Sohbet panelini kapat"
-          />
+            <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
+              <Tooltip title={micEnabled ? "Mikrofonu Kapat" : "Mikrofonu Aç"}>
+                <Button
+                  size="large"
+                  className={`ct-lobby-action-btn ${micEnabled ? "active" : ""}`}
+                  icon={micEnabled ? <AudioOutlined /> : <AudioMutedOutlined />}
+                  onClick={onToggleMic}
+                />
+              </Tooltip>
 
-          <div className="ct-lobby-chat-drawer">
-            <header className="ct-lobby-chat-drawer-header">
-              <p>
-                <MessageSquare size={14} aria-hidden="true" /> Lobi Sohbeti
-              </p>
-              <button
-                type="button"
-                className="ct-lobby-chat-toggle"
-                onClick={() => setIsLobbyChatOpen((previous) => !previous)}
-                aria-label={isLobbyChatOpen ? "Sohbeti kapat" : "Sohbeti aç"}
-                title={isLobbyChatOpen ? "Sohbeti Kapat" : "Sohbeti Aç"}
-              >
-                {isLobbyChatOpen ? (
-                  <>
-                    <ChevronRight size={14} aria-hidden="true" /> Kapat
-                  </>
-                ) : (
-                  <>
-                    <ChevronLeft size={14} aria-hidden="true" /> Aç
-                  </>
-                )}
-              </button>
-            </header>
+              <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat" : "Kulaklığı Aç"}>
+                <Button
+                  size="large"
+                  className={`ct-lobby-action-btn ${headphoneEnabled ? "active" : ""}`}
+                  icon={<CustomerServiceOutlined />}
+                  onClick={onToggleHeadphone}
+                />
+              </Tooltip>
 
-            <LobbyChatPanel
-              currentUserId={currentUserId}
-              lobbyMessagesQuery={lobbyMessagesQuery}
-              lobbyMessages={lobbyMessages}
-              lobbyMessageDraft={lobbyMessageDraft}
-              setLobbyMessageDraft={setLobbyMessageDraft}
-              onSendLobbyMessage={onSendLobbyMessage}
-              onDeleteLobbyMessage={onDeleteLobbyMessage}
-              isSendingLobbyMessage={isSendingLobbyMessage}
-              deletingLobbyMessageId={deletingLobbyMessageId}
+              <Tooltip title={screenEnabled ? "Ekran Paylaşımını Durdur" : "Ekranı Paylaş"}>
+                <Button
+                  size="large"
+                  className={`ct-lobby-action-btn ${screenEnabled ? "active" : ""}`}
+                  icon={<DesktopOutlined />}
+                  onClick={onToggleScreen}
+                />
+              </Tooltip>
+
+              <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
+                <Button
+                  size="large"
+                  className={`ct-lobby-action-btn ${cameraEnabled ? "active" : ""}`}
+                  icon={<VideoCameraOutlined />}
+                  onClick={onToggleCamera}
+                />
+              </Tooltip>
+
+              <Tooltip title="Lobiden Ayrıl">
+                <Button
+                  size="large"
+                  className="ct-lobby-action-btn danger"
+                  icon={<LogoutOutlined />}
+                  onClick={onLeaveLobby}
+                  loading={isLeavingLobby}
+                  disabled={isLeavingLobby}
+                />
+              </Tooltip>
+            </div>
+          </section>
+
+          <aside
+            className={`ct-lobby-chat-slot ${isLobbyChatOpen ? "open" : ""}`}
+            aria-hidden={!isLobbyChatOpen}
+          >
+            <button
+              type="button"
+              className="ct-lobby-chat-backdrop"
+              onClick={() => setIsLobbyChatOpen(false)}
+              aria-label="Sohbet panelini kapat"
             />
-          </div>
-        </aside>
-      </div>
-    </article>
+
+            <div className="ct-lobby-chat-drawer">
+              <header className="ct-lobby-chat-drawer-header">
+                <p>
+                  <MessageOutlined style={{ fontSize: "13px", marginRight: "6px" }} /> Lobi Sohbeti
+                </p>
+              </header>
+
+              <LobbyChatPanel
+                currentUserId={currentUserId}
+                lobbyMessagesQuery={lobbyMessagesQuery}
+                lobbyMessages={lobbyMessages}
+                lobbyMessageDraft={lobbyMessageDraft}
+                setLobbyMessageDraft={setLobbyMessageDraft}
+                onSendLobbyMessage={onSendLobbyMessage}
+                onDeleteLobbyMessage={onDeleteLobbyMessage}
+                isSendingLobbyMessage={isSendingLobbyMessage}
+                deletingLobbyMessageId={deletingLobbyMessageId}
+              />
+            </div>
+          </aside>
+        </div>
+      </article>
+    </div>
   );
 }

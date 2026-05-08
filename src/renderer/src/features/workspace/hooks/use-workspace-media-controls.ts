@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
   type MutableRefObject,
 } from "react";
 import type {
@@ -146,6 +147,9 @@ export const useWorkspaceMediaControls = ({
   const [cameraPreviewStream, setCameraPreviewStream] =
     useState<MediaStream | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
+  const localCameraStreamRef = useRef<MediaStream | null>(null);
+  const localScreenStreamRef = useRef<MediaStream | null>(null);
+  const cameraPreviewStreamRef = useRef<MediaStream | null>(null);
 
   const monitorScreenShareSources = useMemo(() => {
     return screenShareSources.filter((source) => source.kind === "screen");
@@ -174,102 +178,120 @@ export const useWorkspaceMediaControls = ({
   }, [cameraPreviewStream]);
 
   useEffect(() => {
+    localCameraStreamRef.current = localCameraStream;
+  }, [localCameraStream]);
+
+  useEffect(() => {
+    localScreenStreamRef.current = localScreenStream;
+  }, [localScreenStream]);
+
+  useEffect(() => {
+    cameraPreviewStreamRef.current = cameraPreviewStream;
+  }, [cameraPreviewStream]);
+
+  useEffect(() => {
     return () => {
-      stopMediaStreamTracks(localCameraStream);
-      stopMediaStreamTracks(localScreenStream);
-      stopMediaStreamTracks(cameraPreviewStream);
+      stopMediaStreamTracks(localCameraStreamRef.current);
+      stopMediaStreamTracks(localScreenStreamRef.current);
+      stopMediaStreamTracks(cameraPreviewStreamRef.current);
     };
-  }, [localCameraStream, localScreenStream, cameraPreviewStream]);
+  }, []);
 
-  const syncLobbyAudioState = async (lobbyId: string): Promise<void> => {
-    const updates: Array<Promise<void>> = [];
+  const syncLobbyAudioState = useCallback(
+    async (lobbyId: string): Promise<void> => {
+      const updates: Array<Promise<void>> = [];
 
-    if (!micEnabled) {
-      updates.push(
-        workspaceService
-          .setLobbyMuted({
-            lobbyId,
-            muted: true,
-          })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Mikrofon durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn",
-              );
-            }
-          }),
-      );
-    }
+      if (!micEnabled) {
+        updates.push(
+          workspaceService
+            .setLobbyMuted({
+              lobbyId,
+              muted: true,
+            })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Mikrofon durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn",
+                );
+              }
+            }),
+        );
+      }
 
-    if (!headphoneEnabled) {
-      updates.push(
-        workspaceService
-          .setLobbyDeafened({
-            lobbyId,
-            deafened: true,
-          })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Kulaklik durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn",
-              );
-            }
-          }),
-      );
-    }
+      if (!headphoneEnabled) {
+        updates.push(
+          workspaceService
+            .setLobbyDeafened({
+              lobbyId,
+              deafened: true,
+            })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Kulaklik durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn",
+                );
+              }
+            }),
+        );
+      }
 
-    if (updates.length > 0) {
-      await Promise.all(updates);
-    }
-  };
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+    },
+    [micEnabled, headphoneEnabled, setStatus],
+  );
 
-  const syncLobbyMediaState = async (lobbyId: string): Promise<void> => {
-    const updates: Array<Promise<void>> = [];
+  const syncLobbyMediaState = useCallback(
+    async (lobbyId: string): Promise<void> => {
+      const updates: Array<Promise<void>> = [];
 
-    if (cameraEnabled) {
-      updates.push(
-        workspaceService
-          .setLobbyCameraEnabled({
-            lobbyId,
-            enabled: true,
-          })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Kamera durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn",
-              );
-            }
-          }),
-      );
-    }
+      if (cameraEnabled) {
+        updates.push(
+          workspaceService
+            .setLobbyCameraEnabled({
+              lobbyId,
+              enabled: true,
+            })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Kamera durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn",
+                );
+              }
+            }),
+        );
+      }
 
-    if (screenEnabled) {
-      updates.push(
-        workspaceService
-          .setLobbyScreenSharing({
-            lobbyId,
-            enabled: true,
-          })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Yayin durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn",
-              );
-            }
-          }),
-      );
-    }
+      if (screenEnabled) {
+        updates.push(
+          workspaceService
+            .setLobbyScreenSharing({
+              lobbyId,
+              enabled: true,
+            })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Yayin durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn",
+                );
+              }
+            }),
+        );
+      }
 
-    if (updates.length > 0) {
-      await Promise.all(updates);
-    }
-  };
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+    },
+    [cameraEnabled, screenEnabled, setStatus],
+  );
 
-  const resetLocalMediaCapture = (): void => {
+  const resetLocalMediaCapture = useCallback((): void => {
     stopMediaStreamTracks(localCameraStream);
     stopMediaStreamTracks(localScreenStream);
     stopMediaStreamTracks(cameraPreviewStream);
@@ -280,9 +302,14 @@ export const useWorkspaceMediaControls = ({
     setCameraPreviewStream(null);
     setCameraEnabled(false);
     setScreenEnabled(false);
-  };
+  }, [
+    localCameraStream,
+    localScreenStream,
+    cameraPreviewStream,
+    liveKitSessionRef,
+  ]);
 
-  const handleMicToggle = (): void => {
+  const handleMicToggle = useCallback((): void => {
     setMicEnabled((previous) => {
       const next = !previous;
       soundCueService.playMicToggle(next);
@@ -319,9 +346,15 @@ export const useWorkspaceMediaControls = ({
 
       return next;
     });
-  };
+  }, [
+    activeLobbyRef,
+    currentUserId,
+    liveKitSessionRef,
+    patchLobbyMemberState,
+    setStatus,
+  ]);
 
-  const handleHeadphoneToggle = (): void => {
+  const handleHeadphoneToggle = useCallback((): void => {
     setHeadphoneEnabled((previous) => {
       const next = !previous;
       soundCueService.playHeadphoneToggle(next);
@@ -348,14 +381,14 @@ export const useWorkspaceMediaControls = ({
 
       return next;
     });
-  };
+  }, [activeLobbyRef, currentUserId, patchLobbyMemberState, setStatus]);
 
-  const stopCameraPreview = (): void => {
+  const stopCameraPreview = useCallback((): void => {
     stopMediaStreamTracks(cameraPreviewStream);
     setCameraPreviewStream(null);
-  };
+  }, [cameraPreviewStream]);
 
-  const prepareCameraPreview = async (): Promise<void> => {
+  const prepareCameraPreview = useCallback(async (): Promise<void> => {
     setIsPreparingCameraPreview(true);
     setCameraShareModalError(null);
     stopCameraPreview();
@@ -382,15 +415,15 @@ export const useWorkspaceMediaControls = ({
     } finally {
       setIsPreparingCameraPreview(false);
     }
-  };
+  }, [cameraPreferences, stopCameraPreview]);
 
-  const openCameraShareModal = (): void => {
+  const openCameraShareModal = useCallback((): void => {
     setCameraShareModalError(null);
     setIsCameraShareModalOpen(true);
     void prepareCameraPreview();
-  };
+  }, [prepareCameraPreview]);
 
-  const closeCameraShareModal = (): void => {
+  const closeCameraShareModal = useCallback((): void => {
     if (isStartingCameraShare || isPreparingCameraPreview) {
       return;
     }
@@ -398,9 +431,9 @@ export const useWorkspaceMediaControls = ({
     stopCameraPreview();
     setCameraShareModalError(null);
     setIsCameraShareModalOpen(false);
-  };
+  }, [isStartingCameraShare, isPreparingCameraPreview, stopCameraPreview]);
 
-  const startCameraShareFromModal = async (): Promise<void> => {
+  const startCameraShareFromModal = useCallback(async (): Promise<void> => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
       setCameraShareModalError("Kamera paylasimi icin once bir lobiye katil.");
@@ -419,7 +452,33 @@ export const useWorkspaceMediaControls = ({
     setCameraShareModalError(null);
 
     try {
+      const [videoTrack] = previewStream.getVideoTracks();
+      if (videoTrack) {
+        videoTrack.onended = null;
+      }
+
       await liveKitSessionRef.current?.publishCameraStream(previewStream);
+
+      if (videoTrack) {
+        videoTrack.onended = () => {
+          const latestLobbyId = activeLobbyRef.current;
+          setLocalCameraStream(null);
+          setCameraEnabled(false);
+          void liveKitSessionRef.current?.unpublishCamera();
+          patchLobbyMemberState(currentUserId, {
+            cameraEnabled: false,
+          });
+
+          if (!latestLobbyId) {
+            return;
+          }
+
+          void workspaceService.setLobbyCameraEnabled({
+            lobbyId: latestLobbyId,
+            enabled: false,
+          });
+        };
+      }
 
       setLocalCameraStream(previewStream);
       setCameraPreviewStream(null);
@@ -452,9 +511,16 @@ export const useWorkspaceMediaControls = ({
     } finally {
       setIsStartingCameraShare(false);
     }
-  };
+  }, [
+    activeLobbyRef,
+    currentUserId,
+    liveKitSessionRef,
+    patchLobbyMemberState,
+    setStatus,
+    cameraPreviewStream,
+  ]);
 
-  const handleCameraToggle = (): void => {
+  const handleCameraToggle = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
       setStatus("Kamerayi acmak icin once bir lobiye katil", "warn");
@@ -488,9 +554,17 @@ export const useWorkspaceMediaControls = ({
     }
 
     openCameraShareModal();
-  };
+  }, [
+    activeLobbyRef,
+    cameraEnabled,
+    localCameraStream,
+    liveKitSessionRef,
+    patchLobbyMemberState,
+    setStatus,
+    openCameraShareModal,
+  ]);
 
-  const loadScreenShareSources = async (): Promise<void> => {
+  const loadScreenShareSources = useCallback(async (): Promise<void> => {
     setIsLoadingScreenShareSources(true);
     setScreenShareModalError(null);
 
@@ -505,7 +579,32 @@ export const useWorkspaceMediaControls = ({
       return;
     }
 
-    const sources = result.data.sources;
+    const sources = result.data.sources.map((rawSource) => {
+      const sourceId = String(rawSource.id ?? "");
+      const inferredKind: ScreenShareSourceKind = sourceId.startsWith("screen:")
+        ? "screen"
+        : "window";
+
+      return {
+        id: sourceId,
+        name: String(rawSource.name ?? "Bilinmeyen Kaynak"),
+        kind:
+          rawSource.kind === "screen" || rawSource.kind === "window"
+            ? rawSource.kind
+            : inferredKind,
+        displayId:
+          typeof rawSource.displayId === "string" &&
+          rawSource.displayId.length > 0
+            ? rawSource.displayId
+            : null,
+        previewDataUrl:
+          rawSource.previewDataUrl ??
+          (rawSource as { thumbnailDataUri?: string | null })
+            .thumbnailDataUri ??
+          null,
+      };
+    });
+
     setScreenShareSources(sources);
 
     setSelectedScreenShareSourceId((previous) => {
@@ -525,35 +624,38 @@ export const useWorkspaceMediaControls = ({
     });
 
     setIsLoadingScreenShareSources(false);
-  };
+  }, []);
 
-  const handleScreenShareSourceKindChange = (
-    kind: ScreenShareSourceKind,
-  ): void => {
-    setSelectedScreenShareSourceKind(kind);
+  const handleScreenShareSourceKindChange = useCallback(
+    (kind: ScreenShareSourceKind): void => {
+      setSelectedScreenShareSourceKind(kind);
 
-    const candidates =
-      kind === "screen" ? monitorScreenShareSources : windowScreenShareSources;
+      const candidates =
+        kind === "screen"
+          ? monitorScreenShareSources
+          : windowScreenShareSources;
 
-    setSelectedScreenShareSourceId((previous) => {
-      if (previous && candidates.some((source) => source.id === previous)) {
-        return previous;
-      }
+      setSelectedScreenShareSourceId((previous) => {
+        if (previous && candidates.some((source) => source.id === previous)) {
+          return previous;
+        }
 
-      return candidates[0]?.id ?? null;
-    });
-  };
+        return candidates[0]?.id ?? null;
+      });
+    },
+    [monitorScreenShareSources, windowScreenShareSources],
+  );
 
-  const closeScreenShareModal = (): void => {
+  const closeScreenShareModal = useCallback((): void => {
     if (isStartingScreenShare) {
       return;
     }
 
     setIsScreenShareModalOpen(false);
     setScreenShareModalError(null);
-  };
+  }, [isStartingScreenShare]);
 
-  const openScreenShareModal = (): void => {
+  const openScreenShareModal = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
       setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
@@ -565,9 +667,14 @@ export const useWorkspaceMediaControls = ({
     );
     setIsScreenShareModalOpen(true);
     void loadScreenShareSources();
-  };
+  }, [
+    activeLobbyRef,
+    setStatus,
+    streamPreferences.frameRate,
+    loadScreenShareSources,
+  ]);
 
-  const startScreenShareFromModal = async (): Promise<void> => {
+  const startScreenShareFromModal = useCallback(async (): Promise<void> => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
       setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
@@ -576,7 +683,7 @@ export const useWorkspaceMediaControls = ({
 
     const selectedSourceId = selectedScreenShareSourceId;
     if (!selectedSourceId) {
-      setScreenShareModalError("Lutfen bir pencere veya monitor sec.");
+      setScreenShareModalError("Lütfen bir pencere veya monitör seç.");
       return;
     }
 
@@ -658,9 +765,18 @@ export const useWorkspaceMediaControls = ({
     } finally {
       setIsStartingScreenShare(false);
     }
-  };
+  }, [
+    activeLobbyRef,
+    currentUserId,
+    liveKitSessionRef,
+    patchLobbyMemberState,
+    setStatus,
+    streamPreferences.captureSystemAudio,
+    selectedScreenShareSourceId,
+    selectedScreenShareQuality,
+  ]);
 
-  const handleScreenToggle = (): void => {
+  const handleScreenToggle = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
       setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
@@ -694,7 +810,15 @@ export const useWorkspaceMediaControls = ({
     }
 
     openScreenShareModal();
-  };
+  }, [
+    activeLobbyRef,
+    screenEnabled,
+    localScreenStream,
+    liveKitSessionRef,
+    patchLobbyMemberState,
+    setStatus,
+    openScreenShareModal,
+  ]);
 
   return {
     micEnabled,

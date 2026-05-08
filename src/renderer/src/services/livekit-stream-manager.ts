@@ -7,7 +7,7 @@ import {
   VideoPreset,
   VideoQuality,
   supportsVP9,
-  type DisconnectReason,
+  DisconnectReason,
   type LocalParticipant,
   type LocalTrackPublication,
   type Participant,
@@ -17,6 +17,7 @@ import {
   type RoomEventCallbacks,
   type TrackPublication,
   type TrackPublishOptions,
+  type RoomOptions,
 } from "livekit-client";
 import type {
   NetworkStats,
@@ -27,11 +28,12 @@ import type {
 import { logLiveKitDebug } from "./livekit-debug-log";
 import { LiveKitMicrophoneController } from "./livekit-microphone-controller";
 import type { NoiseSuppressionPreset } from "./rnnoise-track-processor";
+import { type ActiveNoiseSuppressionMode } from "./livekit-noise-suppression-runtime";
 import workspaceService from "./workspace-service";
 
 export interface ParticipantMediaStreams {
-  camera: MediaStream | null;
-  screen: MediaStream | null;
+  camera: Track | MediaStream | null;
+  screen: Track | MediaStream | null;
 }
 
 export type ParticipantMediaMap = Record<string, ParticipantMediaStreams>;
@@ -79,6 +81,8 @@ interface LiveKitStreamManagerCallbacks {
   ) => void;
   onWarning?: (message: string) => void;
   onQualityProfileApplied?: (profile: QualityProfile, reason: string) => void;
+  onNoiseSuppressionModeChanged?: (mode: ActiveNoiseSuppressionMode) => void;
+  onActiveSpeakersChanged?: (speakerIds: string[]) => void;
 }
 
 interface SenderSample {
@@ -131,10 +135,6 @@ const cloneMediaStreams = (
   return next;
 };
 
-const buildSingleTrackStream = (track: MediaStreamTrack): MediaStream => {
-  return new MediaStream([track]);
-};
-
 // LiveKitStreamManager controls connection, publishing, quality adaptation, and telemetry.
 export class LiveKitStreamManager {
   private room: Room | null = null;
@@ -149,6 +149,7 @@ export class LiveKitStreamManager {
     RemoteParticipantAudioPreference
   >();
   private remoteAudioContext: AudioContext | null = null;
+  private lastActiveSpeakerIds: string[] = [];
 
   private cameraPublication: LocalTrackPublication | null = null;
   private screenVideoPublication: LocalTrackPublication | null = null;
@@ -169,6 +170,7 @@ export class LiveKitStreamManager {
   private reconnectTimer: number | null = null;
   private reconnectAttempt = 0;
   private manualDisconnect = false;
+  private replacingRoom = false;
 
   private bandwidthTimer: number | null = null;
   private networkPolicyTimer: number | null = null;
@@ -212,6 +214,20 @@ export class LiveKitStreamManager {
   private readonly handleDisconnected: RoomEventCallbacks["disconnected"] = (
     reason?: DisconnectReason,
   ) => {
+    const internalRoomReplaceDisconnect = this.replacingRoom;
+    const clientInitiatedDisconnect =
+      reason === DisconnectReason.CLIENT_INITIATED;
+
+    if (internalRoomReplaceDisconnect || clientInitiatedDisconnect) {
+      logLiveKitDebug("stream-manager", "room-disconnected-ignored", {
+        lobbyId: this.currentLobbyId,
+        reason: reason ? String(reason) : "unknown",
+        manualDisconnect: this.manualDisconnect,
+        replacingRoom: internalRoomReplaceDisconnect,
+      });
+      return;
+    }
+
     logLiveKitDebug("stream-manager", "room-disconnected", {
       lobbyId: this.currentLobbyId,
       reason: reason ? String(reason) : "unknown",
@@ -240,6 +256,20 @@ export class LiveKitStreamManager {
       this.callbacks.onRemoteStreamsChanged(
         cloneMediaStreams(this.remoteStreams),
       );
+    };
+
+  private readonly handleActiveSpeakersChanged: RoomEventCallbacks["activeSpeakersChanged"] =
+    (speakers: Participant[]) => {
+      const nextIds = speakers
+        .map((speaker) => speaker.identity?.trim())
+        .filter((id): id is string => Boolean(id));
+
+      if (this.areSpeakerListsEqual(nextIds, this.lastActiveSpeakerIds)) {
+        return;
+      }
+
+      this.lastActiveSpeakerIds = nextIds;
+      this.callbacks.onActiveSpeakersChanged?.(nextIds);
     };
 
   private readonly handleTrackSubscribed: RoomEventCallbacks["trackSubscribed"] =
@@ -311,6 +341,19 @@ export class LiveKitStreamManager {
 
   private readonly handleMediaDevicesError: RoomEventCallbacks["mediaDevicesError"] =
     (error: Error) => {
+      const message = error.message ?? "";
+      if (
+        message.includes(
+          "Audio context needs to be set on LocalAudioTrack in order to enable processors",
+        )
+      ) {
+        logLiveKitDebug("stream-manager", "media-devices-error-suppressed", {
+          reason: "processor-audio-context-race",
+          error,
+        });
+        return;
+      }
+
       logLiveKitDebug("stream-manager", "media-devices-error", {
         error,
       });
@@ -328,20 +371,24 @@ export class LiveKitStreamManager {
     private readonly callbacks: LiveKitStreamManagerCallbacks,
   ) {
     logLiveKitDebug("stream-manager", "constructed");
-    this.microphoneController = new LiveKitMicrophoneController((message) => {
-      logLiveKitDebug("stream-manager", "microphone-controller-warning", {
-        message,
-      });
-      this.callbacks.onWarning?.(message);
-    });
+    this.microphoneController = new LiveKitMicrophoneController(
+      (message) => {
+        logLiveKitDebug("stream-manager", "microphone-controller-warning", {
+          message,
+        });
+        this.callbacks.onWarning?.(message);
+      },
+      (mode) => {
+        this.callbacks.onNoiseSuppressionModeChanged?.(mode);
+      },
+    );
     this.bindQualityEvents();
   }
 
   public setAudioProcessingPreferences(
     preferences: Partial<LiveKitAudioProcessingPreferences>,
   ): void {
-    const previousOutputDeviceId =
-      this.audioProcessingPreferences.selectedAudioOutputDeviceId;
+    const previous = { ...this.audioProcessingPreferences };
 
     this.audioProcessingPreferences = {
       ...this.audioProcessingPreferences,
@@ -349,12 +396,28 @@ export class LiveKitStreamManager {
     };
 
     if (
-      previousOutputDeviceId !==
+      previous.selectedAudioOutputDeviceId !==
       this.audioProcessingPreferences.selectedAudioOutputDeviceId
     ) {
       void this.applyAudioOutputDevicePreference().catch((error) => {
         this.callbacks.onWarning?.(
           `Ses çıkış cihazı uygulanamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      });
+    }
+
+    const inputProcessingChanged =
+      previous.enhancedNoiseSuppressionEnabled !==
+        this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled ||
+      previous.noiseSuppressionPreset !==
+        this.audioProcessingPreferences.noiseSuppressionPreset ||
+      previous.selectedAudioInputDeviceId !==
+        this.audioProcessingPreferences.selectedAudioInputDeviceId;
+
+    if (inputProcessingChanged && this.room && this.desiredMicEnabled) {
+      void this.refreshMicrophoneProcessing().catch((error) => {
+        this.callbacks.onWarning?.(
+          `Mikrofon ayarları güncellenemedi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
         );
       });
     }
@@ -407,12 +470,17 @@ export class LiveKitStreamManager {
       publishOptions: {
         dtx: this.shouldEnableDtx(),
         red: this.shouldEnableRed(),
+        audioPreset: { maxBitrate: 32000 },
       },
     });
 
     logLiveKitDebug("stream-manager", "refresh-mic-processing-finished", {
       participantMicEnabled: this.room.localParticipant.isMicrophoneEnabled,
     });
+  }
+
+  public getActiveNoiseSuppressionMode(): ActiveNoiseSuppressionMode {
+    return this.microphoneController.getActiveNoiseSuppressionMode();
   }
 
   // connect connects to the LiveKit room with reconnect support and state preservation.
@@ -505,6 +573,7 @@ export class LiveKitStreamManager {
     const publishOptions: TrackPublishOptions = {
       dtx: this.shouldEnableDtx(),
       red: this.shouldEnableRed(),
+      audioPreset: { maxBitrate: 32000 },
     };
 
     await this.microphoneController.applyMicrophoneState({
@@ -722,8 +791,17 @@ export class LiveKitStreamManager {
       lobbyId,
     });
     if (this.room) {
-      await this.room.disconnect(false);
-      this.room = null;
+      const previousRoom = this.room;
+      this.stopReconnectTimer();
+      this.replacingRoom = true;
+      try {
+        await previousRoom.disconnect(false);
+      } finally {
+        this.replacingRoom = false;
+        if (this.room === previousRoom) {
+          this.room = null;
+        }
+      }
     }
 
     const tokenResult = await workspaceService.createLiveKitToken({
@@ -733,10 +811,15 @@ export class LiveKitStreamManager {
       throw new Error(tokenResult.error?.message ?? "LiveKit token alınamadı");
     }
 
-    const roomOptions: ConstructorParameters<typeof Room>[0] = {
+    const roomOptions: RoomOptions = {
       adaptiveStream: true,
       dynacast: true,
       stopLocalTrackOnUnpublish: false,
+      disconnectOnPageLeave: false, // Prevents disconnect when Electron window is backgrounded
+      publishDefaults: {
+        dtx: true,
+        red: true,
+      },
     };
 
     const liveKitAudioContext =
@@ -763,7 +846,7 @@ export class LiveKitStreamManager {
 
     await room.connect(tokenResult.data.serverUrl, tokenResult.data.token, {
       autoSubscribe: true,
-      maxRetries: 0,
+      maxRetries: 20,
     });
 
     logLiveKitDebug("stream-manager", "establish-connection-finished", {
@@ -779,6 +862,8 @@ export class LiveKitStreamManager {
     room.on(RoomEvent.SignalReconnecting, this.handleSignalReconnecting);
     room.on(RoomEvent.Reconnected, this.handleReconnected);
     room.on(RoomEvent.Disconnected, this.handleDisconnected);
+
+    room.on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged);
 
     room.on(RoomEvent.ParticipantConnected, this.handleParticipantConnected);
     room.on(
@@ -970,13 +1055,11 @@ export class LiveKitStreamManager {
   }
 
   private shouldEnableRed(): boolean {
-    return (this.activeNetworkStats?.packetLossPercent ?? 0) > 5;
+    return true;
   }
 
   private shouldEnableDtx(): boolean {
-    const jitter = this.activeNetworkStats?.jitterMs ?? 0;
-    const rtt = this.activeNetworkStats?.rttMs ?? 0;
-    return jitter > 150 || rtt > 300;
+    return true;
   }
 
   private inferScreenMode(stream: MediaStream): ScreenShareMode {
@@ -1080,14 +1163,6 @@ export class LiveKitStreamManager {
       height: { ideal: profile.height },
       frameRate: { ideal: profile.frameRate, max: profile.frameRate },
     };
-
-    if (source === "camera") {
-      (
-        constraints as MediaTrackConstraints & {
-          focusMode?: ConstrainDOMString;
-        }
-      ).focusMode = "continuous";
-    }
 
     try {
       await track.applyConstraints(constraints);
@@ -1246,6 +1321,35 @@ export class LiveKitStreamManager {
   private clearRemoteState(): void {
     this.remoteStreams.clear();
     this.callbacks.onRemoteStreamsChanged({});
+    this.resetActiveSpeakers();
+  }
+
+  private resetActiveSpeakers(): void {
+    if (this.lastActiveSpeakerIds.length === 0) {
+      return;
+    }
+
+    this.lastActiveSpeakerIds = [];
+    this.callbacks.onActiveSpeakersChanged?.([]);
+  }
+
+  private areSpeakerListsEqual(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    const leftSet = new Set(left);
+    if (leftSet.size !== right.length) {
+      return false;
+    }
+
+    for (const id of right) {
+      if (!leftSet.has(id)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private onTrackSubscribed(
@@ -1275,11 +1379,11 @@ export class LiveKitStreamManager {
     };
 
     if (source === Track.Source.Camera) {
-      next.camera = buildSingleTrackStream(track.mediaStreamTrack);
+      next.camera = track;
     }
 
     if (source === Track.Source.ScreenShare) {
-      next.screen = buildSingleTrackStream(track.mediaStreamTrack);
+      next.screen = track;
     }
 
     this.remoteStreams.set(identity, next);

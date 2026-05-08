@@ -97,16 +97,9 @@ export const buildCameraVideoConstraints = (
   preferences: CameraPreferences,
 ): MediaTrackConstraints => {
   return {
-    width: {
-      ideal: preferences.resolution === "1080p" ? 1920 : 1280,
-    },
-    height: {
-      ideal: preferences.resolution === "1080p" ? 1080 : 720,
-    },
-    frameRate: {
-      ideal: preferences.frameRate,
-      max: preferences.frameRate,
-    },
+    width: preferences.resolution === "1080p" ? 1920 : 1280,
+    height: preferences.resolution === "1080p" ? 1080 : 720,
+    frameRate: preferences.frameRate,
   };
 };
 

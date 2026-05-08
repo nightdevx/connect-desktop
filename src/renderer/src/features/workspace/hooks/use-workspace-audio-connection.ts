@@ -184,24 +184,25 @@ export const useWorkspaceAudioConnection = ({
           : null;
 
       let tone: AudioConnectionTone = "ok";
-      let statusText = "Ses bağlantısı iyi";
+      const pingDisplay = effectivePingMs !== null ? ` (${Math.round(effectivePingMs)} ms)` : "";
+      let statusText = `Ses bağlantısı iyi${pingDisplay}`;
 
       if (successfulSamples === 0 && failedSamples > 0) {
         tone = "error";
-        statusText = "Ses bağlantısı yok";
+        statusText = `Ses bağlantısı yok${pingDisplay}`;
       } else if (
         (packetLossPct !== null && packetLossPct >= 20) ||
         (effectivePingMs !== null && effectivePingMs >= 350)
       ) {
         tone = "error";
-        statusText = "Ses bağlantısı sorunlu";
+        statusText = `Ses bağlantısı sorunlu${pingDisplay}`;
       } else if (
         (packetLossPct !== null && packetLossPct >= 8) ||
         (effectivePingMs !== null && effectivePingMs >= 180) ||
         (jitterMs !== null && jitterMs >= 55)
       ) {
         tone = "warn";
-        statusText = "Ses bağlantısı zayıf";
+        statusText = `Ses bağlantısı zayıf${pingDisplay}`;
       }
 
       if (totalSamples < 2 && tone !== "error") {

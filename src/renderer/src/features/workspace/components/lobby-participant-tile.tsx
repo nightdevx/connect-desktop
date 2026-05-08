@@ -1,7 +1,17 @@
 import { useEffect, useRef, type MouseEvent } from "react";
-import { Headphones, Mic, MicOff, MonitorUp, VolumeX } from "lucide-react";
+import { Slider, Avatar, Tooltip } from "antd";
+import {
+  AudioOutlined,
+  AudioMutedOutlined,
+  CustomerServiceOutlined,
+  MutedOutlined,
+  SoundOutlined,
+  DesktopOutlined,
+} from "@ant-design/icons";
 import type { LobbyStateMember } from "../../../../../shared/desktop-api-types";
+import type { RemoteParticipantAudioPreference } from "../../../services/livekit-stream-manager";
 import { getDisplayInitials } from "../workspace-utils";
+import { logLiveKitDebug } from "../../../services/livekit-debug-log";
 
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
@@ -10,7 +20,16 @@ export interface LobbyParticipantView extends LobbyStateMember {
 interface LobbyParticipantTileProps {
   participant: LobbyParticipantView;
   avatarUrl?: string | null;
-  previewStream?: MediaStream | null;
+  previewStream?: any; // MediaStream or livekit Track
+  /** Ses kontrol paneli bu tile için açıksa true */
+  isSelected?: boolean;
+  isFocusedLayout?: boolean;
+  isCompact?: boolean;
+  showAudioControls?: boolean;
+  audioPreference?: RemoteParticipantAudioPreference;
+  onToggleMute?: () => void;
+  onVolumeChange?: (volumePercent: number) => void;
+  onActivate?: (event: MouseEvent<HTMLElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
 }
 
@@ -18,41 +37,118 @@ export function LobbyParticipantTile({
   participant,
   avatarUrl,
   previewStream = null,
+  isSelected = false,
+  isFocusedLayout = false,
+  isCompact = false,
+  showAudioControls = false,
+  audioPreference,
+  onToggleMute,
+  onVolumeChange,
+  onActivate,
   onContextMenu,
 }: LobbyParticipantTileProps) {
   const micOpen = !participant.muted;
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  const isLocal = participant.isLocalUser;
+  const effectivePreference = audioPreference ?? {
+    muted: false,
+    volumePercent: 100,
+  };
+  const effectiveVolume = Number.isFinite(effectivePreference.volumePercent)
+    ? Math.min(200, Math.max(0, Math.round(effectivePreference.volumePercent)))
+    : 100;
+  const canShowAudioControls = showAudioControls && !isLocal;
+
+  const handleVideoLoadedMetadata = () => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
   useEffect(() => {
     const videoElement = videoRef.current;
-    if (!videoElement) {
+    if (!videoElement) return;
+
+    if (!previewStream) {
+      if (videoElement.srcObject) {
+        videoElement.srcObject = null;
+      }
       return;
     }
 
-    if (videoElement.srcObject !== previewStream) {
-      videoElement.srcObject = previewStream;
-    }
+    // Force attributes for better reliability in some Chromium/Electron environments
+    videoElement.muted = true;
+    videoElement.setAttribute("autoplay", "true");
+    videoElement.setAttribute("playsinline", "true");
 
-    if (previewStream) {
-      void videoElement.play().catch(() => {
-        // Browser may block autoplay until user gesture.
+    const isLiveKitTrack = typeof previewStream.attach === "function";
+
+    if (isLiveKitTrack) {
+      previewStream.attach(videoElement);
+      // LiveKit attach sets srcObject, but we should ensure it plays
+      videoElement.play().catch((err) => {
+        if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
+          logLiveKitDebug?.("participant-tile", "play-failed", { err });
+        }
       });
-    }
 
-    return () => {
-      if (videoElement.srcObject === previewStream) {
-        videoElement.srcObject = null;
+      return () => {
+        previewStream.detach(videoElement);
+      };
+    } else {
+      if (videoElement.srcObject !== previewStream) {
+        videoElement.srcObject = previewStream;
+        if (previewStream instanceof MediaStream) {
+          previewStream.getVideoTracks().forEach((t) => {
+            t.enabled = true;
+          });
+        }
       }
-    };
+
+      const tryPlay = () => {
+        videoElement.play().catch((err) => {
+          if (err.name !== "AbortError") {
+            // Try again once after a short delay if it fails
+            setTimeout(() => {
+              if (videoRef.current) videoRef.current.play().catch(() => {});
+            }, 200);
+          }
+        });
+      };
+
+      tryPlay();
+
+      return () => {
+        if (videoElement.srcObject === previewStream) {
+          videoElement.srcObject = null;
+        }
+      };
+    }
   }, [previewStream]);
 
   return (
     <article
-      className={`ct-lobby-participant-tile ${participant.speaking ? "speaking" : ""} ${participant.isLocalUser ? "local-user" : ""}`}
+      className={[
+        "ct-lobby-participant-tile",
+        participant.speaking ? "speaking" : "",
+        participant.isLocalUser ? "local-user" : "",
+        isSelected ? "selected" : "",
+        isFocusedLayout ? "focused" : "",
+        isCompact ? "compact" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={participant.username}
+      aria-pressed={!participant.isLocalUser && isSelected ? true : undefined}
       onContextMenu={onContextMenu}
-      title={participant.isLocalUser ? undefined : "Sag tik: kullanici sesi"}
+      onClick={!participant.isLocalUser ? onActivate : undefined}
+      title={
+        participant.isLocalUser
+          ? undefined
+          : "Sol tık: büyüt / Sağ tık: ses paneli"
+      }
     >
       {previewStream && (
         <video
@@ -61,6 +157,7 @@ export function LobbyParticipantTile({
           autoPlay
           playsInline
           muted
+          onLoadedMetadata={handleVideoLoadedMetadata}
         />
       )}
 
@@ -68,11 +165,27 @@ export function LobbyParticipantTile({
         className={`ct-lobby-tile-center-logo ${previewStream ? "media-on" : ""}`}
         aria-hidden="true"
       >
-        {avatarUrl ? (
-          <img className="ct-lobby-tile-avatar" src={avatarUrl} alt="" />
-        ) : (
-          getDisplayInitials(participant.username)
-        )}
+        <Avatar
+          size={isCompact ? 40 : 64}
+          src={avatarUrl}
+          style={{
+            background: "rgba(30, 30, 30, 0.9)",
+            border: participant.speaking
+              ? "2.5px solid #ffffff"
+              : "1.5px solid rgba(255, 255, 255, 0.15)",
+            boxShadow: participant.speaking
+              ? "0 0 16px rgba(255, 255, 255, 0.4)"
+              : "0 4px 12px rgba(0, 0, 0, 0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#ffffff",
+            fontWeight: "bold",
+            fontSize: isCompact ? "14px" : "20px",
+          }}
+        >
+          {getDisplayInitials(participant.username)}
+        </Avatar>
       </div>
 
       <footer className="ct-lobby-tile-footer">
@@ -86,27 +199,82 @@ export function LobbyParticipantTile({
         >
           <span className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}>
             {micOpen ? (
-              <Mic size={12} aria-hidden="true" />
+              <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
             ) : (
-              <MicOff size={12} aria-hidden="true" />
+              <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
             )}
           </span>
           <span
             className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
           >
             {headphoneOpen ? (
-              <Headphones size={12} aria-hidden="true" />
+              <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
             ) : (
-              <VolumeX size={12} aria-hidden="true" />
+              <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
             )}
           </span>
           {participant.screenSharing && (
             <span className="ct-lobby-flag signal" title="Ekran paylaşımı açık">
-              <MonitorUp size={12} aria-hidden="true" />
+              <DesktopOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
             </span>
           )}
         </div>
       </footer>
+
+      {canShowAudioControls && (
+        <div
+          className="ct-lobby-inline-audio-controls-premium"
+          role="group"
+          aria-label={`${participant.username} ses ayarlari`}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            className={`ct-lobby-inline-mute-btn ${effectivePreference.muted ? "muted" : ""}`}
+            onClick={() => onToggleMute?.()}
+            title={effectivePreference.muted ? "Sesi aç" : "Sustur"}
+            aria-label={effectivePreference.muted ? "Sesi aç" : "Sustur"}
+            style={{
+              background: effectivePreference.muted ? "#ffffff" : "rgba(255,255,255,0.06)",
+            }}
+          >
+            {effectivePreference.muted ? (
+              <MutedOutlined style={{ fontSize: "11px", color: "#000000" }} />
+            ) : (
+              <SoundOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
+            )}
+          </button>
+
+          <div style={{ flex: 1, padding: "0 4px" }}>
+            <Slider
+              min={0}
+              max={200}
+              step={5}
+              value={effectiveVolume}
+              onChange={onVolumeChange}
+              tooltip={{ formatter: (v) => `%${v}` }}
+              styles={{
+                track: {
+                  background: "#ffffff",
+                },
+                handle: {
+                  background: "#ffffff",
+                  borderColor: "#ffffff",
+                },
+              }}
+              style={{ margin: 0, padding: "4px 0" }}
+            />
+          </div>
+
+          <span className="ct-lobby-inline-volume-value">
+            %{effectiveVolume}
+          </span>
+        </div>
+      )}
     </article>
   );
 }

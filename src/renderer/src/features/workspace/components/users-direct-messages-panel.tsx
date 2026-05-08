@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { Drawer, Input, Button, Tag, Divider, Descriptions, Avatar, Tooltip } from "antd";
 import {
-  CalendarDays,
-  Copy,
-  Loader2,
-  SendHorizontal,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-  X,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+  SendOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  CalendarOutlined,
+  SafetyOutlined,
+  GlobalOutlined,
+  InfoCircleOutlined,
+  UserOutlined,
+  ExclamationCircleOutlined,
+} from "@ant-design/icons";
 import type { UserDirectoryEntry } from "../../../../../shared/auth-contracts";
 import type { UseDirectMessagesResult } from "../hooks/use-direct-messages";
 import {
@@ -78,26 +78,23 @@ export function UsersDirectMessagesPanel({
     <article className="ct-chat-panel ct-chat-panel-plain">
       {selectedUser ? (
         <>
-          <button
-            type="button"
-            className="ct-chat-user-header"
-            onClick={() => setIsUserPopupOpen(true)}
-          >
+          <div className="ct-chat-user-header-premium" onClick={() => setIsUserPopupOpen(true)}>
             <div className="ct-chat-user-header-left">
-              <div className="ct-user-avatar lg" aria-hidden="true">
-                {selectedUser.avatarUrl ? (
-                  <img
-                    className="ct-user-avatar-image"
-                    src={selectedUser.avatarUrl}
-                    alt=""
-                  />
-                ) : (
-                  <span className="ct-user-avatar-fallback">
-                    {getDisplayInitials(
-                      selectedUser.displayName || selectedUser.username,
-                    )}
-                  </span>
-                )}
+              <div className="relative">
+                <Avatar
+                  size={42}
+                  src={selectedUser.avatarUrl}
+                  icon={!selectedUser.avatarUrl && <UserOutlined />}
+                  style={{
+                    border: "1.5px solid rgba(255, 255, 255, 0.15)",
+                    background: "#121212",
+                  }}
+                />
+                <span
+                  className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-[#0d0d0d] ${
+                    selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
+                  }`}
+                />
               </div>
 
               <div className="ct-chat-user-header-main">
@@ -106,14 +103,22 @@ export function UsersDirectMessagesPanel({
               </div>
             </div>
 
-            <div className="ct-chat-user-status">
-              <span
-                className={`ct-presence-dot ${selectedUser.appOnline ? "online" : "offline"}`}
-                aria-hidden="true"
-              />
-              <span>{getUserStatusLabel(selectedUser.appOnline)}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-[#8f8f8f] px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)]">
+                {getUserStatusLabel(selectedUser.appOnline)}
+              </span>
+              <Tooltip title="Kullanıcı Bilgisi">
+                <Button
+                  type="text"
+                  icon={<InfoCircleOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: "16px" }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsUserPopupOpen(true);
+                  }}
+                />
+              </Tooltip>
             </div>
-          </button>
+          </div>
 
           <div className="ct-chat-thread-box">
             <div
@@ -142,7 +147,8 @@ export function UsersDirectMessagesPanel({
 
               {showEmptyState && (
                 <div className="ct-list-state ct-chat-empty-state">
-                  Bu kişiyle henüz mesajlaşma yok. İlk mesajı sen gönder.
+                  <p className="text-sm text-[#8f8f8f] mb-1">Bu kişiyle henüz mesajlaşma yok.</p>
+                  <p className="text-xs text-[#5f5f5f]">İlk mesajı göndermek için aşağıdaki yazma alanını kullanabilirsin.</p>
                 </div>
               )}
 
@@ -182,13 +188,9 @@ export function UsersDirectMessagesPanel({
                                 }
                               >
                                 {isDeleting ? (
-                                  <Loader2
-                                    size={12}
-                                    className="animate-spin"
-                                    aria-hidden="true"
-                                  />
+                                  <div className="ct-spinner-small" />
                                 ) : (
-                                  <Trash2 size={12} aria-hidden="true" />
+                                  <DeleteOutlined style={{ fontSize: "11px" }} />
                                 )}
                               </button>
                             )}
@@ -201,125 +203,163 @@ export function UsersDirectMessagesPanel({
               )}
             </div>
 
-            <div className="ct-chat-composer">
-              <input
-                type="text"
-                className="ct-input"
+            <div className="ct-chat-composer" style={{ padding: "16px", background: "transparent" }}>
+              <Input
+                size="large"
                 placeholder="Mesaj yaz..."
                 value={messageDraft}
                 onChange={(event) => onMessageDraftChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                onPressEnter={(event) => {
+                  if (!event.shiftKey && messageDraft.trim()) {
                     event.preventDefault();
                     onSendMessage();
                   }
                 }}
                 disabled={isSendingMessage}
-              />
-              <button
-                type="button"
-                className="ct-chat-send-icon"
-                onClick={onSendMessage}
-                disabled={isSendingMessage || !messageDraft.trim()}
-                aria-label="Mesaj gönder"
-              >
-                {isSendingMessage ? (
-                  <Loader2
-                    size={15}
-                    className="animate-spin"
-                    aria-hidden="true"
+                suffix={
+                  <Button
+                    type="text"
+                    icon={<SendOutlined style={{ color: messageDraft.trim() ? "#ffffff" : "rgba(255,255,255,0.2)" }} />}
+                    onClick={onSendMessage}
+                    loading={isSendingMessage}
+                    disabled={isSendingMessage || !messageDraft.trim()}
+                    style={{ background: "transparent", border: "none" }}
                   />
-                ) : (
-                  <SendHorizontal size={15} aria-hidden="true" />
-                )}
-              </button>
+                }
+                style={{
+                  background: "rgba(12, 12, 12, 0.8)",
+                  borderColor: "rgba(255, 255, 255, 0.08)",
+                  color: "#f5f5f5",
+                  borderRadius: "10px",
+                  padding: "6px 12px",
+                }}
+              />
             </div>
           </div>
 
-          {isUserPopupOpen && (
-            <div
-              className="ct-user-popup-overlay"
-              role="presentation"
-              onClick={() => setIsUserPopupOpen(false)}
-            >
-              <section
-                className="ct-user-popup"
-                role="dialog"
-                aria-modal="true"
-                aria-label="Kullanıcı detayları"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="ct-user-popup-header">
-                  <div className="ct-user-popup-title-row">
-                    <div className="ct-user-avatar" aria-hidden="true">
-                      {selectedUser.avatarUrl ? (
-                        <img
-                          className="ct-user-avatar-image"
-                          src={selectedUser.avatarUrl}
-                          alt=""
-                        />
-                      ) : (
-                        <span className="ct-user-avatar-fallback">
-                          {getDisplayInitials(
-                            selectedUser.displayName || selectedUser.username,
-                          )}
-                        </span>
-                      )}
-                    </div>
+          <Drawer
+            title={
+              <div className="flex items-center gap-2 text-white">
+                <UserOutlined />
+                <span className="font-bold text-[14px] tracking-wide uppercase">Kullanıcı Profili</span>
+              </div>
+            }
+            placement="right"
+            onClose={() => setIsUserPopupOpen(false)}
+            open={isUserPopupOpen}
+            width={340}
+            styles={{
+              mask: {
+                backdropFilter: "blur(6px)",
+                background: "rgba(0, 0, 0, 0.6)",
+              },
+              content: {
+                background: "rgba(10, 10, 10, 0.98)",
+                borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+              },
+              header: {
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "rgba(10, 10, 10, 0.98)",
+                padding: "16px 24px",
+              },
+              body: {
+                padding: "24px",
+              }
+            }}
+          >
+            <div className="flex flex-col items-center text-center gap-4 pb-6">
+              <div className="relative">
+                <Avatar
+                  size={96}
+                  src={selectedUser.avatarUrl}
+                  icon={!selectedUser.avatarUrl && <UserOutlined />}
+                  style={{
+                    border: "2px solid rgba(255, 255, 255, 0.15)",
+                    background: "#161616",
+                  }}
+                />
+                <span
+                  className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-[#0a0a0a] ${
+                    selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
+                  }`}
+                />
+              </div>
 
-                    <h4>{selectedUser.displayName || selectedUser.username}</h4>
-                  </div>
+              <div>
+                <h3 className="text-[17px] font-bold text-white leading-snug">
+                  {selectedUser.displayName || selectedUser.username}
+                </h3>
+                <p className="text-[13px] text-[#8f8f8f] mt-0.5">@{selectedUser.username}</p>
+              </div>
 
-                  <button
-                    type="button"
-                    className="ct-user-popup-close"
-                    onClick={() => setIsUserPopupOpen(false)}
-                    aria-label="Detay penceresini kapat"
-                  >
-                    <X size={16} aria-hidden="true" />
-                  </button>
-                </header>
-
-                <div className="ct-detail-grid compact">
-                  <div className="ct-detail-item">
-                    <UserRound size={15} aria-hidden="true" />
-                    <span>@{selectedUser.username}</span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <ShieldCheck size={15} aria-hidden="true" />
-                    <span>
-                      Rol: {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
-                    </span>
-                  </div>
-                  <div className="ct-detail-item">
-                    <CalendarDays size={15} aria-hidden="true" />
-                    <span>
-                      Kayıt: {formatDateLabel(selectedUser.createdAt)}
-                    </span>
-                  </div>
-                  <div className="ct-detail-item">
-                    {selectedUser.appOnline ? (
-                      <Wifi size={15} aria-hidden="true" />
-                    ) : (
-                      <WifiOff size={15} aria-hidden="true" />
-                    )}
-                    <span>{getUserStatusLabel(selectedUser.appOnline)}</span>
-                  </div>
-                </div>
-
-                <div className="ct-action-row">
-                  <button
-                    type="button"
-                    className="ct-btn-secondary"
-                    onClick={() => void onCopyUsername(selectedUser.username)}
-                  >
-                    <Copy size={15} aria-hidden="true" />
-                    Kullanıcı Adını Kopyala
-                  </button>
-                </div>
-              </section>
+              <Tag color={selectedUser.role === "admin" ? "gold" : "default"} style={{ margin: 0, borderRadius: "4px" }}>
+                {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
+              </Tag>
             </div>
-          )}
+
+            <Divider style={{ borderColor: "rgba(255, 255, 255, 0.08)", margin: "0 0 20px 0" }} />
+
+            <Descriptions title={null} column={1} layout="horizontal" size="small" style={{ margin: 0 }}>
+              <Descriptions.Item
+                label={
+                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                    <SafetyOutlined /> Rol
+                  </span>
+                }
+              >
+                <span className="text-white text-[12px] font-medium">
+                  {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
+                </span>
+              </Descriptions.Item>
+
+              <Descriptions.Item
+                label={
+                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                    <CalendarOutlined /> Katılım Tarihi
+                  </span>
+                }
+              >
+                <span className="text-white text-[12px] font-medium">
+                  {formatDateLabel(selectedUser.createdAt)}
+                </span>
+              </Descriptions.Item>
+
+              <Descriptions.Item
+                label={
+                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                    <GlobalOutlined /> Durum
+                  </span>
+                }
+              >
+                <span className="text-white text-[12px] font-medium">
+                  {getUserStatusLabel(selectedUser.appOnline)}
+                </span>
+              </Descriptions.Item>
+            </Descriptions>
+
+            <div className="mt-8">
+              <Button
+                type="default"
+                icon={<CopyOutlined />}
+                block
+                onClick={() => {
+                  void onCopyUsername(selectedUser.username);
+                  setIsUserPopupOpen(false);
+                }}
+                style={{
+                  background: "rgba(25, 25, 25, 0.8)",
+                  borderColor: "rgba(255, 255, 255, 0.08)",
+                  color: "#f5f5f5",
+                  borderRadius: "8px",
+                  height: "38px",
+                  fontSize: "12px",
+                }}
+              >
+                Kullanıcı Adını Kopyala
+              </Button>
+            </div>
+          </Drawer>
 
           <ConfirmActionModal
             isOpen={pendingDeleteMessageId !== null}
@@ -342,7 +382,13 @@ export function UsersDirectMessagesPanel({
           />
         </>
       ) : (
-        <p>Direkt mesajları görmek için soldan bir kullanıcı seç.</p>
+        <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-[rgba(5,5,5,0.2)]">
+          <ExclamationCircleOutlined style={{ fontSize: "32px", color: "rgba(255,255,255,0.15)", marginBottom: "16px" }} />
+          <h3 className="text-base font-semibold text-white mb-1">Bir Sohbet Seç</h3>
+          <p className="text-xs text-[#8f8f8f] max-w-[280px]">
+            Direkt mesajları görmek, dosya göndermek ve sesli/görüntülü bağlantı kurmak için soldaki listeden bir arkadaşını seçebilirsin.
+          </p>
+        </div>
       )}
     </article>
   );

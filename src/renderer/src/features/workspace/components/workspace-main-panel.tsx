@@ -42,6 +42,7 @@ interface WorkspaceMainPanelProps {
     string,
     RemoteParticipantAudioPreference
   >;
+  activeSpeakerIds: string[];
   avatarByUserId: Record<string, string | null | undefined>;
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
@@ -123,6 +124,7 @@ export function WorkspaceMainPanel({
   localScreenStream,
   remoteParticipantStreams,
   remoteParticipantAudioPreferences,
+  activeSpeakerIds,
   avatarByUserId,
   workspaceSection,
   settingsSection,
@@ -220,6 +222,7 @@ export function WorkspaceMainPanel({
             remoteParticipantAudioPreferences={
               remoteParticipantAudioPreferences
             }
+            activeSpeakerIds={activeSpeakerIds}
             avatarByUserId={avatarByUserId}
             joiningLobbyId={joiningLobbyId}
             onJoinLobby={onJoinLobby}

@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { Select, Switch, Button, message } from "antd";
+import {
+  DesktopOutlined,
+  SaveOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "../../../../services/screen-capture-service";
 
@@ -26,9 +34,9 @@ export function SettingsStream({
   onLogout,
   isLoggingOut,
 }: SettingsStreamProps) {
+  const [messageApi, contextHolder] = message.useMessage();
   const [draftStreamPreferences, setDraftStreamPreferences] =
     useState<StreamPreferences>(streamPreferences);
-  const [streamNotice, setStreamNotice] = useState("");
   const [streamTestStream, setStreamTestStream] = useState<MediaStream | null>(
     null,
   );
@@ -60,11 +68,10 @@ export function SettingsStream({
 
   const handleSaveStreamPreferences = (): void => {
     onSaveStreamPreferences(draftStreamPreferences);
-    setStreamNotice("Yayın ayarları kaydedildi.");
+    messageApi.success("Yayın ayarları kaydedildi.");
   };
 
   const handleStartStreamTest = async (): Promise<void> => {
-    setStreamNotice("");
     setIsStartingStreamTest(true);
 
     try {
@@ -79,14 +86,18 @@ export function SettingsStream({
       if (videoTrack) {
         videoTrack.onended = () => {
           stopStreamTest();
-          setStreamNotice("Yayın testi sonlandırıldı.");
+          messageApi.info("Yayın testi sonlandırıldı.");
         };
       }
 
       setStreamTestStream(stream);
-      setStreamNotice(warning ?? "Yayın testi başlatıldı.");
+      if (warning) {
+        messageApi.warning(warning);
+      } else {
+        messageApi.success("Yayın testi başlatıldı.");
+      }
     } catch (error) {
-      setStreamNotice(
+      messageApi.error(
         `Yayın testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -96,125 +107,142 @@ export function SettingsStream({
 
   return (
     <div className="ct-settings-section">
+      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
-            <line x1="7" y1="2" x2="7" y2="22" />
-            <line x1="17" y1="2" x2="17" y2="22" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <line x1="2" y1="7" x2="7" y2="7" />
-            <line x1="2" y1="17" x2="7" y2="17" />
-            <line x1="17" y1="12" x2="22" y2="12" />
-            <line x1="17" y1="17" x2="22" y2="17" />
-          </svg>
+          <DesktopOutlined style={{ fontSize: "20px" }} />
         </div>
         <div>
           <h4>Yayın Ayarları</h4>
           <p className="ct-settings-section-description">
-            Yayın başlatılırken kullanılacak varsayılan kaliteyi
-            belirleyebilirsin.
+            Yayın başlatılırken kullanılacak varsayılan kaliteyi belirleyebilirsin.
           </p>
         </div>
       </div>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-form-group">
-          <label className="ct-label" htmlFor="settings-stream-fps">
-            Yayın Kare Hızı
-            <select
+      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
+        <div className="ct-settings-form-group" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+          <div>
+            <label className="ct-label" htmlFor="settings-stream-fps" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Yayın Kare Hızı
+            </label>
+            <Select
               id="settings-stream-fps"
-              className="ct-input"
-              value={String(draftStreamPreferences.frameRate)}
-              onChange={(event) =>
+              value={draftStreamPreferences.frameRate}
+              onChange={(value) =>
                 setDraftStreamPreferences((previous) => ({
                   ...previous,
-                  frameRate: Number.parseInt(
-                    event.target.value,
-                    10,
-                  ) as StreamPreferences["frameRate"],
+                  frameRate: value as StreamPreferences["frameRate"],
                 }))
               }
-            >
-              <option value="15">15 FPS</option>
-              <option value="30">30 FPS</option>
-              <option value="60">60 FPS</option>
-            </select>
-          </label>
+              options={[
+                { value: 15, label: "15 FPS" },
+                { value: 30, label: "30 FPS" },
+                { value: 60, label: "60 FPS" },
+              ]}
+              style={{ width: "100%", height: "40px" }}
+            />
+          </div>
 
-          <label
-            className="ct-settings-switch-item"
-            htmlFor="settings-stream-system-audio"
-          >
-            <div className="ct-settings-switch-item-content">
-              <strong>Ekran paylaşımında sistem sesini dahil et</strong>
-              <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
+          <div className="ct-settings-switch-item" style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: "rgba(255, 255, 255, 0.01)",
+            border: "1px solid rgba(255, 255, 255, 0.03)",
+            borderRadius: "8px",
+            padding: "16px",
+          }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Ekran paylaşımında sistem sesini dahil et</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
             </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-stream-system-audio"
-                type="checkbox"
-                checked={draftStreamPreferences.captureSystemAudio}
-                onChange={(event) =>
-                  setDraftStreamPreferences((previous) => ({
-                    ...previous,
-                    captureSystemAudio: event.target.checked,
-                  }))
-                }
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
+            <Switch
+              checked={draftStreamPreferences.captureSystemAudio}
+              onChange={(checked) =>
+                setDraftStreamPreferences((previous) => ({
+                  ...previous,
+                  captureSystemAudio: checked,
+                }))
+              }
+            />
+          </div>
         </div>
 
-        <div className="ct-settings-actions">
-          <button
-            type="button"
-            className="ct-btn-primary"
+        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
             onClick={handleSaveStreamPreferences}
+            style={{
+              background: "#ffffff",
+              borderColor: "#ffffff",
+              color: "#000000",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
             Yayın Ayarlarını Kaydet
-          </button>
-          <button
-            type="button"
-            className="ct-btn-secondary"
+          </Button>
+
+          <Button
+            type="text"
+            icon={streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
             onClick={() => {
               if (streamTestStream) {
                 stopStreamTest();
-                setStreamNotice("Yayın testi durduruldu.");
+                messageApi.info("Yayın testi durduruldu.");
                 return;
               }
 
               void handleStartStreamTest();
             }}
+            loading={isStartingStreamTest}
             disabled={isStartingStreamTest}
+            style={{
+              background: streamTestStream ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.05)",
+              color: streamTestStream ? "#ef4444" : "#ffffff",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
-            {isStartingStreamTest
-              ? "Başlatılıyor..."
-              : streamTestStream
-                ? "Yayın Testini Durdur"
-                : "Yayın Testini Başlat"}
-          </button>
-          <button
-            type="button"
-            className="ct-btn-danger"
+            {streamTestStream ? "Yayın Testini Durdur" : "Yayın Testini Başlat"}
+          </Button>
+
+          <Button
+            danger
+            type="primary"
+            icon={<LogoutOutlined />}
             onClick={onLogout}
+            loading={isLoggingOut}
             disabled={isLoggingOut}
+            style={{
+              background: "#ef4444",
+              borderColor: "#ef4444",
+              color: "#ffffff",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+              boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
+              marginLeft: "auto",
+            }}
           >
-            {isLoggingOut ? "Çıkış yapılıyor..." : "Hesaptan Çık"}
-          </button>
+            Hesaptan Çık
+          </Button>
         </div>
 
-        <div className="ct-settings-preview-box">
+        <div className="ct-settings-preview-box" style={{
+          background: "rgba(0, 0, 0, 0.4)",
+          border: "1px solid rgba(255, 255, 255, 0.04)",
+          borderRadius: "8px",
+          height: "260px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          position: "relative",
+        }}>
           {streamTestStream ? (
             <video
               ref={streamPreviewRef}
@@ -222,13 +250,18 @@ export function SettingsStream({
               autoPlay
               muted
               playsInline
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
             />
           ) : (
-            <p>Yayın önizlemesi bu alanda görünecek.</p>
+            <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+              Yayın önizlemesi bu alanda görünecek.
+            </p>
           )}
         </div>
-
-        {streamNotice && <p className="ct-settings-notice">{streamNotice}</p>}
       </div>
     </div>
   );

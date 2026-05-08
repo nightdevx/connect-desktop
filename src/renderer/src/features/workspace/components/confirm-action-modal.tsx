@@ -1,3 +1,5 @@
+import { Modal, Button } from "antd";
+
 interface ConfirmActionModalProps {
   isOpen: boolean;
   title: string;
@@ -19,53 +21,53 @@ export function ConfirmActionModal({
   onConfirm,
   onCancel,
 }: ConfirmActionModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div
-      className="ct-user-popup-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onClick={() => {
-        if (isProcessing) {
-          return;
-        }
-
-        onCancel();
+    <Modal
+      title={<span className="text-base font-bold text-[#f5f5f5]">{title}</span>}
+      open={isOpen}
+      onCancel={onCancel}
+      footer={[
+        <Button
+          key="cancel"
+          onClick={onCancel}
+          disabled={isProcessing}
+          style={{
+            background: "rgba(25, 25, 25, 0.85)",
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            color: "#f5f5f5",
+            borderRadius: "8px",
+          }}
+        >
+          {cancelLabel}
+        </Button>,
+        <Button
+          key="confirm"
+          type="primary"
+          danger
+          loading={isProcessing}
+          onClick={onConfirm}
+          style={{
+            background: "#bdbdbd",
+            borderColor: "transparent",
+            color: "#0b0b0b",
+            fontWeight: 600,
+            borderRadius: "8px",
+          }}
+        >
+          {isProcessing ? "İşleniyor..." : confirmLabel}
+        </Button>
+      ]}
+      styles={{
+        mask: {
+          backdropFilter: "blur(6px)",
+          background: "rgba(0, 0, 0, 0.7)",
+        },
       }}
+      width={400}
     >
-      <section
-        className="ct-user-popup"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="ct-user-popup-header">
-          <h4>{title}</h4>
-        </header>
-
-        <p className="ct-confirm-message">{message}</p>
-
-        <div className="ct-action-row">
-          <button
-            type="button"
-            className="ct-btn-primary ct-btn-danger"
-            onClick={onConfirm}
-            disabled={isProcessing}
-          >
-            {isProcessing ? "İşleniyor..." : confirmLabel}
-          </button>
-          <button
-            type="button"
-            className="ct-btn-secondary"
-            onClick={onCancel}
-            disabled={isProcessing}
-          >
-            {cancelLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+      <p style={{ margin: "16px 0", color: "#c7c7c7", fontSize: "14px", lineHeight: "1.6" }}>
+        {message}
+      </p>
+    </Modal>
   );
 }

@@ -77,6 +77,8 @@ export class RnnoiseTrackProcessorFactory {
     WorkletAvailability
   >();
   private rnnoiseWasmBinaryPromise: Promise<ArrayBuffer> | null = null;
+  private wasmCompilationAllowed: boolean | null = null;
+  private warnedAboutWasmCspBlock = false;
 
   public constructor(private readonly onWarning?: (message: string) => void) {}
 
@@ -84,6 +86,10 @@ export class RnnoiseTrackProcessorFactory {
     preset: NoiseSuppressionPreset = "balanced",
   ): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null> {
     if (!this.isSupported()) {
+      return null;
+    }
+
+    if (!(await this.isWasmCompilationAllowed())) {
       return null;
     }
 
@@ -264,9 +270,46 @@ export class RnnoiseTrackProcessorFactory {
       this.rnnoiseWasmBinaryPromise = loadRnnoise({
         url: rnnoiseWasmPath,
         simdUrl: rnnoiseSimdWasmPath,
+      }).catch((error) => {
+        this.rnnoiseWasmBinaryPromise = null;
+        throw error;
       });
     }
 
     return this.rnnoiseWasmBinaryPromise;
+  }
+
+  private async isWasmCompilationAllowed(): Promise<boolean> {
+    if (this.wasmCompilationAllowed != null) {
+      return this.wasmCompilationAllowed;
+    }
+
+    if (
+      typeof WebAssembly === "undefined" ||
+      typeof WebAssembly.compile !== "function"
+    ) {
+      this.wasmCompilationAllowed = false;
+      return false;
+    }
+
+    const emptyWasmModule = new Uint8Array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+    ]);
+
+    try {
+      await WebAssembly.compile(emptyWasmModule);
+      this.wasmCompilationAllowed = true;
+    } catch (error) {
+      this.wasmCompilationAllowed = false;
+
+      if (!this.warnedAboutWasmCspBlock) {
+        this.warnedAboutWasmCspBlock = true;
+        this.onWarning?.(
+          `RNNoise WASM CSP nedeniyle başlatılamadı, tarayıcı filtrelerine geri dönüldü: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
+        );
+      }
+    }
+
+    return this.wasmCompilationAllowed;
   }
 }

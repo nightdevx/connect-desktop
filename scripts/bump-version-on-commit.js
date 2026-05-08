@@ -86,9 +86,7 @@ const main = () => {
     writeJson(packageLockPath, packageLock);
   }
 
-  process.stdout.write(
-    `[version-bump] ${currentVersion} -> ${nextVersion}\n`,
-  );
+  process.stdout.write(`[version-bump] ${currentVersion} -> ${nextVersion}\n`);
 };
 
 main();

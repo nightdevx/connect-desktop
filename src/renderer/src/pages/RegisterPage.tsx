@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { Form, Input, Button } from "antd";
 import type { RegisterRequest } from "../../../shared/auth-contracts";
 
 interface RegisterPageProps {
@@ -9,12 +8,10 @@ interface RegisterPageProps {
 }
 
 function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [form] = Form.useForm();
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await onSubmit({ username, password });
+  const handleSubmit = async (values: any) => {
+    await onSubmit({ username: values.username, password: values.password });
   };
 
   return (
@@ -24,43 +21,72 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         Arkadaş grubun için saniyeler içinde bir hesap oluştur.
       </p>
 
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <label className="ct-label">
-          Kullanıcı Adı
-          <input
-            type="text"
-            minLength={3}
-            maxLength={64}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            className="ct-input"
-            required
-          />
-        </label>
-
-        <label className="ct-label">
-          Şifre
-          <input
-            type="password"
-            minLength={8}
-            maxLength={256}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="ct-input"
-            required
-          />
-        </label>
-
-        <button
-          className="ct-btn-warn mt-1 w-full"
-          type="submit"
-          disabled={loading}
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        requiredMark={false}
+        className="mt-4"
+      >
+        <Form.Item
+          label={<span className="text-sm font-semibold text-[#c7c7c7]">Kullanıcı Adı</span>}
+          name="username"
+          rules={[
+            { required: true, message: "Lütfen kullanıcı adı girin!" },
+            { min: 3, message: "Kullanıcı adı en az 3 karakter olmalıdır!" },
+            { max: 64, message: "Kullanıcı adı en fazla 64 karakter olmalıdır!" }
+          ]}
         >
-          {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
-        </button>
-      </form>
+          <Input 
+            size="large"
+            placeholder="Kullanıcı adınız"
+            style={{
+              background: "#0d0d0d",
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              color: "#f5f5f5"
+            }}
+          />
+        </Form.Item>
 
-      <p className="mt-4 text-sm text-[#8b92b0]">
+        <Form.Item
+          label={<span className="text-sm font-semibold text-[#c7c7c7]">Şifre</span>}
+          name="password"
+          rules={[
+            { required: true, message: "Lütfen şifre girin!" },
+            { min: 8, message: "Şifre en az 8 karakter olmalıdır!" },
+            { max: 256, message: "Şifre en fazla 256 karakter olmalıdır!" }
+          ]}
+        >
+          <Input.Password
+            size="large"
+            placeholder="Şifreniz"
+            style={{
+              background: "#0d0d0d",
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              color: "#f5f5f5"
+            }}
+          />
+        </Form.Item>
+
+        <Form.Item className="mt-6 mb-0">
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={loading}
+            block
+            size="large"
+            style={{
+              height: "44px",
+              borderRadius: "12px",
+              fontWeight: 600,
+            }}
+          >
+            {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
+          </Button>
+        </Form.Item>
+      </Form>
+
+      <p className="mt-4 text-sm text-[#8f8f8f]">
         Zaten hesabın var mı?{" "}
         <button type="button" className="ct-link" onClick={onGoLogin}>
           Giriş Yap

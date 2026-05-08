@@ -1,4 +1,5 @@
-import { LayoutGrid, Settings2, Users } from "lucide-react";
+import { Tooltip } from "antd";
+import { TeamOutlined, AppstoreOutlined, SettingOutlined } from "@ant-design/icons";
 import type { WorkspaceSection } from "../../../store/ui-store";
 
 interface WorkspaceRailProps {
@@ -12,41 +13,58 @@ export function WorkspaceRail({
 }: WorkspaceRailProps) {
   return (
     <aside className="ct-rail" aria-label="Navigasyon">
-      <button
-        type="button"
-        className={`ct-rail-button ${workspaceSection === "users" ? "active" : ""}`}
-        onClick={() => onSectionChange("users")}
-        title="Arkadaşlar"
-      >
-        <span aria-hidden="true">
-          <Users size={16} />
-        </span>
-        <small>Arkadaş</small>
-      </button>
+      <div className="ct-rail-top-logo">
+        <span className="ct-rail-logo">CT</span>
+      </div>
 
-      <button
-        type="button"
-        className={`ct-rail-button ${workspaceSection === "lobbies" ? "active" : ""}`}
-        onClick={() => onSectionChange("lobbies")}
-        title="Lobiler"
-      >
-        <span aria-hidden="true">
-          <LayoutGrid size={16} />
-        </span>
-        <small>Lobiler</small>
-      </button>
+      <div className="ct-rail-separator" />
 
-      <button
-        type="button"
-        className={`ct-rail-button ${workspaceSection === "settings" ? "active" : ""}`}
-        onClick={() => onSectionChange("settings")}
-        title="Ayarlar"
-      >
-        <span aria-hidden="true">
-          <Settings2 size={16} />
-        </span>
-        <small>Ayar</small>
-      </button>
+      <div className="ct-rail-items">
+        <Tooltip title="Arkadaşlar" placement="right" mouseEnterDelay={0.15}>
+          <div className="ct-rail-item-wrapper">
+            <div className={`ct-rail-indicator ${workspaceSection === "users" ? "active" : ""}`} />
+            <button
+              type="button"
+              className={`ct-rail-button-premium ${workspaceSection === "users" ? "active" : ""}`}
+              onClick={() => onSectionChange("users")}
+              aria-label="Arkadaşlar"
+            >
+              <TeamOutlined className="ct-rail-icon-premium" />
+              <small>Arkadaş</small>
+            </button>
+          </div>
+        </Tooltip>
+
+        <Tooltip title="Lobiler" placement="right" mouseEnterDelay={0.15}>
+          <div className="ct-rail-item-wrapper">
+            <div className={`ct-rail-indicator ${workspaceSection === "lobbies" ? "active" : ""}`} />
+            <button
+              type="button"
+              className={`ct-rail-button-premium ${workspaceSection === "lobbies" ? "active" : ""}`}
+              onClick={() => onSectionChange("lobbies")}
+              aria-label="Lobiler"
+            >
+              <AppstoreOutlined className="ct-rail-icon-premium" />
+              <small>Lobiler</small>
+            </button>
+          </div>
+        </Tooltip>
+
+        <Tooltip title="Ayarlar" placement="right" mouseEnterDelay={0.15}>
+          <div className="ct-rail-item-wrapper">
+            <div className={`ct-rail-indicator ${workspaceSection === "settings" ? "active" : ""}`} />
+            <button
+              type="button"
+              className={`ct-rail-button-premium ${workspaceSection === "settings" ? "active" : ""}`}
+              onClick={() => onSectionChange("settings")}
+              aria-label="Ayarlar"
+            >
+              <SettingOutlined className="ct-rail-icon-premium" />
+              <small>Ayar</small>
+            </button>
+          </div>
+        </Tooltip>
+      </div>
     </aside>
   );
 }

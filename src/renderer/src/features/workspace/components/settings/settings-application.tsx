@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Switch, Button, message, Alert } from "antd";
+import { InfoCircleOutlined, ReloadOutlined, BugOutlined } from "@ant-design/icons";
 import type { DesktopAppPreferences } from "../../../../../../shared/desktop-api-types";
 import type {
   AppUpdateEvent,
@@ -76,6 +78,7 @@ const getUpdatePhaseLabel = (
 };
 
 export function SettingsApplication() {
+  const [messageApi, contextHolder] = message.useMessage();
   const [appVersion, setAppVersion] = useState("-");
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(
     null,
@@ -86,10 +89,8 @@ export function SettingsApplication() {
     closeToTray: false,
   });
   const [isSavingAppPreference, setIsSavingAppPreference] = useState(false);
-  const [appPreferencesNotice, setAppPreferencesNotice] = useState("");
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [isLaunchingUpdateDebug, setIsLaunchingUpdateDebug] = useState(false);
-  const [updateNotice, setUpdateNotice] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -120,7 +121,7 @@ export function SettingsApplication() {
         }
 
         if (!result.ok) {
-          setUpdateNotice(
+          messageApi.error(
             `Güncelleme durumu alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           );
         }
@@ -130,7 +131,7 @@ export function SettingsApplication() {
           return;
         }
 
-        setUpdateNotice(
+        messageApi.error(
           `Güncelleme durumu alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       });
@@ -148,7 +149,7 @@ export function SettingsApplication() {
         }
 
         if (!result.ok) {
-          setAppPreferencesNotice(
+          messageApi.error(
             `Uygulama ayarları alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           );
         }
@@ -158,7 +159,7 @@ export function SettingsApplication() {
           return;
         }
 
-        setAppPreferencesNotice(
+        messageApi.error(
           `Uygulama ayarları alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       });
@@ -172,7 +173,7 @@ export function SettingsApplication() {
         setUpdateState(event.state);
 
         if (event.type === "update-error") {
-          setUpdateNotice(`Güncelleme hatası: ${event.errorMessage}`);
+          messageApi.error(`Güncelleme hatası: ${event.errorMessage}`);
         }
       },
     );
@@ -184,26 +185,25 @@ export function SettingsApplication() {
   }, []);
 
   const handleManualUpdateCheck = async (): Promise<void> => {
-    setUpdateNotice("");
     setIsCheckingForUpdates(true);
 
     try {
       const result = await window.desktopApi.checkForAppUpdates();
       if (!result.ok) {
-        setUpdateNotice(
+        messageApi.error(
           `Güncelleme kontrolü başlatılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
 
       if (!result.data?.requested) {
-        setUpdateNotice(getUpdateCheckBlockedReason(result.data?.reason));
+        messageApi.warning(getUpdateCheckBlockedReason(result.data?.reason));
         return;
       }
 
-      setUpdateNotice("Güncelleme kontrolü başlatıldı.");
+      messageApi.success("Güncelleme kontrolü başlatıldı.");
     } catch (error) {
-      setUpdateNotice(
+      messageApi.error(
         `Güncelleme kontrolü başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -212,26 +212,25 @@ export function SettingsApplication() {
   };
 
   const handleOpenUpdateDebugScreen = async (): Promise<void> => {
-    setUpdateNotice("");
     setIsLaunchingUpdateDebug(true);
 
     try {
       const result = await window.desktopApi.launchMockUpdateDebug();
       if (!result.ok) {
-        setUpdateNotice(
+        messageApi.error(
           `Debug güncelleme açılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
 
       if (!result.data?.started) {
-        setUpdateNotice(getUpdateDebugBlockedReason(result.data?.reason));
+        messageApi.warning(getUpdateDebugBlockedReason(result.data?.reason));
         return;
       }
 
-      setUpdateNotice("Debug güncelleme penceresi açıldı.");
+      messageApi.success("Debug güncelleme penceresi açıldı.");
     } catch (error) {
-      setUpdateNotice(
+      messageApi.error(
         `Debug güncelleme açılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -245,7 +244,6 @@ export function SettingsApplication() {
   ): Promise<void> => {
     const previousPreferences = appPreferences;
 
-    setAppPreferencesNotice("");
     setIsSavingAppPreference(true);
     setAppPreferences((previous) => ({
       ...previous,
@@ -259,17 +257,17 @@ export function SettingsApplication() {
 
       if (!result.ok || !result.data?.preferences) {
         setAppPreferences(previousPreferences);
-        setAppPreferencesNotice(
+        messageApi.error(
           `Uygulama ayarı kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
 
       setAppPreferences(result.data.preferences);
-      setAppPreferencesNotice("Uygulama davranış ayarları kaydedildi.");
+      messageApi.success("Uygulama davranış ayarları kaydedildi.");
     } catch (error) {
       setAppPreferences(previousPreferences);
-      setAppPreferencesNotice(
+      messageApi.error(
         `Uygulama ayarı kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -289,178 +287,171 @@ export function SettingsApplication() {
 
   return (
     <div className="ct-settings-section">
+      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
+          <InfoCircleOutlined style={{ fontSize: "20px" }} />
         </div>
         <div>
           <h4>Uygulama Güncellemeleri</h4>
           <p className="ct-settings-section-description">
-            Sürüm durumunu takip edebilir ve güncellemeleri buradan
-            başlatabilirsiniz.
+            Sürüm durumunu takip edebilir ve güncellemeleri buradan başlatabilirsiniz.
           </p>
         </div>
       </div>
 
-      <div className="ct-settings-content">
-        <div
-          className="ct-settings-switch-list"
-          aria-busy={isSavingAppPreference}
-        >
-          <label
-            className="ct-settings-switch-item"
-            htmlFor="settings-launch-on-startup"
-          >
-            <div className="ct-settings-switch-item-content">
-              <strong>Bilgisayar açıldığında Connect otomatik başlasın</strong>
-              <span>
+      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
+        <div className="ct-settings-switch-list" style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          background: "rgba(255, 255, 255, 0.01)",
+          border: "1px solid rgba(255, 255, 255, 0.03)",
+          borderRadius: "8px",
+          padding: "16px",
+          marginBottom: "24px",
+        }}>
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Bilgisayar açıldığında Connect otomatik başlasın</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
                 Uygulama oturum açıldığında arka planda çalışmaya hazır olur.
               </span>
             </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-launch-on-startup"
-                type="checkbox"
-                checked={appPreferences.launchOnStartup}
-                onChange={(event) => {
-                  void handleAppPreferenceToggle(
-                    "launchOnStartup",
-                    event.target.checked,
-                  );
-                }}
-                disabled={isSavingAppPreference}
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
+            <Switch
+              checked={appPreferences.launchOnStartup}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("launchOnStartup", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
 
-          <label
-            className="ct-settings-switch-item"
-            htmlFor="settings-minimize-to-tray"
-          >
-            <div className="ct-settings-switch-item-content">
-              <strong>Pencere küçültülünce sistem tepsisine gönder</strong>
-              <span>
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Pencere küçültülünce sistem tepsisine gönder</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
                 Küçült butonuna basıldığında uygulama görev çubuğundan gizlenir.
               </span>
             </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-minimize-to-tray"
-                type="checkbox"
-                checked={appPreferences.minimizeToTray}
-                onChange={(event) => {
-                  void handleAppPreferenceToggle(
-                    "minimizeToTray",
-                    event.target.checked,
-                  );
-                }}
-                disabled={isSavingAppPreference}
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
+            <Switch
+              checked={appPreferences.minimizeToTray}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("minimizeToTray", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
 
-          <label
-            className="ct-settings-switch-item"
-            htmlFor="settings-close-to-tray"
-          >
-            <div className="ct-settings-switch-item-content">
-              <strong>Kapat tuşunda sistem tepsisine gizle</strong>
-              <span>
-                Pencereyi kapatmak uygulamayı sonlandırmaz; tepside çalışmaya
-                devam eder.
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Kapat tuşunda sistem tepsisine gizle</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Pencereyi kapatmak uygulamayı sonlandırmaz; tepside çalışmaya devam eder.
               </span>
             </div>
-            <div className="ct-settings-switch">
-              <input
-                id="settings-close-to-tray"
-                type="checkbox"
-                checked={appPreferences.closeToTray}
-                onChange={(event) => {
-                  void handleAppPreferenceToggle(
-                    "closeToTray",
-                    event.target.checked,
-                  );
-                }}
-                disabled={isSavingAppPreference}
-              />
-              <span className="ct-settings-switch-slider" />
-            </div>
-          </label>
+            <Switch
+              checked={appPreferences.closeToTray}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("closeToTray", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
         </div>
 
-        {appPreferencesNotice && (
-          <p className="ct-settings-notice">{appPreferencesNotice}</p>
-        )}
-
-        <div className="ct-settings-info-grid">
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Sürüm</span>
-            <strong className="ct-settings-info-value">
+        <div className="ct-settings-info-grid" style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "16px",
+          background: "rgba(255, 255, 255, 0.02)",
+          border: "1px solid rgba(255, 255, 255, 0.04)",
+          borderRadius: "8px",
+          padding: "16px",
+          marginBottom: "24px",
+        }}>
+          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sürüm</span>
+            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
               v{currentVersionLabel}
             </strong>
           </div>
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Durum</span>
-            <strong className="ct-settings-info-value">
+          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Durum</span>
+            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
               {getUpdatePhaseLabel(updatePhase)}
             </strong>
           </div>
           {nextVersionLabel && (
-            <div className="ct-settings-info-item">
-              <span className="ct-settings-info-label">Bulunan Sürüm</span>
-              <strong className="ct-settings-info-value">
+            <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Bulunan Sürüm</span>
+              <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
                 v{nextVersionLabel}
               </strong>
             </div>
           )}
         </div>
 
-        <p>{updateState?.message ?? "Güncelleme bilgisi bekleniyor."}</p>
+        <div style={{ marginBottom: "24px" }}>
+          <Alert
+            message={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
+            type={
+              updatePhase === "error"
+                ? "error"
+                : updatePhase === "available" || updatePhase === "downloaded"
+                  ? "success"
+                  : "info"
+            }
+            showIcon
+            style={{
+              background: "rgba(255, 255, 255, 0.02)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              borderRadius: "8px",
+            }}
+          />
+        </div>
 
-        <div className="ct-settings-actions">
-          <button
-            type="button"
-            className="ct-btn-primary"
+        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>
+          <Button
+            type="primary"
+            icon={<ReloadOutlined />}
             onClick={() => {
               void handleManualUpdateCheck();
             }}
+            loading={isManualCheckDisabled}
             disabled={isManualCheckDisabled}
+            style={{
+              background: isManualCheckDisabled ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              borderColor: isManualCheckDisabled ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              color: isManualCheckDisabled ? "rgba(255, 255, 255, 0.25)" : "#000000",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
-            {isManualCheckDisabled
-              ? "Kontrol ediliyor..."
-              : "Güncellemeleri Kontrol Et"}
-          </button>
+            Güncellemeleri Kontrol Et
+          </Button>
 
           {isDevelopmentUpdateMode && (
-            <button
-              type="button"
-              className="ct-btn-secondary"
+            <Button
+              type="text"
+              icon={<BugOutlined />}
               onClick={() => {
                 void handleOpenUpdateDebugScreen();
               }}
+              loading={isLaunchingUpdateDebug}
               disabled={isLaunchingUpdateDebug}
+              style={{
+                background: isLaunchingUpdateDebug ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
+                color: isLaunchingUpdateDebug ? "rgba(255, 255, 255, 0.25)" : "#ffffff",
+                height: "40px",
+                borderRadius: "6px",
+              }}
             >
-              {isLaunchingUpdateDebug
-                ? "Debug ekranı açılıyor..."
-                : "Güncelleme Debug Ekranı"}
-            </button>
+              Güncelleme Debug Ekranı
+            </Button>
           )}
         </div>
-
-        {updateNotice && <p className="ct-settings-notice">{updateNotice}</p>}
       </div>
     </div>
   );

@@ -1,28 +1,28 @@
 import { useState } from "react";
+import { Input, Button, message } from "antd";
+import { SafetyOutlined, LockOutlined } from "@ant-design/icons";
 import { authService } from "../../../../services/auth-service";
 
 export function SettingsSecurity() {
+  const [messageApi, contextHolder] = message.useMessage();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [securityNotice, setSecurityNotice] = useState("");
 
   const handleChangePassword = async (): Promise<void> => {
-    setSecurityNotice("");
-
     if (currentPassword.trim().length < 8) {
-      setSecurityNotice("Mevcut şifre en az 8 karakter olmalı.");
+      messageApi.warning("Mevcut şifre en az 8 karakter olmalı.");
       return;
     }
 
     if (newPassword.trim().length < 8) {
-      setSecurityNotice("Yeni şifre en az 8 karakter olmalı.");
+      messageApi.warning("Yeni şifre en az 8 karakter olmalı.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setSecurityNotice("Yeni şifre ve şifre tekrarı aynı olmalı.");
+      messageApi.warning("Yeni şifre ve şifre tekrarı aynı olmalı.");
       return;
     }
 
@@ -34,7 +34,7 @@ export function SettingsSecurity() {
       });
 
       if (!result.ok || !result.data?.changed) {
-        setSecurityNotice(
+        messageApi.error(
           `Şifre değiştirilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -43,9 +43,9 @@ export function SettingsSecurity() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setSecurityNotice("Şifre başarıyla değiştirildi.");
+      messageApi.success("Şifre başarıyla değiştirildi.");
     } catch (error) {
-      setSecurityNotice(
+      messageApi.error(
         `Şifre değiştirilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -55,21 +55,10 @@ export function SettingsSecurity() {
 
   return (
     <div className="ct-settings-section">
+      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-icon">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
+          <SafetyOutlined style={{ fontSize: "20px" }} />
         </div>
         <div>
           <h4>Güvenlik Ayarları</h4>
@@ -79,66 +68,93 @@ export function SettingsSecurity() {
         </div>
       </div>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-form-group">
-          <label className="ct-label" htmlFor="settings-current-password">
-            Mevcut Şifre
-            <input
+      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
+        <div className="ct-settings-form-group" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+          <div>
+            <label className="ct-label" htmlFor="settings-current-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Mevcut Şifre
+            </label>
+            <Input.Password
               id="settings-current-password"
-              className="ct-input"
-              type="password"
+              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
               placeholder="Mevcut şifrenizi girin"
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
             />
-          </label>
+          </div>
 
-          <label className="ct-label" htmlFor="settings-new-password">
-            Yeni Şifre
-            <input
+          <div>
+            <label className="ct-label" htmlFor="settings-new-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Yeni Şifre
+            </label>
+            <Input.Password
               id="settings-new-password"
-              className="ct-input"
-              type="password"
+              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
               placeholder="Yeni şifrenizi girin"
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
             />
-          </label>
+          </div>
 
-          <label className="ct-label" htmlFor="settings-confirm-password">
-            Yeni Şifre (Tekrar)
-            <input
+          <div>
+            <label className="ct-label" htmlFor="settings-confirm-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Yeni Şifre (Tekrar)
+            </label>
+            <Input.Password
               id="settings-confirm-password"
-              className="ct-input"
-              type="password"
+              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
               placeholder="Yeni şifrenizi tekrar girin"
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
             />
-          </label>
+          </div>
         </div>
 
         <div className="ct-settings-actions">
-          <button
-            type="button"
-            className="ct-btn-primary"
+          <Button
+            type="primary"
+            icon={<SafetyOutlined />}
             onClick={() => {
               void handleChangePassword();
             }}
+            loading={isChangingPassword}
             disabled={isChangingPassword}
+            style={{
+              background: isChangingPassword ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              borderColor: isChangingPassword ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+              color: isChangingPassword ? "rgba(255, 255, 255, 0.25)" : "#000000",
+              fontWeight: "600",
+              height: "40px",
+              borderRadius: "6px",
+            }}
           >
-            {isChangingPassword
-              ? "Şifre değiştiriliyor..."
-              : "Şifreyi Değiştir"}
-          </button>
+            Şifreyi Değiştir
+          </Button>
         </div>
-
-        {securityNotice && (
-          <p className="ct-settings-notice">{securityNotice}</p>
-        )}
       </div>
     </div>
   );

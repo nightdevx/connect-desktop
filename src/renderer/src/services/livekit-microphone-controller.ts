@@ -1,4 +1,5 @@
 import {
+  type LocalAudioTrack,
   Track,
   type AudioCaptureOptions,
   type AudioProcessorOptions,
@@ -7,6 +8,10 @@ import {
   type TrackPublishOptions,
 } from "livekit-client";
 import { logLiveKitDebug } from "./livekit-debug-log";
+import {
+  LiveKitNoiseSuppressionRuntime,
+  type ActiveNoiseSuppressionMode,
+} from "./livekit-noise-suppression-runtime";
 import {
   RnnoiseTrackProcessorFactory,
   type NoiseSuppressionPreset,
@@ -39,8 +44,15 @@ export class LiveKitMicrophoneController {
   private activeMicrophoneProcessorPreset: NoiseSuppressionPreset | null = null;
   private operationQueue: Promise<void> = Promise.resolve();
   private readonly rnnoiseProcessorFactory: RnnoiseTrackProcessorFactory;
+  private readonly noiseSuppressionRuntime: LiveKitNoiseSuppressionRuntime;
 
-  public constructor(private readonly onWarning?: (message: string) => void) {
+  public constructor(
+    private readonly onWarning?: (message: string) => void,
+    onModeChange?: (mode: ActiveNoiseSuppressionMode) => void,
+  ) {
+    this.noiseSuppressionRuntime = new LiveKitNoiseSuppressionRuntime(
+      onModeChange,
+    );
     this.rnnoiseProcessorFactory = new RnnoiseTrackProcessorFactory(
       this.onWarning,
     );
@@ -113,6 +125,7 @@ export class LiveKitMicrophoneController {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "refresh-processing-start");
       await options.participant.setMicrophoneEnabled(false);
+      this.noiseSuppressionRuntime.markDisabled();
       await this.destroyActiveMicrophoneProcessor();
       await this.applyMicrophoneStateInternal({
         ...options,
@@ -128,6 +141,7 @@ export class LiveKitMicrophoneController {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "dispose-start");
       await this.destroyActiveMicrophoneProcessor();
+      this.noiseSuppressionRuntime.markDisabled();
       await this.closeLiveKitAudioContext();
       logLiveKitDebug("mic-controller", "dispose-finished");
     });
@@ -151,6 +165,7 @@ export class LiveKitMicrophoneController {
     if (!enabled) {
       logLiveKitDebug("mic-controller", "apply-disable-start");
       await participant.setMicrophoneEnabled(false);
+      this.noiseSuppressionRuntime.markDisabled();
       await this.destroyActiveMicrophoneProcessor();
       logLiveKitDebug("mic-controller", "apply-disable-finished", {
         participantMicEnabled: participant.isMicrophoneEnabled,
@@ -164,10 +179,17 @@ export class LiveKitMicrophoneController {
       contextState: context?.state ?? "unavailable",
     });
 
-    const captureOptions = await this.buildCaptureOptions(
+    const desiredProcessor = await this.resolveDesiredProcessor(
       participant,
       preferences,
     );
+    const wantsProcessor = Boolean(desiredProcessor);
+
+    const captureOptions = await this.buildCaptureOptions(
+      preferences,
+      wantsProcessor,
+    );
+
     const attempts = this.buildAttempts(captureOptions);
     logLiveKitDebug("mic-controller", "apply-enable-attempts-built", {
       attemptCount: attempts.length,
@@ -204,8 +226,25 @@ export class LiveKitMicrophoneController {
           participant.isMicrophoneEnabled ||
           (publication ? !publication.isMuted : false)
         ) {
+          const appliedProcessor = desiredProcessor
+            ? await this.attachProcessorToMicrophoneTrack(
+                participant,
+                publication,
+                desiredProcessor,
+              )
+            : false;
+
+          if (desiredProcessor && !appliedProcessor) {
+            this.onWarning?.(
+              "RNNoise başlatılamadı, mikrofon tarayıcı ses filtreleri ile açılıyor.",
+            );
+          }
+
+          this.noiseSuppressionRuntime.markEnabled(appliedProcessor);
+
           logLiveKitDebug("mic-controller", "attempt-success", {
             attemptIndex,
+            appliedProcessor,
             participantMicEnabled: participant.isMicrophoneEnabled,
             publicationFound: Boolean(publication),
             publicationMuted: publication?.isMuted ?? null,
@@ -227,15 +266,6 @@ export class LiveKitMicrophoneController {
 
         if (attempt.warning && attemptIndex < attempts.length - 1) {
           this.onWarning?.(attempt.warning);
-        }
-
-        if (attempt.options.processor) {
-          await this.destroyActiveMicrophoneProcessor();
-          await this.ensureParticipantAudioContext(participant);
-
-          if (attemptIndex < attempts.length - 1) {
-            continue;
-          }
         }
 
         if (attemptIndex < attempts.length - 1) {
@@ -271,8 +301,8 @@ export class LiveKitMicrophoneController {
   }
 
   private async buildCaptureOptions(
-    participant: LocalParticipant,
     preferences: MicrophoneProcessingPreferences,
+    wantsProcessor: boolean,
   ): Promise<AudioCaptureOptions> {
     const options: AudioCaptureOptions = {
       echoCancellation: true,
@@ -299,18 +329,7 @@ export class LiveKitMicrophoneController {
       return options;
     }
 
-    const context = await this.ensureParticipantAudioContext(participant);
-    if (!context) {
-      this.onWarning?.(
-        "AudioContext oluşturulamadı, RNNoise devre dışı bırakılarak varsayılan mikrofon filtreleri kullanılıyor.",
-      );
-      return options;
-    }
-
-    const processor = await this.getOrCreateMicrophoneProcessor(
-      preferences.noiseSuppressionPreset,
-    );
-    if (!processor) {
+    if (!wantsProcessor) {
       return options;
     }
 
@@ -319,8 +338,7 @@ export class LiveKitMicrophoneController {
     );
     options.noiseSuppression = browserProfile.noiseSuppression;
     options.autoGainControl = browserProfile.autoGainControl;
-    options.processor = processor;
-    logLiveKitDebug("mic-controller", "capture-options-processor-enabled", {
+    logLiveKitDebug("mic-controller", "capture-options-processor-target", {
       resolvedAudioInputDeviceId: preferredInputDeviceId ?? "default",
       noiseSuppressionPreset: preferences.noiseSuppressionPreset,
       noiseSuppression: options.noiseSuppression,
@@ -355,42 +373,9 @@ export class LiveKitMicrophoneController {
   private buildAttempts(
     captureOptions: AudioCaptureOptions,
   ): MicrophoneAttempt[] {
-    const hasProcessor = Boolean(captureOptions.processor);
     const hasPreferredDevice = typeof captureOptions.deviceId !== "undefined";
 
     const attempts: MicrophoneAttempt[] = [];
-
-    if (hasProcessor) {
-      const withoutProcessor: AudioCaptureOptions = {
-        ...captureOptions,
-        processor: undefined,
-        noiseSuppression: true,
-      };
-
-      attempts.push({
-        options: captureOptions,
-        warning:
-          "RNNoise başlatılamadı, mikrofon tarayıcı ses filtreleri ile açılıyor.",
-      });
-
-      if (hasPreferredDevice) {
-        attempts.push({
-          options: withoutProcessor,
-          warning:
-            "Seçili mikrofon cihazı kullanılamadı, varsayılan mikrofona geri dönülüyor.",
-        });
-        attempts.push({
-          options: {
-            ...withoutProcessor,
-            deviceId: undefined,
-          },
-        });
-      } else {
-        attempts.push({ options: withoutProcessor });
-      }
-
-      return attempts;
-    }
 
     if (hasPreferredDevice) {
       attempts.push({
@@ -409,6 +394,78 @@ export class LiveKitMicrophoneController {
 
     attempts.push({ options: captureOptions });
     return attempts;
+  }
+
+  private async resolveDesiredProcessor(
+    participant: LocalParticipant,
+    preferences: MicrophoneProcessingPreferences,
+  ): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null> {
+    if (!preferences.enhancedNoiseSuppressionEnabled) {
+      return null;
+    }
+
+    const context = await this.ensureParticipantAudioContext(participant);
+    if (!context) {
+      this.onWarning?.(
+        "AudioContext oluşturulamadı, RNNoise devre dışı bırakılarak varsayılan mikrofon filtreleri kullanılıyor.",
+      );
+      return null;
+    }
+
+    return this.getOrCreateMicrophoneProcessor(
+      preferences.noiseSuppressionPreset,
+    );
+  }
+
+  private async attachProcessorToMicrophoneTrack(
+    participant: LocalParticipant,
+    publication: Awaited<ReturnType<LocalParticipant["setMicrophoneEnabled"]>>,
+    processor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>,
+  ): Promise<boolean> {
+    const currentPublication =
+      publication ?? participant.getTrackPublication(Track.Source.Microphone);
+    const track = currentPublication?.track as LocalAudioTrack | undefined;
+    if (!track) {
+      logLiveKitDebug("mic-controller", "processor-attach-skipped", {
+        reason: "microphone-track-missing",
+      });
+      return false;
+    }
+
+    const context = await this.ensureParticipantAudioContext(participant);
+    if (!context) {
+      return false;
+    }
+
+    track.setAudioContext(context);
+
+    // Some browsers or LiveKit versions might have a race condition where the track
+    // is not immediately ready for a processor. A short retry loop improves reliability.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await track.setProcessor(processor);
+        logLiveKitDebug("mic-controller", "processor-attach-success", {
+          trackId: track.mediaStreamTrack.id,
+          attempt,
+        });
+        return true;
+      } catch (error) {
+        logLiveKitDebug("mic-controller", "processor-attach-attempt-failed", {
+          attempt,
+          error,
+        });
+
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        } else {
+          logLiveKitDebug("mic-controller", "processor-attach-final-failure", {
+            error,
+          });
+        }
+      }
+    }
+
+    return false;
   }
 
   private async ensureParticipantAudioContext(
@@ -590,6 +647,7 @@ export class LiveKitMicrophoneController {
       logLiveKitDebug("mic-controller", "emergency-fallback-finish", {
         participantMicEnabled: participant.isMicrophoneEnabled,
       });
+      this.noiseSuppressionRuntime.markEnabled(false);
       return participant.isMicrophoneEnabled;
     } catch (error) {
       logLiveKitDebug("mic-controller", "emergency-fallback-error", {
@@ -597,5 +655,9 @@ export class LiveKitMicrophoneController {
       });
       return false;
     }
+  }
+
+  public getActiveNoiseSuppressionMode(): ActiveNoiseSuppressionMode {
+    return this.noiseSuppressionRuntime.getActiveMode();
   }
 }

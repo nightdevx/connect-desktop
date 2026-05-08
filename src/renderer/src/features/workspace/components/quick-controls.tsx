@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { Tooltip } from "antd";
 import { Headphones, Mic, PlugZap } from "lucide-react";
 import { getDisplayInitials } from "../workspace-utils";
 
@@ -193,43 +194,46 @@ export function QuickControls({
       </div>
 
       <div className="ct-quick-controls-inline" aria-label="İşlevler">
-        <button
-          type="button"
-          className={`ct-quick-icon-button ${micEnabled ? "active" : ""}`}
-          onClick={onToggleMic}
-          onContextMenu={(event) => {
-            openDeviceMenu(event, "input");
-          }}
-          aria-label="Mikrofon"
-          title={`Mikrofon ${micEnabled ? "açık" : "kapalı"} (sağ tık: giriş cihazı)`}
-        >
-          <Mic size={14} aria-hidden="true" />
-        </button>
-
-        <button
-          type="button"
-          className={`ct-quick-icon-button ${headphoneEnabled ? "active" : ""}`}
-          onClick={onToggleHeadphone}
-          onContextMenu={(event) => {
-            openDeviceMenu(event, "output");
-          }}
-          aria-label="Kulaklık"
-          title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"} (sağ tık: çıkış cihazı)`}
-        >
-          <Headphones size={14} aria-hidden="true" />
-        </button>
-
-        {hasActiveLobby && (
+        <Tooltip title={`Mikrofon ${micEnabled ? "açık" : "kapalı"} (sağ tık: giriş cihazı)`}>
           <button
             type="button"
-            className="ct-quick-icon-button danger"
-            onClick={onDisconnect}
-            disabled={isLeavingLobby}
-            aria-label="Lobiden ayrıl"
-            title={isLeavingLobby ? "Lobiden ayrılıyor" : "Lobiden ayrıl"}
+            className={`ct-quick-icon-button ${micEnabled ? "active" : ""}`}
+            onClick={onToggleMic}
+            onContextMenu={(event) => {
+              openDeviceMenu(event, "input");
+            }}
+            aria-label="Mikrofon"
           >
-            <PlugZap size={14} aria-hidden="true" />
+            <Mic size={14} aria-hidden="true" />
           </button>
+        </Tooltip>
+
+        <Tooltip title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"} (sağ tık: çıkış cihazı)`}>
+          <button
+            type="button"
+            className={`ct-quick-icon-button ${headphoneEnabled ? "active" : ""}`}
+            onClick={onToggleHeadphone}
+            onContextMenu={(event) => {
+              openDeviceMenu(event, "output");
+            }}
+            aria-label="Kulaklık"
+          >
+            <Headphones size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
+
+        {hasActiveLobby && (
+          <Tooltip title={isLeavingLobby ? "Lobiden ayrılıyor" : "Lobiden ayrıl"}>
+            <button
+              type="button"
+              className="ct-quick-icon-button danger"
+              onClick={onDisconnect}
+              disabled={isLeavingLobby}
+              aria-label="Lobiden ayrıl"
+            >
+              <PlugZap size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
         )}
       </div>
 
