@@ -1,3 +1,5 @@
+export * from "./settings-main-panel";
+export * from "./settings-sidebar-tabs";
 export * from "./settings-profile";
 export * from "./settings-security";
 export * from "./settings-camera";

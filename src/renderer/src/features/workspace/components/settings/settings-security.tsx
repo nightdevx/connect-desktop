@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input, Button, message } from "antd";
 import { SafetyOutlined, LockOutlined } from "@ant-design/icons";
-import { authService } from "../../../../services/auth-service";
+import { authService } from "../../../auth";
 
 export function SettingsSecurity() {
   const [messageApi, contextHolder] = message.useMessage();
@@ -159,3 +159,5 @@ export function SettingsSecurity() {
     </div>
   );
 }
+
+

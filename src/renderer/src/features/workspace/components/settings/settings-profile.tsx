@@ -8,7 +8,7 @@ import {
   SaveOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { authService } from "../../../../services/auth-service";
+import { authService } from "../../../auth";
 
 interface ProfileSettings {
   displayName: string;
@@ -444,3 +444,5 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
     </div>
   );
 }
+
+

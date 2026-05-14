@@ -7,7 +7,7 @@ import {
 import { backendConfig } from "./config";
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
 import { createAppMenu } from "./menu";
-import { AdaptiveController } from "./streaming/adaptive-controller";
+
 import { CaptureEngine } from "./streaming/capture-engine";
 import {
   registerStreamingIpcHandlers,
@@ -30,9 +30,7 @@ let quittingWithCleanup = false;
 let tray: Tray | null = null;
 let unsubscribePreferencesListener: (() => void) | null = null;
 const captureEngine = new CaptureEngine();
-const adaptiveController = new AdaptiveController({
-  grpcTarget: process.env.CT_ADAPTIVE_GRPC_TARGET,
-});
+
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const APP_ICON_PATH = join(__dirname, "../../public/images/logo.ico");
@@ -246,9 +244,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     registerIpcHandlers();
     registerStreamingIpcHandlers({
       captureEngine,
-      adaptiveController,
     });
-    adaptiveController.start();
 
     if (!unsubscribePreferencesListener) {
       unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {
@@ -292,7 +288,6 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
 
     void Promise.race([cleanupBeforeAppQuit(), timeout]).finally(() => {
       unregisterStreamingIpcHandlers();
-      adaptiveController.stop();
       destroyModularUpdater();
       if (unsubscribePreferencesListener) {
         unsubscribePreferencesListener();

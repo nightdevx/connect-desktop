@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2, Minus, X } from "lucide-react";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
 import WorkspaceShell from "./components/WorkspaceShell";
-import { useAuthController } from "./hooks/use-auth-controller";
+import logo from "./assets/logo.png";
 
 function App() {
   const {
@@ -165,7 +164,13 @@ function App() {
             />
           ) : (
             <section className="ct-auth-card">
-              <div className="ct-orb" aria-hidden="true" />
+              <div className="flex justify-center pt-4 pb-6">
+                <img 
+                  src={logo} 
+                  alt="Connect Logo" 
+                  className="h-20 w-auto object-contain"
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <button

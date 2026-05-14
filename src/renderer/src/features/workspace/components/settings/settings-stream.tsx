@@ -8,7 +8,7 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
-import { startScreenCapture } from "../../../../services/screen-capture-service";
+import { startScreenCapture } from "@/features/screen-share";
 
 interface SettingsStreamProps {
   streamPreferences: StreamPreferences;
@@ -266,3 +266,5 @@ export function SettingsStream({
     </div>
   );
 }
+
+

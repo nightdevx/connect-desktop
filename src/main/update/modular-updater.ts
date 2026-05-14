@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from "electron";
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { autoUpdater } from "electron-updater";
@@ -297,21 +296,21 @@ const createUpdaterWindowHtml = (logoDataUrl: string | null): string => {
         </div>
       </header>
       <div class="status"><span class="status-dot"></span><span>Güncelleme servisi etkin</span></div>
-
+ 
       <p class="message" id="message">Güncelleme hazırlanıyor...</p>
-
+ 
       <ul class="steps">
         <li class="step" id="step-check">Kontrol</li>
         <li class="step" id="step-download">İndir</li>
         <li class="step" id="step-install">Kur</li>
         <li class="step" id="step-relaunch">Yeniden Aç</li>
       </ul>
-
+ 
       <div class="progress-wrap" id="progress-wrap">
         <div class="progress"><div class="bar" id="bar"></div></div>
         <div class="percent" id="percent">Bekleniyor</div>
       </div>
-
+ 
       <p class="hint">Kurulum otomatik yapılır. Kullanıcı adımı gerekmez.</p>
     </main>
     <script>
@@ -325,7 +324,7 @@ const createUpdaterWindowHtml = (logoDataUrl: string | null): string => {
         const stepDownload = document.getElementById("step-download");
         const stepInstall = document.getElementById("step-install");
         const stepRelaunch = document.getElementById("step-relaunch");
-
+ 
         const steps = [stepCheck, stepDownload, stepInstall, stepRelaunch];
         for (const item of steps) {
           if (!item) {
@@ -333,56 +332,56 @@ const createUpdaterWindowHtml = (logoDataUrl: string | null): string => {
           }
           item.classList.remove("is-active", "is-done", "is-error");
         }
-
+ 
         if (titleEl && typeof payload.title === "string") {
           titleEl.textContent = payload.title;
         }
-
+ 
         if (messageEl && typeof payload.message === "string") {
           messageEl.textContent = payload.message;
         }
-
+ 
         const phase = typeof payload.phase === "string" ? payload.phase : "idle";
         const mark = (el, cls) => {
           if (el) {
             el.classList.add(cls);
           }
         };
-
+ 
         if (phase === "checking" || phase === "available" || phase === "not-available") {
           mark(stepCheck, phase === "not-available" ? "is-done" : "is-active");
         }
-
+ 
         if (phase === "downloading") {
           mark(stepCheck, "is-done");
           mark(stepDownload, "is-active");
         }
-
+ 
         if (phase === "downloaded") {
           mark(stepCheck, "is-done");
           mark(stepDownload, "is-done");
           mark(stepInstall, "is-active");
         }
-
+ 
         if (phase === "installing") {
           mark(stepCheck, "is-done");
           mark(stepDownload, "is-done");
           mark(stepInstall, "is-done");
           mark(stepRelaunch, "is-active");
         }
-
+ 
         if (phase === "error") {
           mark(stepInstall, "is-error");
         }
-
+ 
         const hasProgress =
           typeof payload.progressPercent === "number" &&
           Number.isFinite(payload.progressPercent);
-
+ 
         if (wrapEl) {
           wrapEl.style.display = hasProgress ? "block" : "none";
         }
-
+ 
         if (hasProgress) {
           const clamped = Math.max(0, Math.min(100, payload.progressPercent));
           if (barEl) {
@@ -398,7 +397,7 @@ const createUpdaterWindowHtml = (logoDataUrl: string | null): string => {
 </html>`;
 };
 
-class ModularUpdater {
+export class ModularUpdater {
   private initialized = false;
   private listenersBound = false;
   private startupCheckTimer: NodeJS.Timeout | null = null;
@@ -499,36 +498,32 @@ class ModularUpdater {
     }
 
     this.installing = true;
+    
+    // 1. Güncelleme penceresini göster
+    this.showUpdaterWindow();
     this.setSnapshot(
       "installing",
-      "Güncelleyici yardımcı uygulaması başlatılıyor",
+      "Güncelleme hazırlanıyor, uygulama yeniden başlatılacak...",
     );
 
-    const helperLaunched = this.launchUpdaterHelperProcess();
-    if (!helperLaunched) {
-      this.installing = false;
-      this.setSnapshot(
-        "error",
-        "Güncelleyici yardımcı uygulaması başlatılamadı. Lütfen tekrar deneyin.",
-      );
-      return { accepted: false, reason: "HELPER_LAUNCH_FAILED" };
-    }
-
+    // 2. Hazırlık işlemleri
     try {
       await this.options.beforeInstall();
     } catch {
-      // Best-effort pre-install cleanup.
+      // Ignored
     }
 
-    this.setSnapshot(
-      "installing",
-      "Güncelleyici yardımcı süreci çalışıyor, uygulama kapatılıyor",
-    );
+    // 3. Ana pencereleri gizle
     this.hideMainWindowsForInstall();
 
+    // 4. Kurulumu başlat
     setTimeout(() => {
-      app.exit(0);
-    }, 1200);
+      try {
+        autoUpdater.quitAndInstall(false, true);
+      } catch (error) {
+        this.handleUpdaterError(error);
+      }
+    }, 1500);
 
     return { accepted: true };
   }
@@ -768,44 +763,21 @@ class ModularUpdater {
     });
   }
 
-  private triggerQuitAndInstall(): void {
-    try {
-      autoUpdater.quitAndInstall(true, true);
-    } catch (error) {
-      this.handleUpdaterError(error);
-    }
-  }
-
-  private launchUpdaterHelperProcess(): boolean {
-    if (!app.isPackaged) {
-      return false;
+  private broadcast(event: AppUpdateEvent): void {
+    const wins = BrowserWindow.getAllWindows();
+    for (const win of wins) {
+      if (win.isDestroyed() || win === this.updaterWindow) {
+        continue;
+      }
+      win.webContents.send(UPDATE_EVENT_CHANNEL, event);
     }
 
-    const versionLabel =
-      this.snapshot.nextVersion ?? this.snapshot.currentVersion ?? "unknown";
-
-    const args = [
-      "--ct-updater-helper",
-      `--ct-updater-parent-pid=${process.pid}`,
-      `--ct-updater-version=${versionLabel}`,
-    ];
-
-    try {
-      const child = spawn(process.execPath, args, {
-        detached: true,
-        stdio: "ignore",
-        windowsHide: false,
-      });
-
-      child.unref();
-      return true;
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Updater helper process could not be started";
-      console.error(`[updater] helper launch failed: ${message}`);
-      return false;
+    // Update window state if it's open
+    if (event.type === "update-state") {
+      this.setUpdaterWindowState(
+        event.state.message,
+        event.state.progressPercent,
+      );
     }
   }
 
@@ -836,93 +808,69 @@ class ModularUpdater {
       return;
     }
 
-    const nextState = this.pendingUpdaterWindowState;
+    const state = this.pendingUpdaterWindowState;
     this.pendingUpdaterWindowState = null;
 
-    const script = `window.__connectUpdaterSetState && window.__connectUpdaterSetState(${JSON.stringify(nextState)});`;
-
-    void win.webContents.executeJavaScript(script, true).catch(() => {
-      // Window might be closing while installing.
-    });
+    const script = `window.__connectUpdaterSetState && window.__connectUpdaterSetState(${JSON.stringify(state)});`;
+    void win.webContents.executeJavaScript(script).catch(() => {});
   }
 
   private hideMainWindowsForInstall(): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (win.isDestroyed()) {
+    const wins = BrowserWindow.getAllWindows();
+    for (const win of wins) {
+      if (win.isDestroyed() || win === this.updaterWindow) {
         continue;
       }
-
-      if (this.updaterWindow && win === this.updaterWindow) {
-        continue;
-      }
-
       win.hide();
     }
   }
 
   private restoreMainWindowsAfterInstallFailure(): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (win.isDestroyed()) {
+    const wins = BrowserWindow.getAllWindows();
+    for (const win of wins) {
+      if (win.isDestroyed() || win === this.updaterWindow) {
         continue;
       }
-
-      if (this.updaterWindow && win === this.updaterWindow) {
-        continue;
-      }
-
       win.show();
-    }
-  }
-
-  private broadcast(event: AppUpdateEvent): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (win.isDestroyed() || win.webContents.isDestroyed()) {
-        continue;
-      }
-
-      win.webContents.send(UPDATE_EVENT_CHANNEL, event);
     }
   }
 }
 
-let sharedUpdater: ModularUpdater | null = null;
+let updaterInstance: ModularUpdater | null = null;
 
-const getUpdater = (): ModularUpdater => {
-  if (!sharedUpdater) {
-    throw new Error("Updater has not been initialized");
+export const initializeModularUpdater = (options: ModularUpdaterOptions): void => {
+  if (updaterInstance) {
+    return;
   }
-
-  return sharedUpdater;
-};
-
-export const initializeModularUpdater = (
-  options: ModularUpdaterOptions,
-): void => {
-  if (!sharedUpdater) {
-    sharedUpdater = new ModularUpdater(options);
-  }
-
-  sharedUpdater.initialize();
-};
-
-export const checkForAppUpdates =
-  async (): Promise<CheckForUpdatesResponse> => {
-    return getUpdater().checkForUpdates();
-  };
-
-export const installDownloadedAppUpdate =
-  async (): Promise<InstallUpdateResponse> => {
-    return getUpdater().installDownloadedUpdate();
-  };
-
-export const getAppUpdateSnapshot = (): AppUpdateSnapshot => {
-  return getUpdater().getSnapshot();
+  updaterInstance = new ModularUpdater(options);
+  updaterInstance.initialize();
 };
 
 export const destroyModularUpdater = (): void => {
-  if (!sharedUpdater) {
-    return;
+  if (updaterInstance) {
+    updaterInstance.destroy();
+    updaterInstance = null;
   }
-
-  sharedUpdater.destroy();
 };
+
+export const checkForAppUpdates = async (): Promise<CheckForUpdatesResponse> => {
+  if (!updaterInstance) {
+    return { requested: false, reason: "NOT_INITIALIZED" };
+  }
+  return updaterInstance.checkForUpdates();
+};
+
+export const installDownloadedAppUpdate = async (): Promise<InstallUpdateResponse> => {
+  if (!updaterInstance) {
+    return { accepted: false, reason: "NOT_INITIALIZED" };
+  }
+  return updaterInstance.installDownloadedUpdate();
+};
+
+export const getAppUpdateSnapshot = (): AppUpdateSnapshot | null => {
+  if (!updaterInstance) {
+    return null;
+  }
+  return updaterInstance.getSnapshot();
+};
+

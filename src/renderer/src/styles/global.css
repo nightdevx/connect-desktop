@@ -184,10 +184,27 @@
   }
 
   .ct-auth-card {
-    @apply w-full max-w-xl rounded-2xl border p-5 md:p-6;
-    border-color: var(--ct-border);
-    background: rgba(14, 14, 14, 0.92);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+    @apply w-full max-w-xl rounded-3xl border p-8 md:p-10;
+    border-color: rgba(255, 255, 255, 0.05);
+    background: linear-gradient(135deg, rgba(18, 18, 18, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
+    backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.6),
+      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ct-auth-card::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    animation: slowRotate 20s linear infinite;
   }
 
   .ct-orb {
@@ -217,18 +234,22 @@
   }
 
   .ct-auth-pane {
-    @apply mt-5;
-    animation: fadeSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    @apply mt-6;
+    animation: ctFadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ct-auth-title {
-    @apply m-0 text-xs font-bold uppercase tracking-[0.12em];
-    color: var(--ct-text-secondary);
+    @apply m-0 text-2xl font-bold tracking-tight;
+    color: var(--ct-text-primary);
+    background: linear-gradient(to bottom, #ffffff 0%, #a1a1a1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .ct-auth-subtitle {
-    @apply mt-2 text-sm;
+    @apply mt-3 text-base leading-relaxed;
     color: var(--ct-text-muted);
+    max-width: 320px;
   }
 
   .ct-label {
@@ -2857,78 +2878,6 @@
   .ct-link:hover {
     color: #f5f5f5;
   }
-
-  /* ── NS Mode Badge ────────────────────────────────────────────────── */
-  .ct-ns-mode-badge {
-    @apply mt-2 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
-    border-color: var(--ct-border);
-    color: var(--ct-text-muted);
-    background: rgba(10, 10, 10, 0.55);
-    transition: all 0.25s ease;
-  }
-
-  .ct-ns-mode-dot {
-    @apply inline-block h-2 w-2 shrink-0 rounded-full;
-    background: currentColor;
-  }
-
-  /* Processor modu: RNNoise aktif — yeşil */
-  .ct-ns-mode-badge--processor {
-    border-color: var(--ct-accent-strong);
-    color: var(--ct-text-primary);
-    background: var(--ct-accent-soft);
-  }
-
-  .ct-ns-mode-badge--processor .ct-ns-mode-dot {
-    background: var(--ct-accent);
-    box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
-    animation: ctNsDotPulse 2.4s ease-in-out infinite;
-  }
-
-  /* Browser fallback modu — turuncu/amber */
-  .ct-ns-mode-badge--browser {
-    border-color: rgba(255, 255, 255, 0.26);
-    color: var(--ct-text-secondary);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .ct-ns-mode-badge--browser .ct-ns-mode-dot {
-    background: var(--ct-text-muted);
-  }
-
-  /* Başlatılıyor / none modu — gri */
-  .ct-ns-mode-badge--none {
-    border-color: var(--ct-border);
-    color: var(--ct-text-muted);
-    background: rgba(10, 10, 10, 0.4);
-  }
-
-  .ct-ns-mode-badge--none .ct-ns-mode-dot {
-    background: var(--ct-text-muted);
-    animation: ctNsDotBlink 1.2s ease-in-out infinite;
-  }
-}
-
-@keyframes ctNsDotPulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 5px rgba(255, 255, 255, 0.45);
-  }
-  50% {
-    opacity: 0.7;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-  }
-}
-
-@keyframes ctNsDotBlink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
 }
 
 @keyframes fadeSlideIn {
@@ -3171,5 +3120,98 @@
 
 @keyframes ctSpinnerPulse {
   to { transform: rotate(360deg); }
+}
+
+@keyframes ctFadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slowRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Premium Ant Design Overrides */
+.ct-premium-form .ant-form-item-label > label {
+  @apply text-xs font-bold uppercase tracking-widest text-[#8f8f8f] !important;
+  height: auto !important;
+}
+
+.ct-input-premium {
+  @apply bg-[#0d0d0d]/40 border-white/5 text-white rounded-xl h-12 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.ct-input-premium:hover {
+  @apply border-white/20 bg-[#0d0d0d]/60 !important;
+}
+
+.ct-input-premium:focus, .ct-input-premium-focused {
+  @apply border-white/40 bg-[#0d0d0d]/80 ring-0 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05) !important;
+}
+
+.ant-input-password.ct-input-premium input {
+  @apply bg-transparent !important;
+}
+
+.ant-input-password.ct-input-premium .ant-input-suffix .anticon {
+  @apply text-[#8f8f8f] hover:text-white transition-colors !important;
+}
+
+.ct-btn-primary {
+  @apply border-0 shadow-lg !important;
+  background: linear-gradient(135deg, #ffffff 0%, #d1d1d1 100%) !important;
+  color: #000000 !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.ct-btn-primary:hover {
+  @apply transform -translate-y-0.5 shadow-xl !important;
+  background: linear-gradient(135deg, #ffffff 0%, #e5e5e5 100%) !important;
+  filter: brightness(1.1);
+}
+
+.ct-btn-primary:active {
+  @apply transform translate-y-0 !important;
+}
+
+/* Speaking Indicator Glow - Static Steady Version */
+.ct-lobby-participant-tile.speaking {
+  position: relative;
+  border-color: transparent !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(16, 185, 129, 0.04) !important;
+}
+
+.ct-lobby-participant-tile.speaking::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #10b981;
+  opacity: 1;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ct-lobby-participant-tile.speaking .ct-lobby-tile-footer p {
+  color: #10b981;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Ensure central avatar does NOT glow */
+.ct-lobby-participant-tile.speaking .ct-lobby-avatar-container {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 

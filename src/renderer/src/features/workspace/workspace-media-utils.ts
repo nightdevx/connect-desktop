@@ -1,96 +1,38 @@
 import type {
   AudioPreferences,
   CameraPreferences,
-  NoiseSuppressionPreset,
   StreamPreferences,
 } from "./components/settings/settings-main-panel-types";
 
-export type ScreenShareSourceKind = "screen" | "window";
+import {
+  type ScreenShareSourceKind,
+  type ScreenShareQualityPreset,
+  type ScreenShareQualityOption,
+  SCREEN_SHARE_QUALITY_OPTIONS,
+  getDefaultScreenShareQuality as getBaseDefaultScreenShareQuality,
+} from "../screen-share";
 
-export type ScreenShareQualityPreset = "smooth" | "balanced" | "sharp";
-
-export interface ScreenShareQualityOption {
-  id: ScreenShareQualityPreset;
-  label: string;
-  description: string;
-  frameRate: 15 | 30 | 60;
-  resolution: "720p" | "1080p" | "1440p";
-}
+export type { ScreenShareSourceKind, ScreenShareQualityPreset, ScreenShareQualityOption };
 
 const CAMERA_SETTINGS_STORAGE_KEY = "ct.settings.camera";
 const AUDIO_SETTINGS_STORAGE_KEY = "ct.settings.audio";
 const STREAM_SETTINGS_STORAGE_KEY = "ct.settings.stream";
 
-export interface NoiseSuppressionPresetOption {
-  id: NoiseSuppressionPreset;
-  label: string;
-  description: string;
-}
+import {
+  type NoiseSuppressionPreset,
+  NOISE_SUPPRESSION_PRESET_OPTIONS,
+  DEFAULT_NOISE_SUPPRESSION_PRESET,
+  normalizeNoiseSuppressionPreset,
+} from "../rnnoise";
 
-export const NOISE_SUPPRESSION_PRESET_OPTIONS: NoiseSuppressionPresetOption[] =
-  [
-    {
-      id: "natural",
-      label: "Doğal",
-      description: "Sesi daha canlı tutar, hafif arka plan temizliği yapar.",
-    },
-    {
-      id: "balanced",
-      label: "Dengeli",
-      description: "Konuşma netliği ve gürültü bastırma arasında denge kurar.",
-    },
-    {
-      id: "aggressive",
-      label: "Agresif",
-      description: "Klavye, tıklama ve fan gibi sesleri daha sert bastırır.",
-    },
-  ];
-
-export const DEFAULT_NOISE_SUPPRESSION_PRESET: NoiseSuppressionPreset =
-  "balanced";
-
-const normalizeNoiseSuppressionPreset = (
-  value: unknown,
-): NoiseSuppressionPreset => {
-  if (value === "natural" || value === "aggressive") {
-    return value;
-  }
-
-  return DEFAULT_NOISE_SUPPRESSION_PRESET;
-};
-
-export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
-  {
-    id: "smooth",
-    label: "Akıcı",
-    description: "720p • 30 FPS",
-    frameRate: 30,
-    resolution: "720p",
-  },
-  {
-    id: "balanced",
-    label: "Dengeli",
-    description: "1080p • 30 FPS",
-    frameRate: 30,
-    resolution: "1080p",
-  },
-  {
-    id: "sharp",
-    label: "Net",
-    description: "1440p • 60 FPS",
-    frameRate: 60,
-    resolution: "1440p",
-  },
-];
+export { SCREEN_SHARE_QUALITY_OPTIONS };
+export { NOISE_SUPPRESSION_PRESET_OPTIONS, DEFAULT_NOISE_SUPPRESSION_PRESET };
+export type { NoiseSuppressionPreset };
 
 export const getDefaultScreenShareQuality = (
   frameRate: StreamPreferences["frameRate"],
 ): ScreenShareQualityPreset => {
-  if (frameRate === 60) {
-    return "sharp";
-  }
-
-  return "balanced";
+  return getBaseDefaultScreenShareQuality(frameRate as any);
 };
 
 export const buildCameraVideoConstraints = (
@@ -236,3 +178,4 @@ export const saveAudioPreferences = (next: AudioPreferences): void => {
 export const saveStreamPreferences = (next: StreamPreferences): void => {
   localStorage.setItem(STREAM_SETTINGS_STORAGE_KEY, JSON.stringify(next));
 };
+

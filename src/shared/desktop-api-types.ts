@@ -57,17 +57,7 @@ export interface ScreenCaptureSourceDescriptor {
   previewDataUrl: string | null;
 }
 
-export interface LiveKitMediaPolicy {
-  qualityProfile: string;
-  preferredVideoCodec: string;
-  backupVideoCodec: string;
-  cameraMaxBitrate: number;
-  cameraMaxFps: number;
-  screenMaxBitrate: number;
-  screenMaxFps: number;
-  simulcast: boolean;
-  dynacast: boolean;
-}
+
 
 export interface LiveKitTokenPayload {
   serverUrl: string;
@@ -76,7 +66,6 @@ export interface LiveKitTokenPayload {
   name: string;
   token: string;
   expiresAt: string;
-  mediaPolicy: LiveKitMediaPolicy;
 }
 
 export interface LobbyRealtimeSnapshot {

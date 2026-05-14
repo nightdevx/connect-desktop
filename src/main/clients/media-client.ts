@@ -13,17 +13,6 @@ export class MediaClient {
     name: string;
     token: string;
     expiresAt: string;
-    mediaPolicy: {
-      qualityProfile: string;
-      preferredVideoCodec: string;
-      backupVideoCodec: string;
-      cameraMaxBitrate: number;
-      cameraMaxFps: number;
-      screenMaxBitrate: number;
-      screenMaxFps: number;
-      simulcast: boolean;
-      dynacast: boolean;
-    };
   }> {
     const payload = room ? { room } : {};
     return this.baseClient.request<{
@@ -33,17 +22,6 @@ export class MediaClient {
       name: string;
       token: string;
       expiresAt: string;
-      mediaPolicy: {
-        qualityProfile: string;
-        preferredVideoCodec: string;
-        backupVideoCodec: string;
-        cameraMaxBitrate: number;
-        cameraMaxFps: number;
-        screenMaxBitrate: number;
-        screenMaxFps: number;
-        simulcast: boolean;
-        dynacast: boolean;
-      };
     }>("/media/livekit/token", {
       method: "POST",
       headers: {

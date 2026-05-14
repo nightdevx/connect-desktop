@@ -3,26 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import type { UserRole } from "../../../shared/auth-contracts";
 import {
   CameraShareModal,
-  ScreenShareModal,
   WorkspaceMainPanel,
   WorkspaceRail,
   WorkspaceSidebar,
 } from "../features/workspace/components";
-import { useDirectMessages } from "../features/workspace/hooks/use-direct-messages";
-import { useWorkspaceAudioConnection } from "../features/workspace/hooks/use-workspace-audio-connection";
-import { useWorkspaceLobbyActions } from "../features/workspace/hooks/use-workspace-lobby-actions";
-import { useLobbyRoom } from "../features/workspace/hooks/use-lobby-room";
-import { useWorkspaceMediaControls } from "../features/workspace/hooks/use-workspace-media-controls";
-import { useWorkspaceUsers } from "../features/workspace/hooks/use-workspace-users";
-import { useMediaDevices } from "../features/workspace/hooks/use-media-devices";
-import { useWorkspacePreferences } from "../features/workspace/hooks/use-workspace-preferences";
-import { useWorkspaceAudioCues } from "../features/workspace/hooks/use-workspace-audio-cues";
-import { useWorkspaceLobbies } from "../features/workspace/hooks/use-workspace-lobbies";
-import { useNetworkReconnect } from "../features/workspace/hooks/use-network-reconnect";
-import { useLivekitSession } from "../features/workspace/hooks/use-livekit-session";
-import { SCREEN_SHARE_QUALITY_OPTIONS } from "../features/workspace/workspace-media-utils";
-import { soundCueService } from "../services/sound-cue-service";
-import workspaceService from "../services/workspace-service";
+import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
+import {
+  useDirectMessages,
+  useWorkspaceAudioConnection,
+  useWorkspaceLobbyActions,
+  useLobbyRoom,
+  useWorkspaceMediaControls,
+  useWorkspaceUsers,
+  useMediaDevices,
+  useWorkspacePreferences,
+  useWorkspaceAudioCues,
+  useWorkspaceLobbies,
+  useNetworkReconnect,
+} from "../features/workspace/hooks";
+import { useLivekitSession } from "../features/livekit";
+import { soundEffectManager } from "../features/sound-effects";
+import workspaceService from "../features/workspace/services";
 import { useUiStore } from "../store/ui-store";
 import type { AudioPreferences } from "../features/workspace/components/settings/settings-main-panel-types";
 
@@ -83,7 +84,7 @@ function WorkspaceShell({
   } = useWorkspacePreferences();
 
   useEffect(() => {
-    soundCueService.configure({
+    soundEffectManager.configure({
       enabled: audioPreferences.notificationSoundsEnabled,
     });
   }, [audioPreferences.notificationSoundsEnabled]);
@@ -183,15 +184,15 @@ function WorkspaceShell({
   const directMessagePeerUserIds = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return [];
     return usersQuery.data.data.users
-      .map((user) => user.userId)
-      .filter((userId) => userId !== currentUserId);
+      .map((user: any) => user.userId)
+      .filter((userId: string) => userId !== currentUserId);
   }, [currentUserId, usersQuery.data]);
 
   const avatarByUserId = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return {};
     return usersQuery.data.data.users.reduce<
       Record<string, string | null | undefined>
-    >((accumulator, user) => {
+    >((accumulator: any, user: any) => {
       accumulator[user.userId] = user.avatarUrl;
       return accumulator;
     }, {});
@@ -298,7 +299,7 @@ function WorkspaceShell({
         if (shouldRefreshMicProcessing) {
           liveKitSessionRef.current
             .refreshMicrophoneProcessing()
-            .catch((error) => {
+            .catch((error: unknown) => {
               setStatus(
                 `Mikrofon yenileme hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
                 "warn",
@@ -321,8 +322,14 @@ function WorkspaceShell({
     async (lobbyId: string): Promise<void> => {
       const liveKitTask = (async () => {
         try {
+          const result = await workspaceService.createLiveKitToken({ room: lobbyId });
+          if (!result.ok || !result.data) {
+            throw new Error(result.error?.message ?? "Token alinamadi");
+          }
+
+          const { token, serverUrl: url } = result.data;
           await liveKitSessionRef.current?.setMicrophoneEnabled(micEnabled);
-          await liveKitSessionRef.current?.connect(lobbyId);
+          await liveKitSessionRef.current?.connect(url, token, lobbyId);
         } catch (error) {
           setStatus(
             `LiveKit bağlantısı kurulamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,

@@ -9,7 +9,12 @@
     "rootDir": "src",
     "outDir": "dist",
     "types": ["node", "vite/client"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/src/*"],
+      "@shared/*": ["src/shared/*"]
+    }
   },
   "include": [
     "src/main/**/*",

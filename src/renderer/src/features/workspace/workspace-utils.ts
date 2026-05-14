@@ -54,3 +54,4 @@ export const getDisplayInitials = (value: string): string => {
 
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
+

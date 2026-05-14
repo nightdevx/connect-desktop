@@ -3,7 +3,7 @@ export interface CameraPreferences {
   frameRate: 24 | 30;
 }
 
-export type NoiseSuppressionPreset = "natural" | "balanced" | "aggressive";
+import { type NoiseSuppressionPreset } from "@/features/rnnoise";
 
 export interface AudioPreferences {
   defaultMicEnabled: boolean;
@@ -19,3 +19,5 @@ export interface StreamPreferences {
   frameRate: 15 | 30 | 60;
   captureSystemAudio: boolean;
 }
+
+
