@@ -5,8 +5,8 @@ import {
   type SetStateAction,
 } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { LobbyDescriptor } from "../../../../../shared/auth-contracts";
-import type { DesktopResult } from "../../../../../shared/desktop-api-types";
+import type { LobbyDescriptor } from "@shared/auth-contracts";
+import type { DesktopResult } from "@shared/desktop-api-types";
 import type { LiveKitMediaSession } from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
 import workspaceService from "../../services";

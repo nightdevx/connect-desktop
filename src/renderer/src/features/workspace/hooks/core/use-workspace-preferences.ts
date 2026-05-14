@@ -3,7 +3,7 @@ import type {
   AudioPreferences,
   CameraPreferences,
   StreamPreferences,
-} from "../components/settings/settings-main-panel-types";
+} from "../../components/settings/settings-main-panel-types";
 import {
   readAudioPreferences,
   readCameraPreferences,

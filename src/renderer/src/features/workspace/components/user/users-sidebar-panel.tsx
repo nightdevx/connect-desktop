@@ -1,7 +1,7 @@
 import { Input, Segmented, Badge } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import type { UserDirectoryEntry } from "../../../../../shared/auth-contracts";
-import type { UseWorkspaceUsersResult } from "../../hooks/use-workspace-users";
+import type { UserDirectoryEntry } from "@shared/auth-contracts";
+import type { UseWorkspaceUsersResult } from "../../hooks/user/use-workspace-users";
 import {
   getApiErrorMessage,
   getDisplayInitials,

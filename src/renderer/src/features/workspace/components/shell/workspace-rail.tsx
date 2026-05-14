@@ -1,6 +1,6 @@
 import { Tooltip } from "antd";
 import { TeamOutlined, AppstoreOutlined, SettingOutlined } from "@ant-design/icons";
-import type { WorkspaceSection } from "../../../store/ui-store";
+import type { WorkspaceSection } from "@/store/ui-store";
 
 interface WorkspaceRailProps {
   workspaceSection: WorkspaceSection;

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { LobbyStateMember } from "../../../../../shared/desktop-api-types";
+import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { soundEffectManager } from "@/features/sound-effects";
 
 interface UseWorkspaceAudioCuesProps {
