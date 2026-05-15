@@ -4,7 +4,8 @@ import {
   AudioMutedOutlined, 
   EyeInvisibleOutlined, 
   EyeOutlined,
-  SoundOutlined
+  SoundOutlined,
+  DesktopOutlined
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 
@@ -12,20 +13,26 @@ interface ParticipantContextMenuProps {
   x: number;
   y: number;
   preference: RemoteParticipantAudioPreference;
+  isScreenSharing: boolean;
   onClose: () => void;
   onMute: (muted: boolean) => void;
   onVolume: (volume: number) => void;
   onToggleCameraHidden: (hidden: boolean) => void;
+  onScreenAudioMute: (muted: boolean) => void;
+  onScreenAudioVolume: (volume: number) => void;
 }
 
 export function ParticipantContextMenu({
   x,
   y,
   preference,
+  isScreenSharing,
   onClose,
   onMute,
   onVolume,
   onToggleCameraHidden,
+  onScreenAudioMute,
+  onScreenAudioVolume,
 }: ParticipantContextMenuProps) {
   const menuItems: MenuProps['items'] = [
     {
@@ -65,7 +72,7 @@ export function ParticipantContextMenu({
       label: (
         <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
           <SoundOutlined style={{ marginRight: '8px' }} />
-          <span>Ses Seviyesi: %{preference.volumePercent}</span>
+          <span>Mikrofon Sesi: %{preference.volumePercent}</span>
         </div>
       ),
       disabled: true,
@@ -85,6 +92,47 @@ export function ParticipantContextMenu({
         </div>
       ),
     },
+    // Screen share audio controls only if user is sharing screen
+    ...(isScreenSharing ? [
+      {
+        type: 'divider' as const,
+      },
+      {
+        key: 'screen-audio-header',
+        label: (
+          <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
+            <DesktopOutlined style={{ marginRight: '8px' }} />
+            <span>Yayın Sesi: %{preference.screenAudioVolumePercent ?? 100}</span>
+          </div>
+        ),
+        disabled: true,
+      },
+      {
+        key: 'screen-audio-mute',
+        label: (preference.screenAudioMuted) ? 'Yayın Sesini Aç' : 'Yayın Sesini Sustur',
+        icon: (preference.screenAudioMuted) ? <AudioOutlined /> : <AudioMutedOutlined />,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          onScreenAudioMute(!(preference.screenAudioMuted ?? false));
+          onClose();
+        },
+      },
+      {
+        key: 'screen-audio-slider',
+        label: (
+          <div className="ct-participant-context-menu-volume" onClick={(e) => e.stopPropagation()}>
+            <Slider
+              min={0}
+              max={200}
+              step={5}
+              value={preference.screenAudioVolumePercent ?? 100}
+              onChange={onScreenAudioVolume}
+              tooltip={{ formatter: (v) => `%${v}` }}
+            />
+          </div>
+        ),
+      },
+    ] : []),
   ];
 
   return (

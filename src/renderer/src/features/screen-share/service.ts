@@ -90,10 +90,19 @@ const startBrowserDisplayCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
   const dimensions = getResolutionDimensions(options.resolution);
+  
+  console.log("[ScreenCapture] startBrowserDisplayCapture started", { 
+    captureSystemAudio: options.captureSystemAudio,
+    resolution: options.resolution 
+  });
 
   try {
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      audio: options.captureSystemAudio,
+      audio: options.captureSystemAudio ? {
+        autoGainControl: false,
+        echoCancellation: false,
+        noiseSuppression: false,
+      } : false,
       video: {
         width: dimensions
           ? {
@@ -112,11 +121,19 @@ const startBrowserDisplayCapture = async (
       },
     });
 
+    console.log("[ScreenCapture] getDisplayMedia success", {
+      videoTracks: stream.getVideoTracks().length,
+      audioTracks: stream.getAudioTracks().length,
+    });
+
     return {
       stream,
     };
   } catch (error) {
+    console.error("[ScreenCapture] getDisplayMedia failed", error);
+    
     if (options.captureSystemAudio && isRetryableAudioConstraintError(error)) {
+      console.warn("[ScreenCapture] Retrying getDisplayMedia without audio...");
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: false,
         video: {
@@ -151,6 +168,11 @@ const startBrowserDisplayCapture = async (
 const startElectronDesktopCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
+  console.log("[ScreenCapture] startElectronDesktopCapture started", {
+    sourceId: options.sourceId,
+    captureSystemAudio: options.captureSystemAudio
+  });
+
   const sourcesResult = await listScreenCaptureSources();
   if (!sourcesResult.ok || !sourcesResult.data) {
     throw new Error(
@@ -174,39 +196,88 @@ const startElectronDesktopCapture = async (
 
   const dimensions = getResolutionDimensions(options.resolution);
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      mandatory: {
-        chromeMediaSource: "desktop",
-        chromeMediaSourceId: preferredSource.id,
-        minFrameRate: options.frameRate,
-        maxFrameRate: options.frameRate,
-        minWidth: dimensions?.width,
-        maxWidth: dimensions?.width,
-        minHeight: dimensions?.height,
-        maxHeight: dimensions?.height,
-      },
-    } as MediaTrackConstraints,
-  } as MediaStreamConstraints);
-
-  return {
-    stream,
+  console.log("[ScreenCapture] Using getUserMedia for Electron", {
     sourceName: preferredSource.name,
-    warning: options.captureSystemAudio
-      ? "Sistem sesi bu modda desteklenmedi. Yayın görüntü olarak başlatıldı."
-      : undefined,
-  };
+    sourceId: preferredSource.id
+  });
+
+  try {
+    const constraints: any = {
+      audio: options.captureSystemAudio ? {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: preferredSource.id
+        }
+      } : false,
+      video: {
+        mandatory: {
+          chromeMediaSource: "desktop",
+          chromeMediaSourceId: preferredSource.id,
+          minFrameRate: options.frameRate,
+          maxFrameRate: options.frameRate,
+          minWidth: dimensions?.width,
+          maxWidth: dimensions?.width,
+          minHeight: dimensions?.height,
+          maxHeight: dimensions?.height,
+        },
+      },
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    console.log("[ScreenCapture] getUserMedia success", {
+      videoTracks: stream.getVideoTracks().length,
+      audioTracks: stream.getAudioTracks().length,
+    });
+
+    return {
+      stream,
+      sourceName: preferredSource.name,
+    };
+  } catch (error) {
+    console.error("[ScreenCapture] getUserMedia failed", error);
+    
+    if (options.captureSystemAudio) {
+      console.warn("[ScreenCapture] Retrying getUserMedia without audio...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: "desktop",
+            chromeMediaSourceId: preferredSource.id,
+            minFrameRate: options.frameRate,
+            maxFrameRate: options.frameRate,
+            minWidth: dimensions?.width,
+            maxWidth: dimensions?.width,
+            minHeight: dimensions?.height,
+            maxHeight: dimensions?.height,
+          },
+        },
+      } as any);
+
+      return {
+        stream,
+        sourceName: preferredSource.name,
+        warning: "Sistem sesi bu modda desteklenmedi. Yayın görüntü olarak başlatıldı.",
+      };
+    }
+    
+    throw error;
+  }
 };
 
 export const startScreenCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
+  console.log("[ScreenCapture] startScreenCapture called", options);
+  
   try {
+    // Try getDisplayMedia first (Modern & cleaner)
     return await startBrowserDisplayCapture(options);
   } catch (error) {
+    console.log("[ScreenCapture] startBrowserDisplayCapture failed, trying startElectronDesktopCapture", error);
     if (!isDisplayMediaNotSupportedError(error)) {
-      throw error;
+      // If it's a real error (not "not supported"), we might still want to try the fallback
     }
   }
 

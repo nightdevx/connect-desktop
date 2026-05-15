@@ -33,6 +33,9 @@ interface LobbyParticipantTileProps {
   selectedAudioOutputDeviceId?: string | null;
   onSelectAudioInputDevice?: (deviceId: string | null) => void;
   onSelectAudioOutputDevice?: (deviceId: string | null) => void;
+  // Local preferences for this remote participant
+  localAudioMuted?: boolean;
+  localScreenAudioMuted?: boolean;
 }
 
 export function LobbyParticipantTile({
@@ -50,6 +53,8 @@ export function LobbyParticipantTile({
   selectedAudioOutputDeviceId = null,
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
+  localAudioMuted = false,
+  localScreenAudioMuted = false,
 }: LobbyParticipantTileProps) {
   const micOpen = !participant.muted;
   const headphoneOpen = !participant.deafened;
@@ -209,13 +214,17 @@ export function LobbyParticipantTile({
               </span>
             </AudioDeviceDropdown>
           ) : (
-            <span className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}>
-              {micOpen ? (
-                <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
-              ) : (
-                <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
-              )}
-            </span>
+            <Tooltip title={localAudioMuted ? "Siz susturdunuz" : (micOpen ? "Mikrofon açık" : "Mikrofon kapalı")}>
+              <span className={`ct-lobby-flag ${localAudioMuted ? "muted" : (micOpen ? "active" : "inactive")}`}>
+                {localAudioMuted ? (
+                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#ef4444" }} />
+                ) : micOpen ? (
+                  <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                ) : (
+                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                )}
+              </span>
+            </Tooltip>
           )}
 
           {participant.isLocalUser ? (
@@ -247,10 +256,17 @@ export function LobbyParticipantTile({
               )}
             </span>
           )}
+
           {participant.screenSharing && (
-            <span className="ct-lobby-flag signal" title="Ekran paylaşımı açık">
-              <DesktopOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
-            </span>
+            <Tooltip title={localScreenAudioMuted ? "Yayın sesini susturdunuz" : "Ekran paylaşımı açık"}>
+              <span className={`ct-lobby-flag ${localScreenAudioMuted ? "muted" : "signal"}`}>
+                {localScreenAudioMuted ? (
+                  <MutedOutlined style={{ fontSize: "11px", color: "#ef4444" }} />
+                ) : (
+                  <DesktopOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
+                )}
+              </span>
+            </Tooltip>
           )}
         </div>
       </footer>

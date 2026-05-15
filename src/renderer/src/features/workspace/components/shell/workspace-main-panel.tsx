@@ -75,6 +75,14 @@ interface WorkspaceMainPanelProps {
     participantUserId: string,
     hidden: boolean,
   ) => void;
+  onSetRemoteParticipantScreenAudioMuted: (
+    participantUserId: string,
+    muted: boolean,
+  ) => void;
+  onSetRemoteParticipantScreenAudioVolume: (
+    participantUserId: string,
+    volumePercent: number,
+  ) => void;
   lobbyStateQuery: UseQueryResult<
     DesktopResult<{
       lobbyId: string;
@@ -154,6 +162,8 @@ export function WorkspaceMainPanel({
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
   onSetRemoteParticipantCameraHidden,
+  onSetRemoteParticipantScreenAudioMuted,
+  onSetRemoteParticipantScreenAudioVolume,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -238,6 +248,8 @@ export function WorkspaceMainPanel({
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
             onSetRemoteParticipantCameraHidden={onSetRemoteParticipantCameraHidden}
+            onSetRemoteParticipantScreenAudioMuted={onSetRemoteParticipantScreenAudioMuted}
+            onSetRemoteParticipantScreenAudioVolume={onSetRemoteParticipantScreenAudioVolume}
             lobbyStateQuery={lobbyStateQuery}
             lobbyMessagesQuery={lobbyMessagesQuery}
             lobbyMembers={lobbyMembers}

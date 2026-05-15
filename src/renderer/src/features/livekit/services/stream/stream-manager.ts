@@ -53,6 +53,7 @@ export class LiveKitStreamManager {
   private audioContext: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
   private localAudioSource: MediaStreamAudioSourceNode | null = null;
+  private micGainNode: GainNode | null = null;
   private localAudioLevel = 0;
   private isSpeakingLocal = false;
   private silenceTimeout: number | null = null;
@@ -136,8 +137,10 @@ export class LiveKitStreamManager {
   private async updateLocalAudioSource(stream: MediaStream | null) {
     if (!stream) {
       this.localAudioSource?.disconnect();
+      this.micGainNode?.disconnect();
       this.localAudioSource = null;
       this.localAnalyser = null;
+      this.micGainNode = null;
       this.lastCapturedStreamId = null;
       return;
     }
@@ -154,10 +157,16 @@ export class LiveKitStreamManager {
       }
 
       this.localAudioSource?.disconnect();
+      this.micGainNode?.disconnect();
+
       this.localAnalyser = this.audioContext.createAnalyser();
       this.localAnalyser.fftSize = 256;
+      this.micGainNode = this.audioContext.createGain();
+      this.micGainNode.gain.value = Math.max(0, this.audioProcessingPreferences.microphoneVolume) / 100;
+
       this.localAudioSource = this.audioContext.createMediaStreamSource(stream);
-      this.localAudioSource.connect(this.localAnalyser);
+      this.localAudioSource.connect(this.micGainNode);
+      this.micGainNode.connect(this.localAnalyser);
       this.lastCapturedStreamId = stream.id;
     } catch (err) {
       console.warn("[LiveKitStreamManager] Failed to setup local audio analysis:", err);
@@ -325,7 +334,20 @@ export class LiveKitStreamManager {
       this.audioProcessingPreferences.noiseSuppressionPreset !== prefs.noiseSuppressionPreset ||
       this.audioProcessingPreferences.selectedAudioInputDeviceId !== prefs.selectedAudioInputDeviceId;
 
+    const masterVolumeChanged = this.audioProcessingPreferences.masterVolume !== prefs.masterVolume;
+    const micVolumeChanged = this.audioProcessingPreferences.microphoneVolume !== prefs.microphoneVolume;
+
     this.audioProcessingPreferences = { ...prefs };
+
+    // Apply master volume to all remote audio elements
+    if (masterVolumeChanged && this.remoteMediaHandler) {
+      this.remoteMediaHandler.setMasterVolume(prefs.masterVolume);
+    }
+
+    // Apply microphone volume via gain node
+    if (micVolumeChanged && this.micGainNode) {
+      this.micGainNode.gain.value = Math.max(0, prefs.microphoneVolume) / 100;
+    }
 
     if (changed && this.room?.localParticipant.isMicrophoneEnabled) {
       await this.microphoneController.refreshMicrophoneProcessing({
@@ -448,7 +470,7 @@ export class LiveKitStreamManager {
 
       // Unpublish existing screen tracks first
       const existingPubs = Array.from(participant.trackPublications.values()).filter(
-        (pub) => pub.source === Track.Source.ScreenShare
+        (pub) => pub.source === Track.Source.ScreenShare || pub.source === Track.Source.ScreenShareAudio
       );
       for (const pub of existingPubs) {
         if (pub.track) {
@@ -460,6 +482,41 @@ export class LiveKitStreamManager {
         name: "screen",
         source: Track.Source.ScreenShare,
       });
+
+      // Also publish audio track if available (screen share audio)
+      const audioTracks = this.desiredScreenStream?.getAudioTracks() ?? [];
+      const audioTrack = audioTracks[0];
+      
+      logLiveKitDebug("stream-manager", "screen-capture-status", {
+        hasStream: !!this.desiredScreenStream,
+        videoTrackId: screenTrack.id,
+        audioTracksCount: audioTracks.length,
+        firstAudioTrackId: audioTrack?.id,
+        firstAudioTrackEnabled: audioTrack?.enabled,
+        firstAudioTrackReadyState: audioTrack?.readyState,
+      });
+
+      if (audioTrack) {
+        try {
+          console.log("[LiveKitStreamManager] Publishing screen audio track:", audioTrack.id);
+          await participant.publishTrack(audioTrack, {
+            name: "screen_audio",
+            source: Track.Source.ScreenShareAudio,
+          });
+          logLiveKitDebug("stream-manager", "screen-audio-published-success", {
+            trackId: audioTrack.id,
+          });
+        } catch (err) {
+          console.error("[LiveKitStreamManager] Screen audio publish failed:", err);
+          logLiveKitDebug("stream-manager", "screen-audio-published-error", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        logLiveKitDebug("stream-manager", "screen-audio-not-found", {
+          message: "No audio track in desiredScreenStream",
+        });
+      }
     } else {
       if (!participant.isScreenShareEnabled) {
         await participant.setScreenShareEnabled(true);
@@ -556,6 +613,14 @@ export class LiveKitStreamManager {
     if (this.remoteMediaHandler) {
       this.remoteMediaHandler.setParticipantVolume(identity, pref.volumePercent / 100);
       this.remoteMediaHandler.setParticipantMuted(identity, pref.muted);
+
+      // Screen share audio controls
+      if (pref.screenAudioMuted !== undefined) {
+        this.remoteMediaHandler.setScreenAudioMuted(identity, pref.screenAudioMuted);
+      }
+      if (pref.screenAudioVolumePercent !== undefined) {
+        this.remoteMediaHandler.setScreenAudioVolume(identity, pref.screenAudioVolumePercent);
+      }
     }
   }
 

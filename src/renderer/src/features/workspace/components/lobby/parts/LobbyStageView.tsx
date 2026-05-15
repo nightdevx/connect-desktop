@@ -86,6 +86,8 @@ export function LobbyStageView({
               selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
               onSelectAudioInputDevice={onSelectAudioInputDevice}
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+              localAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.muted}
+              localScreenAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.screenAudioMuted}
             />
           </div>
 
@@ -116,6 +118,8 @@ export function LobbyStageView({
                   selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
                   onSelectAudioInputDevice={onSelectAudioInputDevice}
                   onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+                  localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
+                  localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
                 />
               ))}
             </div>
@@ -146,6 +150,8 @@ export function LobbyStageView({
             selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
             onSelectAudioInputDevice={onSelectAudioInputDevice}
             onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+            localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
+            localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
           />
         ))
       )}

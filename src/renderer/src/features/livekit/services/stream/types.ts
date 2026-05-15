@@ -30,6 +30,8 @@ export interface RemoteParticipantAudioPreference {
   muted: boolean;
   volumePercent: number;
   cameraHidden?: boolean;
+  screenAudioMuted?: boolean;
+  screenAudioVolumePercent?: number;
 }
 
 export interface LiveKitStreamManagerCallbacks {
@@ -45,6 +47,8 @@ export interface LiveKitAudioProcessingPreferences {
   noiseSuppressionPreset: any;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
+  masterVolume: number;
+  microphoneVolume: number;
 }
 
 export interface QualityProfile {

@@ -39,6 +39,8 @@ interface LobbiesMainPanelProps {
   onSetRemoteParticipantMuted: (participantUserId: string, muted: boolean) => void;
   onSetRemoteParticipantVolume: (participantUserId: string, volumePercent: number) => void;
   onSetRemoteParticipantCameraHidden: (participantUserId: string, hidden: boolean) => void;
+  onSetRemoteParticipantScreenAudioMuted: (participantUserId: string, muted: boolean) => void;
+  onSetRemoteParticipantScreenAudioVolume: (participantUserId: string, volumePercent: number) => void;
   lobbyStateQuery: UseQueryResult<DesktopResult<{ lobbyId: string; members: LobbyStateMember[]; size: number; revision: number; }>, Error>;
   lobbyMessagesQuery: UseQueryResult<DesktopResult<{ messages: ChatMessage[] }>, Error>;
   lobbyMembers: LobbyStateMember[];
@@ -90,6 +92,8 @@ export function LobbiesMainPanel({
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
   onSetRemoteParticipantCameraHidden,
+  onSetRemoteParticipantScreenAudioMuted,
+  onSetRemoteParticipantScreenAudioVolume,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -217,6 +221,16 @@ export function LobbiesMainPanel({
     onSetRemoteParticipantCameraHidden(contextMenuParticipantId, hidden);
   };
 
+  const handleScreenAudioMute = (muted: boolean): void => {
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantScreenAudioMuted(contextMenuParticipantId, muted);
+  };
+
+  const handleScreenAudioVolume = (volumePercent: number): void => {
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantScreenAudioVolume(contextMenuParticipantId, volumePercent);
+  };
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
       {/* 1. Lobby Selection Screen */}
@@ -337,6 +351,9 @@ export function LobbiesMainPanel({
           x={contextMenuPosition.x}
           y={contextMenuPosition.y}
           preference={selectedPreference}
+          isScreenSharing={
+            lobbyMembers.find((m) => m.userId === contextMenuParticipantId)?.screenSharing ?? false
+          }
           onClose={() => {
             setContextMenuParticipantId(null);
             setContextMenuPosition(null);
@@ -344,6 +361,8 @@ export function LobbiesMainPanel({
           onMute={handleMute}
           onVolume={handleVolume}
           onToggleCameraHidden={handleToggleCameraHidden}
+          onScreenAudioMute={handleScreenAudioMute}
+          onScreenAudioVolume={handleScreenAudioVolume}
         />
       )}
     </div>

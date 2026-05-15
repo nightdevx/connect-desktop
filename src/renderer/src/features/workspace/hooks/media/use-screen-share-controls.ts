@@ -51,6 +51,7 @@ export const useScreenShareControls = ({
   const [selectedScreenShareQuality, setSelectedScreenShareQuality] = useState<ScreenShareQualityPreset>(() =>
     getDefaultScreenShareQuality(readStreamPreferences().frameRate)
   );
+  const [captureSystemAudio, setCaptureSystemAudio] = useState(() => streamPreferences.captureSystemAudio);
 
   const monitorScreenShareSources = useMemo(() => {
     return screenShareSources.filter((source) => source.kind === "screen");
@@ -152,9 +153,10 @@ export const useScreenShareControls = ({
     }
 
     setSelectedScreenShareQuality(getDefaultScreenShareQuality(streamPreferences.frameRate));
+    setCaptureSystemAudio(streamPreferences.captureSystemAudio);
     setIsScreenShareModalOpen(true);
     void loadScreenShareSources();
-  }, [activeLobbyRef, setStatus, streamPreferences.frameRate, loadScreenShareSources]);
+  }, [activeLobbyRef, setStatus, streamPreferences.frameRate, streamPreferences.captureSystemAudio, loadScreenShareSources]);
 
   const startScreenShareFromModal = useCallback(async (): Promise<void> => {
     const lobbyId = activeLobbyRef.current;
@@ -178,7 +180,7 @@ export const useScreenShareControls = ({
       const { stream, warning, sourceName } = await startScreenCapture({
         frameRate: qualityOption.frameRate,
         resolution: qualityOption.resolution,
-        captureSystemAudio: streamPreferences.captureSystemAudio,
+        captureSystemAudio,
         sourceId: selectedSourceId,
       });
 
@@ -301,6 +303,8 @@ export const useScreenShareControls = ({
     selectedScreenShareSourceKind,
     selectedScreenShareQuality,
     setSelectedScreenShareQuality,
+    captureSystemAudio,
+    setCaptureSystemAudio,
     monitorScreenShareSources,
     windowScreenShareSources,
     activeScreenShareSources,

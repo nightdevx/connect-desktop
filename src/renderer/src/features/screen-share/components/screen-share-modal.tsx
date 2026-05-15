@@ -1,4 +1,5 @@
-import { Modal, Button } from "antd";
+import { Modal, Button, Switch } from "antd";
+import { SoundOutlined } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "../../../../../shared/desktop-api-types";
 import type {
   ScreenShareQualityOption,
@@ -17,12 +18,14 @@ interface ScreenShareModalProps {
   selectedSourceId: string | null;
   selectedQuality: string;
   qualityOptions: ScreenShareQualityOption[];
+  captureSystemAudio: boolean;
   onClose: () => void;
   onRefreshSources: () => void;
   onStart: () => void;
   onSelectSource: (sourceId: string) => void;
   onChangeKind: (kind: ScreenShareSourceKind) => void;
   onChangeQuality: (quality: any) => void;
+  onToggleCaptureSystemAudio: (enabled: boolean) => void;
 }
 
 export function ScreenShareModal({
@@ -37,12 +40,14 @@ export function ScreenShareModal({
   selectedSourceId,
   selectedQuality,
   qualityOptions,
+  captureSystemAudio,
   onClose,
   onRefreshSources,
   onStart,
   onSelectSource,
   onChangeKind,
   onChangeQuality,
+  onToggleCaptureSystemAudio,
 }: ScreenShareModalProps) {
   return (
     <Modal
@@ -98,7 +103,7 @@ export function ScreenShareModal({
           }}
         >
           {isStarting ? "Yayın Başlatılıyor..." : "Yayını Başlat"}
-        </Button>
+        </Button>,
       ]}
       styles={{
         mask: {
@@ -212,6 +217,68 @@ export function ScreenShareModal({
                 </div>
               </label>
             ))}
+          </div>
+
+          {/* Audio Share Toggle */}
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "14px 16px",
+              background: captureSystemAudio
+                ? "rgba(255, 255, 255, 0.06)"
+                : "rgba(255, 255, 255, 0.02)",
+              border: captureSystemAudio
+                ? "1px solid rgba(255, 255, 255, 0.15)"
+                : "1px solid rgba(255, 255, 255, 0.06)",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <SoundOutlined
+                style={{
+                  fontSize: "16px",
+                  color: captureSystemAudio ? "#ffffff" : "rgba(255,255,255,0.4)",
+                  transition: "color 0.2s ease",
+                }}
+              />
+              <div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: captureSystemAudio ? "#ffffff" : "rgba(255,255,255,0.55)",
+                    transition: "color 0.2s ease",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Yayın Sesini Paylaş
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "rgba(255,255,255,0.35)",
+                    marginTop: "2px",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Ekrandaki sistem sesi diğer kullanıcılara iletilir
+                </div>
+              </div>
+            </div>
+            <Switch
+              checked={captureSystemAudio}
+              onChange={onToggleCaptureSystemAudio}
+              size="small"
+              style={{
+                flexShrink: 0,
+                background: captureSystemAudio ? "#52c41a" : undefined,
+              }}
+            />
           </div>
         </div>
       </div>

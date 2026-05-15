@@ -123,10 +123,8 @@ function WorkspaceShell({
         remoteParticipantAudioPreferencesRef.current[participantUserId] ??
         DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
       const nextPreference = {
+        ...currentPreference,
         muted,
-        volumePercent: clampRemoteParticipantVolumePercent(
-          currentPreference.volumePercent,
-        ),
       };
       setRemoteParticipantAudioPreferences((previous) => ({
         ...previous,
@@ -168,6 +166,58 @@ function WorkspaceShell({
       setRemoteParticipantAudioPreferences,
     ],
   );
+
+  const handleSetRemoteParticipantScreenAudioMuted = useCallback(
+    (participantUserId: string, muted: boolean): void => {
+      const currentPreference =
+        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
+        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+      const nextPreference = {
+        ...currentPreference,
+        screenAudioMuted: muted,
+      };
+      setRemoteParticipantAudioPreferences((previous) => ({
+        ...previous,
+        [participantUserId]: nextPreference,
+      }));
+      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
+        participantUserId,
+        nextPreference,
+      );
+    },
+    [
+      liveKitSessionRef,
+      remoteParticipantAudioPreferencesRef,
+      setRemoteParticipantAudioPreferences,
+    ],
+  );
+
+  const handleSetRemoteParticipantScreenAudioVolume = useCallback(
+    (participantUserId: string, volumePercent: number): void => {
+      const currentPreference =
+        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
+        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+      const nextPreference = {
+        ...currentPreference,
+        screenAudioVolumePercent: clampRemoteParticipantVolumePercent(volumePercent),
+      };
+      setRemoteParticipantAudioPreferences((previous) => ({
+        ...previous,
+        [participantUserId]: nextPreference,
+      }));
+      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
+        participantUserId,
+        nextPreference,
+      );
+    },
+    [
+      liveKitSessionRef,
+      remoteParticipantAudioPreferencesRef,
+      setRemoteParticipantAudioPreferences,
+    ],
+  );
+
+
 
   const handleSetRemoteParticipantCameraHidden = useCallback(
     (participantUserId: string, cameraHidden: boolean): void => {
@@ -258,6 +308,8 @@ function WorkspaceShell({
     selectedScreenShareSourceKind,
     selectedScreenShareQuality,
     setSelectedScreenShareQuality,
+    captureSystemAudio,
+    setCaptureSystemAudio,
     monitorScreenShareSources,
     windowScreenShareSources,
     activeScreenShareSources,
@@ -313,6 +365,8 @@ function WorkspaceShell({
           noiseSuppressionPreset: next.noiseSuppressionPreset,
           selectedAudioInputDeviceId: next.selectedAudioInputDeviceId,
           selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,
+          masterVolume: next.masterVolume,
+          microphoneVolume: next.microphoneVolume,
         });
 
         if (shouldRefreshMicProcessing) {
@@ -631,6 +685,8 @@ function WorkspaceShell({
         onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
         onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
         onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
+        onSetRemoteParticipantScreenAudioMuted={handleSetRemoteParticipantScreenAudioMuted}
+        onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}
         lobbyStateQuery={lobbyStateQuery}
         lobbyMessagesQuery={lobbyMessagesQuery}
         lobbyMembers={lobbyMembers}
@@ -676,11 +732,13 @@ function WorkspaceShell({
         selectedSourceId={selectedScreenShareSourceId}
         selectedQuality={selectedScreenShareQuality}
         qualityOptions={SCREEN_SHARE_QUALITY_OPTIONS}
+        captureSystemAudio={captureSystemAudio}
         onRefreshSources={loadScreenShareSources}
         onStart={startScreenShareFromModal}
         onSelectSource={setSelectedScreenShareSourceId}
         onChangeKind={handleScreenShareSourceKindChange}
         onChangeQuality={setSelectedScreenShareQuality}
+        onToggleCaptureSystemAudio={setCaptureSystemAudio}
       />
 
       <CameraShareModal

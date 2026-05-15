@@ -8,6 +8,8 @@ export const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPrefere
     noiseSuppressionPreset: "balanced",
     selectedAudioInputDeviceId: null,
     selectedAudioOutputDeviceId: null,
+    masterVolume: 100,
+    microphoneVolume: 100,
   };
 
 export const HIGH_PROFILE = {

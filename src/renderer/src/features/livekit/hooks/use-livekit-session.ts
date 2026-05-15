@@ -77,6 +77,8 @@ export function useLivekitSession(
       noiseSuppressionPreset: audioPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId: audioPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: audioPreferences.selectedAudioOutputDeviceId,
+      masterVolume: audioPreferences.masterVolume,
+      microphoneVolume: audioPreferences.microphoneVolume,
     });
 
     return () => {
@@ -102,6 +104,8 @@ export function useLivekitSession(
         selectedAudioInputDeviceId: audioPreferences.selectedAudioInputDeviceId,
         selectedAudioOutputDeviceId:
           audioPreferences.selectedAudioOutputDeviceId,
+        masterVolume: audioPreferences.masterVolume,
+        microphoneVolume: audioPreferences.microphoneVolume,
       });
     }
   }, [
@@ -109,6 +113,8 @@ export function useLivekitSession(
     audioPreferences.noiseSuppressionPreset,
     audioPreferences.selectedAudioInputDeviceId,
     audioPreferences.selectedAudioOutputDeviceId,
+    audioPreferences.masterVolume,
+    audioPreferences.microphoneVolume,
   ]);
 
   return {

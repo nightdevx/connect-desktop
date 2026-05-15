@@ -48,6 +48,8 @@ export interface WorkspaceMediaControlsState {
   selectedScreenShareSourceKind: ScreenShareSourceKind;
   selectedScreenShareQuality: ScreenShareQualityPreset;
   setSelectedScreenShareQuality: React.Dispatch<React.SetStateAction<ScreenShareQualityPreset>>;
+  captureSystemAudio: boolean;
+  setCaptureSystemAudio: React.Dispatch<React.SetStateAction<boolean>>;
   monitorScreenShareSources: ScreenCaptureSourceDescriptor[];
   windowScreenShareSources: ScreenCaptureSourceDescriptor[];
   activeScreenShareSources: ScreenCaptureSourceDescriptor[];
