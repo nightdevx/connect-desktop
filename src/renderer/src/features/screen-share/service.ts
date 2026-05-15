@@ -100,7 +100,7 @@ const startBrowserDisplayCapture = async (
     const stream = await navigator.mediaDevices.getDisplayMedia({
       audio: options.captureSystemAudio ? {
         autoGainControl: false,
-        echoCancellation: false,
+        echoCancellation: true,
         noiseSuppression: false,
       } : false,
       video: {
@@ -229,6 +229,19 @@ const startElectronDesktopCapture = async (
       videoTracks: stream.getVideoTracks().length,
       audioTracks: stream.getAudioTracks().length,
     });
+
+    // Apply Echo Cancellation to system audio if captured in Electron
+    const audioTrack = stream.getAudioTracks()[0];
+    if (audioTrack && options.captureSystemAudio) {
+      console.log("[ScreenCapture] Applying AEC to system audio track");
+      await audioTrack.applyConstraints({
+        echoCancellation: true,
+        autoGainControl: false,
+        noiseSuppression: false
+      }).catch(err => {
+        console.warn("[ScreenCapture] Could not apply AEC to audio track", err);
+      });
+    }
 
     return {
       stream,
