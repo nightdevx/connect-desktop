@@ -13,11 +13,11 @@ export interface AudioPreferences {
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
+  masterVolume: number;
+  microphoneVolume: number;
 }
 
 export interface StreamPreferences {
   frameRate: 15 | 30 | 60;
   captureSystemAudio: boolean;
 }
-
-

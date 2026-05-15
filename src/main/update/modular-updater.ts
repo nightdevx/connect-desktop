@@ -499,27 +499,22 @@ export class ModularUpdater {
 
     this.installing = true;
     
-    // 1. Güncelleme penceresini göster
-    this.showUpdaterWindow();
     this.setSnapshot(
       "installing",
-      "Güncelleme hazırlanıyor, uygulama yeniden başlatılacak...",
+      "Güncelleme kuruluyor ve uygulama yeniden başlatılacak...",
     );
 
-    // 2. Hazırlık işlemleri
     try {
       await this.options.beforeInstall();
     } catch {
       // Ignored
     }
 
-    // 3. Ana pencereleri gizle
-    this.hideMainWindowsForInstall();
-
-    // 4. Kurulumu başlat
+    // Completely silent installation and restart
     setTimeout(() => {
       try {
-        autoUpdater.quitAndInstall(false, true);
+        // quitAndInstall(isSilent, isForceRunAfter)
+        autoUpdater.quitAndInstall(true, true);
       } catch (error) {
         this.handleUpdaterError(error);
       }
@@ -527,6 +522,7 @@ export class ModularUpdater {
 
     return { accepted: true };
   }
+
 
   private bindListeners(): void {
     if (this.listenersBound) {
@@ -557,10 +553,6 @@ export class ModularUpdater {
         info,
         "Güncelleme indirildi, kurulum için hazır",
       );
-
-      if (!this.installing) {
-        void this.installDownloadedUpdate();
-      }
     });
 
     autoUpdater.on("update-not-available", (info) => {

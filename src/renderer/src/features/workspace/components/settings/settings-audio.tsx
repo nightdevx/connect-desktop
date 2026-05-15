@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button, Progress, message } from "antd";
+import { Select, Switch, Button, Progress, Slider, message } from "antd";
 import {
   AudioOutlined,
   SaveOutlined,
@@ -341,14 +341,26 @@ export function SettingsAudio({
       <div className="ct-settings-content" style={{ marginTop: "24px" }}>
         <audio ref={audioPreviewRef} hidden playsInline />
 
-        <div className="ct-settings-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-          marginBottom: "24px",
-        }}>
+        <div
+          className="ct-settings-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+            marginBottom: "24px",
+          }}
+        >
           <div>
-            <label className="ct-label" htmlFor="settings-audio-input" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label
+              className="ct-label"
+              htmlFor="settings-audio-input"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.45)",
+              }}
+            >
               Mikrofon giriş cihazı
             </label>
             <Select
@@ -358,7 +370,8 @@ export function SettingsAudio({
                 const nextValue = value.trim();
                 setDraftAudioPreferences((previous) => ({
                   ...previous,
-                  selectedAudioInputDeviceId: nextValue.length > 0 ? nextValue : null,
+                  selectedAudioInputDeviceId:
+                    nextValue.length > 0 ? nextValue : null,
                 }));
               }}
               options={inputOptions}
@@ -367,7 +380,16 @@ export function SettingsAudio({
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-audio-output" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label
+              className="ct-label"
+              htmlFor="settings-audio-output"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.45)",
+              }}
+            >
               Ses çıkış cihazı
             </label>
             <Select
@@ -377,7 +399,8 @@ export function SettingsAudio({
                 const nextValue = value.trim();
                 setDraftAudioPreferences((previous) => ({
                   ...previous,
-                  selectedAudioOutputDeviceId: nextValue.length > 0 ? nextValue : null,
+                  selectedAudioOutputDeviceId:
+                    nextValue.length > 0 ? nextValue : null,
                 }));
               }}
               options={outputOptions}
@@ -386,20 +409,105 @@ export function SettingsAudio({
           </div>
         </div>
 
-        <div className="ct-settings-switch-list" style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-          background: "rgba(255,255,255,0.01)",
-          border: "1px solid rgba(255,255,255,0.03)",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "24px",
-        }}>
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Mikrofon varsayılan olarak açık olsun</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+        <div className="ct-settings-volume-grid">
+          <div className="ct-settings-volume-card">
+            <div className="ct-settings-volume-header">
+              <label
+                className="ct-settings-volume-label"
+                htmlFor="settings-audio-master-volume"
+              >
+                Ses Seviyesi
+              </label>
+              <span
+                className={`ct-settings-volume-value${draftAudioPreferences.masterVolume > 100 ? " boost" : ""}`}
+              >
+                {draftAudioPreferences.masterVolume}%
+              </span>
+            </div>
+            <Slider
+              id="settings-audio-master-volume"
+              min={0}
+              max={200}
+              value={draftAudioPreferences.masterVolume}
+              onChange={(value) => {
+                const nextValue = Array.isArray(value) ? value[0] : value;
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  masterVolume: nextValue,
+                }));
+              }}
+              tooltip={{ formatter: (value) => `${value ?? 0}%` }}
+            />
+          </div>
+
+          <div className="ct-settings-volume-card">
+            <div className="ct-settings-volume-header">
+              <label
+                className="ct-settings-volume-label"
+                htmlFor="settings-audio-mic-volume"
+              >
+                Mikrofon Seviyesi
+              </label>
+              <span
+                className={`ct-settings-volume-value${draftAudioPreferences.microphoneVolume > 100 ? " boost" : ""}`}
+              >
+                {draftAudioPreferences.microphoneVolume}%
+              </span>
+            </div>
+            <Slider
+              id="settings-audio-mic-volume"
+              min={0}
+              max={200}
+              value={draftAudioPreferences.microphoneVolume}
+              onChange={(value) => {
+                const nextValue = Array.isArray(value) ? value[0] : value;
+                setDraftAudioPreferences((previous) => ({
+                  ...previous,
+                  microphoneVolume: nextValue,
+                }));
+              }}
+              tooltip={{ formatter: (value) => `${value ?? 0}%` }}
+            />
+          </div>
+        </div>
+
+        <div
+          className="ct-settings-switch-list"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            background: "rgba(255,255,255,0.01)",
+            border: "1px solid rgba(255,255,255,0.03)",
+            borderRadius: "8px",
+            padding: "16px",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            className="ct-settings-switch-item"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="ct-settings-switch-item-content"
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <strong
+                style={{
+                  fontSize: "13px",
+                  color: "#ffffff",
+                  fontWeight: "600",
+                }}
+              >
+                Mikrofon varsayılan olarak açık olsun
+              </strong>
+              <span
+                style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}
+              >
                 Lobiye girişte mikrofon durumu bu ayara göre uygulanır.
               </span>
             </div>
@@ -414,10 +522,32 @@ export function SettingsAudio({
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Kulaklık varsayılan olarak açık olsun</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Lobiye girişte duyma durumu bu ayara göre uygulanır.</span>
+          <div
+            className="ct-settings-switch-item"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="ct-settings-switch-item-content"
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <strong
+                style={{
+                  fontSize: "13px",
+                  color: "#ffffff",
+                  fontWeight: "600",
+                }}
+              >
+                Kulaklık varsayılan olarak açık olsun
+              </strong>
+              <span
+                style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}
+              >
+                Lobiye girişte duyma durumu bu ayara göre uygulanır.
+              </span>
             </div>
             <Switch
               checked={draftAudioPreferences.defaultHeadphoneEnabled}
@@ -430,11 +560,32 @@ export function SettingsAudio({
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Lobi bildirim sesleri açık olsun</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
-                Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses bildirimi çalar.
+          <div
+            className="ct-settings-switch-item"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="ct-settings-switch-item-content"
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <strong
+                style={{
+                  fontSize: "13px",
+                  color: "#ffffff",
+                  fontWeight: "600",
+                }}
+              >
+                Lobi bildirim sesleri açık olsun
+              </strong>
+              <span
+                style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}
+              >
+                Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses
+                bildirimi çalar.
               </span>
             </div>
             <Switch
@@ -448,11 +599,32 @@ export function SettingsAudio({
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
-                Mikrofon açıkken arka plan seslerini azaltmak için RNNoise işleme katmanı kullanılır.
+          <div
+            className="ct-settings-switch-item"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="ct-settings-switch-item-content"
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+            >
+              <strong
+                style={{
+                  fontSize: "13px",
+                  color: "#ffffff",
+                  fontWeight: "600",
+                }}
+              >
+                Gelişmiş gürültü bastırma (RNNoise) kullan
+              </strong>
+              <span
+                style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}
+              >
+                Mikrofon açıkken arka plan seslerini azaltmak için RNNoise
+                işleme katmanı kullanılır.
               </span>
             </div>
             <Switch
@@ -467,8 +639,23 @@ export function SettingsAudio({
           </div>
 
           {draftAudioPreferences.enhancedNoiseSuppressionEnabled && (
-            <div style={{ marginTop: "8px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
-              <label className="ct-label" htmlFor="settings-audio-preset" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <div
+              style={{
+                marginTop: "8px",
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                paddingTop: "12px",
+              }}
+            >
+              <label
+                className="ct-label"
+                htmlFor="settings-audio-preset"
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "12px",
+                  color: "rgba(255,255,255,0.45)",
+                }}
+              >
                 RNNoise kalite profili
               </label>
               <Select
@@ -477,7 +664,8 @@ export function SettingsAudio({
                 onChange={(value) => {
                   setDraftAudioPreferences((previous) => ({
                     ...previous,
-                    noiseSuppressionPreset: value as AudioPreferences["noiseSuppressionPreset"],
+                    noiseSuppressionPreset:
+                      value as AudioPreferences["noiseSuppressionPreset"],
                   }));
                 }}
                 options={NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => ({
@@ -490,7 +678,10 @@ export function SettingsAudio({
           )}
         </div>
 
-        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+        <div
+          className="ct-settings-actions"
+          style={{ display: "flex", gap: "12px", marginBottom: "24px" }}
+        >
           <Button
             type="primary"
             icon={<SaveOutlined />}
@@ -523,21 +714,23 @@ export function SettingsAudio({
             loading={isStartingAudioTest}
             disabled={isStartingAudioTest}
             style={{
-              background: isStartingAudioTest 
-                ? "rgba(255, 255, 255, 0.02)" 
-                : audioTestStream 
-                  ? "rgba(239, 68, 68, 0.08)" 
+              background: isStartingAudioTest
+                ? "rgba(255, 255, 255, 0.02)"
+                : audioTestStream
+                  ? "rgba(239, 68, 68, 0.08)"
                   : "rgba(255, 255, 255, 0.05)",
-              color: isStartingAudioTest 
-                ? "rgba(255, 255, 255, 0.25)" 
-                : audioTestStream 
-                  ? "#ef4444" 
+              color: isStartingAudioTest
+                ? "rgba(255, 255, 255, 0.25)"
+                : audioTestStream
+                  ? "#ef4444"
                   : "#ffffff",
               height: "40px",
               borderRadius: "6px",
             }}
           >
-            {audioTestStream ? "Mikrofon Testini Durdur" : "Mikrofon Testini Başlat"}
+            {audioTestStream
+              ? "Mikrofon Testini Durdur"
+              : "Mikrofon Testini Başlat"}
           </Button>
 
           <Button
@@ -555,16 +748,27 @@ export function SettingsAudio({
           </Button>
         </div>
 
-        <div className="ct-settings-audio-meter-wrap" style={{
-          background: "rgba(255,255,255,0.01)",
-          border: "1px solid rgba(255,255,255,0.03)",
-          borderRadius: "8px",
-          padding: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
-        }}>
-          <span style={{ fontSize: "12px", fontWeight: "600", color: "rgba(255,255,255,0.45)" }}>Mikrofon Seviyesi</span>
+        <div
+          className="ct-settings-audio-meter-wrap"
+          style={{
+            background: "rgba(255,255,255,0.01)",
+            border: "1px solid rgba(255,255,255,0.03)",
+            borderRadius: "8px",
+            padding: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "rgba(255,255,255,0.45)",
+            }}
+          >
+            Mikrofon Seviyesi
+          </span>
           <div style={{ flex: 1 }}>
             <Progress
               percent={micLevelPercent}
@@ -574,11 +778,18 @@ export function SettingsAudio({
               style={{ margin: 0 }}
             />
           </div>
-          <strong style={{ fontSize: "12px", color: "#ffffff", minWidth: "32px", textAlign: "right" }}>%{micLevelPercent}</strong>
+          <strong
+            style={{
+              fontSize: "12px",
+              color: "#ffffff",
+              minWidth: "32px",
+              textAlign: "right",
+            }}
+          >
+            %{micLevelPercent}
+          </strong>
         </div>
       </div>
     </div>
   );
 }
-
-

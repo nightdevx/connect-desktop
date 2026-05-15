@@ -337,6 +337,42 @@
   transition: width 0.12s linear;
 }
 
+.ct-settings-volume-grid {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 24px;
+}
+
+.ct-settings-volume-card {
+  @apply grid gap-3 rounded-xl border p-4;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(12, 12, 12, 0.52);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+}
+
+.ct-settings-volume-header {
+  @apply flex items-center justify-between gap-3;
+}
+
+.ct-settings-volume-label {
+  @apply text-xs font-semibold;
+  color: var(--ct-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.ct-settings-volume-value {
+  @apply rounded-full px-2.5 py-1 text-xs font-semibold;
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.ct-settings-volume-value.boost {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
 .ct-settings-actions {
   @apply mt-2 flex flex-wrap gap-2;
 }

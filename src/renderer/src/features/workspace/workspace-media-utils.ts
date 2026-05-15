@@ -12,7 +12,11 @@ import {
   getDefaultScreenShareQuality as getBaseDefaultScreenShareQuality,
 } from "../screen-share";
 
-export type { ScreenShareSourceKind, ScreenShareQualityPreset, ScreenShareQualityOption };
+export type {
+  ScreenShareSourceKind,
+  ScreenShareQualityPreset,
+  ScreenShareQualityOption,
+};
 
 const CAMERA_SETTINGS_STORAGE_KEY = "ct.settings.camera";
 const AUDIO_SETTINGS_STORAGE_KEY = "ct.settings.audio";
@@ -70,6 +74,8 @@ export const readAudioPreferences = (): {
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
+  masterVolume: number;
+  microphoneVolume: number;
 } => {
   try {
     const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
@@ -82,6 +88,8 @@ export const readAudioPreferences = (): {
         noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
         selectedAudioInputDeviceId: null,
         selectedAudioOutputDeviceId: null,
+        masterVolume: 100,
+        microphoneVolume: 100,
       };
     }
 
@@ -93,6 +101,13 @@ export const readAudioPreferences = (): {
       noiseSuppressionPreset?: NoiseSuppressionPreset;
       selectedAudioInputDeviceId?: string | null;
       selectedAudioOutputDeviceId?: string | null;
+      masterVolume?: number;
+      microphoneVolume?: number;
+    };
+
+    const normalizeVolume = (value: unknown): number => {
+      const num = typeof value === "number" ? value : 100;
+      return Math.max(0, Math.min(200, num));
     };
 
     return {
@@ -114,6 +129,8 @@ export const readAudioPreferences = (): {
         parsed.selectedAudioOutputDeviceId.trim().length > 0
           ? parsed.selectedAudioOutputDeviceId
           : null,
+      masterVolume: normalizeVolume(parsed.masterVolume),
+      microphoneVolume: normalizeVolume(parsed.microphoneVolume),
     };
   } catch {
     return {
@@ -124,6 +141,8 @@ export const readAudioPreferences = (): {
       noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
       selectedAudioInputDeviceId: null,
       selectedAudioOutputDeviceId: null,
+      masterVolume: 100,
+      microphoneVolume: 100,
     };
   }
 };
@@ -178,4 +197,3 @@ export const saveAudioPreferences = (next: AudioPreferences): void => {
 export const saveStreamPreferences = (next: StreamPreferences): void => {
   localStorage.setItem(STREAM_SETTINGS_STORAGE_KEY, JSON.stringify(next));
 };
-

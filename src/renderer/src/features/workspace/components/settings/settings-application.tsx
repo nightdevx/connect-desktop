@@ -432,6 +432,25 @@ export function SettingsApplication() {
             Güncellemeleri Kontrol Et
           </Button>
 
+          {updatePhase === "downloaded" && (
+            <Button
+              type="primary"
+              onClick={() => {
+                void window.desktopApi.installDownloadedUpdate();
+              }}
+              style={{
+                background: "#3b82f6",
+                borderColor: "#3b82f6",
+                color: "#ffffff",
+                fontWeight: "600",
+                height: "40px",
+                borderRadius: "6px",
+              }}
+            >
+              Kuruluma Başla
+            </Button>
+          )}
+
           {isDevelopmentUpdateMode && (
             <Button
               type="text"

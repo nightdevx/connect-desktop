@@ -71,6 +71,9 @@ export class LiveKitStreamManager {
 
   private setupLocalAudioMonitoring() {
     const checkLevel = () => {
+      let needsUpdate = false;
+
+      // 1. Check local audio
       if (this.localAnalyser) {
         const dataArray = new Uint8Array(this.localAnalyser.frequencyBinCount);
         this.localAnalyser.getByteFrequencyData(dataArray);
@@ -81,14 +84,13 @@ export class LiveKitStreamManager {
         const average = sum / dataArray.length;
         const newLevel = average / 128;
         
-        const threshold = 0.015; // More sensitive threshold
+        const threshold = 0.015;
         const isCurrentlyTalking = newLevel > threshold;
         
-        // If talking, reset the silence timer and set level
         if (isCurrentlyTalking) {
           if (newLevel > this.localAudioLevel || !this.isSpeakingLocal) {
             this.localAudioLevel = newLevel;
-            this.updateMediaMap();
+            needsUpdate = true;
           }
           this.isSpeakingLocal = true;
           if (this.silenceTimeout) {
@@ -96,7 +98,6 @@ export class LiveKitStreamManager {
             this.silenceTimeout = null;
           }
         } else if (this.isSpeakingLocal && !this.silenceTimeout) {
-          // If stopped talking, start a 500ms "hang time" before turning off the glow
           this.silenceTimeout = setTimeout(() => {
             this.isSpeakingLocal = false;
             this.localAudioLevel = 0;
@@ -105,6 +106,28 @@ export class LiveKitStreamManager {
           }, 500) as any;
         }
       }
+
+      // 2. Check remote participants' isSpeaking state changes
+      if (this.room) {
+        for (const p of this.room.remoteParticipants.values()) {
+          const currentState = this.mediaMap[p.identity];
+          // If the LiveKit participant.isSpeaking changed from what we have in state
+          if (currentState && currentState.isSpeaking !== p.isSpeaking) {
+            needsUpdate = true;
+            break;
+          }
+          // Also detect significant audio level changes for visualization if needed
+          if (currentState && Math.abs(currentState.audioLevel - p.audioLevel) > 0.05) {
+             needsUpdate = true;
+             break;
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        this.updateMediaMap();
+      }
+
       requestAnimationFrame(checkLevel);
     };
     requestAnimationFrame(checkLevel);
