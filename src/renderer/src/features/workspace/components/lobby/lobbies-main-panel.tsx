@@ -15,6 +15,7 @@ import { useLobbyStageSlots } from "./hooks/use-lobby-stage-slots";
 import { LobbySelectionScreen } from "./parts/LobbySelectionScreen";
 import { LobbyActionToolbar } from "./parts/LobbyActionToolbar";
 import { LobbyStageView } from "./parts/LobbyStageView";
+import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
 
 interface LobbiesMainPanelProps {
   lobbiesCount: number;
@@ -281,17 +282,7 @@ export function LobbiesMainPanel({
               remoteParticipantStreams={remoteParticipantStreams}
               remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
               focusedParticipantId={focusedParticipantId}
-              contextMenuParticipantId={contextMenuParticipantId}
-              contextMenuPosition={contextMenuPosition}
-              onCloseContextMenu={() => {
-                setContextMenuParticipantId(null);
-                setContextMenuPosition(null);
-              }}
-              selectedPreference={selectedPreference}
               stageLayoutStyle={stageLayoutStyle}
-              handleMute={handleMute}
-              handleVolume={handleVolume}
-              handleToggleCameraHidden={handleToggleCameraHidden}
               handleParticipantFocus={handleParticipantFocus}
               handleParticipantContextMenu={handleParticipantContextMenu}
               audioInputDevices={audioInputDevices}
@@ -338,6 +329,23 @@ export function LobbiesMainPanel({
           </aside>
         </div>
       </article>
+
+      {/* Floating Context Menu - Rendered at root to avoid transform offsets */}
+      {contextMenuParticipantId && contextMenuPosition && (
+        <ParticipantContextMenu
+          key={`context-menu-${contextMenuParticipantId}-${contextMenuPosition.x}-${contextMenuPosition.y}`}
+          x={contextMenuPosition.x}
+          y={contextMenuPosition.y}
+          preference={selectedPreference}
+          onClose={() => {
+            setContextMenuParticipantId(null);
+            setContextMenuPosition(null);
+          }}
+          onMute={handleMute}
+          onVolume={handleVolume}
+          onToggleCameraHidden={handleToggleCameraHidden}
+        />
+      )}
     </div>
   );
 }

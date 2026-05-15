@@ -1,6 +1,6 @@
-import { Dropdown, Menu } from "antd";
+import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 interface AudioDeviceDropdownProps {
   children: ReactNode;
@@ -17,13 +17,19 @@ export function AudioDeviceDropdown({
   selectedDeviceId,
   onSelectDevice,
 }: AudioDeviceDropdownProps) {
+  const [open, setOpen] = useState(false);
   const isInput = kind === "input";
+
+  const handleSelect = (deviceId: string | null) => {
+    onSelectDevice(deviceId);
+    setOpen(false);
+  };
 
   const menuItems: MenuProps["items"] = [
     {
       key: "ct-selection-default",
       label: "Varsayılan Cihaz",
-      onClick: () => onSelectDevice(null),
+      onClick: () => handleSelect(null),
       className: selectedDeviceId === null ? "ct-device-menu-item-active" : "",
     },
     {
@@ -32,7 +38,7 @@ export function AudioDeviceDropdown({
     ...devices.map((device, index) => ({
       key: `ct-device-${device.deviceId || index}`,
       label: device.label || `${isInput ? "Mikrofon" : "Hoparlör"} ${index + 1}`,
-      onClick: () => onSelectDevice(device.deviceId),
+      onClick: () => handleSelect(device.deviceId),
       className: selectedDeviceId === device.deviceId ? "ct-device-menu-item-active" : "",
     })),
   ];
@@ -51,6 +57,8 @@ export function AudioDeviceDropdown({
       trigger={["contextMenu"]}
       placement="topRight"
       overlayClassName="ct-audio-device-dropdown"
+      open={open}
+      onOpenChange={setOpen}
     >
       {children}
     </Dropdown>

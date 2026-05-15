@@ -111,7 +111,12 @@ export function LobbiesSidebarPanel({
           !lobbiesQuery.isError &&
           lobbiesQuery.data?.ok &&
           lobbies.length === 0 && (
-            <li className="ct-list-state">Aktif lobi bulunamadı.</li>
+            <li className="ct-list-state">
+              <div style={{ marginBottom: "12px", opacity: 0.3 }}>
+                <TeamOutlined style={{ fontSize: "24px" }} />
+              </div>
+              <p style={{ margin: 0 }}>Aktif lobi bulunamadı.</p>
+            </li>
           )}
 
         {lobbies.map((lobby) => {

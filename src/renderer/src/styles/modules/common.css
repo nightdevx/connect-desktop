@@ -1,0 +1,271 @@
+.ct-audio-device-dropdown .ant-dropdown-menu {
+  background: rgba(12, 12, 12, 0.98) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 6px !important;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.ct-audio-device-dropdown .ant-dropdown-menu-item {
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  transition: all 0.15s !important;
+}
+
+.ct-audio-device-dropdown .ant-dropdown-menu-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+.ct-audio-device-dropdown .ct-device-menu-item-active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.ct-audio-device-item {
+  @apply flex items-center justify-between rounded-lg border p-2 transition-all duration-150;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ct-audio-device-item.active {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ct-audio-device-item span {
+  @apply truncate text-xs text-[#d1d1d1];
+}
+
+.ct-user-popup-overlay {
+  @apply fixed inset-0 z-50 grid place-items-center p-4;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.ct-user-popup {
+  @apply w-full max-w-md rounded-2xl border p-4;
+  border-color: var(--ct-border-strong);
+  background: rgba(12, 12, 12, 0.98);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.ct-user-popup-header {
+  @apply mb-3 flex items-center justify-between gap-3;
+}
+
+.ct-user-popup-title-row {
+  @apply flex min-w-0 items-center gap-2;
+}
+
+.ct-user-popup-header h4 {
+  @apply m-0 text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-screen-share-modal {
+  @apply max-w-3xl;
+}
+
+.ct-screen-share-modal .ct-user-popup-header {
+  @apply mb-2 flex-col items-start gap-1;
+}
+
+.ct-screen-share-modal .ct-user-popup-header p {
+  @apply m-0 text-sm;
+  color: var(--ct-text-secondary);
+}
+
+.ct-screen-share-grid {
+  @apply mt-3 grid gap-3;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.ct-screen-share-column {
+  @apply rounded-xl border p-3;
+  border-color: var(--ct-border);
+  background: rgba(10, 10, 10, 0.42);
+}
+
+.ct-screen-share-column h5 {
+  @apply m-0 mb-2 text-xs uppercase tracking-[0.08em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-screen-share-kind-tabs {
+  @apply mb-3 flex gap-2;
+}
+
+.ct-screen-share-kind-tab {
+  @apply inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(20, 20, 20, 0.8);
+  transition: all 0.16s ease;
+}
+
+.ct-screen-share-kind-tab:hover:not(:disabled) {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-screen-share-kind-tab.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-screen-share-kind-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ct-screen-share-source-list,
+.ct-screen-share-quality-list {
+  @apply grid gap-2;
+}
+
+.ct-screen-share-source {
+  @apply flex items-start gap-3 rounded-lg border px-3 py-2;
+  border-color: var(--ct-border);
+  background: rgba(14, 14, 14, 0.68);
+  transition: all 0.16s ease;
+}
+
+.ct-screen-share-quality {
+  @apply flex items-start gap-3 rounded-lg border px-3 py-2;
+  border-color: var(--ct-border);
+  background: rgba(14, 14, 14, 0.68);
+  transition: all 0.16s ease;
+}
+
+.ct-screen-share-source input,
+.ct-screen-share-quality input {
+  @apply mt-1 h-4 w-4;
+  accent-color: var(--ct-accent);
+}
+
+.ct-screen-share-source strong,
+.ct-screen-share-quality strong {
+  @apply block text-sm;
+  color: var(--ct-text-primary);
+}
+
+.ct-screen-share-source-preview {
+  @apply mt-0.5 h-14 w-24 shrink-0 overflow-hidden rounded-md border;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(10, 10, 10, 0.82);
+}
+
+.ct-screen-share-source-preview img {
+  @apply block h-full w-full;
+  object-fit: cover;
+}
+
+.ct-screen-share-source-preview-fallback {
+  @apply grid h-full w-full place-items-center text-[10px] font-medium;
+  color: var(--ct-text-muted);
+  letter-spacing: 0.03em;
+}
+
+.ct-screen-share-source-meta {
+  @apply min-w-0;
+}
+
+.ct-screen-share-source span,
+.ct-screen-share-quality span {
+  @apply mt-1 block text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-screen-share-source.active,
+.ct-screen-share-quality.active {
+  border-color: var(--ct-accent-strong);
+  background: var(--ct-accent-soft);
+}
+
+.ct-camera-share-modal {
+  @apply max-w-lg;
+}
+
+.ct-camera-share-modal .ct-user-popup-header {
+  @apply mb-2 flex-col items-start gap-1;
+}
+
+.ct-camera-share-modal .ct-user-popup-header p {
+  @apply m-0 text-sm;
+  color: var(--ct-text-secondary);
+}
+
+.ct-camera-preview-box {
+  @apply mt-2 grid min-h-[220px] place-items-center overflow-hidden rounded-xl border;
+  border-color: var(--ct-border);
+  background: rgba(5, 5, 5, 0.72);
+}
+
+.ct-camera-preview-video {
+  @apply h-full w-full;
+  max-height: 340px;
+  object-fit: cover;
+  background: #000;
+}
+
+.ct-user-popup-close {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(20, 20, 20, 0.8);
+}
+
+.ct-user-popup-close:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-confirm-message {
+  @apply m-0 mt-1 text-sm leading-6;
+  color: var(--ct-text-secondary);
+}
+
+.ct-audio-metric-chip {
+  @apply inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(245, 245, 245, 0.9);
+  background: rgba(12, 12, 12, 0.64);
+}
+
+.ct-audio-popover {
+  @apply absolute left-0 right-0 z-40 rounded-xl border p-3;
+  bottom: calc(100% + 10px);
+  border-color: var(--ct-border-strong);
+  background: rgba(12, 12, 12, 0.97);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+  animation: fadeSlideIn 0.16s ease;
+}
+
+.ct-audio-popover-header {
+  @apply mb-2 flex items-center justify-between gap-2;
+}
+
+.ct-audio-popover-header h4 {
+  @apply m-0 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-audio-details-grid {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.ct-audio-details-grid .ct-detail-item {
+  @apply rounded-lg border px-2 py-2 text-xs;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(18, 18, 18, 0.72);
+}
+
+.ct-audio-popover-actions {
+  @apply mt-2;
+}

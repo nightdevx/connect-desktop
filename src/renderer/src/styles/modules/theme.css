@@ -1,0 +1,290 @@
+/* ==========================================================================
+   PREMIUM MONOCHROME USER INTERFACE STYLES (ANT DESIGN UPGRADES)
+   ========================================================================== */
+
+/* Left Rail Navigation */
+.ct-rail {
+  @apply flex flex-col items-center gap-4 border-r py-4 px-2;
+  border-color: var(--ct-border) !important;
+  background: rgba(6, 6, 6, 0.98) !important;
+}
+
+.ct-rail-top-logo {
+  @apply flex h-10 w-10 items-center justify-center rounded-xl border font-bold text-xs tracking-wider;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    135deg,
+    rgba(20, 20, 20, 0.95),
+    rgba(8, 8, 8, 0.95)
+  );
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+
+.ct-rail-separator {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.ct-rail-items {
+  @apply flex flex-col gap-3.5 w-full items-center;
+}
+
+.ct-rail-item-wrapper {
+  position: relative;
+  @apply flex items-center justify-center w-full;
+}
+
+.ct-rail-indicator {
+  position: absolute;
+  left: -8px;
+  width: 4px;
+  height: 0;
+  border-radius: 0 4px 4px 0;
+  background: #ffffff;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.ct-rail-item-wrapper:hover .ct-rail-indicator {
+  height: 12px;
+  opacity: 0.5;
+}
+
+.ct-rail-indicator.active {
+  height: 24px !important;
+  opacity: 1 !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.ct-rail-button-premium {
+  @apply flex h-[54px] w-[54px] flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-semibold tracking-wide;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #8f8f8f;
+  background: rgba(15, 15, 15, 0.7);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-rail-button-premium:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  background: rgba(24, 24, 24, 0.9);
+  transform: translateY(-1px);
+}
+
+.ct-rail-button-premium.active {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.12);
+}
+
+.ct-rail-icon-premium {
+  font-size: 20px !important;
+}
+
+.ct-rail-button-premium.active .ct-rail-icon-premium {
+  color: #000000 !important;
+}
+
+/* Ant Design Segmented Custom Style */
+.ct-segmented-premium {
+  background: rgba(15, 15, 15, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 3px !important;
+  border-radius: 8px !important;
+}
+
+.ct-segmented-premium .ant-segmented-thumb {
+  background: #ffffff !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+}
+
+.ct-segmented-premium .ant-segmented-item-selected {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.ct-segmented-premium .ant-segmented-item-selected .ant-segmented-item-label {
+  color: #000000 !important;
+}
+
+.ct-segmented-premium .ant-segmented-item {
+  color: #8f8f8f !important;
+  font-size: 11px !important;
+  font-weight: 600;
+  transition: all 0.18s ease;
+  border-radius: 6px !important;
+}
+
+.ct-segmented-premium .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
+  color: #ffffff !important;
+}
+
+/* Sidebar List Item Premium Hover States */
+.ct-list-item.clickable {
+  background: transparent;
+  border: 1px solid transparent !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-list-item.clickable:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.ct-list-item.clickable.active {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+/* Premium Chat Header Styling */
+.ct-chat-user-header-premium {
+  @apply flex items-center justify-between border-b px-6 py-4 cursor-pointer;
+  background: rgba(10, 10, 10, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.ct-chat-user-header-premium:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ct-chat-user-header-left {
+  @apply flex items-center gap-4;
+}
+
+.ct-chat-user-header-main h3 {
+  @apply text-[15px] font-bold text-white leading-none m-0;
+}
+
+.ct-chat-user-header-main span {
+  @apply text-[11px] text-[#8f8f8f] mt-1 block;
+}
+
+/* Descriptions component within Drawer */
+.ant-descriptions-item-label {
+  padding-bottom: 8px !important;
+  font-size: 12px !important;
+  color: #8f8f8f !important;
+}
+
+.ant-descriptions-item-content {
+  padding-bottom: 8px !important;
+  font-size: 12px !important;
+  color: #ffffff !important;
+}
+
+/* Custom Input Search Box */
+.ct-search-premium .ant-input {
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  font-size: 12px !important;
+}
+
+.ct-search-premium .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.ct-search-premium:hover,
+.ct-search-premium:focus-within {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Micro Spinner */
+.ct-spinner-small {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ctSpinnerPulse 0.8s linear infinite;
+}
+
+/* Premium Ant Design Overrides */
+.ct-premium-form .ant-form-item-label > label {
+  @apply text-xs font-bold uppercase tracking-widest text-[#8f8f8f] !important;
+  height: auto !important;
+}
+
+.ct-input-premium {
+  @apply bg-[#0d0d0d]/40 border-white/5 text-white rounded-xl h-12 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.ct-input-premium:hover {
+  @apply border-white/20 bg-[#0d0d0d]/60 !important;
+}
+
+.ct-input-premium:focus,
+.ct-input-premium-focused {
+  @apply border-white/40 bg-[#0d0d0d]/80 ring-0 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05) !important;
+}
+
+.ant-input-password.ct-input-premium input {
+  @apply bg-transparent !important;
+}
+
+.ant-input-password.ct-input-premium .ant-input-suffix .anticon {
+  @apply text-[#8f8f8f] hover:text-white transition-colors !important;
+}
+
+.ct-btn-primary {
+  @apply border-0 shadow-lg !important;
+  background: linear-gradient(135deg, #ffffff 0%, #d1d1d1 100%) !important;
+  color: #000000 !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.ct-btn-primary:hover {
+  @apply transform -translate-y-0.5 shadow-xl !important;
+  background: linear-gradient(135deg, #ffffff 0%, #e5e5e5 100%) !important;
+  filter: brightness(1.1);
+}
+
+.ct-btn-primary:active {
+  @apply transform translate-y-0 !important;
+}
+
+/* Speaking Indicator Glow - Static Steady Version */
+.ct-lobby-participant-tile.speaking {
+  position: relative;
+  border-color: transparent !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(16, 185, 129, 0.04) !important;
+}
+
+.ct-lobby-participant-tile.speaking::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #10b981;
+  opacity: 1;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ct-lobby-participant-tile.speaking .ct-lobby-tile-footer p {
+  color: #10b981;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Ensure central avatar does NOT glow */
+.ct-lobby-participant-tile.speaking .ct-lobby-avatar-container {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}

@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -57,6 +57,7 @@
     "livekit-client": "^2.18.0",
     "lucide-react": "^1.7.0",
     "postcss": "^8.5.8",
+    "postcss-import": "^16.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "rimraf": "^6.0.1",

@@ -1,0 +1,297 @@
+.ct-meta-pill {
+@apply inline-flex h-9 items-center rounded-full border px-3.5 text-xs font-medium;
+border-color: var(--ct-border);
+color: var(--ct-text-secondary);
+background: rgba(24, 24, 24, 0.72);
+}
+
+.ct-meta-pill.live::before {
+content: "";
+@apply mr-2 h-2 w-2 rounded-full;
+background: var(--ct-text-muted);
+}
+
+.ct-meta-pill.live[data-state="ok"]::before {
+background: var(--ct-success);
+box-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+}
+
+.ct-meta-pill.live[data-state="warn"]::before {
+background: var(--ct-warning);
+}
+
+.ct-meta-pill.live[data-state="error"]::before {
+background: var(--ct-danger);
+box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+}
+
+.ct-label {
+@apply grid gap-1.5 text-sm font-semibold;
+color: var(--ct-text-secondary);
+}
+
+.ct-input {
+@apply min-h-11 rounded-xl border px-3.5 text-sm outline-none;
+border-color: var(--ct-border);
+background: var(--ct-surface-1);
+color: var(--ct-text-primary);
+transition: all 0.2s ease;
+}
+
+.ct-input::placeholder {
+color: var(--ct-text-muted);
+}
+
+.ct-input:focus {
+border-color: var(--ct-accent);
+box-shadow:
+  0 0 0 3px rgba(255, 255, 255, 0.2),
+  0 0 12px rgba(255, 255, 255, 0.12);
+}
+
+.ct-btn-primary {
+@apply min-h-11 rounded-xl px-5 text-sm font-semibold text-white;
+background: var(--ct-accent);
+color: #0b0b0b;
+box-shadow: 0 6px 18px var(--ct-accent-glow);
+transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-btn-primary:hover:not(:disabled) {
+transform: translateY(-1px);
+box-shadow: 0 8px 22px rgba(242, 242, 242, 0.26);
+}
+
+.ct-btn-warn {
+@apply min-h-11 rounded-xl px-5 text-sm font-semibold text-white;
+background: #d9d9d9;
+color: #0b0b0b;
+transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-btn-warn:hover:not(:disabled) {
+transform: translateY(-1px);
+box-shadow: 0 8px 24px rgba(255, 255, 255, 0.2);
+}
+
+.ct-btn-secondary {
+@apply min-h-11 rounded-xl border px-5 text-sm font-semibold;
+border-color: var(--ct-border);
+color: var(--ct-text-primary);
+background: rgba(25, 25, 25, 0.85);
+transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-btn-secondary:hover:not(:disabled) {
+border-color: var(--ct-border-strong);
+background: rgba(35, 35, 35, 0.88);
+}
+
+.ct-btn-danger {
+background: #bdbdbd;
+color: #0b0b0b;
+box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
+}
+
+.ct-btn-danger:hover:not(:disabled) {
+box-shadow: 0 8px 22px rgba(255, 255, 255, 0.22);
+}
+
+.ct-header-logout-button {
+@apply min-h-9 px-3;
+}
+
+.ct-icon-button {
+@apply grid h-10 w-10 place-items-center rounded-lg border;
+border-color: var(--ct-border);
+color: var(--ct-text-secondary);
+background: rgba(20, 20, 20, 0.85);
+}
+
+.ct-icon-button:hover:not(:disabled) {
+border-color: var(--ct-border-strong);
+color: var(--ct-text-primary);
+}
+
+.ct-icon-button:disabled {
+opacity: 0.6;
+cursor: not-allowed;
+}
+
+.ct-filter-chip {
+@apply h-8 rounded-lg border px-2 text-xs font-semibold transition-all duration-150;
+border-color: rgba(255, 255, 255, 0.08);
+color: rgba(255, 255, 255, 0.45);
+background: rgba(255, 255, 255, 0.02);
+cursor: pointer;
+}
+
+.ct-filter-chip:hover:not(.active) {
+border-color: rgba(255, 255, 255, 0.15);
+color: rgba(255, 255, 255, 0.85);
+background: rgba(255, 255, 255, 0.05);
+}
+
+.ct-filter-chip.active {
+border-color: #ffffff;
+color: #000000;
+background: #ffffff;
+}
+
+.ct-list {
+@apply m-0 flex list-none flex-col gap-2 p-0;
+}
+
+.ct-list-item {
+@apply flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5;
+border-color: var(--ct-border);
+background: rgba(20, 20, 20, 0.75);
+}
+
+.ct-list-item.clickable {
+cursor: pointer;
+transition: border-color 0.18s ease;
+}
+
+.ct-list-item.clickable:hover {
+border-color: var(--ct-border-strong);
+}
+
+.ct-list-item.active {
+border-color: var(--ct-accent-strong);
+background: var(--ct-accent-soft);
+}
+
+.ct-list-state {
+  @apply py-12 px-6 text-center text-sm font-medium;
+  color: var(--ct-text-muted);
+  line-height: 1.6;
+  animation: ctFadeIn 0.3s ease;
+}
+
+.ct-list-state.error {
+  @apply bg-red-500/5 rounded-xl border border-red-500/10 mx-2 my-4 py-6;
+  color: #ef4444;
+}
+
+.ct-user-avatar {
+@apply relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border;
+border-color: var(--ct-border);
+background: rgba(12, 12, 12, 0.8);
+}
+
+.ct-user-avatar.lg {
+@apply h-11 w-11;
+}
+
+.ct-user-avatar.sm {
+@apply h-6 w-6;
+}
+
+.ct-user-avatar.with-presence {
+overflow: visible;
+}
+
+.ct-user-avatar-core {
+@apply grid h-full w-full place-items-center overflow-hidden rounded-full;
+}
+
+.ct-user-avatar.with-presence .ct-presence-dot {
+@apply absolute h-2.5 w-2.5;
+right: -2px;
+bottom: -2px;
+border: 2px solid rgba(17, 24, 39, 0.95);
+margin-top: 0;
+display: block;
+}
+
+.ct-user-avatar-image {
+@apply h-full w-full object-cover;
+}
+
+.ct-user-avatar-fallback {
+@apply text-xs font-semibold;
+color: var(--ct-text-primary);
+letter-spacing: 0.04em;
+}
+
+.ct-presence-dot {
+@apply inline-block h-2.5 w-2.5 rounded-full;
+background: var(--ct-text-muted);
+}
+
+.ct-presence-dot.online {
+background: var(--ct-accent);
+}
+
+.ct-presence-dot.offline {
+background: #6b6b6b;
+}
+
+.ct-unread-badge {
+@apply m-0 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1.5 text-[10px] font-semibold;
+border-color: rgba(255, 255, 255, 0.35);
+color: var(--ct-text-primary);
+background: rgba(255, 255, 255, 0.12);
+line-height: 1;
+}
+
+.ct-content-card {
+@apply rounded-2xl border p-5;
+border-color: var(--ct-border);
+background: rgba(18, 18, 18, 0.8);
+}
+
+.ct-content-card h3 {
+@apply m-0 text-base font-semibold;
+color: var(--ct-text-primary);
+}
+
+.ct-content-card p {
+@apply mb-0 mt-3 text-sm leading-6;
+color: var(--ct-text-secondary);
+}
+
+.ct-detail-item {
+@apply inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs;
+border-color: var(--ct-border);
+background: rgba(15, 15, 15, 0.5);
+color: var(--ct-text-secondary);
+}
+
+.ct-link {
+@apply border-0 bg-transparent p-0 font-medium underline;
+color: #e5e5e5;
+text-underline-offset: 3px;
+}
+
+.ct-link:hover {
+color: #f5f5f5;
+}
+
+.ct-list-action {
+@apply inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold;
+border-color: var(--ct-border);
+color: var(--ct-text-secondary);
+background: rgba(12, 12, 12, 0.75);
+}
+
+.ct-list-action:hover {
+border-color: var(--ct-border-strong);
+color: var(--ct-text-primary);
+}
+
+.ct-list-action:disabled {
+opacity: 0.55;
+cursor: not-allowed;
+}
+
+.ct-list-action.active {
+border-color: var(--ct-accent-strong);
+color: var(--ct-text-primary);
+background: var(--ct-accent-soft);
+}
+
+.ct-btn-sm {
+@apply min-h-9 px-3 text-xs;
+}

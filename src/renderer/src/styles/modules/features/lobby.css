@@ -1,0 +1,871 @@
+.ct-lobby-list-content {
+  @apply min-w-0 flex-1;
+}
+
+.ct-lobby-title-row {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-lobby-status-chip {
+  @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+  background: rgba(16, 16, 16, 0.76);
+}
+
+.ct-lobby-status-chip.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-member-list {
+  @apply mt-1.5 m-0 list-none space-y-1 p-0;
+}
+
+.ct-lobby-member-item {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-lobby-member-main {
+  @apply flex min-w-0 items-center gap-1.5;
+}
+
+.ct-lobby-member-name {
+  @apply m-0 truncate text-xs font-medium;
+  color: var(--ct-text-secondary);
+}
+
+.ct-lobby-member-icons {
+  @apply inline-flex items-center gap-1;
+}
+
+.ct-lobby-member-icon {
+  @apply inline-flex h-5 w-5 items-center justify-center rounded-md border;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+  background: rgba(14, 14, 14, 0.72);
+}
+
+.ct-lobby-member-icon.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-member-icon.inactive {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ct-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ct-lobby-member-icon.signal {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-room-card {
+  @apply flex h-full min-h-0 flex-col;
+}
+
+.ct-lobby-room-card.connected {
+  @apply relative rounded-none border-0 bg-transparent p-0;
+}
+
+.ct-lobby-chat-toggle {
+  @apply inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(18, 18, 18, 0.68);
+}
+
+.ct-lobby-chat-toggle.in-stage {
+  @apply absolute right-3 top-3 z-20;
+}
+
+.ct-lobby-chat-toggle:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-room-header {
+  @apply mb-3 border-b pb-3;
+  border-color: var(--ct-border);
+}
+
+.ct-lobby-room-header h3 {
+  @apply m-0 text-base font-semibold;
+}
+
+.ct-lobby-room-header p {
+  @apply m-0 mt-1 text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-room-grid {
+  @apply grid h-full min-h-0 flex-1;
+}
+
+.ct-lobby-room-grid-v2 {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px);
+  gap: 0;
+  border: 1px solid var(--ct-border);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: grid-template-columns 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(255, 255, 255, 0.02),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 255, 255, 0.03),
+      transparent 36%
+    ),
+    linear-gradient(160deg, rgba(12, 12, 12, 0.72), rgba(5, 5, 5, 0.82));
+}
+
+.ct-lobby-room-grid-v2.chat-closed {
+  grid-template-columns: minmax(0, 1fr) 0;
+}
+
+.ct-lobby-stage-panel {
+  @apply relative min-h-0 h-full p-0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+
+.ct-lobby-stage-grid {
+  @apply grid w-full;
+  --ct-stage-columns: 2;
+  --ct-stage-gap: 14px;
+  --ct-stage-max-width: 1220px;
+  --ct-stage-tile-width: 320px;
+  gap: var(--ct-stage-gap);
+  grid-template-columns: repeat(
+    var(--ct-stage-columns),
+    minmax(0, var(--ct-stage-tile-width))
+  );
+  width: min(100%, var(--ct-stage-max-width));
+  max-width: min(100%, var(--ct-stage-max-width));
+  margin: 0 auto;
+  justify-content: center;
+  justify-items: stretch;
+  align-content: start;
+  padding: 66px 18px 92px;
+  min-height: 100%;
+  max-height: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.ct-lobby-stage-grid.focused-layout {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  grid-auto-flow: row;
+  gap: 12px;
+  justify-items: stretch;
+  align-content: start;
+  align-items: start;
+  padding-bottom: 110px;
+}
+
+.ct-lobby-focused-slot {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: min(100%, clamp(680px, 74vw, 1180px));
+  max-width: 100%;
+  margin: 0 auto;
+  align-self: start;
+  position: relative;
+  z-index: 2;
+}
+
+.ct-lobby-participant-rail {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: min(100%, 1120px);
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  padding: 2px 4px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.ct-lobby-participant-tile {
+  @apply relative rounded-[20px] border text-left overflow-hidden;
+  border-color: rgba(148, 163, 184, 0.2);
+  background: linear-gradient(
+    150deg,
+    rgba(18, 18, 18, 0.58),
+    rgba(8, 8, 8, 0.76)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 28px rgba(0, 0, 0, 0.28);
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  justify-self: stretch;
+  align-self: stretch;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ct-lobby-participant-tile:not(.local-user) {
+  cursor: pointer;
+}
+
+.ct-lobby-participant-tile:not(.local-user):hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+.ct-lobby-participant-tile.selected {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.2),
+    0 14px 32px rgba(0, 0, 0, 0.38);
+  transform: none !important;
+}
+
+.ct-lobby-participant-tile.local-user {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.ct-lobby-participant-tile.speaking {
+  border-color: rgba(255, 255, 255, 0.6);
+  animation: ctSpeakingBorderPulse 0.92s ease-in-out infinite;
+  will-change: border-color, box-shadow;
+}
+
+.ct-lobby-tile-video {
+  @apply absolute inset-0 h-full w-full object-cover;
+  background: #0a0a0a;
+}
+
+.ct-lobby-tile-center-logo {
+  @apply absolute inset-0 grid place-items-center text-[44px] font-extrabold;
+  color: var(--ct-text-primary);
+  letter-spacing: 0.08em;
+  opacity: 0.88;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.2s ease;
+}
+
+.ct-lobby-tile-avatar {
+  @apply h-20 w-20 rounded-full border object-cover;
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.ct-lobby-tile-center-logo.media-on {
+  opacity: 0;
+}
+
+.ct-lobby-tile-footer {
+  @apply absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 py-3;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.88) 15%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+}
+
+.ct-lobby-participant-tile.focused {
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.22),
+    0 20px 42px rgba(0, 0, 0, 0.5);
+}
+
+.ct-lobby-participant-tile.compact {
+  flex: 0 0 clamp(170px, 19vw, 250px);
+  width: clamp(170px, 19vw, 250px);
+  aspect-ratio: 16 / 9;
+}
+
+.ct-lobby-inline-audio-controls-premium {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background: rgba(8, 8, 8, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-lobby-participant-tile:hover .ct-lobby-inline-audio-controls-premium,
+.ct-lobby-participant-tile.selected .ct-lobby-inline-audio-controls-premium {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ct-lobby-inline-mute-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+  flex-shrink: 0 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.ct-lobby-inline-mute-btn:hover {
+  transform: scale(1.1) !important;
+}
+
+.ct-lobby-inline-mute-btn:active {
+  transform: scale(0.9) !important;
+}
+
+.ct-lobby-inline-volume-value {
+  @apply text-right text-xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-stage-actions {
+  position: absolute !important;
+  bottom: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(12px) !important;
+  z-index: 50 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  padding: 10px 16px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(10, 10, 10, 0.88) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition:
+    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.ct-lobby-room-card:hover .ct-lobby-stage-actions {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+.ct-lobby-stage-icon-action {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-full border;
+  border-color: rgba(148, 163, 184, 0.32);
+  color: var(--ct-text-secondary);
+  background: rgba(14, 14, 14, 0.76);
+  backdrop-filter: blur(6px);
+  transition: all 0.16s ease;
+}
+
+.ct-lobby-stage-icon-action:hover:not(:disabled) {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(24, 24, 24, 0.82);
+}
+
+.ct-lobby-stage-icon-action.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-stage-icon-action.danger {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ct-text-secondary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ct-lobby-stage-icon-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ct-lobby-tile-userline {
+  @apply min-w-0;
+}
+
+.ct-lobby-tile-userline p {
+  @apply m-0 truncate text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-tile-userline span {
+  @apply mt-0.5 block truncate text-[11px] font-medium;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-tile-flags {
+  @apply inline-flex items-center gap-1;
+}
+
+.ct-lobby-flag {
+  @apply inline-flex h-6 w-6 items-center justify-center rounded-md border;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+  background: rgba(14, 14, 14, 0.78);
+}
+
+.ct-lobby-flag.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-flag.inactive {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ct-text-muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ct-lobby-flag.signal {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-members-panel {
+  @apply min-h-0 overflow-y-auto rounded-xl border p-3;
+  border-color: var(--ct-border);
+  background: rgba(8, 8, 8, 0.35);
+}
+
+.ct-lobby-members-panel h4 {
+  @apply mb-2 mt-0 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.08em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-lobby-action-btn {
+  @apply inline-flex h-12 w-12 items-center justify-center rounded-xl border p-0 cursor-pointer;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 16px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-lobby-action-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.08);
+}
+
+.ct-lobby-action-btn:active:not(:disabled) {
+  transform: scale(0.92) translateY(0);
+}
+
+.ct-lobby-action-btn.active {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
+}
+
+.ct-lobby-action-btn.danger {
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ffffff;
+  background: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.ct-lobby-action-btn.danger:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: #f87171;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+}
+
+.ct-lobby-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ct-participant-audio-panel {
+  position: absolute;
+  left: 12px;
+  bottom: 52px;
+  z-index: 40;
+  width: 260px;
+  @apply rounded-2xl border p-3;
+  border-color: rgba(255, 255, 255, 0.28);
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(255, 255, 255, 0.02),
+      transparent 55%
+    ),
+    rgba(12, 12, 12, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: fadeSlideIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-pap-header {
+  @apply mb-2.5 flex items-center justify-between gap-2;
+}
+
+.ct-pap-identity {
+  @apply flex min-w-0 flex-col gap-0.5;
+}
+
+.ct-pap-username {
+  @apply truncate text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-pap-status {
+  @apply inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em];
+  border: 1px solid transparent;
+}
+
+.ct-pap-status.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-pap-status.muted {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--ct-text-muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ct-pap-close {
+  @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+  background: rgba(14, 14, 14, 0.6);
+  transition: all 0.15s ease;
+}
+
+.ct-pap-close:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-pap-volume-row {
+  @apply mb-2 flex items-center gap-2;
+}
+
+.ct-pap-vol-icon {
+  @apply shrink-0;
+  color: var(--ct-text-muted);
+}
+
+.ct-pap-slider {
+  @apply h-1.5 flex-1 cursor-pointer rounded-full;
+  accent-color: var(--ct-accent);
+}
+
+.ct-pap-slider:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ct-pap-vol-value {
+  @apply shrink-0 w-10 text-right text-xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-pap-presets {
+  @apply mb-2.5 flex gap-1;
+}
+
+.ct-pap-preset {
+  @apply flex-1 rounded-md py-1 text-[10px] font-semibold;
+  border: 1px solid var(--ct-border);
+  color: var(--ct-text-muted);
+  background: rgba(10, 10, 10, 0.55);
+  transition: all 0.15s ease;
+}
+
+.ct-pap-preset:hover {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-pap-preset.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-pap-actions {
+  @apply grid grid-cols-2 gap-1.5;
+}
+
+.ct-pap-btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(14, 14, 14, 0.72);
+  transition: all 0.15s ease;
+}
+
+.ct-pap-btn:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(24, 24, 24, 0.82);
+}
+
+.ct-pap-btn--warn {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ct-text-secondary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ct-pap-btn--warn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.ct-lobby-chat-slot {
+  @apply relative min-h-0 h-full;
+  border-left: 1px solid var(--ct-border);
+  background: rgba(0, 0, 0, 0.34);
+  overflow: hidden;
+  transition:
+    border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-lobby-chat-backdrop {
+  display: none;
+}
+
+.ct-lobby-chat-drawer {
+  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)];
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-lobby-chat-drawer-header {
+  @apply flex items-center justify-between border-b px-3 py-2;
+  border-color: var(--ct-border);
+  background: rgba(8, 8, 8, 0.74);
+}
+
+.ct-lobby-chat-drawer-header p {
+  @apply m-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
+  border-left-color: transparent;
+  background: transparent;
+}
+
+.ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-drawer {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(100%);
+}
+
+.ct-lobby-chat-panel {
+  @apply h-full min-h-0;
+}
+
+.ct-lobby-chat-panel .ct-chat-thread-box {
+  @apply h-full rounded-none min-h-0;
+  border: 0;
+  background: rgba(15, 15, 15, 0.34);
+}
+
+.ct-lobby-chat-panel .ct-chat-composer {
+  @apply rounded-none;
+}
+
+.ct-participant-context-menu {
+  @apply min-w-[300px] gap-2 p-2;
+  border-color: rgba(255, 255, 255, 0.25);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 255, 255, 0.08),
+      transparent 45%
+    ),
+    rgba(10, 10, 10, 0.98);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ct-participant-context-menu-title {
+  @apply m-0 truncate px-1 text-xs font-semibold uppercase tracking-[0.08em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-participant-context-menu-state-row {
+  @apply flex items-center justify-between px-1;
+}
+
+.ct-participant-context-menu-state {
+  @apply inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em];
+}
+
+.ct-participant-context-menu-state.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-participant-context-menu-state.muted {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--ct-text-muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ct-participant-context-menu-hint {
+  @apply text-[10px] font-medium uppercase tracking-[0.08em];
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ct-participant-context-menu-actions {
+  @apply grid grid-cols-2 gap-1;
+}
+
+.ct-participant-context-menu-button {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(16, 16, 16, 0.78);
+}
+
+.ct-participant-context-menu-button:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(24, 24, 24, 0.85);
+}
+
+.ct-participant-context-menu-button.active {
+  border-color: rgba(255, 255, 255, 0.26);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ct-participant-context-menu-volume {
+  @apply mt-1 flex flex-col gap-1.5 rounded-lg border px-2 py-2;
+  border-color: var(--ct-border);
+  background: rgba(18, 18, 18, 0.4);
+}
+
+.ct-participant-context-menu-volume-line {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-participant-context-menu-volume-line span {
+  @apply text-xs font-medium;
+  color: var(--ct-text-secondary);
+}
+
+.ct-participant-context-menu-volume-line strong {
+  @apply text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-participant-context-menu-volume input[type="range"] {
+  @apply h-1.5 w-full cursor-pointer;
+  accent-color: var(--ct-accent);
+}
+
+.ct-participant-context-menu-stepper {
+  @apply grid grid-cols-2 gap-1;
+}
+
+.ct-participant-context-menu-stepper button {
+  @apply rounded-md border px-2 py-1 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(11, 16, 32, 0.58);
+}
+
+.ct-participant-context-menu-stepper button:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.ct-participant-context-menu-scale {
+  @apply flex items-center justify-between px-0.5;
+}
+
+.ct-participant-context-menu-scale span {
+  @apply text-[10px] font-semibold;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.ct-participant-context-menu-presets {
+  @apply mt-1 grid grid-cols-5 gap-1;
+}
+
+.ct-participant-context-menu-presets button {
+  @apply rounded-md border px-2 py-1 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(18, 18, 18, 0.58);
+}
+
+.ct-participant-context-menu-presets button:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(30, 30, 30, 0.8);
+}
+
+.ct-participant-context-menu-presets button.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}

@@ -89,7 +89,13 @@ export function UsersSidebarPanel({
           usersQuery.data?.ok &&
           filteredUsers.length === 0 && (
             <li className="ct-list-state">
-              Aramaya uygun kullanıcı bulunamadı.
+              <div style={{ marginBottom: "12px", opacity: 0.3 }}>
+                <SearchOutlined style={{ fontSize: "24px" }} />
+              </div>
+              <p style={{ margin: 0 }}>Aramaya uygun kullanıcı bulunamadı.</p>
+              <span style={{ fontSize: "12px", opacity: 0.5, display: "block", marginTop: "4px" }}>
+                Farklı bir isim denemeyi veya filtreleri değiştirmeyi deneyin.
+              </span>
             </li>
           )}
 

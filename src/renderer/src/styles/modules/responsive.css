@@ -1,0 +1,237 @@
+@media (max-width: 980px) {
+  .ct-app-header {
+    @apply gap-2 px-3 py-2;
+  }
+
+  .ct-app-header > :first-child {
+    @apply min-w-0;
+  }
+
+  .ct-app-header-actions {
+    @apply min-w-0 flex-nowrap justify-end;
+  }
+
+  .ct-app-header-actions > .ct-meta-pill:first-child {
+    @apply hidden;
+  }
+
+  .ct-meta-pill.live {
+    @apply h-8 max-w-[180px] truncate px-3 text-[11px];
+  }
+
+  .ct-meta-pill.live::before {
+    @apply shrink-0;
+  }
+
+  .ct-header-logout-button {
+    @apply min-h-8 shrink-0 px-2.5 text-xs;
+  }
+}
+
+@media (max-width: 900px) {
+  .ct-workspace-shell {
+    @apply grid-cols-[60px_minmax(0,1fr)] grid-rows-[auto_auto];
+  }
+
+  .ct-sidebar {
+    @apply col-start-2 col-end-3 row-start-1 row-end-2 border-r-0 border-b;
+  }
+
+  .ct-main-panel {
+    @apply col-start-2 col-end-3 row-start-2 row-end-3;
+  }
+
+  .ct-lobby-room-grid {
+    @apply grid-cols-1;
+  }
+
+  .ct-lobby-room-grid-v2,
+  .ct-lobby-room-grid-v2.chat-closed {
+    grid-template-columns: minmax(0, 1fr);
+    border-radius: 14px;
+  }
+
+  .ct-lobby-stage-panel {
+    overflow: hidden;
+  }
+
+  .ct-lobby-stage-grid {
+    --ct-stage-max-width: 100%;
+    max-height: 100%;
+    padding: 58px 10px 84px;
+    max-width: none;
+  }
+
+  .ct-lobby-stage-grid.focused-layout {
+    grid-template-rows: auto auto;
+    padding: 58px 10px 98px;
+    gap: 10px;
+  }
+
+  .ct-lobby-focused-slot {
+    width: 100%;
+  }
+
+  .ct-lobby-participant-rail {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 2px 2px 8px;
+  }
+
+  .ct-lobby-participant-tile.compact {
+    flex-basis: clamp(156px, 42vw, 220px);
+    width: clamp(156px, 42vw, 220px);
+  }
+
+  .ct-lobby-inline-audio-controls {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+  }
+
+  .ct-lobby-participant-tile {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    height: auto;
+  }
+
+  .ct-screen-share-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ct-lobby-chat-slot {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    border-left: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .ct-lobby-chat-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.62);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .ct-lobby-chat-drawer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(94vw, 380px);
+    background: rgba(12, 12, 12, 0.94);
+    border-left: 1px solid var(--ct-border);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+
+  .ct-lobby-chat-slot.open {
+    pointer-events: auto;
+  }
+
+  .ct-lobby-chat-slot.open .ct-lobby-chat-backdrop {
+    opacity: 1;
+  }
+
+  .ct-lobby-chat-slot.open .ct-lobby-chat-drawer {
+    transform: translateX(0);
+  }
+
+  .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .ct-app-header {
+    @apply flex-col items-start;
+  }
+
+  .ct-workspace-shell {
+    @apply grid-cols-1;
+  }
+
+  .ct-rail {
+    @apply flex-row justify-start border-r-0 border-b;
+  }
+
+  .ct-sidebar,
+  .ct-main-panel {
+    @apply col-auto row-auto;
+  }
+
+  .ct-main-panel-header {
+    @apply flex-col items-start;
+  }
+
+  .ct-titlebar-meta {
+    @apply hidden;
+  }
+
+  .ct-quick-controls {
+    @apply grid-cols-5;
+  }
+
+  .ct-quick-controls.compact {
+    @apply grid-cols-2;
+  }
+
+  .ct-audio-details-grid {
+    @apply grid-cols-1;
+  }
+
+  .ct-settings-readonly-grid {
+    @apply grid-cols-1;
+  }
+
+  .ct-audio-connection-metrics {
+    @apply flex-wrap;
+  }
+
+  .ct-audio-popover {
+    left: -4px;
+    right: -4px;
+  }
+
+  .ct-lobby-stage-grid {
+    padding: 54px 8px 82px;
+  }
+
+  .ct-lobby-stage-grid.focused-layout {
+    padding: 54px 8px 94px;
+    gap: 8px;
+  }
+
+  .ct-lobby-inline-audio-controls {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    padding: 7px;
+    gap: 6px;
+  }
+
+  .ct-lobby-inline-volume-value {
+    width: 38px;
+    font-size: 11px;
+  }
+
+  .ct-lobby-stage-actions {
+    bottom: 8px;
+    gap: 8px;
+  }
+
+  .ct-lobby-stage-icon-action {
+    @apply h-10 w-10;
+  }
+
+  .ct-lobby-tile-footer {
+    @apply px-3 py-2.5;
+  }
+}

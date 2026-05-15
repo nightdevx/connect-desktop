@@ -1,0 +1,307 @@
+.ct-workspace-shell {
+  @apply grid h-full w-full min-h-0 grid-cols-[76px_280px_minmax(0,1fr)] overflow-hidden;
+  background: rgba(12, 12, 12, 0.92);
+}
+
+.ct-rail {
+  @apply flex flex-col items-center gap-2 border-r p-2;
+  border-color: var(--ct-border);
+  background: rgba(8, 8, 8, 0.92);
+}
+
+.ct-rail-button {
+  @apply flex h-14 w-12 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(20, 20, 20, 0.85);
+  transition: all 0.18s ease;
+}
+
+.ct-rail-button span {
+  @apply inline-flex items-center justify-center;
+}
+
+.ct-rail-button:hover {
+  border-color: var(--ct-border-strong);
+  background: rgba(28, 28, 28, 0.9);
+}
+
+.ct-rail-button.active {
+  border-color: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-sidebar {
+  @apply grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
+  border-color: var(--ct-border);
+  background: rgba(12, 12, 12, 0.9);
+}
+
+.ct-sidebar-header {
+  @apply border-b px-4 py-3;
+  border-color: var(--ct-border);
+}
+
+.ct-sidebar-header h3 {
+  @apply m-0 text-sm font-semibold uppercase tracking-[0.1em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-sidebar-header-row {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-sidebar-header-action {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: rgba(20, 20, 20, 0.85);
+  transition: all 0.18s ease;
+}
+
+.ct-sidebar-header-action:hover:not(:disabled) {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  transform: translateY(-1px);
+}
+
+.ct-sidebar-header-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ct-inline-create-lobby {
+  @apply mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2;
+}
+
+.ct-inline-create-lobby .ct-input {
+  @apply min-h-9;
+}
+
+.ct-inline-create-lobby .ct-btn-primary {
+  @apply min-h-9 px-3 text-xs;
+}
+
+.ct-sidebar-body {
+  @apply min-h-0 overflow-y-auto p-3;
+}
+
+.ct-users-toolbar {
+  @apply mb-2 flex items-center;
+}
+
+.ct-users-search {
+  @apply flex min-h-10 flex-1 items-center gap-2 rounded-lg border px-2.5;
+  border-color: var(--ct-border);
+  background: rgba(10, 10, 10, 0.56);
+  color: var(--ct-text-secondary);
+}
+
+.ct-users-search input {
+  @apply h-8 w-full border-0 bg-transparent p-0 text-sm outline-none;
+  color: var(--ct-text-primary);
+}
+
+.ct-users-search input::placeholder {
+  color: var(--ct-text-muted);
+}
+
+.ct-users-filters {
+  @apply mb-3 grid grid-cols-3 gap-1.5;
+}
+
+.ct-quick-controls {
+  @apply grid gap-2 border-t p-3;
+  border-color: var(--ct-border);
+  background: rgba(8, 8, 8, 0.75);
+  justify-items: center;
+}
+
+.ct-quick-controls.compact {
+  @apply grid-cols-2;
+}
+
+.ct-quick-controls.expanded {
+  @apply grid-cols-3;
+}
+
+.ct-audio-connection-anchor {
+  @apply relative mx-3 mt-2;
+}
+
+.ct-audio-connection-card {
+  @apply inline-flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: linear-gradient(
+    135deg,
+    rgba(18, 18, 18, 0.84),
+    rgba(10, 10, 10, 0.92)
+  );
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+.ct-audio-connection-card:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  transform: translateY(-1px);
+}
+
+.ct-audio-connection-card.ok {
+  border-color: rgba(255, 255, 255, 0.32);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ct-audio-connection-card.warn {
+  border-color: rgba(255, 255, 255, 0.24);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ct-audio-connection-card.error {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ct-audio-connection-icon {
+  @apply inline-flex h-5 w-5 items-center justify-center;
+}
+
+.ct-audio-connection-content {
+  @apply flex min-w-0 flex-1 flex-col gap-1;
+}
+
+.ct-audio-connection-text {
+  @apply truncate;
+}
+
+.ct-quick-idle {
+  @apply flex items-center justify-between gap-2 border-t px-3 py-3;
+  border-color: var(--ct-border);
+  backdrop-filter: blur(12px);
+  background: rgba(10, 10, 10, 0.75);
+}
+
+.ct-quick-idle-left {
+  @apply flex min-w-0 items-center gap-2;
+}
+
+.ct-quick-idle-logo {
+  @apply grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease;
+}
+
+.ct-quick-idle-logo:hover {
+  transform: rotate(5deg) scale(1.05);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.ct-quick-idle-meta {
+  @apply min-w-0;
+}
+
+.ct-quick-idle-meta strong {
+  @apply block truncate text-sm;
+  color: var(--ct-text-primary);
+}
+
+.ct-quick-idle-meta span {
+  @apply mt-0.5 block text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-quick-icon-button {
+  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: var(--ct-text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-quick-icon-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.06) translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+}
+
+.ct-quick-icon-button:active:not(:disabled) {
+  transform: scale(0.92) translateY(0);
+}
+
+.ct-quick-icon-button.active {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
+}
+
+.ct-quick-icon-button.danger {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--ct-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ct-quick-icon-button.danger:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+  background: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.ct-quick-icon-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ct-quick-device-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 220px;
+  max-width: 320px;
+  @apply rounded-lg border p-1.5;
+  border-color: var(--ct-border-strong);
+  background: rgba(8, 8, 8, 0.98);
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.58);
+}
+
+.ct-quick-device-menu-header {
+  @apply px-2 py-1 text-[11px] font-semibold uppercase;
+  color: var(--ct-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.ct-quick-device-menu-item {
+  @apply block w-full rounded-md px-2 py-1.5 text-left text-xs;
+  color: var(--ct-text-secondary);
+  transition: background-color 0.15s ease;
+}
+
+.ct-quick-device-menu-item:hover {
+  background: rgba(24, 24, 24, 0.82);
+  color: var(--ct-text-primary);
+}
+
+.ct-quick-device-menu-item.active {
+  background: var(--ct-accent-soft);
+  color: var(--ct-text-primary);
+}
+
+.ct-quick-device-menu-empty {
+  @apply px-2 py-1.5 text-xs;
+  color: var(--ct-text-muted);
+}

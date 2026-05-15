@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+  font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+  --ct-font-mono:
+    "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", monospace;
+  --ct-surface-0: #050505;
+  --ct-surface-1: #0d0d0d;
+  --ct-surface-2: #151515;
+  --ct-surface-3: #1d1d1d;
+  --ct-border: rgba(255, 255, 255, 0.08);
+  --ct-border-strong: rgba(255, 255, 255, 0.18);
+  --ct-text-primary: #f5f5f5;
+  --ct-text-secondary: #c7c7c7;
+  --ct-text-muted: #8f8f8f;
+  --ct-accent: #f2f2f2;
+  --ct-accent-soft: rgba(242, 242, 242, 0.18);
+  --ct-accent-strong: rgba(242, 242, 242, 0.45);
+  --ct-accent-glow: rgba(242, 242, 242, 0.32);
+  --ct-warning: #d7d7d7;
+  --ct-danger: #bdbdbd;
+  --ct-success: #f0f0f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  @apply antialiased;
+  background:
+    radial-gradient(
+      circle at 12% 12%,
+      rgba(255, 255, 255, 0.06),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 85% 18%,
+      rgba(255, 255, 255, 0.04),
+      transparent 42%
+    ),
+    linear-gradient(180deg, #0b0b0b 0%, #050505 100%);
+  color: var(--ct-text-primary);
+}
