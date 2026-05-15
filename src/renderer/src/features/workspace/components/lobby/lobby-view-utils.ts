@@ -1,4 +1,4 @@
-import { LocalParticipant } from "livekit-client";
+import { LocalParticipant, Track } from "livekit-client";
 import type { ParticipantMediaMap } from "@/features/livekit";
 import type { LobbyParticipantView } from "./lobby-participant-tile";
 
@@ -49,7 +49,7 @@ export function resolveSourceStream(
   localScreenStream: MediaStream | null,
   remoteParticipantStreams: ParticipantMediaMap,
   source: "screen" | "camera",
-): MediaStream | any | null {
+): Track | MediaStream | null {
   const mappedTracks = resolveMappedTracks(
     participant,
     remoteParticipantStreams,
@@ -77,7 +77,32 @@ export function resolvePreviewStream(
   localScreenStream: MediaStream | null,
   remoteParticipantStreams: ParticipantMediaMap,
   sourcePreference: ParticipantSourcePreference = "auto",
-): MediaStream | any | null {
+  cameraHidden = false,
+): Track | MediaStream | null {
+  if (cameraHidden) {
+    // If we only want to hide camera, we still allow screen share
+    if (sourcePreference === "screen") {
+      return resolveSourceStream(
+        participant,
+        localCameraStream,
+        localScreenStream,
+        remoteParticipantStreams,
+        "screen",
+      );
+    }
+    
+    if (sourcePreference === "camera") return null;
+    
+    // Auto mode: only allow screen
+    return resolveSourceStream(
+      participant,
+      localCameraStream,
+      localScreenStream,
+      remoteParticipantStreams,
+      "screen",
+    );
+  }
+
   if (sourcePreference === "screen") {
     return resolveSourceStream(
       participant,

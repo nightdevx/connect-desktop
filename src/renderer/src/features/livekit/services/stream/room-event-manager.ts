@@ -29,6 +29,7 @@ export class RoomEventManager {
       .on(RoomEvent.Disconnected, this.onDisconnected)
       .on(RoomEvent.ParticipantConnected, this.handleParticipantConnected)
       .on(RoomEvent.ParticipantDisconnected, this.handleParticipantDisconnected)
+      .on(RoomEvent.TrackPublished, this.handleTrackPublished)
       .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
       .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
       .on(RoomEvent.TrackMuted, this.updateMediaMap)
@@ -62,6 +63,11 @@ export class RoomEventManager {
   private readonly handleParticipantDisconnected = (p: RemoteParticipant) => {
     logLiveKitDebug("stream-manager", "participant-disconnected", { identity: p.identity });
     this.updateMediaMap();
+  };
+
+  private readonly handleTrackPublished = (pub: RemoteTrackPublication) => {
+    // Manual subscription because autoSubscribe is disabled in RoomOptions
+    void pub.setSubscribed(true);
   };
 
   private readonly handleTrackSubscribed = (

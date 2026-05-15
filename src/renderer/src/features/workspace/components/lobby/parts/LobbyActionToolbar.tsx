@@ -8,6 +8,8 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 
+import { AudioDeviceDropdown } from "../../common/AudioDeviceDropdown";
+
 interface LobbyActionToolbarProps {
   micEnabled: boolean;
   headphoneEnabled: boolean;
@@ -19,6 +21,12 @@ interface LobbyActionToolbarProps {
   onToggleScreen: () => void;
   onToggleCamera: () => void;
   onLeaveLobby: () => void;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
+  selectedAudioInputDeviceId: string | null;
+  selectedAudioOutputDeviceId: string | null;
+  onSelectAudioInputDevice: (deviceId: string | null) => void;
+  onSelectAudioOutputDevice: (deviceId: string | null) => void;
 }
 
 export function LobbyActionToolbar({
@@ -32,26 +40,46 @@ export function LobbyActionToolbar({
   onToggleScreen,
   onToggleCamera,
   onLeaveLobby,
+  audioInputDevices,
+  audioOutputDevices,
+  selectedAudioInputDeviceId,
+  selectedAudioOutputDeviceId,
+  onSelectAudioInputDevice,
+  onSelectAudioOutputDevice,
 }: LobbyActionToolbarProps) {
   return (
     <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
-      <Tooltip title={micEnabled ? "Mikrofonu Kapat" : "Mikrofonu Aç"}>
-        <Button
-          size="large"
-          className={`ct-lobby-action-btn ${micEnabled ? "active" : ""}`}
-          icon={micEnabled ? <AudioOutlined /> : <AudioMutedOutlined />}
-          onClick={onToggleMic}
-        />
-      </Tooltip>
+      <AudioDeviceDropdown
+        kind="input"
+        devices={audioInputDevices}
+        selectedDeviceId={selectedAudioInputDeviceId}
+        onSelectDevice={onSelectAudioInputDevice}
+      >
+        <Tooltip title={micEnabled ? "Mikrofonu Kapat (Sağ tık: cihaz seç)" : "Mikrofonu Aç (Sağ tık: cihaz seç)"}>
+          <Button
+            size="large"
+            className={`ct-lobby-action-btn ${micEnabled ? "active" : ""}`}
+            icon={micEnabled ? <AudioOutlined /> : <AudioMutedOutlined />}
+            onClick={onToggleMic}
+          />
+        </Tooltip>
+      </AudioDeviceDropdown>
 
-      <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat" : "Kulaklığı Aç"}>
-        <Button
-          size="large"
-          className={`ct-lobby-action-btn ${headphoneEnabled ? "active" : ""}`}
-          icon={<CustomerServiceOutlined />}
-          onClick={onToggleHeadphone}
-        />
-      </Tooltip>
+      <AudioDeviceDropdown
+        kind="output"
+        devices={audioOutputDevices}
+        selectedDeviceId={selectedAudioOutputDeviceId}
+        onSelectDevice={onSelectAudioOutputDevice}
+      >
+        <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat (Sağ tık: cihaz seç)" : "Kulaklığı Aç (Sağ tık: cihaz seç)"}>
+          <Button
+            size="large"
+            className={`ct-lobby-action-btn ${headphoneEnabled ? "active" : ""}`}
+            icon={<CustomerServiceOutlined />}
+            onClick={onToggleHeadphone}
+          />
+        </Tooltip>
+      </AudioDeviceDropdown>
 
       <Tooltip title={screenEnabled ? "Ekran Paylaşımını Durdur" : "Ekranı Paylaş"}>
         <Button

@@ -83,6 +83,12 @@ export const logLiveKitDebug = (
   event: string,
   payload?: Record<string, unknown>,
 ): void => {
+  // Sadece development ortamında log basılmasına izin ver
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!isDev) {
+    return;
+  }
+
   if (typeof window === "undefined") {
     return;
   }

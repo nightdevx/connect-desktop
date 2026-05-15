@@ -57,6 +57,7 @@ export class LiveKitStreamManager {
   private isSpeakingLocal = false;
   private silenceTimeout: number | null = null;
   private lastCapturedStreamId: string | null = null;
+  private readonly streamCache = new Map<string, MediaStream>();
 
   public constructor(
     private readonly callbacks: LiveKitStreamManagerCallbacks = {},
@@ -158,7 +159,7 @@ export class LiveKitStreamManager {
     this.reconnectAttempt = 0;
 
     const options: RoomOptions = {
-      adaptiveStream: true,
+      adaptiveStream: { pixelDensity: "screen" },
       dynacast: true,
       publishDefaults: {
         videoSimulcastLayers: [
@@ -172,6 +173,7 @@ export class LiveKitStreamManager {
         videoCodec: supportsVP9() ? "vp9" : "vp8",
         dtx: true,
         red: true,
+        stopMicTrackOnMute: true,
       },
     };
 
@@ -194,10 +196,48 @@ export class LiveKitStreamManager {
 
     try {
       this.callbacks.onConnectionStateChanged?.("connecting");
-      await this.room.connect(url, token);
+      // autoSubscribe and connectTimeout are ConnectOptions
+      await this.room.connect(url, token, { 
+        autoSubscribe: false,
+      });
       
-      this.microphoneController.prepareParticipantAudioContext(this.room.localParticipant);
-      await this.restorePublishingState();
+      // Professional Stabilization Strategy:
+      // 1. Post-Connect Breathing Room (200ms)
+      // Allows the ICE connection and DTLS handshake to fully stabilize before flooding the pipe.
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 2. Staggered Audio Subscription (Priority 1)
+      // Subscribing to all audio at once can spike signaling. We stagger them slightly.
+      const remoteParticipants = Array.from(this.room.remoteParticipants.values());
+      for (const participant of remoteParticipants) {
+        for (const pub of participant.trackPublications.values()) {
+          if (pub.kind === Track.Kind.Audio) {
+            void pub.setSubscribed(true);
+            // Micro-delay between subscriptions to prevent signaling congestion
+            await new Promise(resolve => setTimeout(resolve, 20));
+          }
+        }
+      }
+
+      // 3. Stabilization Delay before heavy operations (1500ms)
+      // This ensures the audio jitter buffers are filled and the network is stable.
+      setTimeout(async () => {
+        if (!this.room) return;
+
+        // 4. Gradual Video Subscription (Priority 2)
+        for (const participant of this.room.remoteParticipants.values()) {
+          for (const pub of participant.trackPublications.values()) {
+            if (pub.kind === Track.Kind.Video) {
+              void pub.setSubscribed(true);
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          }
+        }
+
+        this.microphoneController.prepareParticipantAudioContext(this.room.localParticipant);
+        await this.restorePublishingState();
+      }, 1500);
+
     } catch (error) {
       this.callbacks.onConnectionStateChanged?.("disconnected");
       throw error;
@@ -225,6 +265,7 @@ export class LiveKitStreamManager {
 
     await this.microphoneController.dispose();
     this.mediaMap = {};
+    this.streamCache.clear();
     this.callbacks.onRemoteStreamsChanged?.({});
     this.callbacks.onConnectionStateChanged?.("disconnected");
   }
@@ -249,6 +290,10 @@ export class LiveKitStreamManager {
 
   public setAudioProcessingPreferences(prefs: LiveKitAudioProcessingPreferences): void {
     void this.applyAudioProcessing(prefs);
+  }
+
+  public setDeafened(deafened: boolean): void {
+    this.remoteMediaHandler?.setDeafened(deafened);
   }
 
   private async applyAudioProcessing(prefs: LiveKitAudioProcessingPreferences): Promise<void> {
@@ -279,11 +324,27 @@ export class LiveKitStreamManager {
   }
 
   private async restorePublishingState(): Promise<void> {
-    await Promise.all([
-      this.applyMicrophoneState(),
-      this.applyCameraState(),
-      this.applyScreenState(),
-    ]);
+    // 1. Prioritize Audio: Highest priority for communication, lowest bandwidth.
+    await this.applyMicrophoneState();
+    
+    // 2. Brief stabilization delay before starting heavy video tracks.
+    if (this.desiredCameraEnabled || this.desiredScreenEnabled) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // 3. Camera: Only if explicitly enabled.
+    if (this.desiredCameraEnabled) {
+      await this.applyCameraState();
+      // Wait for camera to stabilize before screen share if both are enabled.
+      if (this.desiredScreenEnabled) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    // 4. Screen Share: Highest bandwidth, lowest priority during initial join.
+    if (this.desiredScreenEnabled) {
+      await this.applyScreenState();
+    }
   }
 
   private async applyMicrophoneState(): Promise<void> {
@@ -303,33 +364,83 @@ export class LiveKitStreamManager {
   private async applyCameraState(): Promise<void> {
     if (!this.room) return;
     const participant = this.room.localParticipant;
+    
     if (!this.desiredCameraEnabled) {
-      await participant.setCameraEnabled(false);
+      if (participant.isCameraEnabled) {
+        await participant.setCameraEnabled(false);
+      }
       return;
     }
+
     const videoTrack = this.desiredCameraStream?.getVideoTracks()[0];
     if (videoTrack) {
-      await participant.publishTrack(videoTrack, { name: "camera", source: Track.Source.Camera, simulcast: true });
+      // Check if this specific track is already published
+      const isAlreadyPublished = Array.from(participant.trackPublications.values()).some(
+        (pub) => pub.track?.mediaStreamTrack === videoTrack
+      );
+      
+      if (isAlreadyPublished) return;
+
+      // Unpublish existing camera tracks first to avoid conflicts
+      const existingPubs = Array.from(participant.trackPublications.values()).filter(
+        (pub) => pub.source === Track.Source.Camera
+      );
+      for (const pub of existingPubs) {
+        if (pub.track) {
+          await participant.unpublishTrack(pub.track);
+        }
+      }
+
+      await participant.publishTrack(videoTrack, { 
+        name: "camera", 
+        source: Track.Source.Camera, 
+        simulcast: true 
+      });
     } else {
-      await participant.setCameraEnabled(true);
+      if (!participant.isCameraEnabled) {
+        await participant.setCameraEnabled(true);
+      }
     }
   }
 
   private async applyScreenState(): Promise<void> {
     if (!this.room) return;
     const participant = this.room.localParticipant;
+    
     if (!this.desiredScreenEnabled) {
-      await participant.setScreenShareEnabled(false);
+      if (participant.isScreenShareEnabled) {
+        await participant.setScreenShareEnabled(false);
+      }
       return;
     }
+
     const screenTrack = this.desiredScreenStream?.getVideoTracks()[0];
     if (screenTrack) {
+      // Check if this specific track is already published
+      const isAlreadyPublished = Array.from(participant.trackPublications.values()).some(
+        (pub) => pub.track?.mediaStreamTrack === screenTrack
+      );
+
+      if (isAlreadyPublished) return;
+
+      // Unpublish existing screen tracks first
+      const existingPubs = Array.from(participant.trackPublications.values()).filter(
+        (pub) => pub.source === Track.Source.ScreenShare
+      );
+      for (const pub of existingPubs) {
+        if (pub.track) {
+          await participant.unpublishTrack(pub.track);
+        }
+      }
+
       await participant.publishTrack(screenTrack, {
         name: "screen",
         source: Track.Source.ScreenShare,
       });
     } else {
-      await participant.setScreenShareEnabled(true);
+      if (!participant.isScreenShareEnabled) {
+        await participant.setScreenShareEnabled(true);
+      }
     }
   }
 
@@ -352,6 +463,13 @@ export class LiveKitStreamManager {
   private buildParticipantMediaState(p: Participant): ParticipantMediaState {
     const cameraPub = p.getTrackPublication(Track.Source.Camera);
     const screenPub = p.getTrackPublication(Track.Source.ScreenShare);
+    
+    // Use the track itself for 'camera' and 'screen' properties if available.
+    // LiveKit Track objects have stable identities and .attach() methods,
+    // which prevents flickering in React components.
+    const cameraTrack = cameraPub?.track ?? null;
+    const screenTrack = screenPub?.track ?? null;
+
     const cameraStream = this.getStreamFromPub(cameraPub);
     const screenStream = this.getStreamFromPub(screenPub);
 
@@ -364,12 +482,12 @@ export class LiveKitStreamManager {
     return {
       participant: p,
       micEnabled: p.isMicrophoneEnabled,
-      cameraEnabled: cameraPub?.isSubscribed && !cameraPub?.isMuted || (p instanceof LocalParticipant && p.isCameraEnabled),
-      screenEnabled: screenPub?.isSubscribed && !screenPub?.isMuted || (p instanceof LocalParticipant && p.isScreenShareEnabled),
+      cameraEnabled: !!(cameraPub?.isSubscribed && !cameraPub?.isMuted) || (p instanceof LocalParticipant && p.isCameraEnabled),
+      screenEnabled: !!(screenPub?.isSubscribed && !screenPub?.isMuted) || (p instanceof LocalParticipant && p.isScreenShareEnabled),
       isSpeaking: p.isSpeaking || (p instanceof LocalParticipant && this.isSpeakingLocal),
       audioLevel: p instanceof LocalParticipant ? Math.max(p.audioLevel, this.localAudioLevel) : p.audioLevel,
-      camera: cameraStream,
-      screen: screenStream,
+      camera: cameraTrack || cameraStream,
+      screen: screenTrack || screenStream,
       cameraStream,
       screenStream,
     };
@@ -378,7 +496,25 @@ export class LiveKitStreamManager {
   private getStreamFromPub(pub?: TrackPublication): MediaStream | null {
     const track = pub?.track;
     if (!track || !track.mediaStreamTrack) return null;
-    return new MediaStream([track.mediaStreamTrack]);
+
+    const trackId = track.mediaStreamTrack.id;
+    let stream = this.streamCache.get(trackId);
+    
+    if (!stream) {
+      stream = new MediaStream([track.mediaStreamTrack]);
+      this.streamCache.set(trackId, stream);
+      
+      // Cleanup when the underlying MediaStreamTrack ends
+      const cleanup = () => {
+        if (this.streamCache.get(trackId) === stream) {
+          this.streamCache.delete(trackId);
+        }
+      };
+      
+      track.mediaStreamTrack.addEventListener("ended", cleanup, { once: true });
+    }
+
+    return stream;
   }
 
   public async unpublishCamera(): Promise<void> {

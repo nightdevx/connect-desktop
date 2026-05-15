@@ -675,6 +675,34 @@
     box-shadow: 0 16px 30px rgba(2, 6, 23, 0.46);
   }
 
+  .ct-audio-device-dropdown .ant-dropdown-menu {
+    background: rgba(12, 12, 12, 0.98);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .ct-audio-device-dropdown .ant-dropdown-menu-item {
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 13px;
+    padding: 8px 12px;
+    transition: all 0.15s;
+  }
+
+  .ct-audio-device-dropdown .ant-dropdown-menu-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+  }
+
+  .ct-audio-device-dropdown .ct-device-menu-item-active {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+  }
+
   .ct-lobby-context-menu button {
     @apply rounded-lg border border-transparent px-3 py-2 text-left text-sm font-medium;
     color: var(--ct-text-secondary);

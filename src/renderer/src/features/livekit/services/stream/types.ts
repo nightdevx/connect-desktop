@@ -1,5 +1,6 @@
 import type {
   Participant,
+  Track,
 } from "livekit-client";
 import { type ActiveNoiseSuppressionMode } from "../mic";
 
@@ -17,8 +18,8 @@ export interface ParticipantMediaState {
   screenEnabled: boolean;
   isSpeaking: boolean;
   audioLevel: number;
-  camera: MediaStream | null;
-  screen: MediaStream | null;
+  camera: Track | MediaStream | null;
+  screen: Track | MediaStream | null;
   cameraStream: MediaStream | null;
   screenStream: MediaStream | null;
 }
@@ -28,6 +29,7 @@ export type ParticipantMediaMap = Record<string, ParticipantMediaState>;
 export interface RemoteParticipantAudioPreference {
   muted: boolean;
   volumePercent: number;
+  cameraHidden?: boolean;
 }
 
 export interface LiveKitStreamManagerCallbacks {

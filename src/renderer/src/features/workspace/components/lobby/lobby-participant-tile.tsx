@@ -1,16 +1,17 @@
 import { useEffect, useRef, type MouseEvent } from "react";
-import { Slider, Avatar, Tooltip } from "antd";
+import { Avatar, Tooltip } from "antd";
 import {
   AudioOutlined,
   AudioMutedOutlined,
   CustomerServiceOutlined,
   MutedOutlined,
-  SoundOutlined,
   DesktopOutlined,
 } from "@ant-design/icons";
+import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
-import { type RemoteParticipantAudioPreference, logLiveKitDebug } from "@/features/livekit";
+import { logLiveKitDebug } from "@/features/livekit";
 import { getDisplayInitials } from "../../workspace-utils";
+import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
@@ -19,17 +20,19 @@ export interface LobbyParticipantView extends LobbyStateMember {
 interface LobbyParticipantTileProps {
   participant: LobbyParticipantView;
   avatarUrl?: string | null;
-  previewStream?: any; // MediaStream or livekit Track
-  /** Ses kontrol paneli bu tile için açıksa true */
+  previewStream?: Track | MediaStream | null;
   isSelected?: boolean;
   isFocusedLayout?: boolean;
   isCompact?: boolean;
-  showAudioControls?: boolean;
-  audioPreference?: RemoteParticipantAudioPreference;
-  onToggleMute?: () => void;
-  onVolumeChange?: (volumePercent: number) => void;
   onActivate?: (event: MouseEvent<HTMLElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
+  // Local User Device Props
+  audioInputDevices?: MediaDeviceInfo[];
+  audioOutputDevices?: MediaDeviceInfo[];
+  selectedAudioInputDeviceId?: string | null;
+  selectedAudioOutputDeviceId?: string | null;
+  onSelectAudioInputDevice?: (deviceId: string | null) => void;
+  onSelectAudioOutputDevice?: (deviceId: string | null) => void;
 }
 
 export function LobbyParticipantTile({
@@ -39,26 +42,18 @@ export function LobbyParticipantTile({
   isSelected = false,
   isFocusedLayout = false,
   isCompact = false,
-  showAudioControls = false,
-  audioPreference,
-  onToggleMute,
-  onVolumeChange,
   onActivate,
   onContextMenu,
+  audioInputDevices = [],
+  audioOutputDevices = [],
+  selectedAudioInputDeviceId = null,
+  selectedAudioOutputDeviceId = null,
+  onSelectAudioInputDevice,
+  onSelectAudioOutputDevice,
 }: LobbyParticipantTileProps) {
   const micOpen = !participant.muted;
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  const isLocal = participant.isLocalUser;
-  const effectivePreference = audioPreference ?? {
-    muted: false,
-    volumePercent: 100,
-  };
-  const effectiveVolume = Number.isFinite(effectivePreference.volumePercent)
-    ? Math.min(200, Math.max(0, Math.round(effectivePreference.volumePercent)))
-    : 100;
-  const canShowAudioControls = showAudioControls && !isLocal;
 
   const handleVideoLoadedMetadata = () => {
     if (videoRef.current) {
@@ -82,10 +77,11 @@ export function LobbyParticipantTile({
     videoElement.setAttribute("autoplay", "true");
     videoElement.setAttribute("playsinline", "true");
 
-    const isLiveKitTrack = typeof previewStream.attach === "function";
+    const isLiveKitTrack = previewStream instanceof Track;
 
     if (isLiveKitTrack) {
-      previewStream.attach(videoElement);
+      const track = previewStream as Track;
+      track.attach(videoElement);
       // LiveKit attach sets srcObject, but we should ensure it plays
       videoElement.play().catch((err) => {
         if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
@@ -94,13 +90,14 @@ export function LobbyParticipantTile({
       });
 
       return () => {
-        previewStream.detach(videoElement);
+        track.detach(videoElement);
       };
     } else {
-      if (videoElement.srcObject !== previewStream) {
-        videoElement.srcObject = previewStream;
-        if (previewStream instanceof MediaStream) {
-          previewStream.getVideoTracks().forEach((t) => {
+      const mediaStream = previewStream as MediaStream | null;
+      if (videoElement.srcObject !== mediaStream) {
+        videoElement.srcObject = mediaStream;
+        if (mediaStream instanceof MediaStream) {
+          mediaStream.getVideoTracks().forEach((t) => {
             t.enabled = true;
           });
         }
@@ -120,7 +117,7 @@ export function LobbyParticipantTile({
       tryPlay();
 
       return () => {
-        if (videoElement.srcObject === previewStream) {
+        if (videoElement.srcObject === mediaStream) {
           videoElement.srcObject = null;
         }
       };
@@ -146,7 +143,7 @@ export function LobbyParticipantTile({
       title={
         participant.isLocalUser
           ? undefined
-          : "Sol tık: büyüt / Sağ tık: ses paneli"
+          : "Sol tık: büyüt / Sağ tık: seçenekler"
       }
     >
       {previewStream && (
@@ -193,22 +190,63 @@ export function LobbyParticipantTile({
           className="ct-lobby-tile-flags"
           aria-label="Kullanıcı durum simgeleri"
         >
-          <span className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}>
-            {micOpen ? (
-              <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
-            ) : (
-              <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
-            )}
-          </span>
-          <span
-            className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
-          >
-            {headphoneOpen ? (
-              <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
-            ) : (
-              <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
-            )}
-          </span>
+          {participant.isLocalUser ? (
+            <AudioDeviceDropdown
+              kind="input"
+              devices={audioInputDevices}
+              selectedDeviceId={selectedAudioInputDeviceId}
+              onSelectDevice={onSelectAudioInputDevice || (() => {})}
+            >
+              <span
+                className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}
+                title="Sağ tık: giriş cihazı"
+              >
+                {micOpen ? (
+                  <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                ) : (
+                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                )}
+              </span>
+            </AudioDeviceDropdown>
+          ) : (
+            <span className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}>
+              {micOpen ? (
+                <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+              ) : (
+                <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+              )}
+            </span>
+          )}
+
+          {participant.isLocalUser ? (
+            <AudioDeviceDropdown
+              kind="output"
+              devices={audioOutputDevices}
+              selectedDeviceId={selectedAudioOutputDeviceId}
+              onSelectDevice={onSelectAudioOutputDevice || (() => {})}
+            >
+              <span
+                className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
+                title="Sağ tık: çıkış cihazı"
+              >
+                {headphoneOpen ? (
+                  <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                ) : (
+                  <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                )}
+              </span>
+            </AudioDeviceDropdown>
+          ) : (
+            <span
+              className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
+            >
+              {headphoneOpen ? (
+                <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+              ) : (
+                <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+              )}
+            </span>
+          )}
           {participant.screenSharing && (
             <span className="ct-lobby-flag signal" title="Ekran paylaşımı açık">
               <DesktopOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
@@ -216,61 +254,6 @@ export function LobbyParticipantTile({
           )}
         </div>
       </footer>
-
-      {canShowAudioControls && (
-        <div
-          className="ct-lobby-inline-audio-controls-premium"
-          role="group"
-          aria-label={`${participant.username} ses ayarlari`}
-          onClick={(event) => event.stopPropagation()}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-        >
-          <button
-            type="button"
-            className={`ct-lobby-inline-mute-btn ${effectivePreference.muted ? "muted" : ""}`}
-            onClick={() => onToggleMute?.()}
-            title={effectivePreference.muted ? "Sesi aç" : "Sustur"}
-            aria-label={effectivePreference.muted ? "Sesi aç" : "Sustur"}
-            style={{
-              background: effectivePreference.muted ? "#ffffff" : "rgba(255,255,255,0.06)",
-            }}
-          >
-            {effectivePreference.muted ? (
-              <MutedOutlined style={{ fontSize: "11px", color: "#000000" }} />
-            ) : (
-              <SoundOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
-            )}
-          </button>
-
-          <div style={{ flex: 1, padding: "0 4px" }}>
-            <Slider
-              min={0}
-              max={200}
-              step={5}
-              value={effectiveVolume}
-              onChange={onVolumeChange}
-              tooltip={{ formatter: (v) => `%${v}` }}
-              styles={{
-                track: {
-                  background: "#ffffff",
-                },
-                handle: {
-                  background: "#ffffff",
-                  borderColor: "#ffffff",
-                },
-              }}
-              style={{ margin: 0, padding: "4px 0" }}
-            />
-          </div>
-
-          <span className="ct-lobby-inline-volume-value">
-            %{effectiveVolume}
-          </span>
-        </div>
-      )}
     </article>
   );
 }

@@ -37,6 +37,7 @@ interface LobbiesMainPanelProps {
   onJoinLobby: (lobbyId: string) => void;
   onSetRemoteParticipantMuted: (participantUserId: string, muted: boolean) => void;
   onSetRemoteParticipantVolume: (participantUserId: string, volumePercent: number) => void;
+  onSetRemoteParticipantCameraHidden: (participantUserId: string, hidden: boolean) => void;
   lobbyStateQuery: UseQueryResult<DesktopResult<{ lobbyId: string; members: LobbyStateMember[]; size: number; revision: number; }>, Error>;
   lobbyMessagesQuery: UseQueryResult<DesktopResult<{ messages: ChatMessage[] }>, Error>;
   lobbyMembers: LobbyStateMember[];
@@ -53,6 +54,12 @@ interface LobbiesMainPanelProps {
   onToggleScreen: () => void;
   onToggleCamera: () => void;
   onLeaveLobby: () => void;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
+  selectedAudioInputDeviceId: string | null;
+  selectedAudioOutputDeviceId: string | null;
+  onSelectAudioInputDevice: (deviceId: string | null) => void;
+  onSelectAudioOutputDevice: (deviceId: string | null) => void;
 }
 
 const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
@@ -81,6 +88,7 @@ export function LobbiesMainPanel({
   onJoinLobby,
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
+  onSetRemoteParticipantCameraHidden,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -97,10 +105,17 @@ export function LobbiesMainPanel({
   onToggleScreen,
   onToggleCamera,
   onLeaveLobby,
+  audioInputDevices,
+  audioOutputDevices,
+  selectedAudioInputDeviceId,
+  selectedAudioOutputDeviceId,
+  onSelectAudioInputDevice,
+  onSelectAudioOutputDevice,
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
-  const [audioPanelParticipantId, setAudioPanelParticipantId] = useState<string | null>(null);
+  const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
 
   // 1. Participant Logic Hook
@@ -133,7 +148,8 @@ export function LobbiesMainPanel({
   useEffect(() => {
     setIsLobbyChatOpen(true);
     setFocusedParticipantId(null);
-    setAudioPanelParticipantId(null);
+    setContextMenuParticipantId(null);
+    setContextMenuPosition(null);
   }, [activeLobbyId]);
 
   useEffect(() => {
@@ -142,20 +158,20 @@ export function LobbiesMainPanel({
   }, [activeLobbyId]);
 
   useEffect(() => {
-    if (!focusedParticipantId && !audioPanelParticipantId) return;
+    if (!focusedParticipantId && !contextMenuParticipantId) return;
     if (focusedParticipantId) {
       const focusedStillPresent = lobbyParticipants.some((p) => !p.isLocalUser && p.userId === focusedParticipantId);
       if (!focusedStillPresent) setFocusedParticipantId(null);
     }
-    if (audioPanelParticipantId) {
-      const audioPanelStillPresent = lobbyParticipants.some((p) => !p.isLocalUser && p.userId === audioPanelParticipantId);
-      if (!audioPanelStillPresent) setAudioPanelParticipantId(null);
+    if (contextMenuParticipantId) {
+      const stillPresent = lobbyParticipants.some((p) => !p.isLocalUser && p.userId === contextMenuParticipantId);
+      if (!stillPresent) setContextMenuParticipantId(null);
     }
-  }, [audioPanelParticipantId, focusedParticipantId, lobbyParticipants]);
+  }, [contextMenuParticipantId, focusedParticipantId, lobbyParticipants]);
 
   // Derived Values
-  const selectedPreference = audioPanelParticipantId
-    ? (remoteParticipantAudioPreferences[audioPanelParticipantId] ?? DEFAULT_REMOTE_AUDIO_PREFERENCE)
+  const selectedPreference = contextMenuParticipantId
+    ? (remoteParticipantAudioPreferences[contextMenuParticipantId] ?? DEFAULT_REMOTE_AUDIO_PREFERENCE)
     : DEFAULT_REMOTE_AUDIO_PREFERENCE;
 
   const focusedParticipantSlot = useMemo(
@@ -172,7 +188,8 @@ export function LobbiesMainPanel({
   const handleParticipantFocus = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.stopPropagation();
-    setAudioPanelParticipantId(null);
+    setContextMenuParticipantId(null);
+    setContextMenuPosition(null);
     setFocusedParticipantId((prev) => (prev === participant.userId ? null : participant.userId));
   };
 
@@ -180,17 +197,23 @@ export function LobbiesMainPanel({
     if (participant.isLocalUser) return;
     event.preventDefault();
     event.stopPropagation();
-    setAudioPanelParticipantId(participant.userId);
+    setContextMenuParticipantId(participant.userId);
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
   };
 
   const handleMute = (muted: boolean): void => {
-    if (!audioPanelParticipantId) return;
-    onSetRemoteParticipantMuted(audioPanelParticipantId, muted);
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantMuted(contextMenuParticipantId, muted);
   };
 
   const handleVolume = (volumePercent: number): void => {
-    if (!audioPanelParticipantId) return;
-    onSetRemoteParticipantVolume(audioPanelParticipantId, volumePercent);
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantVolume(contextMenuParticipantId, volumePercent);
+  };
+
+  const handleToggleCameraHidden = (hidden: boolean): void => {
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantCameraHidden(contextMenuParticipantId, hidden);
   };
 
   return (
@@ -256,14 +279,27 @@ export function LobbiesMainPanel({
               localCameraStream={localCameraStream}
               localScreenStream={localScreenStream}
               remoteParticipantStreams={remoteParticipantStreams}
+              remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
               focusedParticipantId={focusedParticipantId}
-              audioPanelParticipantId={audioPanelParticipantId}
+              contextMenuParticipantId={contextMenuParticipantId}
+              contextMenuPosition={contextMenuPosition}
+              onCloseContextMenu={() => {
+                setContextMenuParticipantId(null);
+                setContextMenuPosition(null);
+              }}
               selectedPreference={selectedPreference}
               stageLayoutStyle={stageLayoutStyle}
               handleMute={handleMute}
               handleVolume={handleVolume}
+              handleToggleCameraHidden={handleToggleCameraHidden}
               handleParticipantFocus={handleParticipantFocus}
               handleParticipantContextMenu={handleParticipantContextMenu}
+              audioInputDevices={audioInputDevices}
+              audioOutputDevices={audioOutputDevices}
+              selectedAudioInputDeviceId={selectedAudioInputDeviceId}
+              selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+              onSelectAudioInputDevice={onSelectAudioInputDevice}
+              onSelectAudioOutputDevice={onSelectAudioOutputDevice}
             />
 
             {/* Bottom Actions Toolbar */}
@@ -278,6 +314,12 @@ export function LobbiesMainPanel({
               onToggleScreen={onToggleScreen}
               onToggleCamera={onToggleCamera}
               onLeaveLobby={onLeaveLobby}
+              audioInputDevices={audioInputDevices}
+              audioOutputDevices={audioOutputDevices}
+              selectedAudioInputDeviceId={selectedAudioInputDeviceId}
+              selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+              onSelectAudioInputDevice={onSelectAudioInputDevice}
+              onSelectAudioOutputDevice={onSelectAudioOutputDevice}
             />
           </section>
 

@@ -43,14 +43,6 @@ export function useLobbyParticipants({
   }, [activeSpeakerIds]);
 
   const lobbyParticipants = useMemo<LobbyParticipantView[]>(() => {
-    // DEBUG LOG
-    console.log("[LobbyGlowDebug] Recalculating lobbyParticipants", {
-      currentUserId,
-      currentUsername,
-      activeSpeakerIds,
-      streamMapKeys: Object.keys(remoteParticipantStreams)
-    });
-
     const merged = lobbyMembers.map((member) => {
       const isActiveSpeaker =
         activeSpeakerLookup.set.has(member.userId) ||

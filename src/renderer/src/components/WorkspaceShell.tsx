@@ -39,6 +39,7 @@ interface WorkspaceShellProps {
 const DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE = {
   muted: false,
   volumePercent: 100,
+  cameraHidden: false,
 };
 
 const clampRemoteParticipantVolumePercent = (volumePercent: number): number => {
@@ -149,7 +150,7 @@ function WorkspaceShell({
         remoteParticipantAudioPreferencesRef.current[participantUserId] ??
         DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
       const nextPreference = {
-        muted: currentPreference.muted,
+        ...currentPreference,
         volumePercent: clampRemoteParticipantVolumePercent(volumePercent),
       };
       setRemoteParticipantAudioPreferences((previous) => ({
@@ -166,6 +167,24 @@ function WorkspaceShell({
       remoteParticipantAudioPreferencesRef,
       setRemoteParticipantAudioPreferences,
     ],
+  );
+
+  const handleSetRemoteParticipantCameraHidden = useCallback(
+    (participantUserId: string, cameraHidden: boolean): void => {
+      const currentPreference =
+        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
+        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
+      const nextPreference = {
+        ...currentPreference,
+        cameraHidden,
+      };
+      setRemoteParticipantAudioPreferences((previous) => ({
+        ...previous,
+        [participantUserId]: nextPreference,
+      }));
+      // Camera hiding is handled at the UI level in the participant tile
+    },
+    [remoteParticipantAudioPreferencesRef, setRemoteParticipantAudioPreferences],
   );
 
   // ----- WORKSPACE USERS -----
@@ -479,6 +498,7 @@ function WorkspaceShell({
   });
 
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
+    console.log(`[WorkspaceShell] Mikrofon cihazı değiştiriliyor: ${deviceId ?? "Varsayılan"}`);
     saveAudioPreferences({
       ...audioPreferences,
       selectedAudioInputDeviceId: deviceId,
@@ -486,6 +506,7 @@ function WorkspaceShell({
   };
 
   const handleSelectAudioOutputDevice = (deviceId: string | null): void => {
+    console.log(`[WorkspaceShell] Ses çıkış cihazı değiştiriliyor: ${deviceId ?? "Varsayılan"}`);
     saveAudioPreferences({
       ...audioPreferences,
       selectedAudioOutputDeviceId: deviceId,
@@ -609,6 +630,7 @@ function WorkspaceShell({
         onJoinLobby={joinLobby}
         onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
         onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
+        onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
         lobbyStateQuery={lobbyStateQuery}
         lobbyMessagesQuery={lobbyMessagesQuery}
         lobbyMembers={lobbyMembers}
@@ -637,6 +659,8 @@ function WorkspaceShell({
           deleteDirectMessage: handleDeleteMessage,
           deletingDirectMessageId: deletingMessageId,
         }}
+        onSelectAudioInputDevice={handleSelectAudioInputDevice}
+        onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
       />
 
       <ScreenShareModal

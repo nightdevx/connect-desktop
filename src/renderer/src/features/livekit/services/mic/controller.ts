@@ -70,15 +70,62 @@ export class LiveKitMicrophoneController {
   ): Promise<void> {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "refresh-processing-start");
-      await options.participant.setMicrophoneEnabled(false);
-      this.noiseSuppressionRuntime.markDisabled();
+
+      const { participant, preferences } = options;
+      
+      // If microphone is not enabled, just do a normal apply
+      if (!participant.isMicrophoneEnabled) {
+        return this.applyMicrophoneStateInternal({
+          ...options,
+          enabled: true,
+        });
+      }
+
+      // Fast Path: Microphone is already enabled, update processor in-place
+      const publication = participant.getTrackPublication(Track.Source.Microphone);
+      const track = publication?.track as LocalAudioTrack | undefined;
+
+      if (!track) {
+        // Track not found, fallback to full refresh
+        await participant.setMicrophoneEnabled(false);
+        this.noiseSuppressionRuntime.markDisabled();
+        await this.processorManager.destroyActiveProcessor();
+        return this.applyMicrophoneStateInternal({ ...options, enabled: true });
+      }
+
+      // 1. Resolve new processor
+      const desiredProcessor = await this.resolveDesiredProcessor(
+        participant,
+        preferences,
+      );
+
+      // 2. Detach old processor if it's different or if we want no processor
+      // This is crucial to prevent "audio stops" issues when toggling
+      logLiveKitDebug("mic-controller", "refresh-detaching-old-processor");
+      await track.stopProcessor();
+      
       await this.processorManager.destroyActiveProcessor();
-      await this.applyMicrophoneStateInternal({
-        ...options,
-        enabled: true,
-      });
+
+      // 3. Attach new processor if wanted
+      let appliedProcessor = false;
+      if (desiredProcessor) {
+        appliedProcessor = await this.attachProcessorToMicrophoneTrack(
+          participant,
+          publication as any,
+          desiredProcessor,
+        );
+      }
+
+      // 4. Update runtime state
+      if (appliedProcessor) {
+        this.noiseSuppressionRuntime.markEnabled(appliedProcessor);
+      } else {
+        this.noiseSuppressionRuntime.markDisabled();
+      }
+
       logLiveKitDebug("mic-controller", "refresh-processing-finished", {
-        participantMicEnabled: options.participant.isMicrophoneEnabled,
+        appliedProcessor,
+        participantMicEnabled: participant.isMicrophoneEnabled,
       });
     });
   }
@@ -380,14 +427,26 @@ export class LiveKitMicrophoneController {
     track.setAudioContext(context);
 
     for (let attempt = 0; attempt < 3; attempt++) {
+      let timeoutId: any;
       try {
-        await track.setProcessor(processor);
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("RNNoise initialization timeout")), 5000);
+        });
+
+        await Promise.race([
+          track.setProcessor(processor),
+          timeoutPromise
+        ]);
+        
+        clearTimeout(timeoutId);
+
         logLiveKitDebug("mic-controller", "processor-attach-success", {
           trackId: track.mediaStreamTrack.id,
           attempt,
         });
         return true;
       } catch (error) {
+        if (timeoutId) clearTimeout(timeoutId);
         logLiveKitDebug("mic-controller", "processor-attach-attempt-failed", {
           attempt,
           error,

@@ -13,6 +13,7 @@ export class RemoteMediaHandler {
   private readonly participantMutes = new Map<string, boolean>();
   private readonly remoteAudioElements = new Map<string, HTMLAudioElement>();
   private currentOutputDeviceId: string | null = null;
+  private isDeafened = false;
 
   public constructor(private readonly room: Room) {}
 
@@ -62,7 +63,7 @@ export class RemoteMediaHandler {
     const volume = this.participantVolumes.get(participant.identity) ?? 1;
     const isMuted = this.participantMutes.get(participant.identity) ?? false;
 
-    audioEl.volume = isMuted ? 0 : volume;
+    audioEl.volume = (this.isDeafened || isMuted) ? 0 : volume;
     
     // Uygulanan ses çıkış cihazını ayarla
     if (this.currentOutputDeviceId) {
@@ -103,7 +104,7 @@ export class RemoteMediaHandler {
   public setParticipantVolume(identity: string, volume: number) {
     this.participantVolumes.set(identity, volume);
     const audioEl = this.remoteAudioElements.get(identity);
-    if (audioEl && !this.participantMutes.get(identity)) {
+    if (audioEl && !this.participantMutes.get(identity) && !this.isDeafened) {
       audioEl.volume = Math.max(0, Math.min(1, volume));
     }
   }
@@ -112,9 +113,20 @@ export class RemoteMediaHandler {
     this.participantMutes.set(identity, muted);
     const audioEl = this.remoteAudioElements.get(identity);
     if (audioEl) {
-      const volume = muted ? 0 : (this.participantVolumes.get(identity) ?? 1);
+      const volume = (muted || this.isDeafened) ? 0 : (this.participantVolumes.get(identity) ?? 1);
       audioEl.volume = Math.max(0, Math.min(1, volume));
     }
+  }
+
+  public setDeafened(deafened: boolean) {
+    this.isDeafened = deafened;
+    this.remoteAudioElements.forEach((audioEl, identity) => {
+      const isMuted = this.participantMutes.get(identity) ?? false;
+      const volume = (deafened || isMuted) ? 0 : (this.participantVolumes.get(identity) ?? 1);
+      audioEl.volume = Math.max(0, Math.min(1, volume));
+    });
+    
+    logLiveKitDebug("remote-media", "deafen-changed", { deafened });
   }
 
   public async setAudioOutputDevice(deviceId: string | null) {

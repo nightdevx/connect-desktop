@@ -3,6 +3,7 @@ import {
   type AudioProcessorOptions,
   type TrackProcessor,
 } from "livekit-client";
+import { logLiveKitDebug } from "../livekit";
 import {
   NoiseGateWorkletNode,
   RnnoiseWorkletNode,
@@ -71,10 +72,6 @@ const resolveProcessingProfile = (
 };
 
 export class RnnoiseTrackProcessorFactory {
-  private readonly loadedWorklets = new WeakMap<
-    AudioContext,
-    WorkletAvailability
-  >();
   private rnnoiseWasmBinaryPromise: Promise<ArrayBuffer> | null = null;
   private wasmCompilationAllowed: boolean | null = null;
   private warnedAboutWasmCspBlock = false;
@@ -97,6 +94,16 @@ export class RnnoiseTrackProcessorFactory {
     const destroyGraph = (): void => {
       if (!graph) {
         return;
+      }
+
+      // Stop the destination track explicitly to free resources
+      try {
+        const track = graph.destinationNode.stream.getAudioTracks()[0];
+        if (track) {
+          track.stop();
+        }
+      } catch (error) {
+        console.warn("[RNNoise] Failed to stop destination track:", error);
       }
 
       try {
@@ -151,11 +158,30 @@ export class RnnoiseTrackProcessorFactory {
       init: async (opts) => {
         destroyGraph();
 
+        if (!opts.audioContext) {
+          logLiveKitDebug("mic-controller", "processor-init-skipped", {
+            reason: "audio-context-missing",
+          });
+          processor.processedTrack = opts.track;
+          return;
+        }
+
         try {
           const profile = resolveProcessingProfile(preset);
+          logLiveKitDebug("mic-controller", "processor-init-profile", {
+            preset,
+            highPass: `${profile.inputHighPassHz}Hz`,
+            lowPass: `${profile.outputLowPassHz}Hz`,
+            gateOpen: `${profile.gateOpenThresholdDb}dB`,
+            gateClose: `${profile.gateCloseThresholdDb}dB`,
+            gateHold: `${profile.gateHoldMs}ms`,
+          });
           const workletAvailability = await this.ensureWorkletRegistered(
             opts.audioContext,
           );
+          logLiveKitDebug("mic-controller", "processor-init-worklets", {
+            noiseGateSupported: workletAvailability.noiseGateSupported,
+          });
           const wasmBinary = await this.getRnnoiseWasmBinary();
 
           const sourceNode = opts.audioContext.createMediaStreamSource(
@@ -239,29 +265,50 @@ export class RnnoiseTrackProcessorFactory {
     );
   }
 
+  private readonly registrationPromises = new WeakMap<
+    AudioContext,
+    Promise<WorkletAvailability>
+  >();
+
   private async ensureWorkletRegistered(
     audioContext: AudioContext,
   ): Promise<WorkletAvailability> {
-    const cached = this.loadedWorklets.get(audioContext);
-    if (cached) {
-      return cached;
+    if (!audioContext || !audioContext.audioWorklet) {
+      throw new Error("Invalid AudioContext provided for RNNoise registration");
     }
 
-    await audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
-
-    let noiseGateSupported = true;
-    try {
-      await audioContext.audioWorklet.addModule(noiseGateWorkletPath);
-    } catch (error) {
-      noiseGateSupported = false;
-      this.onWarning?.(
-        `Noise gate modülü yüklenemedi, sadece RNNoise ile devam ediliyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
-      );
+    const existingPromise = this.registrationPromises.get(audioContext);
+    if (existingPromise) {
+      return existingPromise;
     }
 
-    const availability: WorkletAvailability = { noiseGateSupported };
-    this.loadedWorklets.set(audioContext, availability);
-    return availability;
+    const registrationPromise: Promise<WorkletAvailability> = (async () => {
+      try {
+        await audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
+
+        let noiseGateSupported = true;
+        try {
+          await audioContext.audioWorklet.addModule(noiseGateWorkletPath);
+        } catch (error) {
+          noiseGateSupported = false;
+          console.warn("[RNNoise] Noise gate module failed to load, continuing without it.", error);
+        }
+
+        return { noiseGateSupported };
+      } catch (error) {
+        throw error;
+      }
+    })();
+
+    // Ensure we clear the cache if registration fails, allowing a retry later
+    registrationPromise.catch(() => {
+      if (this.registrationPromises.get(audioContext) === registrationPromise) {
+        this.registrationPromises.delete(audioContext);
+      }
+    });
+
+    this.registrationPromises.set(audioContext, registrationPromise);
+    return registrationPromise;
   }
 
   private async getRnnoiseWasmBinary(): Promise<ArrayBuffer> {

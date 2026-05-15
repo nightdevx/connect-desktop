@@ -71,6 +71,10 @@ interface WorkspaceMainPanelProps {
     participantUserId: string,
     volumePercent: number,
   ) => void;
+  onSetRemoteParticipantCameraHidden: (
+    participantUserId: string,
+    hidden: boolean,
+  ) => void;
   lobbyStateQuery: UseQueryResult<
     DesktopResult<{
       lobbyId: string;
@@ -110,6 +114,8 @@ interface WorkspaceMainPanelProps {
     deleteDirectMessage: (messageId: string) => void;
     deletingDirectMessageId: string | null;
   };
+  onSelectAudioInputDevice: (deviceId: string | null) => void;
+  onSelectAudioOutputDevice: (deviceId: string | null) => void;
 }
 
 export function WorkspaceMainPanel({
@@ -147,6 +153,7 @@ export function WorkspaceMainPanel({
   onJoinLobby,
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
+  onSetRemoteParticipantCameraHidden,
   lobbyStateQuery,
   lobbyMessagesQuery,
   lobbyMembers,
@@ -166,6 +173,8 @@ export function WorkspaceMainPanel({
   selectedUser,
   onCopyUsername,
   directMessagesProps,
+  onSelectAudioInputDevice,
+  onSelectAudioOutputDevice,
 }: WorkspaceMainPanelProps) {
   const hideWorkspaceIntro =
     (workspaceSection === "users" && selectedUser !== null) ||
@@ -228,6 +237,7 @@ export function WorkspaceMainPanel({
             onJoinLobby={onJoinLobby}
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
+            onSetRemoteParticipantCameraHidden={onSetRemoteParticipantCameraHidden}
             lobbyStateQuery={lobbyStateQuery}
             lobbyMessagesQuery={lobbyMessagesQuery}
             lobbyMembers={lobbyMembers}
@@ -244,6 +254,12 @@ export function WorkspaceMainPanel({
             onToggleScreen={onToggleScreen}
             onToggleCamera={onToggleCamera}
             onLeaveLobby={onLeaveLobby}
+            audioInputDevices={audioInputDevices}
+            audioOutputDevices={audioOutputDevices}
+            selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
+            selectedAudioOutputDeviceId={audioPreferences.selectedAudioOutputDeviceId}
+            onSelectAudioInputDevice={onSelectAudioInputDevice}
+            onSelectAudioOutputDevice={onSelectAudioOutputDevice}
           />
         )}
 

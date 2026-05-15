@@ -34,6 +34,9 @@ export const useAudioControls = ({
     async (lobbyId: string): Promise<void> => {
       const updates: Array<Promise<void>> = [];
 
+      // Ensure LiveKit session reflects current UI state immediately
+      liveKitSessionRef.current?.setDeafened(!headphoneEnabled);
+
       if (!micEnabled) {
         updates.push(
           workspaceService
@@ -74,7 +77,7 @@ export const useAudioControls = ({
         await Promise.all(updates);
       }
     },
-    [micEnabled, headphoneEnabled, setStatus]
+    [micEnabled, headphoneEnabled, setStatus, liveKitSessionRef]
   );
 
   const handleMicToggle = useCallback((): void => {
@@ -128,13 +131,26 @@ export const useAudioControls = ({
       soundEffectManager.playHeadphoneToggle(next);
 
       const activeLobbyId = activeLobbyRef.current;
+
+      // 1. LiveKit Sync: Mute/Unmute all remote audio
+      // When deafened (next=false), we tell LiveKit to silence everything
+      liveKitSessionRef.current?.setDeafened(!next);
+
+      // 2. Auto-Mic Mute: If disabling headphones, also disable mic if it's currently on
+      // We check the 'previous' state of micEnabled here or use the state from the closure
+      if (!next && micEnabled) {
+        // We delay this slightly or call it directly if handleMicToggle is stable
+        // Since handleMicToggle uses functional update, it's safe to call here
+        // but calling it inside another setState can be tricky in React.
+        // However, this is a user-initiated event handler, so it's generally fine.
+        setTimeout(() => handleMicToggle(), 0);
+      }
+
       if (activeLobbyId) {
         patchLobbyMemberState(currentUserId, {
           deafened: !next,
         });
-      }
 
-      if (activeLobbyId) {
         void workspaceService
           .setLobbyDeafened({ lobbyId: activeLobbyId, deafened: !next })
           .then((result) => {
@@ -149,7 +165,15 @@ export const useAudioControls = ({
 
       return next;
     });
-  }, [activeLobbyRef, currentUserId, patchLobbyMemberState, setStatus]);
+  }, [
+    activeLobbyRef,
+    currentUserId,
+    patchLobbyMemberState,
+    setStatus,
+    liveKitSessionRef,
+    micEnabled,
+    handleMicToggle,
+  ]);
 
   return {
     micEnabled,
