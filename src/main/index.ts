@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray } from "electron";
+import { app, BrowserWindow, Menu, Tray, nativeImage } from "electron";
 import { join } from "node:path";
 import {
   getDesktopAppPreferences,
@@ -33,7 +33,11 @@ const captureEngine = new CaptureEngine();
 
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
-const APP_ICON_PATH = join(__dirname, "../../public/images/logo.ico");
+const isLinux = process.platform === "linux";
+const APP_ICON_PATH = join(
+  __dirname,
+  isLinux ? "../../public/images/logo.png" : "../../public/images/logo.ico"
+);
 const APP_DISPLAY_NAME = "Connect";
 
 const applyUserDataOverride = (): void => {
@@ -123,7 +127,8 @@ const ensureTray = (): void => {
     return;
   }
 
-  tray = new Tray(APP_ICON_PATH);
+  const icon = nativeImage.createFromPath(APP_ICON_PATH);
+  tray = new Tray(icon);
   tray.setToolTip(APP_DISPLAY_NAME);
   tray.setContextMenu(buildTrayMenu());
   tray.on("click", () => {
@@ -169,7 +174,7 @@ function createMainWindow(): BrowserWindow {
     minHeight: 640,
     frame: false,
     show: false,
-    icon: APP_ICON_PATH,
+    icon: nativeImage.createFromPath(APP_ICON_PATH),
     backgroundColor: "#0b1020",
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),

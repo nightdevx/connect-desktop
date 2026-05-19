@@ -1,7 +1,7 @@
 appId: com.nightdevx.connect-desktop
 productName: Connect
 icon: public/images/logo.ico
-compression: maximum
+compression: normal
 electronLanguages:
   - en-US
   - tr
@@ -11,6 +11,7 @@ directories:
 files:
   - dist/**
   - public/images/logo.ico
+  - public/images/logo.png
   - package.json
   - "!**/*.map"
   - "!**/*.d.ts"
@@ -44,5 +45,13 @@ mac:
   target:
     - dmg
 linux:
+  icon: public/images/logo.png
   target:
     - AppImage
+    - deb
+
+deb:
+  maintainer: nightdevx <nightdevx@github.com>
+
+
+

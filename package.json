@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -25,7 +25,10 @@
     "build:renderer": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && npm run clean:release && electron-builder --win nsis --publish never"
+    "dist:win": "npm run build && npm run clean:release && electron-builder --win nsis --publish never",
+    "dist:win:publish": "npm run build && npm run clean:release && electron-builder --win nsis --publish always",
+    "dist:linux": "npm run build && npm run clean:release && electron-builder --linux --publish never",
+    "dist:linux:publish": "npm run build && npm run clean:release && electron-builder --linux --publish always"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.2",
