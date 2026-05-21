@@ -1,15 +1,17 @@
-import { Tooltip } from "antd";
+import { Tooltip, Badge } from "antd";
 import { TeamOutlined, AppstoreOutlined, SettingOutlined } from "@ant-design/icons";
 import type { WorkspaceSection } from "@/store/ui-store";
 
 interface WorkspaceRailProps {
   workspaceSection: WorkspaceSection;
   onSectionChange: (section: WorkspaceSection) => void;
+  totalUnreadDirectMessages?: number;
 }
 
 export function WorkspaceRail({
   workspaceSection,
   onSectionChange,
+  totalUnreadDirectMessages,
 }: WorkspaceRailProps) {
   return (
     <aside className="ct-rail" aria-label="Navigasyon">
@@ -29,7 +31,9 @@ export function WorkspaceRail({
               onClick={() => onSectionChange("users")}
               aria-label="Arkadaşlar"
             >
-              <TeamOutlined className="ct-rail-icon-premium" />
+              <Badge count={totalUnreadDirectMessages} size="small" offset={[6, -2]}>
+                <TeamOutlined className="ct-rail-icon-premium" />
+              </Badge>
               <small>Arkadaş</small>
             </button>
           </div>

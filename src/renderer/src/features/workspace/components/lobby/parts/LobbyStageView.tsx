@@ -1,4 +1,5 @@
-import type { MouseEvent } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
+import { UpOutlined, DownOutlined } from "@ant-design/icons";
 import {
   LobbyParticipantTile,
   type LobbyParticipantView,
@@ -50,6 +51,12 @@ export function LobbyStageView({
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
 }: LobbyStageViewProps) {
+  const [isRailVisible, setIsRailVisible] = useState(true);
+
+  useEffect(() => {
+    setIsRailVisible(true);
+  }, [focusedParticipantId]);
+
   return (
     <div
       className={`ct-lobby-stage-grid ${focusedParticipantSlot ? "focused-layout" : ""}`}
@@ -92,7 +99,69 @@ export function LobbyStageView({
           </div>
 
           {nonFocusedParticipantSlots.length > 0 && (
-            <div className="ct-lobby-participant-rail" role="list">
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                gridRow: "2",
+                display: "flex",
+                justifyContent: "center",
+                margin: "4px 0",
+                zIndex: 10,
+              }}
+            >
+              <button
+                onClick={() => setIsRailVisible(!isRailVisible)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 18px",
+                  borderRadius: "20px",
+                  background: "rgba(18, 18, 18, 0.72)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  color: "rgba(255, 255, 255, 0.85)",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(24, 24, 24, 0.85)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.16)";
+                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.transform = "scale(1.03)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(18, 18, 18, 0.72)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.85)";
+                  e.currentTarget.style.transform = "none";
+                }}
+                onMouseDown={(e) => {
+                  e.currentTarget.style.transform = "scale(0.97)";
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = "scale(1.03)";
+                }}
+              >
+                {isRailVisible ? (
+                  <>
+                    <DownOutlined style={{ fontSize: "10px" }} /> Diğer Katılımcıları Gizle ({nonFocusedParticipantSlots.length})
+                  </>
+                ) : (
+                  <>
+                    <UpOutlined style={{ fontSize: "10px" }} /> Diğer Katılımcıları Göster ({nonFocusedParticipantSlots.length})
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {nonFocusedParticipantSlots.length > 0 && isRailVisible && (
+            <div className="ct-lobby-participant-rail" role="list" style={{ gridRow: 3 }}>
               {nonFocusedParticipantSlots.map((slot) => (
                 <LobbyParticipantTile
                   key={slot.slotId}

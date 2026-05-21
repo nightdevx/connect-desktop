@@ -1,6 +1,6 @@
 appId: com.nightdevx.connect-desktop
 productName: Connect
-icon: public/images/logo.ico
+icon: build/icon.ico
 compression: normal
 electronLanguages:
   - en-US
@@ -31,21 +31,21 @@ publish:
   repo: connect-desktop
   releaseType: release
 win:
-  icon: public/images/logo.ico
+  icon: build/icon.ico
   artifactName: Connect-Setup-${version}.${ext}
   target:
     - nsis
 nsis:
-  installerIcon: public/images/logo.ico
-  uninstallerIcon: public/images/logo.ico
-  installerHeaderIcon: public/images/logo.ico
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
   oneClick: false
   allowToChangeInstallationDirectory: true
 mac:
   target:
     - dmg
 linux:
-  icon: public/images/logo.png
+  icon: build/icons
   target:
     - AppImage
     - deb

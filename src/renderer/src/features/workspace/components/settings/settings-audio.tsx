@@ -138,6 +138,7 @@ export function SettingsAudio({
       ): MediaTrackConstraints => ({
         echoCancellation: true,
         noiseSuppression: true,
+        channelCount: 1,
         deviceId: deviceId ? { exact: deviceId } : undefined,
       });
 

@@ -1,6 +1,6 @@
 {
   "name": "connect-desktop",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -17,9 +17,9 @@
     "dev:dual": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron:a\" \"npm:dev:electron:b\"",
     "dev:main": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "dev:renderer": "vite",
-    "dev:electron": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --watch dist/main --watch dist/preload .",
-    "dev:electron:a": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 CT_USER_DATA_DIR=.profiles/instance-a electronmon --watch dist/main --watch dist/preload .",
-    "dev:electron:b": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 CT_USER_DATA_DIR=.profiles/instance-b electronmon --watch dist/main --watch dist/preload .",
+    "dev:electron": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --watch dist/main --watch dist/preload . --no-sandbox",
+    "dev:electron:a": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 CT_USER_DATA_DIR=.profiles/instance-a electronmon --watch dist/main --watch dist/preload . --no-sandbox",
+    "dev:electron:b": "wait-on dist/main/index.js dist/preload/index.js tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 CT_USER_DATA_DIR=.profiles/instance-b electronmon --watch dist/main --watch dist/preload . --no-sandbox",
     "build": "npm run clean && npm run build:main && npm run build:renderer",
     "build:main": "node scripts/generate-runtime-env.js && tsc -p tsconfig.json",
     "build:renderer": "vite build",
@@ -64,6 +64,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "rimraf": "^6.0.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.2",
     "vite": "^8.0.7",

@@ -8,6 +8,7 @@ import type {
   UserDirectoryEntry,
   UserProfile,
   UserSettingsProfile,
+  UserRole,
 } from "./auth-contracts";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 
@@ -132,8 +133,12 @@ export type UserDirectoryStreamEvent =
       type: "user-profile-updated";
       user: {
         userId: string;
+        username?: string;
         displayName: string;
         avatarUrl?: string | null;
+        role?: UserRole;
+        createdAt?: string;
+        appOnline?: boolean;
         updatedAt: string;
       };
       at?: string;

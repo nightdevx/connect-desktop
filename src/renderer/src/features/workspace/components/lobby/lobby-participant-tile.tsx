@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Avatar, Tooltip } from "antd";
 import {
   AudioOutlined,
@@ -6,6 +6,8 @@ import {
   CustomerServiceOutlined,
   MutedOutlined,
   DesktopOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined,
 } from "@ant-design/icons";
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
@@ -59,12 +61,46 @@ export function LobbyParticipantTile({
   const micOpen = !participant.muted;
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const handleVideoLoadedMetadata = () => {
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
   };
+
+  const handleToggleFullscreen = (event: MouseEvent) => {
+    event.stopPropagation();
+    const containerElement = containerRef.current;
+    if (!containerElement) return;
+
+    if (document.fullscreenElement === containerElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      containerElement.requestFullscreen().catch((err) => {
+        console.error("Fullscreen request failed:", err);
+      });
+    }
+  };
+
+  const handleDoubleClick = (event: MouseEvent<HTMLElement>) => {
+    if (!previewStream) return;
+    handleToggleFullscreen(event);
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (containerRef.current) {
+        setIsFullscreen(document.fullscreenElement === containerRef.current);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -145,21 +181,66 @@ export function LobbyParticipantTile({
       aria-pressed={!participant.isLocalUser && isSelected ? true : undefined}
       onContextMenu={onContextMenu}
       onClick={!participant.isLocalUser ? onActivate : undefined}
+      onDoubleClick={handleDoubleClick}
       title={
         participant.isLocalUser
           ? undefined
-          : "Sol tık: büyüt / Sağ tık: seçenekler"
+          : "Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
       }
     >
       {previewStream && (
-        <video
-          ref={videoRef}
-          className="ct-lobby-tile-video"
-          autoPlay
-          playsInline
-          muted
-          onLoadedMetadata={handleVideoLoadedMetadata}
-        />
+        <div
+          ref={containerRef}
+          className={`ct-lobby-video-container ${isFullscreen ? "fullscreen" : ""}`}
+          onDoubleClick={handleDoubleClick}
+        >
+          <video
+            ref={videoRef}
+            className="ct-lobby-tile-video"
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={handleVideoLoadedMetadata}
+          />
+          {isFullscreen ? (
+            <button
+              onClick={handleToggleFullscreen}
+              className="ct-lobby-tile-fullscreen-exit-btn"
+              title="Tam Ekrandan Çık"
+            >
+              <FullscreenExitOutlined style={{ fontSize: "16px" }} />
+            </button>
+          ) : (
+            <button
+              onClick={handleToggleFullscreen}
+              className="ct-lobby-tile-fullscreen-btn"
+              title="Tam Ekran Yap"
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "12px",
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                background: "rgba(15, 15, 15, 0.7)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                zIndex: 30,
+                opacity: 0,
+                transform: "scale(0.9)",
+                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                backdropFilter: "blur(6px)",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <FullscreenOutlined style={{ fontSize: "14px" }} />
+            </button>
+          )}
+        </div>
       )}
 
       <div

@@ -284,6 +284,12 @@ export const startScreenCapture = async (
 ): Promise<StartScreenCaptureResult> => {
   console.log("[ScreenCapture] startScreenCapture called", options);
   
+  const isElectron = typeof window !== "undefined" && !!window.desktopApi;
+  if (isElectron && options.sourceId) {
+    console.log("[ScreenCapture] Electron detected with sourceId, using direct capture", options.sourceId);
+    return startElectronDesktopCapture(options);
+  }
+
   try {
     // Try getDisplayMedia first (Modern & cleaner)
     return await startBrowserDisplayCapture(options);

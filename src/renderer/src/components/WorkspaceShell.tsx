@@ -575,11 +575,16 @@ function WorkspaceShell({
     });
   };
 
+  const totalUnreadDirectMessages = useMemo(() => {
+    return Object.values(unreadByPeerId).reduce((sum, count) => sum + count, 0);
+  }, [unreadByPeerId]);
+
   return (
     <section className="ct-workspace-shell">
       <WorkspaceRail
         workspaceSection={workspaceSection}
         onSectionChange={setWorkspaceSection}
+        totalUnreadDirectMessages={totalUnreadDirectMessages}
       />
 
       <WorkspaceSidebar

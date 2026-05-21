@@ -159,17 +159,37 @@ export const useWorkspaceUsers = ({
             return previous;
           }
 
-          const nextUsers = previous.data.users.map((user: UserDirectoryEntry) => {
-            if (user.userId !== event.user.userId) {
-              return user;
-            }
+          const exists = previous.data.users.some(
+            (u) => u.userId === event.user.userId,
+          );
+          let nextUsers: UserDirectoryEntry[];
 
-            return {
-              ...user,
+          if (exists) {
+            nextUsers = previous.data.users.map((user: UserDirectoryEntry) => {
+              if (user.userId !== event.user.userId) {
+                return user;
+              }
+
+              return {
+                ...user,
+                displayName: event.user.displayName,
+                avatarUrl: event.user.avatarUrl ?? null,
+                role: event.user.role ?? user.role,
+                appOnline: event.user.appOnline ?? user.appOnline,
+              };
+            });
+          } else {
+            const newUser: UserDirectoryEntry = {
+              userId: event.user.userId,
+              username: event.user.username || "",
               displayName: event.user.displayName,
               avatarUrl: event.user.avatarUrl ?? null,
+              role: event.user.role ?? "member",
+              createdAt: event.user.createdAt || new Date().toISOString(),
+              appOnline: event.user.appOnline ?? false,
             };
-          });
+            nextUsers = [...previous.data.users, newUser];
+          }
 
           return {
             ...previous,

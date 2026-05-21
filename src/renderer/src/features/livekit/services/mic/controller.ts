@@ -301,6 +301,7 @@ export class LiveKitMicrophoneController {
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,
+      channelCount: 1,
     };
 
     const preferredInputDeviceId =
@@ -509,6 +510,7 @@ export class LiveKitMicrophoneController {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1,
           deviceId: undefined,
           processor: undefined,
         },
