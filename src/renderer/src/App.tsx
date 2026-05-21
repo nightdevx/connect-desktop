@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Maximize2, Minimize2, Minus, X } from "lucide-react";
+import { Maximize2, Minimize2, Minus, X, Wifi, RefreshCw } from "lucide-react";
 import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
 import WorkspaceShell from "./components/WorkspaceShell";
 import logo from "./assets/logo.png";
@@ -11,6 +11,8 @@ function App() {
     statusTone,
     appVersion,
     isBooting,
+    isOffline,
+    retryConnection,
     isLoading,
     isLoggingOut,
     session,
@@ -153,7 +155,119 @@ function App() {
         </header>
 
         <section className={mainWrapClassName}>
-          {isAuthenticated && session.user ? (
+          {isOffline ? (
+            <section
+              className="ct-auth-card flex flex-col items-center justify-center text-center p-8"
+              style={{
+                minHeight: "360px",
+                background: "rgba(10, 10, 10, 0.45)",
+                backdropFilter: "blur(16px)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "18px",
+                boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center"
+              }}
+            >
+              <div className="relative mb-6 flex items-center justify-center" style={{ position: "relative", marginBottom: "24px" }}>
+                <div
+                  className="absolute inset-0 rounded-full bg-blue-500/10 blur-xl animate-pulse"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "9999px",
+                    background: "rgba(59, 130, 246, 0.1)",
+                    filter: "blur(24px)",
+                    width: "80px",
+                    height: "80px"
+                  }}
+                />
+                <div
+                  className="relative flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{
+                    position: "relative",
+                    display: "flex",
+                    height: "64px",
+                    width: "64px",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "9999px",
+                    border: "1px solid rgba(59, 130, 246, 0.3)",
+                    background: "rgba(30, 58, 138, 0.2)",
+                    color: "#60a5fa"
+                  }}
+                >
+                  <Wifi size={32} className="animate-pulse" />
+                </div>
+                <span className="absolute right-0 top-0 flex h-3.5 w-3.5" style={{ position: "absolute", right: 0, top: 0, display: "flex", height: "14px", width: "14px" }}>
+                  <span
+                    className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                    style={{
+                      position: "absolute",
+                      display: "inline-flex",
+                      height: "100%",
+                      width: "100%",
+                      borderRadius: "9999px",
+                      background: "#60a5fa",
+                      opacity: 0.75
+                    }}
+                  />
+                  <span
+                    className="relative inline-flex h-3.5 w-3.5 rounded-full"
+                    style={{
+                      position: "relative",
+                      display: "inline-flex",
+                      height: "14px",
+                      width: "14px",
+                      borderRadius: "9999px",
+                      background: "#3b82f6"
+                    }}
+                  />
+                </span>
+              </div>
+
+              <h2 className="text-xl font-bold text-white mb-2" style={{ letterSpacing: "-0.01em", color: "#ffffff", fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>
+                Ağ Bağlantısı Bekleniyor
+              </h2>
+              <p className="text-sm text-slate-400 mb-6" style={{ color: "#94a3b8", fontSize: "14px", maxWidth: "290px", lineHeight: "1.6", marginBottom: "24px" }}>
+                Connect sunucularına bağlantı kurulamadı. Lütfen internet bağlantınızı kontrol edin. Otomatik olarak yeniden bağlanmayı deniyoruz...
+              </p>
+
+              <button
+                type="button"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 hover:border-white/20 text-white font-medium text-sm transition-all duration-200"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 20px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  color: "#ffffff",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  background: "rgba(255, 255, 255, 0.03)",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+                onClick={retryConnection}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <RefreshCw size={14} className="animate-spin" style={{ animationDuration: "3s" }} /> Tekrar Dene
+              </button>
+            </section>
+          ) : isAuthenticated && session.user ? (
             <WorkspaceShell
               currentUserId={session.user.id}
               currentUsername={session.user.username}

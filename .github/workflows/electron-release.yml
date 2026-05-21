@@ -197,16 +197,28 @@ jobs:
       - name: Validate update artifacts
         run: |
           version="${{ needs.detect-version.outputs.version }}"
-          expectedAppImage="release/Connect-$version.AppImage"
+          expectedAppImage="Connect-$version.AppImage"
+          appImagePath="release/$expectedAppImage"
           expectedDeb="release/connect-desktop_${version}_amd64.deb"
+          latestLinuxYml="release/latest-linux.yml"
 
-          if [ ! -f "$expectedAppImage" ]; then
-            echo "Missing expected AppImage artifact: $expectedAppImage"
+          if [ ! -f "$appImagePath" ]; then
+            echo "Missing expected AppImage artifact: $appImagePath"
             exit 1
           fi
 
           if [ ! -f "$expectedDeb" ]; then
             echo "Missing expected deb artifact: $expectedDeb"
+            exit 1
+          fi
+
+          if [ ! -f "$latestLinuxYml" ]; then
+            echo "Missing latest-linux.yml metadata file"
+            exit 1
+          fi
+
+          if ! grep -q "$expectedAppImage" "$latestLinuxYml"; then
+            echo "latest-linux.yml does not reference expected AppImage: $expectedAppImage"
             exit 1
           fi
 
@@ -227,4 +239,5 @@ jobs:
           files: |
             release/Connect-*.AppImage
             release/connect-desktop_*_amd64.deb
+            release/latest-linux.yml
 

@@ -301,19 +301,20 @@ export const useWorkspaceUsers = ({
     return directoryUsers.filter((user) => user.appOnline).length;
   }, [directoryUsers]);
 
-  useEffect(() => {
-    if (filteredUsers.length === 0) {
-      setSelectedUserId(null);
-      return;
-    }
-
-    const hasSelectedUser = filteredUsers.some(
-      (user) => user.userId === selectedUserId,
-    );
-    if (!hasSelectedUser) {
-      setSelectedUserId(filteredUsers[0].userId);
-    }
-  }, [filteredUsers, selectedUserId]);
+  // Auto-selection removed to preserve unread message badges and allow a clean empty state
+  // useEffect(() => {
+  //   if (filteredUsers.length === 0) {
+  //     setSelectedUserId(null);
+  //     return;
+  //   }
+  // 
+  //   const hasSelectedUser = filteredUsers.some(
+  //     (user) => user.userId === selectedUserId,
+  //   );
+  //   if (!hasSelectedUser) {
+  //     setSelectedUserId(filteredUsers[0].userId);
+  //   }
+  // }, [filteredUsers, selectedUserId]);
 
   const selectedUser = useMemo(() => {
     if (!selectedUserId) {

@@ -32,8 +32,43 @@ export const useAuthSession = () => {
     retry: false,
   });
 
+  const isOffline = Boolean(
+    !sessionQuery.isPending &&
+      (sessionQuery.isError ||
+        (sessionQuery.data &&
+          !sessionQuery.data.ok &&
+          sessionQuery.data.error?.code === "BACKEND_UNREACHABLE"))
+  );
+
+  // Auto-retry on window online event
   useEffect(() => {
-    if (sessionQuery.isPending) {
+    if (!isOffline) return;
+
+    const handleOnline = () => {
+      void sessionQuery.refetch();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [isOffline, sessionQuery]);
+
+  // Background polling retry (every 5 seconds)
+  useEffect(() => {
+    if (!isOffline) return;
+
+    const interval = setInterval(() => {
+      void sessionQuery.refetch();
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isOffline, sessionQuery]);
+
+  useEffect(() => {
+    if (sessionQuery.isPending || isOffline) {
       return;
     }
 
@@ -68,6 +103,7 @@ export const useAuthSession = () => {
     sessionQuery.data,
     sessionQuery.isError,
     sessionQuery.isPending,
+    isOffline,
     setStatus,
   ]);
 
@@ -78,7 +114,11 @@ export const useAuthSession = () => {
 
   return {
     appVersion: appVersionQuery.data ?? "-",
-    isBooting: sessionQuery.isPending || appVersionQuery.isPending,
+    isBooting: (sessionQuery.isPending || appVersionQuery.isPending) && !isOffline,
+    isOffline,
+    retryConnection: () => {
+      void sessionQuery.refetch();
+    },
     session,
   };
 };

@@ -498,7 +498,8 @@ export const useDirectMessages = ({
 
   useEffect(() => {
     const shouldStream =
-      workspaceSection === "users" && sortedPeerUserIds.length > 0;
+      (workspaceSection === "users" || workspaceSection === "lobbies" || workspaceSection === "settings") &&
+      sortedPeerUserIds.length > 0;
     streamsWantedRef.current = shouldStream;
 
     if (!shouldStream) {

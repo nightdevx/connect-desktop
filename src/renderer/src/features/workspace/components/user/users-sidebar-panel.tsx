@@ -101,21 +101,44 @@ export function UsersSidebarPanel({
 
         {filteredUsers.map((user) => {
           const unreadCount = unreadByUserId[user.userId] ?? 0;
+          const isSelected = selectedUserId === user.userId;
+          const isUnread = unreadCount > 0 && !isSelected;
+
+          const itemStyle: React.CSSProperties = {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 16px",
+            margin: "2px 8px",
+            borderRadius: "8px",
+            transition: "all 0.2s ease",
+            ...(isUnread
+              ? {
+                  background: "rgba(59, 130, 246, 0.08)",
+                  borderLeft: "3px solid #3b82f6",
+                  borderRadius: "0 8px 8px 0",
+                }
+              : {}),
+          };
+
+          const nameStyle: React.CSSProperties = {
+            margin: 0,
+            fontSize: "13px",
+            fontWeight: isSelected ? "500" : isUnread ? "700" : "500",
+            color: isSelected ? "#000000" : isUnread ? "#ffffff" : "#f5f5f5",
+          };
+
+          const statusStyle: React.CSSProperties = {
+            fontSize: "11px",
+            color: isSelected ? "rgba(0,0,0,0.6)" : isUnread ? "#93c5fd" : "rgba(255,255,255,0.4)",
+          };
 
           return (
             <li
               key={user.userId}
-              className={`ct-list-item clickable ${selectedUserId === user.userId ? "active" : ""}`}
+              className={`ct-list-item clickable ${isSelected ? "active" : ""}`}
               onClick={() => onUserSelect(user.userId)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 16px",
-                margin: "2px 8px",
-                borderRadius: "8px",
-                transition: "all 0.2s ease",
-              }}
+              style={itemStyle}
             >
               <div className="ct-list-user" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div
@@ -154,10 +177,10 @@ export function UsersSidebarPanel({
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  <p style={{ margin: 0, fontSize: "13px", fontWeight: "500", color: selectedUserId === user.userId ? "#000000" : "#f5f5f5" }}>
+                  <p style={nameStyle}>
                     {user.displayName || user.username}
                   </p>
-                  <span style={{ fontSize: "11px", color: selectedUserId === user.userId ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.4)" }}>
+                  <span style={statusStyle}>
                     {getUserStatusLabel(user.appOnline)}
                   </span>
                 </div>
@@ -168,8 +191,8 @@ export function UsersSidebarPanel({
                   count={unreadCount}
                   overflowCount={99}
                   style={{
-                    backgroundColor: selectedUserId === user.userId ? "#000000" : "#ffffff",
-                    color: selectedUserId === user.userId ? "#ffffff" : "#000000",
+                    backgroundColor: isSelected ? "#000000" : "#3b82f6",
+                    color: "#ffffff",
                     fontWeight: "700",
                     fontSize: "10px",
                     boxShadow: "none",

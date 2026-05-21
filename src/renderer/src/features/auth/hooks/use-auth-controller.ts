@@ -16,6 +16,8 @@ export const useAuthController = () => {
     statusTone,
     appVersion: sessionState.appVersion,
     isBooting: sessionState.isBooting,
+    isOffline: sessionState.isOffline,
+    retryConnection: sessionState.retryConnection,
     isLoading: actionState.isLoading,
     isLoggingOut: actionState.isLoggingOut,
     session: sessionState.session,

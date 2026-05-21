@@ -29,6 +29,8 @@ interface LobbyStageViewProps {
   selectedAudioOutputDeviceId: string | null;
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
+  isRailVisible: boolean;
+  setIsRailVisible: (visible: boolean) => void;
 }
 
 export function LobbyStageView({
@@ -50,21 +52,18 @@ export function LobbyStageView({
   selectedAudioOutputDeviceId,
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
+  isRailVisible,
+  setIsRailVisible,
 }: LobbyStageViewProps) {
-  const [isRailVisible, setIsRailVisible] = useState(true);
-
-  useEffect(() => {
-    setIsRailVisible(true);
-  }, [focusedParticipantId]);
 
   return (
     <div
-      className={`ct-lobby-stage-grid ${focusedParticipantSlot ? "focused-layout" : ""}`}
+      className={`ct-lobby-stage-grid ${focusedParticipantSlot ? "focused-layout" : ""} ${!isRailVisible ? "full-stage-mode" : ""}`}
       style={stageLayoutStyle}
     >
       {focusedParticipantSlot ? (
         <>
-          <div className="ct-lobby-focused-slot">
+          <div className={`ct-lobby-focused-slot ${!isRailVisible ? "full-stage" : ""}`}>
             <LobbyParticipantTile
               key={focusedParticipantSlot.slotId}
               participant={focusedParticipantSlot.participant}

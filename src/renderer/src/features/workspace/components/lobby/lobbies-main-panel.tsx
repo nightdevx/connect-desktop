@@ -119,6 +119,7 @@ export function LobbiesMainPanel({
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
+  const [isRailVisible, setIsRailVisible] = useState(true);
   const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
@@ -144,8 +145,15 @@ export function LobbiesMainPanel({
     activeLobbyId,
   });
 
+  const effectiveParticipantCount = useMemo(() => {
+    if (focusedParticipantId && !isRailVisible) {
+      return 1;
+    }
+    return stageParticipantSlots.length;
+  }, [focusedParticipantId, isRailVisible, stageParticipantSlots.length]);
+
   const { stagePanelRef, stageLayoutStyle } = useLobbyStageLayout(
-    stageParticipantSlots.length,
+    effectiveParticipantCount,
     isLobbyChatOpen,
   );
 
@@ -155,7 +163,12 @@ export function LobbiesMainPanel({
     setFocusedParticipantId(null);
     setContextMenuParticipantId(null);
     setContextMenuPosition(null);
+    setIsRailVisible(true);
   }, [activeLobbyId]);
+
+  useEffect(() => {
+    setIsRailVisible(true);
+  }, [focusedParticipantId]);
 
   useEffect(() => {
     if (!activeLobbyId) return;
@@ -305,6 +318,8 @@ export function LobbiesMainPanel({
               selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
               onSelectAudioInputDevice={onSelectAudioInputDevice}
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+              isRailVisible={isRailVisible}
+              setIsRailVisible={setIsRailVisible}
             />
 
             {/* Bottom Actions Toolbar */}
