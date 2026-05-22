@@ -20,6 +20,10 @@ import {
   lobbyMessageSendSchema,
   lobbyMessageDeleteSchema,
   liveKitTokenSchema,
+  initiateCallSchema,
+  acceptCallSchema,
+  rejectCallSchema,
+  cancelCallSchema,
 } from "../validators";
 
 export function registerLobbyHandlers(): void {
@@ -263,4 +267,53 @@ export function registerLobbyHandlers(): void {
       return fail(error);
     }
   });
+
+  ipcMain.handle("desktop:call-initiate", async (_event, payload: unknown) => {
+    try {
+      const parsed = initiateCallSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.initiateCall(accessToken, parsed.targetUserId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:call-accept", async (_event, payload: unknown) => {
+    try {
+      const parsed = acceptCallSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.acceptCall(accessToken, parsed.callId, parsed.callerId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:call-reject", async (_event, payload: unknown) => {
+    try {
+      const parsed = rejectCallSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.rejectCall(accessToken, parsed.callId, parsed.callerId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:call-cancel", async (_event, payload: unknown) => {
+    try {
+      const parsed = cancelCallSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.cancelCall(accessToken, parsed.callId, parsed.targetUserId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
 }
+

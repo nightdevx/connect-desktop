@@ -144,6 +144,17 @@ export type UserDirectoryStreamEvent =
       at?: string;
     }
   | {
+      type: "incoming-call" | "call-accepted" | "call-rejected" | "call-cancelled";
+      callPayload: {
+        type: string;
+        callId: string;
+        callerId: string;
+        callerName: string;
+        targetUserId: string;
+      };
+      at?: string;
+    }
+  | {
       type: "system-error";
       code: string;
       message: string;
@@ -265,6 +276,21 @@ export interface DesktopApi {
   createLiveKitToken: (payload?: {
     room?: string;
   }) => Promise<DesktopResult<LiveKitTokenPayload>>;
+  initiateCall: (payload: {
+    targetUserId: string;
+  }) => Promise<DesktopResult<{ callId: string }>>;
+  acceptCall: (payload: {
+    callId: string;
+    callerId: string;
+  }) => Promise<DesktopResult<{ ok: boolean }>>;
+  rejectCall: (payload: {
+    callId: string;
+    callerId: string;
+  }) => Promise<DesktopResult<{ ok: boolean }>>;
+  cancelCall: (payload: {
+    callId: string;
+    targetUserId: string;
+  }) => Promise<DesktopResult<{ ok: boolean }>>;
   listScreenCaptureSources: () => Promise<
     DesktopResult<{ sources: ScreenCaptureSourceDescriptor[] }>
   >;

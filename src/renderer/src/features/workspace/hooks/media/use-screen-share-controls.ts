@@ -69,6 +69,7 @@ export const useScreenShareControls = ({
 
   const syncLobbyMediaState = useCallback(
     async (lobbyId: string): Promise<void> => {
+      if (lobbyId.startsWith("call_")) return;
       if (screenEnabled) {
         const result = await workspaceService.setLobbyScreenSharing({
           lobbyId,
@@ -200,7 +201,7 @@ export const useScreenShareControls = ({
           void liveKitSessionRef.current?.unpublishScreen();
           patchLobbyMemberState(currentUserId, { screenSharing: false });
 
-          if (latestLobbyID) {
+          if (latestLobbyID && !latestLobbyID.startsWith("call_")) {
             void workspaceService.setLobbyScreenSharing({
               lobbyId: latestLobbyID,
               enabled: false,
@@ -216,16 +217,18 @@ export const useScreenShareControls = ({
       setScreenEnabled(true);
       patchLobbyMemberState(currentUserId, { screenSharing: true });
 
-      const result = await workspaceService.setLobbyScreenSharing({
-        lobbyId,
-        enabled: true,
-      });
+      if (!lobbyId.startsWith("call_")) {
+        const result = await workspaceService.setLobbyScreenSharing({
+          lobbyId,
+          enabled: true,
+        });
 
-      if (!result.ok) {
-        setStatus(
-          `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-          "warn"
-        );
+        if (!result.ok) {
+          setStatus(
+            `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            "warn"
+          );
+        }
       }
 
       setIsScreenShareModalOpen(false);
@@ -262,17 +265,19 @@ export const useScreenShareControls = ({
       void liveKitSessionRef.current?.unpublishScreen();
       patchLobbyMemberState(currentUserId, { screenSharing: false });
 
-      void workspaceService.setLobbyScreenSharing({
-        lobbyId,
-        enabled: false,
-      }).then((result) => {
-        if (!result.ok) {
-          setStatus(
-            `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-            "warn"
-          );
-        }
-      });
+      if (!lobbyId.startsWith("call_")) {
+        void workspaceService.setLobbyScreenSharing({
+          lobbyId,
+          enabled: false,
+        }).then((result) => {
+          if (!result.ok) {
+            setStatus(
+              `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              "warn"
+            );
+          }
+        });
+      }
 
       return;
     }

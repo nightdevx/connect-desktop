@@ -17,7 +17,9 @@ import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
+  isPlaceholder?: boolean;
 }
+
 
 interface LobbyParticipantTileProps {
   participant: LobbyParticipantView;
@@ -174,13 +176,15 @@ export function LobbyParticipantTile({
         isSelected ? "selected" : "",
         isFocusedLayout ? "focused" : "",
         isCompact ? "compact" : "",
+        participant.isPlaceholder ? "ct-call-placeholder-pulsing" : "",
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label={participant.username}
       aria-pressed={!participant.isLocalUser && isSelected ? true : undefined}
       onContextMenu={onContextMenu}
-      onClick={!participant.isLocalUser ? onActivate : undefined}
+      onClick={!participant.isLocalUser && !participant.isPlaceholder ? onActivate : undefined}
+
       onDoubleClick={handleDoubleClick}
       title={
         participant.isLocalUser

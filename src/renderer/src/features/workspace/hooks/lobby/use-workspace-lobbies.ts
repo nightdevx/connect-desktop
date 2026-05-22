@@ -211,6 +211,29 @@ export function useWorkspaceLobbies({
       const attempt = activeLobbyReconnectAttemptRef.current;
       activeLobbyReconnectInFlightRef.current = true;
 
+      const isCallRoom = targetLobbyID.startsWith("call_");
+
+      if (isCallRoom) {
+        void performPostJoinSynchronization(targetLobbyID)
+          .then(() => {
+            activeLobbyReconnectAttemptRef.current = 0;
+            if (attempt > 0 || reason !== "lobby-state-probe") {
+              setStatus("Arama bağlantısı yeniden kuruldu", "ok");
+            }
+          })
+          .catch((error: unknown) => {
+            activeLobbyReconnectAttemptRef.current = attempt + 1;
+            if (shouldEmitReconnectStatus("activeLobby", 10_000)) {
+              setStatus(`Arama bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
+            }
+            scheduleActiveLobbyReconnect(reason);
+          })
+          .finally(() => {
+            activeLobbyReconnectInFlightRef.current = false;
+          });
+        return;
+      }
+
       void workspaceService.joinLobby({ lobbyId: targetLobbyID })
         .then(async (result) => {
           if (!result.ok) {

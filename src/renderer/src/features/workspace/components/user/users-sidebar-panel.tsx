@@ -1,7 +1,8 @@
 import { Input, Segmented, Badge } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined, PhoneOutlined } from "@ant-design/icons";
 import type { UserDirectoryEntry } from "@shared/auth-contracts";
 import type { UseWorkspaceUsersResult } from "../../hooks/user/use-workspace-users";
+import type { CallSessionState } from "../../hooks/user/use-call-session";
 import {
   getApiErrorMessage,
   getDisplayInitials,
@@ -18,6 +19,7 @@ interface UsersSidebarPanelProps {
   selectedUserId: string | null;
   onUserSelect: (userId: string) => void;
   unreadByUserId: Record<string, number>;
+  callState?: CallSessionState;
 }
 
 export function UsersSidebarPanel({
@@ -30,9 +32,22 @@ export function UsersSidebarPanel({
   selectedUserId,
   onUserSelect,
   unreadByUserId,
+  callState,
 }: UsersSidebarPanelProps) {
   return (
     <>
+      <style>{`
+        @keyframes callIconPulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(0.9);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.15);
+          }
+        }
+      `}</style>
       <div className="ct-users-toolbar" style={{ padding: "12px 16px 8px 16px" }}>
         <Input
           placeholder="İsim veya kullanıcı adı ara..."
@@ -103,6 +118,7 @@ export function UsersSidebarPanel({
           const unreadCount = unreadByUserId[user.userId] ?? 0;
           const isSelected = selectedUserId === user.userId;
           const isUnread = unreadCount > 0 && !isSelected;
+          const isCalling = callState?.status === "incoming" && callState.callerId === user.userId;
 
           const itemStyle: React.CSSProperties = {
             display: "flex",
@@ -179,6 +195,18 @@ export function UsersSidebarPanel({
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <p style={nameStyle}>
                     {user.displayName || user.username}
+                    {isCalling && (
+                      <PhoneOutlined
+                        style={{
+                          color: "#22c55e",
+                          marginLeft: "8px",
+                          fontSize: "12px",
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                          animation: "callIconPulse 1.2s infinite ease-in-out",
+                        }}
+                      />
+                    )}
                   </p>
                   <span style={statusStyle}>
                     {getUserStatusLabel(user.appOnline)}

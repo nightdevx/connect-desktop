@@ -13,7 +13,8 @@ import type {
   SettingsSection,
   WorkspaceSection,
 } from "@/store/ui-store";
-import type { UseDirectMessagesResult } from "../../hooks";
+import type { UseDirectMessagesResult, CallSessionState } from "../../hooks";
+import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import { LobbiesMainPanel } from "../lobby";
 import { SettingsMainPanel } from "../settings";
 import type {
@@ -124,6 +125,14 @@ interface WorkspaceMainPanelProps {
   };
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
+  onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
+  callState: CallSessionState;
+  ongoingCall: OngoingCallInfo | null;
+  onAcceptCall: () => void;
+  onRejectCall: () => void;
+  onCancelCall: () => void;
+  onEndActiveCall: () => void;
+  onRejoinCall: () => void;
 }
 
 export function WorkspaceMainPanel({
@@ -185,6 +194,14 @@ export function WorkspaceMainPanel({
   directMessagesProps,
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
+  onInitiateCall,
+  callState,
+  ongoingCall,
+  onAcceptCall,
+  onRejectCall,
+  onCancelCall,
+  onEndActiveCall,
+  onRejoinCall,
 }: WorkspaceMainPanelProps) {
   const hideWorkspaceIntro =
     (workspaceSection === "users" && selectedUser !== null) ||
@@ -220,6 +237,37 @@ export function WorkspaceMainPanel({
             onDeleteMessage={directMessagesProps.deleteDirectMessage}
             deletingMessageId={directMessagesProps.deletingDirectMessageId}
             isSendingMessage={directMessagesProps.isSendingMessage}
+            onInitiateCall={onInitiateCall}
+            micEnabled={micEnabled}
+            headphoneEnabled={headphoneEnabled}
+            cameraEnabled={cameraEnabled}
+            screenEnabled={screenEnabled}
+            localCameraStream={localCameraStream}
+            localScreenStream={localScreenStream}
+            remoteParticipantStreams={remoteParticipantStreams}
+            remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
+            activeSpeakerIds={activeSpeakerIds}
+            avatarByUserId={avatarByUserId}
+            lobbyMembers={lobbyMembers}
+            onToggleMic={onToggleMic}
+            onToggleHeadphone={onToggleHeadphone}
+            onToggleScreen={onToggleScreen}
+            onToggleCamera={onToggleCamera}
+            audioInputDevices={audioInputDevices}
+            audioOutputDevices={audioOutputDevices}
+            selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
+            selectedAudioOutputDeviceId={audioPreferences.selectedAudioOutputDeviceId}
+            onSelectAudioInputDevice={onSelectAudioInputDevice}
+            onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+            isLeavingLobby={isLeavingLobby}
+            activeLobbyId={activeLobbyId}
+            callState={callState}
+            ongoingCall={ongoingCall}
+            onAcceptCall={onAcceptCall}
+            onRejectCall={onRejectCall}
+            onCancelCall={onCancelCall}
+            onEndActiveCall={onEndActiveCall}
+            onRejoinCall={onRejoinCall}
           />
         )}
 

@@ -107,3 +107,23 @@ export const appPreferencesSchema = z.object({
   minimizeToTray: z.boolean().optional(),
   closeToTray: z.boolean().optional(),
 });
+
+export const initiateCallSchema = z.object({
+  targetUserId: z.string().min(2).max(128),
+});
+
+export const acceptCallSchema = z.object({
+  callId: z.string().min(2).max(128),
+  callerId: z.string().min(2).max(128),
+});
+
+export const rejectCallSchema = z.object({
+  callId: z.string().min(2).max(128),
+  callerId: z.string().min(2).max(128),
+});
+
+export const cancelCallSchema = z.object({
+  callId: z.string().min(2).max(128),
+  targetUserId: z.string().min(2).max(128),
+});
+

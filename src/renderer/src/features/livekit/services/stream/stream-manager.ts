@@ -502,6 +502,8 @@ export class LiveKitStreamManager {
           await participant.publishTrack(audioTrack, {
             name: "screen_audio",
             source: Track.Source.ScreenShareAudio,
+            dtx: false,
+            red: false,
           });
           logLiveKitDebug("stream-manager", "screen-audio-published-success", {
             trackId: audioTrack.id,

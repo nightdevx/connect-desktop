@@ -951,3 +951,51 @@
   color: var(--ct-text-primary);
   background: var(--ct-accent-soft);
 }
+
+/* Direct Message Call Panel Overrides */
+.ct-chat-panel .ct-lobby-stage-panel {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.ct-chat-panel .ct-lobby-stage-grid {
+  padding: 20px 18px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  align-content: center !important;
+}
+
+.ct-chat-panel .ct-lobby-stage-actions {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) !important;
+  bottom: 20px !important;
+}
+
+.ct-call-placeholder-pulsing {
+  border-style: dashed !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: linear-gradient(
+    150deg,
+    rgba(18, 18, 18, 0.35),
+    rgba(8, 8, 8, 0.45)
+  ) !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+}
+
+.ct-call-placeholder-pulsing .ct-lobby-tile-avatar,
+.ct-call-placeholder-pulsing .ct-lobby-tile-center-logo {
+  animation: callAvatarDimPulse 2s infinite ease-in-out !important;
+  filter: grayscale(80%) brightness(60%) !important;
+}
+
+.ct-call-placeholder-pulsing .ct-lobby-tile-userline p {
+  color: var(--ct-text-muted) !important;
+  font-style: italic !important;
+}
+

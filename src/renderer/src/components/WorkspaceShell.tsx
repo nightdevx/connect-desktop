@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { UserRole } from "../../../shared/auth-contracts";
+import type { UserRole, UserDirectoryEntry } from "../../../shared/auth-contracts";
 import {
   CameraShareModal,
   WorkspaceMainPanel,
   WorkspaceRail,
   WorkspaceSidebar,
+  CallOverlay,
 } from "../features/workspace/components";
 import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
 import {
@@ -20,6 +21,7 @@ import {
   useWorkspaceAudioCues,
   useWorkspaceLobbies,
   useNetworkReconnect,
+  useCallSession,
 } from "../features/workspace/hooks";
 import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
@@ -250,6 +252,31 @@ function WorkspaceShell({
     selectedUser,
   } = useWorkspaceUsers({ currentUsername, workspaceSection });
 
+  // ----- 1-TO-1 CALL SESSION -----
+  const {
+    callState,
+    ongoingCall,
+    setOngoingCall,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    cancelCall,
+    endActiveCall,
+    rejoinCall,
+  } = useCallSession({
+    currentUserId,
+    currentUsername,
+    setActiveLobbyId,
+    setStatus,
+  });
+
+  useEffect(() => {
+    if (callState.status === "active" && callState.peerUser) {
+      setWorkspaceSection("users");
+      setSelectedUserId(callState.peerUser.userId);
+    }
+  }, [callState.status, callState.peerUser, setWorkspaceSection, setSelectedUserId]);
+
   const directMessagePeerUserIds = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return [];
     return usersQuery.data.data.users
@@ -342,6 +369,56 @@ function WorkspaceShell({
     setStatus,
     patchLobbyMemberState,
   });
+
+  // ----- 1-TO-1 CALL MEMBERS -----
+  const callMembers = useMemo(() => {
+    if (!activeLobbyId?.startsWith("call_") || !callState.peerUser) return [];
+
+    const localMember = {
+      userId: currentUserId,
+      username: currentUsername,
+      joinedAt: new Date().toISOString(),
+      muted: !micEnabled,
+      deafened: !headphoneEnabled,
+      speaking: activeSpeakerIds.includes(currentUserId),
+      cameraEnabled,
+      screenSharing: screenEnabled,
+    };
+
+    // Only show peer tile if they are actually connected to LiveKit.
+    // When peer does a soft-leave they disconnect from LiveKit, so their entry
+    // disappears from remoteParticipantStreams — we must not render them as present.
+    const peerActuallyInRoom = !!remoteParticipantStreams[callState.peerUser.userId];
+    if (!peerActuallyInRoom) {
+      return [localMember];
+    }
+
+    return [
+      localMember,
+      {
+        userId: callState.peerUser.userId,
+        username: callState.peerUser.username,
+        joinedAt: new Date().toISOString(),
+        muted: false,
+        deafened: false,
+        speaking: activeSpeakerIds.includes(callState.peerUser.userId),
+        cameraEnabled: remoteParticipantStreams[callState.peerUser.userId]?.cameraEnabled ?? false,
+        screenSharing: remoteParticipantStreams[callState.peerUser.userId]?.screenEnabled ?? false,
+      }
+    ];
+  }, [
+    activeLobbyId,
+    callState.peerUser,
+    currentUserId,
+    currentUsername,
+    micEnabled,
+    headphoneEnabled,
+    cameraEnabled,
+    screenEnabled,
+    remoteParticipantStreams,
+    activeSpeakerIds,
+  ]);
+
 
   // ----- PREFERENCE SYNC EFFECT -----
   const prevAudioPreferencesRef = useRef(audioPreferences);
@@ -513,7 +590,7 @@ function WorkspaceShell({
   useWorkspaceAudioCues({
     activeLobbyId,
     currentUserId,
-    lobbyMembers,
+    lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers,
   });
 
   // ----- LOBBY ACTIONS -----
@@ -543,6 +620,86 @@ function WorkspaceShell({
     resetLocalMediaCapture,
     liveKitSessionRef,
   });
+
+  // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
+  useEffect(() => {
+    if (activeLobbyId && activeLobbyId.startsWith("call_")) {
+      console.log(`[WorkspaceShell] Active call lobby detected: ${activeLobbyId}. Auto-connecting to LiveKit.`);
+      performPostJoinSynchronization(activeLobbyId).catch((error) => {
+        console.error("[WorkspaceShell] Automatic call LiveKit synchronization failed:", error);
+      });
+    }
+  }, [activeLobbyId, performPostJoinSynchronization]);
+
+  // ----- MUTUAL EXCLUSION & TRANSITIONS -----
+  const ensureCleanRoomTransition = useCallback(async (nextRoomId: string | null) => {
+    const currentRoomId = activeLobbyRef.current;
+    if (!currentRoomId) return;
+    if (currentRoomId === nextRoomId) return;
+
+    console.log(`[WorkspaceShell] Mutual exclusion: Transitioning from ${currentRoomId} to ${nextRoomId}. Cleaning up previous room.`);
+    
+    if (currentRoomId.startsWith("call_")) {
+      // When transitioning away from a call room, treat as hard end
+      // (the user is actively switching context, so we should notify the peer)
+      const peerUserId = callState.peerUser?.userId;
+      const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
+      await endActiveCall(peerInRoom);
+      resetLocalMediaCapture();
+      try {
+        await liveKitSessionRef.current?.disconnect();
+      } catch (e) {}
+    } else {
+      await leaveActiveLobby();
+    }
+  }, [callState.peerUser, remoteParticipantStreams, endActiveCall, leaveActiveLobby, resetLocalMediaCapture, liveKitSessionRef]);
+
+
+  const handleJoinLobby = useCallback(async (lobbyId: string) => {
+    await ensureCleanRoomTransition(lobbyId);
+    await joinLobby(lobbyId);
+  }, [ensureCleanRoomTransition, joinLobby]);
+
+  const handleInitiateCall = useCallback(async (targetUser: UserDirectoryEntry) => {
+    await ensureCleanRoomTransition(null);
+    await initiateCall(targetUser);
+  }, [ensureCleanRoomTransition, initiateCall]);
+
+  const handleAcceptCall = useCallback(async () => {
+    await ensureCleanRoomTransition(null);
+    await acceptCall();
+  }, [ensureCleanRoomTransition, acceptCall]);
+
+  const handleRejoinCall = useCallback(async () => {
+    await ensureCleanRoomTransition(null);
+    await rejoinCall();
+  }, [ensureCleanRoomTransition, rejoinCall]);
+
+  const handleEndActiveCall = useCallback(async () => {
+    // Compute peerInRoom: if peer is in LiveKit room → soft leave (they can continue)
+    // If peer is NOT in the room → hard end (we're last, notify peer, write DM)
+    const peerUserId = callState.peerUser?.userId;
+    const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
+    await endActiveCall(peerInRoom);
+    resetLocalMediaCapture();
+    try {
+      await liveKitSessionRef.current?.disconnect();
+    } catch (e) {}
+  }, [callState.peerUser, remoteParticipantStreams, endActiveCall, resetLocalMediaCapture, liveKitSessionRef]);
+
+  const handleLeaveLobbyOrEndCall = useCallback(async () => {
+    if (activeLobbyId?.startsWith("call_")) {
+      const peerUserId = callState.peerUser?.userId;
+      const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
+      await endActiveCall(peerInRoom);
+      resetLocalMediaCapture();
+      try {
+        await liveKitSessionRef.current?.disconnect();
+      } catch (e) {}
+    } else {
+      await leaveActiveLobby();
+    }
+  }, [activeLobbyId, callState.peerUser, remoteParticipantStreams, endActiveCall, leaveActiveLobby, resetLocalMediaCapture, liveKitSessionRef]);
 
   const audioConnection = useWorkspaceAudioConnection({
     activeLobbyId,
@@ -575,9 +732,17 @@ function WorkspaceShell({
     });
   };
 
+  const unreadByPeerIdWithCalls = useMemo(() => {
+    const counts = { ...unreadByPeerId };
+    if (callState.status === "incoming" && callState.callerId) {
+      counts[callState.callerId] = (counts[callState.callerId] ?? 0) + 1;
+    }
+    return counts;
+  }, [unreadByPeerId, callState.status, callState.callerId]);
+
   const totalUnreadDirectMessages = useMemo(() => {
-    return Object.values(unreadByPeerId).reduce((sum, count) => sum + count, 0);
-  }, [unreadByPeerId]);
+    return Object.values(unreadByPeerIdWithCalls).reduce((sum, count) => sum + count, 0);
+  }, [unreadByPeerIdWithCalls]);
 
   return (
     <section className="ct-workspace-shell">
@@ -599,7 +764,8 @@ function WorkspaceShell({
           filteredUsers,
           selectedUserId,
           setSelectedUserId,
-          unreadByUserId: unreadByPeerId,
+          unreadByUserId: unreadByPeerIdWithCalls,
+          callState: callState,
         }}
         lobbiesProps={{
           lobbiesQuery,
@@ -608,7 +774,7 @@ function WorkspaceShell({
           avatarByUserId,
           activeLobbyId,
           joiningLobbyId,
-          onJoinLobby: joinLobby,
+          onJoinLobby: handleJoinLobby,
           onCreateLobby: createLobby,
           onRenameLobby: renameLobby,
           onDeleteLobby: deleteLobby,
@@ -637,7 +803,7 @@ function WorkspaceShell({
           onSelectAudioOutputDevice: handleSelectAudioOutputDevice,
           onToggleMic: handleMicToggle,
           onToggleHeadphone: handleHeadphoneToggle,
-          onDisconnect: leaveActiveLobby,
+          onDisconnect: handleLeaveLobbyOrEndCall,
         }}
         audioConnectionProps={audioConnection}
         audioProcessingProps={{
@@ -684,9 +850,13 @@ function WorkspaceShell({
         onSaveStreamPreferences={saveStreamPreferences}
         lobbies={lobbies}
         activeLobbyId={activeLobbyId}
-        activeLobbyName={activeLobby?.name ?? null}
+        activeLobbyName={
+          activeLobbyId?.startsWith("call_")
+            ? (callState.peerUser?.displayName || "Arama")
+            : (activeLobby?.name ?? null)
+        }
         joiningLobbyId={joiningLobbyId}
-        onJoinLobby={joinLobby}
+        onJoinLobby={handleJoinLobby}
         onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
         onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
         onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
@@ -694,7 +864,7 @@ function WorkspaceShell({
         onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}
         lobbyStateQuery={lobbyStateQuery}
         lobbyMessagesQuery={lobbyMessagesQuery}
-        lobbyMembers={lobbyMembers}
+        lobbyMembers={activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers}
         lobbyMessages={lobbyMessages}
         lobbyMessageDraft={lobbyMessageDraft}
         setLobbyMessageDraft={setLobbyMessageDraft}
@@ -707,7 +877,7 @@ function WorkspaceShell({
         onToggleHeadphone={handleHeadphoneToggle}
         onToggleScreen={handleScreenToggle}
         onToggleCamera={handleCameraToggle}
-        onLeaveLobby={leaveActiveLobby}
+        onLeaveLobby={handleLeaveLobbyOrEndCall}
         selectedUser={selectedUser}
         onCopyUsername={handleCopyUsername}
         directMessagesProps={{
@@ -722,6 +892,21 @@ function WorkspaceShell({
         }}
         onSelectAudioInputDevice={handleSelectAudioInputDevice}
         onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
+        onInitiateCall={handleInitiateCall}
+        callState={callState}
+        ongoingCall={ongoingCall}
+        onAcceptCall={handleAcceptCall}
+        onRejectCall={rejectCall}
+        onCancelCall={cancelCall}
+        onEndActiveCall={handleEndActiveCall}
+        onRejoinCall={handleRejoinCall}
+      />
+
+      <CallOverlay
+        callState={callState}
+        onAccept={handleAcceptCall}
+        onReject={rejectCall}
+        onCancel={cancelCall}
       />
 
       <ScreenShareModal

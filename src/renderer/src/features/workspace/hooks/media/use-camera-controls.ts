@@ -44,6 +44,7 @@ export const useCameraControls = ({
 
   const syncLobbyMediaState = useCallback(
     async (lobbyId: string): Promise<void> => {
+      if (lobbyId.startsWith("call_")) return;
       if (cameraEnabled) {
         const result = await workspaceService.setLobbyCameraEnabled({
           lobbyId,
@@ -139,7 +140,7 @@ export const useCameraControls = ({
           void liveKitSessionRef.current?.unpublishCamera();
           patchLobbyMemberState(currentUserId, { cameraEnabled: false });
 
-          if (latestLobbyId) {
+          if (latestLobbyId && !latestLobbyId.startsWith("call_")) {
             void workspaceService.setLobbyCameraEnabled({
               lobbyId: latestLobbyId,
               enabled: false,
@@ -153,16 +154,18 @@ export const useCameraControls = ({
       setCameraEnabled(true);
       patchLobbyMemberState(currentUserId, { cameraEnabled: true });
 
-      const result = await workspaceService.setLobbyCameraEnabled({
-        lobbyId,
-        enabled: true,
-      });
+      if (!lobbyId.startsWith("call_")) {
+        const result = await workspaceService.setLobbyCameraEnabled({
+          lobbyId,
+          enabled: true,
+        });
 
-      if (!result.ok) {
-        setStatus(
-          `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-          "warn"
-        );
+        if (!result.ok) {
+          setStatus(
+            `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            "warn"
+          );
+        }
       }
 
       setIsCameraShareModalOpen(false);
@@ -196,17 +199,19 @@ export const useCameraControls = ({
       void liveKitSessionRef.current?.unpublishCamera();
       patchLobbyMemberState(currentUserId, { cameraEnabled: false });
 
-      void workspaceService.setLobbyCameraEnabled({
-        lobbyId,
-        enabled: false,
-      }).then((result) => {
-        if (!result.ok) {
-          setStatus(
-            `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-            "warn"
-          );
-        }
-      });
+      if (!lobbyId.startsWith("call_")) {
+        void workspaceService.setLobbyCameraEnabled({
+          lobbyId,
+          enabled: false,
+        }).then((result) => {
+          if (!result.ok) {
+            setStatus(
+              `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              "warn"
+            );
+          }
+        });
+      }
 
       return;
     }

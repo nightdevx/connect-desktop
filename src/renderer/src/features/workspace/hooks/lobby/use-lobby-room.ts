@@ -61,7 +61,7 @@ export const useLobbyRoom = ({
       workspaceService.getLobbyState({
         lobbyId: activeLobbyId as string,
       }),
-    enabled: workspaceSection === "lobbies" && Boolean(activeLobbyId),
+    enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
     refetchInterval: 1_200,
     refetchIntervalInBackground: true,
     staleTime: 600,
@@ -74,7 +74,7 @@ export const useLobbyRoom = ({
         lobbyId: activeLobbyId as string,
         limit: 150,
       }),
-    enabled: workspaceSection === "lobbies" && Boolean(activeLobbyId),
+    enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
     refetchInterval: 3_000,
     staleTime: 1_500,
   });

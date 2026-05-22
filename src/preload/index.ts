@@ -109,6 +109,14 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-screen", payload),
   createLiveKitToken: async (payload) =>
     ipcRenderer.invoke("desktop:livekit-token", payload),
+  initiateCall: async (payload) =>
+    ipcRenderer.invoke("desktop:call-initiate", payload),
+  acceptCall: async (payload) =>
+    ipcRenderer.invoke("desktop:call-accept", payload),
+  rejectCall: async (payload) =>
+    ipcRenderer.invoke("desktop:call-reject", payload),
+  cancelCall: async (payload) =>
+    ipcRenderer.invoke("desktop:call-cancel", payload),
   listScreenCaptureSources: async () =>
     ipcRenderer.invoke("desktop:screen-capture-sources"),
   getLobbyState: async (payload) =>

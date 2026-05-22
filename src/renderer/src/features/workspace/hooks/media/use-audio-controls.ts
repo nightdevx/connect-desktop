@@ -32,10 +32,14 @@ export const useAudioControls = ({
 
   const syncLobbyAudioState = useCallback(
     async (lobbyId: string): Promise<void> => {
-      const updates: Array<Promise<void>> = [];
-
       // Ensure LiveKit session reflects current UI state immediately
       liveKitSessionRef.current?.setDeafened(!headphoneEnabled);
+
+      if (lobbyId.startsWith("call_")) {
+        return; // Bypass database sync for P2P calling
+      }
+
+      const updates: Array<Promise<void>> = [];
 
       if (!micEnabled) {
         updates.push(
@@ -103,16 +107,18 @@ export const useAudioControls = ({
             );
           });
 
-        void workspaceService
-          .setLobbyMuted({ lobbyId: activeLobbyId, muted: !next })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Mikrofon durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn"
-              );
-            }
-          });
+        if (!activeLobbyId.startsWith("call_")) {
+          void workspaceService
+            .setLobbyMuted({ lobbyId: activeLobbyId, muted: !next })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Mikrofon durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn"
+                );
+              }
+            });
+        }
       }
 
       return next;
@@ -137,12 +143,7 @@ export const useAudioControls = ({
       liveKitSessionRef.current?.setDeafened(!next);
 
       // 2. Auto-Mic Mute: If disabling headphones, also disable mic if it's currently on
-      // We check the 'previous' state of micEnabled here or use the state from the closure
       if (!next && micEnabled) {
-        // We delay this slightly or call it directly if handleMicToggle is stable
-        // Since handleMicToggle uses functional update, it's safe to call here
-        // but calling it inside another setState can be tricky in React.
-        // However, this is a user-initiated event handler, so it's generally fine.
         setTimeout(() => handleMicToggle(), 0);
       }
 
@@ -151,16 +152,18 @@ export const useAudioControls = ({
           deafened: !next,
         });
 
-        void workspaceService
-          .setLobbyDeafened({ lobbyId: activeLobbyId, deafened: !next })
-          .then((result) => {
-            if (!result.ok) {
-              setStatus(
-                `Kulaklik durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
-                "warn"
-              );
-            }
-          });
+        if (!activeLobbyId.startsWith("call_")) {
+          void workspaceService
+            .setLobbyDeafened({ lobbyId: activeLobbyId, deafened: !next })
+            .then((result) => {
+              if (!result.ok) {
+                setStatus(
+                  `Kulaklik durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                  "warn"
+                );
+              }
+            });
+        }
       }
 
       return next;

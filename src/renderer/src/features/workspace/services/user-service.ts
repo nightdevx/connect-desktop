@@ -66,6 +66,38 @@ export const userService = {
 
     return window.desktopApi.setWindowAttention(payload);
   },
+  initiateCall: (payload: { targetUserId: string }) => {
+    if (typeof window.desktopApi.initiateCall !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ callId: string }>,
+      );
+    }
+    return window.desktopApi.initiateCall(payload);
+  },
+  acceptCall: (payload: { callId: string; callerId: string }) => {
+    if (typeof window.desktopApi.acceptCall !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ ok: boolean }>,
+      );
+    }
+    return window.desktopApi.acceptCall(payload);
+  },
+  rejectCall: (payload: { callId: string; callerId: string }) => {
+    if (typeof window.desktopApi.rejectCall !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ ok: boolean }>,
+      );
+    }
+    return window.desktopApi.rejectCall(payload);
+  },
+  cancelCall: (payload: { callId: string; targetUserId: string }) => {
+    if (typeof window.desktopApi.cancelCall !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ ok: boolean }>,
+      );
+    }
+    return window.desktopApi.cancelCall(payload);
+  },
 };
 
 export default userService;

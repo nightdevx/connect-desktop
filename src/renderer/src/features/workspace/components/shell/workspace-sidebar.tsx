@@ -20,6 +20,7 @@ import type {
   WorkspaceSection,
 } from "@/store/ui-store";
 import type { UseWorkspaceUsersResult } from "../../hooks";
+import type { CallSessionState } from "../../hooks/user/use-call-session";
 import { LobbiesSidebarPanel } from "../lobby";
 import { QuickControls } from "../common";
 import { SettingsSidebarTabs } from "../settings";
@@ -38,6 +39,7 @@ interface WorkspaceSidebarProps {
     selectedUserId: string | null;
     setSelectedUserId: (value: string | null) => void;
     unreadByUserId: Record<string, number>;
+    callState?: CallSessionState;
   };
   lobbiesProps: {
     lobbiesQuery: UseQueryResult<
@@ -253,6 +255,7 @@ export function WorkspaceSidebar({
             selectedUserId={usersProps.selectedUserId}
             onUserSelect={usersProps.setSelectedUserId}
             unreadByUserId={usersProps.unreadByUserId}
+            callState={usersProps.callState}
           />
         )}
 

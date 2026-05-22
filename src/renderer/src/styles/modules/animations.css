@@ -57,3 +57,38 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+@keyframes callAvatarDimPulse {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+
+@keyframes bannerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ctaPulseAccept {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 10px rgba(34, 197, 94, 0.05);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 6px 15px rgba(34, 197, 94, 0.15);
+  }
+}
