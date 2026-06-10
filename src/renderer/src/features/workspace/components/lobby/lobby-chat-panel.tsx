@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input, Button, Tooltip, Spin, Alert } from "antd";
 import { SendOutlined, DeleteOutlined } from "@ant-design/icons";
 import type { UseQueryResult } from "@tanstack/react-query";
@@ -36,6 +36,27 @@ export function LobbyChatPanel({
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<
     string | null
   >(null);
+  
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom || lobbyMessages.length <= 1) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [lobbyMessages.length]);
 
   const showEmptyState =
     !lobbyMessagesQuery.isPending &&
@@ -46,7 +67,13 @@ export function LobbyChatPanel({
   return (
     <section className="ct-lobby-chat-panel" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div className="ct-chat-thread-box" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div className="ct-chat-messages" style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+        <div 
+          ref={messagesContainerRef}
+          className="ct-chat-messages" 
+          style={{ flex: 1, overflowY: "auto", padding: "16px" }}
+        >
+          <div className="ct-scroll-indicator top" />
+
           {lobbyMessagesQuery.isPending && (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", flexDirection: "column", gap: "10px", padding: "40px 0" }}>
               <Spin size="small" />
@@ -143,6 +170,15 @@ export function LobbyChatPanel({
               })}
             </div>
           )}
+
+          <div className="ct-scroll-indicator bottom" />
+          <button
+            type="button"
+            className="ct-scroll-to-bottom-btn"
+            onClick={scrollToBottom}
+          >
+            En Yeni Mesajlara Git
+          </button>
         </div>
 
         <div className="ct-chat-composer" style={{ padding: "12px 16px", background: "transparent" }}>

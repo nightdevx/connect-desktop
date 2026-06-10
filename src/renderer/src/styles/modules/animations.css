@@ -92,3 +92,21 @@
     box-shadow: 0 6px 15px rgba(34, 197, 94, 0.15);
   }
 }
+
+/* Custom View Transitions */
+.ct-sidebar {
+  view-transition-name: sidebar-panel;
+}
+
+.ct-main-panel {
+  view-transition-name: main-panel;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

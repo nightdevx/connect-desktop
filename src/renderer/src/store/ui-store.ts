@@ -29,9 +29,27 @@ export const useUiStore = create<UiState>((set) => ({
   statusTone: "warn",
   workspaceSection: "lobbies",
   settingsSection: "profile",
-  setActivePage: (page) => set({ activePage: page }),
+  setActivePage: (page) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => set({ activePage: page }));
+    } else {
+      set({ activePage: page });
+    }
+  },
   setStatus: (message, tone) =>
     set({ statusMessage: message, statusTone: tone }),
-  setWorkspaceSection: (section) => set({ workspaceSection: section }),
-  setSettingsSection: (section) => set({ settingsSection: section }),
+  setWorkspaceSection: (section) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => set({ workspaceSection: section }));
+    } else {
+      set({ workspaceSection: section });
+    }
+  },
+  setSettingsSection: (section) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => set({ settingsSection: section }));
+    } else {
+      set({ settingsSection: section });
+    }
+  },
 }));

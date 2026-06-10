@@ -1,29 +1,64 @@
-.ct-audio-device-dropdown .ant-dropdown-menu {
-  background: rgba(12, 12, 12, 0.98) !important;
-  backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 12px !important;
-  padding: 6px !important;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5) !important;
+.ct-audio-device-popover {
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--ct-border);
+  border-radius: 12px;
+  background: rgba(12, 12, 12, 0.97) !important;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  color: var(--ct-text-primary);
+  font-size: 12px;
+  min-width: 190px;
+  
+  /* CSS Anchor Positioning */
+  inset: auto;
+  position-area: block-start span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
+  z-index: 10000;
 }
 
-.ct-audio-device-dropdown .ant-dropdown-menu-item {
-  border-radius: 6px !important;
-  color: rgba(255, 255, 255, 0.65) !important;
-  font-size: 13px !important;
-  padding: 8px 12px !important;
-  transition: all 0.15s !important;
+.ct-audio-device-popover:popover-open {
+  display: block;
 }
 
-.ct-audio-device-dropdown .ant-dropdown-menu-item:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
+.ct-device-menu-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.ct-audio-device-dropdown .ct-device-menu-item-active {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
+.ct-device-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  transition: all 0.15s ease;
+  font-size: 13px;
+  user-select: none;
+}
+
+.ct-device-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ct-device-menu-item.active {
+  background: var(--ct-accent-soft) !important;
+  color: var(--ct-text-primary) !important;
+  border: 1px solid var(--ct-accent-strong);
+  font-weight: 600;
+}
+
+.ct-device-menu-divider {
+  height: 1px;
+  background: var(--ct-border);
+  margin: 4px 0;
+}
+
+.ct-device-menu-empty {
+  padding: 8px 12px;
+  color: var(--ct-text-muted);
+  font-size: 13px;
 }
 
 .ct-audio-device-item {

@@ -234,6 +234,32 @@
     border-color 0.18s ease,
     transform 0.18s ease,
     box-shadow 0.18s ease;
+  container-type: inline-size;
+  container-name: participant-tile;
+}
+
+/* Container Queries for Participant Tile */
+@container participant-tile (max-width: 250px) {
+  .ct-lobby-tile-avatar {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .ct-lobby-tile-center-logo .ant-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 14px !important;
+  }
+  .ct-lobby-tile-userline p {
+    font-size: 11px !important;
+  }
+  .ct-lobby-flag {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 4px !important;
+  }
+  .ct-lobby-tile-footer {
+    padding: 8px 10px !important;
+  }
 }
 
 .ct-lobby-participant-tile:not(.local-user) {
