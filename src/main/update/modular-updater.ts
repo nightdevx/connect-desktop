@@ -34,7 +34,7 @@ export interface InstallUpdateResponse {
 }
 
 const defaultStartupCheckDelayMs = 15_000;
-const defaultPeriodicCheckMs = 4 * 60 * 60 * 1_000;
+const defaultPeriodicCheckMs = 15 * 60 * 1_000;
 
 const resolveLogoDataUrl = (): string | null => {
   const candidates = [
@@ -428,7 +428,8 @@ export class ModularUpdater {
     this.initialized = true;
 
     if (!app.isPackaged) {
-      this.setSnapshot("disabled", "Geliştirme modunda güncelleme devre dışı");
+      // Set to idle so the user can test the manual check and see the UI in dev
+      this.setSnapshot("idle", "Geliştirme modu - güncelleme testi hazır");
       return;
     }
 
@@ -467,8 +468,11 @@ export class ModularUpdater {
 
   public async checkForUpdates(): Promise<CheckForUpdatesResponse> {
     if (!app.isPackaged) {
-      this.setSnapshot("disabled", "Geliştirme modunda güncelleme devre dışı");
-      return { requested: false, reason: "DEV_MODE" };
+      if (this.installing) {
+        return { requested: false, reason: "INSTALL_IN_PROGRESS" };
+      }
+      this.simulateDevUpdate();
+      return { requested: true };
     }
 
     if (this.installing) {
@@ -486,7 +490,33 @@ export class ModularUpdater {
 
   public async installDownloadedUpdate(): Promise<InstallUpdateResponse> {
     if (!app.isPackaged) {
-      return { accepted: false, reason: "DEV_MODE" };
+      if (this.installing) {
+        return { accepted: false, reason: "INSTALL_IN_PROGRESS" };
+      }
+
+      if (this.snapshot.phase !== "downloaded") {
+        return { accepted: false, reason: "UPDATE_NOT_READY" };
+      }
+
+      this.installing = true;
+      this.setSnapshot(
+        "installing",
+        "Güncelleme kuruluyor ve uygulama yeniden başlatılacak (Simülasyon)...",
+      );
+
+      setTimeout(() => {
+        this.installing = false;
+        this.setSnapshot("idle", "Güncelleme tamamlandı (Simülasyon sıfırlandı)");
+        // Reload main windows to simulate restart in dev mode
+        const wins = BrowserWindow.getAllWindows();
+        for (const win of wins) {
+          if (!win.isDestroyed()) {
+            win.reload();
+          }
+        }
+      }, 3000);
+
+      return { accepted: true };
     }
 
     if (this.installing) {
@@ -521,6 +551,49 @@ export class ModularUpdater {
     }, 1500);
 
     return { accepted: true };
+  }
+
+  private simulateDevUpdate(): void {
+    this.setSnapshot("checking", "Yeni sürüm kontrol ediliyor (Simülasyon)...");
+
+    setTimeout(() => {
+      this.snapshot = {
+        ...this.snapshot,
+        phase: "available",
+        nextVersion: `${app.getVersion()}-dev-update`,
+        releaseName: "Geliştirici Sürümü Testi",
+        releaseDate: new Date().toISOString(),
+        progressPercent: 0,
+        message: "Yeni bir geliştirici sürümü bulundu, indiriliyor (Simülasyon)...",
+        timestamp: new Date().toISOString(),
+      };
+      this.emitState();
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        if (progress > 100) {
+          clearInterval(interval);
+          this.snapshot = {
+            ...this.snapshot,
+            phase: "downloaded",
+            progressPercent: 100,
+            message: "Güncelleme indirildi, kurulum için hazır (Simülasyon)",
+            timestamp: new Date().toISOString(),
+          };
+          this.emitState();
+        } else {
+          this.snapshot = {
+            ...this.snapshot,
+            phase: "downloading",
+            progressPercent: progress,
+            message: `Güncelleme indiriliyor (%${progress}) (Simülasyon)...`,
+            timestamp: new Date().toISOString(),
+          };
+          this.emitState();
+        }
+      }, 500);
+    }, 2000);
   }
 
 

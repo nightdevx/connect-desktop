@@ -1,10 +1,14 @@
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   root: resolve(__dirname, "src/renderer"),
-  plugins: [react()],
+  plugins: [react(), sentryVitePlugin({
+    org: "night-ki",
+    project: "connect-desktop"
+  })],
   base: "./",
   resolve: {
     alias: {
@@ -16,6 +20,7 @@ export default defineConfig({
     outDir: resolve(__dirname, "dist/renderer"),
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
+
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -37,6 +42,8 @@ export default defineConfig({
         },
       },
     },
+
+    sourcemap: true
   },
   server: {
     port: 5173,

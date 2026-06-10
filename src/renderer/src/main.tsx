@@ -1,10 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme } from "antd";
 import App from "./App";
 import { queryClient } from "./services/query-client";
 import "./styles/global.css";
+
+// Initialize Sentry for renderer process. It automatically tunnels events to main process.
+Sentry.init({});
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

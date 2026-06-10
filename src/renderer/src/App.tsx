@@ -3,6 +3,7 @@ import { Maximize2, Minimize2, Minus, X, Wifi, RefreshCw } from "lucide-react";
 import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
 import WorkspaceShell from "./components/WorkspaceShell";
 import logo from "./assets/logo.png";
+import type { AppUpdateSnapshot, AppUpdateEvent } from "../../shared/update-contracts";
 
 function App() {
   const {
@@ -26,6 +27,28 @@ function App() {
     statusTone === "ok" ? "ok" : statusTone === "warn" ? "warn" : "error";
   const isAuthenticated = Boolean(session.authenticated && session.user);
   const [windowIsMaximized, setWindowIsMaximized] = useState(false);
+  const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    void window.desktopApi.getUpdateState().then((result) => {
+      if (active && result.ok && result.data?.state) {
+        setUpdateState(result.data.state);
+      }
+    });
+
+    const unsubscribe = window.desktopApi.onUpdateEvent((event) => {
+      if (active) {
+        setUpdateState(event.state);
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -139,7 +162,71 @@ function App() {
             </div>
           </div>
 
-          <div className="ct-app-header-actions">
+          <div className="ct-app-header-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {updateState && updateState.phase === "downloaded" && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <span className="ct-meta-pill" style={{
+                  background: "rgba(34, 197, 94, 0.15)",
+                  border: "1px solid rgba(34, 197, 94, 0.3)",
+                  color: "#4ade80",
+                  fontSize: "11px",
+                  padding: "2px 8px",
+                  borderRadius: "9999px",
+                  fontWeight: 500
+                }}>
+                  v{updateState.nextVersion || "Yeni"} Sürüm Hazır
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void window.desktopApi.installDownloadedUpdate();
+                  }}
+                  style={{
+                    background: "#22c55e",
+                    color: "#ffffff",
+                    fontSize: "11px",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: "none",
+                    height: "22px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 6px rgba(34, 197, 94, 0.2)"
+                  }}
+                >
+                  Güncelle
+                </button>
+              </div>
+            )}
+            {updateState && updateState.phase === "downloading" && (
+              <span className="ct-meta-pill" style={{
+                background: "rgba(59, 130, 246, 0.15)",
+                border: "1px solid rgba(59, 130, 246, 0.3)",
+                color: "#60a5fa",
+                fontSize: "11px",
+                padding: "2px 8px",
+                borderRadius: "9999px",
+                fontWeight: 500
+              }}>
+                Güncelleme İndiriliyor{typeof updateState.progressPercent === "number" ? ` (%${updateState.progressPercent})` : ""}
+              </span>
+            )}
+            {updateState && updateState.phase === "available" && (
+              <span className="ct-meta-pill" style={{
+                background: "rgba(234, 179, 8, 0.15)",
+                border: "1px solid rgba(234, 179, 8, 0.3)",
+                color: "#facc15",
+                fontSize: "11px",
+                padding: "2px 8px",
+                borderRadius: "9999px",
+                fontWeight: 500
+              }}>
+                Yeni Sürüm Bulundu...
+              </span>
+            )}
             <span className="ct-meta-pill">Sürüm: v{appVersion}</span>
             {isAuthenticated && (
               <button

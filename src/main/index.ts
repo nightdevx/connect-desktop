@@ -1,10 +1,18 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from "electron";
 import { join } from "node:path";
+import * as Sentry from "@sentry/electron/main";
 import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
 } from "./app-preferences";
 import { backendConfig } from "./config";
+
+// Initialize Sentry for main process after env files are resolved by config
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+  });
+}
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
 import { createAppMenu } from "./menu";
 
@@ -245,6 +253,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
 
     initializeModularUpdater({
       beforeInstall: cleanupBeforeAppQuit,
+      periodicCheckMs: 15 * 60 * 1000,
     });
     registerIpcHandlers();
     registerStreamingIpcHandlers({

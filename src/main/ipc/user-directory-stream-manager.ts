@@ -7,6 +7,7 @@ export const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
 interface UserDirectoryStreamState {
   socket: WebSocket;
   closing: boolean;
+  pingTimeout?: NodeJS.Timeout;
 }
 
 export class UserDirectoryStreamManager {
@@ -33,6 +34,10 @@ export class UserDirectoryStreamManager {
     stream.closing = true;
     this.streamsBySender.delete(senderId);
 
+    if (stream.pingTimeout) {
+      clearTimeout(stream.pingTimeout);
+    }
+
     try {
       stream.socket.close(1000, "client-stop");
     } catch {
@@ -51,6 +56,26 @@ export class UserDirectoryStreamManager {
       closing: false,
     };
 
+    const heartbeat = () => {
+      if (streamState.pingTimeout) {
+        clearTimeout(streamState.pingTimeout);
+      }
+
+      streamState.pingTimeout = setTimeout(() => {
+        if (streamState.closing || socket.readyState === WebSocket.CLOSED) {
+          return;
+        }
+        socket.terminate();
+      }, 35000);
+    };
+
+    const cleanup = () => {
+      if (streamState.pingTimeout) {
+        clearTimeout(streamState.pingTimeout);
+        streamState.pingTimeout = undefined;
+      }
+    };
+
     this.streamsBySender.set(sender.id, streamState);
 
     if (!this.senderDestroyBound.has(sender.id)) {
@@ -61,7 +86,21 @@ export class UserDirectoryStreamManager {
       });
     }
 
+    socket.on("open", () => {
+      heartbeat();
+      this.emit(sender, {
+        type: "stream-status",
+        status: "connected",
+        at: new Date().toISOString(),
+      });
+    });
+
+    socket.on("ping", () => {
+      heartbeat();
+    });
+
     socket.on("message", (data) => {
+      heartbeat();
       const raw = typeof data === "string" ? data : data.toString("utf-8");
       if (!raw.trim()) {
         return;
@@ -81,6 +120,7 @@ export class UserDirectoryStreamManager {
     });
 
     socket.on("error", (error) => {
+      cleanup();
       const active = this.streamsBySender.get(sender.id);
       if (active?.socket !== socket) {
         return;
@@ -102,6 +142,7 @@ export class UserDirectoryStreamManager {
     });
 
     socket.on("close", (code, reasonBuffer) => {
+      cleanup();
       const reason = reasonBuffer.toString();
       const active = this.streamsBySender.get(sender.id);
       if (active?.socket !== socket) {

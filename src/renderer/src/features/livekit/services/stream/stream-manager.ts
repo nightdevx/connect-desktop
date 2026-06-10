@@ -453,6 +453,7 @@ export class LiveKitStreamManager {
     const participant = this.room.localParticipant;
     
     if (!this.desiredScreenEnabled) {
+      this.remoteMediaHandler?.disposeMixMinus();
       if (participant.isScreenShareEnabled) {
         await participant.setScreenShareEnabled(false);
       }
@@ -498,15 +499,18 @@ export class LiveKitStreamManager {
 
       if (audioTrack) {
         try {
-          console.log("[LiveKitStreamManager] Publishing screen audio track:", audioTrack.id);
-          await participant.publishTrack(audioTrack, {
+          this.remoteMediaHandler?.disposeMixMinus();
+          const processedAudioTrack = this.remoteMediaHandler?.createMixMinusTrack(audioTrack) ?? audioTrack;
+          console.log("[LiveKitStreamManager] Publishing screen audio track:", processedAudioTrack.id);
+          await participant.publishTrack(processedAudioTrack, {
             name: "screen_audio",
             source: Track.Source.ScreenShareAudio,
             dtx: false,
             red: false,
           });
           logLiveKitDebug("stream-manager", "screen-audio-published-success", {
-            trackId: audioTrack.id,
+            trackId: processedAudioTrack.id,
+            mixMinusApplied: processedAudioTrack.id !== audioTrack.id,
           });
         } catch (err) {
           console.error("[LiveKitStreamManager] Screen audio publish failed:", err);

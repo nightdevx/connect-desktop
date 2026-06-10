@@ -23,6 +23,10 @@ export class RemoteMediaHandler {
   private isDeafened = false;
   private masterVolume = 1.0;
 
+  // ---- Mix-Minus (screen share loopback echo cancellation) ----
+  private mixMinusContext: AudioContext | null = null;
+  private mixMinusDestination: MediaStreamAudioDestinationNode | null = null;
+
   public constructor(private readonly room: Room) {}
 
   /**
@@ -85,6 +89,9 @@ export class RemoteMediaHandler {
     this.applySinkId(audioEl, participant.identity);
     track.attach(audioEl);
     this.remoteAudioElements.set(participant.identity, audioEl);
+    if (this.mixMinusContext && this.mixMinusDestination) {
+      this.connectElementToMixMinus(audioEl, participant.identity);
+    }
 
     console.log(`[RemoteMediaHandler] Remote audio attached for ${participant.identity}`, {
       volume: audioEl.volume,
@@ -297,7 +304,73 @@ export class RemoteMediaHandler {
 
   // ---- Dispose ----
 
+  public createMixMinusTrack(rawAudioTrack: MediaStreamTrack): MediaStreamTrack | null {
+    this.disposeMixMinus();
+
+    try {
+      const ctx = new AudioContext({ sampleRate: 48000, latencyHint: "playback" });
+      this.mixMinusContext = ctx;
+      const destination = ctx.createMediaStreamDestination();
+      this.mixMinusDestination = destination;
+
+      const rawStream = new MediaStream([rawAudioTrack]);
+      const systemSource = ctx.createMediaStreamSource(rawStream);
+      systemSource.connect(destination);
+
+      this.remoteAudioElements.forEach((audioEl, id) => {
+        this.connectElementToMixMinus(audioEl, id);
+      });
+      this.screenAudioElements.forEach((audioEl, id) => {
+        this.connectElementToMixMinus(audioEl, `screen:${id}`);
+      });
+
+      const processedTrack = destination.stream.getAudioTracks()[0];
+      if (!processedTrack) {
+        this.disposeMixMinus();
+        return null;
+      }
+
+      logLiveKitDebug("remote-media", "mix-minus-created", {
+        cancelledSources: this.remoteAudioElements.size + this.screenAudioElements.size,
+      });
+
+      return processedTrack;
+    } catch (err) {
+      console.error("[RemoteMediaHandler] Failed to create mix-minus track", err);
+      this.disposeMixMinus();
+      return null;
+    }
+  }
+
+  private connectElementToMixMinus(audioEl: HTMLAudioElement, key: string): void {
+    if (!this.mixMinusContext || !this.mixMinusDestination) return;
+
+    const el = audioEl as HTMLAudioElement & { captureStream?(): MediaStream };
+    const captured = el.captureStream?.();
+    if (!captured || captured.getAudioTracks().length === 0) return;
+
+    const source = this.mixMinusContext.createMediaStreamSource(captured);
+    const inverter = this.mixMinusContext.createGain();
+    inverter.gain.value = -1;
+    source.connect(inverter);
+    inverter.connect(this.mixMinusDestination);
+
+    logLiveKitDebug("remote-media", "mix-minus-source-added", { key });
+  }
+
+  public disposeMixMinus(): void {
+    if (this.mixMinusContext) {
+      void this.mixMinusContext.close();
+      this.mixMinusContext = null;
+    }
+    this.mixMinusDestination = null;
+    logLiveKitDebug("remote-media", "mix-minus-disposed", {});
+  }
+
+  // ---- Dispose ----
+
   public dispose() {
+    this.disposeMixMinus();
     const disposeEl = (el: HTMLAudioElement) => {
       el.pause();
       el.srcObject = null;
