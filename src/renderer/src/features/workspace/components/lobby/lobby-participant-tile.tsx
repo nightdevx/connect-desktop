@@ -171,6 +171,7 @@ export function LobbyParticipantTile({
     <article
       className={[
         "ct-lobby-participant-tile",
+        "ct-stagger-entry",
         participant.speaking ? "speaking" : "",
         participant.isLocalUser ? "local-user" : "",
         isSelected ? "selected" : "",

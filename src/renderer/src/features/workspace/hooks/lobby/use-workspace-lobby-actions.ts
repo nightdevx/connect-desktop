@@ -38,8 +38,17 @@ export interface WorkspaceLobbyActionsState {
   deletingLobbyId: string | null;
   joiningLobbyId: string | null;
   isLeavingLobby: boolean;
-  createLobby: (name: string) => Promise<boolean>;
-  renameLobby: (lobbyId: string, nextName: string) => Promise<boolean>;
+  createLobby: (
+    name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+  ) => Promise<boolean>;
+  updateLobby: (
+    lobbyId: string,
+    name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+  ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
   joinLobby: (lobbyId: string) => Promise<void>;
   leaveActiveLobby: () => Promise<void>;
@@ -65,7 +74,11 @@ export const useWorkspaceLobbyActions = ({
   const [joiningLobbyId, setJoiningLobbyId] = useState<string | null>(null);
   const [isLeavingLobby, setIsLeavingLobby] = useState(false);
 
-  const createLobby = async (name: string): Promise<boolean> => {
+  const createLobby = async (
+    name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+  ): Promise<boolean> => {
     const trimmed = name.trim();
     if (trimmed.length < 2) {
       setStatus("Lobi adı en az 2 karakter olmalı", "warn");
@@ -74,7 +87,11 @@ export const useWorkspaceLobbyActions = ({
 
     setIsCreatingLobby(true);
     try {
-      const result = await workspaceService.createLobby({ name: trimmed });
+      const result = await workspaceService.createLobby({
+        name: trimmed,
+        isLocked,
+        allowedUsers,
+      });
       if (!result.ok) {
         setStatus(
           `Lobi oluşturulamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
@@ -108,9 +125,11 @@ export const useWorkspaceLobbyActions = ({
     }
   };
 
-  const renameLobby = async (
+  const updateLobby = async (
     lobbyId: string,
     nextName: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
   ): Promise<boolean> => {
     const trimmedName = nextName.trim();
     if (trimmedName.length < 2) {
@@ -123,6 +142,8 @@ export const useWorkspaceLobbyActions = ({
       const result = await workspaceService.updateLobby({
         lobbyId,
         name: trimmedName,
+        isLocked,
+        allowedUsers,
       });
 
       if (!result.ok) {
@@ -146,7 +167,7 @@ export const useWorkspaceLobbyActions = ({
         });
       }
 
-      setStatus("Lobi adı güncellendi", "ok");
+      setStatus("Lobi güncellendi", "ok");
       await lobbiesQuery.refetch();
       return true;
     } finally {
@@ -259,7 +280,7 @@ export const useWorkspaceLobbyActions = ({
     joiningLobbyId,
     isLeavingLobby,
     createLobby,
-    renameLobby,
+    updateLobby,
     deleteLobby,
     joinLobby,
     leaveActiveLobby,

@@ -22,6 +22,9 @@ export const useAuthActions = () => {
   const queryClient = useQueryClient();
   const setActivePage = useUiStore((state) => state.setActivePage);
   const setStatus = useUiStore((state) => state.setStatus);
+  const setWorkspaceSection = useUiStore((state) => state.setWorkspaceSection);
+  const setSettingsSection = useUiStore((state) => state.setSettingsSection);
+  const setAdminSection = useUiStore((state) => state.setAdminSection);
 
   const updateSessionCache = (result: DesktopResult<SessionSnapshot>): void => {
     queryClient.setQueryData(["auth-session"], result);
@@ -75,6 +78,9 @@ export const useAuthActions = () => {
 
       updateSessionCache(result);
       setStatus("Çıkış yapıldı", "ok");
+      setWorkspaceSection("lobbies");
+      setSettingsSection("profile");
+      setAdminSection("dashboard");
       setActivePage("login");
     },
     onError: (error) => {

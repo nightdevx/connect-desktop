@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Select, Switch, Button, message } from "antd";
 import {
   DesktopOutlined,
-  SaveOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-  LogoutOutlined,
 } from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "@/features/screen-share";
@@ -13,8 +11,6 @@ import { startScreenCapture } from "@/features/screen-share";
 interface SettingsStreamProps {
   streamPreferences: StreamPreferences;
   onSaveStreamPreferences: (next: StreamPreferences) => void;
-  onLogout: () => void;
-  isLoggingOut: boolean;
 }
 
 const stopMediaStreamTracks = (stream: MediaStream | null): void => {
@@ -31,8 +27,6 @@ const stopMediaStreamTracks = (stream: MediaStream | null): void => {
 export function SettingsStream({
   streamPreferences,
   onSaveStreamPreferences,
-  onLogout,
-  isLoggingOut,
 }: SettingsStreamProps) {
   const [messageApi, contextHolder] = message.useMessage();
   const [draftStreamPreferences, setDraftStreamPreferences] =
@@ -41,6 +35,7 @@ export function SettingsStream({
     null,
   );
   const [isStartingStreamTest, setIsStartingStreamTest] = useState(false);
+  const [devStats, setDevStats] = useState<{ fps: number; width: number; height: number } | null>(null);
   const streamPreviewRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -61,14 +56,69 @@ export function SettingsStream({
     };
   }, [streamTestStream]);
 
+  // Real-time FPS and resolution measurement for development mode
+  useEffect(() => {
+    if (!streamTestStream || !streamPreviewRef.current) {
+      setDevStats(null);
+      return;
+    }
+
+    const videoEl = streamPreviewRef.current;
+    let lastTime = performance.now();
+    let lastFrames = 0;
+    let timerId: any;
+
+    const checkStats = () => {
+      const now = performance.now();
+      const elapsed = (now - lastTime) / 1000;
+      if (elapsed <= 0) return;
+
+      let currentFps = 0;
+      if (videoEl.getVideoPlaybackQuality) {
+        const quality = videoEl.getVideoPlaybackQuality();
+        const totalFrames = quality.totalVideoFrames;
+        currentFps = Math.round((totalFrames - lastFrames) / elapsed);
+        lastFrames = totalFrames;
+      } else {
+        const track = streamTestStream.getVideoTracks()[0];
+        currentFps = Math.round(track?.getSettings().frameRate ?? 0);
+      }
+
+      setDevStats({
+        fps: currentFps,
+        width: videoEl.videoWidth || 0,
+        height: videoEl.videoHeight || 0,
+      });
+
+      lastTime = now;
+    };
+
+    if (videoEl.getVideoPlaybackQuality) {
+      lastFrames = videoEl.getVideoPlaybackQuality().totalVideoFrames;
+    }
+
+    timerId = setInterval(checkStats, 1000);
+
+    return () => {
+      clearInterval(timerId);
+    };
+  }, [streamTestStream]);
+
   const stopStreamTest = (): void => {
     stopMediaStreamTracks(streamTestStream);
     setStreamTestStream(null);
   };
 
-  const handleSaveStreamPreferences = (): void => {
-    onSaveStreamPreferences(draftStreamPreferences);
-    messageApi.success("Yayın ayarları kaydedildi.");
+  const handlePreferenceChange = (
+    key: keyof StreamPreferences,
+    value: unknown,
+  ): void => {
+    const nextPrefs = {
+      ...draftStreamPreferences,
+      [key]: value,
+    };
+    setDraftStreamPreferences(nextPrefs);
+    onSaveStreamPreferences(nextPrefs);
   };
 
   const handleStartStreamTest = async (): Promise<void> => {
@@ -105,6 +155,17 @@ export function SettingsStream({
     }
   };
 
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    if (streamTestStream) {
+      void handleStartStreamTest();
+    }
+  }, [draftStreamPreferences.frameRate, draftStreamPreferences.captureSystemAudio]);
+
   return (
     <div className="ct-settings-section">
       {contextHolder}
@@ -130,10 +191,7 @@ export function SettingsStream({
               id="settings-stream-fps"
               value={draftStreamPreferences.frameRate}
               onChange={(value) =>
-                setDraftStreamPreferences((previous) => ({
-                  ...previous,
-                  frameRate: value as StreamPreferences["frameRate"],
-                }))
+                handlePreferenceChange("frameRate", value)
               }
               options={[
                 { value: 15, label: "15 FPS" },
@@ -160,32 +218,13 @@ export function SettingsStream({
             <Switch
               checked={draftStreamPreferences.captureSystemAudio}
               onChange={(checked) =>
-                setDraftStreamPreferences((previous) => ({
-                  ...previous,
-                  captureSystemAudio: checked,
-                }))
+                handlePreferenceChange("captureSystemAudio", checked)
               }
             />
           </div>
         </div>
 
         <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSaveStreamPreferences}
-            style={{
-              background: "#ffffff",
-              borderColor: "#ffffff",
-              color: "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
-          >
-            Yayın Ayarlarını Kaydet
-          </Button>
-
           <Button
             type="text"
             icon={streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
@@ -209,40 +248,40 @@ export function SettingsStream({
           >
             {streamTestStream ? "Yayın Testini Durdur" : "Yayın Testini Başlat"}
           </Button>
-
-          <Button
-            danger
-            type="primary"
-            icon={<LogoutOutlined />}
-            onClick={onLogout}
-            loading={isLoggingOut}
-            disabled={isLoggingOut}
-            style={{
-              background: "#ef4444",
-              borderColor: "#ef4444",
-              color: "#ffffff",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-              boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
-              marginLeft: "auto",
-            }}
-          >
-            Hesaptan Çık
-          </Button>
         </div>
 
         <div className="ct-settings-preview-box" style={{
           background: "rgba(0, 0, 0, 0.4)",
           border: "1px solid rgba(255, 255, 255, 0.04)",
           borderRadius: "8px",
-          height: "260px",
+          width: "100%",
+          aspectRatio: "16 / 9",
+          maxHeight: "360px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
           position: "relative",
         }}>
+          {process.env.NODE_ENV === "development" && devStats && (
+            <div style={{
+              position: "absolute",
+              top: "8px",
+              left: "8px",
+              background: "rgba(0, 0, 0, 0.75)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "4px",
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontFamily: "monospace",
+              color: "#4ade80",
+              zIndex: 10,
+              pointerEvents: "none",
+            }}>
+              Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
+            </div>
+          )}
+
           {streamTestStream ? (
             <video
               ref={streamPreviewRef}
@@ -253,7 +292,7 @@ export function SettingsStream({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: "contain",
               }}
             />
           ) : (
@@ -266,5 +305,3 @@ export function SettingsStream({
     </div>
   );
 }
-
-

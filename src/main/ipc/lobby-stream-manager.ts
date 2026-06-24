@@ -1,6 +1,8 @@
 import type { WebContents } from "electron";
 import WebSocket from "ws";
 import type { LobbyStreamEvent } from "../../shared/desktop-api-types";
+import { appendFileSync } from "node:fs";
+import { join } from "node:path";
 
 export const LOBBY_STREAM_EVENT_CHANNEL = "desktop:lobbies-stream-event";
 

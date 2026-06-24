@@ -98,10 +98,12 @@ export const lobbyService = {
   },
   createLobby: (payload: {
     name: string;
+    isLocked?: boolean;
+    allowedUsers?: string[];
   }): Promise<DesktopResult<{ lobby: LobbyDescriptor }>> => {
     return window.desktopApi.createLobby(payload);
   },
-  updateLobby: (payload: { lobbyId: string; name: string }) => {
+  updateLobby: (payload: { lobbyId: string; name: string; isLocked?: boolean; allowedUsers?: string[] }) => {
     if (typeof window.desktopApi.updateLobby !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ lobby: LobbyDescriptor }>,

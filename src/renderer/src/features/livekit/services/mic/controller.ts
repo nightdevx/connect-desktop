@@ -27,6 +27,12 @@ export class LiveKitMicrophoneController {
   private readonly deviceResolver: DeviceResolver;
   private readonly noiseSuppressionRuntime: LiveKitNoiseSuppressionRuntime;
 
+  private lastAppliedParticipantIdentity: string | null = null;
+  private lastAppliedEnabled: boolean | null = null;
+  private lastAppliedDeviceId: string | null = null;
+  private lastAppliedNoiseSuppression: boolean | null = null;
+  private lastAppliedPreset: NoiseSuppressionPreset | null = null;
+
   public constructor(
     private readonly onWarning?: (message: string) => void,
     onModeChange?: (mode: ActiveNoiseSuppressionMode) => void,
@@ -106,6 +112,28 @@ export class LiveKitMicrophoneController {
       
       await this.processorManager.destroyActiveProcessor();
 
+      // 2.5 Switch device if it changed
+      const preferredInputDeviceId =
+        await this.deviceResolver.resolvePreferredInputDeviceId(
+          preferences.selectedAudioInputDeviceId,
+        );
+      const currentDeviceId = track.mediaStreamTrack.getSettings().deviceId;
+      if (preferredInputDeviceId && currentDeviceId !== preferredInputDeviceId) {
+        logLiveKitDebug("mic-controller", "refresh-switching-device", {
+          from: currentDeviceId,
+          to: preferredInputDeviceId,
+        });
+        try {
+          await track.setDeviceId(preferredInputDeviceId);
+        } catch (err) {
+          console.warn("[LiveKitMicrophoneController] Failed to set device ID on track, falling back to full refresh:", err);
+          await participant.setMicrophoneEnabled(false);
+          this.noiseSuppressionRuntime.markDisabled();
+          await this.processorManager.destroyActiveProcessor();
+          return this.applyMicrophoneStateInternal({ ...options, enabled: true });
+        }
+      }
+
       // 3. Attach new processor if wanted
       let appliedProcessor = false;
       if (desiredProcessor) {
@@ -133,6 +161,11 @@ export class LiveKitMicrophoneController {
   public dispose(): Promise<void> {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "dispose-start");
+      this.lastAppliedParticipantIdentity = null;
+      this.lastAppliedEnabled = null;
+      this.lastAppliedDeviceId = null;
+      this.lastAppliedNoiseSuppression = null;
+      this.lastAppliedPreset = null;
       await this.processorManager.destroyActiveProcessor();
       this.noiseSuppressionRuntime.markDisabled();
       await this.audioContextManager.closeContext();
@@ -155,11 +188,56 @@ export class LiveKitMicrophoneController {
     preferences,
     publishOptions,
   }: ApplyMicrophoneStateOptions): Promise<void> {
+    const participantIdentity = participant.identity;
+    const deviceId = preferences.selectedAudioInputDeviceId ?? "default";
+    const nsEnabled = preferences.enhancedNoiseSuppressionEnabled;
+    const preset = preferences.noiseSuppressionPreset;
+
+    const isActuallyEnabled = participant.isMicrophoneEnabled;
+    const isSameState =
+      this.lastAppliedParticipantIdentity === participantIdentity &&
+      this.lastAppliedEnabled === enabled &&
+      isActuallyEnabled === enabled &&
+      this.lastAppliedDeviceId === deviceId &&
+      this.lastAppliedNoiseSuppression === nsEnabled &&
+      this.lastAppliedPreset === preset;
+
+    if (isSameState) {
+      logLiveKitDebug("mic-controller", "apply-skipped-redundant", {
+        enabled,
+        deviceId,
+      });
+      return;
+    }
+
     if (!enabled) {
       logLiveKitDebug("mic-controller", "apply-disable-start");
+      const publication = participant.getTrackPublication(Track.Source.Microphone);
+      const track = publication?.track as LocalAudioTrack | undefined;
+      if (track) {
+        try {
+          logLiveKitDebug("mic-controller", "stopping-track-processor");
+          await track.stopProcessor();
+        } catch (err) {
+          console.warn("[LiveKitMicrophoneController] Failed to stop track processor:", err);
+        }
+        try {
+          logLiveKitDebug("mic-controller", "stopping-local-track-explicitly");
+          track.stop();
+        } catch (err) {
+          console.warn("[LiveKitMicrophoneController] Failed to stop track:", err);
+        }
+      }
       await participant.setMicrophoneEnabled(false);
       this.noiseSuppressionRuntime.markDisabled();
       await this.processorManager.destroyActiveProcessor();
+
+      this.lastAppliedParticipantIdentity = participantIdentity;
+      this.lastAppliedEnabled = false;
+      this.lastAppliedDeviceId = deviceId;
+      this.lastAppliedNoiseSuppression = nsEnabled;
+      this.lastAppliedPreset = preset;
+
       logLiveKitDebug("mic-controller", "apply-disable-finished", {
         participantMicEnabled: participant.isMicrophoneEnabled,
       });
@@ -234,6 +312,12 @@ export class LiveKitMicrophoneController {
           }
 
           this.noiseSuppressionRuntime.markEnabled(appliedProcessor);
+
+          this.lastAppliedParticipantIdentity = participantIdentity;
+          this.lastAppliedEnabled = true;
+          this.lastAppliedDeviceId = deviceId;
+          this.lastAppliedNoiseSuppression = nsEnabled;
+          this.lastAppliedPreset = preset;
 
           logLiveKitDebug("mic-controller", "attempt-success", {
             attemptIndex,

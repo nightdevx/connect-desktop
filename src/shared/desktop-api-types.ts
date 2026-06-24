@@ -9,6 +9,15 @@ import type {
   UserProfile,
   UserSettingsProfile,
   UserRole,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  SendVerificationOTPRequest,
+  VerifyEmailRequest,
+  AdminUserDetail,
+  AdminUpdateUserRequest,
+  AdminLobbySnapshot,
+  AdminLobbyEvent,
+  AdminStats,
 } from "./auth-contracts";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 
@@ -209,6 +218,10 @@ export interface DesktopApi {
     }>
   >;
   login: (payload: LoginRequest) => Promise<DesktopResult<SessionSnapshot>>;
+  forgotPassword: (payload: ForgotPasswordRequest) => Promise<DesktopResult<{ sent: boolean }>>;
+  resetPassword: (payload: ResetPasswordRequest) => Promise<DesktopResult<{ reset: boolean }>>;
+  sendVerificationOTP: (payload: SendVerificationOTPRequest) => Promise<DesktopResult<{ sent: boolean }>>;
+  verifyEmail: (payload: VerifyEmailRequest) => Promise<DesktopResult<{ verified: boolean }>>;
   logout: () => Promise<DesktopResult<SessionSnapshot>>;
   getSession: () => Promise<DesktopResult<SessionSnapshot>>;
   getAuthProfile: () => Promise<
@@ -243,10 +256,14 @@ export interface DesktopApi {
   >;
   createLobby: (payload: {
     name: string;
+    isLocked?: boolean;
+    allowedUsers?: string[];
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   updateLobby: (payload: {
     lobbyId: string;
     name: string;
+    isLocked?: boolean;
+    allowedUsers?: string[];
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   deleteLobby: (payload: {
     lobbyId: string;
@@ -340,4 +357,15 @@ export interface DesktopApi {
   onWindowStateChanged: (
     listener: (state: DesktopWindowState) => void,
   ) => () => void;
+  adminListUsers: (params?: { search?: string; role?: string; status?: string }) => Promise<DesktopResult<{ users: AdminUserDetail[] }>>;
+  adminGetUser: (userId: string) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
+  adminUpdateUser: (userId: string, payload: AdminUpdateUserRequest) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
+  adminResetPassword: (userId: string, newPassword: string) => Promise<DesktopResult<{ reset: boolean }>>;
+  adminDeleteUser: (userId: string) => Promise<DesktopResult<{ deleted: boolean }>>;
+  adminBanUser: (userId: string) => Promise<DesktopResult<{ banned: boolean }>>;
+  adminUnbanUser: (userId: string) => Promise<DesktopResult<{ unbanned: boolean }>>;
+  adminListLobbies: (params?: { search?: string; locked?: string }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[] }>>;
+  adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;
+  adminGetStats: (payload?: any) => Promise<DesktopResult<{ stats: AdminStats }>>;
+  adminKickUser: (lobbyId: string, userId: string) => Promise<DesktopResult<{ kicked: boolean }>>;
 }

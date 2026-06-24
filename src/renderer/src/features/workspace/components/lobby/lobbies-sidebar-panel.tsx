@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dropdown, Modal, Input, Button, Avatar } from "antd";
+import { Dropdown, Modal, Input, Button, Avatar, Switch, Select } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -10,6 +10,7 @@ import {
   VideoCameraOutlined,
   DesktopOutlined,
   TeamOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type {
@@ -31,10 +32,18 @@ interface LobbiesSidebarPanelProps {
   activeLobbyId: string | null;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
-  onRenameLobby: (lobbyId: string, nextName: string) => Promise<boolean>;
+  onUpdateLobby: (
+    lobbyId: string,
+    name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+  ) => Promise<boolean>;
   onDeleteLobby: (lobbyId: string) => Promise<boolean>;
   renamingLobbyId: string | null;
   deletingLobbyId: string | null;
+  currentUserId: string;
+  currentUserRole: string;
+  allUsers: Array<{ id: string; username: string; displayName: string }>;
 }
 
 export function LobbiesSidebarPanel({
@@ -45,17 +54,33 @@ export function LobbiesSidebarPanel({
   activeLobbyId,
   joiningLobbyId,
   onJoinLobby,
-  onRenameLobby,
+  onUpdateLobby,
   onDeleteLobby,
   renamingLobbyId,
   deletingLobbyId,
+  currentUserId,
+  currentUserRole,
+  allUsers,
 }: LobbiesSidebarPanelProps) {
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
     null,
   );
   const [editLobbyName, setEditLobbyName] = useState("");
+  const [editIsLocked, setEditIsLocked] = useState(false);
+  const [editAllowedUsers, setEditAllowedUsers] = useState<string[]>([]);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
+
+  useEffect(() => {
+    if (editingLobby) {
+      setEditLobbyName(editingLobby.name);
+      setEditIsLocked(!!editingLobby.isLocked);
+      const users = editingLobby.allowedUsers
+        ? editingLobby.allowedUsers.split(",").map((u) => u.trim()).filter(Boolean)
+        : [];
+      setEditAllowedUsers(users);
+    }
+  }, [editingLobby]);
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
@@ -72,18 +97,25 @@ export function LobbiesSidebarPanel({
     }
   };
 
-  const handleRenameSubmit = async (): Promise<void> => {
+  const handleUpdateSubmit = async (): Promise<void> => {
     if (!editingLobby) {
       return;
     }
 
-    const updated = await onRenameLobby(editingLobby.id, editLobbyName);
+    const updated = await onUpdateLobby(
+      editingLobby.id,
+      editLobbyName,
+      editIsLocked,
+      editAllowedUsers,
+    );
     if (!updated) {
       return;
     }
 
     setEditingLobby(null);
     setEditLobbyName("");
+    setEditIsLocked(false);
+    setEditAllowedUsers([]);
   };
 
   return (
@@ -136,12 +168,11 @@ export function LobbiesSidebarPanel({
 
           const contextMenuItems = [
             {
-              key: "rename",
-              label: "Lobi Adını Düzenle",
+              key: "settings",
+              label: "Lobi Ayarları",
               icon: <EditOutlined />,
               onClick: () => {
                 setEditingLobby(lobby);
-                setEditLobbyName(lobby.name);
               },
             },
             {
@@ -177,9 +208,21 @@ export function LobbiesSidebarPanel({
                       fontSize: "13.5px",
                       fontWeight: "600",
                       color: isActive ? "#000000" : "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
                     }}
                   >
                     # {lobby.name}
+                    {lobby.isLocked && (
+                      <LockOutlined
+                        style={{
+                          fontSize: "11px",
+                          color: isActive ? "rgba(0, 0, 0, 0.6)" : "#fbbf24",
+                        }}
+                        title="Bu lobi kilitlidir"
+                      />
+                    )}
                   </p>
                   {members.length > 0 && (
                     <div
@@ -375,7 +418,8 @@ export function LobbiesSidebarPanel({
             </li>
           );
 
-          if (isDefaultLobby(lobby)) {
+          const isOwner = lobby.createdBy === currentUserId || currentUserRole === "admin" || currentUserId === "admin-master-id";
+          if (isDefaultLobby(lobby) || !isOwner) {
             return lobbyElement;
           }
 
@@ -394,11 +438,11 @@ export function LobbiesSidebarPanel({
       <Modal
         title={
           <span style={{ color: "#ffffff", fontWeight: "bold" }}>
-            Lobi Adını Düzenle
+            Lobi Ayarları
           </span>
         }
         open={editingLobby !== null}
-        onOk={handleRenameSubmit}
+        onOk={handleUpdateSubmit}
         onCancel={() => setEditingLobby(null)}
         okText="Kaydet"
         cancelText="İptal"
@@ -430,34 +474,78 @@ export function LobbiesSidebarPanel({
         }}
       >
         <div style={{ padding: "20px 0" }}>
-          <label
-            className="ct-label"
-            htmlFor="edit-lobby-name"
-            style={{
-              display: "block",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.45)",
-              marginBottom: "8px",
-            }}
-          >
-            Yeni lobi adı
-          </label>
-          <Input
-            id="edit-lobby-name"
-            value={editLobbyName}
-            onChange={(event) => setEditLobbyName(event.target.value)}
-            minLength={2}
-            maxLength={64}
-            disabled={editingLobby !== null && renamingLobbyId === editingLobby.id}
-            autoFocus
-            style={{
-              background: "rgba(20, 20, 20, 0.8)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              color: "#f5f5f5",
-              borderRadius: "6px",
-              height: "40px",
-            }}
-          />
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              className="ct-label"
+              htmlFor="edit-lobby-name"
+              style={{
+                display: "block",
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.45)",
+                marginBottom: "8px",
+              }}
+            >
+              Lobi Adı
+            </label>
+            <Input
+              id="edit-lobby-name"
+              value={editLobbyName}
+              onChange={(event) => setEditLobbyName(event.target.value)}
+              minLength={2}
+              maxLength={64}
+              disabled={editingLobby !== null && renamingLobbyId === editingLobby.id}
+              autoFocus
+              style={{
+                background: "rgba(20, 20, 20, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Özel Lobi (Kilitli)</label>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sadece davet edilen kullanıcılar katılabilir.</span>
+            </div>
+            <Switch
+              checked={editIsLocked}
+              onChange={(checked) => setEditIsLocked(checked)}
+              style={{
+                background: editIsLocked ? "#a855f7" : "rgba(255,255,255,0.15)"
+              }}
+            />
+          </div>
+
+          {editIsLocked && (
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                className="ct-label"
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  color: "rgba(255,255,255,0.45)",
+                  marginBottom: "8px",
+                }}
+              >
+                Erişimi Olan Kullanıcılar (Katılabilecekler)
+              </label>
+              <Select
+                mode="multiple"
+                placeholder="Kullanıcı seçin..."
+                value={editAllowedUsers}
+                onChange={(value) => setEditAllowedUsers(value)}
+                style={{ width: "100%" }}
+                dropdownStyle={{ background: "#1f1f1f", border: "1px solid rgba(255,255,255,0.08)" }}
+                options={allUsers
+                  .filter(u => u.id !== currentUserId && u.id !== "admin-master-id")
+                  .map(u => ({ label: `@${u.username} (${u.displayName})`, value: u.id }))
+                }
+              />
+            </div>
+          )}
         </div>
       </Modal>
 

@@ -8,7 +8,9 @@ import { queryClient } from "./services/query-client";
 import "./styles/global.css";
 
 // Initialize Sentry for renderer process. It automatically tunnels events to main process.
-Sentry.init({});
+if (process.env.NODE_ENV !== "development") {
+  Sentry.init({});
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

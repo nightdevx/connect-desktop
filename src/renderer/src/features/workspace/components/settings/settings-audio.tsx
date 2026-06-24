@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Select, Switch, Button, Progress, Slider, message } from "antd";
 import {
   AudioOutlined,
-  SaveOutlined,
   PlayCircleOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
@@ -122,9 +121,18 @@ export function SettingsAudio({
     await closeAudioContextSafely(activeAudioContext);
   };
 
-  const handleSaveAudioPreferences = (): void => {
-    onSaveAudioPreferences(draftAudioPreferences);
-    messageApi.success("Ses ayarları kaydedildi ve uygulandı.");
+  const handlePreferenceChange = (
+    key: keyof AudioPreferences,
+    value: unknown,
+  ): void => {
+    setDraftAudioPreferences((previous) => {
+      const nextPrefs = {
+        ...previous,
+        [key]: value,
+      };
+      onSaveAudioPreferences(nextPrefs);
+      return nextPrefs;
+    });
   };
 
   const handleStartAudioTest = async (): Promise<void> => {
@@ -369,11 +377,10 @@ export function SettingsAudio({
               value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
               onChange={(value) => {
                 const nextValue = value.trim();
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  selectedAudioInputDeviceId:
-                    nextValue.length > 0 ? nextValue : null,
-                }));
+                handlePreferenceChange(
+                  "selectedAudioInputDeviceId",
+                  nextValue.length > 0 ? nextValue : null,
+                );
               }}
               options={inputOptions}
               style={{ width: "100%", height: "40px" }}
@@ -398,11 +405,10 @@ export function SettingsAudio({
               value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
               onChange={(value) => {
                 const nextValue = value.trim();
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  selectedAudioOutputDeviceId:
-                    nextValue.length > 0 ? nextValue : null,
-                }));
+                handlePreferenceChange(
+                  "selectedAudioOutputDeviceId",
+                  nextValue.length > 0 ? nextValue : null,
+                );
               }}
               options={outputOptions}
               style={{ width: "100%", height: "40px" }}
@@ -432,10 +438,7 @@ export function SettingsAudio({
               value={draftAudioPreferences.masterVolume}
               onChange={(value) => {
                 const nextValue = Array.isArray(value) ? value[0] : value;
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  masterVolume: nextValue,
-                }));
+                handlePreferenceChange("masterVolume", nextValue);
               }}
               tooltip={{ formatter: (value) => `${value ?? 0}%` }}
             />
@@ -462,10 +465,7 @@ export function SettingsAudio({
               value={draftAudioPreferences.microphoneVolume}
               onChange={(value) => {
                 const nextValue = Array.isArray(value) ? value[0] : value;
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  microphoneVolume: nextValue,
-                }));
+                handlePreferenceChange("microphoneVolume", nextValue);
               }}
               tooltip={{ formatter: (value) => `${value ?? 0}%` }}
             />
@@ -515,10 +515,7 @@ export function SettingsAudio({
             <Switch
               checked={draftAudioPreferences.defaultMicEnabled}
               onChange={(checked) =>
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  defaultMicEnabled: checked,
-                }))
+                handlePreferenceChange("defaultMicEnabled", checked)
               }
             />
           </div>
@@ -553,10 +550,7 @@ export function SettingsAudio({
             <Switch
               checked={draftAudioPreferences.defaultHeadphoneEnabled}
               onChange={(checked) =>
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  defaultHeadphoneEnabled: checked,
-                }))
+                handlePreferenceChange("defaultHeadphoneEnabled", checked)
               }
             />
           </div>
@@ -592,10 +586,7 @@ export function SettingsAudio({
             <Switch
               checked={draftAudioPreferences.notificationSoundsEnabled}
               onChange={(checked) =>
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  notificationSoundsEnabled: checked,
-                }))
+                handlePreferenceChange("notificationSoundsEnabled", checked)
               }
             />
           </div>
@@ -631,10 +622,7 @@ export function SettingsAudio({
             <Switch
               checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
               onChange={(checked) =>
-                setDraftAudioPreferences((previous) => ({
-                  ...previous,
-                  enhancedNoiseSuppressionEnabled: checked,
-                }))
+                handlePreferenceChange("enhancedNoiseSuppressionEnabled", checked)
               }
             />
           </div>
@@ -663,11 +651,7 @@ export function SettingsAudio({
                 id="settings-audio-preset"
                 value={draftAudioPreferences.noiseSuppressionPreset}
                 onChange={(value) => {
-                  setDraftAudioPreferences((previous) => ({
-                    ...previous,
-                    noiseSuppressionPreset:
-                      value as AudioPreferences["noiseSuppressionPreset"],
-                  }));
+                  handlePreferenceChange("noiseSuppressionPreset", value);
                 }}
                 options={NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => ({
                   value: preset.id,
@@ -683,22 +667,6 @@ export function SettingsAudio({
           className="ct-settings-actions"
           style={{ display: "flex", gap: "12px", marginBottom: "24px" }}
         >
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSaveAudioPreferences}
-            style={{
-              background: "#ffffff",
-              borderColor: "#ffffff",
-              color: "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
-          >
-            Ses Ayarlarını Kaydet
-          </Button>
-
           <Button
             type="text"
             icon={audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}

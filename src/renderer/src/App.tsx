@@ -228,16 +228,6 @@ function App() {
               </span>
             )}
             <span className="ct-meta-pill">Sürüm: v{appVersion}</span>
-            {isAuthenticated && (
-              <button
-                type="button"
-                className="ct-btn-secondary ct-header-logout-button"
-                onClick={logout}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
-              </button>
-            )}
           </div>
         </header>
 
@@ -364,46 +354,48 @@ function App() {
               isLoggingOut={isLoggingOut}
             />
           ) : (
-            <section className="ct-auth-card">
-              <div className="flex justify-center pt-4 pb-6">
-                <img 
-                  src={logo} 
-                  alt="Connect Logo" 
-                  className="h-20 w-auto object-contain"
-                />
-              </div>
+            <div className="ct-double-bezel-outer w-full max-w-md mx-auto">
+              <section className="ct-auth-card ct-double-bezel-inner" style={{ border: "none" }}>
+                <div className="flex justify-center pt-4 pb-6">
+                  <img 
+                    src={logo} 
+                    alt="Connect Logo" 
+                    className="h-20 w-auto object-contain"
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className={`ct-auth-tab ${activePage === "login" ? "active" : ""}`}
-                  onClick={() => setActivePage("login")}
-                >
-                  Giriş Yap
-                </button>
-                <button
-                  type="button"
-                  className={`ct-auth-tab ${activePage === "register" ? "active" : ""}`}
-                  onClick={() => setActivePage("register")}
-                >
-                  Kayıt Ol
-                </button>
-              </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={`ct-auth-tab ${activePage === "login" ? "active" : ""}`}
+                    onClick={() => setActivePage("login")}
+                  >
+                    Giriş Yap
+                  </button>
+                  <button
+                    type="button"
+                    className={`ct-auth-tab ${activePage === "register" ? "active" : ""}`}
+                    onClick={() => setActivePage("register")}
+                  >
+                    Kayıt Ol
+                  </button>
+                </div>
 
-              {activePage === "login" ? (
-                <LoginPage
-                  loading={isLoading}
-                  onSubmit={login}
-                  onGoRegister={() => setActivePage("register")}
-                />
-              ) : (
-                <RegisterPage
-                  loading={isLoading}
-                  onSubmit={register}
-                  onGoLogin={() => setActivePage("login")}
-                />
-              )}
-            </section>
+                {activePage === "login" ? (
+                  <LoginPage
+                    loading={isLoading}
+                    onSubmit={login}
+                    onGoRegister={() => setActivePage("register")}
+                  />
+                ) : (
+                  <RegisterPage
+                    loading={isLoading}
+                    onSubmit={register}
+                    onGoLogin={() => setActivePage("login")}
+                  />
+                )}
+              </section>
+            </div>
           )}
         </section>
       </div>

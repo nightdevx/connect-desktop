@@ -19,7 +19,10 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RegisterRequest extends LoginRequest {
+export interface RegisterRequest {
+  email: string;
+  username: string;
+  password: string;
   inviteCode?: string;
 }
 
@@ -31,6 +34,7 @@ export interface ChangePasswordRequest {
 export interface UserSettingsProfile {
   displayName: string;
   email: string | null;
+  emailVerified?: boolean;
   bio: string | null;
   avatarUrl: string | null;
   updatedAt: string;
@@ -41,6 +45,25 @@ export interface UpdateProfileRequest {
   email?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+export interface SendVerificationOTPRequest {
+  email: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
 }
 
 export interface AuthResponse {
@@ -64,7 +87,10 @@ export interface LobbyDescriptor {
   room: string;
   createdAt: string;
   createdBy: string;
+  createdByUsername?: string;
   memberCount: number;
+  isLocked?: boolean;
+  allowedUsers?: string;
 }
 
 export interface ChatMessage {
@@ -74,4 +100,67 @@ export interface ChatMessage {
   username: string;
   body: string;
   createdAt: string;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  emailVerified: boolean;
+  bio: string | null;
+  avatarUrl: string | null;
+  role: UserRole;
+  bannedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUpdateUserRequest {
+  displayName?: string;
+  email?: string | null;
+  bio?: string | null;
+  role?: UserRole;
+}
+
+export interface AdminLobbyMember {
+  userId: string;
+  username: string;
+  joinedAt: string;
+  muted: boolean;
+  deafened: boolean;
+  speaking: boolean;
+  cameraEnabled: boolean;
+  screenSharing: boolean;
+}
+
+export interface AdminLobbySnapshot {
+  lobby: LobbyDescriptor;
+  members: AdminLobbyMember[];
+  size: number;
+  revision: number;
+}
+
+export interface AdminLobbyEvent {
+  id: number;
+  eventType: "join" | "leave";
+  lobbyId: string;
+  lobbyName: string;
+  userId: string;
+  username: string;
+  occurredAt: string;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  onlineUsers: number;
+  totalLobbies: number;
+  activeMembers: number;
+  todayEvents: number;
+  dbStatus?: string;
+  liveKitStatus?: string;
+  apiUrl?: string;
+  envMode?: string;
+  liveKitUrl?: string;
+  activityTrend?: number[];
 }

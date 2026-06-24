@@ -48,7 +48,11 @@ export function SettingsMainPanel({
   return (
     <div className="ct-settings-main-panel">
       {settingsSection === "profile" && (
-        <SettingsProfile currentUsername={currentUsername} />
+        <SettingsProfile
+          currentUsername={currentUsername}
+          onLogout={onLogout}
+          isLoggingOut={isLoggingOut}
+        />
       )}
 
       {settingsSection === "security" && <SettingsSecurity />}
@@ -73,8 +77,6 @@ export function SettingsMainPanel({
         <SettingsStream
           streamPreferences={streamPreferences}
           onSaveStreamPreferences={onSaveStreamPreferences}
-          onLogout={onLogout}
-          isLoggingOut={isLoggingOut}
         />
       )}
 

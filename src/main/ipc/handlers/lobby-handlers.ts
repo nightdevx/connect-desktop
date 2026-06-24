@@ -53,7 +53,12 @@ export function registerLobbyHandlers(): void {
     try {
       const parsed = createLobbySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.createLobby(accessToken, parsed.name);
+        return backendClient.lobby.createLobby(
+          accessToken,
+          parsed.name,
+          parsed.isLocked,
+          parsed.allowedUsers,
+        );
       });
       return ok(result);
     } catch (error) {
@@ -69,6 +74,8 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.lobbyId,
           parsed.name,
+          parsed.isLocked,
+          parsed.allowedUsers,
         );
       });
       return ok(result);

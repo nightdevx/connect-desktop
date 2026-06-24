@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from "electron";
 import { join } from "node:path";
 import * as Sentry from "@sentry/electron/main";
+import { isDev } from "./utils/is-dev";
 import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
@@ -8,7 +9,7 @@ import {
 import { backendConfig } from "./config";
 
 // Initialize Sentry for main process after env files are resolved by config
-if (process.env.SENTRY_DSN) {
+if (process.env.SENTRY_DSN && !isDev) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
   });
@@ -31,7 +32,6 @@ import {
   isUpdaterHelperModeProcess,
   runUpdaterHelperMode,
 } from "./update/helper-mode";
-import { isDev } from "./utils/is-dev";
 
 let mainWindow: BrowserWindow | null = null;
 let quittingWithCleanup = false;
@@ -39,6 +39,16 @@ let tray: Tray | null = null;
 let unsubscribePreferencesListener: (() => void) | null = null;
 const captureEngine = new CaptureEngine();
 
+
+process.env.WEBKIT_DISABLE_DMABUF_RENDERER = "1";
+app.commandLine.appendSwitch("enable-features", "WebRTCPipeWireCapturer");
+app.commandLine.appendSwitch("disable-features", "WebRtcUseDmabuf");
+app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
+app.commandLine.appendSwitch("disable-gpu-memory-buffer-compositor-resources");
+app.commandLine.appendSwitch("disable-gpu-memory-buffers");
+app.commandLine.appendSwitch("disable-webrtc-hw-decoding");
+app.commandLine.appendSwitch("disable-webrtc-hw-encoding");
+app.commandLine.appendSwitch("ozone-platform-hint", "auto");
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const isLinux = process.platform === "linux";
@@ -197,6 +207,15 @@ function createMainWindow(): BrowserWindow {
     void win.loadURL(devServerUrl);
   } else {
     void win.loadFile(join(__dirname, "../renderer/index.html"));
+  }
+
+  if (isDev) {
+    win.webContents.on("before-input-event", (event, input) => {
+      if (input.type === "keyDown" && input.key === "F12") {
+        win.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    });
   }
 
   win.once("ready-to-show", () => {

@@ -49,8 +49,7 @@ export function LobbySelectionScreen({
           {lobbies.map((lobby) => (
             <li
               key={lobby.id}
-              className="ct-list-item clickable flex items-center justify-between"
-              style={{ padding: "12px 16px", borderRadius: "8px", background: "rgba(255, 255, 255, 0.02)" }}
+              className="ct-list-item clickable ct-lobby-select-card flex items-center justify-between"
             >
               <div>
                 <p className="text-sm font-semibold text-white"># {lobby.name}</p>

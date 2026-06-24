@@ -11,7 +11,11 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
   const [form] = Form.useForm();
 
   const handleSubmit = async (values: any) => {
-    await onSubmit({ username: values.username, password: values.password });
+    await onSubmit({
+      email: values.email,
+      username: values.username,
+      password: values.password
+    });
   };
 
   return (
@@ -31,6 +35,22 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         className="ct-premium-form"
       >
         <Form.Item
+          label="E-posta Adresi"
+          name="email"
+          rules={[
+            { required: true, message: "Lütfen e-posta adresi girin!" },
+            { type: "email", message: "Geçerli bir e-posta adresi girin!" },
+            { max: 128, message: "E-posta en fazla 128 karakter olmalıdır!" }
+          ]}
+        >
+          <Input 
+            size="large"
+            placeholder="örnek@mail.com"
+            className="ct-input-premium"
+          />
+        </Form.Item>
+
+        <Form.Item
           label="Kullanıcı Adı"
           name="username"
           rules={[
@@ -42,11 +62,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
           <Input 
             size="large"
             placeholder="Kullanıcı adınız"
-            style={{
-              background: "#0d0d0d",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              color: "#f5f5f5"
-            }}
+            className="ct-input-premium"
           />
         </Form.Item>
 
@@ -62,11 +78,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
           <Input.Password
             size="large"
             placeholder="Şifreniz"
-            style={{
-              background: "#0d0d0d",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              color: "#f5f5f5"
-            }}
+            className="ct-input-premium"
           />
         </Form.Item>
 
@@ -77,10 +89,13 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             loading={loading}
             block
             size="large"
+            className="ct-btn-primary"
             style={{
-              height: "44px",
-              borderRadius: "12px",
-              fontWeight: 600,
+              height: "48px",
+              borderRadius: "14px",
+              fontWeight: 700,
+              fontSize: "14px",
+              letterSpacing: "0.02em"
             }}
           >
             {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
@@ -88,12 +103,6 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         </Form.Item>
       </Form>
 
-      <p className="mt-4 text-sm text-[#8f8f8f]">
-        Zaten hesabın var mı?{" "}
-        <button type="button" className="ct-link" onClick={onGoLogin}>
-          Giriş Yap
-        </button>
-      </p>
     </section>
   );
 }

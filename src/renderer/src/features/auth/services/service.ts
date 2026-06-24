@@ -8,6 +8,10 @@ import type {
   RegisterRequest,
   UpdateProfileRequest,
   UserSettingsProfile,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  SendVerificationOTPRequest,
+  VerifyEmailRequest,
 } from "../../../../../shared/auth-contracts";
 
 export const authService = {
@@ -18,6 +22,18 @@ export const authService = {
     payload: RegisterRequest,
   ): Promise<DesktopResult<SessionSnapshot>> => {
     return window.desktopApi.register(payload);
+  },
+  forgotPassword: (payload: ForgotPasswordRequest): Promise<DesktopResult<{ sent: boolean }>> => {
+    return window.desktopApi.forgotPassword(payload);
+  },
+  resetPassword: (payload: ResetPasswordRequest): Promise<DesktopResult<{ reset: boolean }>> => {
+    return window.desktopApi.resetPassword(payload);
+  },
+  sendVerificationOTP: (payload: SendVerificationOTPRequest): Promise<DesktopResult<{ sent: boolean }>> => {
+    return window.desktopApi.sendVerificationOTP(payload);
+  },
+  verifyEmail: (payload: VerifyEmailRequest): Promise<DesktopResult<{ verified: boolean }>> => {
+    return window.desktopApi.verifyEmail(payload);
   },
   changePassword: (payload: ChangePasswordRequest) => {
     return window.desktopApi.changePassword(payload);

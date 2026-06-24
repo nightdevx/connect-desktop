@@ -18,13 +18,15 @@ export class LobbyClient {
   public async createLobby(
     accessToken: string,
     name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, isLocked, allowedUsers }),
     });
   }
 
@@ -32,6 +34,8 @@ export class LobbyClient {
     accessToken: string,
     lobbyId: string,
     name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
   ): Promise<{ lobby: LobbyDescriptor }> {
     const encodedLobbyID = encodeURIComponent(lobbyId);
     return this.baseClient.request<{ lobby: LobbyDescriptor }>(
@@ -41,7 +45,7 @@ export class LobbyClient {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, isLocked, allowedUsers }),
       },
     );
   }

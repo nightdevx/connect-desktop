@@ -45,6 +45,14 @@ const desktopApi: DesktopApi = {
   changePassword: async (payload) =>
     ipcRenderer.invoke("desktop:auth-change-password", payload),
   login: async (payload) => ipcRenderer.invoke("desktop:auth-login", payload),
+  forgotPassword: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-forgot-password", payload),
+  resetPassword: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-reset-password", payload),
+  sendVerificationOTP: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-send-verification-otp", payload),
+  verifyEmail: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-verify-email", payload),
   logout: async () => ipcRenderer.invoke("desktop:auth-logout"),
   getSession: async () => ipcRenderer.invoke("desktop:auth-session"),
   getAuthProfile: async () => ipcRenderer.invoke("desktop:auth-profile"),
@@ -173,6 +181,17 @@ const desktopApi: DesktopApi = {
       ipcRenderer.removeListener(WINDOW_STATE_EVENT_CHANNEL, wrappedListener);
     };
   },
+  adminListUsers: async (params) => ipcRenderer.invoke("desktop:admin-list-users", params),
+  adminGetUser: async (userId) => ipcRenderer.invoke("desktop:admin-get-user", userId),
+  adminUpdateUser: async (userId, payload) => ipcRenderer.invoke("desktop:admin-update-user", { userId, payload }),
+  adminResetPassword: async (userId, newPassword) => ipcRenderer.invoke("desktop:admin-reset-password", { userId, newPassword }),
+  adminDeleteUser: async (userId) => ipcRenderer.invoke("desktop:admin-delete-user", userId),
+  adminBanUser: async (userId) => ipcRenderer.invoke("desktop:admin-ban-user", userId),
+  adminUnbanUser: async (userId) => ipcRenderer.invoke("desktop:admin-unban-user", userId),
+  adminListLobbies: async (params) => ipcRenderer.invoke("desktop:admin-list-lobbies", params),
+  adminListLobbyEvents: async (payload) => ipcRenderer.invoke("desktop:admin-list-lobby-events", payload),
+  adminGetStats: async () => ipcRenderer.invoke("desktop:admin-get-stats"),
+  adminKickUser: async (lobbyId, userId) => ipcRenderer.invoke("desktop:admin-kick-user", { lobbyId, userId }),
 };
 
 const streamingApi: StreamingApi = {

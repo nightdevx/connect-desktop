@@ -34,7 +34,7 @@ export class LiveKitStreamManager {
   private desiredCameraStream: MediaStream | null = null;
   private desiredScreenStream: MediaStream | null = null;
   private desiredScreenMode: ScreenShareMode = "slides";
-  private desiredMicEnabled = true;
+  private desiredMicEnabled = false;
   private audioProcessingPreferences: LiveKitAudioProcessingPreferences = {
     ...DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   };
@@ -276,6 +276,20 @@ export class LiveKitStreamManager {
     }
   }
 
+  private async cleanupLocalAudioMonitoring(): Promise<void> {
+    await this.updateLocalAudioSource(null);
+    if (this.audioContext) {
+      try {
+        if (this.audioContext.state !== "closed") {
+          await this.audioContext.close();
+        }
+      } catch (err) {
+        console.warn("[LiveKitStreamManager] Failed to close audioContext:", err);
+      }
+      this.audioContext = null;
+    }
+  }
+
   public async disconnect(): Promise<void> {
     this.manualDisconnect = !this.replacingRoom;
     this.currentLobbyId = null;
@@ -284,6 +298,27 @@ export class LiveKitStreamManager {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+
+    // 1. Explicitly disable/mute and stop the microphone track and processor BEFORE disconnecting the room!
+    if (this.room) {
+      try {
+        await this.microphoneController.applyMicrophoneState({
+          enabled: false,
+          participant: this.room.localParticipant,
+          preferences: {
+            enhancedNoiseSuppressionEnabled: this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled,
+            noiseSuppressionPreset: this.audioProcessingPreferences.noiseSuppressionPreset,
+            selectedAudioInputDeviceId: this.audioProcessingPreferences.selectedAudioInputDeviceId,
+          },
+          publishOptions: { dtx: true, red: true },
+        });
+      } catch (err) {
+        console.warn("[LiveKitStreamManager] Failed to mute mic before disconnect:", err);
+      }
+    }
+
+    // 2. Cleanup local audio monitoring (AudioContext, source node, analyzer)
+    await this.cleanupLocalAudioMonitoring();
 
     if (this.room) {
       await this.room.disconnect();

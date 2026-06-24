@@ -3,22 +3,30 @@
   font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
   --ct-font-mono:
     "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", monospace;
-  --ct-surface-0: #050505;
-  --ct-surface-1: #0d0d0d;
-  --ct-surface-2: #151515;
-  --ct-surface-3: #1d1d1d;
-  --ct-border: rgba(255, 255, 255, 0.08);
-  --ct-border-strong: rgba(255, 255, 255, 0.18);
-  --ct-text-primary: #f5f5f5;
-  --ct-text-secondary: #c7c7c7;
-  --ct-text-muted: #8f8f8f;
-  --ct-accent: #f2f2f2;
-  --ct-accent-soft: rgba(242, 242, 242, 0.18);
-  --ct-accent-strong: rgba(242, 242, 242, 0.45);
-  --ct-accent-glow: rgba(242, 242, 242, 0.32);
-  --ct-warning: #d7d7d7;
-  --ct-danger: #bdbdbd;
-  --ct-success: #f0f0f0;
+  --ct-surface-0: #040404;
+  --ct-surface-1: #090909;
+  --ct-surface-2: #101010;
+  --ct-surface-3: #181818;
+  --ct-border: rgba(255, 255, 255, 0.05);
+  --ct-border-strong: rgba(255, 255, 255, 0.12);
+  --ct-text-primary: #ffffff;
+  --ct-text-secondary: #d4d4d8;
+  --ct-text-muted: #71717a;
+  --ct-accent: #ffffff;
+  --ct-accent-soft: rgba(255, 255, 255, 0.08);
+  --ct-accent-strong: rgba(255, 255, 255, 0.3);
+  --ct-accent-glow: rgba(255, 255, 255, 0.15);
+  --ct-warning: #f59e0b;
+  --ct-danger: #ef4444;
+  --ct-success: #10b981;
+
+  /* Premium Design System Additions */
+  --ct-neon-emerald: #10b981;
+  --ct-neon-emerald-glow: rgba(16, 185, 129, 0.25);
+  --ct-glass-bg: rgba(10, 10, 10, 0.6);
+  --ct-glass-border: rgba(255, 255, 255, 0.08);
+  --ct-ease-premium: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --ct-ease-spring: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -37,15 +45,15 @@ body {
   @apply antialiased;
   background:
     radial-gradient(
-      circle at 12% 12%,
-      rgba(255, 255, 255, 0.06),
-      transparent 45%
+      circle at 5% 5%,
+      rgba(16, 185, 129, 0.03),
+      transparent 35%
     ),
     radial-gradient(
-      circle at 85% 18%,
-      rgba(255, 255, 255, 0.04),
-      transparent 42%
+      circle at 95% 5%,
+      rgba(255, 255, 255, 0.02),
+      transparent 30%
     ),
-    linear-gradient(180deg, #0b0b0b 0%, #050505 100%);
+    linear-gradient(180deg, #050505 0%, #020202 100%);
   color: var(--ct-text-primary);
 }
