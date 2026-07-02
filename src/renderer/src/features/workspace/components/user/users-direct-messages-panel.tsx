@@ -230,6 +230,7 @@ export function UsersDirectMessagesPanel({
             slotId: `placeholder-local-${currentUserId}`,
             participant: localUserPlaceholder,
             sourcePreference: "auto",
+            kind: "avatar",
           };
         }
         
@@ -237,6 +238,7 @@ export function UsersDirectMessagesPanel({
           slotId: `placeholder-${calleeId}`,
           participant: calleePlaceholder,
           sourcePreference: "auto" as const,
+          kind: "avatar" as const,
         };
         
         if (localSlot) {

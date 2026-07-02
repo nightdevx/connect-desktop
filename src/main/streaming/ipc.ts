@@ -3,11 +3,14 @@ import { DesktopApiError } from "../backend-client";
 import {
   STREAMING_START_CAPTURE_CHANNEL,
   STREAMING_STOP_CAPTURE_CHANNEL,
+  STREAMING_LOOPBACK_START_CHANNEL,
+  STREAMING_LOOPBACK_STOP_CHANNEL,
   type CaptureType,
   type StartCaptureRequest,
 } from "../../shared/streaming-contracts";
 
 import { CaptureEngine } from "./capture-engine";
+import { systemAudioLoopback } from "./system-audio-loopback";
 
 interface StreamingIpcDependencies {
   captureEngine: CaptureEngine;
@@ -21,7 +24,8 @@ interface RateLimitRule {
 const rateRules: Record<string, RateLimitRule> = {
   [STREAMING_START_CAPTURE_CHANNEL]: { maxRequests: 4, intervalMs: 1000 },
   [STREAMING_STOP_CAPTURE_CHANNEL]: { maxRequests: 4, intervalMs: 1000 },
-
+  [STREAMING_LOOPBACK_START_CHANNEL]: { maxRequests: 4, intervalMs: 1000 },
+  [STREAMING_LOOPBACK_STOP_CHANNEL]: { maxRequests: 4, intervalMs: 1000 },
 };
 
 const rateState = new Map<
@@ -35,6 +39,8 @@ const rateState = new Map<
 const streamingInvokeChannels = [
   STREAMING_START_CAPTURE_CHANNEL,
   STREAMING_STOP_CAPTURE_CHANNEL,
+  STREAMING_LOOPBACK_START_CHANNEL,
+  STREAMING_LOOPBACK_STOP_CHANNEL,
 ] as const;
 
 // registerStreamingIpcHandlers installs rate-limited IPC handlers for streaming controls.
@@ -65,7 +71,15 @@ export const registerStreamingIpcHandlers = ({
     }
   });
 
+  ipcMain.handle(STREAMING_LOOPBACK_START_CHANNEL, async (event) => {
+    enforceRateLimit(STREAMING_LOOPBACK_START_CHANNEL, event.sender.id);
+    return systemAudioLoopback.start(event.sender);
+  });
 
+  ipcMain.handle(STREAMING_LOOPBACK_STOP_CHANNEL, async (event) => {
+    enforceRateLimit(STREAMING_LOOPBACK_STOP_CHANNEL, event.sender.id);
+    systemAudioLoopback.stop();
+  });
 };
 
 // unregisterStreamingIpcHandlers removes all streaming invoke handlers.

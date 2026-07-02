@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, Plus, Wifi, WifiOff, X } from "lucide-react";
-import { Switch, Divider, Modal, Select } from "antd";
+import { Switch, Divider, Modal, Select, Input } from "antd";
 import { 
   DashboardOutlined, 
   DisconnectOutlined, 
@@ -56,12 +56,14 @@ interface WorkspaceSidebarProps {
       name: string,
       isLocked?: boolean,
       allowedUsers?: string[],
+      password?: string,
     ) => Promise<boolean>;
     onUpdateLobby: (
       lobbyId: string,
       name: string,
       isLocked?: boolean,
       allowedUsers?: string[],
+      password?: string | null,
     ) => Promise<boolean>;
     onDeleteLobby: (lobbyId: string) => Promise<boolean>;
     isCreatingLobby: boolean;
@@ -107,6 +109,7 @@ interface WorkspaceSidebarProps {
   };
   audioProcessingProps: {
     enhancedNoiseSuppressionEnabled: boolean;
+    micEnabled: boolean;
     /** Gerçek aktif mod: "none" (devre dışı) | "browser" (tarayıcı NS) | "processor" (RNNoise) */
     activeNoiseMode: "none" | "browser" | "processor";
     onToggleEnhancedNoiseSuppression: () => void;
@@ -127,6 +130,7 @@ export function WorkspaceSidebar({
   const [newLobbyName, setNewLobbyName] = useState("");
   const [isLocked, setIsLocked] = useState(false);
   const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+  const [newLobbyPassword, setNewLobbyPassword] = useState("");
   const [isAudioPopupOpen, setIsAudioPopupOpen] = useState(false);
   const audioAnchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -207,7 +211,12 @@ export function WorkspaceSidebar({
       return;
     }
 
-    const created = await lobbiesProps.onCreateLobby(newLobbyName, isLocked, allowedUsers);
+    const created = await lobbiesProps.onCreateLobby(
+      newLobbyName,
+      isLocked,
+      allowedUsers,
+      newLobbyPassword.trim() || undefined,
+    );
     if (!created) {
       return;
     }
@@ -215,6 +224,7 @@ export function WorkspaceSidebar({
     setNewLobbyName("");
     setIsLocked(false);
     setAllowedUsers([]);
+    setNewLobbyPassword("");
     setIsCreateLobbyOpen(false);
   };
 
@@ -521,7 +531,9 @@ export function WorkspaceSidebar({
                               borderRadius: "50%"
                             }}
                           />
-                          Başlatılıyor...
+                          {audioProcessingProps.micEnabled
+                            ? "Başlatılıyor..."
+                            : "Mikrofon açılınca etkinleşecek"}
                         </>
                       )}
                     </div>
@@ -664,6 +676,25 @@ export function WorkspaceSidebar({
               />
             </div>
           )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "12px" }}>
+              Oda Şifresi (opsiyonel)
+            </label>
+            <Input.Password
+              placeholder="Şifre belirleyin (boş = şifresiz)"
+              value={newLobbyPassword}
+              onChange={(event) => setNewLobbyPassword(event.target.value)}
+              maxLength={128}
+              style={{
+                background: "rgba(20, 20, 20, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+              }}
+            />
+            <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: "11px" }}>
+              Şifreyi bilen herkes bu odaya katılabilir.
+            </span>
+          </div>
         </div>
       </Modal>
     </aside>

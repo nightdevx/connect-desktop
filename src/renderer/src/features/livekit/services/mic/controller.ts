@@ -429,15 +429,21 @@ export class LiveKitMicrophoneController {
   private resolveBrowserSuppressionProfile(
     preset: NoiseSuppressionPreset,
   ): Pick<AudioCaptureOptions, "noiseSuppression" | "autoGainControl"> {
+    // This profile is only used when the RNNoise processor is active. Running the
+    // browser's noise suppressor in front of RNNoise double-processes the signal
+    // (pumping/artefacts), so disable it and let RNNoise own denoising.
+    // echoCancellation stays enabled (set in the base capture options).
+    // "natural" keeps browser AGC for a gentler level; stronger presets leave
+    // gain to RNNoise's gate to avoid the two fighting.
     if (preset === "natural") {
       return {
-        noiseSuppression: true,
+        noiseSuppression: false,
         autoGainControl: true,
       };
     }
 
     return {
-      noiseSuppression: true,
+      noiseSuppression: false,
       autoGainControl: false,
     };
   }
@@ -476,6 +482,25 @@ export class LiveKitMicrophoneController {
       return null;
     }
 
+    // ponytail: worklet/wasm load or context.resume() has no internal timeout
+    // and can hang (seen stuck on "Başlatılıyor..." indefinitely). Bound it here
+    // so the UI always falls back to browser NS instead of hanging forever.
+    try {
+      return await Promise.race([
+        this.resolveDesiredProcessorInternal(participant, preferences),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 6000),
+        ),
+      ]);
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveDesiredProcessorInternal(
+    participant: LocalParticipant,
+    preferences: MicrophoneProcessingPreferences,
+  ): Promise<any | null> {
     const context = await this.ensureParticipantAudioContext(participant);
     if (!context) {
       this.onWarning?.(

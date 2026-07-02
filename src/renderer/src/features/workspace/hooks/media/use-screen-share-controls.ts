@@ -4,8 +4,9 @@ import {
   type ScreenCaptureSourceDescriptor,
 } from "../../../../../../shared/desktop-api-types";
 import { type LiveKitMediaSession } from "@/features/livekit";
-import { 
+import {
   startScreenCapture,
+  stopActiveSystemLoopback,
   type ScreenShareQualityPreset,
   type ScreenShareSourceKind,
   type ScreenShareQualityOption,
@@ -185,10 +186,18 @@ export const useScreenShareControls = ({
         sourceId: selectedSourceId,
       });
 
+      // High-framerate presets are motion content (game/video); 30fps presets
+      // are treated as slides/detail for sharper text.
+      const screenMode = qualityOption.frameRate >= 60 ? "motion" : "slides";
+
       try {
-        await liveKitSessionRef.current?.publishScreenStream(stream);
+        await liveKitSessionRef.current?.publishScreenStream(stream, screenMode, {
+          maxBitrateBps: qualityOption.maxBitrateBps,
+          maxFramerate: qualityOption.frameRate,
+        });
       } catch (error) {
         stopMediaStreamTracks(stream);
+        void stopActiveSystemLoopback();
         throw error;
       }
 
@@ -198,6 +207,7 @@ export const useScreenShareControls = ({
           const latestLobbyID = activeLobbyRef.current;
           setLocalScreenStream(null);
           setScreenEnabled(false);
+          void stopActiveSystemLoopback();
           void liveKitSessionRef.current?.unpublishScreen();
           patchLobbyMemberState(currentUserId, { screenSharing: false });
 
@@ -260,6 +270,7 @@ export const useScreenShareControls = ({
 
     if (screenEnabled) {
       stopMediaStreamTracks(localScreenStream);
+      void stopActiveSystemLoopback();
       setLocalScreenStream(null);
       setScreenEnabled(false);
       void liveKitSessionRef.current?.unpublishScreen();

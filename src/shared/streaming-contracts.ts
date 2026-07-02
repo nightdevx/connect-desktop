@@ -3,6 +3,19 @@
 export const STREAMING_START_CAPTURE_CHANNEL = "streaming:start-capture";
 export const STREAMING_STOP_CAPTURE_CHANNEL = "streaming:stop-capture";
 
+// Process-exclude system-audio loopback (Windows). Captures system audio minus
+// this app's own output so screen-share audio never echoes remote voices.
+export const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
+export const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
+export const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
+
+export interface LoopbackStartResult {
+  ok: boolean;
+  sampleRate?: number;
+  channels?: number;
+  error?: string;
+}
+
 
 export type CaptureType = "screen" | "window" | "game" | "camera";
 
@@ -66,4 +79,8 @@ export interface StreamingApi {
     type: CaptureType,
   ) => Promise<StartCaptureResult>;
   stopCapture: () => Promise<StopCaptureResult>;
+  startSystemAudioLoopback: () => Promise<LoopbackStartResult>;
+  stopSystemAudioLoopback: () => Promise<void>;
+  // Streams interleaved Float32 PCM frames (stereo @ reported sampleRate).
+  onSystemAudioPcm: (listener: (samples: Float32Array) => void) => () => void;
 }

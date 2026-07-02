@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dropdown, Modal, Input, Button, Avatar, Switch, Select } from "antd";
+import { Dropdown, Modal, Input, Button, Avatar, Switch, Select, message } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -11,6 +11,8 @@ import {
   DesktopOutlined,
   TeamOutlined,
   LockOutlined,
+  LogoutOutlined,
+  CrownOutlined,
 } from "@ant-design/icons";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type {
@@ -20,6 +22,8 @@ import type {
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ConfirmActionModal } from "../common";
 import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
+import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth/permissions";
+import workspaceService from "../../services";
 
 interface LobbiesSidebarPanelProps {
   lobbiesQuery: UseQueryResult<
@@ -37,6 +41,7 @@ interface LobbiesSidebarPanelProps {
     name: string,
     isLocked?: boolean,
     allowedUsers?: string[],
+    password?: string | null,
   ) => Promise<boolean>;
   onDeleteLobby: (lobbyId: string) => Promise<boolean>;
   renamingLobbyId: string | null;
@@ -68,6 +73,8 @@ export function LobbiesSidebarPanel({
   const [editLobbyName, setEditLobbyName] = useState("");
   const [editIsLocked, setEditIsLocked] = useState(false);
   const [editAllowedUsers, setEditAllowedUsers] = useState<string[]>([]);
+  const [editPassword, setEditPassword] = useState("");
+  const [editRemovePassword, setEditRemovePassword] = useState(false);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
 
@@ -79,11 +86,39 @@ export function LobbiesSidebarPanel({
         ? editingLobby.allowedUsers.split(",").map((u) => u.trim()).filter(Boolean)
         : [];
       setEditAllowedUsers(users);
+      setEditPassword("");
+      setEditRemovePassword(false);
     }
   }, [editingLobby]);
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
+  };
+
+  const handleKickMember = async (
+    lobbyId: string,
+    userId: string,
+    username: string,
+  ): Promise<void> => {
+    const result = await workspaceService.kickLobbyMember({ lobbyId, userId });
+    if (result.ok) {
+      message.success(`${username} odadan atıldı`);
+    } else {
+      message.error(getApiErrorMessage(result.error));
+    }
+  };
+
+  const handleMuteMember = async (
+    lobbyId: string,
+    userId: string,
+    username: string,
+  ): Promise<void> => {
+    const result = await workspaceService.muteLobbyMember({ lobbyId, userId });
+    if (result.ok) {
+      message.success(`${username} susturuldu`);
+    } else {
+      message.error(getApiErrorMessage(result.error));
+    }
   };
 
   const handleDeleteConfirm = async (): Promise<void> => {
@@ -102,11 +137,19 @@ export function LobbiesSidebarPanel({
       return;
     }
 
+    // password: remove -> "" (clear), a new value -> set, empty -> undefined (keep).
+    const passwordArg = editRemovePassword
+      ? ""
+      : editPassword.trim()
+        ? editPassword.trim()
+        : undefined;
+
     const updated = await onUpdateLobby(
       editingLobby.id,
       editLobbyName,
       editIsLocked,
       editAllowedUsers,
+      passwordArg,
     );
     if (!updated) {
       return;
@@ -116,6 +159,8 @@ export function LobbiesSidebarPanel({
     setEditLobbyName("");
     setEditIsLocked(false);
     setEditAllowedUsers([]);
+    setEditPassword("");
+    setEditRemovePassword(false);
   };
 
   return (
@@ -156,6 +201,7 @@ export function LobbiesSidebarPanel({
           const isDeleting = deletingLobbyId === lobby.id;
           const members = lobbyMembersById[lobby.id] ?? [];
           const isActive = activeLobbyId === lobby.id;
+          const creatorPresent = members.some((m) => m.userId === lobby.createdBy);
           const isDisabled = isEditing || isDeleting || joiningLobbyId !== null;
 
           const handleLobbyClick = (): void => {
@@ -223,6 +269,15 @@ export function LobbiesSidebarPanel({
                         title="Bu lobi kilitlidir"
                       />
                     )}
+                    {creatorPresent && (
+                      <CrownOutlined
+                        style={{
+                          fontSize: "11px",
+                          color: isActive ? "rgba(0, 0, 0, 0.6)" : "#10b981",
+                        }}
+                        title="Kurucu şu an lobide"
+                      />
+                    )}
                   </p>
                   {members.length > 0 && (
                     <div
@@ -264,8 +319,11 @@ export function LobbiesSidebarPanel({
                     {members.map((member) => {
                       const micOpen = !member.muted;
                       const headphoneOpen = !member.deafened;
+                      const canModerate =
+                        canManageLobby(lobby.createdBy, currentUserId, currentUserRole) &&
+                        member.userId !== currentUserId;
 
-                      return (
+                      const memberRow = (
                         <li
                           key={member.userId}
                           className="ct-lobby-member-item"
@@ -321,6 +379,16 @@ export function LobbiesSidebarPanel({
                             >
                               {member.username}
                             </p>
+
+                            {member.userId === lobby.createdBy && (
+                              <CrownOutlined
+                                title="Lobi sahibi"
+                                style={{
+                                  fontSize: "10px",
+                                  color: isActive ? "rgba(0, 0, 0, 0.6)" : "#10b981",
+                                }}
+                              />
+                            )}
                           </div>
 
                           <div
@@ -411,6 +479,38 @@ export function LobbiesSidebarPanel({
                           </div>
                         </li>
                       );
+
+                      if (!canModerate) {
+                        return memberRow;
+                      }
+
+                      return (
+                        <Dropdown
+                          key={member.userId}
+                          trigger={["contextMenu"]}
+                          menu={{
+                            items: [
+                              {
+                                key: "mute",
+                                label: "Sustur",
+                                icon: <AudioMutedOutlined />,
+                                onClick: () =>
+                                  void handleMuteMember(lobby.id, member.userId, member.username),
+                              },
+                              {
+                                key: "kick",
+                                label: "Odadan At",
+                                icon: <LogoutOutlined />,
+                                danger: true,
+                                onClick: () =>
+                                  void handleKickMember(lobby.id, member.userId, member.username),
+                              },
+                            ],
+                          }}
+                        >
+                          {memberRow}
+                        </Dropdown>
+                      );
                     })}
                   </ul>
                 )}
@@ -418,7 +518,7 @@ export function LobbiesSidebarPanel({
             </li>
           );
 
-          const isOwner = lobby.createdBy === currentUserId || currentUserRole === "admin" || currentUserId === "admin-master-id";
+          const isOwner = canManageLobby(lobby.createdBy, currentUserId, currentUserRole);
           if (isDefaultLobby(lobby) || !isOwner) {
             return lobbyElement;
           }
@@ -540,12 +640,60 @@ export function LobbiesSidebarPanel({
                 style={{ width: "100%" }}
                 dropdownStyle={{ background: "#1f1f1f", border: "1px solid rgba(255,255,255,0.08)" }}
                 options={allUsers
-                  .filter(u => u.id !== currentUserId && u.id !== "admin-master-id")
+                  .filter(u => u.id !== currentUserId && u.id !== SEED_ADMIN_ID)
                   .map(u => ({ label: `@${u.username} (${u.displayName})`, value: u.id }))
                 }
               />
             </div>
           )}
+
+          <div style={{ marginTop: "16px" }}>
+            <label
+              className="ct-label"
+              style={{
+                display: "block",
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.45)",
+                marginBottom: "8px",
+              }}
+            >
+              Oda Şifresi
+            </label>
+            <Input.Password
+              placeholder={
+                editingLobby?.hasPassword
+                  ? "Değiştirmek için yeni şifre girin (boş = değişmez)"
+                  : "Şifre belirleyin (boş = şifresiz)"
+              }
+              value={editPassword}
+              onChange={(event) => setEditPassword(event.target.value)}
+              disabled={editRemovePassword}
+              maxLength={128}
+              style={{
+                background: "rgba(20, 20, 20, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+              }}
+            />
+            {editingLobby?.hasPassword && (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginTop: "10px",
+                  fontSize: "12px",
+                  color: "rgba(255,255,255,0.6)",
+                }}
+              >
+                <Switch
+                  size="small"
+                  checked={editRemovePassword}
+                  onChange={(checked) => setEditRemovePassword(checked)}
+                />
+                Şifreyi kaldır
+              </label>
+            )}
+          </div>
         </div>
       </Modal>
 

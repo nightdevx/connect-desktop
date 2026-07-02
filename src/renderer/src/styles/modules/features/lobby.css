@@ -316,11 +316,41 @@
     0 12px 28px rgba(0, 0, 0, 0.3);
 }
 
-.ct-lobby-participant-tile.speaking {
-  border-color: rgba(255, 255, 255, 0.6);
-  animation: ctSpeakingBorderPulse 0.92s ease-in-out infinite;
-  will-change: border-color, box-shadow;
+/* Screen-share tiles get a distinct accent so they read as "content", not a face. */
+.ct-lobby-participant-tile.screen-share {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: linear-gradient(150deg, rgba(15, 23, 30, 0.6), rgba(6, 10, 14, 0.78));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 28px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(59, 130, 246, 0.12);
 }
+
+.ct-lobby-participant-tile.screen-share:not(.local-user):hover {
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.ct-lobby-tile-kind-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.85);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* Speaking indicator lives in theme.css (single source: static glow ring). */
 
 .ct-lobby-video-container {
   position: absolute;
@@ -402,6 +432,14 @@
 
 .ct-lobby-tile-center-logo.media-on {
   opacity: 0;
+}
+
+.ct-lobby-avatar-container {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ct-lobby-participant-tile:not(.local-user):hover .ct-lobby-avatar-container {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
 }
 
 .ct-lobby-tile-footer {
@@ -490,7 +528,7 @@
   position: absolute !important;
   bottom: 24px !important;
   left: 50% !important;
-  transform: translateX(-50%) translateY(12px) !important;
+  transform: translateX(-50%) translateY(0) !important;
   z-index: 50 !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -502,19 +540,18 @@
   background: rgba(10, 10, 10, 0.88) !important;
   backdrop-filter: blur(12px) !important;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transition:
-    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  /* Always visible so primary controls (mic/camera/screen/leave) stay
+     discoverable; idle state is just dimmer, not hidden. */
+  opacity: 0.72 !important;
+  pointer-events: auto !important;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   width: auto !important;
   height: auto !important;
 }
 
-.ct-lobby-room-card:hover .ct-lobby-stage-actions {
+.ct-lobby-room-card:hover .ct-lobby-stage-actions,
+.ct-lobby-stage-actions:focus-within {
   opacity: 1 !important;
-  pointer-events: auto !important;
-  transform: translateX(-50%) translateY(0) !important;
 }
 
 .ct-lobby-stage-icon-action {

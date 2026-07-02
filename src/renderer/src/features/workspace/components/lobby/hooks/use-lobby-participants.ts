@@ -139,8 +139,11 @@ export function useLobbyParticipants({
         return left.isLocalUser ? -1 : 1;
       }
 
-      if (left.speaking !== right.speaking) {
-        return left.speaking ? -1 : 1;
+      // Screen-sharers stay on top so the shared content is easy to find; not
+      // sorted by speaking anymore, so tiles don't jump around mid-conversation
+      // (speaking is already shown via the tile's border glow).
+      if (left.screenSharing !== right.screenSharing) {
+        return left.screenSharing ? -1 : 1;
       }
 
       return left.username.localeCompare(right.username, "tr");

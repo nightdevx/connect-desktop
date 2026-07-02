@@ -16,6 +16,7 @@ interface UseWorkspaceLobbiesProps {
   activeLobbyReconnectAttemptRef: React.MutableRefObject<number>;
   performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
   lobbiesQuery: UseQueryResult<DesktopResult<{ lobbies: LobbyDescriptor[] }>, Error>;
+  kickedLobbyIdRef: React.MutableRefObject<string | null>;
 }
 
 const LOBBY_STREAM_RECONNECT_BASE_MS = 1_000;
@@ -66,6 +67,7 @@ export function useWorkspaceLobbies({
   activeLobbyReconnectAttemptRef,
   performPostJoinSynchronization,
   lobbiesQuery,
+  kickedLobbyIdRef,
 }: UseWorkspaceLobbiesProps) {
   const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
@@ -188,6 +190,9 @@ export function useWorkspaceLobbies({
     immediate = false,
   ): void => {
     if (!activeLobbyRef.current || activeLobbyReconnectTimerRef.current !== null) return;
+    // Never auto-rejoin a lobby the user was just server-kicked from — that
+    // would silently undo the kick. A deliberate manual join clears this.
+    if (kickedLobbyIdRef.current === activeLobbyRef.current) return;
 
     const delay = immediate
       ? 0

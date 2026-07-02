@@ -25,6 +25,7 @@ interface LobbyParticipantTileProps {
   participant: LobbyParticipantView;
   avatarUrl?: string | null;
   previewStream?: Track | MediaStream | null;
+  kind?: "camera" | "screen" | "avatar";
   isSelected?: boolean;
   isFocusedLayout?: boolean;
   isCompact?: boolean;
@@ -46,6 +47,7 @@ export function LobbyParticipantTile({
   participant,
   avatarUrl,
   previewStream = null,
+  kind = "avatar",
   isSelected = false,
   isFocusedLayout = false,
   isCompact = false,
@@ -177,6 +179,7 @@ export function LobbyParticipantTile({
         isSelected ? "selected" : "",
         isFocusedLayout ? "focused" : "",
         isCompact ? "compact" : "",
+        kind === "screen" ? "screen-share" : "",
         participant.isPlaceholder ? "ct-call-placeholder-pulsing" : "",
       ]
         .filter(Boolean)
@@ -193,6 +196,13 @@ export function LobbyParticipantTile({
           : "Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
       }
     >
+      {kind === "screen" && (
+        <div className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
+          <DesktopOutlined style={{ fontSize: "11px" }} />
+          <span>Ekran</span>
+        </div>
+      )}
+
       {previewStream && (
         <div
           ref={containerRef}
@@ -274,7 +284,9 @@ export function LobbyParticipantTile({
 
       <footer className="ct-lobby-tile-footer">
         <div className="ct-lobby-tile-userline">
-          <p title={participant.username}>{participant.username}</p>
+          <p title={participant.username}>
+            {kind === "screen" ? `${participant.username} · Ekran` : participant.username}
+          </p>
         </div>
 
         <div

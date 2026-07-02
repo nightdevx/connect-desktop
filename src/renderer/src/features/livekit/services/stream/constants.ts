@@ -4,7 +4,7 @@ import type {
 
 export const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPreferences =
   {
-    enhancedNoiseSuppressionEnabled: false,
+    enhancedNoiseSuppressionEnabled: true,
     noiseSuppressionPreset: "balanced",
     selectedAudioInputDeviceId: null,
     selectedAudioOutputDeviceId: null,

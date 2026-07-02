@@ -10,6 +10,8 @@ import {
   CallOverlay,
 } from "../features/workspace/components";
 import AdminPanel from "../features/admin/components/admin-panel";
+import { isAdminRole } from "../features/auth/permissions";
+import { LobbyPasswordPromptModal } from "../features/workspace/components/lobby/lobby-password-prompt-modal";
 import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
 import {
   useDirectMessages,
@@ -69,10 +71,10 @@ function WorkspaceShell({
   const setStatus = useUiStore((state) => state.setStatus);
 
   useEffect(() => {
-    if (currentUserId === "admin-master-id" || (currentUserRole === "admin" && currentUsername === "admin")) {
+    if (isAdminRole(currentUserRole)) {
       setWorkspaceSection("admin");
     }
-  }, [currentUserRole, currentUsername, currentUserId, setWorkspaceSection]);
+  }, [currentUserRole, setWorkspaceSection]);
 
   // ----- SHARED STATE / REFS -----
   const [activeLobbyId, setActiveLobbyId] = useState<string | null>(null);
@@ -80,6 +82,12 @@ function WorkspaceShell({
   useEffect(() => {
     activeLobbyRef.current = activeLobbyId;
   }, [activeLobbyId]);
+
+  // Marks a lobbyId the current user was just server-kicked from. While set,
+  // the reconnect loop must not silently rejoin that lobby (it would undo the
+  // kick), and disconnect handlers must not claim they're "reconnecting".
+  // Cleared on any subsequent successful manual join.
+  const kickedLobbyIdRef = useRef<string | null>(null);
 
   const { isOnline, shouldEmitReconnectStatus } = useNetworkReconnect();
   const { audioInputDevices, audioOutputDevices } = useMediaDevices();
@@ -119,12 +127,14 @@ function WorkspaceShell({
     activeNoiseSuppressionMode,
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
+    liveKitConnectionState,
   } = useLivekitSession(
     currentUserId,
     audioPreferences,
     shouldEmitReconnectStatus,
     activeLobbyRef,
     scheduleActiveLobbyReconnectProxy,
+    kickedLobbyIdRef,
   );
 
   const handleSetRemoteParticipantMuted = useCallback(
@@ -552,11 +562,20 @@ function WorkspaceShell({
     activeLobbyReconnectAttemptRef,
     performPostJoinSynchronization,
     lobbiesQuery,
+    kickedLobbyIdRef,
   });
 
   useEffect(() => {
     activeLobbyReconnectProxyRef.current = scheduleActiveLobbyReconnect;
   }, [scheduleActiveLobbyReconnect]);
+
+  // Active-lobby roster prefers the WS snapshot (lobbyMembersById, ~1s push) and
+  // falls back to the REST lobbyStateQuery only when the stream hasn't delivered
+  // it yet. This is what lets the REST poll run slowly without a laggy roster.
+  const activeLobbyRosterMembers = useMemo(() => {
+    if (!activeLobbyId || activeLobbyId.startsWith("call_")) return lobbyMembers;
+    return lobbyMembersById[activeLobbyId] ?? lobbyMembers;
+  }, [activeLobbyId, lobbyMembersById, lobbyMembers]);
 
   const activeLobby = useMemo(() => {
     if (!activeLobbyId) return null;
@@ -611,7 +630,7 @@ function WorkspaceShell({
   useWorkspaceAudioCues({
     activeLobbyId,
     currentUserId,
-    lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers,
+    lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers,
   });
 
   // ----- LOBBY ACTIONS -----
@@ -626,6 +645,8 @@ function WorkspaceShell({
     deleteLobby,
     joinLobby,
     leaveActiveLobby,
+    pendingPasswordLobby,
+    cancelPasswordPrompt,
   } = useWorkspaceLobbyActions({
     activeLobbyId,
     setActiveLobbyId,
@@ -640,6 +661,7 @@ function WorkspaceShell({
     activeLobbyReconnectInFlightRef,
     resetLocalMediaCapture,
     liveKitSessionRef,
+    kickedLobbyIdRef,
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
@@ -667,8 +689,13 @@ function WorkspaceShell({
         if (hasSeenCurrentUserInLobbyRef.current) {
           console.log(`[WorkspaceShell] Current user is not in active lobby ${activeLobbyId}. Kicked.`);
           message.warning("Odadan atıldınız veya oda kapatıldı.");
+          // Reset synchronously (not just on the eventual activeLobbyId->null
+          // transition) so a second SSE push landing before leaveActiveLobby's
+          // async REST call resolves can't re-fire this branch.
+          hasSeenCurrentUserInLobbyRef.current = false;
           delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
-          void leaveActiveLobby();
+          kickedLobbyIdRef.current = activeLobbyId;
+          void leaveActiveLobby("kicked");
         }
       }
     } else {
@@ -677,8 +704,10 @@ function WorkspaceShell({
       if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
         console.log(`[WorkspaceShell] Active lobby ${activeLobbyId} was deleted.`);
         message.warning("Odadan atıldınız veya oda kapatıldı.");
+        hasSeenCurrentUserInLobbyRef.current = false;
         delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
-        void leaveActiveLobby();
+        kickedLobbyIdRef.current = activeLobbyId;
+        void leaveActiveLobby("kicked");
       }
     }
   }, [activeLobbyId, lobbyMembersById, currentUserId, leaveActiveLobby]);
@@ -758,6 +787,7 @@ function WorkspaceShell({
     onProbeFailure: () => {
       scheduleActiveLobbyReconnectProxy("lobby-state-probe", false);
     },
+    liveKitConnectionState,
   });
 
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
@@ -877,6 +907,7 @@ function WorkspaceShell({
             audioProcessingProps={{
               enhancedNoiseSuppressionEnabled:
                 audioPreferences.enhancedNoiseSuppressionEnabled,
+              micEnabled,
               activeNoiseMode:
                 activeNoiseSuppressionMode === "processor"
                   ? "processor"
@@ -932,7 +963,7 @@ function WorkspaceShell({
             onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}
             lobbyStateQuery={lobbyStateQuery}
             lobbyMessagesQuery={lobbyMessagesQuery}
-            lobbyMembers={activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers}
+            lobbyMembers={activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers}
             lobbyMessages={lobbyMessages}
             lobbyMessageDraft={lobbyMessageDraft}
             setLobbyMessageDraft={setLobbyMessageDraft}
@@ -1011,6 +1042,13 @@ function WorkspaceShell({
         previewRef={cameraPreviewRef}
         onStart={startCameraShareFromModal}
         onRefreshPreview={prepareCameraPreview}
+      />
+
+      <LobbyPasswordPromptModal
+        pending={pendingPasswordLobby}
+        isJoining={joiningLobbyId !== null}
+        onSubmit={(lobbyId, password) => void joinLobby(lobbyId, password)}
+        onCancel={cancelPasswordPrompt}
       />
     </section>
   );

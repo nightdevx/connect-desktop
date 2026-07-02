@@ -295,9 +295,10 @@
   border-radius: inherit;
   border: 2px solid #10b981;
   opacity: 1;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.15);
   pointer-events: none;
   z-index: 10;
+  transition: box-shadow 0.2s ease;
 }
 
 .ct-lobby-participant-tile.speaking .ct-lobby-tile-footer p {

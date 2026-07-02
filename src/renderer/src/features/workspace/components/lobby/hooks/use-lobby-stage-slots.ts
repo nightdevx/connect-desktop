@@ -26,6 +26,7 @@ export function useLobbyStageSlots({
             ),
             participant,
             sourcePreference: "screen",
+            kind: "screen",
           },
           {
             slotId: resolveParticipantRenderKey(
@@ -35,6 +36,7 @@ export function useLobbyStageSlots({
             ),
             participant,
             sourcePreference: "camera",
+            kind: "camera",
           },
         ];
       }
@@ -49,6 +51,7 @@ export function useLobbyStageSlots({
             ),
             participant,
             sourcePreference: "screen",
+            kind: "screen",
           },
         ];
       }
@@ -63,6 +66,7 @@ export function useLobbyStageSlots({
             ),
             participant,
             sourcePreference: "camera",
+            kind: "camera",
           },
         ];
       }
@@ -76,6 +80,7 @@ export function useLobbyStageSlots({
           ),
           participant,
           sourcePreference: "auto",
+          kind: "avatar",
         },
       ];
     });

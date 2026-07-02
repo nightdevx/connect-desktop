@@ -1,9 +1,10 @@
-import { 
-  type StartScreenCaptureOptions, 
+import {
+  type StartScreenCaptureOptions,
   type StartScreenCaptureResult,
   type ScreenShareResolution
 } from "./types";
 import { type DesktopResult } from "../../../../shared/desktop-api-types";
+import { startSystemLoopbackAudioTrack } from "./loopback-audio";
 
 const desktopBridgeOutdatedError = {
   ok: false,
@@ -202,13 +203,12 @@ const startElectronDesktopCapture = async (
   });
 
   try {
+    // Video only. System audio is captured separately via the process-exclude
+    // loopback (below) so Connect's own output (remote voices) is never in the
+    // mix — capturing audio here via chromeMediaSource:'desktop' would grab the
+    // full loopback and echo participants back to themselves.
     const constraints: any = {
-      audio: options.captureSystemAudio ? {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: preferredSource.id
-        }
-      } : false,
+      audio: false,
       video: {
         mandatory: {
           chromeMediaSource: "desktop",
@@ -227,25 +227,23 @@ const startElectronDesktopCapture = async (
 
     console.log("[ScreenCapture] getUserMedia success", {
       videoTracks: stream.getVideoTracks().length,
-      audioTracks: stream.getAudioTracks().length,
     });
 
-    // Apply Echo Cancellation to system audio if captured in Electron
-    const audioTrack = stream.getAudioTracks()[0];
-    if (audioTrack && options.captureSystemAudio) {
-      console.log("[ScreenCapture] Applying AEC to system audio track");
-      await audioTrack.applyConstraints({
-        echoCancellation: true,
-        autoGainControl: false,
-        noiseSuppression: false
-      }).catch(err => {
-        console.warn("[ScreenCapture] Could not apply AEC to audio track", err);
-      });
+    let warning: string | undefined;
+    if (options.captureSystemAudio) {
+      const loopbackTrack = await startSystemLoopbackAudioTrack();
+      if (loopbackTrack) {
+        stream.addTrack(loopbackTrack);
+      } else {
+        warning =
+          "Sistem sesi bu cihazda yakalanamadı (yankısız ses modülü yüklenemedi). Yayın görüntü olarak başlatıldı.";
+      }
     }
 
     return {
       stream,
       sourceName: preferredSource.name,
+      warning,
     };
   } catch (error) {
     console.error("[ScreenCapture] getUserMedia failed", error);

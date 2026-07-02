@@ -30,6 +30,7 @@ interface UseWorkspaceLobbyActionsParams {
   activeLobbyReconnectInFlightRef: MutableRefObject<boolean>;
   resetLocalMediaCapture: () => void;
   liveKitSessionRef: MutableRefObject<LiveKitMediaSession | null>;
+  kickedLobbyIdRef: MutableRefObject<string | null>;
 }
 
 export interface WorkspaceLobbyActionsState {
@@ -42,16 +43,20 @@ export interface WorkspaceLobbyActionsState {
     name: string,
     isLocked?: boolean,
     allowedUsers?: string[],
+    password?: string,
   ) => Promise<boolean>;
   updateLobby: (
     lobbyId: string,
     name: string,
     isLocked?: boolean,
     allowedUsers?: string[],
+    password?: string | null,
   ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
-  joinLobby: (lobbyId: string) => Promise<void>;
-  leaveActiveLobby: () => Promise<void>;
+  joinLobby: (lobbyId: string, password?: string) => Promise<void>;
+  leaveActiveLobby: (reason?: "user" | "kicked") => Promise<void>;
+  pendingPasswordLobby: { lobbyId: string; wrong: boolean } | null;
+  cancelPasswordPrompt: () => void;
 }
 
 export const useWorkspaceLobbyActions = ({
@@ -67,17 +72,23 @@ export const useWorkspaceLobbyActions = ({
   activeLobbyReconnectInFlightRef,
   resetLocalMediaCapture,
   liveKitSessionRef,
+  kickedLobbyIdRef,
 }: UseWorkspaceLobbyActionsParams): WorkspaceLobbyActionsState => {
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [renamingLobbyId, setRenamingLobbyId] = useState<string | null>(null);
   const [deletingLobbyId, setDeletingLobbyId] = useState<string | null>(null);
   const [joiningLobbyId, setJoiningLobbyId] = useState<string | null>(null);
   const [isLeavingLobby, setIsLeavingLobby] = useState(false);
+  const [pendingPasswordLobby, setPendingPasswordLobby] = useState<{
+    lobbyId: string;
+    wrong: boolean;
+  } | null>(null);
 
   const createLobby = async (
     name: string,
     isLocked?: boolean,
     allowedUsers?: string[],
+    password?: string,
   ): Promise<boolean> => {
     const trimmed = name.trim();
     if (trimmed.length < 2) {
@@ -91,6 +102,7 @@ export const useWorkspaceLobbyActions = ({
         name: trimmed,
         isLocked,
         allowedUsers,
+        password,
       });
       if (!result.ok) {
         setStatus(
@@ -130,6 +142,7 @@ export const useWorkspaceLobbyActions = ({
     nextName: string,
     isLocked?: boolean,
     allowedUsers?: string[],
+    password?: string | null,
   ): Promise<boolean> => {
     const trimmedName = nextName.trim();
     if (trimmedName.length < 2) {
@@ -144,6 +157,7 @@ export const useWorkspaceLobbyActions = ({
         name: trimmedName,
         isLocked,
         allowedUsers,
+        password,
       });
 
       if (!result.ok) {
@@ -203,7 +217,7 @@ export const useWorkspaceLobbyActions = ({
     }
   };
 
-  const joinLobby = async (lobbyId: string): Promise<void> => {
+  const joinLobby = async (lobbyId: string, password?: string): Promise<void> => {
     if (joiningLobbyId || isLeavingLobby || activeLobbyId === lobbyId) {
       return;
     }
@@ -212,14 +226,29 @@ export const useWorkspaceLobbyActions = ({
 
     setJoiningLobbyId(lobbyId);
     try {
-      const result = await workspaceService.joinLobby({ lobbyId });
+      const result = await workspaceService.joinLobby({ lobbyId, password });
       if (!result.ok) {
+        // Password-protected room: surface a prompt instead of a scary error.
+        const code = result.error?.code;
+        if (code === "LOBBY_PASSWORD_REQUIRED" || code === "LOBBY_PASSWORD_INCORRECT") {
+          setPendingPasswordLobby({
+            lobbyId,
+            wrong: code === "LOBBY_PASSWORD_INCORRECT",
+          });
+          return;
+        }
         setStatus(
           `Lobiye katılınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           "error",
         );
         return;
       }
+
+      setPendingPasswordLobby(null);
+
+      // A deliberate (re)join means any prior kick from this lobby no longer
+      // applies — clear the marker so the reconnect guard doesn't block us.
+      kickedLobbyIdRef.current = null;
 
       setActiveLobbyId(lobbyId);
       clearActiveLobbyReconnectTimer();
@@ -238,7 +267,7 @@ export const useWorkspaceLobbyActions = ({
     }
   };
 
-  const leaveActiveLobby = async (): Promise<void> => {
+  const leaveActiveLobby = async (reason: "user" | "kicked" = "user"): Promise<void> => {
     if (!activeLobbyId || isLeavingLobby) {
       return;
     }
@@ -266,7 +295,11 @@ export const useWorkspaceLobbyActions = ({
       resetLocalMediaCapture();
       void liveKitSessionRef.current?.disconnect();
       soundEffectManager.playMemberLeft();
-      setStatus("Lobiden ayrıldın", "ok");
+      // The kick warning already told the user what happened; a second
+      // contradicting "ok" toast right after is confusing, not informative.
+      if (reason !== "kicked") {
+        setStatus("Lobiden ayrıldın", "ok");
+      }
       void lobbiesQuery.refetch();
     } finally {
       setIsLeavingLobby(false);
@@ -284,6 +317,8 @@ export const useWorkspaceLobbyActions = ({
     deleteLobby,
     joinLobby,
     leaveActiveLobby,
+    pendingPasswordLobby,
+    cancelPasswordPrompt: () => setPendingPasswordLobby(null),
   };
 };
 

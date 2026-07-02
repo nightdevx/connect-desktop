@@ -1,5 +1,8 @@
 import { Form, Input, Button } from "antd";
+import { User, Lock, Mail } from "lucide-react";
 import type { RegisterRequest } from "../../../../../shared/auth-contracts";
+
+const mutedIconStyle = { color: "#6b6b6b" };
 
 interface RegisterPageProps {
   loading: boolean;
@@ -43,10 +46,14 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             { max: 128, message: "E-posta en fazla 128 karakter olmalıdır!" }
           ]}
         >
-          <Input 
+          <Input
             size="large"
             placeholder="örnek@mail.com"
             className="ct-input-premium"
+            prefix={<Mail size={16} style={mutedIconStyle} />}
+            autoComplete="email"
+            autoFocus
+            spellCheck={false}
           />
         </Form.Item>
 
@@ -59,15 +66,18 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             { max: 64, message: "Kullanıcı adı en fazla 64 karakter olmalıdır!" }
           ]}
         >
-          <Input 
+          <Input
             size="large"
             placeholder="Kullanıcı adınız"
             className="ct-input-premium"
+            prefix={<User size={16} style={mutedIconStyle} />}
+            autoComplete="username"
+            spellCheck={false}
           />
         </Form.Item>
 
         <Form.Item
-          label={<span className="text-sm font-semibold text-[#c7c7c7]">Şifre</span>}
+          label="Şifre"
           name="password"
           rules={[
             { required: true, message: "Lütfen şifre girin!" },
@@ -79,10 +89,37 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Şifreniz"
             className="ct-input-premium"
+            prefix={<Lock size={16} style={mutedIconStyle} />}
+            autoComplete="new-password"
           />
         </Form.Item>
 
-        <Form.Item className="mt-6 mb-0">
+        <Form.Item
+          label="Şifre Tekrar"
+          name="confirmPassword"
+          dependencies={["password"]}
+          rules={[
+            { required: true, message: "Lütfen şifrenizi tekrar girin!" },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue("password") === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error("Şifreler eşleşmiyor!"));
+              },
+            }),
+          ]}
+        >
+          <Input.Password
+            size="large"
+            placeholder="Şifrenizi tekrar girin"
+            className="ct-input-premium"
+            prefix={<Lock size={16} style={mutedIconStyle} />}
+            autoComplete="new-password"
+          />
+        </Form.Item>
+
+        <Form.Item className="mt-2 mb-0">
           <Button
             type="primary"
             htmlType="submit"
@@ -103,6 +140,12 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         </Form.Item>
       </Form>
 
+      <p className="mt-6 text-center text-sm" style={{ color: "var(--ct-text-muted)" }}>
+        Zaten hesabın var mı?{" "}
+        <button type="button" className="ct-link" onClick={onGoLogin}>
+          Giriş Yap
+        </button>
+      </p>
     </section>
   );
 }

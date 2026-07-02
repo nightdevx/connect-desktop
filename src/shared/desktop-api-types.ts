@@ -258,19 +258,30 @@ export interface DesktopApi {
     name: string;
     isLocked?: boolean;
     allowedUsers?: string[];
+    password?: string;
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   updateLobby: (payload: {
     lobbyId: string;
     name: string;
     isLocked?: boolean;
     allowedUsers?: string[];
+    password?: string | null;
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   deleteLobby: (payload: {
     lobbyId: string;
   }) => Promise<DesktopResult<{ deleted: boolean; lobbyId: string }>>;
   joinLobby: (payload: {
     lobbyId: string;
+    password?: string;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
+  kickLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+  }) => Promise<DesktopResult<{ kicked: boolean }>>;
+  muteLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+  }) => Promise<DesktopResult<{ muted: boolean }>>;
   leaveLobby: (payload?: {
     lobbyId?: string;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;

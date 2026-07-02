@@ -62,9 +62,11 @@ export const useLobbyRoom = ({
         lobbyId: activeLobbyId as string,
       }),
     enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
-    refetchInterval: 1_200,
+    // Roster comes primarily from the lobby WS snapshot (~1s); this REST poll is
+    // now just a fallback for when the stream is down, so it can run slowly.
+    refetchInterval: 4_000,
     refetchIntervalInBackground: true,
-    staleTime: 600,
+    staleTime: 2_000,
   });
 
   const lobbyMessagesQuery = useQuery({

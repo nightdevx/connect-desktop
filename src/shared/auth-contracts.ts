@@ -91,6 +91,7 @@ export interface LobbyDescriptor {
   memberCount: number;
   isLocked?: boolean;
   allowedUsers?: string;
+  hasPassword?: boolean;
 }
 
 export interface ChatMessage {

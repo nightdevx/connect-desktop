@@ -100,10 +100,11 @@ export const lobbyService = {
     name: string;
     isLocked?: boolean;
     allowedUsers?: string[];
+    password?: string;
   }): Promise<DesktopResult<{ lobby: LobbyDescriptor }>> => {
     return window.desktopApi.createLobby(payload);
   },
-  updateLobby: (payload: { lobbyId: string; name: string; isLocked?: boolean; allowedUsers?: string[] }) => {
+  updateLobby: (payload: { lobbyId: string; name: string; isLocked?: boolean; allowedUsers?: string[]; password?: string | null }) => {
     if (typeof window.desktopApi.updateLobby !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ lobby: LobbyDescriptor }>,
@@ -124,8 +125,24 @@ export const lobbyService = {
 
     return window.desktopApi.deleteLobby(payload);
   },
-  joinLobby: (payload: { lobbyId: string }) => {
+  joinLobby: (payload: { lobbyId: string; password?: string }) => {
     return window.desktopApi.joinLobby(payload);
+  },
+  kickLobbyMember: (payload: { lobbyId: string; userId: string }) => {
+    if (typeof window.desktopApi.kickLobbyMember !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ kicked: boolean }>,
+      );
+    }
+    return window.desktopApi.kickLobbyMember(payload);
+  },
+  muteLobbyMember: (payload: { lobbyId: string; userId: string }) => {
+    if (typeof window.desktopApi.muteLobbyMember !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ muted: boolean }>,
+      );
+    }
+    return window.desktopApi.muteLobbyMember(payload);
   },
   leaveLobby: (payload?: { lobbyId?: string }) => {
     return window.desktopApi.leaveLobby(payload);

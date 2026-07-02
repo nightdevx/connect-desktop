@@ -12,6 +12,9 @@ const UPDATE_EVENT_CHANNEL = "desktop:update-event";
 
 const STREAMING_START_CAPTURE_CHANNEL = "streaming:start-capture";
 const STREAMING_STOP_CAPTURE_CHANNEL = "streaming:stop-capture";
+const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
+const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
+const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
 
 
 const desktopApi: DesktopApi = {
@@ -105,6 +108,10 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-delete", payload),
   joinLobby: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-join", payload),
+  kickLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-kick", payload),
+  muteLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-mute-member", payload),
   leaveLobby: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-leave", payload),
   setLobbyMuted: async (payload) =>
@@ -201,6 +208,27 @@ const streamingApi: StreamingApi = {
       type,
     }),
   stopCapture: async () => ipcRenderer.invoke(STREAMING_STOP_CAPTURE_CHANNEL),
+  startSystemAudioLoopback: async () =>
+    ipcRenderer.invoke(STREAMING_LOOPBACK_START_CHANNEL),
+  stopSystemAudioLoopback: async () =>
+    ipcRenderer.invoke(STREAMING_LOOPBACK_STOP_CHANNEL),
+  onSystemAudioPcm: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      samples: Float32Array,
+    ) => {
+      listener(samples);
+    };
+
+    ipcRenderer.on(STREAMING_LOOPBACK_PCM_CHANNEL, wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener(
+        STREAMING_LOOPBACK_PCM_CHANNEL,
+        wrappedListener,
+      );
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopApi", desktopApi);

@@ -1,6 +1,7 @@
 import { Tooltip, Badge } from "antd";
 import { TeamOutlined, AppstoreOutlined, SettingOutlined, SafetyCertificateOutlined, LogoutOutlined } from "@ant-design/icons";
 import type { WorkspaceSection } from "@/store/ui-store";
+import { isAdminRole } from "@/features/auth/permissions";
 
 interface WorkspaceRailProps {
   workspaceSection: WorkspaceSection;
@@ -18,13 +19,9 @@ export function WorkspaceRail({
   onSectionChange,
   totalUnreadDirectMessages,
   currentUserRole,
-  currentUsername,
-  currentUserId,
   onLogout,
   isLoggingOut,
 }: WorkspaceRailProps) {
-  const isMasterAdmin = currentUserId === "admin-master-id" || currentUsername === "admin";
-
   return (
     <aside className="ct-rail" aria-label="Navigasyon">
       <div className="ct-rail-top-logo">
@@ -81,7 +78,7 @@ export function WorkspaceRail({
           </div>
         </Tooltip>
 
-        {(currentUserRole === "admin" || isMasterAdmin) && (
+        {isAdminRole(currentUserRole) && (
           <Tooltip title="Yönetim" placement="right" mouseEnterDelay={0.15}>
             <div className="ct-rail-item-wrapper">
               <div className={`ct-rail-indicator ${workspaceSection === "admin" ? "active" : ""}`} />

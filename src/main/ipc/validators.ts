@@ -46,6 +46,7 @@ export const createLobbySchema = z.object({
   name: z.string().min(2).max(64),
   isLocked: z.boolean().optional(),
   allowedUsers: z.array(z.string()).optional(),
+  password: z.string().max(128).optional(),
 });
 
 export const updateLobbySchema = z.object({
@@ -53,6 +54,8 @@ export const updateLobbySchema = z.object({
   name: z.string().min(2).max(64),
   isLocked: z.boolean().optional(),
   allowedUsers: z.array(z.string()).optional(),
+  // undefined = keep current, "" = clear, string = set new password.
+  password: z.string().max(128).nullable().optional(),
 });
 
 export const deleteLobbySchema = z.object({
@@ -61,6 +64,12 @@ export const deleteLobbySchema = z.object({
 
 export const lobbyJoinSchema = z.object({
   lobbyId: z.string().min(2).max(128),
+  password: z.string().max(128).optional(),
+});
+
+export const lobbyModerateSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  userId: z.string().min(2).max(128),
 });
 
 export const lobbyStateSchema = z.object({
