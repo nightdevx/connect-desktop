@@ -3,11 +3,13 @@ import type { ParticipantMediaMap } from "@/features/livekit";
 import type { LobbyParticipantView } from "./lobby-participant-tile";
 
 export type ParticipantSourcePreference = "auto" | "screen" | "camera";
+export type StageTileKind = "camera" | "screen" | "avatar";
 
 export interface StageParticipantSlot {
   slotId: string;
   participant: LobbyParticipantView;
   sourcePreference: ParticipantSourcePreference;
+  kind: StageTileKind;
 }
 
 export function resolveMappedTracks(

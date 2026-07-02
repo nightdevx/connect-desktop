@@ -56,3 +56,13 @@ export interface QualityProfile {
   maxBitrateBps: number;
   maxFramerate: number;
 }
+
+// Per-publish video encoding target, derived from the user-selected screen/camera
+// quality. Threaded into publishTrack so the selected resolution/fps/bitrate
+// actually reaches the encoder (previously capped by fixed publishDefaults).
+export interface VideoPublishQuality {
+  maxBitrateBps: number;
+  maxFramerate: number;
+  width?: number;
+  height?: number;
+}

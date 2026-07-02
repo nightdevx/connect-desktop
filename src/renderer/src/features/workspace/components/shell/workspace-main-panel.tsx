@@ -279,6 +279,7 @@ export function WorkspaceMainPanel({
             activeLobbyName={activeLobbyName}
             currentUserId={currentUserId}
             currentUsername={currentUsername}
+            currentUserRole={currentUserRole}
             micEnabled={micEnabled}
             headphoneEnabled={headphoneEnabled}
             cameraEnabled={cameraEnabled}

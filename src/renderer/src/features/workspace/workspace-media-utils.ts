@@ -84,7 +84,7 @@ export const readAudioPreferences = (): {
         defaultMicEnabled: true,
         defaultHeadphoneEnabled: true,
         notificationSoundsEnabled: true,
-        enhancedNoiseSuppressionEnabled: false,
+        enhancedNoiseSuppressionEnabled: true,
         noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
         selectedAudioInputDeviceId: null,
         selectedAudioOutputDeviceId: null,
@@ -115,7 +115,7 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled: parsed.defaultHeadphoneEnabled !== false,
       notificationSoundsEnabled: parsed.notificationSoundsEnabled !== false,
       enhancedNoiseSuppressionEnabled:
-        parsed.enhancedNoiseSuppressionEnabled === true,
+        parsed.enhancedNoiseSuppressionEnabled !== false,
       noiseSuppressionPreset: normalizeNoiseSuppressionPreset(
         parsed.noiseSuppressionPreset,
       ),
@@ -137,7 +137,7 @@ export const readAudioPreferences = (): {
       defaultMicEnabled: true,
       defaultHeadphoneEnabled: true,
       notificationSoundsEnabled: true,
-      enhancedNoiseSuppressionEnabled: false,
+      enhancedNoiseSuppressionEnabled: true,
       noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
       selectedAudioInputDeviceId: null,
       selectedAudioOutputDeviceId: null,

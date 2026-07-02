@@ -1,11 +1,13 @@
 import { Dropdown, Slider, type MenuProps } from "antd";
-import { 
-  AudioOutlined, 
-  AudioMutedOutlined, 
-  EyeInvisibleOutlined, 
+import {
+  AudioOutlined,
+  AudioMutedOutlined,
+  EyeInvisibleOutlined,
   EyeOutlined,
   SoundOutlined,
-  DesktopOutlined
+  DesktopOutlined,
+  MutedOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 
@@ -20,6 +22,11 @@ interface ParticipantContextMenuProps {
   onToggleCameraHidden: (hidden: boolean) => void;
   onScreenAudioMute: (muted: boolean) => void;
   onScreenAudioVolume: (volume: number) => void;
+  // Server-enforced moderation (owner/admin only) — distinct from the local
+  // playback preferences above, which only affect what the current user hears.
+  canModerate?: boolean;
+  onServerMute?: () => void;
+  onKick?: () => void;
 }
 
 export function ParticipantContextMenu({
@@ -33,6 +40,9 @@ export function ParticipantContextMenu({
   onToggleCameraHidden,
   onScreenAudioMute,
   onScreenAudioVolume,
+  canModerate,
+  onServerMute,
+  onKick,
 }: ParticipantContextMenuProps) {
   const menuItems: MenuProps['items'] = [
     {
@@ -131,6 +141,41 @@ export function ParticipantContextMenu({
             />
           </div>
         ),
+      },
+    ] : []),
+    // Server-enforced moderation, owner/admin only — separated from the local
+    // playback controls above so it's not mistaken for a personal preference.
+    ...(canModerate ? [
+      { type: 'divider' as const },
+      {
+        key: 'moderation-header',
+        label: (
+          <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
+            Moderasyon
+          </div>
+        ),
+        disabled: true,
+      },
+      {
+        key: 'server-mute',
+        label: 'Sunucuda Sustur',
+        icon: <MutedOutlined />,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          onServerMute?.();
+          onClose();
+        },
+      },
+      {
+        key: 'kick',
+        label: 'Odadan At',
+        icon: <LogoutOutlined />,
+        danger: true,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          onKick?.();
+          onClose();
+        },
       },
     ] : []),
   ];

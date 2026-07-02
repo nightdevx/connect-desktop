@@ -26,6 +26,7 @@ interface NavigatorConnectionLike {
 interface UseWorkspaceAudioConnectionParams {
   activeLobbyId: string | null;
   onProbeFailure: () => void;
+  liveKitConnectionState?: "connecting" | "connected" | "reconnecting" | "disconnected";
 }
 
 const AUDIO_SAMPLE_LIMIT = 16;
@@ -94,14 +95,20 @@ const createIdleAudioSnapshot = (): AudioConnectionSnapshot => {
 export const useWorkspaceAudioConnection = ({
   activeLobbyId,
   onProbeFailure,
+  liveKitConnectionState,
 }: UseWorkspaceAudioConnectionParams): AudioConnectionSnapshot => {
   const [audioConnection, setAudioConnection] =
     useState<AudioConnectionSnapshot>(createIdleAudioSnapshot);
   const onProbeFailureRef = useRef(onProbeFailure);
+  const liveKitStateRef = useRef(liveKitConnectionState);
 
   useEffect(() => {
     onProbeFailureRef.current = onProbeFailure;
   }, [onProbeFailure]);
+
+  useEffect(() => {
+    liveKitStateRef.current = liveKitConnectionState;
+  }, [liveKitConnectionState]);
 
   useEffect(() => {
     if (!activeLobbyId) {
@@ -207,6 +214,20 @@ export const useWorkspaceAudioConnection = ({
 
       if (totalSamples < 2 && tone !== "error") {
         statusText = "Ses bağlantısı ölçülüyor";
+      }
+
+      // LiveKit transport health overrides the backend-REST probe: the audio room
+      // can be down while the backend stays reachable, so the badge must reflect
+      // the real media path, not just backend reachability.
+      const lkState = liveKitStateRef.current;
+      if (lkState === "disconnected") {
+        tone = "error";
+        statusText = `Ses bağlantısı yok${pingDisplay}`;
+      } else if (lkState === "reconnecting" || lkState === "connecting") {
+        if (tone !== "error") {
+          tone = "warn";
+        }
+        statusText = "Ses bağlantısı yeniden kuruluyor";
       }
 
       setAudioConnection({

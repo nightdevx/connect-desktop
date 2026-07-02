@@ -12,6 +12,9 @@ const UPDATE_EVENT_CHANNEL = "desktop:update-event";
 
 const STREAMING_START_CAPTURE_CHANNEL = "streaming:start-capture";
 const STREAMING_STOP_CAPTURE_CHANNEL = "streaming:stop-capture";
+const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
+const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
+const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
 
 
 const desktopApi: DesktopApi = {
@@ -45,6 +48,14 @@ const desktopApi: DesktopApi = {
   changePassword: async (payload) =>
     ipcRenderer.invoke("desktop:auth-change-password", payload),
   login: async (payload) => ipcRenderer.invoke("desktop:auth-login", payload),
+  forgotPassword: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-forgot-password", payload),
+  resetPassword: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-reset-password", payload),
+  sendVerificationOTP: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-send-verification-otp", payload),
+  verifyEmail: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-verify-email", payload),
   logout: async () => ipcRenderer.invoke("desktop:auth-logout"),
   getSession: async () => ipcRenderer.invoke("desktop:auth-session"),
   getAuthProfile: async () => ipcRenderer.invoke("desktop:auth-profile"),
@@ -97,6 +108,10 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-delete", payload),
   joinLobby: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-join", payload),
+  kickLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-kick", payload),
+  muteLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-mute-member", payload),
   leaveLobby: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-leave", payload),
   setLobbyMuted: async (payload) =>
@@ -173,6 +188,17 @@ const desktopApi: DesktopApi = {
       ipcRenderer.removeListener(WINDOW_STATE_EVENT_CHANNEL, wrappedListener);
     };
   },
+  adminListUsers: async (params) => ipcRenderer.invoke("desktop:admin-list-users", params),
+  adminGetUser: async (userId) => ipcRenderer.invoke("desktop:admin-get-user", userId),
+  adminUpdateUser: async (userId, payload) => ipcRenderer.invoke("desktop:admin-update-user", { userId, payload }),
+  adminResetPassword: async (userId, newPassword) => ipcRenderer.invoke("desktop:admin-reset-password", { userId, newPassword }),
+  adminDeleteUser: async (userId) => ipcRenderer.invoke("desktop:admin-delete-user", userId),
+  adminBanUser: async (userId) => ipcRenderer.invoke("desktop:admin-ban-user", userId),
+  adminUnbanUser: async (userId) => ipcRenderer.invoke("desktop:admin-unban-user", userId),
+  adminListLobbies: async (params) => ipcRenderer.invoke("desktop:admin-list-lobbies", params),
+  adminListLobbyEvents: async (payload) => ipcRenderer.invoke("desktop:admin-list-lobby-events", payload),
+  adminGetStats: async () => ipcRenderer.invoke("desktop:admin-get-stats"),
+  adminKickUser: async (lobbyId, userId) => ipcRenderer.invoke("desktop:admin-kick-user", { lobbyId, userId }),
 };
 
 const streamingApi: StreamingApi = {
@@ -182,6 +208,27 @@ const streamingApi: StreamingApi = {
       type,
     }),
   stopCapture: async () => ipcRenderer.invoke(STREAMING_STOP_CAPTURE_CHANNEL),
+  startSystemAudioLoopback: async () =>
+    ipcRenderer.invoke(STREAMING_LOOPBACK_START_CHANNEL),
+  stopSystemAudioLoopback: async () =>
+    ipcRenderer.invoke(STREAMING_LOOPBACK_STOP_CHANNEL),
+  onSystemAudioPcm: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      samples: Float32Array,
+    ) => {
+      listener(samples);
+    };
+
+    ipcRenderer.on(STREAMING_LOOPBACK_PCM_CHANNEL, wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener(
+        STREAMING_LOOPBACK_PCM_CHANNEL,
+        wrappedListener,
+      );
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopApi", desktopApi);

@@ -18,13 +18,16 @@ export class LobbyClient {
   public async createLobby(
     accessToken: string,
     name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+    password?: string,
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, isLocked, allowedUsers, password }),
     });
   }
 
@@ -32,8 +35,16 @@ export class LobbyClient {
     accessToken: string,
     lobbyId: string,
     name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+    password?: string | null,
   ): Promise<{ lobby: LobbyDescriptor }> {
     const encodedLobbyID = encodeURIComponent(lobbyId);
+    // password: undefined -> omit (keep current); string ("" clears) -> send.
+    const body: Record<string, unknown> = { name, isLocked, allowedUsers };
+    if (password !== undefined) {
+      body.password = password;
+    }
     return this.baseClient.request<{ lobby: LobbyDescriptor }>(
       `/lobby/rooms/${encodedLobbyID}`,
       {
@@ -41,7 +52,7 @@ export class LobbyClient {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
       },
     );
   }
@@ -65,14 +76,51 @@ export class LobbyClient {
   public async joinLobby(
     accessToken: string,
     lobbyId: string,
+    password?: string,
   ): Promise<{ accepted: boolean; lobbyId: string }> {
     return this.baseClient.request<{ accepted: boolean; lobbyId: string }>("/lobby/join", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ lobbyId }),
+      body: JSON.stringify({ lobbyId, password }),
     });
+  }
+
+  public async kickLobbyMember(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ kicked: boolean }> {
+    const room = encodeURIComponent(lobbyId);
+    const target = encodeURIComponent(userId);
+    return this.baseClient.request<{ kicked: boolean }>(
+      `/media/livekit/lobbies/${room}/kick/${target}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  }
+
+  public async muteLobbyMember(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ muted: boolean }> {
+    const room = encodeURIComponent(lobbyId);
+    const target = encodeURIComponent(userId);
+    return this.baseClient.request<{ muted: boolean }>(
+      `/media/livekit/lobbies/${room}/mute/${target}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
   }
 
   public async leaveLobby(

@@ -23,4 +23,7 @@ export interface ScreenShareQualityOption {
   description: string;
   frameRate: ScreenShareFrameRate;
   resolution: ScreenShareResolution;
+  // Target publish bitrate (bps) for the selected preset. Threaded into the
+  // LiveKit encoder so the chosen quality is actually delivered.
+  maxBitrateBps: number;
 }

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
+import { message } from "antd";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { ChatMessage, LobbyDescriptor } from "@shared/auth-contracts";
+import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
 import type { DesktopResult, LobbyStateMember } from "@shared/desktop-api-types";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
+import { canManageLobby } from "@/features/auth/permissions";
+import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
 import { useLobbyStageLayout } from "./lobby-stage-layout";
 import { type LobbyParticipantView } from "./lobby-participant-tile";
@@ -24,6 +27,7 @@ interface LobbiesMainPanelProps {
   activeLobbyName: string | null;
   currentUserId: string;
   currentUsername: string;
+  currentUserRole: UserRole;
   micEnabled: boolean;
   headphoneEnabled: boolean;
   cameraEnabled: boolean;
@@ -77,6 +81,7 @@ export function LobbiesMainPanel({
   activeLobbyName,
   currentUserId,
   currentUsername,
+  currentUserRole,
   micEnabled,
   headphoneEnabled,
   cameraEnabled,
@@ -191,6 +196,38 @@ export function LobbiesMainPanel({
   const selectedPreference = contextMenuParticipantId
     ? (remoteParticipantAudioPreferences[contextMenuParticipantId] ?? DEFAULT_REMOTE_AUDIO_PREFERENCE)
     : DEFAULT_REMOTE_AUDIO_PREFERENCE;
+
+  const activeLobby = useMemo(
+    () => lobbies.find((lobby) => lobby.id === activeLobbyId) ?? null,
+    [lobbies, activeLobbyId],
+  );
+  const canModerate = canManageLobby(activeLobby?.createdBy ?? "", currentUserId, currentUserRole);
+
+  const handleServerMuteParticipant = (): void => {
+    if (!activeLobbyId || !contextMenuParticipantId) return;
+    const targetId = contextMenuParticipantId;
+    const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
+    void workspaceService.muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId }).then((result) => {
+      if (result.ok) {
+        message.success(`${targetName} susturuldu`);
+      } else {
+        message.error(getApiErrorMessage(result.error));
+      }
+    });
+  };
+
+  const handleKickParticipant = (): void => {
+    if (!activeLobbyId || !contextMenuParticipantId) return;
+    const targetId = contextMenuParticipantId;
+    const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
+    void workspaceService.kickLobbyMember({ lobbyId: activeLobbyId, userId: targetId }).then((result) => {
+      if (result.ok) {
+        message.success(`${targetName} odadan atıldı`);
+      } else {
+        message.error(getApiErrorMessage(result.error));
+      }
+    });
+  };
 
   const focusedParticipantSlot = useMemo(
     () => (focusedParticipantId ? (stageParticipantSlots.find((slot) => slot.participant.userId === focusedParticipantId) ?? null) : null),
@@ -378,6 +415,9 @@ export function LobbiesMainPanel({
           onToggleCameraHidden={handleToggleCameraHidden}
           onScreenAudioMute={handleScreenAudioMute}
           onScreenAudioVolume={handleScreenAudioVolume}
+          canModerate={canModerate}
+          onServerMute={handleServerMuteParticipant}
+          onKick={handleKickParticipant}
         />
       )}
     </div>

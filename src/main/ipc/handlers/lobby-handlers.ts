@@ -11,6 +11,7 @@ import {
   updateLobbySchema,
   deleteLobbySchema,
   lobbyJoinSchema,
+  lobbyModerateSchema,
   lobbyLeaveSchema,
   lobbyMuteSchema,
   lobbyDeafenSchema,
@@ -53,7 +54,13 @@ export function registerLobbyHandlers(): void {
     try {
       const parsed = createLobbySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.createLobby(accessToken, parsed.name);
+        return backendClient.lobby.createLobby(
+          accessToken,
+          parsed.name,
+          parsed.isLocked,
+          parsed.allowedUsers,
+          parsed.password,
+        );
       });
       return ok(result);
     } catch (error) {
@@ -69,6 +76,9 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.lobbyId,
           parsed.name,
+          parsed.isLocked,
+          parsed.allowedUsers,
+          parsed.password,
         );
       });
       return ok(result);
@@ -93,7 +103,31 @@ export function registerLobbyHandlers(): void {
     try {
       const parsed = lobbyJoinSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.joinLobby(accessToken, parsed.lobbyId);
+        return backendClient.lobby.joinLobby(accessToken, parsed.lobbyId, parsed.password);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-kick", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyModerateSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.kickLobbyMember(accessToken, parsed.lobbyId, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-mute-member", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyModerateSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.muteLobbyMember(accessToken, parsed.lobbyId, parsed.userId);
       });
       return ok(result);
     } catch (error) {

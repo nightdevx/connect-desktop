@@ -45,7 +45,7 @@
   height: 0;
   border-radius: 0 4px 4px 0;
   background: #ffffff;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.38s var(--ct-ease-premium);
   opacity: 0;
 }
 
@@ -62,16 +62,16 @@
 
 .ct-rail-button-premium {
   @apply flex h-[54px] w-[54px] flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-semibold tracking-wide;
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.05);
   color: #8f8f8f;
-  background: rgba(15, 15, 15, 0.7);
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(10, 10, 10, 0.7);
+  transition: all 0.3s var(--ct-ease-premium);
 }
 
 .ct-rail-button-premium:hover {
   border-color: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  background: rgba(24, 24, 24, 0.9);
+  background: rgba(20, 20, 20, 0.85);
   transform: translateY(-1px);
 }
 
@@ -84,6 +84,11 @@
 
 .ct-rail-icon-premium {
   font-size: 20px !important;
+  transition: transform 0.3s var(--ct-ease-premium) !important;
+}
+
+.ct-rail-button-premium:hover .ct-rail-icon-premium {
+  transform: translateY(-2px);
 }
 
 .ct-rail-button-premium.active .ct-rail-icon-premium {
@@ -92,15 +97,16 @@
 
 /* Ant Design Segmented Custom Style */
 .ct-segmented-premium {
-  background: rgba(15, 15, 15, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(10, 10, 10, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
   padding: 3px !important;
-  border-radius: 8px !important;
+  border-radius: 10px !important;
+  transition: all 0.3s var(--ct-ease-premium);
 }
 
 .ct-segmented-premium .ant-segmented-thumb {
   background: #ffffff !important;
-  border-radius: 6px !important;
+  border-radius: 7px !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6) !important;
 }
 
@@ -119,12 +125,29 @@
   color: #8f8f8f !important;
   font-size: 11px !important;
   font-weight: 600;
-  transition: all 0.18s ease;
-  border-radius: 6px !important;
+  transition: all 0.25s var(--ct-ease-premium);
+  border-radius: 7px !important;
 }
 
 .ct-segmented-premium .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
   color: #ffffff !important;
+}
+
+/* Double-Bezel (Doppelrand) Nested Architecture */
+.ct-double-bezel-outer {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.01);
+  padding: 6px;
+  transition: all 0.3s var(--ct-ease-premium);
+}
+
+.ct-double-bezel-inner {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 10, 0.7);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s var(--ct-ease-premium);
 }
 
 /* Sidebar List Item Premium Hover States */
@@ -272,9 +295,10 @@
   border-radius: inherit;
   border: 2px solid #10b981;
   opacity: 1;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.15);
   pointer-events: none;
   z-index: 10;
+  transition: box-shadow 0.2s ease;
 }
 
 .ct-lobby-participant-tile.speaking .ct-lobby-tile-footer p {

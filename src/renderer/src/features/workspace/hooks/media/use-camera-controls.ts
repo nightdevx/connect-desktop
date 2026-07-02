@@ -130,7 +130,12 @@ export const useCameraControls = ({
         videoTrack.onended = null;
       }
 
-      await liveKitSessionRef.current?.publishCameraStream(previewStream);
+      const cameraMaxBitrate =
+        cameraPreferences.resolution === "1080p" ? 2_500_000 : 1_200_000;
+      await liveKitSessionRef.current?.publishCameraStream(previewStream, {
+        maxBitrateBps: cameraMaxBitrate,
+        maxFramerate: 30,
+      });
 
       if (videoTrack) {
         videoTrack.onended = () => {

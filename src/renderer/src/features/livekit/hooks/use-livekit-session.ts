@@ -12,7 +12,8 @@ export function useLivekitSession(
   audioPreferences: any,
   shouldEmitReconnectStatus: (key: any, delay: number) => boolean,
   activeLobbyRef: React.MutableRefObject<string | null>,
-  _scheduleActiveLobbyReconnect: (reason: string, immediate: boolean) => void,
+  scheduleActiveLobbyReconnect: (reason: string, immediate: boolean) => void,
+  kickedLobbyIdRef: React.MutableRefObject<string | null>,
 ) {
   const setStatus = useUiStore((state) => state.setStatus);
   const [remoteParticipantStreams, setRemoteParticipantStreams] =
@@ -24,6 +25,9 @@ export function useLivekitSession(
   const [activeNoiseSuppressionMode, setActiveNoiseSuppressionMode] =
     useState<ActiveNoiseSuppressionMode>("none");
   const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
+  const [liveKitConnectionState, setLiveKitConnectionState] = useState<
+    "connecting" | "connected" | "reconnecting" | "disconnected"
+  >("disconnected");
   const liveKitSessionRef = useRef<LiveKitMediaSession | null>(null);
   const remoteParticipantAudioPreferencesRef = useRef<
     Record<string, RemoteParticipantAudioPreference>
@@ -46,6 +50,8 @@ export function useLivekitSession(
       onConnectionStateChanged: (
         state: "connecting" | "connected" | "reconnecting" | "disconnected",
       ) => {
+        setLiveKitConnectionState(state);
+
         if (state === "reconnecting") {
           if (shouldEmitReconnectStatus("livekit", 7_000)) {
             setStatus("LiveKit bağlantısı yeniden kuruluyor...", "warn");
@@ -54,12 +60,23 @@ export function useLivekitSession(
         }
 
         if (state === "disconnected" && activeLobbyRef.current) {
+          // A server-enforced kick also disconnects LiveKit. Don't claim
+          // we're "reconnecting" (we're not — the reconnect loop itself
+          // refuses to rejoin a lobby the user was just kicked from).
+          if (kickedLobbyIdRef.current === activeLobbyRef.current) {
+            return;
+          }
+
           if (shouldEmitReconnectStatus("livekit", 7_000)) {
             setStatus(
               "Canlı ses bağlantısı koptu, LiveKit yeniden bağlanmayı deniyor...",
               "warn",
             );
           }
+          // Trigger the active-lobby reconnect chain (fresh token + reconnect).
+          // The stream manager tears down the dead room on unexpected disconnect,
+          // so performPostJoinSynchronization -> connect() will rebuild it.
+          scheduleActiveLobbyReconnect("livekit-disconnected", true);
         }
       },
       onWarning: (message: string) => setStatus(message, "warn"),
@@ -91,7 +108,8 @@ export function useLivekitSession(
     setStatus,
     shouldEmitReconnectStatus,
     activeLobbyRef,
-    // scheduleActiveLobbyReconnect, // Removed from deps as it was not used inside useEffect and causing issues
+    scheduleActiveLobbyReconnect,
+    kickedLobbyIdRef,
   ]);
 
   // Sync preferences without recreating the session
@@ -125,5 +143,6 @@ export function useLivekitSession(
     activeNoiseSuppressionMode,
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
+    liveKitConnectionState,
   };
 }

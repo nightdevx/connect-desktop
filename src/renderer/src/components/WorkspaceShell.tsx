@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { message } from "antd";
 import type { UserRole, UserDirectoryEntry } from "../../../shared/auth-contracts";
 import {
   CameraShareModal,
@@ -8,6 +9,9 @@ import {
   WorkspaceSidebar,
   CallOverlay,
 } from "../features/workspace/components";
+import AdminPanel from "../features/admin/components/admin-panel";
+import { isAdminRole } from "../features/auth/permissions";
+import { LobbyPasswordPromptModal } from "../features/workspace/components/lobby/lobby-password-prompt-modal";
 import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
 import {
   useDirectMessages,
@@ -66,12 +70,24 @@ function WorkspaceShell({
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setStatus = useUiStore((state) => state.setStatus);
 
+  useEffect(() => {
+    if (isAdminRole(currentUserRole)) {
+      setWorkspaceSection("admin");
+    }
+  }, [currentUserRole, setWorkspaceSection]);
+
   // ----- SHARED STATE / REFS -----
   const [activeLobbyId, setActiveLobbyId] = useState<string | null>(null);
   const activeLobbyRef = useRef<string | null>(null);
   useEffect(() => {
     activeLobbyRef.current = activeLobbyId;
   }, [activeLobbyId]);
+
+  // Marks a lobbyId the current user was just server-kicked from. While set,
+  // the reconnect loop must not silently rejoin that lobby (it would undo the
+  // kick), and disconnect handlers must not claim they're "reconnecting".
+  // Cleared on any subsequent successful manual join.
+  const kickedLobbyIdRef = useRef<string | null>(null);
 
   const { isOnline, shouldEmitReconnectStatus } = useNetworkReconnect();
   const { audioInputDevices, audioOutputDevices } = useMediaDevices();
@@ -111,12 +127,14 @@ function WorkspaceShell({
     activeNoiseSuppressionMode,
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
+    liveKitConnectionState,
   } = useLivekitSession(
     currentUserId,
     audioPreferences,
     shouldEmitReconnectStatus,
     activeLobbyRef,
     scheduleActiveLobbyReconnectProxy,
+    kickedLobbyIdRef,
   );
 
   const handleSetRemoteParticipantMuted = useCallback(
@@ -250,7 +268,7 @@ function WorkspaceShell({
     setSelectedUserId,
     filteredUsers,
     selectedUser,
-  } = useWorkspaceUsers({ currentUsername, workspaceSection });
+  } = useWorkspaceUsers({ currentUsername, workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection });
 
   // ----- 1-TO-1 CALL SESSION -----
   const {
@@ -311,7 +329,7 @@ function WorkspaceShell({
     patchLobbyMemberState,
   } = useLobbyRoom({
     activeLobbyId,
-    workspaceSection,
+    workspaceSection: workspaceSection === "admin" ? "lobbies" : workspaceSection,
     setStatus,
   });
 
@@ -512,6 +530,19 @@ function WorkspaceShell({
 
   const activeLobbyReconnectInFlightRef = useRef(false);
   const activeLobbyReconnectAttemptRef = useRef(0);
+  const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
+  const hasSeenCurrentUserInLobbyRef = useRef(false);
+
+  // Reset hasSeenActiveLobbyStateRef and hasSeenCurrentUserInLobbyRef for non-active lobbies
+  useEffect(() => {
+    const activeId = activeLobbyId;
+    hasSeenCurrentUserInLobbyRef.current = false;
+    for (const key of Object.keys(hasSeenActiveLobbyStateRef.current)) {
+      if (key !== activeId) {
+        delete hasSeenActiveLobbyStateRef.current[key];
+      }
+    }
+  }, [activeLobbyId]);
 
   const {
     knownLobbies: lobbies,
@@ -531,11 +562,20 @@ function WorkspaceShell({
     activeLobbyReconnectAttemptRef,
     performPostJoinSynchronization,
     lobbiesQuery,
+    kickedLobbyIdRef,
   });
 
   useEffect(() => {
     activeLobbyReconnectProxyRef.current = scheduleActiveLobbyReconnect;
   }, [scheduleActiveLobbyReconnect]);
+
+  // Active-lobby roster prefers the WS snapshot (lobbyMembersById, ~1s push) and
+  // falls back to the REST lobbyStateQuery only when the stream hasn't delivered
+  // it yet. This is what lets the REST poll run slowly without a laggy roster.
+  const activeLobbyRosterMembers = useMemo(() => {
+    if (!activeLobbyId || activeLobbyId.startsWith("call_")) return lobbyMembers;
+    return lobbyMembersById[activeLobbyId] ?? lobbyMembers;
+  }, [activeLobbyId, lobbyMembersById, lobbyMembers]);
 
   const activeLobby = useMemo(() => {
     if (!activeLobbyId) return null;
@@ -559,7 +599,7 @@ function WorkspaceShell({
     currentUserId,
     peerUserIds: directMessagePeerUserIds,
     selectedUserId,
-    workspaceSection,
+    workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection,
     setStatus,
   });
 
@@ -590,7 +630,7 @@ function WorkspaceShell({
   useWorkspaceAudioCues({
     activeLobbyId,
     currentUserId,
-    lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers,
+    lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers,
   });
 
   // ----- LOBBY ACTIONS -----
@@ -601,10 +641,12 @@ function WorkspaceShell({
     joiningLobbyId,
     isLeavingLobby,
     createLobby,
-    renameLobby,
+    updateLobby,
     deleteLobby,
     joinLobby,
     leaveActiveLobby,
+    pendingPasswordLobby,
+    cancelPasswordPrompt,
   } = useWorkspaceLobbyActions({
     activeLobbyId,
     setActiveLobbyId,
@@ -619,6 +661,7 @@ function WorkspaceShell({
     activeLobbyReconnectInFlightRef,
     resetLocalMediaCapture,
     liveKitSessionRef,
+    kickedLobbyIdRef,
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
@@ -630,6 +673,44 @@ function WorkspaceShell({
       });
     }
   }, [activeLobbyId, performPostJoinSynchronization]);
+
+  // ----- CLIENT KICK DETECTION -----
+  useEffect(() => {
+    if (!activeLobbyId || activeLobbyId.startsWith("call_")) return;
+
+    const members = lobbyMembersById[activeLobbyId];
+    if (members) {
+      hasSeenActiveLobbyStateRef.current[activeLobbyId] = true;
+      const isStillInLobby = members.some((m) => m.userId === currentUserId);
+      if (isStillInLobby) {
+        hasSeenCurrentUserInLobbyRef.current = true;
+      } else {
+        // Only kick if we have previously been seen in this lobby since joining
+        if (hasSeenCurrentUserInLobbyRef.current) {
+          console.log(`[WorkspaceShell] Current user is not in active lobby ${activeLobbyId}. Kicked.`);
+          message.warning("Odadan atıldınız veya oda kapatıldı.");
+          // Reset synchronously (not just on the eventual activeLobbyId->null
+          // transition) so a second SSE push landing before leaveActiveLobby's
+          // async REST call resolves can't re-fire this branch.
+          hasSeenCurrentUserInLobbyRef.current = false;
+          delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
+          kickedLobbyIdRef.current = activeLobbyId;
+          void leaveActiveLobby("kicked");
+        }
+      }
+    } else {
+      // Only treat as deleted if we have previously seen this lobby's state.
+      // This prevents racing with the initial stream update right after joining.
+      if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
+        console.log(`[WorkspaceShell] Active lobby ${activeLobbyId} was deleted.`);
+        message.warning("Odadan atıldınız veya oda kapatıldı.");
+        hasSeenCurrentUserInLobbyRef.current = false;
+        delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
+        kickedLobbyIdRef.current = activeLobbyId;
+        void leaveActiveLobby("kicked");
+      }
+    }
+  }, [activeLobbyId, lobbyMembersById, currentUserId, leaveActiveLobby]);
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
   const ensureCleanRoomTransition = useCallback(async (nextRoomId: string | null) => {
@@ -706,6 +787,7 @@ function WorkspaceShell({
     onProbeFailure: () => {
       scheduleActiveLobbyReconnectProxy("lobby-state-probe", false);
     },
+    liveKitConnectionState,
   });
 
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
@@ -750,157 +832,176 @@ function WorkspaceShell({
         workspaceSection={workspaceSection}
         onSectionChange={setWorkspaceSection}
         totalUnreadDirectMessages={totalUnreadDirectMessages}
-      />
-
-      <WorkspaceSidebar
-        sectionTitle={sectionTitle}
-        workspaceSection={workspaceSection}
-        usersProps={{
-          usersQuery,
-          userSearch,
-          setUserSearch,
-          userFilter,
-          setUserFilter,
-          filteredUsers,
-          selectedUserId,
-          setSelectedUserId,
-          unreadByUserId: unreadByPeerIdWithCalls,
-          callState: callState,
-        }}
-        lobbiesProps={{
-          lobbiesQuery,
-          lobbies,
-          lobbyMembersById,
-          avatarByUserId,
-          activeLobbyId,
-          joiningLobbyId,
-          onJoinLobby: handleJoinLobby,
-          onCreateLobby: createLobby,
-          onRenameLobby: renameLobby,
-          onDeleteLobby: deleteLobby,
-          isCreatingLobby,
-          renamingLobbyId,
-          deletingLobbyId,
-        }}
-        settingsProps={{
-          settingsSection,
-          setSettingsSection,
-        }}
-        quickControlsProps={{
-          currentUsername,
-          currentUserAvatarUrl,
-          hasActiveLobby,
-          isLeavingLobby,
-          micEnabled,
-          headphoneEnabled,
-          audioInputDevices,
-          audioOutputDevices,
-          selectedAudioInputDeviceId:
-            audioPreferences.selectedAudioInputDeviceId,
-          selectedAudioOutputDeviceId:
-            audioPreferences.selectedAudioOutputDeviceId,
-          onSelectAudioInputDevice: handleSelectAudioInputDevice,
-          onSelectAudioOutputDevice: handleSelectAudioOutputDevice,
-          onToggleMic: handleMicToggle,
-          onToggleHeadphone: handleHeadphoneToggle,
-          onDisconnect: handleLeaveLobbyOrEndCall,
-        }}
-        audioConnectionProps={audioConnection}
-        audioProcessingProps={{
-          enhancedNoiseSuppressionEnabled:
-            audioPreferences.enhancedNoiseSuppressionEnabled,
-          activeNoiseMode:
-            activeNoiseSuppressionMode === "processor"
-              ? "processor"
-              : activeNoiseSuppressionMode === "browser"
-                ? "browser"
-                : "none",
-          onToggleEnhancedNoiseSuppression:
-            handleToggleEnhancedNoiseSuppression,
-        }}
-      />
-
-      <WorkspaceMainPanel
-        currentUserId={currentUserId}
-        workspaceSection={workspaceSection}
-        currentUsername={currentUsername}
-        sectionTitle={sectionTitle}
-        micEnabled={micEnabled}
-        headphoneEnabled={headphoneEnabled}
-        cameraEnabled={cameraEnabled}
-        screenEnabled={screenEnabled}
-        localCameraStream={localCameraStream}
-        localScreenStream={localScreenStream}
-        remoteParticipantStreams={remoteParticipantStreams}
-        remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
-        activeSpeakerIds={activeSpeakerIds}
-        avatarByUserId={avatarByUserId}
-        settingsSection={settingsSection}
         currentUserRole={currentUserRole}
-        currentUserCreatedAt={currentUserCreatedAt}
+        currentUsername={currentUsername}
+        currentUserId={currentUserId}
         onLogout={onLogout}
         isLoggingOut={isLoggingOut}
-        cameraPreferences={cameraPreferences}
-        audioPreferences={audioPreferences}
-        audioInputDevices={audioInputDevices}
-        audioOutputDevices={audioOutputDevices}
-        streamPreferences={streamPreferences}
-        onSaveCameraPreferences={saveCameraPreferences}
-        onSaveAudioPreferences={saveAudioPreferences}
-        onSaveStreamPreferences={saveStreamPreferences}
-        lobbies={lobbies}
-        activeLobbyId={activeLobbyId}
-        activeLobbyName={
-          activeLobbyId?.startsWith("call_")
-            ? (callState.peerUser?.displayName || "Arama")
-            : (activeLobby?.name ?? null)
-        }
-        joiningLobbyId={joiningLobbyId}
-        onJoinLobby={handleJoinLobby}
-        onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
-        onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
-        onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
-        onSetRemoteParticipantScreenAudioMuted={handleSetRemoteParticipantScreenAudioMuted}
-        onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}
-        lobbyStateQuery={lobbyStateQuery}
-        lobbyMessagesQuery={lobbyMessagesQuery}
-        lobbyMembers={activeLobbyId?.startsWith("call_") ? callMembers : lobbyMembers}
-        lobbyMessages={lobbyMessages}
-        lobbyMessageDraft={lobbyMessageDraft}
-        setLobbyMessageDraft={setLobbyMessageDraft}
-        onSendLobbyMessage={sendLobbyMessage}
-        onDeleteLobbyMessage={deleteLobbyMessage}
-        isSendingLobbyMessage={isSendingLobbyMessage}
-        deletingLobbyMessageId={deletingLobbyMessageId}
-        isLeavingLobby={isLeavingLobby}
-        onToggleMic={handleMicToggle}
-        onToggleHeadphone={handleHeadphoneToggle}
-        onToggleScreen={handleScreenToggle}
-        onToggleCamera={handleCameraToggle}
-        onLeaveLobby={handleLeaveLobbyOrEndCall}
-        selectedUser={selectedUser}
-        onCopyUsername={handleCopyUsername}
-        directMessagesProps={{
-          directMessagesQuery,
-          directMessages,
-          messageDraft,
-          setMessageDraft,
-          isSendingMessage,
-          sendDirectMessage: handleSendMessage,
-          deleteDirectMessage: handleDeleteMessage,
-          deletingDirectMessageId: deletingMessageId,
-        }}
-        onSelectAudioInputDevice={handleSelectAudioInputDevice}
-        onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
-        onInitiateCall={handleInitiateCall}
-        callState={callState}
-        ongoingCall={ongoingCall}
-        onAcceptCall={handleAcceptCall}
-        onRejectCall={rejectCall}
-        onCancelCall={cancelCall}
-        onEndActiveCall={handleEndActiveCall}
-        onRejoinCall={handleRejoinCall}
       />
+
+      {workspaceSection === "admin" ? (
+        <AdminPanel />
+      ) : (
+        <>
+          <WorkspaceSidebar
+            sectionTitle={sectionTitle}
+            workspaceSection={workspaceSection}
+            usersProps={{
+              usersQuery,
+              userSearch,
+              setUserSearch,
+              userFilter,
+              setUserFilter,
+              filteredUsers,
+              selectedUserId,
+              setSelectedUserId,
+              unreadByUserId: unreadByPeerIdWithCalls,
+              callState: callState,
+            }}
+            lobbiesProps={{
+              lobbiesQuery,
+              lobbies,
+              lobbyMembersById,
+              avatarByUserId,
+              activeLobbyId,
+              joiningLobbyId,
+              onJoinLobby: handleJoinLobby,
+              onCreateLobby: createLobby,
+              onUpdateLobby: updateLobby,
+              onDeleteLobby: deleteLobby,
+              isCreatingLobby,
+              renamingLobbyId,
+              deletingLobbyId,
+              currentUserId,
+              currentUserRole,
+              allUsers: (usersQuery.data?.data?.users || []).map((u) => ({
+                id: u.userId,
+                username: u.username,
+                displayName: u.displayName,
+              })),
+            }}
+            settingsProps={{
+              settingsSection,
+              setSettingsSection,
+            }}
+            quickControlsProps={{
+              currentUsername,
+              currentUserAvatarUrl,
+              hasActiveLobby,
+              isLeavingLobby,
+              micEnabled,
+              headphoneEnabled,
+              audioInputDevices,
+              audioOutputDevices,
+              selectedAudioInputDeviceId:
+                audioPreferences.selectedAudioInputDeviceId,
+              selectedAudioOutputDeviceId:
+                audioPreferences.selectedAudioOutputDeviceId,
+              onSelectAudioInputDevice: handleSelectAudioInputDevice,
+              onSelectAudioOutputDevice: handleSelectAudioOutputDevice,
+              onToggleMic: handleMicToggle,
+              onToggleHeadphone: handleHeadphoneToggle,
+              onDisconnect: handleLeaveLobbyOrEndCall,
+            }}
+            audioConnectionProps={audioConnection}
+            audioProcessingProps={{
+              enhancedNoiseSuppressionEnabled:
+                audioPreferences.enhancedNoiseSuppressionEnabled,
+              micEnabled,
+              activeNoiseMode:
+                activeNoiseSuppressionMode === "processor"
+                  ? "processor"
+                  : activeNoiseSuppressionMode === "browser"
+                    ? "browser"
+                    : "none",
+              onToggleEnhancedNoiseSuppression:
+                handleToggleEnhancedNoiseSuppression,
+            }}
+          />
+
+          <WorkspaceMainPanel
+            currentUserId={currentUserId}
+            workspaceSection={workspaceSection}
+            currentUsername={currentUsername}
+            sectionTitle={sectionTitle}
+            micEnabled={micEnabled}
+            headphoneEnabled={headphoneEnabled}
+            cameraEnabled={cameraEnabled}
+            screenEnabled={screenEnabled}
+            localCameraStream={localCameraStream}
+            localScreenStream={localScreenStream}
+            remoteParticipantStreams={remoteParticipantStreams}
+            remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
+            activeSpeakerIds={activeSpeakerIds}
+            avatarByUserId={avatarByUserId}
+            settingsSection={settingsSection}
+            currentUserRole={currentUserRole}
+            currentUserCreatedAt={currentUserCreatedAt}
+            onLogout={onLogout}
+            isLoggingOut={isLoggingOut}
+            cameraPreferences={cameraPreferences}
+            audioPreferences={audioPreferences}
+            audioInputDevices={audioInputDevices}
+            audioOutputDevices={audioOutputDevices}
+            streamPreferences={streamPreferences}
+            onSaveCameraPreferences={saveCameraPreferences}
+            onSaveAudioPreferences={saveAudioPreferences}
+            onSaveStreamPreferences={saveStreamPreferences}
+            lobbies={lobbies}
+            activeLobbyId={activeLobbyId}
+            activeLobbyName={
+              activeLobbyId?.startsWith("call_")
+                ? (callState.peerUser?.displayName || "Arama")
+                : (activeLobby?.name ?? null)
+            }
+            joiningLobbyId={joiningLobbyId}
+            onJoinLobby={handleJoinLobby}
+            onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
+            onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
+            onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
+            onSetRemoteParticipantScreenAudioMuted={handleSetRemoteParticipantScreenAudioMuted}
+            onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}
+            lobbyStateQuery={lobbyStateQuery}
+            lobbyMessagesQuery={lobbyMessagesQuery}
+            lobbyMembers={activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers}
+            lobbyMessages={lobbyMessages}
+            lobbyMessageDraft={lobbyMessageDraft}
+            setLobbyMessageDraft={setLobbyMessageDraft}
+            onSendLobbyMessage={sendLobbyMessage}
+            onDeleteLobbyMessage={deleteLobbyMessage}
+            isSendingLobbyMessage={isSendingLobbyMessage}
+            deletingLobbyMessageId={deletingLobbyMessageId}
+            isLeavingLobby={isLeavingLobby}
+            onToggleMic={handleMicToggle}
+            onToggleHeadphone={handleHeadphoneToggle}
+            onToggleScreen={handleScreenToggle}
+            onToggleCamera={handleCameraToggle}
+            onLeaveLobby={handleLeaveLobbyOrEndCall}
+            selectedUser={selectedUser}
+            onCopyUsername={handleCopyUsername}
+            directMessagesProps={{
+              directMessagesQuery,
+              directMessages,
+              messageDraft,
+              setMessageDraft,
+              isSendingMessage,
+              sendDirectMessage: handleSendMessage,
+              deleteDirectMessage: handleDeleteMessage,
+              deletingDirectMessageId: deletingMessageId,
+            }}
+            onSelectAudioInputDevice={handleSelectAudioInputDevice}
+            onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
+            onInitiateCall={handleInitiateCall}
+            callState={callState}
+            ongoingCall={ongoingCall}
+            onAcceptCall={handleAcceptCall}
+            onRejectCall={rejectCall}
+            onCancelCall={cancelCall}
+            onEndActiveCall={handleEndActiveCall}
+            onRejoinCall={handleRejoinCall}
+          />
+        </>
+      )}
 
       <CallOverlay
         callState={callState}
@@ -941,6 +1042,13 @@ function WorkspaceShell({
         previewRef={cameraPreviewRef}
         onStart={startCameraShareFromModal}
         onRefreshPreview={prepareCameraPreview}
+      />
+
+      <LobbyPasswordPromptModal
+        pending={pendingPasswordLobby}
+        isJoining={joiningLobbyId !== null}
+        onSubmit={(lobbyId, password) => void joinLobby(lobbyId, password)}
+        onCancel={cancelPasswordPrompt}
       />
     </section>
   );

@@ -8,54 +8,60 @@ background: var(--ct-surface-0);
 }
 
 .ct-window-titlebar {
-@apply flex h-10 items-center justify-between border-b px-3 text-xs;
-border-color: var(--ct-border);
-background: rgba(8, 8, 8, 0.96);
--webkit-app-region: drag;
-user-select: none;
+  @apply flex h-10 items-center justify-between border-b px-3 text-xs;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(4, 4, 4, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .ct-titlebar-right {
-@apply flex items-center gap-2;
+  @apply flex items-center gap-2;
 }
 
 .ct-logo-dot {
-@apply inline-block h-2.5 w-2.5 rounded-full;
-background: var(--ct-accent);
+  @apply inline-block h-2 w-2 rounded-full;
+  background: var(--ct-neon-emerald);
+  box-shadow: 0 0 8px var(--ct-neon-emerald);
 }
 
 .ct-titlebar-label {
-@apply font-semibold uppercase tracking-[0.15em];
-color: var(--ct-text-secondary);
+  @apply font-bold uppercase tracking-[0.2em];
+  color: var(--ct-text-secondary);
 }
 
 .ct-titlebar-meta {
-color: var(--ct-text-muted);
+  color: var(--ct-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.05em;
 }
 
 .ct-window-controls {
-@apply flex items-center gap-1;
--webkit-app-region: no-drag;
+  @apply flex items-center gap-1.5;
+  -webkit-app-region: no-drag;
 }
 
 .ct-window-control {
-@apply inline-flex h-7 w-7 items-center justify-center rounded-md border;
-border-color: var(--ct-border);
-color: var(--ct-text-secondary);
-background: rgba(18, 18, 18, 0.7);
-transition: all 0.16s ease;
+  @apply inline-flex h-6 w-6 items-center justify-center rounded-lg border;
+  border-color: rgba(255, 255, 255, 0.05);
+  color: var(--ct-text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.25s var(--ct-ease-premium);
 }
 
 .ct-window-control:hover {
-border-color: var(--ct-border-strong);
-color: var(--ct-text-primary);
-background: rgba(28, 28, 28, 0.85);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--ct-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.05);
 }
 
 .ct-window-control.danger:hover {
-border-color: rgba(255, 255, 255, 0.5);
-color: #0b0b0b;
-background: rgba(245, 245, 245, 0.9);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+  background: rgba(239, 68, 68, 0.85);
+  transform: scale(1.05);
 }
 
 .ct-app-header {

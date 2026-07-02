@@ -15,6 +15,8 @@ export class DesktopApiError extends Error {
   }
 }
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
+
 export class BaseClient {
   public constructor(private readonly baseUrl: string) {}
 
@@ -22,21 +24,39 @@ export class BaseClient {
     const targetUrl = `${this.baseUrl}${path}`;
     let response: Response;
 
+    // Bound every request so a hung socket can't stall reconnect/join chains
+    // indefinitely; timeout surfaces as a retryable error for the backoff logic.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      DEFAULT_REQUEST_TIMEOUT_MS,
+    );
+
     try {
       response = await fetch(targetUrl, {
         ...init,
+        signal: init.signal ?? controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(init.headers ?? {}),
         },
       });
     } catch (error) {
+      if (controller.signal.aborted) {
+        throw new DesktopApiError(
+          "REQUEST_TIMEOUT",
+          504,
+          `Backend istegi zaman asimina ugradi (${targetUrl})`,
+        );
+      }
       const reason = error instanceof Error ? error.message : "fetch failed";
       throw new DesktopApiError(
         "BACKEND_UNREACHABLE",
         503,
         `Backend baglantisi kurulamadi (${targetUrl}): ${reason}`,
       );
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!response.ok) {

@@ -1,0 +1,10 @@
+{
+  "name": "audio-loopback",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows WASAPI process-loopback capture that EXCLUDES the host process tree (so Connect's own output is never captured). Used to broadcast system/app audio during screen share without echoing remote participants back to themselves.",
+  "main": "index.js",
+  "dependencies": {
+    "node-addon-api": "^8.0.0"
+  }
+}

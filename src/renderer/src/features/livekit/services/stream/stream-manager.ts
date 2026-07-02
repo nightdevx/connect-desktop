@@ -3,6 +3,7 @@ import {
   Track,
   VideoPreset,
   supportsVP9,
+  ConnectionState,
   DisconnectReason,
   LocalParticipant,
   type Participant,
@@ -17,6 +18,7 @@ import {
   type ParticipantMediaState,
   type ScreenShareMode,
   type QualityProfile,
+  type VideoPublishQuality,
   type LiveKitAudioProcessingPreferences,
   type RemoteParticipantAudioPreference,
 } from "./types";
@@ -34,7 +36,9 @@ export class LiveKitStreamManager {
   private desiredCameraStream: MediaStream | null = null;
   private desiredScreenStream: MediaStream | null = null;
   private desiredScreenMode: ScreenShareMode = "slides";
-  private desiredMicEnabled = true;
+  private desiredScreenQuality: VideoPublishQuality | null = null;
+  private desiredCameraQuality: VideoPublishQuality | null = null;
+  private desiredMicEnabled = false;
   private audioProcessingPreferences: LiveKitAudioProcessingPreferences = {
     ...DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   };
@@ -60,6 +64,9 @@ export class LiveKitStreamManager {
   private lastCapturedStreamId: string | null = null;
   private readonly streamCache = new Map<string, MediaStream>();
 
+  private monitoringActive = false;
+  private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
+
   public constructor(
     private readonly callbacks: LiveKitStreamManagerCallbacks = {},
   ) {
@@ -67,16 +74,27 @@ export class LiveKitStreamManager {
       (msg) => this.callbacks.onWarning?.(msg),
       (mode) => this.callbacks.onNoiseSuppressionModeChanged?.(mode),
     );
-    this.setupLocalAudioMonitoring();
   }
 
-  private setupLocalAudioMonitoring() {
+  // Audio-level monitoring only runs while connected to a room. Previously this
+  // rAF loop started in the constructor and spun ~60fps forever (even idle),
+  // burning CPU/battery; now connect() starts it and disconnect/teardown stops it.
+  private startAudioMonitoring() {
+    if (this.monitoringActive) return;
+    this.monitoringActive = true;
+
     const checkLevel = () => {
+      if (!this.monitoringActive) return;
+
       let needsUpdate = false;
 
       // 1. Check local audio
       if (this.localAnalyser) {
-        const dataArray = new Uint8Array(this.localAnalyser.frequencyBinCount);
+        const binCount = this.localAnalyser.frequencyBinCount;
+        if (!this.analyserBuffer || this.analyserBuffer.length !== binCount) {
+          this.analyserBuffer = new Uint8Array(new ArrayBuffer(binCount));
+        }
+        const dataArray = this.analyserBuffer;
         this.localAnalyser.getByteFrequencyData(dataArray);
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
@@ -134,6 +152,16 @@ export class LiveKitStreamManager {
     requestAnimationFrame(checkLevel);
   }
 
+  private stopAudioMonitoring(): void {
+    this.monitoringActive = false;
+    if (this.silenceTimeout) {
+      clearTimeout(this.silenceTimeout);
+      this.silenceTimeout = null;
+    }
+    this.isSpeakingLocal = false;
+    this.localAudioLevel = 0;
+  }
+
   private async updateLocalAudioSource(stream: MediaStream | null) {
     if (!stream) {
       this.localAudioSource?.disconnect();
@@ -178,7 +206,16 @@ export class LiveKitStreamManager {
     token: string,
     lobbyId: string,
   ): Promise<void> {
-    if (this.room && this.currentLobbyId === lobbyId) return;
+    // Idempotent only when the existing room is actually CONNECTED to the same
+    // lobby. A stale/disconnected room (after an unexpected drop) must be torn
+    // down and rebuilt, otherwise reconnect would silently no-op.
+    if (
+      this.room &&
+      this.currentLobbyId === lobbyId &&
+      this.room.state === ConnectionState.Connected
+    ) {
+      return;
+    }
 
     if (this.room) {
       this.replacingRoom = true;
@@ -190,19 +227,21 @@ export class LiveKitStreamManager {
     this.manualDisconnect = false;
     this.reconnectAttempt = 0;
 
+    const useVP9 = supportsVP9();
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },
       dynacast: true,
       publishDefaults: {
+        // Fallback camera layers only; the real encoding is supplied per-publish
+        // in applyCameraState/applyScreenState from the user-selected quality.
         videoSimulcastLayers: [
-          new VideoPreset(960, 540, 1_000_000, 30),
-          new VideoPreset(480, 270, 400_000, 20),
+          new VideoPreset(1280, 720, 1_700_000, 30),
+          new VideoPreset(640, 360, 500_000, 20),
         ],
-        screenShareSimulcastLayers: [
-          new VideoPreset(1920, 1080, 4_000_000, 30),
-          new VideoPreset(1280, 720, 1_500_000, 30),
-        ],
-        videoCodec: supportsVP9() ? "vp9" : "vp8",
+        videoCodec: useVP9 ? "vp9" : "vp8",
+        // VP9/AV1 aren't universally decodable; publish a VP8 backup so every
+        // subscriber gets a stream (LiveKit picks per-subscriber).
+        backupCodec: useVP9 ? true : undefined,
         dtx: true,
         red: true,
         stopMicTrackOnMute: true,
@@ -221,6 +260,7 @@ export class LiveKitStreamManager {
     );
 
     this.roomEventManager.registerEvents();
+    this.startAudioMonitoring();
 
     if (this.remoteMediaHandler && this.audioProcessingPreferences.selectedAudioOutputDeviceId) {
       void this.remoteMediaHandler.setAudioOutputDevice(this.audioProcessingPreferences.selectedAudioOutputDeviceId);
@@ -251,12 +291,18 @@ export class LiveKitStreamManager {
         }
       }
 
-      // 3. Stabilization Delay before heavy operations (1500ms)
-      // This ensures the audio jitter buffers are filled and the network is stable.
+      // 3. Publish the local mic immediately (Priority 1, low bandwidth) so the
+      // user can be heard within ~200ms of join instead of waiting for the heavy
+      // video stabilization window below.
+      this.microphoneController.prepareParticipantAudioContext(this.room.localParticipant);
+      await this.applyMicrophoneState();
+
+      // 4. Stabilization Delay before heavy operations.
+      // Lets audio jitter buffers fill before flooding the pipe with video.
       setTimeout(async () => {
         if (!this.room) return;
 
-        // 4. Gradual Video Subscription (Priority 2)
+        // 5. Gradual Video Subscription (Priority 2)
         for (const participant of this.room.remoteParticipants.values()) {
           for (const pub of participant.trackPublications.values()) {
             if (pub.kind === Track.Kind.Video) {
@@ -266,9 +312,10 @@ export class LiveKitStreamManager {
           }
         }
 
-        this.microphoneController.prepareParticipantAudioContext(this.room.localParticipant);
+        // Restore camera/screen publishing (mic already applied above; this
+        // re-applies it idempotently and brings up the heavy video tracks).
         await this.restorePublishingState();
-      }, 1500);
+      }, 1000);
 
     } catch (error) {
       this.callbacks.onConnectionStateChanged?.("disconnected");
@@ -276,14 +323,50 @@ export class LiveKitStreamManager {
     }
   }
 
+  private async cleanupLocalAudioMonitoring(): Promise<void> {
+    await this.updateLocalAudioSource(null);
+    if (this.audioContext) {
+      try {
+        if (this.audioContext.state !== "closed") {
+          await this.audioContext.close();
+        }
+      } catch (err) {
+        console.warn("[LiveKitStreamManager] Failed to close audioContext:", err);
+      }
+      this.audioContext = null;
+    }
+  }
+
   public async disconnect(): Promise<void> {
     this.manualDisconnect = !this.replacingRoom;
     this.currentLobbyId = null;
+    this.stopAudioMonitoring();
 
     if (this.reconnectTimer) {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+
+    // 1. Explicitly disable/mute and stop the microphone track and processor BEFORE disconnecting the room!
+    if (this.room) {
+      try {
+        await this.microphoneController.applyMicrophoneState({
+          enabled: false,
+          participant: this.room.localParticipant,
+          preferences: {
+            enhancedNoiseSuppressionEnabled: this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled,
+            noiseSuppressionPreset: this.audioProcessingPreferences.noiseSuppressionPreset,
+            selectedAudioInputDeviceId: this.audioProcessingPreferences.selectedAudioInputDeviceId,
+          },
+          publishOptions: { dtx: true, red: true },
+        });
+      } catch (err) {
+        console.warn("[LiveKitStreamManager] Failed to mute mic before disconnect:", err);
+      }
+    }
+
+    // 2. Cleanup local audio monitoring (AudioContext, source node, analyzer)
+    await this.cleanupLocalAudioMonitoring();
 
     if (this.room) {
       await this.room.disconnect();
@@ -302,16 +385,27 @@ export class LiveKitStreamManager {
     this.callbacks.onConnectionStateChanged?.("disconnected");
   }
 
-  public async setCameraEnabled(enabled: boolean, stream: MediaStream | null = null): Promise<void> {
+  public async setCameraEnabled(
+    enabled: boolean,
+    stream: MediaStream | null = null,
+    quality: VideoPublishQuality | null = null,
+  ): Promise<void> {
     this.desiredCameraEnabled = enabled;
     this.desiredCameraStream = stream;
+    if (quality) this.desiredCameraQuality = quality;
     await this.applyCameraState();
   }
 
-  public async setScreenEnabled(enabled: boolean, stream: MediaStream | null = null, mode: ScreenShareMode = "slides"): Promise<void> {
+  public async setScreenEnabled(
+    enabled: boolean,
+    stream: MediaStream | null = null,
+    mode: ScreenShareMode = "slides",
+    quality: VideoPublishQuality | null = null,
+  ): Promise<void> {
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
     this.desiredScreenMode = mode;
+    if (quality) this.desiredScreenQuality = quality;
     await this.applyScreenState();
   }
 
@@ -436,10 +530,33 @@ export class LiveKitStreamManager {
         }
       }
 
-      await participant.publishTrack(videoTrack, { 
-        name: "camera", 
-        source: Track.Source.Camera, 
-        simulcast: true 
+      // Camera is motion content; keep framerate over resolution on congestion.
+      try {
+        videoTrack.contentHint = "motion";
+      } catch {
+        // no-op
+      }
+
+      const cameraQuality = this.desiredCameraQuality;
+      logLiveKitDebug("stream-manager", "publish-camera", {
+        contentHint: videoTrack.contentHint,
+        maxBitrateBps: cameraQuality?.maxBitrateBps ?? "default",
+        maxFramerate: cameraQuality?.maxFramerate ?? "default",
+        degradationPreference: "maintain-framerate",
+      });
+      await participant.publishTrack(videoTrack, {
+        name: "camera",
+        source: Track.Source.Camera,
+        simulcast: true,
+        degradationPreference: "maintain-framerate",
+        ...(cameraQuality
+          ? {
+              videoEncoding: {
+                maxBitrate: cameraQuality.maxBitrateBps,
+                maxFramerate: cameraQuality.maxFramerate,
+              },
+            }
+          : {}),
       });
     } else {
       if (!participant.isCameraEnabled) {
@@ -453,7 +570,6 @@ export class LiveKitStreamManager {
     const participant = this.room.localParticipant;
     
     if (!this.desiredScreenEnabled) {
-      this.remoteMediaHandler?.disposeMixMinus();
       if (participant.isScreenShareEnabled) {
         await participant.setScreenShareEnabled(false);
       }
@@ -479,9 +595,39 @@ export class LiveKitStreamManager {
         }
       }
 
+      // Tune encoder to the captured content: motion (game/video) prioritises
+      // framerate, slides/text prioritises sharpness. contentHint steers the
+      // WebRTC encoder; degradationPreference governs what to drop under load.
+      const isMotion = this.desiredScreenMode === "motion";
+      try {
+        screenTrack.contentHint = isMotion ? "motion" : "detail";
+      } catch {
+        // no-op
+      }
+
+      const screenQuality = this.desiredScreenQuality;
+      logLiveKitDebug("stream-manager", "publish-screen", {
+        mode: this.desiredScreenMode,
+        contentHint: screenTrack.contentHint,
+        maxBitrateBps: screenQuality?.maxBitrateBps ?? "default",
+        maxFramerate: screenQuality?.maxFramerate ?? "default",
+        degradationPreference: isMotion ? "maintain-framerate" : "maintain-resolution",
+      });
       await participant.publishTrack(screenTrack, {
         name: "screen",
         source: Track.Source.ScreenShare,
+        // Single high-quality layer so the selected resolution/bitrate is honored
+        // instead of being capped by the fixed simulcast defaults.
+        simulcast: false,
+        degradationPreference: isMotion ? "maintain-framerate" : "maintain-resolution",
+        ...(screenQuality
+          ? {
+              videoEncoding: {
+                maxBitrate: screenQuality.maxBitrateBps,
+                maxFramerate: screenQuality.maxFramerate,
+              },
+            }
+          : {}),
       });
 
       // Also publish audio track if available (screen share audio)
@@ -499,18 +645,16 @@ export class LiveKitStreamManager {
 
       if (audioTrack) {
         try {
-          this.remoteMediaHandler?.disposeMixMinus();
-          const processedAudioTrack = this.remoteMediaHandler?.createMixMinusTrack(audioTrack) ?? audioTrack;
-          console.log("[LiveKitStreamManager] Publishing screen audio track:", processedAudioTrack.id);
-          await participant.publishTrack(processedAudioTrack, {
+          // Audio comes from the process-exclude loopback (already free of our
+          // own output), so publish it directly — no mix-minus needed.
+          await participant.publishTrack(audioTrack, {
             name: "screen_audio",
             source: Track.Source.ScreenShareAudio,
             dtx: false,
-            red: false,
+            red: true,
           });
           logLiveKitDebug("stream-manager", "screen-audio-published-success", {
-            trackId: processedAudioTrack.id,
-            mixMinusApplied: processedAudioTrack.id !== audioTrack.id,
+            trackId: audioTrack.id,
           });
         } catch (err) {
           console.error("[LiveKitStreamManager] Screen audio publish failed:", err);
@@ -532,7 +676,35 @@ export class LiveKitStreamManager {
 
   private handleDisconnected(reason?: DisconnectReason) {
     if (this.manualDisconnect || this.replacingRoom) return;
+    // Unexpected drop: discard the dead room/handlers so the app-level reconnect
+    // (performPostJoinSynchronization -> connect with a fresh token) can rebuild.
+    this.teardownRoomState();
     this.callbacks.onConnectionStateChanged?.("disconnected");
+  }
+
+  // Lightweight teardown for an unexpected disconnect — releases the dead room
+  // and remote media without the full manual-disconnect path (mic controller and
+  // audio context stay alive for the imminent reconnect).
+  private teardownRoomState(): void {
+    this.currentLobbyId = null;
+    this.stopAudioMonitoring();
+    if (this.room) {
+      try {
+        this.room.removeAllListeners();
+      } catch {
+        // no-op
+      }
+      this.room = null;
+    }
+    this.roomEventManager = null;
+    if (this.remoteMediaHandler) {
+      this.remoteMediaHandler.dispose();
+      this.remoteMediaHandler = null;
+    }
+    this.mediaMap = {};
+    this.streamCache.clear();
+    void this.updateLocalAudioSource(null);
+    this.callbacks.onRemoteStreamsChanged?.({});
   }
 
   private updateMediaMap(): void {
@@ -607,8 +779,11 @@ export class LiveKitStreamManager {
     await this.setCameraEnabled(false);
   }
 
-  public async publishCameraStream(stream: MediaStream): Promise<void> {
-    await this.setCameraEnabled(true, stream);
+  public async publishCameraStream(
+    stream: MediaStream,
+    quality: VideoPublishQuality | null = null,
+  ): Promise<void> {
+    await this.setCameraEnabled(true, stream, quality);
   }
 
   public async unpublishScreen(): Promise<void> {
@@ -630,8 +805,12 @@ export class LiveKitStreamManager {
     }
   }
 
-  public async publishScreenStream(stream: MediaStream): Promise<void> {
-    await this.setScreenEnabled(true, stream);
+  public async publishScreenStream(
+    stream: MediaStream,
+    mode: ScreenShareMode = "slides",
+    quality: VideoPublishQuality | null = null,
+  ): Promise<void> {
+    await this.setScreenEnabled(true, stream, mode, quality);
   }
 
   public async refreshMicrophoneProcessing(): Promise<void> {

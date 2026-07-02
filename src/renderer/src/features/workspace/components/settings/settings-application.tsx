@@ -393,22 +393,36 @@ export function SettingsApplication() {
         </div>
 
         <div style={{ marginBottom: "24px" }}>
-          <Alert
-            message={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
-            type={
-              updatePhase === "error"
-                ? "error"
-                : updatePhase === "available" || updatePhase === "downloaded"
-                  ? "success"
-                  : "info"
-            }
-            showIcon
-            style={{
-              background: "rgba(255, 255, 255, 0.02)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              borderRadius: "8px",
-            }}
-          />
+          {nextVersionLabel ? (
+            <Alert
+              message={`Yeni güncelleme bulundu: v${nextVersionLabel}`}
+              description={updateState?.message}
+              type={updatePhase === "error" ? "error" : "success"}
+              showIcon
+              style={{
+                background: updatePhase === "error" ? "rgba(239, 68, 68, 0.05)" : "rgba(74, 222, 128, 0.05)",
+                border: updatePhase === "error" ? "1px solid rgba(239, 68, 68, 0.15)" : "1px solid rgba(74, 222, 128, 0.15)",
+                borderRadius: "8px",
+              }}
+            />
+          ) : (
+            <Alert
+              message={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
+              type={
+                updatePhase === "error"
+                  ? "error"
+                  : updatePhase === "available" || updatePhase === "downloaded"
+                    ? "success"
+                    : "info"
+              }
+              showIcon
+              style={{
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "8px",
+              }}
+            />
+          )}
         </div>
 
         <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>

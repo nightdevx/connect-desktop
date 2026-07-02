@@ -1,4 +1,4 @@
-import { useState, useCallback, type MutableRefObject } from "react";
+import { useState, useCallback, useEffect, type MutableRefObject } from "react";
 import { type LobbyStateMember } from "../../../../../../shared/desktop-api-types";
 import { type LiveKitMediaSession } from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
@@ -29,6 +29,14 @@ export const useAudioControls = ({
   const [headphoneEnabled, setHeadphoneEnabled] = useState<boolean>(
     () => readAudioPreferences().defaultHeadphoneEnabled
   );
+
+  // 0. Continuous state synchronization with the active LiveKit session
+  useEffect(() => {
+    if (liveKitSessionRef.current) {
+      void liveKitSessionRef.current.setMicrophoneEnabled(micEnabled);
+      liveKitSessionRef.current.setDeafened(!headphoneEnabled);
+    }
+  }, [liveKitSessionRef, micEnabled, headphoneEnabled]);
 
   const syncLobbyAudioState = useCallback(
     async (lobbyId: string): Promise<void> => {

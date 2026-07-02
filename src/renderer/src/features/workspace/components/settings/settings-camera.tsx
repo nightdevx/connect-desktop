@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Select, Button, message } from "antd";
-import { VideoCameraOutlined, SaveOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
+import { VideoCameraOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import type { CameraPreferences } from "./settings-main-panel-types";
 
 interface SettingsCameraProps {
@@ -30,7 +30,131 @@ export function SettingsCamera({
     null,
   );
   const [isStartingCameraTest, setIsStartingCameraTest] = useState(false);
+  const [devStats, setDevStats] = useState<{ fps: number; width: number; height: number } | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
+
+  const [capabilities, setCapabilities] = useState<{
+    resolutions: string[];
+    fpsOptions: number[];
+  } | null>(null);
+
+  // Helper to handle change and immediately save
+  const handlePreferenceChange = (
+    key: keyof CameraPreferences,
+    value: unknown,
+  ): void => {
+    const nextPrefs = {
+      ...draftCameraPreferences,
+      [key]: value,
+    };
+    setDraftCameraPreferences(nextPrefs as CameraPreferences);
+    onSaveCameraPreferences(nextPrefs as CameraPreferences);
+  };
+
+  // Detect camera hardware capabilities
+  useEffect(() => {
+    let active = true;
+
+    const detectCapabilities = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasVideoDevice = devices.some(device => device.kind === "videoinput");
+        if (!hasVideoDevice) {
+          if (active) {
+            setCapabilities({
+              resolutions: ["720p"],
+              fpsOptions: [24]
+            });
+          }
+          return;
+        }
+
+        let supports1080p = false;
+        let supports30fps = false;
+
+        // 1. Probe for 1080p support using exact constraints
+        try {
+          const stream1080p = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              width: { exact: 1920 },
+              height: { exact: 1080 }
+            }
+          });
+          const track = stream1080p.getVideoTracks()[0];
+          if (track) {
+            const settings = track.getSettings();
+            if (settings.width === 1920 && settings.height === 1080) {
+              supports1080p = true;
+            }
+            if (settings.frameRate && settings.frameRate >= 30) {
+              supports30fps = true;
+            }
+          }
+          stream1080p.getTracks().forEach(t => t.stop());
+        } catch (e) {
+          console.info("[CameraProbe] 1080p is not supported or rejected:", e);
+        }
+
+        // 2. Probe for 30 FPS at 720p if not already detected
+        if (!supports30fps) {
+          try {
+            const stream720p = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                width: { exact: 1280 },
+                height: { exact: 720 },
+                frameRate: { exact: 30 }
+              }
+            });
+            const track = stream720p.getVideoTracks()[0];
+            if (track) {
+              const settings = track.getSettings();
+              if (settings.frameRate && settings.frameRate >= 30) {
+                supports30fps = true;
+              }
+            }
+            stream720p.getTracks().forEach(t => t.stop());
+          } catch (e) {
+            console.info("[CameraProbe] 30 FPS is not supported or rejected at 720p:", e);
+          }
+        }
+
+        if (active) {
+          setCapabilities({
+            resolutions: supports1080p ? ["720p", "1080p"] : ["720p"],
+            fpsOptions: supports30fps ? [24, 30] : [24]
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to detect camera capabilities:", err);
+        if (active) {
+          setCapabilities({
+            resolutions: ["720p"],
+            fpsOptions: [24, 30]
+          });
+        }
+      }
+    };
+
+    void detectCapabilities();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Auto-correct saved/draft preferences if they exceed hardware capabilities
+  useEffect(() => {
+    if (capabilities) {
+      if (draftCameraPreferences.resolution === "1080p" && !capabilities.resolutions.includes("1080p")) {
+        handlePreferenceChange("resolution", "720p");
+      }
+      if (draftCameraPreferences.frameRate === 30 && !capabilities.fpsOptions.includes(30)) {
+        handlePreferenceChange("frameRate", 24);
+      }
+    }
+  }, [capabilities]);
 
   useEffect(() => {
     setDraftCameraPreferences(cameraPreferences);
@@ -50,14 +174,57 @@ export function SettingsCamera({
     };
   }, [cameraTestStream]);
 
+  // Real-time FPS and resolution measurement for development mode
+  useEffect(() => {
+    if (!cameraTestStream || !cameraPreviewRef.current) {
+      setDevStats(null);
+      return;
+    }
+
+    const videoEl = cameraPreviewRef.current;
+    let lastTime = performance.now();
+    let lastFrames = 0;
+    let timerId: any;
+
+    const checkStats = () => {
+      const now = performance.now();
+      const elapsed = (now - lastTime) / 1000;
+      if (elapsed <= 0) return;
+
+      let currentFps = 0;
+      if (videoEl.getVideoPlaybackQuality) {
+        const quality = videoEl.getVideoPlaybackQuality();
+        const totalFrames = quality.totalVideoFrames;
+        currentFps = Math.round((totalFrames - lastFrames) / elapsed);
+        lastFrames = totalFrames;
+      } else {
+        const track = cameraTestStream.getVideoTracks()[0];
+        currentFps = Math.round(track?.getSettings().frameRate ?? 0);
+      }
+
+      setDevStats({
+        fps: currentFps,
+        width: videoEl.videoWidth || 0,
+        height: videoEl.videoHeight || 0,
+      });
+
+      lastTime = now;
+    };
+
+    if (videoEl.getVideoPlaybackQuality) {
+      lastFrames = videoEl.getVideoPlaybackQuality().totalVideoFrames;
+    }
+
+    timerId = setInterval(checkStats, 1000);
+
+    return () => {
+      clearInterval(timerId);
+    };
+  }, [cameraTestStream]);
+
   const stopCameraTest = (): void => {
     stopMediaStreamTracks(cameraTestStream);
     setCameraTestStream(null);
-  };
-
-  const handleSaveCameraPreferences = (): void => {
-    onSaveCameraPreferences(draftCameraPreferences);
-    messageApi.success("Kamera ayarları kaydedildi.");
   };
 
   const handleStartCameraTest = async (): Promise<void> => {
@@ -70,10 +237,10 @@ export function SettingsCamera({
         audio: false,
         video: {
           width: {
-            ideal: draftCameraPreferences.resolution === "1080p" ? 1920 : 1280,
+            exact: draftCameraPreferences.resolution === "1080p" ? 1920 : 1280,
           },
           height: {
-            ideal: draftCameraPreferences.resolution === "1080p" ? 1080 : 720,
+            exact: draftCameraPreferences.resolution === "1080p" ? 1080 : 720,
           },
           frameRate: {
             ideal: draftCameraPreferences.frameRate,
@@ -92,6 +259,18 @@ export function SettingsCamera({
       setIsStartingCameraTest(false);
     }
   };
+
+  // Restart the test stream if preferences change while the test is running
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    if (cameraTestStream) {
+      void handleStartCameraTest();
+    }
+  }, [draftCameraPreferences.resolution, draftCameraPreferences.frameRate]);
 
   return (
     <div className="ct-settings-section">
@@ -123,14 +302,15 @@ export function SettingsCamera({
               id="settings-camera-resolution"
               value={draftCameraPreferences.resolution}
               onChange={(value) =>
-                setDraftCameraPreferences((previous) => ({
-                  ...previous,
-                  resolution: value as CameraPreferences["resolution"],
-                }))
+                handlePreferenceChange("resolution", value)
               }
               options={[
                 { value: "720p", label: "1280 x 720 (HD)" },
-                { value: "1080p", label: "1920 x 1080 (Full HD)" },
+                ...(capabilities
+                  ? (capabilities.resolutions.includes("1080p")
+                      ? [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]
+                      : [])
+                  : [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]),
               ]}
               style={{ width: "100%", height: "40px" }}
             />
@@ -144,14 +324,15 @@ export function SettingsCamera({
               id="settings-camera-fps"
               value={draftCameraPreferences.frameRate}
               onChange={(value) =>
-                setDraftCameraPreferences((previous) => ({
-                  ...previous,
-                  frameRate: value as CameraPreferences["frameRate"],
-                }))
+                handlePreferenceChange("frameRate", value)
               }
               options={[
                 { value: 24, label: "24 FPS" },
-                { value: 30, label: "30 FPS" },
+                ...(capabilities
+                  ? (capabilities.fpsOptions.includes(30)
+                      ? [{ value: 30, label: "30 FPS" }]
+                      : [])
+                  : [{ value: 30, label: "30 FPS" }]),
               ]}
               style={{ width: "100%", height: "40px" }}
             />
@@ -159,22 +340,6 @@ export function SettingsCamera({
         </div>
 
         <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSaveCameraPreferences}
-            style={{
-              background: "#ffffff",
-              borderColor: "#ffffff",
-              color: "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
-          >
-            Kamera Ayarlarını Kaydet
-          </Button>
-
           <Button
             type="text"
             icon={cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
@@ -212,13 +377,34 @@ export function SettingsCamera({
           background: "rgba(0, 0, 0, 0.4)",
           border: "1px solid rgba(255, 255, 255, 0.04)",
           borderRadius: "8px",
-          height: "260px",
+          width: "100%",
+          aspectRatio: "16 / 9",
+          maxHeight: "360px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
           position: "relative",
         }}>
+          {process.env.NODE_ENV === "development" && devStats && (
+            <div style={{
+              position: "absolute",
+              top: "8px",
+              left: "8px",
+              background: "rgba(0, 0, 0, 0.75)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "4px",
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontFamily: "monospace",
+              color: "#4ade80",
+              zIndex: 10,
+              pointerEvents: "none",
+            }}>
+              Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
+            </div>
+          )}
+
           {cameraTestStream ? (
             <video
               ref={cameraPreviewRef}
@@ -229,7 +415,7 @@ export function SettingsCamera({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: "contain",
               }}
             />
           ) : (
@@ -242,5 +428,3 @@ export function SettingsCamera({
     </div>
   );
 }
-
-

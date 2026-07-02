@@ -7,17 +7,22 @@ import {
   DeleteOutlined,
   SaveOutlined,
   ReloadOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { authService } from "../../../auth";
 
 interface ProfileSettings {
   displayName: string;
+  email: string;
+  emailVerified: boolean;
   bio: string;
   avatarUrl: string | null;
 }
 
 interface ProfileSettingsProps {
   currentUsername: string;
+  onLogout?: () => void;
+  isLoggingOut?: boolean;
 }
 
 const MAX_AVATAR_FILE_BYTES = 512 * 1024;
@@ -61,16 +66,33 @@ const readFileAsDataURL = (file: File): Promise<string> => {
   });
 };
 
-export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
+export function SettingsProfile({
+  currentUsername,
+  onLogout,
+  isLoggingOut,
+}: ProfileSettingsProps) {
   const queryClient = useQueryClient();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
     displayName: currentUsername,
+    email: "",
+    emailVerified: false,
     bio: "",
     avatarUrl: null,
   });
+
+  const [savedEmail, setSavedEmail] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+
+  useEffect(() => {
+    setVerificationSent(false);
+    setVerificationCode("");
+  }, [profileSettings.email]);
 
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -89,9 +111,12 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         if (!result.ok || !result.data?.profile) {
           setProfileSettings({
             displayName: currentUsername,
+            email: "",
+            emailVerified: false,
             bio: "",
             avatarUrl: null,
           });
+          setSavedEmail("");
 
           if (!result.ok) {
             messageApi.error(
@@ -104,9 +129,12 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         const profile = result.data.profile;
         setProfileSettings({
           displayName: profile.displayName?.trim() || currentUsername,
+          email: profile.email ?? "",
+          emailVerified: !!profile.emailVerified,
           bio: profile.bio ?? "",
           avatarUrl: profile.avatarUrl ?? null,
         });
+        setSavedEmail(profile.email ?? "");
       })
       .catch((error) => {
         if (cancelled) {
@@ -115,9 +143,12 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
 
         setProfileSettings({
           displayName: currentUsername,
+          email: "",
+          emailVerified: false,
           bio: "",
           avatarUrl: null,
         });
+        setSavedEmail("");
         messageApi.error(
           `Profil bilgisi alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
@@ -144,7 +175,7 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
     try {
       const result = await authService.updateProfile({
         displayName: normalizedDisplayName,
-        email: null,
+        email: profileSettings.email.trim() || null,
         bio: profileSettings.bio.trim() || null,
         avatarUrl: profileSettings.avatarUrl,
       });
@@ -159,9 +190,12 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       const profile = result.data.profile;
       setProfileSettings({
         displayName: profile.displayName,
+        email: profile.email ?? "",
+        emailVerified: !!profile.emailVerified,
         bio: profile.bio ?? "",
         avatarUrl: profile.avatarUrl ?? null,
       });
+      setSavedEmail(profile.email ?? "");
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
       messageApi.success("Profil ayarları kaydedildi.");
     } catch (error) {
@@ -170,6 +204,70 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
       );
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleSendVerificationCode = async (): Promise<void> => {
+    const targetEmail = profileSettings.email.trim();
+    if (!targetEmail) {
+      messageApi.warning("Lütfen önce geçerli bir e-posta adresi girin ve kaydedin.");
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const result = await authService.sendVerificationOTP({
+        email: targetEmail,
+      });
+      if (result.ok) {
+        setVerificationSent(true);
+        messageApi.success("Doğrulama kodu e-posta adresinize gönderildi!");
+      } else {
+        messageApi.error(
+          `Kod gönderilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`
+        );
+      }
+    } catch (error) {
+      messageApi.error(
+        `Kod gönderilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
+      );
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async (): Promise<void> => {
+    if (verificationCode.length !== 6) {
+      messageApi.warning("Lütfen 6 haneli doğrulama kodunu girin.");
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    try {
+      const result = await authService.verifyEmail({
+        email: profileSettings.email.trim(),
+        code: verificationCode,
+      });
+
+      if (result.ok) {
+        messageApi.success("E-posta adresiniz başarıyla doğrulandı!");
+        setProfileSettings((prev) => ({
+          ...prev,
+          emailVerified: true,
+        }));
+        setVerificationSent(false);
+        setVerificationCode("");
+      } else {
+        messageApi.error(
+          `Doğrulama başarısız: ${result.error?.message ?? "Bilinmeyen hata"}`
+        );
+      }
+    } catch (error) {
+      messageApi.error(
+        `Doğrulama başarısız: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
+      );
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -190,11 +288,15 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         return;
       }
 
+      const profile = result.data.profile;
       setProfileSettings({
-        displayName: result.data.profile.displayName,
-        bio: result.data.profile.bio ?? "",
-        avatarUrl: result.data.profile.avatarUrl ?? null,
+        displayName: profile.displayName,
+        email: profile.email ?? "",
+        emailVerified: !!profile.emailVerified,
+        bio: profile.bio ?? "",
+        avatarUrl: profile.avatarUrl ?? null,
       });
+      setSavedEmail(profile.email ?? "");
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
       messageApi.success("Profil ayarları varsayılana döndürüldü.");
     } catch (error) {
@@ -251,16 +353,38 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
   return (
     <div className="ct-settings-section">
       {contextHolder}
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-icon">
-          <UserOutlined style={{ fontSize: "20px" }} />
+      <div className="ct-settings-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
+          <div className="ct-settings-section-header-icon">
+            <UserOutlined style={{ fontSize: "20px" }} />
+          </div>
+          <div>
+            <h4 style={{ margin: 0 }}>Profil Ayarları</h4>
+            <p className="ct-settings-section-description" style={{ margin: 0 }}>
+              Hesap görünüm bilgilerini buradan yönetebilirsin.
+            </p>
+          </div>
         </div>
-        <div>
-          <h4>Profil Ayarları</h4>
-          <p className="ct-settings-section-description">
-            Hesap görünüm bilgilerini buradan yönetebilirsin.
-          </p>
-        </div>
+
+        <Button
+          type="primary"
+          icon={<SaveOutlined />}
+          onClick={() => {
+            void handleSaveProfile();
+          }}
+          loading={isSavingProfile}
+          disabled={isProfileLoading || isSavingProfile}
+          style={{
+            background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+            borderColor: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+            color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#000000",
+            fontWeight: "600",
+            height: "40px",
+            borderRadius: "6px",
+          }}
+        >
+          Profili Kaydet
+        </Button>
       </div>
 
       <div className="ct-settings-content" style={{ marginTop: "24px" }}>
@@ -356,6 +480,160 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
           </div>
 
           <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label className="ct-label" htmlFor="settings-email" style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                E-posta Adresi
+              </label>
+              {profileSettings.email ? (
+                profileSettings.emailVerified ? (
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: "600",
+                    color: "#10b981",
+                    background: "rgba(16, 185, 129, 0.1)",
+                    padding: "2px 8px",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(16, 185, 129, 0.2)"
+                  }}>
+                    Doğrulanmış
+                  </span>
+                ) : (
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: "600",
+                    color: "#f59e0b",
+                    background: "rgba(245, 158, 11, 0.1)",
+                    padding: "2px 8px",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(245, 158, 11, 0.2)"
+                  }}>
+                    Doğrulanmamış
+                  </span>
+                )
+              ) : (
+                <span style={{
+                  fontSize: "10px",
+                  fontWeight: "600",
+                  color: "#ef4444",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(239, 68, 68, 0.2)"
+                }}>
+                  E-posta Yok
+                </span>
+              )}
+            </div>
+            <Input
+              id="settings-email"
+              value={profileSettings.email}
+              onChange={(event) =>
+                setProfileSettings((previous) => ({
+                  ...previous,
+                  email: event.target.value,
+                }))
+              }
+              placeholder="örnek@mail.com"
+              disabled={isProfileLoading || isSavingProfile}
+              style={{
+                background: "rgba(15, 15, 15, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "6px",
+                height: "40px",
+              }}
+            />
+            
+            {profileSettings.email && profileSettings.email !== savedEmail && (
+              <div style={{ marginTop: "6px", fontSize: "11px", color: "#f59e0b" }}>
+                E-posta adresini doğrulamak için önce profili kaydedin.
+              </div>
+            )}
+
+            {profileSettings.email && profileSettings.email === savedEmail && !profileSettings.emailVerified && (
+              <div style={{
+                marginTop: "12px",
+                padding: "16px",
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+                borderRadius: "8px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
+                    E-posta adresinizi doğrulamak için bir doğrulama kodu gönderin.
+                  </span>
+                  {!verificationSent && (
+                    <Button
+                      type="primary"
+                      onClick={() => { void handleSendVerificationCode(); }}
+                      loading={isSendingCode}
+                      style={{
+                        background: "#f59e0b",
+                        borderColor: "#f59e0b",
+                        color: "#000000",
+                        fontWeight: "600",
+                        borderRadius: "6px",
+                        height: "32px",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Doğrulama Kodu Gönder
+                    </Button>
+                  )}
+                </div>
+
+                {verificationSent && (
+                  <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                    <Input
+                      placeholder="000000"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.trim())}
+                      maxLength={6}
+                      style={{
+                        width: "120px",
+                        textAlign: "center",
+                        letterSpacing: "4px",
+                        fontWeight: "bold",
+                        background: "rgba(15, 15, 15, 0.8)",
+                        borderColor: "rgba(255, 255, 255, 0.08)",
+                        color: "#ffffff",
+                        height: "40px",
+                      }}
+                    />
+                    <Button
+                      type="primary"
+                      onClick={() => { void handleVerifyEmailCode(); }}
+                      loading={isVerifyingCode}
+                      disabled={verificationCode.length !== 6}
+                      style={{
+                        background: "#10b981",
+                        borderColor: "#10b981",
+                        color: "#ffffff",
+                        fontWeight: "600",
+                        height: "40px",
+                        borderRadius: "6px",
+                      }}
+                    >
+                      Doğrula
+                    </Button>
+                    <Button
+                      type="text"
+                      onClick={() => { void handleSendVerificationCode(); }}
+                      loading={isSendingCode}
+                      style={{ color: "rgba(255,255,255,0.6)", fontSize: "12px" }}
+                    >
+                      Yeniden Gönder
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
             <label className="ct-label" htmlFor="settings-profile-bio" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
               Hakkımda
             </label>
@@ -404,45 +682,30 @@ export function SettingsProfile({ currentUsername }: ProfileSettingsProps) {
         </div>
 
         <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={() => {
-              void handleSaveProfile();
-            }}
-            loading={isSavingProfile}
-            disabled={isProfileLoading || isSavingProfile}
-            style={{
-              background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              borderColor: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
-          >
-            Profili Kaydet
-          </Button>
-          <Button
-            type="text"
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              void handleResetProfile();
-            }}
-            disabled={isProfileLoading || isSavingProfile}
-            style={{
-              background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
-              color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#ffffff",
-              height: "40px",
-              borderRadius: "6px",
-            }}
-          >
-            Varsayılana Dön
-          </Button>
+          {onLogout && (
+            <Button
+              danger
+              type="primary"
+              icon={<LogoutOutlined />}
+              onClick={onLogout}
+              loading={isLoggingOut}
+              disabled={isLoggingOut}
+              style={{
+                background: "#ef4444",
+                borderColor: "#ef4444",
+                color: "#ffffff",
+                fontWeight: "600",
+                height: "40px",
+                borderRadius: "6px",
+                boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
+                marginLeft: "auto",
+              }}
+            >
+              Hesaptan Çık
+            </Button>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
-

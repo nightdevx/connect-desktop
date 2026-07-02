@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, Plus, Wifi, WifiOff, X } from "lucide-react";
-import { Switch, Divider } from "antd";
+import { Switch, Divider, Modal, Select, Input } from "antd";
 import { 
   DashboardOutlined, 
   DisconnectOutlined, 
@@ -52,12 +52,26 @@ interface WorkspaceSidebarProps {
     activeLobbyId: string | null;
     joiningLobbyId: string | null;
     onJoinLobby: (lobbyId: string) => void;
-    onCreateLobby: (name: string) => Promise<boolean>;
-    onRenameLobby: (lobbyId: string, nextName: string) => Promise<boolean>;
+    onCreateLobby: (
+      name: string,
+      isLocked?: boolean,
+      allowedUsers?: string[],
+      password?: string,
+    ) => Promise<boolean>;
+    onUpdateLobby: (
+      lobbyId: string,
+      name: string,
+      isLocked?: boolean,
+      allowedUsers?: string[],
+      password?: string | null,
+    ) => Promise<boolean>;
     onDeleteLobby: (lobbyId: string) => Promise<boolean>;
     isCreatingLobby: boolean;
     renamingLobbyId: string | null;
     deletingLobbyId: string | null;
+    currentUserId: string;
+    currentUserRole: string;
+    allUsers: Array<{ id: string; username: string; displayName: string }>;
   };
   settingsProps: {
     settingsSection: SettingsSection;
@@ -95,6 +109,7 @@ interface WorkspaceSidebarProps {
   };
   audioProcessingProps: {
     enhancedNoiseSuppressionEnabled: boolean;
+    micEnabled: boolean;
     /** Gerçek aktif mod: "none" (devre dışı) | "browser" (tarayıcı NS) | "processor" (RNNoise) */
     activeNoiseMode: "none" | "browser" | "processor";
     onToggleEnhancedNoiseSuppression: () => void;
@@ -113,6 +128,9 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
   const [newLobbyName, setNewLobbyName] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
+  const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+  const [newLobbyPassword, setNewLobbyPassword] = useState("");
   const [isAudioPopupOpen, setIsAudioPopupOpen] = useState(false);
   const audioAnchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -121,7 +139,10 @@ export function WorkspaceSidebar({
       return;
     }
 
-    setIsCreateLobbyOpen((previous) => !previous);
+    setNewLobbyName("");
+    setIsLocked(false);
+    setAllowedUsers([]);
+    setIsCreateLobbyOpen(true);
   };
 
   const audioStatusIcon =
@@ -190,12 +211,20 @@ export function WorkspaceSidebar({
       return;
     }
 
-    const created = await lobbiesProps.onCreateLobby(newLobbyName);
+    const created = await lobbiesProps.onCreateLobby(
+      newLobbyName,
+      isLocked,
+      allowedUsers,
+      newLobbyPassword.trim() || undefined,
+    );
     if (!created) {
       return;
     }
 
     setNewLobbyName("");
+    setIsLocked(false);
+    setAllowedUsers([]);
+    setNewLobbyPassword("");
     setIsCreateLobbyOpen(false);
   };
 
@@ -219,28 +248,7 @@ export function WorkspaceSidebar({
           )}
         </div>
 
-        {workspaceSection === "lobbies" && isCreateLobbyOpen && (
-          <div className="ct-inline-create-lobby">
-            <input
-              type="text"
-              className="ct-input"
-              value={newLobbyName}
-              onChange={(event) => setNewLobbyName(event.target.value)}
-              placeholder="Lobi adı"
-              maxLength={64}
-            />
-            <button
-              type="button"
-              className="ct-btn-primary"
-              onClick={() => void handleCreateLobbySubmit()}
-              disabled={
-                lobbiesProps.isCreatingLobby || newLobbyName.trim().length < 2
-              }
-            >
-              {lobbiesProps.isCreatingLobby ? "Ekleniyor..." : "Ekle"}
-            </button>
-          </div>
-        )}
+        {/* Lobi Oluşturma Modali alt tarafta Modal bileşeni olarak yer alıyor */}
       </header>
 
       <div className="ct-sidebar-body">
@@ -268,10 +276,13 @@ export function WorkspaceSidebar({
             activeLobbyId={lobbiesProps.activeLobbyId}
             joiningLobbyId={lobbiesProps.joiningLobbyId}
             onJoinLobby={lobbiesProps.onJoinLobby}
-            onRenameLobby={lobbiesProps.onRenameLobby}
+            onUpdateLobby={lobbiesProps.onUpdateLobby}
             onDeleteLobby={lobbiesProps.onDeleteLobby}
             renamingLobbyId={lobbiesProps.renamingLobbyId}
             deletingLobbyId={lobbiesProps.deletingLobbyId}
+            currentUserId={lobbiesProps.currentUserId}
+            currentUserRole={lobbiesProps.currentUserRole}
+            allUsers={lobbiesProps.allUsers}
           />
         )}
 
@@ -306,16 +317,17 @@ export function WorkspaceSidebar({
 
             {isAudioPopupOpen && (
               <section
-                className="ct-audio-popover"
+                className="ct-audio-popover ct-stagger-entry"
                 role="dialog"
                 aria-modal="false"
                 aria-label="Ses bağlantı detayları"
                 style={{
                   padding: "16px",
-                  borderRadius: "12px",
-                  background: "rgba(10, 10, 10, 0.98)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  boxShadow: "0 20px 40px rgba(0, 0, 0, 0.8)",
+                  borderRadius: "14px",
+                  background: "rgba(10, 10, 10, 0.75)",
+                  backdropFilter: "blur(24px)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  boxShadow: "0 24px 50px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.05)",
                   width: "calc(100% - 24px)",
                   margin: "0 auto",
                   left: "12px",
@@ -519,7 +531,9 @@ export function WorkspaceSidebar({
                               borderRadius: "50%"
                             }}
                           />
-                          Başlatılıyor...
+                          {audioProcessingProps.micEnabled
+                            ? "Başlatılıyor..."
+                            : "Mikrofon açılınca etkinleşecek"}
                         </>
                       )}
                     </div>
@@ -556,6 +570,133 @@ export function WorkspaceSidebar({
           />
         </>
       )}
+
+      <Modal
+        title={<span style={{ color: "#fff", fontSize: "16px", fontWeight: "600" }}>Yeni Lobi Oluştur</span>}
+        open={isCreateLobbyOpen}
+        onOk={() => void handleCreateLobbySubmit()}
+        onCancel={() => setIsCreateLobbyOpen(false)}
+        confirmLoading={lobbiesProps.isCreatingLobby}
+        okButtonProps={{
+          disabled: newLobbyName.trim().length < 2,
+          style: {
+            background: "#ffffff",
+            color: "#000000",
+            border: "none",
+            borderRadius: "6px",
+            fontWeight: "500",
+          }
+        }}
+        cancelButtonProps={{
+          style: {
+            background: "rgba(255, 255, 255, 0.05)",
+            color: "#ffffff",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRadius: "6px",
+          }
+        }}
+        okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor..." : "Oluştur"}
+        cancelText="İptal"
+        modalRender={(modal) => (
+          <div style={{
+            background: "rgba(18, 18, 18, 0.85)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "14px",
+            padding: "8px",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
+          }}>
+            {modal}
+          </div>
+        )}
+        styles={{
+          body: {
+            padding: "12px 0 0 0",
+          }
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "12px" }}>Lobi Adı</label>
+            <input
+              type="text"
+              className="ct-input"
+              value={newLobbyName}
+              onChange={(event) => setNewLobbyName(event.target.value)}
+              placeholder="Örn. Geliştirme Odası"
+              maxLength={64}
+              style={{
+                background: "rgba(255, 255, 255, 0.04)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                color: "#ffffff",
+                outline: "none",
+                fontSize: "14px",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ color: "#ffffff", fontSize: "14px", fontWeight: "500" }}>Kilitli Oda</span>
+              <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: "11px" }}>Yalnızca davet edilen kişiler katılabilir</span>
+            </div>
+            <Switch
+              checked={isLocked}
+              onChange={(checked) => setIsLocked(checked)}
+              style={{
+                background: isLocked ? "#ffffff" : "rgba(255, 255, 255, 0.15)",
+              }}
+            />
+          </div>
+
+          {isLocked && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "12px" }}>İzin Verilecek Kullanıcılar</label>
+              <Select
+                mode="multiple"
+                placeholder="Kullanıcıları seçin..."
+                style={{ width: "100%" }}
+                value={allowedUsers}
+                onChange={(val) => setAllowedUsers(val)}
+                options={lobbiesProps.allUsers
+                  .filter((u) => u.id !== lobbiesProps.currentUserId)
+                  .map((u) => ({
+                    label: `@${u.username} (${u.displayName})`,
+                    value: u.id,
+                  }))}
+                dropdownStyle={{
+                  background: "#181818",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: "8px",
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "12px" }}>
+              Oda Şifresi (opsiyonel)
+            </label>
+            <Input.Password
+              placeholder="Şifre belirleyin (boş = şifresiz)"
+              value={newLobbyPassword}
+              onChange={(event) => setNewLobbyPassword(event.target.value)}
+              maxLength={128}
+              style={{
+                background: "rgba(20, 20, 20, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+              }}
+            />
+            <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: "11px" }}>
+              Şifreyi bilen herkes bu odaya katılabilir.
+            </span>
+          </div>
+        </div>
+      </Modal>
     </aside>
   );
 }

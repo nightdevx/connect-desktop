@@ -13,6 +13,9 @@ files:
   - public/images/logo.ico
   - public/images/logo.png
   - package.json
+  - native/audio-loopback/index.js
+  - native/audio-loopback/package.json
+  - native/audio-loopback/build/Release/*.node
   - "!**/*.map"
   - "!**/*.d.ts"
   - "!**/*.d.cts"
@@ -22,6 +25,9 @@ files:
   - "!**/test/**"
   - "!**/tests/**"
 asar: true
+# Native .node must live outside the asar archive to be loadable at runtime.
+asarUnpack:
+  - native/**
 extraResources:
   - from: .env.runtime
     to: .env.runtime

@@ -67,6 +67,7 @@ export function LobbyStageView({
             <LobbyParticipantTile
               key={focusedParticipantSlot.slotId}
               participant={focusedParticipantSlot.participant}
+              kind={focusedParticipantSlot.kind}
               avatarUrl={avatarByUserId[focusedParticipantSlot.participant.userId]}
               previewStream={resolvePreviewStream(
                 focusedParticipantSlot.participant,
@@ -165,6 +166,7 @@ export function LobbyStageView({
                 <LobbyParticipantTile
                   key={slot.slotId}
                   participant={slot.participant}
+                  kind={slot.kind}
                   avatarUrl={avatarByUserId[slot.participant.userId]}
                   previewStream={resolvePreviewStream(
                     slot.participant,
@@ -198,6 +200,7 @@ export function LobbyStageView({
           <LobbyParticipantTile
             key={slot.slotId}
             participant={slot.participant}
+            kind={slot.kind}
             avatarUrl={avatarByUserId[slot.participant.userId]}
             previewStream={resolvePreviewStream(
               slot.participant,
