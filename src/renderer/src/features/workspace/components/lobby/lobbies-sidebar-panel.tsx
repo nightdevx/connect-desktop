@@ -112,10 +112,11 @@ export function LobbiesSidebarPanel({
     lobbyId: string,
     userId: string,
     username: string,
+    muted: boolean,
   ): Promise<void> => {
-    const result = await workspaceService.muteLobbyMember({ lobbyId, userId });
+    const result = await workspaceService.muteLobbyMember({ lobbyId, userId, muted });
     if (result.ok) {
-      message.success(`${username} susturuldu`);
+      message.success(muted ? `${username} susturuldu` : `${username} sesi açıldı`);
     } else {
       message.error(getApiErrorMessage(result.error));
     }
@@ -317,7 +318,7 @@ export function LobbiesSidebarPanel({
                     }}
                   >
                     {members.map((member) => {
-                      const micOpen = !member.muted;
+                      const micOpen = !member.muted && !member.serverMuted;
                       const headphoneOpen = !member.deafened;
                       const canModerate =
                         canManageLobby(lobby.createdBy, currentUserId, currentUserRole) &&
@@ -327,6 +328,7 @@ export function LobbiesSidebarPanel({
                         <li
                           key={member.userId}
                           className="ct-lobby-member-item"
+                          onContextMenu={(e) => e.stopPropagation()}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -418,7 +420,11 @@ export function LobbiesSidebarPanel({
                                 <AudioMutedOutlined
                                   style={{
                                     fontSize: "11px",
-                                    color: isActive ? "rgba(0,0,0,0.5)" : "#6b7280",
+                                    color: member.serverMuted
+                                      ? "#ef4444"
+                                      : isActive
+                                        ? "rgba(0,0,0,0.5)"
+                                        : "#6b7280",
                                   }}
                                 />
                               )}
@@ -492,10 +498,10 @@ export function LobbiesSidebarPanel({
                             items: [
                               {
                                 key: "mute",
-                                label: "Sustur",
-                                icon: <AudioMutedOutlined />,
+                                label: member.serverMuted ? "Susturmayı Kaldır" : "Sustur",
+                                icon: member.serverMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
                                 onClick: () =>
-                                  void handleMuteMember(lobby.id, member.userId, member.username),
+                                  void handleMuteMember(lobby.id, member.userId, member.username, !member.serverMuted),
                               },
                               {
                                 key: "kick",

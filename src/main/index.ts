@@ -188,8 +188,8 @@ function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 480,
     frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),

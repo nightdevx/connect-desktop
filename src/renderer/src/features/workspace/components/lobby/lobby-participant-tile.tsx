@@ -62,7 +62,7 @@ export function LobbyParticipantTile({
   localAudioMuted = false,
   localScreenAudioMuted = false,
 }: LobbyParticipantTileProps) {
-  const micOpen = !participant.muted;
+  const micOpen = !participant.muted && !participant.serverMuted;
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -319,7 +319,7 @@ export function LobbyParticipantTile({
                 ) : micOpen ? (
                   <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
                 ) : (
-                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                  <AudioMutedOutlined style={{ fontSize: "11px", color: participant.serverMuted ? "#ef4444" : "#6b7280" }} />
                 )}
               </span>
             </Tooltip>

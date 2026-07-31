@@ -41,6 +41,26 @@
     @apply col-start-2 col-end-3 row-start-2 row-end-3;
   }
 
+  .ct-admin-panel-shell {
+    grid-column: 2 / 3;
+    grid-row: 1 / 3;
+    flex-direction: column;
+  }
+
+  .ct-admin-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-shrink: 0;
+    overflow-x: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px;
+  }
+
+  .ct-admin-sidebar-nav {
+    flex-direction: row;
+  }
+
   .ct-lobby-room-grid {
     @apply grid-cols-1;
   }
@@ -165,6 +185,11 @@
   .ct-sidebar,
   .ct-main-panel {
     @apply col-auto row-auto;
+  }
+
+  .ct-admin-panel-shell {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .ct-main-panel-header {

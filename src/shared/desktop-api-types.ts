@@ -53,6 +53,7 @@ export interface LobbyStateMember {
   username: string;
   joinedAt: string;
   muted: boolean;
+  serverMuted: boolean;
   deafened: boolean;
   speaking: boolean;
   cameraEnabled: boolean;
@@ -281,6 +282,7 @@ export interface DesktopApi {
   muteLobbyMember: (payload: {
     lobbyId: string;
     userId: string;
+    muted: boolean;
   }) => Promise<DesktopResult<{ muted: boolean }>>;
   leaveLobby: (payload?: {
     lobbyId?: string;
@@ -368,14 +370,14 @@ export interface DesktopApi {
   onWindowStateChanged: (
     listener: (state: DesktopWindowState) => void,
   ) => () => void;
-  adminListUsers: (params?: { search?: string; role?: string; status?: string }) => Promise<DesktopResult<{ users: AdminUserDetail[] }>>;
+  adminListUsers: (params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ users: AdminUserDetail[]; total: number }>>;
   adminGetUser: (userId: string) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminUpdateUser: (userId: string, payload: AdminUpdateUserRequest) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminResetPassword: (userId: string, newPassword: string) => Promise<DesktopResult<{ reset: boolean }>>;
   adminDeleteUser: (userId: string) => Promise<DesktopResult<{ deleted: boolean }>>;
   adminBanUser: (userId: string) => Promise<DesktopResult<{ banned: boolean }>>;
   adminUnbanUser: (userId: string) => Promise<DesktopResult<{ unbanned: boolean }>>;
-  adminListLobbies: (params?: { search?: string; locked?: string }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[] }>>;
+  adminListLobbies: (params?: { search?: string; locked?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[]; total: number }>>;
   adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;
   adminGetStats: (payload?: any) => Promise<DesktopResult<{ stats: AdminStats }>>;
   adminKickUser: (lobbyId: string, userId: string) => Promise<DesktopResult<{ kicked: boolean }>>;

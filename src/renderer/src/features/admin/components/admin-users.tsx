@@ -31,10 +31,13 @@ export default function AdminUsers() {
   const currentUserId = session.user?.id;
 
   const [users, setUsers] = useState<AdminUserDetail[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Edit Drawer State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -46,15 +49,19 @@ export default function AdminUsers() {
   const [resettingUser, setResettingUser] = useState<AdminUserDetail | null>(null);
   const [resetForm] = Form.useForm();
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page = currentPage, size = pageSize) => {
     try {
       setLoading(true);
+      const offset = (page - 1) * size;
       const res = await adminService.listUsers({
         search: searchText || undefined,
         role: roleFilter !== "all" ? roleFilter : undefined,
         status: statusFilter !== "all" ? statusFilter : undefined,
+        limit: size,
+        offset,
       });
       setUsers(res.users);
+      setTotal(res.total || 0);
     } catch (err: any) {
       message.error(err.message || "Kullanıcılar alınamadı");
     } finally {
@@ -64,11 +71,21 @@ export default function AdminUsers() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchUsers();
+      fetchUsers(1);
+      setCurrentPage(1);
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchText, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    fetchUsers(currentPage, pageSize);
+  }, [currentPage, pageSize]);
+
+  const handleTableChange = (pagination: any) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
 
   const handleEditClick = (user: AdminUserDetail) => {
     setEditingUser(user);
@@ -323,7 +340,7 @@ export default function AdminUsers() {
 
         <Button
           type="primary"
-          onClick={fetchUsers}
+          onClick={() => fetchUsers()}
           style={{ background: "#a855f7", borderColor: "#a855f7" }}
         >
           Yenile
@@ -336,7 +353,15 @@ export default function AdminUsers() {
         columns={columns}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: 10 }}
+        onChange={handleTableChange}
+        pagination={{
+          current: currentPage,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50", "100"],
+        }}
+        scroll={{ y: "calc(100vh - 260px)" }}
         style={{
           background: "rgba(20, 20, 20, 0.4)",
           borderRadius: "12px",

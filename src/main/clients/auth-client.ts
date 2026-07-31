@@ -146,15 +146,17 @@ export class AuthClient {
 
   public async adminListUsers(
     accessToken: string,
-    params?: { search?: string; role?: string; status?: string }
-  ): Promise<{ users: AdminUserDetail[] }> {
+    params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }
+  ): Promise<{ users: AdminUserDetail[]; total: number }> {
     const query = new URLSearchParams();
     if (params?.search) query.append("search", params.search);
     if (params?.role && params.role !== "all") query.append("role", params.role);
     if (params?.status && params.status !== "all") query.append("status", params.status);
+    if (params?.limit != null) query.append("limit", String(params.limit));
+    if (params?.offset != null) query.append("offset", String(params.offset));
 
     const queryString = query.toString() ? `?${query.toString()}` : "";
-    return this.baseClient.request<{ users: AdminUserDetail[] }>(`/admin/users${queryString}`, {
+    return this.baseClient.request<{ users: AdminUserDetail[]; total: number }>(`/admin/users${queryString}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -220,14 +222,16 @@ export class AuthClient {
 
   public async adminListLobbies(
     accessToken: string,
-    params?: { search?: string; locked?: string }
-  ): Promise<{ lobbies: AdminLobbySnapshot[] }> {
+    params?: { search?: string; locked?: string; limit?: number; offset?: number }
+  ): Promise<{ lobbies: AdminLobbySnapshot[]; total: number }> {
     const query = new URLSearchParams();
     if (params?.search) query.append("search", params.search);
     if (params?.locked && params.locked !== "all") query.append("locked", params.locked);
+    if (params?.limit != null) query.append("limit", String(params.limit));
+    if (params?.offset != null) query.append("offset", String(params.offset));
 
     const queryString = query.toString() ? `?${query.toString()}` : "";
-    return this.baseClient.request<{ lobbies: AdminLobbySnapshot[] }>(`/admin/lobbies${queryString}`, {
+    return this.baseClient.request<{ lobbies: AdminLobbySnapshot[]; total: number }>(`/admin/lobbies${queryString}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });

@@ -72,6 +72,10 @@ export const lobbyModerateSchema = z.object({
   userId: z.string().min(2).max(128),
 });
 
+export const lobbyModerateMuteSchema = lobbyModerateSchema.extend({
+  muted: z.boolean().optional().default(true),
+});
+
 export const lobbyStateSchema = z.object({
   lobbyId: z.string().min(2).max(128),
 });

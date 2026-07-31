@@ -1,0 +1,22 @@
+.ct-admin-panel-shell {
+  @apply flex h-full w-full min-h-0 overflow-hidden;
+  grid-column: span 2;
+}
+
+.ct-admin-panel-content {
+  @apply flex flex-1 min-h-0 flex-col overflow-y-auto;
+  padding: 24px;
+}
+
+.ct-admin-sidebar {
+  @apply flex min-h-0 flex-col;
+  width: 220px;
+  padding: 16px 0;
+  flex-shrink: 0;
+}
+
+.ct-admin-sidebar-nav {
+  @apply flex flex-col;
+  gap: 4px;
+  padding: 0 8px;
+}

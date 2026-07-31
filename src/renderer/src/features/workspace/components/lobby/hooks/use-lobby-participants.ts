@@ -126,6 +126,7 @@ export function useLobbyParticipants({
         username: currentUsername,
         joinedAt: localFallbackJoinedAt,
         muted: localMuted,
+        serverMuted: false,
         deafened: !headphoneEnabled,
         speaking: isActuallySpeaking && !localMuted,
         cameraEnabled,

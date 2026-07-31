@@ -304,7 +304,7 @@ export default function AdminDashboard() {
             title={<span style={{ color: "#ffffff", fontWeight: "600" }}>Kullanıcı Rol Dağılımı</span>}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", gap: "12px", height: "160px" }}>
-              <div style={{ position: "relative", width: "120px", height: "120px" }}>
+              <div style={{ position: "relative", width: "min(120px, 100%)", aspectRatio: "1 / 1", flexShrink: 0 }}>
                 <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ transform: "rotate(-90deg)" }}>
                   {/* Outer circle background */}
                   <circle cx="50" cy="50" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />

@@ -207,9 +207,10 @@ export function LobbiesMainPanel({
     if (!activeLobbyId || !contextMenuParticipantId) return;
     const targetId = contextMenuParticipantId;
     const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
-    void workspaceService.muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId }).then((result) => {
+    const nextMuted = !(lobbyMembers.find((m) => m.userId === targetId)?.serverMuted ?? false);
+    void workspaceService.muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId, muted: nextMuted }).then((result) => {
       if (result.ok) {
-        message.success(`${targetName} susturuldu`);
+        message.success(nextMuted ? `${targetName} susturuldu` : `${targetName} sesi açıldı`);
       } else {
         message.error(getApiErrorMessage(result.error));
       }
@@ -405,6 +406,9 @@ export function LobbiesMainPanel({
           preference={selectedPreference}
           isScreenSharing={
             lobbyMembers.find((m) => m.userId === contextMenuParticipantId)?.screenSharing ?? false
+          }
+          isServerMuted={
+            lobbyMembers.find((m) => m.userId === contextMenuParticipantId)?.serverMuted ?? false
           }
           onClose={() => {
             setContextMenuParticipantId(null);

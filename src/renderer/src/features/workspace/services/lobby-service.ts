@@ -62,6 +62,7 @@ export const lobbyService = {
           username: string;
           joinedAt: string;
           muted: boolean;
+          serverMuted: boolean;
           deafened: boolean;
           speaking: boolean;
           cameraEnabled: boolean;
@@ -82,6 +83,7 @@ export const lobbyService = {
               username: string;
               joinedAt: string;
               muted: boolean;
+              serverMuted: boolean;
               deafened: boolean;
               speaking: boolean;
               cameraEnabled: boolean;
@@ -136,7 +138,7 @@ export const lobbyService = {
     }
     return window.desktopApi.kickLobbyMember(payload);
   },
-  muteLobbyMember: (payload: { lobbyId: string; userId: string }) => {
+  muteLobbyMember: (payload: { lobbyId: string; userId: string; muted: boolean }) => {
     if (typeof window.desktopApi.muteLobbyMember !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ muted: boolean }>,

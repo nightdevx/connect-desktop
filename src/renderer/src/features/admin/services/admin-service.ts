@@ -7,7 +7,7 @@ import {
 } from "@shared/auth-contracts";
 
 class AdminService {
-  public async listUsers(params?: { search?: string; role?: string; status?: string }): Promise<{ users: AdminUserDetail[] }> {
+  public async listUsers(params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }): Promise<{ users: AdminUserDetail[]; total: number }> {
     const res = await window.desktopApi.adminListUsers(params);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Kullanıcılar yüklenemedi");
     return res.data;
@@ -49,7 +49,7 @@ class AdminService {
     return res.data;
   }
 
-  public async listLobbies(params?: { search?: string; locked?: string }): Promise<{ lobbies: AdminLobbySnapshot[] }> {
+  public async listLobbies(params?: { search?: string; locked?: string; limit?: number; offset?: number }): Promise<{ lobbies: AdminLobbySnapshot[]; total: number }> {
     const res = await window.desktopApi.adminListLobbies(params);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Lobiler yüklenemedi");
     return res.data;
