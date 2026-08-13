@@ -123,6 +123,62 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
+/* The selection screen and the live room occupy the same box and cross-fade;
+   the visible one is picked with a class rather than eight ternaries. */
+.ct-lobby-main-stack {
+  @apply relative h-full w-full overflow-hidden;
+}
+
+.ct-lobby-main-layer {
+  @apply absolute inset-0;
+  transition:
+    transform var(--ct-duration-slow) var(--ct-ease-spring),
+    opacity var(--ct-duration-slow) var(--ct-ease-spring);
+}
+
+.ct-lobby-main-layer.hidden-layer {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ct-lobby-main-layer.selection.hidden-layer {
+  transform: translateY(-16px) scale(0.97);
+}
+
+.ct-lobby-main-layer.room.hidden-layer {
+  transform: translateY(16px) scale(1.03);
+}
+
+.ct-lobby-stage-slot-row {
+  @apply flex justify-center;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 4px 0;
+  z-index: 10;
+}
+
+.ct-lobby-stage-row-3 {
+  grid-row: 3;
+}
+
+/* Same pill as the stage's chat toggle, so the two controls that float over
+   the video area match. */
+.ct-lobby-stage-hint {
+  @apply inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-alpha-70);
+  background: rgba(18, 18, 18, 0.72);
+  backdrop-filter: blur(12px);
+  transition: all var(--ct-duration-fast) ease;
+}
+
+.ct-lobby-stage-hint:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: rgba(24, 24, 24, 0.85);
+}
+
 .ct-lobby-room-card {
   @apply flex h-full min-h-0 flex-col;
 }
@@ -1013,8 +1069,12 @@
 }
 
 .ct-participant-context-menu-title {
-  @apply m-0 truncate px-1 text-xs font-semibold uppercase tracking-[0.08em];
+  @apply m-0 truncate px-1 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.08em];
   color: var(--ct-text-secondary);
+}
+
+.ct-participant-context-menu-hint .anticon {
+  margin-inline-end: 8px;
 }
 
 .ct-participant-context-menu-state-row {
@@ -1038,8 +1098,8 @@
 }
 
 .ct-participant-context-menu-hint {
-  @apply text-[10px] font-medium uppercase tracking-[0.08em];
-  color: rgba(255, 255, 255, 0.55);
+  @apply py-1 text-micro font-medium uppercase tracking-[0.08em];
+  color: var(--ct-alpha-50);
 }
 
 .ct-participant-context-menu-actions {

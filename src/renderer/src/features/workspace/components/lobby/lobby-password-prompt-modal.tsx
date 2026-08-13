@@ -38,8 +38,8 @@ export function LobbyPasswordPromptModal({
   return (
     <Modal
       title={
-        <span style={{ color: "#ffffff", fontWeight: "bold" }}>
-          <LockOutlined style={{ marginRight: 8 }} />
+        <span >
+          <LockOutlined  />
           Oda Şifresi
         </span>
       }
@@ -65,8 +65,8 @@ export function LobbyPasswordPromptModal({
         body: { background: "transparent", color: "#f5f5f5" },
       }}
     >
-      <div style={{ padding: "12px 0" }}>
-        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", marginBottom: "12px" }}>
+      <div >
+        <p className="ct-field-hint">
           Bu lobi şifre korumalı. Katılmak için şifreyi girin.
         </p>
         <Input.Password
@@ -76,13 +76,9 @@ export function LobbyPasswordPromptModal({
           autoFocus
           onPressEnter={handleOk}
           status={pending?.wrong ? "error" : undefined}
-          style={{
-            background: "rgba(20, 20, 20, 0.8)",
-            borderColor: pending?.wrong ? "#ef4444" : "rgba(255, 255, 255, 0.08)",
-          }}
         />
         {pending?.wrong && (
-          <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "8px" }}>
+          <p className="ct-form-error">
             Şifre yanlış, tekrar deneyin.
           </p>
         )}

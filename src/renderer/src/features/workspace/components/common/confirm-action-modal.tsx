@@ -31,12 +31,7 @@ export function ConfirmActionModal({
           key="cancel"
           onClick={onCancel}
           disabled={isProcessing}
-          style={{
-            background: "rgba(25, 25, 25, 0.85)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#f5f5f5",
-            borderRadius: "8px",
-          }}
+          
         >
           {cancelLabel}
         </Button>,
@@ -46,13 +41,7 @@ export function ConfirmActionModal({
           danger
           loading={isProcessing}
           onClick={onConfirm}
-          style={{
-            background: "#bdbdbd",
-            borderColor: "transparent",
-            color: "#0b0b0b",
-            fontWeight: 600,
-            borderRadius: "8px",
-          }}
+          
         >
           {isProcessing ? "İşleniyor..." : confirmLabel}
         </Button>
@@ -65,7 +54,7 @@ export function ConfirmActionModal({
       }}
       width={400}
     >
-      <p style={{ margin: "16px 0", color: "#c7c7c7", fontSize: "14px", lineHeight: "1.6" }}>
+      <p className="ct-confirm-message">
         {message}
       </p>
     </Modal>

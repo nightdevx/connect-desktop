@@ -155,20 +155,14 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             block
             size="large"
             className="ct-btn-primary"
-            style={{
-              height: "48px",
-              borderRadius: "14px",
-              fontWeight: 700,
-              fontSize: "14px",
-              letterSpacing: "0.02em"
-            }}
+            
           >
             {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
           </Button>
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-center text-sm" style={{ color: "var(--ct-text-muted)" }}>
+      <p className="mt-6 text-center text-sm" >
         Zaten hesabın var mı?{" "}
         <button type="button" className="ct-link" onClick={onGoLogin}>
           Giriş Yap

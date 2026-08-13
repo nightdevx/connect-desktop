@@ -305,7 +305,7 @@ export function ChatAttachButton({
       <input
         ref={inputRef}
         type="file"
-        style={{ display: "none" }}
+        hidden
         onChange={(event) => void handleChange(event)}
       />
       <Tooltip title="Dosya ekle (en fazla 5 MB)">

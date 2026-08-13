@@ -190,6 +190,7 @@
   color: var(--ct-info);
   background: rgba(30, 58, 138, 0.2);
   box-shadow: 0 0 40px rgba(59, 130, 246, 0.18);
+  font-size: 28px;
 }
 
 .ct-offline-card h2 {

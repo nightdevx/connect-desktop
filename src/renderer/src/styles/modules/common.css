@@ -207,6 +207,43 @@
   background: var(--ct-accent-soft);
 }
 
+/* Opt-in system-audio capture. The whole row brightens when it is on, so the
+   state is legible without reading the switch. */
+.ct-share-audio-toggle {
+  @apply mt-5 flex items-center justify-between gap-3 rounded-md border px-4 py-3.5;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
+  transition: all var(--ct-duration-base) ease;
+}
+
+.ct-share-audio-toggle.on {
+  border-color: var(--ct-alpha-20);
+  background: var(--ct-alpha-08);
+}
+
+.ct-share-audio-toggle-main {
+  @apply flex min-w-0 items-center gap-2.5;
+  color: var(--ct-alpha-50);
+}
+
+.ct-share-audio-toggle.on .ct-share-audio-toggle-main {
+  color: var(--ct-text-primary);
+}
+
+.ct-share-audio-toggle-main .anticon {
+  font-size: var(--ct-icon-sm);
+}
+
+.ct-share-audio-toggle-main strong {
+  @apply block text-sm font-semibold leading-snug;
+  color: inherit;
+}
+
+.ct-share-source-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 .ct-camera-share-modal {
   @apply max-w-lg;
 }
@@ -256,6 +293,107 @@
   border-color: rgba(255, 255, 255, 0.2);
   color: rgba(245, 245, 245, 0.9);
   background: rgba(12, 12, 12, 0.64);
+}
+
+/* ==========================================================================
+   CALL OVERLAY
+   ========================================================================== */
+
+.ct-call-overlay {
+  @apply fixed inset-0 flex items-center justify-center;
+  z-index: 999999;
+  background: rgba(9, 9, 11, 0.85);
+  backdrop-filter: blur(20px);
+}
+
+.ct-call-card {
+  @apply relative flex w-[420px] max-w-[90vw] flex-col items-center overflow-hidden rounded-2xl border px-6 py-12 text-center;
+  border-color: var(--ct-border);
+  background: rgba(24, 24, 27, 0.65);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ct-call-waves {
+  @apply pointer-events-none absolute;
+  top: 30%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 250px;
+  height: 250px;
+  z-index: 0;
+}
+
+.ct-call-wave {
+  @apply absolute inset-0 rounded-full;
+  border: 2px solid rgba(99, 102, 241, 0.25);
+  opacity: 0;
+  animation: callPulseRing 3s infinite linear;
+}
+
+.ct-call-wave:nth-child(2) {
+  animation-delay: 1s;
+}
+
+.ct-call-wave:nth-child(3) {
+  animation-delay: 2s;
+}
+
+.ct-call-avatar-wrap {
+  @apply relative z-10 mb-8;
+}
+
+.ct-call-avatar {
+  @apply grid h-32 w-32 place-items-center rounded-full object-cover text-[42px] font-bold;
+  border: 3px solid var(--ct-alpha-12);
+  color: #ffffff;
+}
+
+.ct-call-avatar.fallback {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+.ct-call-card.incoming .ct-call-avatar {
+  animation: callAvatarBreathe 4s infinite ease-in-out;
+}
+
+.ct-call-card.outgoing .ct-call-avatar {
+  animation: callAvatarPulseGlow 3s infinite ease-in-out;
+}
+
+.ct-call-name {
+  @apply relative z-10 m-0 mb-2 text-2xl font-bold;
+  color: var(--ct-text-primary);
+  letter-spacing: -0.5px;
+}
+
+.ct-call-status {
+  @apply relative z-10 m-0 mb-10 text-base font-medium;
+  color: var(--ct-alpha-50);
+  letter-spacing: 0.5px;
+}
+
+.ct-call-actions {
+  @apply relative z-10 flex items-center justify-center gap-8;
+}
+
+.ct-call-btn {
+  @apply grid h-16 w-16 cursor-pointer place-items-center rounded-full border-0 text-2xl;
+  color: #ffffff;
+  box-shadow: var(--ct-shadow-md);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-call-btn:hover {
+  filter: brightness(1.1);
+}
+
+.ct-call-btn.accept {
+  background: #22c55e;
+  animation: buttonBreathe 2s infinite ease-in-out;
+}
+
+.ct-call-btn.reject {
+  background: var(--ct-danger);
 }
 
 /* ==========================================================================

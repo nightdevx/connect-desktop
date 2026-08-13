@@ -128,6 +128,31 @@ background: var(--ct-alpha-02);
 color: var(--ct-text-secondary);
 }
 
+.ct-form-error {
+@apply mt-2 block text-2xs;
+color: var(--ct-danger);
+}
+
+.ct-modal-subtitle {
+@apply m-0 mt-1 text-xs font-normal;
+color: var(--ct-text-muted);
+}
+
+.ct-auth-form-row {
+@apply flex w-full items-center justify-between;
+}
+
+/* A button that reads as a link: no chrome, inherits the surrounding rhythm. */
+.ct-link-button {
+@apply cursor-pointer border-0 bg-transparent p-0 text-2xs font-medium normal-case;
+color: var(--ct-text-muted);
+letter-spacing: normal;
+}
+
+.ct-link-button:hover {
+color: var(--ct-text-primary);
+}
+
 .ct-code-input {
 width: 120px;
 text-align: center;

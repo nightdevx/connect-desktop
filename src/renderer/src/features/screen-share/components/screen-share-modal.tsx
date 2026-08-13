@@ -59,7 +59,7 @@ export function ScreenShareModal({
       title={
         <div>
           <span className="text-base font-bold text-[#f5f5f5]">Yayın Başlat</span>
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#8f8f8f", fontWeight: "normal" }}>
+          <p className="ct-modal-subtitle">
             Monitör veya pencere seçip kalite profilini belirle.
           </p>
         </div>
@@ -71,12 +71,7 @@ export function ScreenShareModal({
           key="refresh"
           onClick={onRefreshSources}
           disabled={isLoadingSources || isStarting}
-          style={{
-            background: "rgba(25, 25, 25, 0.85)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#f5f5f5",
-            borderRadius: "8px",
-          }}
+          
         >
           Kaynakları Yenile
         </Button>,
@@ -84,12 +79,7 @@ export function ScreenShareModal({
           key="close"
           onClick={onClose}
           disabled={isStarting}
-          style={{
-            background: "rgba(25, 25, 25, 0.85)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#f5f5f5",
-            borderRadius: "8px",
-          }}
+          
         >
           İptal
         </Button>,
@@ -99,13 +89,7 @@ export function ScreenShareModal({
           loading={isStarting}
           onClick={onStart}
           disabled={isStarting || isLoadingSources || !selectedSourceId}
-          style={{
-            background: "#ffffff",
-            borderColor: "transparent",
-            color: "#0b0b0b",
-            fontWeight: 600,
-            borderRadius: "8px",
-          }}
+          
         >
           {isStarting ? "Yayın Başlatılıyor..." : "Yayını Başlat"}
         </Button>,
@@ -118,7 +102,7 @@ export function ScreenShareModal({
       }}
       width={760}
     >
-      <div className="ct-screen-share-grid" style={{ margin: "20px 0" }}>
+      <div className="ct-screen-share-grid" >
         <div className="ct-screen-share-column">
           <h5>Kaynak</h5>
 
@@ -159,7 +143,7 @@ export function ScreenShareModal({
           )}
 
           {!isLoadingSources && activeSources.length > 0 && (
-            <div className="ct-screen-share-source-list" style={{ maxHeight: "300px", overflowY: "auto" }}>
+            <div className="ct-screen-share-source-list ct-share-source-scroll">
               {activeSources.map((source) => (
                 <label
                   key={source.id}
@@ -172,7 +156,7 @@ export function ScreenShareModal({
                     name="screen-share-source"
                     checked={selectedSourceId === source.id}
                     onChange={() => onSelectSource(source.id)}
-                    style={{ accentColor: "#ffffff" }}
+                    
                   />
                   <div className="ct-screen-share-source-preview">
                     {source.previewDataUrl ? (
@@ -214,7 +198,7 @@ export function ScreenShareModal({
                   name="screen-share-quality"
                   checked={selectedQuality === qualityOption.id}
                   onChange={() => onChangeQuality(qualityOption.id)}
-                  style={{ accentColor: "#ffffff" }}
+                  
                 />
                 <div>
                   <strong>{qualityOption.label}</strong>
@@ -226,13 +210,9 @@ export function ScreenShareModal({
 
           {/* Content mode: decides what the encoder protects when bandwidth
               runs short — frame rate or sharpness. */}
-          <div style={{ marginTop: "20px" }}>
+          <div >
             <div
-              style={{
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.45)",
-                marginBottom: "8px",
-              }}
+              className="ct-field-label"
             >
               İçerik Türü
             </div>
@@ -249,12 +229,7 @@ export function ScreenShareModal({
               ]}
             />
             <div
-              style={{
-                fontSize: "11px",
-                color: "rgba(255,255,255,0.35)",
-                marginTop: "6px",
-                lineHeight: 1.4,
-              }}
+              className="ct-field-hint"
             >
               Hareket: oyun/video, bağlantı zayıflarsa akıcılık korunur.
               Metin: sunum/kod, çözünürlük ve netlik korunur.
@@ -263,63 +238,21 @@ export function ScreenShareModal({
 
           {/* Audio Share Toggle */}
           <div
-            style={{
-              marginTop: "20px",
-              padding: "14px 16px",
-              background: captureSystemAudio
-                ? "rgba(255, 255, 255, 0.06)"
-                : "rgba(255, 255, 255, 0.02)",
-              border: captureSystemAudio
-                ? "1px solid rgba(255, 255, 255, 0.15)"
-                : "1px solid rgba(255, 255, 255, 0.06)",
-              borderRadius: "10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              transition: "all 0.2s ease",
-            }}
+            className={`ct-share-audio-toggle ${captureSystemAudio ? "on" : ""}`}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <SoundOutlined
-                style={{
-                  fontSize: "16px",
-                  color: captureSystemAudio ? "#ffffff" : "rgba(255,255,255,0.4)",
-                  transition: "color 0.2s ease",
-                }}
-              />
+            <div className="ct-share-audio-toggle-main">
+              <SoundOutlined />
               <div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: captureSystemAudio ? "#ffffff" : "rgba(255,255,255,0.55)",
-                    transition: "color 0.2s ease",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  Yayın Sesini Paylaş
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "rgba(255,255,255,0.35)",
-                    marginTop: "2px",
-                    lineHeight: 1.3,
-                  }}
-                >
+                <strong>Yayın Sesini Paylaş</strong>
+                <span className="ct-field-hint">
                   Ekrandaki sistem sesi diğer kullanıcılara iletilir
-                </div>
+                </span>
               </div>
             </div>
             <Switch
               checked={captureSystemAudio}
               onChange={onToggleCaptureSystemAudio}
               size="small"
-              style={{
-                flexShrink: 0,
-                background: captureSystemAudio ? "#52c41a" : undefined,
-              }}
             />
           </div>
         </div>

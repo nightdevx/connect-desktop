@@ -214,7 +214,7 @@ function App() {
           {isOffline ? (
             <section className="ct-offline-card">
               <div className="ct-offline-icon">
-                <WifiOutlined style={{ fontSize: 28 }} />
+                <WifiOutlined />
               </div>
 
               <h2>Ağ Bağlantısı Bekleniyor</h2>
