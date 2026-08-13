@@ -25,30 +25,15 @@ export default function AdminPanel() {
 
   return (
     <div
+      className="ct-admin-panel-shell"
       style={{
-        display: "flex",
-        gridColumn: "span 2",
-        height: "100%",
-        width: "100%",
         background: "rgba(10, 10, 10, 0.45)",
         backdropFilter: "blur(16px)",
         color: "#ffffff",
-        overflow: "hidden",
       }}
     >
       <AdminSidebar />
-      <div
-        style={{
-          flex: 1,
-          padding: "24px",
-          overflowY: "auto",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {renderContent()}
-      </div>
+      <div className="ct-admin-panel-content">{renderContent()}</div>
     </div>
   );
 }

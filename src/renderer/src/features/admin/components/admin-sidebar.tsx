@@ -18,14 +18,10 @@ export default function AdminSidebar() {
 
   return (
     <div
+      className="ct-admin-sidebar"
       style={{
-        width: "220px",
         borderRight: "1px solid rgba(255, 255, 255, 0.08)",
         background: "rgba(20, 20, 20, 0.6)",
-        display: "flex",
-        flexDirection: "column",
-        padding: "16px 0",
-        flexShrink: 0,
       }}
     >
       <div
@@ -43,7 +39,7 @@ export default function AdminSidebar() {
         </span>
       </div>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "0 8px" }}>
+      <nav className="ct-admin-sidebar-nav">
         {menuItems.map((item) => {
           const active = adminSection === item.key;
           return (

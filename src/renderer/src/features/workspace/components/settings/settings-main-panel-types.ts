@@ -17,7 +17,12 @@ export interface AudioPreferences {
   microphoneVolume: number;
 }
 
+import { type VideoCodecPreference } from "@/features/livekit";
+
 export interface StreamPreferences {
   frameRate: 15 | 30 | 60;
   captureSystemAudio: boolean;
+  // "auto" picks H.264 when hardware encoding is on (broadest GPU support on
+  // Windows) and VP8 when it is off. Overriding is for troubleshooting.
+  videoCodec: VideoCodecPreference;
 }

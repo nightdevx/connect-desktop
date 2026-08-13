@@ -16,10 +16,13 @@ import { AdminLobbySnapshot } from "@shared/auth-contracts";
 
 export default function AdminLobbies() {
   const [lobbies, setLobbies] = useState<AdminLobbySnapshot[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [lockedFilter, setLockedFilter] = useState("all");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -27,14 +30,18 @@ export default function AdminLobbies() {
   const [editForm] = Form.useForm();
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
-  const fetchLobbies = async () => {
+  const fetchLobbies = async (page = currentPage, size = pageSize) => {
     try {
       setLoading(true);
+      const offset = (page - 1) * size;
       const res = await adminService.listLobbies({
         search: searchText || undefined,
         locked: lockedFilter !== "all" ? lockedFilter : undefined,
+        limit: size,
+        offset,
       });
       setLobbies(res.lobbies);
+      setTotal(res.total || 0);
     } catch (err: any) {
       message.error(err.message || "Lobiler alınamadı");
     } finally {
@@ -59,11 +66,21 @@ export default function AdminLobbies() {
   }, [searchText]);
 
   useEffect(() => {
-    fetchLobbies();
+    fetchLobbies(1);
+    setCurrentPage(1);
     fetchUsers();
-    const interval = setInterval(fetchLobbies, 4000);
-    return () => clearInterval(interval);
   }, [debouncedSearchText, lockedFilter]);
+
+  useEffect(() => {
+    fetchLobbies(currentPage, pageSize);
+    const interval = setInterval(() => fetchLobbies(currentPage, pageSize), 4000);
+    return () => clearInterval(interval);
+  }, [currentPage, pageSize, debouncedSearchText, lockedFilter]);
+
+  const handleTableChange = (pagination: any) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
 
   const handleEditClick = (record: AdminLobbySnapshot) => {
     setEditingLobby(record);
@@ -314,7 +331,7 @@ export default function AdminLobbies() {
         </div>
         <Button
           icon={<ReloadOutlined />}
-          onClick={fetchLobbies}
+          onClick={() => fetchLobbies()}
           style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}
         >
           Yenile
@@ -367,6 +384,15 @@ export default function AdminLobbies() {
         rowKey={(record) => record.lobby.id}
         loading={loading}
         expandable={{ expandedRowRender, defaultExpandAllRows: true }}
+        onChange={handleTableChange}
+        pagination={{
+          current: currentPage,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50", "100"],
+        }}
+        scroll={{ y: "calc(100vh - 260px)" }}
         style={{
           background: "rgba(20, 20, 20, 0.4)",
           borderRadius: "12px",

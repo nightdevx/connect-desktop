@@ -18,7 +18,7 @@ interface UseLobbyRoomParams {
 type LobbyMemberStatePatch = Partial<
   Pick<
     LobbyStateMember,
-    "muted" | "deafened" | "speaking" | "cameraEnabled" | "screenSharing"
+    "muted" | "deafened" | "cameraEnabled" | "screenSharing"
   >
 >;
 
@@ -61,12 +61,15 @@ export const useLobbyRoom = ({
       workspaceService.getLobbyState({
         lobbyId: activeLobbyId as string,
       }),
-    enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
-    // Roster comes primarily from the lobby WS snapshot (~1s); this REST poll is
-    // now just a fallback for when the stream is down, so it can run slowly.
-    refetchInterval: 4_000,
+    // Not gated on the visible tab: the roster is also needed for the call
+    // overlay and the quick controls, which live outside the Lobbies section.
+    enabled: activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
+    // Roster comes primarily from the lobby WS snapshot (~1s) and liveness is
+    // now driven by that same socket, so this REST poll is purely a fallback
+    // for when the stream is down and can run slowly.
+    refetchInterval: 8_000,
     refetchIntervalInBackground: true,
-    staleTime: 2_000,
+    staleTime: 4_000,
   });
 
   const lobbyMessagesQuery = useQuery({
@@ -77,9 +80,38 @@ export const useLobbyRoom = ({
         limit: 150,
       }),
     enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
-    refetchInterval: 3_000,
-    staleTime: 1_500,
+    // Messages arrive over the lobby websocket now; this only backfills after a
+    // stream drop, so it no longer needs to run every 3 seconds.
+    refetchInterval: 30_000,
+    staleTime: 10_000,
   });
+
+  // Live chat push. Appending to the cache directly keeps the message list from
+  // waiting on a refetch round trip.
+  useEffect(() => {
+    if (!activeLobbyId || activeLobbyId.startsWith("call_")) {
+      return;
+    }
+
+    return workspaceService.onLobbyStreamEvent((event) => {
+      if (event.type !== "lobby-message" || event.lobbyId !== activeLobbyId) {
+        return;
+      }
+
+      queryClient.setQueryData<DesktopResult<{ messages: ChatMessage[] }>>(
+        ["lobby-messages", activeLobbyId],
+        (previous) => {
+          const current = previous?.ok && previous.data ? previous.data.messages : [];
+          // The sender already inserted its own message optimistically.
+          if (current.some((message) => message.id === event.message.id)) {
+            return previous;
+          }
+
+          return { ok: true, data: { messages: [...current, event.message] } };
+        },
+      );
+    });
+  }, [activeLobbyId, queryClient]);
 
   const lobbyMembers =
     lobbyStateQuery.data?.ok && lobbyStateQuery.data.data

@@ -7,12 +7,14 @@ import { type LiveKitMediaSession } from "@/features/livekit";
 import {
   startScreenCapture,
   stopActiveSystemLoopback,
+  type ScreenShareContentMode,
   type ScreenShareQualityPreset,
   type ScreenShareSourceKind,
-  type ScreenShareQualityOption,
-  SCREEN_SHARE_QUALITY_OPTIONS,
+  getScreenShareQualityDimensions,
+  getScreenShareQualityOption,
   getDefaultScreenShareQuality
 } from "@/features/screen-share";
+import { resolveScreenContentMode } from "@/features/livekit";
 import workspaceService from "../../services";
 import { type StreamPreferences } from "../../components/settings/settings-main-panel-types";
 import {
@@ -52,6 +54,8 @@ export const useScreenShareControls = ({
   const [selectedScreenShareQuality, setSelectedScreenShareQuality] = useState<ScreenShareQualityPreset>(() =>
     getDefaultScreenShareQuality(readStreamPreferences().frameRate)
   );
+  const [selectedScreenShareContentMode, setSelectedScreenShareContentMode] =
+    useState<ScreenShareContentMode>("auto");
   const [captureSystemAudio, setCaptureSystemAudio] = useState(() => streamPreferences.captureSystemAudio);
 
   const monitorScreenShareSources = useMemo(() => {
@@ -173,7 +177,8 @@ export const useScreenShareControls = ({
       return;
     }
 
-    const qualityOption = SCREEN_SHARE_QUALITY_OPTIONS.find((option: ScreenShareQualityOption) => option.id === selectedScreenShareQuality) ?? SCREEN_SHARE_QUALITY_OPTIONS[1];
+    const qualityOption = getScreenShareQualityOption(selectedScreenShareQuality);
+    const dimensions = getScreenShareQualityDimensions(selectedScreenShareQuality);
 
     setIsStartingScreenShare(true);
     setScreenShareModalError(null);
@@ -186,14 +191,18 @@ export const useScreenShareControls = ({
         sourceId: selectedSourceId,
       });
 
-      // High-framerate presets are motion content (game/video); 30fps presets
-      // are treated as slides/detail for sharper text.
-      const screenMode = qualityOption.frameRate >= 60 ? "motion" : "slides";
+      const contentMode = resolveScreenContentMode(
+        selectedScreenShareContentMode,
+        qualityOption.frameRate,
+      );
+      const screenMode = contentMode === "motion" ? "motion" : "slides";
 
       try {
         await liveKitSessionRef.current?.publishScreenStream(stream, screenMode, {
           maxBitrateBps: qualityOption.maxBitrateBps,
           maxFramerate: qualityOption.frameRate,
+          width: dimensions.width,
+          height: dimensions.height,
         });
       } catch (error) {
         stopMediaStreamTracks(stream);
@@ -256,9 +265,10 @@ export const useScreenShareControls = ({
     liveKitSessionRef,
     patchLobbyMemberState,
     setStatus,
-    streamPreferences.captureSystemAudio,
+    captureSystemAudio,
     selectedScreenShareSourceId,
     selectedScreenShareQuality,
+    selectedScreenShareContentMode,
   ]);
 
   const handleScreenToggle = useCallback((): void => {
@@ -319,6 +329,8 @@ export const useScreenShareControls = ({
     selectedScreenShareSourceKind,
     selectedScreenShareQuality,
     setSelectedScreenShareQuality,
+    selectedScreenShareContentMode,
+    setSelectedScreenShareContentMode,
     captureSystemAudio,
     setCaptureSystemAudio,
     monitorScreenShareSources,

@@ -109,6 +109,7 @@ export class LobbyClient {
     accessToken: string,
     lobbyId: string,
     userId: string,
+    muted: boolean,
   ): Promise<{ muted: boolean }> {
     const room = encodeURIComponent(lobbyId);
     const target = encodeURIComponent(userId);
@@ -118,7 +119,9 @@ export class LobbyClient {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ muted }),
       },
     );
   }
@@ -214,8 +217,9 @@ export class LobbyClient {
       username: string;
       joinedAt: string;
       muted: boolean;
+      serverMuted: boolean;
       deafened: boolean;
-      speaking: boolean;
+
       cameraEnabled: boolean;
       screenSharing: boolean;
     }>;
@@ -230,8 +234,8 @@ export class LobbyClient {
         username: string;
         joinedAt: string;
         muted: boolean;
+        serverMuted: boolean;
         deafened: boolean;
-        speaking: boolean;
         cameraEnabled: boolean;
         screenSharing: boolean;
       }>;
@@ -253,8 +257,8 @@ export class LobbyClient {
         username: string;
         joinedAt: string;
         muted: boolean;
+        serverMuted: boolean;
         deafened: boolean;
-        speaking: boolean;
         cameraEnabled: boolean;
         screenSharing: boolean;
       }>;
@@ -270,8 +274,9 @@ export class LobbyClient {
           username: string;
           joinedAt: string;
           muted: boolean;
+          serverMuted: boolean;
           deafened: boolean;
-          speaking: boolean;
+
           cameraEnabled: boolean;
           screenSharing: boolean;
         }>;

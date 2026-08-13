@@ -12,6 +12,7 @@ import {
   deleteLobbySchema,
   lobbyJoinSchema,
   lobbyModerateSchema,
+  lobbyModerateMuteSchema,
   lobbyLeaveSchema,
   lobbyMuteSchema,
   lobbyDeafenSchema,
@@ -125,9 +126,14 @@ export function registerLobbyHandlers(): void {
 
   ipcMain.handle("desktop:lobbies-mute-member", async (_event, payload: unknown) => {
     try {
-      const parsed = lobbyModerateSchema.parse(payload);
+      const parsed = lobbyModerateMuteSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.muteLobbyMember(accessToken, parsed.lobbyId, parsed.userId);
+        return backendClient.lobby.muteLobbyMember(
+          accessToken,
+          parsed.lobbyId,
+          parsed.userId,
+          parsed.muted,
+        );
       });
       return ok(result);
     } catch (error) {

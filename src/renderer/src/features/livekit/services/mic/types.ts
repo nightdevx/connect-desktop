@@ -11,6 +11,8 @@ export interface MicrophoneProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
+  /** 0-200. Applied inside the publish chain, not just the level meter. */
+  microphoneVolume: number;
 }
 
 export interface ApplyMicrophoneStateOptions {

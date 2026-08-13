@@ -1,0 +1,5 @@
+allowBuilds:
+  "@sentry/cli": true
+  "electron-winstaller": true
+  "electron": true
+  "sharp": true

@@ -66,7 +66,7 @@ export function useLobbyParticipants({
       );
       const isActuallySpeaking =
         isActiveSpeaker || mappedTracks?.isSpeaking || (mappedTracks?.audioLevel && mappedTracks.audioLevel > 0.01) || false;
-      const speaking = isActuallySpeaking || (member.speaking && !member.muted);
+      const speaking = isActuallySpeaking;
 
       if (!isLocal) {
         return {
@@ -126,6 +126,7 @@ export function useLobbyParticipants({
         username: currentUsername,
         joinedAt: localFallbackJoinedAt,
         muted: localMuted,
+        serverMuted: false,
         deafened: !headphoneEnabled,
         speaking: isActuallySpeaking && !localMuted,
         cameraEnabled,

@@ -130,11 +130,16 @@ export const useCameraControls = ({
         videoTrack.onended = null;
       }
 
-      const cameraMaxBitrate =
-        cameraPreferences.resolution === "1080p" ? 2_500_000 : 1_200_000;
+      // Publish at the resolution and framerate the user actually selected.
+      // The framerate used to be hard-coded to 30 here, so a 24fps preference
+      // was silently ignored and the encoder was told to expect frames that
+      // never arrived.
+      const isFullHd = cameraPreferences.resolution === "1080p";
       await liveKitSessionRef.current?.publishCameraStream(previewStream, {
-        maxBitrateBps: cameraMaxBitrate,
-        maxFramerate: 30,
+        maxBitrateBps: isFullHd ? 2_500_000 : 1_200_000,
+        maxFramerate: cameraPreferences.frameRate,
+        width: isFullHd ? 1920 : 1280,
+        height: isFullHd ? 1080 : 720,
       });
 
       if (videoTrack) {
@@ -188,6 +193,7 @@ export const useCameraControls = ({
     patchLobbyMemberState,
     setStatus,
     cameraPreviewStream,
+    cameraPreferences,
   ]);
 
   const handleCameraToggle = useCallback((): void => {

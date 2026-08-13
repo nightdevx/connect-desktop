@@ -25,7 +25,8 @@ interface ParticipantContextMenuProps {
   // Server-enforced moderation (owner/admin only) — distinct from the local
   // playback preferences above, which only affect what the current user hears.
   canModerate?: boolean;
-  onServerMute?: () => void;
+  isServerMuted?: boolean;
+  onServerMute?: (muted: boolean) => void;
   onKick?: () => void;
 }
 
@@ -41,6 +42,7 @@ export function ParticipantContextMenu({
   onScreenAudioMute,
   onScreenAudioVolume,
   canModerate,
+  isServerMuted,
   onServerMute,
   onKick,
 }: ParticipantContextMenuProps) {
@@ -158,11 +160,11 @@ export function ParticipantContextMenu({
       },
       {
         key: 'server-mute',
-        label: 'Sunucuda Sustur',
-        icon: <MutedOutlined />,
+        label: isServerMuted ? 'Sunucuda Susturmayı Kaldır' : 'Sunucuda Sustur',
+        icon: isServerMuted ? <AudioOutlined /> : <MutedOutlined />,
         className: 'ct-participant-context-menu-button',
         onClick: () => {
-          onServerMute?.();
+          onServerMute?.(!isServerMuted);
           onClose();
         },
       },

@@ -87,7 +87,9 @@ export function SettingsApplication() {
     launchOnStartup: false,
     minimizeToTray: false,
     closeToTray: false,
+    hardwareAcceleration: true,
   });
+  const [needsRelaunch, setNeedsRelaunch] = useState(false);
   const [isSavingAppPreference, setIsSavingAppPreference] = useState(false);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [isLaunchingUpdateDebug, setIsLaunchingUpdateDebug] = useState(false);
@@ -264,6 +266,17 @@ export function SettingsApplication() {
       }
 
       setAppPreferences(result.data.preferences);
+
+      // GPU/WebRTC switches are read once at process start, so this one needs a
+      // restart before it does anything.
+      if (key === "hardwareAcceleration") {
+        setNeedsRelaunch(true);
+        messageApi.info(
+          "Donanım hızlandırma ayarı, uygulama yeniden başlatıldığında geçerli olur.",
+        );
+        return;
+      }
+
       messageApi.success("Uygulama davranış ayarları kaydedildi.");
     } catch (error) {
       setAppPreferences(previousPreferences);
@@ -358,6 +371,48 @@ export function SettingsApplication() {
               disabled={isSavingAppPreference}
             />
           </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Donanım hızlandırma (video kodlama)</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Ekran paylaşımı ve kamerayı GPU ile kodlar; CPU kullanımını
+                büyük ölçüde düşürür. Görüntü siyah geliyor veya bozuluyorsa
+                kapatın. Değişiklik yeniden başlatma gerektirir.
+              </span>
+            </div>
+            <Switch
+              checked={appPreferences.hardwareAcceleration}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("hardwareAcceleration", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
+
+          {needsRelaunch && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Yeniden başlatma gerekli"
+              description="Donanım hızlandırma ayarının etkili olması için uygulamayı yeniden başlatın."
+              action={
+                <Button
+                  size="small"
+                  onClick={() => {
+                    void window.desktopApi.relaunchApp();
+                  }}
+                >
+                  Yeniden Başlat
+                </Button>
+              }
+              style={{
+                background: "rgba(251, 191, 36, 0.05)",
+                border: "1px solid rgba(251, 191, 36, 0.15)",
+                borderRadius: "8px",
+              }}
+            />
+          )}
         </div>
 
         <div className="ct-settings-info-grid" style={{

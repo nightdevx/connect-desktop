@@ -5,6 +5,7 @@ import {
 } from "./types";
 import { type DesktopResult } from "../../../../shared/desktop-api-types";
 import { startSystemLoopbackAudioTrack } from "./loopback-audio";
+import { logLiveKitDebug } from "../livekit";
 
 const desktopBridgeOutdatedError = {
   ok: false,
@@ -68,6 +69,10 @@ const getResolutionDimensions = (
     return { width: 2560, height: 1440 };
   }
 
+  if (resolution === "2160p") {
+    return { width: 3840, height: 2160 };
+  }
+
   return null;
 };
 
@@ -92,7 +97,7 @@ const startBrowserDisplayCapture = async (
 ): Promise<StartScreenCaptureResult> => {
   const dimensions = getResolutionDimensions(options.resolution);
   
-  console.log("[ScreenCapture] startBrowserDisplayCapture started", { 
+  logLiveKitDebug("screen-capture", "startBrowserDisplayCapture started", { 
     captureSystemAudio: options.captureSystemAudio,
     resolution: options.resolution 
   });
@@ -122,7 +127,7 @@ const startBrowserDisplayCapture = async (
       },
     });
 
-    console.log("[ScreenCapture] getDisplayMedia success", {
+    logLiveKitDebug("screen-capture", "getDisplayMedia success", {
       videoTracks: stream.getVideoTracks().length,
       audioTracks: stream.getAudioTracks().length,
     });
@@ -131,10 +136,10 @@ const startBrowserDisplayCapture = async (
       stream,
     };
   } catch (error) {
-    console.error("[ScreenCapture] getDisplayMedia failed", error);
+    logLiveKitDebug("screen-capture", "getDisplayMedia failed", { error });
     
     if (options.captureSystemAudio && isRetryableAudioConstraintError(error)) {
-      console.warn("[ScreenCapture] Retrying getDisplayMedia without audio...");
+      logLiveKitDebug("screen-capture", "Retrying getDisplayMedia without audio...");
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: false,
         video: {
@@ -169,7 +174,7 @@ const startBrowserDisplayCapture = async (
 const startElectronDesktopCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
-  console.log("[ScreenCapture] startElectronDesktopCapture started", {
+  logLiveKitDebug("screen-capture", "startElectronDesktopCapture started", {
     sourceId: options.sourceId,
     captureSystemAudio: options.captureSystemAudio
   });
@@ -197,7 +202,7 @@ const startElectronDesktopCapture = async (
 
   const dimensions = getResolutionDimensions(options.resolution);
 
-  console.log("[ScreenCapture] Using getUserMedia for Electron", {
+  logLiveKitDebug("screen-capture", "Using getUserMedia for Electron", {
     sourceName: preferredSource.name,
     sourceId: preferredSource.id
   });
@@ -207,17 +212,19 @@ const startElectronDesktopCapture = async (
     // loopback (below) so Connect's own output (remote voices) is never in the
     // mix — capturing audio here via chromeMediaSource:'desktop' would grab the
     // full loopback and echo participants back to themselves.
+    //
+    // Ceilings only, no min*: pinning min == max made capture fail outright on
+    // sources that cannot hit the target, and forced Chromium to duplicate
+    // frames to keep a static screen at the requested rate — wasted encoding
+    // that Windows Graphics Capture's zero-Hz mode exists to avoid.
     const constraints: any = {
       audio: false,
       video: {
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: preferredSource.id,
-          minFrameRate: options.frameRate,
           maxFrameRate: options.frameRate,
-          minWidth: dimensions?.width,
           maxWidth: dimensions?.width,
-          minHeight: dimensions?.height,
           maxHeight: dimensions?.height,
         },
       },
@@ -225,7 +232,7 @@ const startElectronDesktopCapture = async (
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    console.log("[ScreenCapture] getUserMedia success", {
+    logLiveKitDebug("screen-capture", "getUserMedia success", {
       videoTracks: stream.getVideoTracks().length,
     });
 
@@ -246,21 +253,18 @@ const startElectronDesktopCapture = async (
       warning,
     };
   } catch (error) {
-    console.error("[ScreenCapture] getUserMedia failed", error);
+    logLiveKitDebug("screen-capture", "getUserMedia failed", { error });
     
     if (options.captureSystemAudio) {
-      console.warn("[ScreenCapture] Retrying getUserMedia without audio...");
+      logLiveKitDebug("screen-capture", "Retrying getUserMedia without audio...");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           mandatory: {
             chromeMediaSource: "desktop",
             chromeMediaSourceId: preferredSource.id,
-            minFrameRate: options.frameRate,
             maxFrameRate: options.frameRate,
-            minWidth: dimensions?.width,
             maxWidth: dimensions?.width,
-            minHeight: dimensions?.height,
             maxHeight: dimensions?.height,
           },
         },
@@ -280,11 +284,11 @@ const startElectronDesktopCapture = async (
 export const startScreenCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
-  console.log("[ScreenCapture] startScreenCapture called", options);
+  logLiveKitDebug("screen-capture", "startScreenCapture called", { ...options });
   
   const isElectron = typeof window !== "undefined" && !!window.desktopApi;
   if (isElectron && options.sourceId) {
-    console.log("[ScreenCapture] Electron detected with sourceId, using direct capture", options.sourceId);
+    logLiveKitDebug("screen-capture", "Electron detected with sourceId, using direct capture", { sourceId: options.sourceId });
     return startElectronDesktopCapture(options);
   }
 
@@ -292,7 +296,7 @@ export const startScreenCapture = async (
     // Try getDisplayMedia first (Modern & cleaner)
     return await startBrowserDisplayCapture(options);
   } catch (error) {
-    console.log("[ScreenCapture] startBrowserDisplayCapture failed, trying startElectronDesktopCapture", error);
+    logLiveKitDebug("screen-capture", "startBrowserDisplayCapture failed, trying startElectronDesktopCapture", { error });
     if (!isDisplayMediaNotSupportedError(error)) {
       // If it's a real error (not "not supported"), we might still want to try the fallback
     }

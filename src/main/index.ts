@@ -5,7 +5,9 @@ import { isDev } from "./utils/is-dev";
 import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
+  peekDesktopAppPreferences,
 } from "./app-preferences";
+import { applyMediaEngineSwitches } from "./media-engine-flags";
 import { backendConfig } from "./config";
 
 // Initialize Sentry for main process after env files are resolved by config
@@ -17,7 +19,6 @@ if (process.env.SENTRY_DSN && !isDev) {
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
 import { createAppMenu } from "./menu";
 
-import { CaptureEngine } from "./streaming/capture-engine";
 import {
   registerStreamingIpcHandlers,
   unregisterStreamingIpcHandlers,
@@ -37,18 +38,7 @@ let mainWindow: BrowserWindow | null = null;
 let quittingWithCleanup = false;
 let tray: Tray | null = null;
 let unsubscribePreferencesListener: (() => void) | null = null;
-const captureEngine = new CaptureEngine();
 
-
-process.env.WEBKIT_DISABLE_DMABUF_RENDERER = "1";
-app.commandLine.appendSwitch("enable-features", "WebRTCPipeWireCapturer");
-app.commandLine.appendSwitch("disable-features", "WebRtcUseDmabuf");
-app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
-app.commandLine.appendSwitch("disable-gpu-memory-buffer-compositor-resources");
-app.commandLine.appendSwitch("disable-gpu-memory-buffers");
-app.commandLine.appendSwitch("disable-webrtc-hw-decoding");
-app.commandLine.appendSwitch("disable-webrtc-hw-encoding");
-app.commandLine.appendSwitch("ozone-platform-hint", "auto");
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const isLinux = process.platform === "linux";
@@ -70,6 +60,12 @@ const applyUserDataOverride = (): void => {
 };
 
 applyUserDataOverride();
+
+// Must run after the userData override (the preference file lives there) and
+// before app.whenReady() — command-line switches are read at GPU process spawn.
+// peek* is used instead of get* on purpose: get* touches app.getLoginItemSettings(),
+// which is not safe this early.
+applyMediaEngineSwitches(peekDesktopAppPreferences().hardwareAcceleration);
 
 const isUpdaterHelperMode = isUpdaterHelperModeProcess();
 const hasSingleInstanceLock = isUpdaterHelperMode
@@ -188,8 +184,8 @@ function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 480,
     frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
@@ -275,9 +271,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       periodicCheckMs: 15 * 60 * 1000,
     });
     registerIpcHandlers();
-    registerStreamingIpcHandlers({
-      captureEngine,
-    });
+    registerStreamingIpcHandlers();
 
     if (!unsubscribePreferencesListener) {
       unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {

@@ -12,7 +12,7 @@ interface UseAudioControlsParams {
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
   patchLobbyMemberState: (
     userId: string,
-    patch: Partial<Pick<LobbyStateMember, "muted" | "deafened" | "speaking">>
+    patch: Partial<Pick<LobbyStateMember, "muted" | "deafened">>
   ) => void;
 }
 
@@ -101,7 +101,6 @@ export const useAudioControls = ({
       if (activeLobbyId) {
         patchLobbyMemberState(currentUserId, {
           muted: !next,
-          speaking: false,
         });
       }
 

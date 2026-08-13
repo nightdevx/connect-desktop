@@ -255,7 +255,9 @@ export const useWorkspaceLobbyActions = ({
       activeLobbyReconnectAttemptRef.current = 0;
       activeLobbyReconnectInFlightRef.current = false;
 
-      void performPostJoinSynchronization(lobbyId);
+      // A LiveKit failure here already warned the user and will be retried by
+      // the reconnect chain; swallow it so it is not an unhandled rejection.
+      void performPostJoinSynchronization(lobbyId).catch(() => undefined);
 
       soundEffectManager.playMemberJoined();
 

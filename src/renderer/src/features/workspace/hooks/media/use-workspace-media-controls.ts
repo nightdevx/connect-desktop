@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, type MutableRefObject } from "react";
 import type { LobbyStateMember, ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import type { LiveKitMediaSession } from "@/features/livekit";
 import { stopMediaStreamTracks, type ScreenShareQualityPreset, type ScreenShareSourceKind } from "../../workspace-media-utils";
+import type { ScreenShareContentMode } from "@/features/screen-share";
 import type { CameraPreferences, StreamPreferences } from "../../components/settings/settings-main-panel-types";
 
 // Sub-hooks
@@ -23,7 +24,7 @@ interface UseWorkspaceMediaControlsParams {
     patch: Partial<
       Pick<
         LobbyStateMember,
-        "muted" | "deafened" | "speaking" | "cameraEnabled" | "screenSharing"
+        "muted" | "deafened" | "cameraEnabled" | "screenSharing"
       >
     >,
   ) => void;
@@ -48,6 +49,8 @@ export interface WorkspaceMediaControlsState {
   selectedScreenShareSourceKind: ScreenShareSourceKind;
   selectedScreenShareQuality: ScreenShareQualityPreset;
   setSelectedScreenShareQuality: React.Dispatch<React.SetStateAction<ScreenShareQualityPreset>>;
+  selectedScreenShareContentMode: ScreenShareContentMode;
+  setSelectedScreenShareContentMode: React.Dispatch<React.SetStateAction<ScreenShareContentMode>>;
   captureSystemAudio: boolean;
   setCaptureSystemAudio: React.Dispatch<React.SetStateAction<boolean>>;
   monitorScreenShareSources: ScreenCaptureSourceDescriptor[];
