@@ -170,21 +170,23 @@ export function SettingsStream({
     <div className="ct-settings-section">
       {contextHolder}
       <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-icon">
-          <DesktopOutlined style={{ fontSize: "20px" }} />
-        </div>
-        <div>
-          <h4>Yayın Ayarları</h4>
-          <p className="ct-settings-section-description">
+        <div className="ct-settings-section-header-main">
+          <div className="ct-settings-section-header-icon">
+            <DesktopOutlined />
+          </div>
+          <div>
+            <h4>Yayın Ayarları</h4>
+            <p className="ct-settings-section-description">
             Yayın başlatılırken kullanılacak varsayılan kaliteyi belirleyebilirsin.
-          </p>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
-        <div className="ct-settings-form-group" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+      <div className="ct-settings-content">
+        <div className="ct-settings-form-group">
           <div>
-            <label className="ct-label" htmlFor="settings-stream-fps" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-stream-fps">
               Yayın Kare Hızı
             </label>
             <Select
@@ -198,12 +200,12 @@ export function SettingsStream({
                 { value: 30, label: "30 FPS" },
                 { value: 60, label: "60 FPS" },
               ]}
-              style={{ width: "100%", height: "40px" }}
+              className="ct-block-control"
             />
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-stream-codec" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-stream-codec">
               Video Codec
             </label>
             <Select
@@ -217,26 +219,18 @@ export function SettingsStream({
                 { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
                 { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
               ]}
-              style={{ width: "100%", height: "40px" }}
+              className="ct-block-control"
             />
-            <span style={{ display: "block", marginTop: "6px", fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+            <span className="ct-field-hint">
               Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8.
               Değişiklik bir sonraki yayında geçerli olur.
             </span>
           </div>
 
-          <div className="ct-settings-switch-item" style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "rgba(255, 255, 255, 0.01)",
-            border: "1px solid rgba(255, 255, 255, 0.03)",
-            borderRadius: "8px",
-            padding: "16px",
-          }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Ekran paylaşımında sistem sesini dahil et</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Ekran paylaşımında sistem sesini dahil et</strong>
+              <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
             </div>
             <Switch
               checked={draftStreamPreferences.captureSystemAudio}
@@ -247,7 +241,7 @@ export function SettingsStream({
           </div>
         </div>
 
-        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+        <div className="ct-settings-actions">
           <Button
             type="text"
             icon={streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
@@ -262,45 +256,15 @@ export function SettingsStream({
             }}
             loading={isStartingStreamTest}
             disabled={isStartingStreamTest}
-            style={{
-              background: streamTestStream ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.05)",
-              color: streamTestStream ? "#ef4444" : "#ffffff",
-              height: "40px",
-              borderRadius: "6px",
-            }}
+            danger={Boolean(streamTestStream)}
           >
             {streamTestStream ? "Yayın Testini Durdur" : "Yayın Testini Başlat"}
           </Button>
         </div>
 
-        <div className="ct-settings-preview-box" style={{
-          background: "rgba(0, 0, 0, 0.4)",
-          border: "1px solid rgba(255, 255, 255, 0.04)",
-          borderRadius: "8px",
-          width: "100%",
-          aspectRatio: "16 / 9",
-          maxHeight: "360px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          position: "relative",
-        }}>
+        <div className="ct-media-preview">
           {process.env.NODE_ENV === "development" && devStats && (
-            <div style={{
-              position: "absolute",
-              top: "8px",
-              left: "8px",
-              background: "rgba(0, 0, 0, 0.75)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "4px",
-              padding: "4px 8px",
-              fontSize: "11px",
-              fontFamily: "monospace",
-              color: "#4ade80",
-              zIndex: 10,
-              pointerEvents: "none",
-            }}>
+            <div className="ct-media-preview-badge">
               Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
             </div>
           )}
@@ -312,14 +276,10 @@ export function SettingsStream({
               autoPlay
               muted
               playsInline
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
+              
             />
           ) : (
-            <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+            <p className="ct-media-preview-placeholder">
               Yayın önizlemesi bu alanda görünecek.
             </p>
           )}

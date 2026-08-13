@@ -276,26 +276,23 @@ export function SettingsCamera({
     <div className="ct-settings-section">
       {contextHolder}
       <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-icon">
-          <VideoCameraOutlined style={{ fontSize: "20px" }} />
-        </div>
-        <div>
-          <h4>Kamera Ayarları</h4>
-          <p className="ct-settings-section-description">
+        <div className="ct-settings-section-header-main">
+          <div className="ct-settings-section-header-icon">
+            <VideoCameraOutlined />
+          </div>
+          <div>
+            <h4>Kamera Ayarları</h4>
+            <p className="ct-settings-section-description">
             Kamera açılırken kullanılacak kalite ayarlarını belirleyebilirsin.
-          </p>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
-        <div className="ct-settings-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-          marginBottom: "24px",
-        }}>
+      <div className="ct-settings-content">
+        <div className="ct-settings-two-col">
           <div>
-            <label className="ct-label" htmlFor="settings-camera-resolution" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-camera-resolution">
               Kamera Çözünürlüğü
             </label>
             <Select
@@ -312,12 +309,12 @@ export function SettingsCamera({
                       : [])
                   : [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]),
               ]}
-              style={{ width: "100%", height: "40px" }}
+              className="ct-block-control"
             />
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-camera-fps" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-camera-fps">
               Kamera Kare Hızı
             </label>
             <Select
@@ -334,12 +331,12 @@ export function SettingsCamera({
                       : [])
                   : [{ value: 30, label: "30 FPS" }]),
               ]}
-              style={{ width: "100%", height: "40px" }}
+              className="ct-block-control"
             />
           </div>
         </div>
 
-        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+        <div className="ct-settings-actions">
           <Button
             type="text"
             icon={cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
@@ -354,53 +351,15 @@ export function SettingsCamera({
             }}
             loading={isStartingCameraTest}
             disabled={isStartingCameraTest}
-            style={{
-              background: isStartingCameraTest 
-                ? "rgba(255, 255, 255, 0.02)" 
-                : cameraTestStream 
-                  ? "rgba(239, 68, 68, 0.08)" 
-                  : "rgba(255, 255, 255, 0.05)",
-              color: isStartingCameraTest 
-                ? "rgba(255, 255, 255, 0.25)" 
-                : cameraTestStream 
-                  ? "#ef4444" 
-                  : "#ffffff",
-              height: "40px",
-              borderRadius: "6px",
-            }}
+            danger={Boolean(cameraTestStream)}
           >
             {cameraTestStream ? "Kamera Testini Durdur" : "Kamera Testini Başlat"}
           </Button>
         </div>
 
-        <div className="ct-settings-preview-box" style={{
-          background: "rgba(0, 0, 0, 0.4)",
-          border: "1px solid rgba(255, 255, 255, 0.04)",
-          borderRadius: "8px",
-          width: "100%",
-          aspectRatio: "16 / 9",
-          maxHeight: "360px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          position: "relative",
-        }}>
+        <div className="ct-media-preview">
           {process.env.NODE_ENV === "development" && devStats && (
-            <div style={{
-              position: "absolute",
-              top: "8px",
-              left: "8px",
-              background: "rgba(0, 0, 0, 0.75)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "4px",
-              padding: "4px 8px",
-              fontSize: "11px",
-              fontFamily: "monospace",
-              color: "#4ade80",
-              zIndex: 10,
-              pointerEvents: "none",
-            }}>
+            <div className="ct-media-preview-badge">
               Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
             </div>
           )}
@@ -412,14 +371,10 @@ export function SettingsCamera({
               autoPlay
               muted
               playsInline
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
+              
             />
           ) : (
-            <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+            <p className="ct-media-preview-placeholder">
               Önizleme bu alanda görünecek.
             </p>
           )}

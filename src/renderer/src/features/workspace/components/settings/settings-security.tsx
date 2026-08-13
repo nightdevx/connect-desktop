@@ -133,79 +133,60 @@ export function SettingsSecurity() {
     <div className="ct-settings-section">
       {contextHolder}
       <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-icon">
-          <SafetyOutlined style={{ fontSize: "20px" }} />
-        </div>
-        <div>
-          <h4>Güvenlik Ayarları</h4>
-          <p className="ct-settings-section-description">
+        <div className="ct-settings-section-header-main">
+          <div className="ct-settings-section-header-icon">
+            <SafetyOutlined />
+          </div>
+          <div>
+            <h4>Güvenlik Ayarları</h4>
+            <p className="ct-settings-section-description">
             Hesap güvenliği için sadece şifreni bu ekrandan değiştirebilirsin.
-          </p>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
-        <div className="ct-settings-form-group" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+      <div className="ct-settings-content">
+        <div className="ct-settings-form-group">
           <div>
-            <label className="ct-label" htmlFor="settings-current-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-current-password">
               Mevcut Şifre
             </label>
             <Input.Password
               id="settings-current-password"
-              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
+              prefix={<LockOutlined  />}
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
               placeholder="Mevcut şifrenizi girin"
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-new-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-new-password">
               Yeni Şifre
             </label>
             <Input.Password
               id="settings-new-password"
-              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
+              prefix={<LockOutlined  />}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
               placeholder="Yeni şifrenizi girin"
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-confirm-password" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-confirm-password">
               Yeni Şifre (Tekrar)
             </label>
             <Input.Password
               id="settings-confirm-password"
-              prefix={<LockOutlined style={{ color: "rgba(255,255,255,0.25)" }} />}
+              prefix={<LockOutlined  />}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
               placeholder="Yeni şifrenizi tekrar girin"
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
           </div>
         </div>
@@ -219,35 +200,20 @@ export function SettingsSecurity() {
             }}
             loading={isChangingPassword}
             disabled={isChangingPassword}
-            style={{
-              background: isChangingPassword ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              borderColor: isChangingPassword ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              color: isChangingPassword ? "rgba(255, 255, 255, 0.25)" : "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
+            
           >
             Şifreyi Değiştir
           </Button>
         </div>
 
         <div
-          style={{
-            marginTop: "32px",
-            paddingTop: "24px",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-          }}
+          className="ct-settings-subsection"
         >
-          <h5 style={{ margin: 0, fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+          <h5 >
             Hesap Verileri
           </h5>
           <p
-            style={{
-              margin: "6px 0 12px",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.45)",
-            }}
+            className="ct-field-hint"
           >
             Profil bilgilerinizi ve engel listenizi JSON olarak indirin. Sohbet
             geçmişi dahil değildir: mesajlar karşı tarafla ortak veridir.
@@ -258,34 +224,20 @@ export function SettingsSecurity() {
             onClick={() => {
               void handleExportData();
             }}
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              borderColor: "rgba(255,255,255,0.12)",
-              color: "#f5f5f5",
-              height: "38px",
-              borderRadius: "6px",
-            }}
+            
           >
             Verilerimi İndir
           </Button>
         </div>
 
         <div
-          style={{
-            marginTop: "24px",
-            paddingTop: "24px",
-            borderTop: "1px solid rgba(255, 77, 79, 0.2)",
-          }}
+          className="ct-settings-subsection danger"
         >
-          <h5 style={{ margin: 0, fontSize: "13px", color: "#ff7875" }}>
+          <h5 >
             Hesabı Sil
           </h5>
           <p
-            style={{
-              margin: "6px 0 12px",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.45)",
-            }}
+            className="ct-field-hint"
           >
             Hesabınız hemen devre dışı bırakılır ve {DELETION_GRACE_DAYS} gün
             sonra kalıcı olarak silinir. Bu süre içinde giriş yaparsanız hesabınız
@@ -295,7 +247,7 @@ export function SettingsSecurity() {
             danger
             icon={<DeleteOutlined />}
             onClick={() => setIsDeleteModalOpen(true)}
-            style={{ height: "38px", borderRadius: "6px" }}
+            
           >
             Hesabımı Sil
           </Button>
@@ -318,7 +270,7 @@ export function SettingsSecurity() {
           void handleDeleteAccount();
         }}
       >
-        <p style={{ marginBottom: 12 }}>
+        <p >
           Hesabınız hemen devre dışı bırakılacak ve {DELETION_GRACE_DAYS} gün
           sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri
           alabilirsiniz.
@@ -328,7 +280,7 @@ export function SettingsSecurity() {
           autoComplete="current-password"
           value={deletePassword}
           onChange={(event) => setDeletePassword(event.target.value)}
-          style={{ marginBottom: 8 }}
+          
         />
         <Input
           placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yazın`}

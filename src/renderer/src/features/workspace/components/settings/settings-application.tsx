@@ -168,18 +168,12 @@ function HotkeyCaptureField({
   }, [capturing, mode, onChange]);
 
   return (
-    <div
-      className="ct-settings-switch-item"
-      style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-    >
-      <div
-        className="ct-settings-switch-item-content"
-        style={{ display: "flex", flexDirection: "column", gap: "2px" }}
-      >
-        <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>
+    <div className="ct-settings-switch-item">
+      <div className="ct-settings-switch-item-content">
+        <strong>
           {label}
         </strong>
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+        <span>
           {hint}
         </span>
       </div>
@@ -187,7 +181,7 @@ function HotkeyCaptureField({
         size="small"
         disabled={disabled}
         onClick={() => setCapturing((previous) => !previous)}
-        style={{ minWidth: "160px", fontFamily: "monospace" }}
+        className="ct-hotkey-button"
       >
         {capturing ? "Tuşa basın…" : value || "Atanmadı"}
       </Button>
@@ -432,32 +426,25 @@ export function SettingsApplication() {
     <div className="ct-settings-section">
       {contextHolder}
       <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-icon">
-          <InfoCircleOutlined style={{ fontSize: "20px" }} />
-        </div>
-        <div>
-          <h4>Uygulama Güncellemeleri</h4>
-          <p className="ct-settings-section-description">
+        <div className="ct-settings-section-header-main">
+          <div className="ct-settings-section-header-icon">
+            <InfoCircleOutlined />
+          </div>
+          <div>
+            <h4>Uygulama Güncellemeleri</h4>
+            <p className="ct-settings-section-description">
             Sürüm durumunu takip edebilir ve güncellemeleri buradan başlatabilirsiniz.
-          </p>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
-        <div className="ct-settings-switch-list" style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-          background: "rgba(255, 255, 255, 0.01)",
-          border: "1px solid rgba(255, 255, 255, 0.03)",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "24px",
-        }}>
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Bilgisayar açıldığında Connect otomatik başlasın</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+      <div className="ct-settings-content">
+        <div className="ct-settings-switch-list">
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Bilgisayar açıldığında Connect otomatik başlasın</strong>
+              <span>
                 Uygulama oturum açıldığında arka planda çalışmaya hazır olur.
               </span>
             </div>
@@ -470,10 +457,10 @@ export function SettingsApplication() {
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Pencere küçültülünce sistem tepsisine gönder</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Pencere küçültülünce sistem tepsisine gönder</strong>
+              <span>
                 Küçült butonuna basıldığında uygulama görev çubuğundan gizlenir.
               </span>
             </div>
@@ -486,10 +473,10 @@ export function SettingsApplication() {
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Kapat tuşunda sistem tepsisine gizle</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Kapat tuşunda sistem tepsisine gizle</strong>
+              <span>
                 Pencereyi kapatmak uygulamayı sonlandırmaz; tepside çalışmaya devam eder.
               </span>
             </div>
@@ -502,10 +489,10 @@ export function SettingsApplication() {
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Donanım hızlandırma (video kodlama)</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Donanım hızlandırma (video kodlama)</strong>
+              <span>
                 Ekran paylaşımı ve kamerayı GPU ile kodlar; CPU kullanımını
                 büyük ölçüde düşürür. Görüntü siyah geliyor veya bozuluyorsa
                 kapatın. Değişiklik yeniden başlatma gerektirir.
@@ -520,10 +507,10 @@ export function SettingsApplication() {
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Masaüstü bildirimleri</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Masaüstü bildirimleri</strong>
+              <span>
                 Pencere arka plandayken gelen mesaj ve aramalar için işletim
                 sistemi bildirimi gösterir.
               </span>
@@ -537,10 +524,10 @@ export function SettingsApplication() {
             />
           </div>
 
-          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Bas-konuş</strong>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          <div className="ct-settings-switch-item">
+            <div className="ct-settings-switch-item-content">
+              <strong>Bas-konuş</strong>
+              <span>
                 Mikrofon normalde kapalı kalır, tuşu basılı tuttuğunuz sürece
                 açılır. Yalnızca uygulama penceresi öndeyken çalışır.
               </span>
@@ -605,59 +592,42 @@ export function SettingsApplication() {
                   Yeniden Başlat
                 </Button>
               }
-              style={{
-                background: "rgba(251, 191, 36, 0.05)",
-                border: "1px solid rgba(251, 191, 36, 0.15)",
-                borderRadius: "8px",
-              }}
+              className="ct-alert"
             />
           )}
         </div>
 
-        <div className="ct-settings-info-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.04)",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "24px",
-        }}>
-          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sürüm</span>
-            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
+        <div className="ct-settings-info-grid">
+          <div className="ct-settings-info-item">
+            <span className="ct-settings-info-label">Sürüm</span>
+            <strong className="ct-settings-info-value">
               v{currentVersionLabel}
             </strong>
           </div>
-          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Durum</span>
-            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
+          <div className="ct-settings-info-item">
+            <span className="ct-settings-info-label">Durum</span>
+            <strong className="ct-settings-info-value">
               {getUpdatePhaseLabel(updatePhase)}
             </strong>
           </div>
           {nextVersionLabel && (
-            <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Bulunan Sürüm</span>
-              <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
+            <div className="ct-settings-info-item">
+              <span className="ct-settings-info-label">Bulunan Sürüm</span>
+              <strong className="ct-settings-info-value">
                 v{nextVersionLabel}
               </strong>
             </div>
           )}
         </div>
 
-        <div style={{ marginBottom: "24px" }}>
+        <div className="ct-settings-update-alert">
           {nextVersionLabel ? (
             <Alert
               message={`Yeni güncelleme bulundu: v${nextVersionLabel}`}
               description={updateState?.message}
               type={updatePhase === "error" ? "error" : "success"}
               showIcon
-              style={{
-                background: updatePhase === "error" ? "rgba(239, 68, 68, 0.05)" : "rgba(74, 222, 128, 0.05)",
-                border: updatePhase === "error" ? "1px solid rgba(239, 68, 68, 0.15)" : "1px solid rgba(74, 222, 128, 0.15)",
-                borderRadius: "8px",
-              }}
+              className="ct-alert"
             />
           ) : (
             <Alert
@@ -670,16 +640,12 @@ export function SettingsApplication() {
                     : "info"
               }
               showIcon
-              style={{
-                background: "rgba(255, 255, 255, 0.02)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
-                borderRadius: "8px",
-              }}
+              className="ct-alert"
             />
           )}
         </div>
 
-        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>
+        <div className="ct-settings-actions">
           <Button
             type="primary"
             icon={<ReloadOutlined />}
@@ -688,14 +654,6 @@ export function SettingsApplication() {
             }}
             loading={isManualCheckDisabled}
             disabled={isManualCheckDisabled}
-            style={{
-              background: isManualCheckDisabled ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              borderColor: isManualCheckDisabled ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-              color: isManualCheckDisabled ? "rgba(255, 255, 255, 0.25)" : "#000000",
-              fontWeight: "600",
-              height: "40px",
-              borderRadius: "6px",
-            }}
           >
             Güncellemeleri Kontrol Et
           </Button>
@@ -705,14 +663,6 @@ export function SettingsApplication() {
               type="primary"
               onClick={() => {
                 void window.desktopApi.installDownloadedUpdate();
-              }}
-              style={{
-                background: "#3b82f6",
-                borderColor: "#3b82f6",
-                color: "#ffffff",
-                fontWeight: "600",
-                height: "40px",
-                borderRadius: "6px",
               }}
             >
               Kuruluma Başla
@@ -728,12 +678,6 @@ export function SettingsApplication() {
               }}
               loading={isLaunchingUpdateDebug}
               disabled={isLaunchingUpdateDebug}
-              style={{
-                background: isLaunchingUpdateDebug ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
-                color: isLaunchingUpdateDebug ? "rgba(255, 255, 255, 0.25)" : "#ffffff",
-                height: "40px",
-                borderRadius: "6px",
-              }}
             >
               Güncelleme Debug Ekranı
             </Button>

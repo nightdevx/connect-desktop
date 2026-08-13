@@ -53,6 +53,67 @@ color: var(--ct-text-muted);
 color: var(--ct-text-secondary);
 }
 
+.ct-field-label {
+@apply mb-1.5 block text-xs font-semibold;
+color: var(--ct-text-secondary);
+}
+
+/* Small state badge: verified / pending / missing, and anything shaped like
+   them. One geometry, three tones. */
+.ct-status-chip {
+@apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-semibold;
+border-color: var(--ct-border);
+color: var(--ct-text-muted);
+background: var(--ct-alpha-04);
+}
+
+.ct-status-chip.ok {
+border-color: rgba(16, 185, 129, 0.24);
+color: var(--ct-success);
+background: rgba(16, 185, 129, 0.1);
+}
+
+.ct-status-chip.warn {
+border-color: rgba(245, 158, 11, 0.24);
+color: var(--ct-warning);
+background: rgba(245, 158, 11, 0.1);
+}
+
+.ct-status-chip.danger {
+border-color: rgba(239, 68, 68, 0.24);
+color: var(--ct-danger);
+background: rgba(239, 68, 68, 0.1);
+}
+
+.ct-inline-note {
+@apply mt-1.5 block text-2xs;
+color: var(--ct-warning);
+}
+
+/* Inset panel for a flow that lives inside a field, e.g. e-mail verification. */
+.ct-inset-panel {
+@apply mt-3 flex flex-col gap-3 rounded-md border p-4;
+border-color: var(--ct-border);
+background: var(--ct-alpha-02);
+}
+
+.ct-inset-panel-row {
+@apply flex flex-wrap items-center justify-between gap-3;
+}
+
+.ct-inset-panel-row > span {
+@apply min-w-0 text-sm;
+color: var(--ct-text-secondary);
+}
+
+.ct-code-input {
+width: 120px;
+text-align: center;
+font-weight: 700;
+letter-spacing: 4px;
+font-family: var(--ct-font-mono);
+}
+
 .ct-field-row {
 @apply flex items-center justify-between gap-4;
 }

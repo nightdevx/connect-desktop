@@ -356,14 +356,14 @@ export function SettingsProfile({
   return (
     <div className="ct-settings-section">
       {contextHolder}
-      <div className="ct-settings-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        <div style={{ display: "flex", alignItems: "start", gap: "12px" }}>
+      <div className="ct-settings-section-header">
+        <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
-            <UserOutlined style={{ fontSize: "20px" }} />
+            <UserOutlined />
           </div>
           <div>
-            <h4 style={{ margin: 0 }}>Profil Ayarları</h4>
-            <p className="ct-settings-section-description" style={{ margin: 0 }}>
+            <h4>Profil Ayarları</h4>
+            <p className="ct-settings-section-description">
               Hesap görünüm bilgilerini buradan yönetebilirsin.
             </p>
           </div>
@@ -377,40 +377,23 @@ export function SettingsProfile({
           }}
           loading={isSavingProfile}
           disabled={isProfileLoading || isSavingProfile}
-          style={{
-            background: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-            borderColor: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
-            color: (isProfileLoading || isSavingProfile) ? "rgba(255, 255, 255, 0.25)" : "#000000",
-            fontWeight: "600",
-            height: "40px",
-            borderRadius: "6px",
-          }}
         >
           Profili Kaydet
         </Button>
       </div>
 
-      <div className="ct-settings-content" style={{ marginTop: "24px" }}>
-        <div className="ct-settings-profile-avatar-row" style={{ display: "flex", gap: "20px", alignItems: "center", marginBottom: "24px" }}>
+      <div className="ct-settings-content">
+        <div className="ct-settings-profile-avatar-row">
           <Avatar
             size={80}
             src={profileSettings.avatarUrl}
             icon={!profileSettings.avatarUrl && <UserOutlined />}
-            style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              color: "#ffffff",
-              fontSize: "24px",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className="ct-settings-profile-avatar"
           >
             {!profileSettings.avatarUrl && getInitials(profileSettings.displayName || currentUsername)}
           </Avatar>
 
-          <div className="ct-settings-profile-avatar-actions" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div className="ct-settings-profile-avatar-actions">
             <input
               ref={avatarInputRef}
               type="file"
@@ -421,17 +404,12 @@ export function SettingsProfile({
               hidden
             />
 
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div>
               <Button
                 type="text"
                 icon={<UploadOutlined />}
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isProfileLoading || isSavingProfile}
-                style={{
-                  background: "rgba(255, 255, 255, 0.05)",
-                  borderColor: "rgba(255, 255, 255, 0.1)",
-                  color: "#ffffff",
-                }}
               >
                 Logo Yükle
               </Button>
@@ -443,22 +421,19 @@ export function SettingsProfile({
                   icon={<DeleteOutlined />}
                   onClick={handleAvatarClear}
                   disabled={isProfileLoading || isSavingProfile}
-                  style={{
-                    background: "rgba(239, 68, 68, 0.08)",
-                  }}
                 >
                   Logoyu Kaldır
                 </Button>
               )}
             </div>
 
-            <small style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
+            <small>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
           </div>
         </div>
 
-        <div className="ct-settings-grid" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+        <div className="ct-settings-grid">
           <div>
-            <label className="ct-label" htmlFor="settings-display-name" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-display-name">
               Görünen Ad
             </label>
             <Input
@@ -472,57 +447,26 @@ export function SettingsProfile({
               }
               maxLength={40}
               disabled={isProfileLoading || isSavingProfile}
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
           </div>
 
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <label className="ct-label" htmlFor="settings-email" style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+            <div>
+              <label className="ct-field-label" htmlFor="settings-email">
                 E-posta Adresi
               </label>
               {profileSettings.email ? (
                 profileSettings.emailVerified ? (
-                  <span style={{
-                    fontSize: "10px",
-                    fontWeight: "600",
-                    color: "#10b981",
-                    background: "rgba(16, 185, 129, 0.1)",
-                    padding: "2px 8px",
-                    borderRadius: "12px",
-                    border: "1px solid rgba(16, 185, 129, 0.2)"
-                  }}>
+                  <span className="ct-status-chip ok">
                     Doğrulanmış
                   </span>
                 ) : (
-                  <span style={{
-                    fontSize: "10px",
-                    fontWeight: "600",
-                    color: "#f59e0b",
-                    background: "rgba(245, 158, 11, 0.1)",
-                    padding: "2px 8px",
-                    borderRadius: "12px",
-                    border: "1px solid rgba(245, 158, 11, 0.2)"
-                  }}>
+                  <span className="ct-status-chip warn">
                     Doğrulanmamış
                   </span>
                 )
               ) : (
-                <span style={{
-                  fontSize: "10px",
-                  fontWeight: "600",
-                  color: "#ef4444",
-                  background: "rgba(239, 68, 68, 0.1)",
-                  padding: "2px 8px",
-                  borderRadius: "12px",
-                  border: "1px solid rgba(239, 68, 68, 0.2)"
-                }}>
+                <span className="ct-status-chip danger">
                   E-posta Yok
                 </span>
               )}
@@ -538,34 +482,18 @@ export function SettingsProfile({
               }
               placeholder="örnek@mail.com"
               disabled={isProfileLoading || isSavingProfile}
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
             
             {profileSettings.email && profileSettings.email !== savedEmail && (
-              <div style={{ marginTop: "6px", fontSize: "11px", color: "#f59e0b" }}>
+              <div className="ct-inline-note">
                 E-posta adresini doğrulamak için önce profili kaydedin.
               </div>
             )}
 
             {profileSettings.email && profileSettings.email === savedEmail && !profileSettings.emailVerified && (
-              <div style={{
-                marginTop: "12px",
-                padding: "16px",
-                background: "rgba(255, 255, 255, 0.02)",
-                border: "1px solid rgba(255, 255, 255, 0.05)",
-                borderRadius: "8px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
+              <div className="ct-inset-panel">
+                <div>
+                  <span>
                     E-posta adresinizi doğrulamak için bir doğrulama kodu gönderin.
                   </span>
                   {!verificationSent && (
@@ -573,15 +501,6 @@ export function SettingsProfile({
                       type="primary"
                       onClick={() => { void handleSendVerificationCode(); }}
                       loading={isSendingCode}
-                      style={{
-                        background: "#f59e0b",
-                        borderColor: "#f59e0b",
-                        color: "#000000",
-                        fontWeight: "600",
-                        borderRadius: "6px",
-                        height: "32px",
-                        fontSize: "12px",
-                      }}
                     >
                       Doğrulama Kodu Gönder
                     </Button>
@@ -589,36 +508,19 @@ export function SettingsProfile({
                 </div>
 
                 {verificationSent && (
-                  <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <div>
                     <Input
                       placeholder="000000"
                       value={verificationCode}
                       onChange={(e) => setVerificationCode(e.target.value.trim())}
                       maxLength={6}
-                      style={{
-                        width: "120px",
-                        textAlign: "center",
-                        letterSpacing: "4px",
-                        fontWeight: "bold",
-                        background: "rgba(15, 15, 15, 0.8)",
-                        borderColor: "rgba(255, 255, 255, 0.08)",
-                        color: "#ffffff",
-                        height: "40px",
-                      }}
+                      className="ct-code-input"
                     />
                     <Button
                       type="primary"
                       onClick={() => { void handleVerifyEmailCode(); }}
                       loading={isVerifyingCode}
                       disabled={verificationCode.length !== 6}
-                      style={{
-                        background: "#10b981",
-                        borderColor: "#10b981",
-                        color: "#ffffff",
-                        fontWeight: "600",
-                        height: "40px",
-                        borderRadius: "6px",
-                      }}
                     >
                       Doğrula
                     </Button>
@@ -626,7 +528,7 @@ export function SettingsProfile({
                       type="text"
                       onClick={() => { void handleSendVerificationCode(); }}
                       loading={isSendingCode}
-                      style={{ color: "rgba(255,255,255,0.6)", fontSize: "12px" }}
+                      
                     >
                       Yeniden Gönder
                     </Button>
@@ -637,7 +539,7 @@ export function SettingsProfile({
           </div>
 
           <div>
-            <label className="ct-label" htmlFor="settings-profile-bio" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+            <label className="ct-field-label" htmlFor="settings-profile-bio">
               Hakkımda
             </label>
             <Input.TextArea
@@ -652,39 +554,24 @@ export function SettingsProfile({
               maxLength={220}
               rows={4}
               disabled={isProfileLoading || isSavingProfile}
-              style={{
-                background: "rgba(15, 15, 15, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-              }}
             />
           </div>
         </div>
 
-        <div className="ct-settings-info-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.04)",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "24px",
-        }}>
-          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Kullanıcı Adı</span>
-            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>
+        <div className="ct-settings-info-grid">
+          <div className="ct-settings-info-item">
+            <span className="ct-settings-info-label">Kullanıcı Adı</span>
+            <strong className="ct-settings-info-value">
               @{currentUsername}
             </strong>
           </div>
-          <div className="ct-settings-info-item" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span className="ct-settings-info-label" style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Rol</span>
-            <strong className="ct-settings-info-value" style={{ fontSize: "14px", color: "#ffffff", fontWeight: "600" }}>Yönetici</strong>
+          <div className="ct-settings-info-item">
+            <span className="ct-settings-info-label">Rol</span>
+            <strong className="ct-settings-info-value">Yönetici</strong>
           </div>
         </div>
 
-        <div className="ct-settings-actions" style={{ display: "flex", gap: "12px" }}>
+        <div className="ct-settings-actions">
           {onLogout && (
             <Button
               danger
@@ -693,16 +580,7 @@ export function SettingsProfile({
               onClick={onLogout}
               loading={isLoggingOut}
               disabled={isLoggingOut}
-              style={{
-                background: "#ef4444",
-                borderColor: "#ef4444",
-                color: "#ffffff",
-                fontWeight: "600",
-                height: "40px",
-                borderRadius: "6px",
-                boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
-                marginLeft: "auto",
-              }}
+              
             >
               Hesaptan Çık
             </Button>
