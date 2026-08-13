@@ -1053,8 +1053,8 @@ export function UsersDirectMessagesPanel({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-[#8f8f8f] px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)]">
+                <div className="ct-chat-user-header-actions">
+                  <span className="ct-status-chip">
                     {getUserStatusLabel(selectedUser.appOnline)}
                   </span>
                   
@@ -1176,6 +1176,7 @@ export function UsersDirectMessagesPanel({
                 <span className="font-bold text-[14px] tracking-wide uppercase">Kullanıcı Profili</span>
               </div>
             }
+            rootClassName="ct-user-drawer"
             placement="right"
             onClose={() => setIsUserPopupOpen(false)}
             open={isUserPopupOpen}

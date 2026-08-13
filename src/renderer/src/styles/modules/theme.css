@@ -1,168 +1,158 @@
 /* ==========================================================================
-   PREMIUM MONOCHROME USER INTERFACE STYLES (ANT DESIGN UPGRADES)
+   ANT DESIGN TUNING
+
+   Ant Design v6 emits most of its base rules through :where(), which carries
+   zero specificity, so a plain .ct-* class already wins. The !important that
+   used to sit on nearly every declaration in this file was cargo-cult -- it
+   is only kept where a component genuinely writes an inline style of its own.
+
+   Anything that can be expressed as a ConfigProvider token lives in main.tsx
+   instead; what remains here is shape, not colour.
    ========================================================================== */
 
-/* Rail navigation lives in features/workspace.css (single source). */
-
-/* Ant Design Segmented Custom Style */
-.ct-segmented-premium {
-  background: rgba(10, 10, 10, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.04) !important;
-  padding: 3px !important;
-  border-radius: 10px !important;
-  transition: all 0.3s var(--ct-ease-premium);
+.ct-segmented-premium.ant-segmented {
+  padding: 3px;
+  border: 1px solid var(--ct-alpha-04);
+  border-radius: var(--ct-radius-md);
+  background: rgba(10, 10, 10, 0.8);
 }
 
+.ct-segmented-premium .ant-segmented-item,
 .ct-segmented-premium .ant-segmented-thumb {
-  background: #ffffff !important;
-  border-radius: 7px !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6) !important;
-}
-
-.ct-segmented-premium .ant-segmented-item-selected {
-  background: #ffffff !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
-}
-
-.ct-segmented-premium .ant-segmented-item-selected .ant-segmented-item-label {
-  color: #000000 !important;
+  border-radius: var(--ct-radius-sm);
 }
 
 .ct-segmented-premium .ant-segmented-item {
-  color: #8f8f8f !important;
-  font-size: 11px !important;
+  font-size: 12px;
   font-weight: 600;
-  transition: all 0.25s var(--ct-ease-premium);
-  border-radius: 7px !important;
 }
 
-.ct-segmented-premium .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
-  color: #ffffff !important;
+.ct-segmented-premium .ant-segmented-item-selected {
+  font-weight: 700;
 }
 
-/* Double-Bezel (Doppelrand) Nested Architecture */
+/* Nested bezel used by the auth card: an outer hairline frame with the card
+   inset inside it. */
 .ct-double-bezel-outer {
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.01);
-  padding: 6px;
-  transition: all 0.3s var(--ct-ease-premium);
+  @apply rounded-2xl border p-1.5;
+  border-color: var(--ct-alpha-04);
+  background: var(--ct-alpha-02);
 }
 
 .ct-double-bezel-inner {
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  @apply rounded-lg border;
+  border-color: var(--ct-alpha-08);
   background: rgba(10, 10, 10, 0.7);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
-  transition: all 0.3s var(--ct-ease-premium);
+  box-shadow: inset 0 1px 1px var(--ct-alpha-04);
 }
 
-/* .ct-list-item lives in ui-elements.css (single source). */
-
-/* Premium Chat Header Styling */
+/* Conversation header above the message thread. */
 .ct-chat-user-header-premium {
-  @apply flex items-center justify-between border-b px-6 py-4 cursor-pointer;
+  @apply flex h-14 shrink-0 cursor-pointer select-none items-center justify-between gap-3 border-b px-4;
+  border-color: var(--ct-border);
   background: rgba(10, 10, 10, 0.5);
-  border-color: rgba(255, 255, 255, 0.08);
-  transition: all 0.2s ease;
-  user-select: none;
+  transition: background var(--ct-duration-fast) ease;
 }
 
 .ct-chat-user-header-premium:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ct-alpha-02);
 }
 
 .ct-chat-user-header-left {
-  @apply flex items-center gap-4;
+  @apply flex min-w-0 items-center gap-3;
 }
 
 .ct-chat-user-header-main h3 {
-  @apply text-[15px] font-bold text-white leading-none m-0;
+  @apply m-0 truncate text-base font-bold leading-none;
+  color: var(--ct-text-primary);
 }
 
 .ct-chat-user-header-main span {
-  @apply text-[11px] text-[#8f8f8f] mt-1 block;
+  @apply mt-1 block truncate text-2xs;
+  color: var(--ct-text-muted);
 }
 
-/* Descriptions component within Drawer */
-.ant-descriptions-item-label {
-  padding-bottom: 8px !important;
-  font-size: 12px !important;
-  color: #8f8f8f !important;
+.ct-chat-user-header-actions {
+  @apply flex shrink-0 items-center gap-1;
 }
 
-.ant-descriptions-item-content {
-  padding-bottom: 8px !important;
-  font-size: 12px !important;
-  color: #ffffff !important;
+/* Scoped to the profile drawer rather than every Descriptions in the app. */
+.ct-user-drawer .ant-descriptions-item-label,
+.ct-user-drawer .ant-descriptions-item-content {
+  padding-bottom: 8px;
+  font-size: 12px;
 }
 
-/* Custom Input Search Box */
-.ct-search-premium .ant-input {
-  background: transparent !important;
-  color: #f5f5f5 !important;
-  font-size: 12px !important;
+.ct-user-drawer .ant-descriptions-item-label {
+  color: var(--ct-text-muted);
 }
 
-.ct-search-premium .ant-input::placeholder {
-  color: rgba(255, 255, 255, 0.3) !important;
+.ct-user-drawer .ant-descriptions-item-content {
+  color: var(--ct-text-primary);
 }
 
-.ct-search-premium:hover,
-.ct-search-premium:focus-within {
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06) !important;
-}
-
-/* Micro Spinner */
 .ct-spinner-small {
   width: 12px;
   height: 12px;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #ffffff;
+  border: 1.5px solid var(--ct-alpha-12);
+  border-top-color: var(--ct-accent);
   border-radius: 50%;
   animation: ctSpinnerPulse 0.8s linear infinite;
 }
 
-/* Premium Ant Design Overrides */
+/* --- Auth form ---------------------------------------------------------- */
+
 .ct-premium-form .ant-form-item-label > label {
-  @apply text-xs font-bold uppercase tracking-widest text-[#8f8f8f] !important;
-  height: auto !important;
+  @apply text-2xs font-bold uppercase tracking-widest;
+  height: auto;
+  color: var(--ct-text-muted);
 }
 
-.ct-input-premium {
-  @apply bg-[#0d0d0d]/40 border-white/5 text-white rounded-xl h-12 !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+.ct-input-premium.ant-input-affix-wrapper,
+.ct-input-premium.ant-input,
+.ct-input-premium.ant-input-password {
+  @apply h-control-lg rounded-lg border;
+  border-color: var(--ct-alpha-08);
+  background: rgba(13, 13, 13, 0.4);
+  color: var(--ct-text-primary);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-input-premium:hover {
-  @apply border-white/20 bg-[#0d0d0d]/60 !important;
+  border-color: var(--ct-alpha-20);
+  background: rgba(13, 13, 13, 0.6);
 }
 
 .ct-input-premium:focus,
-.ct-input-premium-focused {
-  @apply border-white/40 bg-[#0d0d0d]/80 ring-0 !important;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05) !important;
+.ct-input-premium:focus-within {
+  border-color: var(--ct-alpha-32);
+  background: rgba(13, 13, 13, 0.8);
+  box-shadow: 0 0 20px var(--ct-alpha-04);
 }
 
-.ant-input-password.ct-input-premium input {
-  @apply bg-transparent !important;
+.ct-input-premium .ant-input {
+  background: transparent;
 }
 
-.ant-input-password.ct-input-premium .ant-input-suffix .anticon {
-  @apply text-[#8f8f8f] hover:text-white transition-colors !important;
+.ct-input-premium .ant-input-suffix .anticon {
+  color: var(--ct-text-muted);
+  transition: color var(--ct-duration-fast) ease;
 }
 
-/* .ct-btn-primary lives in ui-elements.css (single source). */
+.ct-input-premium .ant-input-suffix .anticon:hover {
+  color: var(--ct-text-primary);
+}
 
-/* Speaking Indicator Glow - Static Steady Version */
+/* --- Speaking indicator -------------------------------------------------
+   .speaking is two classes deep, so it outranks the tile's own single-class
+   rule without needing !important. The ring is a ::after overlay so the tile
+   does not resize when someone starts talking. */
+
 .ct-lobby-participant-tile.speaking {
   position: relative;
-  border-color: transparent !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(16, 185, 129, 0.04) !important;
+  border-color: transparent;
+  background: rgba(16, 185, 129, 0.04);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-lobby-participant-tile.speaking::after {
@@ -170,22 +160,23 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 2px solid #10b981;
-  opacity: 1;
-  box-shadow: 0 0 18px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.15);
+  border: 2px solid var(--ct-success);
+  box-shadow:
+    0 0 18px rgba(16, 185, 129, 0.35),
+    0 0 0 1px rgba(16, 185, 129, 0.15);
   pointer-events: none;
   z-index: 10;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow var(--ct-duration-base) ease;
 }
 
-.ct-lobby-participant-tile.speaking .ct-lobby-tile-footer p {
-  color: #10b981;
+.ct-lobby-participant-tile.speaking .ct-lobby-tile-userline p {
+  color: var(--ct-success);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
-/* Ensure central avatar does NOT glow */
-.ct-lobby-participant-tile.speaking .ct-lobby-avatar-container {
-  box-shadow: none !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+/* The ring belongs to the tile, not the face inside it. */
+.ct-lobby-participant-tile.speaking .ct-lobby-avatar-container.ant-avatar {
+  box-shadow: none;
+  border-color: var(--ct-alpha-12);
 }

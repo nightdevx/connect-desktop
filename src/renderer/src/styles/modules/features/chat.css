@@ -67,11 +67,10 @@
   }
 
   .ct-chat-messages {
-    @apply min-h-0 h-full space-y-2 overflow-y-auto rounded-xl border p-3;
+    @apply relative min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border p-4;
     border-color: var(--ct-border);
     background: rgba(15, 15, 15, 0.45);
     container-type: scroll-state;
-    position: relative;
   }
 
   /* Scrollability Indicators using Scroll-State Queries */
@@ -123,22 +122,21 @@
     pointer-events: none;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     
-    /* Sleek Dark Premium styling */
-    background: var(--ct-accent) !important;
-    border: 1px solid var(--ct-accent-strong) !important;
-    color: #0b0b0b !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    padding: 6px 14px !important;
-    border-radius: 9999px !important;
-    box-shadow: 0 4px 16px var(--ct-accent-glow) !important;
+    border: 1px solid var(--ct-accent-strong);
+    border-radius: 9999px;
+    padding: 6px 14px;
+    background: var(--ct-accent);
+    color: var(--ct-text-inverse);
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: var(--ct-shadow-glow);
     cursor: pointer;
     white-space: nowrap;
   }
 
   .ct-scroll-to-bottom-btn:hover {
-    transform: translateX(-50%) translateY(-1px) !important;
-    box-shadow: 0 6px 20px var(--ct-accent-glow) !important;
+    transform: translateX(-50%) translateY(-1px);
+    box-shadow: 0 6px 20px var(--ct-accent-glow);
   }
 
   @container scroll-state(scrollable: bottom) {
@@ -277,10 +275,13 @@
     justify-content: flex-end;
   }
 
+  /* Sized to its content up to a readable measure. It used to be a fixed
+     width: min(78%, 620px) with a 220px floor, so a one-word reply rendered
+     as a mostly-empty box two thirds the width of the thread. */
   .ct-chat-bubble {
-    @apply rounded-xl border px-3 py-2;
-    width: min(78%, 620px);
-    min-width: min(220px, 100%);
+    @apply rounded-lg border px-3 py-2;
+    width: fit-content;
+    max-width: min(78%, 620px);
     border-color: var(--ct-border);
     background: rgba(18, 18, 18, 0.85);
   }

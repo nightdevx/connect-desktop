@@ -109,18 +109,15 @@
 }
 
 .ct-lobby-select-card {
-  padding: 14px 18px !important;
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.015) !important;
-  border: 1px solid rgba(255, 255, 255, 0.04) !important;
-  transition: all 0.3s var(--ct-ease-premium) !important;
+  @apply rounded-md border px-4 py-3.5;
+  border-color: var(--ct-alpha-04);
+  background: var(--ct-alpha-02);
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
 }
 
 .ct-lobby-select-card:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-color: var(--ct-alpha-12);
+  background: var(--ct-alpha-04);
 }
 
 /* The selection screen and the live room occupy the same box and cross-fade;
@@ -258,6 +255,11 @@
   --ct-stage-gap: 14px;
   --ct-stage-max-width: 1220px;
   --ct-stage-tile-width: 320px;
+  /* Clearance for the chat toggle above and the action toolbar below, derived
+     from their own sizes rather than guessed. Toolbar: 24px offset + control-lg
+     + its 10px padding; toggle: 16px offset + its ~36px height. */
+  --ct-stage-clear-top: calc(16px + 36px + 14px);
+  --ct-stage-clear-bottom: calc(24px + var(--ct-control-lg) + 20px);
   gap: var(--ct-stage-gap);
   grid-template-columns: repeat(
     var(--ct-stage-columns),
@@ -269,7 +271,7 @@
   justify-content: center;
   justify-items: stretch;
   align-content: start;
-  padding: 66px 18px 92px;
+  padding: var(--ct-stage-clear-top) 18px var(--ct-stage-clear-bottom);
   min-height: 100%;
   max-height: 100%;
   overflow: auto;
@@ -284,11 +286,12 @@
   justify-items: stretch;
   align-content: start;
   align-items: start;
-  padding-bottom: 110px;
+  /* Extra room for the participant rail that sits under the focused tile. */
+  padding-bottom: calc(var(--ct-stage-clear-bottom) + 18px);
 }
 
 .ct-lobby-stage-grid.focused-layout.full-stage-mode {
-  padding-bottom: 92px;
+  padding-bottom: var(--ct-stage-clear-bottom);
 }
 
 .ct-lobby-focused-slot {
@@ -352,26 +355,27 @@
 }
 
 /* Container Queries for Participant Tile */
+/* A narrow tile shrinks its own furniture. The antd Avatar sizes itself
+   inline, so that one rule still needs to win. */
 @container participant-tile (max-width: 250px) {
   .ct-lobby-tile-avatar {
-    width: 44px !important;
-    height: 44px !important;
+    width: 44px;
+    height: 44px;
   }
   .ct-lobby-tile-center-logo .ant-avatar {
     width: 44px !important;
     height: 44px !important;
-    font-size: 14px !important;
+    font-size: 14px;
   }
   .ct-lobby-tile-userline p {
-    font-size: 11px !important;
+    font-size: 11px;
   }
   .ct-lobby-flag {
-    width: 22px !important;
-    height: 22px !important;
-    border-radius: 4px !important;
+    width: 22px;
+    height: 22px;
   }
   .ct-lobby-tile-footer {
-    padding: 8px 10px !important;
+    padding: 8px 10px;
   }
 }
 
@@ -385,26 +389,26 @@
 }
 
 .ct-lobby-participant-tile:hover .ct-lobby-tile-fullscreen-btn {
-  opacity: 1 !important;
-  transform: scale(1) !important;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .ct-lobby-tile-fullscreen-btn:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  transform: scale(1.08) !important;
+  border-color: var(--ct-alpha-32);
+  background: var(--ct-alpha-20);
 }
 
 .ct-lobby-tile-fullscreen-btn:active {
-  transform: scale(0.95) !important;
+  transform: scale(0.95);
 }
 
+/* Two classes deep, so it outranks the tile hover rule on its own. */
 .ct-lobby-participant-tile.selected {
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  border-color: var(--ct-alpha-50);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.2),
+    0 0 0 2px var(--ct-alpha-20),
     0 14px 32px rgba(0, 0, 0, 0.38);
-  transform: none !important;
+  transform: none;
 }
 
 .ct-lobby-participant-tile.local-user {
@@ -471,11 +475,11 @@
 }
 
 .ct-lobby-video-container:fullscreen .ct-lobby-tile-video {
-  object-fit: contain !important;
-  width: 100% !important;
-  height: 100% !important;
-  position: relative !important;
-  inset: auto !important;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  inset: auto;
 }
 
 /* Watch-this-screen prompt: screen shares are opt-in, so an unwatched tile
@@ -546,13 +550,12 @@
 }
 
 .ct-lobby-tile-fullscreen-exit-btn:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  transform: scale(1.1) !important;
+  border-color: var(--ct-alpha-32);
+  background: var(--ct-alpha-20);
 }
 
 .ct-lobby-tile-fullscreen-exit-btn:active {
-  transform: scale(0.95) !important;
+  transform: scale(0.95);
 }
 
 .ct-lobby-tile-video {
@@ -591,8 +594,10 @@
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.ct-lobby-participant-tile:not(.local-user):hover .ct-lobby-avatar-container {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+.ct-lobby-participant-tile:not(.local-user):hover .ct-lobby-avatar-container.ant-avatar {
+  box-shadow:
+    var(--ct-shadow-sm),
+    0 0 0 3px var(--ct-alpha-08);
 }
 
 .ct-lobby-tile-footer {
@@ -647,29 +652,19 @@
   transform: translateY(0);
 }
 
-.ct-lobby-inline-mute-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 24px !important;
-  height: 24px !important;
-  min-width: 24px !important;
-  min-height: 24px !important;
-  max-width: 24px !important;
-  max-height: 24px !important;
-  flex-shrink: 0 !important;
-  border: none !important;
-  border-radius: 4px !important;
-  cursor: pointer !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.ct-lobby-inline-mute-btn:hover {
-  transform: scale(1.1) !important;
+/* Ant Design sizes its own Button, and these are antd Buttons, so the size
+   rules do need to win. Everything else here does not. */
+.ct-lobby-inline-mute-btn.ant-btn {
+  @apply inline-flex shrink-0 cursor-pointer items-center justify-center rounded-sm border-0;
+  width: var(--ct-control-xs) !important;
+  height: var(--ct-control-xs) !important;
+  min-width: var(--ct-control-xs) !important;
+  padding: 0 !important;
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
 }
 
 .ct-lobby-inline-mute-btn:active {
-  transform: scale(0.9) !important;
+  transform: scale(0.9);
 }
 
 .ct-lobby-inline-volume-value {
@@ -678,33 +673,24 @@
 }
 
 .ct-lobby-stage-actions {
-  position: absolute !important;
-  bottom: 24px !important;
-  left: 50% !important;
-  transform: translateX(-50%) translateY(0) !important;
-  z-index: 50 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 12px !important;
-  padding: 10px 16px !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background: rgba(10, 10, 10, 0.88) !important;
-  backdrop-filter: blur(12px) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+  @apply absolute inline-flex items-center justify-center gap-3 rounded-lg border px-4 py-2.5;
+  bottom: 24px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 50;
+  border-color: var(--ct-border);
+  background: rgba(10, 10, 10, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--ct-shadow-lg);
   /* Always visible so primary controls (mic/camera/screen/leave) stay
      discoverable; idle state is just dimmer, not hidden. */
-  opacity: 0.72 !important;
-  pointer-events: auto !important;
-  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  width: auto !important;
-  height: auto !important;
+  opacity: 0.72;
+  transition: opacity var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-lobby-room-card:hover .ct-lobby-stage-actions,
 .ct-lobby-stage-actions:focus-within {
-  opacity: 1 !important;
+  opacity: 1;
 }
 
 .ct-lobby-stage-icon-action {
@@ -1200,49 +1186,50 @@
 }
 
 /* Direct Message Call Panel Overrides */
+/* Inside a direct-message call the stage is shorter, so the grid centres its
+   tiles instead of scrolling, and the toolbar stays at full opacity. */
 .ct-chat-panel .ct-lobby-stage-panel {
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ct-chat-panel .ct-lobby-stage-grid {
-  padding: 20px 18px !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  align-content: center !important;
+  padding: 20px 18px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  align-content: center;
 }
 
 .ct-chat-panel .ct-lobby-stage-actions {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  transform: translateX(-50%) translateY(0) !important;
-  bottom: 20px !important;
+  opacity: 1;
+  bottom: 20px;
 }
 
-.ct-call-placeholder-pulsing {
-  border-style: dashed !important;
-  border-color: rgba(255, 255, 255, 0.16) !important;
+/* The "waiting for them to join" tile: dashed, dimmed and inert. */
+.ct-lobby-participant-tile.ct-call-placeholder-pulsing {
+  border-style: dashed;
+  border-color: var(--ct-alpha-12);
   background: linear-gradient(
     150deg,
     rgba(18, 18, 18, 0.35),
     rgba(8, 8, 8, 0.45)
-  ) !important;
-  pointer-events: none !important;
-  box-shadow: none !important;
+  );
+  pointer-events: none;
+  box-shadow: none;
 }
 
 .ct-call-placeholder-pulsing .ct-lobby-tile-avatar,
 .ct-call-placeholder-pulsing .ct-lobby-tile-center-logo {
-  animation: callAvatarDimPulse 2s infinite ease-in-out !important;
-  filter: grayscale(80%) brightness(60%) !important;
+  animation: callAvatarDimPulse 2s infinite ease-in-out;
+  filter: grayscale(80%) brightness(60%);
 }
 
 .ct-call-placeholder-pulsing .ct-lobby-tile-userline p {
-  color: var(--ct-text-muted) !important;
-  font-style: italic !important;
+  color: var(--ct-text-muted);
+  font-style: italic;
 }
 

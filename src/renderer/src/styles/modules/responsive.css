@@ -53,13 +53,13 @@
   .ct-lobby-stage-grid {
     --ct-stage-max-width: 100%;
     max-height: 100%;
-    padding: 58px 10px 84px;
+    padding: var(--ct-stage-clear-top) 10px var(--ct-stage-clear-bottom);
     max-width: none;
   }
 
   .ct-lobby-stage-grid.focused-layout {
     grid-template-rows: auto auto;
-    padding: 58px 10px 98px;
+    padding: var(--ct-stage-clear-top) 10px calc(var(--ct-stage-clear-bottom) + 14px);
     gap: 10px;
   }
 
@@ -171,11 +171,11 @@
   }
 
   .ct-lobby-stage-grid {
-    padding: 54px 8px 82px;
+    padding: var(--ct-stage-clear-top) 8px var(--ct-stage-clear-bottom);
   }
 
   .ct-lobby-stage-grid.focused-layout {
-    padding: 54px 8px 94px;
+    padding: var(--ct-stage-clear-top) 8px calc(var(--ct-stage-clear-bottom) + 12px);
     gap: 8px;
   }
 
