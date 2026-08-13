@@ -61,44 +61,6 @@
   font-size: 13px;
 }
 
-.ct-user-popup-overlay {
-  @apply fixed inset-0 z-50 grid place-items-center p-4;
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.ct-user-popup {
-  @apply w-full max-w-md rounded-2xl border p-4;
-  border-color: var(--ct-border-strong);
-  background: rgba(12, 12, 12, 0.98);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-}
-
-.ct-user-popup-header {
-  @apply mb-3 flex items-center justify-between gap-3;
-}
-
-.ct-user-popup-title-row {
-  @apply flex min-w-0 items-center gap-2;
-}
-
-.ct-user-popup-header h4 {
-  @apply m-0 text-base font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-screen-share-modal {
-  @apply max-w-3xl;
-}
-
-.ct-screen-share-modal .ct-user-popup-header {
-  @apply mb-2 flex-col items-start gap-1;
-}
-
-.ct-screen-share-modal .ct-user-popup-header p {
-  @apply m-0 text-sm;
-  color: var(--ct-text-secondary);
-}
-
 .ct-screen-share-grid {
   @apply mt-3 grid gap-3;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
@@ -244,19 +206,6 @@
   overflow-y: auto;
 }
 
-.ct-camera-share-modal {
-  @apply max-w-lg;
-}
-
-.ct-camera-share-modal .ct-user-popup-header {
-  @apply mb-2 flex-col items-start gap-1;
-}
-
-.ct-camera-share-modal .ct-user-popup-header p {
-  @apply m-0 text-sm;
-  color: var(--ct-text-secondary);
-}
-
 .ct-camera-preview-box {
   @apply mt-2 grid min-h-[220px] place-items-center overflow-hidden rounded-xl border;
   border-color: var(--ct-border);
@@ -286,13 +235,6 @@
 .ct-confirm-message {
   @apply m-0 mt-1 text-sm leading-6;
   color: var(--ct-text-secondary);
-}
-
-.ct-audio-metric-chip {
-  @apply inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold;
-  border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(245, 245, 245, 0.9);
-  background: rgba(12, 12, 12, 0.64);
 }
 
 /* ==========================================================================
@@ -524,25 +466,4 @@
   color: var(--ct-text-muted);
 }
 
-/* Which noise-suppression path is actually running: RNNoise, the browser
-   fallback, or nothing yet. */
-.ct-ns-mode-badge {
-  @apply flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-micro font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: var(--ct-alpha-02);
-}
-
-.ct-ns-mode-dot {
-  @apply h-1.5 w-1.5 shrink-0 rounded-full;
-  background: var(--ct-alpha-32);
-}
-
-.ct-ns-mode-badge--processor .ct-ns-mode-dot {
-  background: var(--ct-success);
-  box-shadow: 0 0 6px var(--ct-success);
-}
-
-.ct-ns-mode-badge--browser .ct-ns-mode-dot {
-  background: var(--ct-warning);
-}
+/* .ct-ns-mode-badge lives in features/rnnoise/styles.css (single source). */

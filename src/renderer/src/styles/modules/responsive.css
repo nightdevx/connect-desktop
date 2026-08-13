@@ -1,19 +1,33 @@
-@media (max-width: 980px) {
+/* ==========================================================================
+   RESPONSIVE
+
+   Two breakpoints, not three. The window's own minimum is 720x480
+   (src/main/index.ts), so both of these are reachable in the real app:
+
+     <= 900px   the sidebar stops being a third column and stacks above the
+                main panel; the lobby chat becomes an overlay drawer
+     <= 760px   the rail turns horizontal and everything is one column
+
+   Anything laid out with auto-fit/minmax -- the stat grid, the settings
+   grids, the admin key/value grids -- reflows on its own and is not repeated
+   here.
+   ========================================================================== */
+
+@media (max-width: 900px) {
   /* The version string is the first thing worth dropping when the titlebar
      runs out of room -- it is also in Settings > Application. */
   .ct-titlebar-version {
     @apply hidden;
   }
-}
 
-@media (max-width: 900px) {
   .ct-workspace-shell {
-    @apply grid-rows-[auto_auto];
+    @apply grid-rows-[auto_minmax(0,1fr)];
     grid-template-columns: var(--ct-rail-width) minmax(0, 1fr);
   }
 
   .ct-sidebar {
-    @apply col-start-2 col-end-3 row-start-1 row-end-2 border-r-0 border-b;
+    @apply col-start-2 col-end-3 row-start-1 row-end-2 border-b border-r-0;
+    max-height: 45vh;
   }
 
   .ct-main-panel {
@@ -31,19 +45,33 @@
     flex-direction: row;
     flex-shrink: 0;
     overflow-x: auto;
-    border-right: 0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ct-border);
+  }
+
+  .ct-admin-sidebar-header {
+    @apply hidden;
   }
 
   .ct-admin-sidebar-nav {
-    flex-direction: row;
+    @apply flex-row;
+  }
+
+  .ct-admin-nav-item {
+    @apply shrink-0;
+  }
+
+  /* A 350px chat drawer beside the call stage leaves too little for the
+     video at this width. */
+  .ct-call-chat-drawer {
+    width: min(60vw, 300px);
   }
 
   .ct-lobby-room-grid-v2,
   .ct-lobby-room-grid-v2.chat-closed {
     grid-template-columns: minmax(0, 1fr);
-    border-radius: 14px;
+    border-radius: var(--ct-radius-lg);
   }
 
   .ct-lobby-stage-panel {
@@ -52,15 +80,16 @@
 
   .ct-lobby-stage-grid {
     --ct-stage-max-width: 100%;
+    max-width: none;
     max-height: 100%;
     padding: var(--ct-stage-clear-top) 10px var(--ct-stage-clear-bottom);
-    max-width: none;
   }
 
   .ct-lobby-stage-grid.focused-layout {
     grid-template-rows: auto auto;
-    padding: var(--ct-stage-clear-top) 10px calc(var(--ct-stage-clear-bottom) + 14px);
     gap: 10px;
+    padding: var(--ct-stage-clear-top) 10px
+      calc(var(--ct-stage-clear-bottom) + 14px);
   }
 
   .ct-lobby-focused-slot {
@@ -73,78 +102,81 @@
     padding: 2px 2px 8px;
   }
 
-  .ct-lobby-participant-tile.compact {
-    flex-basis: clamp(156px, 42vw, 220px);
-    width: clamp(156px, 42vw, 220px);
-  }
-
   .ct-lobby-participant-tile {
     width: 100%;
     max-width: none;
     min-height: 0;
-    aspect-ratio: 16 / 9;
     height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .ct-lobby-participant-tile.compact {
+    flex-basis: clamp(156px, 42vw, 220px);
+    width: clamp(156px, 42vw, 220px);
   }
 
   .ct-screen-share-grid {
     grid-template-columns: 1fr;
   }
 
+  /* Lobby chat slides in over the stage instead of taking a column.
+     These used to target .ct-lobby-chat-drawer and .ct-lobby-chat-backdrop,
+     neither of which the panel renders any more -- so the slot was left as a
+     full-screen fixed box with nothing to slide, and the chat covered the
+     whole window at this width. The slot is the drawer. */
   .ct-lobby-chat-slot {
     position: fixed;
-    inset: 0;
-    z-index: 40;
-    border-left: 0;
-    background: transparent;
-    pointer-events: none;
-  }
-
-  .ct-lobby-chat-backdrop {
-    display: block;
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgba(0, 0, 0, 0.62);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  .ct-lobby-chat-drawer {
-    position: absolute;
     right: 0;
-    top: 0;
+    top: var(--ct-titlebar-height);
     bottom: 0;
+    left: auto;
+    z-index: 40;
     width: min(94vw, 380px);
-    background: rgba(12, 12, 12, 0.94);
     border-left: 1px solid var(--ct-border);
+    background: rgba(12, 12, 12, 0.96);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--ct-shadow-lg);
     transform: translateX(100%);
-    transition: transform 0.2s ease;
+    transition: transform var(--ct-duration-base) var(--ct-ease-spring);
+    pointer-events: none;
   }
 
   .ct-lobby-chat-slot.open {
-    pointer-events: auto;
-  }
-
-  .ct-lobby-chat-slot.open .ct-lobby-chat-backdrop {
-    opacity: 1;
-  }
-
-  .ct-lobby-chat-slot.open .ct-lobby-chat-drawer {
     transform: translateX(0);
-  }
-
-  .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
-    pointer-events: none;
+    pointer-events: auto;
   }
 }
 
 @media (max-width: 760px) {
   .ct-workspace-shell {
-    @apply grid-cols-1;
+    @apply grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)];
   }
 
+  /* The rail lies down: items keep their icon-over-label stack but size to
+     their content instead of filling a column, and the active indicator moves
+     from the left edge to the pill itself. */
   .ct-rail {
-    @apply flex-row justify-start border-r-0 border-b;
+    @apply w-full flex-row items-center justify-start gap-1 overflow-x-auto border-b border-r-0 px-2 py-1.5;
+  }
+
+  .ct-rail-items {
+    @apply flex-row gap-1;
+  }
+
+  .ct-rail-item {
+    @apply shrink-0;
+  }
+
+  .ct-rail-button {
+    @apply w-auto flex-row gap-2 px-3 py-2;
+  }
+
+  .ct-rail-indicator {
+    display: none;
+  }
+
+  .ct-rail-spacer {
+    @apply ml-auto mt-0;
   }
 
   .ct-sidebar,
@@ -161,6 +193,10 @@
     @apply flex-col items-start;
   }
 
+  .ct-settings-section-header {
+    @apply flex-col items-start;
+  }
+
   .ct-audio-details-grid {
     @apply grid-cols-1;
   }
@@ -170,18 +206,28 @@
     right: -4px;
   }
 
+  /* Below this width the stage has no room to share with a drawer. */
+  .ct-call-chat-drawer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(94vw, 320px);
+  }
+
   .ct-lobby-stage-grid {
     padding: var(--ct-stage-clear-top) 8px var(--ct-stage-clear-bottom);
   }
 
   .ct-lobby-stage-grid.focused-layout {
-    padding: var(--ct-stage-clear-top) 8px calc(var(--ct-stage-clear-bottom) + 12px);
     gap: 8px;
+    padding: var(--ct-stage-clear-top) 8px
+      calc(var(--ct-stage-clear-bottom) + 12px);
   }
 
   .ct-lobby-inline-volume-value {
     width: 38px;
-    font-size: 11px;
   }
 
   .ct-lobby-stage-actions {
@@ -189,11 +235,12 @@
     gap: 8px;
   }
 
-  .ct-lobby-stage-icon-action {
-    @apply h-10 w-10;
+  .ct-lobby-action-btn {
+    @apply h-control-md w-control-md;
+    font-size: var(--ct-icon-md);
   }
 
-  .ct-lobby-tile-footer {
-    @apply px-3 py-2.5;
+  .ct-chat-bubble {
+    max-width: 92%;
   }
 }

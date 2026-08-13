@@ -237,17 +237,6 @@
   color: var(--ct-text-primary);
 }
 
-.ct-settings-audio-meter {
-  @apply mt-2 h-2 w-full overflow-hidden rounded-full;
-  background: var(--ct-alpha-08);
-}
-
-.ct-settings-audio-meter-fill {
-  @apply h-full rounded-full;
-  background: var(--ct-accent);
-  transition: width 0.12s linear;
-}
-
 .ct-settings-volume-grid {
   @apply grid gap-4;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

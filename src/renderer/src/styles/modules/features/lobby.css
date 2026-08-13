@@ -203,21 +203,8 @@
   background: rgba(24, 24, 24, 0.85);
 }
 
-.ct-lobby-room-header {
-  @apply mb-3 border-b pb-3;
-  border-color: var(--ct-border);
-}
-
-.ct-lobby-room-header h3 {
-  @apply m-0 text-base font-semibold;
-}
-
-.ct-lobby-room-header p {
-  @apply m-0 mt-1 text-xs;
-  color: var(--ct-text-muted);
-}
-
 .ct-lobby-room-grid-v2 {
+  @apply grid h-full min-h-0 flex-1;
   grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px);
   gap: 0;
   border: 1px solid var(--ct-border);
@@ -358,10 +345,6 @@
 /* A narrow tile shrinks its own furniture. The antd Avatar sizes itself
    inline, so that one rule still needs to win. */
 @container participant-tile (max-width: 250px) {
-  .ct-lobby-tile-avatar {
-    width: 44px;
-    height: 44px;
-  }
   .ct-lobby-tile-center-logo .ant-avatar {
     width: 44px !important;
     height: 44px !important;
@@ -572,12 +555,6 @@
   transition: opacity 0.2s ease;
 }
 
-.ct-lobby-tile-avatar {
-  @apply h-avatar-lg w-avatar-lg rounded-full border object-cover;
-  border-color: var(--ct-alpha-20);
-  box-shadow: var(--ct-shadow-md);
-}
-
 .ct-lobby-avatar-container.ant-avatar {
   border: 1.5px solid var(--ct-alpha-12);
   background: var(--ct-surface-4);
@@ -622,56 +599,6 @@
   aspect-ratio: 16 / 9;
 }
 
-.ct-lobby-inline-audio-controls-premium {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
-  background: rgba(8, 8, 8, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 10;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(8px);
-  transition:
-    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ct-lobby-participant-tile:hover .ct-lobby-inline-audio-controls-premium,
-.ct-lobby-participant-tile.selected .ct-lobby-inline-audio-controls-premium {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-/* Ant Design sizes its own Button, and these are antd Buttons, so the size
-   rules do need to win. Everything else here does not. */
-.ct-lobby-inline-mute-btn.ant-btn {
-  @apply inline-flex shrink-0 cursor-pointer items-center justify-center rounded-sm border-0;
-  width: var(--ct-control-xs) !important;
-  height: var(--ct-control-xs) !important;
-  min-width: var(--ct-control-xs) !important;
-  padding: 0 !important;
-  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
-}
-
-.ct-lobby-inline-mute-btn:active {
-  transform: scale(0.9);
-}
-
-.ct-lobby-inline-volume-value {
-  @apply text-right text-xs font-semibold tabular-nums;
-  color: var(--ct-text-primary);
-}
-
 .ct-lobby-stage-actions {
   @apply absolute inline-flex items-center justify-center gap-3 rounded-lg border px-4 py-2.5;
   bottom: 24px;
@@ -691,39 +618,6 @@
 .ct-lobby-room-card:hover .ct-lobby-stage-actions,
 .ct-lobby-stage-actions:focus-within {
   opacity: 1;
-}
-
-.ct-lobby-stage-icon-action {
-  @apply inline-flex h-control-md w-control-md items-center justify-center rounded-full border;
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-secondary);
-  background: rgba(14, 14, 14, 0.76);
-  font-size: var(--ct-icon-sm);
-  backdrop-filter: blur(6px);
-  transition: all var(--ct-duration-fast) ease;
-}
-
-.ct-lobby-stage-icon-action:hover:not(:disabled) {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: rgba(24, 24, 24, 0.82);
-}
-
-.ct-lobby-stage-icon-action.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-lobby-stage-icon-action.danger {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.ct-lobby-stage-icon-action:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .ct-lobby-tile-userline {
@@ -782,17 +676,6 @@
   background: var(--ct-accent-soft);
 }
 
-.ct-lobby-members-panel {
-  @apply min-h-0 overflow-y-auto rounded-xl border p-3;
-  border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.35);
-}
-
-.ct-lobby-members-panel h4 {
-  @apply mb-2 mt-0 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.08em];
-  color: var(--ct-text-secondary);
-}
-
 /* The primary in-call controls: control-lg with its paired icon-lg. */
 .ct-lobby-action-btn {
   @apply inline-flex h-control-lg w-control-lg cursor-pointer items-center justify-center rounded-md border p-0;
@@ -837,149 +720,6 @@
   cursor: not-allowed;
 }
 
-.ct-participant-audio-panel {
-  position: absolute;
-  left: 12px;
-  bottom: 52px;
-  z-index: 40;
-  width: 260px;
-  @apply rounded-2xl border p-3;
-  border-color: rgba(255, 255, 255, 0.28);
-  background:
-    radial-gradient(
-      circle at 0% 0%,
-      rgba(255, 255, 255, 0.02),
-      transparent 55%
-    ),
-    rgba(12, 12, 12, 0.94);
-  backdrop-filter: blur(14px);
-  box-shadow:
-    0 20px 44px rgba(0, 0, 0, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  animation: fadeSlideIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ct-pap-header {
-  @apply mb-2.5 flex items-center justify-between gap-2;
-}
-
-.ct-pap-identity {
-  @apply flex min-w-0 flex-col gap-0.5;
-}
-
-.ct-pap-username {
-  @apply truncate text-sm font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-pap-status {
-  @apply inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em];
-  border: 1px solid transparent;
-}
-
-.ct-pap-status.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-pap-status.muted {
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--ct-text-muted);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.ct-pap-close {
-  @apply inline-flex h-control-xs w-control-xs shrink-0 items-center justify-center rounded-sm border;
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: var(--ct-alpha-04);
-  font-size: var(--ct-icon-xs);
-  transition: all var(--ct-duration-fast) ease;
-}
-
-.ct-pap-close:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-}
-
-.ct-pap-volume-row {
-  @apply mb-2 flex items-center gap-2;
-}
-
-.ct-pap-vol-icon {
-  @apply shrink-0;
-  color: var(--ct-text-muted);
-}
-
-.ct-pap-slider {
-  @apply h-1.5 flex-1 cursor-pointer rounded-full;
-  accent-color: var(--ct-accent);
-}
-
-.ct-pap-slider:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.ct-pap-vol-value {
-  @apply shrink-0 w-10 text-right text-xs font-semibold tabular-nums;
-  color: var(--ct-text-primary);
-}
-
-.ct-pap-presets {
-  @apply mb-2.5 flex gap-1;
-}
-
-.ct-pap-preset {
-  @apply flex-1 rounded-md py-1 text-[10px] font-semibold;
-  border: 1px solid var(--ct-border);
-  color: var(--ct-text-muted);
-  background: rgba(10, 10, 10, 0.55);
-  transition: all 0.15s ease;
-}
-
-.ct-pap-preset:hover {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-}
-
-.ct-pap-preset.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-pap-actions {
-  @apply grid grid-cols-2 gap-1.5;
-}
-
-.ct-pap-btn {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(14, 14, 14, 0.72);
-  transition: all 0.15s ease;
-}
-
-.ct-pap-btn:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: rgba(24, 24, 24, 0.82);
-}
-
-.ct-pap-btn--warn {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.ct-pap-btn--warn:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.16);
-}
-
 .ct-lobby-chat-slot {
   @apply relative min-h-0 h-full;
   border-left: 1px solid var(--ct-border);
@@ -990,39 +730,9 @@
     background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.ct-lobby-chat-backdrop {
-  display: none;
-}
-
-.ct-lobby-chat-drawer {
-  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)];
-  opacity: 1;
-  transform: translateX(0);
-  transition:
-    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ct-lobby-chat-drawer-header {
-  @apply flex items-center justify-between border-b px-3 py-2;
-  border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.74);
-}
-
-.ct-lobby-chat-drawer-header p {
-  @apply m-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em];
-  color: var(--ct-text-secondary);
-}
-
 .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
   border-left-color: transparent;
   background: transparent;
-}
-
-.ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-drawer {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(100%);
 }
 
 .ct-lobby-chat-panel {
@@ -1063,52 +773,9 @@
   margin-inline-end: 8px;
 }
 
-.ct-participant-context-menu-state-row {
-  @apply flex items-center justify-between px-1;
-}
-
-.ct-participant-context-menu-state {
-  @apply inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em];
-}
-
-.ct-participant-context-menu-state.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-participant-context-menu-state.muted {
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--ct-text-muted);
-  background: rgba(255, 255, 255, 0.06);
-}
-
 .ct-participant-context-menu-hint {
   @apply py-1 text-micro font-medium uppercase tracking-[0.08em];
   color: var(--ct-alpha-50);
-}
-
-.ct-participant-context-menu-actions {
-  @apply grid grid-cols-2 gap-1;
-}
-
-.ct-participant-context-menu-button {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(16, 16, 16, 0.78);
-}
-
-.ct-participant-context-menu-button:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: rgba(24, 24, 24, 0.85);
-}
-
-.ct-participant-context-menu-button.active {
-  border-color: rgba(255, 255, 255, 0.26);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .ct-participant-context-menu-volume {
@@ -1117,72 +784,9 @@
   background: rgba(18, 18, 18, 0.4);
 }
 
-.ct-participant-context-menu-volume-line {
-  @apply flex items-center justify-between gap-2;
-}
-
-.ct-participant-context-menu-volume-line span {
-  @apply text-xs font-medium;
-  color: var(--ct-text-secondary);
-}
-
-.ct-participant-context-menu-volume-line strong {
-  @apply text-sm font-semibold;
-  color: var(--ct-text-primary);
-}
-
 .ct-participant-context-menu-volume input[type="range"] {
   @apply h-1.5 w-full cursor-pointer;
   accent-color: var(--ct-accent);
-}
-
-.ct-participant-context-menu-stepper {
-  @apply grid grid-cols-2 gap-1;
-}
-
-.ct-participant-context-menu-stepper button {
-  @apply rounded-md border px-2 py-1 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(11, 16, 32, 0.58);
-}
-
-.ct-participant-context-menu-stepper button:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: rgba(30, 41, 59, 0.8);
-}
-
-.ct-participant-context-menu-scale {
-  @apply flex items-center justify-between px-0.5;
-}
-
-.ct-participant-context-menu-scale span {
-  @apply text-[10px] font-semibold;
-  color: rgba(148, 163, 184, 0.9);
-}
-
-.ct-participant-context-menu-presets {
-  @apply mt-1 grid grid-cols-5 gap-1;
-}
-
-.ct-participant-context-menu-presets button {
-  @apply rounded-md border px-2 py-1 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(18, 18, 18, 0.58);
-}
-
-.ct-participant-context-menu-presets button:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: rgba(30, 30, 30, 0.8);
-}
-
-.ct-participant-context-menu-presets button.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
 }
 
 /* Direct Message Call Panel Overrides */

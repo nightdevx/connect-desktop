@@ -404,7 +404,7 @@ export function SettingsProfile({
               hidden
             />
 
-            <div>
+            <div className="ct-settings-profile-avatar-buttons">
               <Button
                 type="text"
                 icon={<UploadOutlined />}

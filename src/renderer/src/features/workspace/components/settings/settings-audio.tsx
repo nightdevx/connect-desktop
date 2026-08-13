@@ -633,15 +633,12 @@ export function SettingsAudio({
           >
             Mikrofon Seviyesi
           </span>
-          <div >
-            <Progress
-              percent={micLevelPercent}
-              showInfo={false}
-              strokeColor="#ffffff"
-              trailColor="rgba(255,255,255,0.08)"
-             
-            />
-          </div>
+          <Progress
+            percent={micLevelPercent}
+            showInfo={false}
+            strokeColor="#ffffff"
+            trailColor="rgba(255,255,255,0.08)"
+          />
           <strong
             className="ct-metric-value"
           >

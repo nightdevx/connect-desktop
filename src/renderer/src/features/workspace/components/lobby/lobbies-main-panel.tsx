@@ -331,7 +331,7 @@ export function LobbiesMainPanel({
       <article
         className={`ct-content-card ct-lobby-room-card connected ct-lobby-main-layer room ${activeLobbyId ? "" : "hidden-layer"}`}
       >
-        <div className={`ct-lobby-room-grid ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}>
+        <div className={`ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}>
           <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
             <button
               type="button"
