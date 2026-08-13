@@ -3,23 +3,68 @@
 color: var(--ct-text-secondary);
 }
 
+/* Matches Ant Design's controlHeight so a bare <input class="ct-input"> and an
+   <Input /> can sit in the same form without a height step between them. */
 .ct-input {
-@apply min-h-11 rounded-xl border px-3.5 text-sm outline-none;
+@apply h-control-md w-full rounded-md border px-3 text-sm outline-none;
 border-color: var(--ct-border);
 background: var(--ct-surface-1);
 color: var(--ct-text-primary);
-transition: all 0.2s ease;
+transition: all var(--ct-duration-base) ease;
 }
 
 .ct-input::placeholder {
 color: var(--ct-text-muted);
 }
 
+.ct-input:hover {
+border-color: var(--ct-alpha-20);
+}
+
 .ct-input:focus {
 border-color: var(--ct-accent);
-box-shadow:
-  0 0 0 3px rgba(255, 255, 255, 0.2),
-  0 0 12px rgba(255, 255, 255, 0.12);
+outline: none;
+}
+
+/* ==========================================================================
+   FORM PRIMITIVES
+   ========================================================================== */
+
+.ct-modal-form {
+@apply flex flex-col gap-4;
+}
+
+.ct-field {
+@apply flex flex-col gap-1.5;
+}
+
+.ct-field > span {
+@apply text-xs font-semibold;
+color: var(--ct-text-secondary);
+}
+
+.ct-field-hint {
+@apply text-2xs;
+color: var(--ct-text-muted);
+}
+
+.ct-field-inline-toggle {
+@apply mt-1 inline-flex items-center gap-2 text-xs;
+color: var(--ct-text-secondary);
+}
+
+.ct-field-row {
+@apply flex items-center justify-between gap-4;
+}
+
+.ct-field-row-text strong {
+@apply block text-sm font-semibold;
+color: var(--ct-text-primary);
+}
+
+.ct-field-row-text span {
+@apply block text-2xs;
+color: var(--ct-text-muted);
 }
 
 /* Single definition. The !important beats Ant Design's own Button palette --

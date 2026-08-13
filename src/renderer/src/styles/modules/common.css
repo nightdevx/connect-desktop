@@ -258,17 +258,58 @@
   background: rgba(12, 12, 12, 0.64);
 }
 
+/* ==========================================================================
+   MODAL
+   One look for every Ant Design modal in the app. Applied with
+   rootClassName="ct-modal" so the mask is in scope too.
+   ========================================================================== */
+
+.ct-modal .ant-modal-content {
+  border: 1px solid var(--ct-border);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-2);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ct-modal .ant-modal-mask {
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.ct-modal .ant-modal-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ct-border);
+  background: transparent;
+}
+
+.ct-modal .ant-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ct-text-primary);
+}
+
+.ct-modal .ant-modal-footer {
+  margin-top: 20px;
+}
+
+/* ==========================================================================
+   AUDIO CONNECTION POPOVER
+   ========================================================================== */
+
 .ct-audio-popover {
-  @apply absolute left-0 right-0 z-40 rounded-xl border p-3;
+  @apply absolute z-40 flex flex-col gap-3 rounded-lg border p-4;
+  left: 0;
+  right: 0;
   bottom: calc(100% + 10px);
-  border-color: var(--ct-border-strong);
-  background: rgba(12, 12, 12, 0.97);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
-  animation: fadeSlideIn 0.16s ease;
+  border-color: var(--ct-border);
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(24px);
+  box-shadow: var(--ct-shadow-lg);
 }
 
 .ct-audio-popover-header {
-  @apply mb-2 flex items-center justify-between gap-2;
+  @apply flex items-center justify-between gap-2;
 }
 
 .ct-audio-popover-header h4 {
@@ -276,17 +317,94 @@
   color: var(--ct-text-primary);
 }
 
+.ct-audio-popover-status {
+  @apply flex items-center gap-2 text-2xs font-medium;
+  color: var(--ct-text-secondary);
+}
+
+.ct-audio-popover-status::before {
+  content: "";
+  @apply h-2 w-2 shrink-0 rounded-full;
+  background: var(--ct-alpha-32);
+}
+
+.ct-audio-popover-status.ok::before {
+  background: var(--ct-success);
+  box-shadow: 0 0 8px var(--ct-success);
+}
+
+.ct-audio-popover-status.warn::before {
+  background: var(--ct-warning);
+  box-shadow: 0 0 8px var(--ct-warning);
+}
+
+.ct-audio-popover-status.error::before {
+  background: var(--ct-danger);
+  box-shadow: 0 0 8px var(--ct-danger);
+}
+
 .ct-audio-details-grid {
   @apply grid grid-cols-2 gap-2;
 }
 
-.ct-audio-details-grid .ct-detail-item {
-  @apply rounded-lg border px-2 py-2 text-xs;
+.ct-metric-tile {
+  @apply flex flex-col gap-0.5 rounded-sm border px-2 py-2;
   border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(18, 18, 18, 0.72);
+  background: var(--ct-alpha-02);
+}
+
+.ct-metric-tile span {
+  @apply flex items-center gap-1 text-micro;
+  color: var(--ct-text-muted);
+}
+
+.ct-metric-tile strong {
+  @apply text-xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-metric-tile strong.alarm {
+  color: var(--ct-danger);
 }
 
 .ct-audio-popover-actions {
-  @apply mt-2;
+  @apply flex flex-col gap-2 border-t pt-3;
+  border-color: var(--ct-border);
+}
+
+.ct-audio-toggle-row {
+  @apply flex items-center justify-between gap-3;
+}
+
+.ct-audio-toggle-row strong {
+  @apply block text-xs font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-audio-toggle-row span {
+  @apply block text-micro;
+  color: var(--ct-text-muted);
+}
+
+/* Which noise-suppression path is actually running: RNNoise, the browser
+   fallback, or nothing yet. */
+.ct-ns-mode-badge {
+  @apply flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-micro font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-02);
+}
+
+.ct-ns-mode-dot {
+  @apply h-1.5 w-1.5 shrink-0 rounded-full;
+  background: var(--ct-alpha-32);
+}
+
+.ct-ns-mode-badge--processor .ct-ns-mode-dot {
+  background: var(--ct-success);
+  box-shadow: 0 0 6px var(--ct-success);
+}
+
+.ct-ns-mode-badge--browser .ct-ns-mode-dot {
+  background: var(--ct-warning);
 }

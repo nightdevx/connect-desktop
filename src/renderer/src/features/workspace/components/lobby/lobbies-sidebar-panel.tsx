@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dropdown, Modal, Input, Button, Avatar, Switch, Select, message } from "antd";
+import { Dropdown, Modal, Input, Avatar, Switch, Select, message } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -412,129 +412,68 @@ export function LobbiesSidebarPanel({
       </ul>
 
       <Modal
-        title={
-          <span style={{ color: "#ffffff", fontWeight: "bold" }}>
-            Lobi Ayarları
-          </span>
-        }
+        rootClassName="ct-modal"
+        title="Lobi Ayarları"
         open={editingLobby !== null}
         onOk={handleUpdateSubmit}
         onCancel={() => setEditingLobby(null)}
         okText="Kaydet"
         cancelText="İptal"
+        destroyOnHidden
         okButtonProps={{
           disabled: editLobbyName.trim().length < 2,
-          loading: renamingLobbyId !== null && editingLobby !== null && renamingLobbyId === editingLobby.id,
-          style: { background: "#ffffff", color: "#000000", fontWeight: "600" },
-        }}
-        cancelButtonProps={{
-          style: {
-            background: "transparent",
-            borderColor: "rgba(255,255,255,0.15)",
-            color: "#ffffff",
-          },
-        }}
-        styles={{
-          mask: {
-            backdropFilter: "blur(6px)",
-            background: "rgba(0, 0, 0, 0.6)",
-          },
-          body: {
-            background: "transparent",
-            color: "#f5f5f5",
-          },
-          header: {
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-            paddingBottom: "12px",
-          },
+          loading:
+            renamingLobbyId !== null &&
+            editingLobby !== null &&
+            renamingLobbyId === editingLobby.id,
         }}
       >
-        <div style={{ padding: "20px 0" }}>
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              className="ct-label"
-              htmlFor="edit-lobby-name"
-              style={{
-                display: "block",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.45)",
-                marginBottom: "8px",
-              }}
-            >
-              Lobi Adı
-            </label>
+        <div className="ct-modal-form">
+          <label className="ct-field" htmlFor="edit-lobby-name">
+            <span>Lobi Adı</span>
             <Input
               id="edit-lobby-name"
               value={editLobbyName}
               onChange={(event) => setEditLobbyName(event.target.value)}
               minLength={2}
               maxLength={64}
-              disabled={editingLobby !== null && renamingLobbyId === editingLobby.id}
+              disabled={
+                editingLobby !== null && renamingLobbyId === editingLobby.id
+              }
               autoFocus
-              style={{
-                background: "rgba(20, 20, 20, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
-          </div>
+          </label>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Özel Lobi (Kilitli)</label>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sadece davet edilen kullanıcılar katılabilir.</span>
+          <div className="ct-field-row">
+            <div className="ct-field-row-text">
+              <strong>Özel Lobi (Kilitli)</strong>
+              <span>Sadece davet edilen kullanıcılar katılabilir.</span>
             </div>
-            <Switch
-              checked={editIsLocked}
-              onChange={(checked) => setEditIsLocked(checked)}
-              style={{
-                background: editIsLocked ? "#a855f7" : "rgba(255,255,255,0.15)"
-              }}
-            />
+            <Switch checked={editIsLocked} onChange={setEditIsLocked} />
           </div>
 
           {editIsLocked && (
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                className="ct-label"
-                style={{
-                  display: "block",
-                  fontSize: "12px",
-                  color: "rgba(255,255,255,0.45)",
-                  marginBottom: "8px",
-                }}
-              >
-                Erişimi Olan Kullanıcılar (Katılabilecekler)
-              </label>
+            <label className="ct-field">
+              <span>Erişimi Olan Kullanıcılar</span>
               <Select
                 mode="multiple"
                 placeholder="Kullanıcı seçin..."
                 value={editAllowedUsers}
-                onChange={(value) => setEditAllowedUsers(value)}
-                style={{ width: "100%" }}
-                dropdownStyle={{ background: "#1f1f1f", border: "1px solid rgba(255,255,255,0.08)" }}
+                onChange={setEditAllowedUsers}
                 options={allUsers
-                  .filter(u => u.id !== currentUserId && u.id !== SEED_ADMIN_ID)
-                  .map(u => ({ label: `@${u.username} (${u.displayName})`, value: u.id }))
-                }
+                  .filter(
+                    (u) => u.id !== currentUserId && u.id !== SEED_ADMIN_ID,
+                  )
+                  .map((u) => ({
+                    label: `@${u.username} (${u.displayName})`,
+                    value: u.id,
+                  }))}
               />
-            </div>
+            </label>
           )}
 
-          <div style={{ marginTop: "16px" }}>
-            <label
-              className="ct-label"
-              style={{
-                display: "block",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.45)",
-                marginBottom: "8px",
-              }}
-            >
-              Oda Şifresi
-            </label>
+          <label className="ct-field">
+            <span>Oda Şifresi</span>
             <Input.Password
               placeholder={
                 editingLobby?.hasPassword
@@ -545,31 +484,18 @@ export function LobbiesSidebarPanel({
               onChange={(event) => setEditPassword(event.target.value)}
               disabled={editRemovePassword}
               maxLength={128}
-              style={{
-                background: "rgba(20, 20, 20, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-              }}
             />
             {editingLobby?.hasPassword && (
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginTop: "10px",
-                  fontSize: "12px",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-              >
+              <span className="ct-field-inline-toggle">
                 <Switch
                   size="small"
                   checked={editRemovePassword}
-                  onChange={(checked) => setEditRemovePassword(checked)}
+                  onChange={setEditRemovePassword}
                 />
                 Şifreyi kaldır
-              </label>
+              </span>
             )}
-          </div>
+          </label>
         </div>
       </Modal>
 
