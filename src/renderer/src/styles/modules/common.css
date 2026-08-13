@@ -234,10 +234,11 @@
 }
 
 .ct-user-popup-close {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border;
+  @apply inline-flex h-control-sm w-control-sm items-center justify-center rounded-md border;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.8);
+  background: var(--ct-alpha-04);
+  font-size: var(--ct-icon-sm);
 }
 
 .ct-user-popup-close:hover {

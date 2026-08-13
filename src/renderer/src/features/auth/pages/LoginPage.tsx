@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
-import { User, Lock, Mail } from "lucide-react";
+import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
 import type { LoginRequest } from "../../../../../shared/auth-contracts";
 
 const mutedIconStyle = { color: "#6b6b6b" };
@@ -91,7 +91,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               size="large"
               placeholder="örnek@mail.com"
               className="ct-input-premium"
-              prefix={<Mail size={16} style={mutedIconStyle} />}
+              prefix={<MailOutlined style={mutedIconStyle} />}
               autoComplete="email"
               autoFocus
             />
@@ -161,7 +161,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
                 size="large"
                 placeholder="örnek@mail.com"
                 className="ct-input-premium"
-                prefix={<Mail size={16} style={mutedIconStyle} />}
+                prefix={<MailOutlined style={mutedIconStyle} />}
                 autoComplete="email"
                 autoFocus
               />
@@ -200,7 +200,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               size="large"
               placeholder="Yeni şifreniz"
               className="ct-input-premium"
-              prefix={<Lock size={16} style={mutedIconStyle} />}
+              prefix={<LockOutlined style={mutedIconStyle} />}
               autoComplete="new-password"
             />
           </Form.Item>
@@ -264,7 +264,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             size="large"
             placeholder="Kullanıcı adınız"
             className="ct-input-premium"
-            prefix={<User size={16} style={mutedIconStyle} />}
+            prefix={<UserOutlined style={mutedIconStyle} />}
             autoComplete="username"
             autoFocus
             spellCheck={false}
@@ -314,7 +314,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             size="large"
             placeholder="Şifreniz"
             className="ct-input-premium"
-            prefix={<Lock size={16} style={mutedIconStyle} />}
+            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="current-password"
           />
         </Form.Item>

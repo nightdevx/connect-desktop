@@ -171,19 +171,21 @@
     @apply mt-1 flex items-center justify-between gap-2;
   }
 
+  /* A 20px hit target was below the point where a pointer reliably lands on
+     it; control-xs is the smallest size on the scale and still comfortable. */
   .ct-chat-message-delete {
-    @apply inline-flex h-5 w-5 items-center justify-center rounded-md border;
-    border-color: rgba(255, 255, 255, 0.25);
-    color: var(--ct-text-secondary);
-    background: rgba(255, 255, 255, 0.08);
-    opacity: 0.85;
+    @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
+    border-color: transparent;
+    color: var(--ct-text-muted);
+    background: transparent;
+    font-size: var(--ct-icon-xs);
+    transition: all var(--ct-duration-fast) ease;
   }
 
   .ct-chat-message-delete:hover:not(:disabled) {
-    border-color: rgba(255, 255, 255, 0.45);
+    border-color: var(--ct-border-strong);
     color: var(--ct-text-primary);
-    background: rgba(255, 255, 255, 0.16);
-    opacity: 1;
+    background: var(--ct-alpha-12);
   }
 
   .ct-chat-message-delete:disabled {
@@ -202,12 +204,13 @@
   }
 
   .ct-chat-send-icon {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-xl border;
+    @apply inline-flex h-control-md w-control-md items-center justify-center rounded-md border;
     border-color: var(--ct-accent-strong);
-    color: #0b0b0b;
+    color: var(--ct-text-inverse);
     background: var(--ct-accent);
-    box-shadow: 0 6px 18px var(--ct-accent-glow);
-    transition: all 0.2s ease;
+    font-size: var(--ct-icon-sm);
+    box-shadow: var(--ct-shadow-glow);
+    transition: all var(--ct-duration-base) ease;
   }
 
   .ct-chat-send-icon:hover:not(:disabled) {

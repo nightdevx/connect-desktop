@@ -77,11 +77,23 @@ box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
 box-shadow: 0 8px 22px rgba(255, 255, 255, 0.22);
 }
 
+/* --------------------------------------------------------------------------
+   Control sizing
+
+   Four sizes, and the icon inside each is fixed to its pair. There used to be
+   seven button sizes -- 24, 28, 32, 36, 40, 48 and 54px -- each pairing with a
+   different icon size, so two buttons sitting in the same row carried
+   different optical weight.
+
+     xs 24 / icon 14    sm 32 / icon 16    md 40 / icon 18    lg 48 / icon 20
+   -------------------------------------------------------------------------- */
+
 .ct-icon-button {
-@apply grid h-10 w-10 place-items-center rounded-lg border;
+@apply grid h-control-md w-control-md place-items-center rounded-md border;
 border-color: var(--ct-border);
 color: var(--ct-text-secondary);
-background: rgba(20, 20, 20, 0.85);
+background: var(--ct-alpha-04);
+font-size: var(--ct-icon-sm);
 }
 
 .ct-icon-button:hover:not(:disabled) {

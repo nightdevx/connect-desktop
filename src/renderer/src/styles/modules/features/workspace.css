@@ -323,43 +323,35 @@
 }
 
 .ct-quick-icon-button {
-  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border;
-  border-color: rgba(255, 255, 255, 0.05);
+  @apply inline-flex h-control-md w-control-md items-center justify-center rounded-md border;
+  border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--ct-alpha-02);
+  font-size: var(--ct-icon-sm);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-quick-icon-button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.06) translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+  background: var(--ct-alpha-08);
 }
 
 .ct-quick-icon-button:active:not(:disabled) {
-  transform: scale(0.92) translateY(0);
+  transform: scale(0.94);
 }
 
 .ct-quick-icon-button.active {
-  border-color: #ffffff;
-  color: #000000;
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
-}
-
-.ct-quick-icon-button.danger {
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
 
 .ct-quick-icon-button.danger:hover:not(:disabled) {
   border-color: rgba(239, 68, 68, 0.3);
   color: #ffffff;
-  background: #ef4444;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  background: var(--ct-danger);
 }
 
 .ct-quick-icon-button:disabled {

@@ -1,7 +1,7 @@
 {
   "packageManager": "pnpm@11.15.1",
   "name": "connect-desktop",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -71,7 +71,6 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "husky": "^9.1.7",
     "livekit-client": "^2.18.0",
-    "lucide-react": "^1.7.0",
     "node-addon-api": "^8.0.0",
     "postcss": "^8.5.8",
     "postcss-import": "^16.1.1",

@@ -1,12 +1,11 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-} from "react";
 import { Tooltip } from "antd";
-import { Headphones, Mic, PlugZap } from "lucide-react";
+import {
+  AudioMutedOutlined,
+  AudioOutlined,
+  CustomerServiceOutlined,
+  DisconnectOutlined,
+  MutedOutlined,
+} from "@ant-design/icons";
 import { getDisplayInitials } from "../../workspace-utils";
 
 import { AudioDeviceDropdown } from "./AudioDeviceDropdown";
@@ -49,7 +48,7 @@ export function QuickControls({
   return (
     <footer className="ct-quick-idle" aria-label="Hızlı kontroller">
       <div className="ct-quick-idle-left">
-        <div className="ct-user-avatar ct-quick-idle-logo" aria-hidden="true">
+        <div className="ct-quick-idle-logo" aria-hidden="true">
           {currentUserAvatarUrl ? (
             <img
               className="ct-user-avatar-image"
@@ -57,9 +56,7 @@ export function QuickControls({
               alt=""
             />
           ) : (
-            <span className="ct-user-avatar-fallback">
-              {getDisplayInitials(currentUsername)}
-            </span>
+            getDisplayInitials(currentUsername)
           )}
         </div>
         <div className="ct-quick-idle-meta">
@@ -83,8 +80,11 @@ export function QuickControls({
               className={`ct-quick-icon-button ${micEnabled ? "active" : ""}`}
               onClick={onToggleMic}
               aria-label="Mikrofon"
+              aria-pressed={micEnabled}
             >
-              <Mic size={14} aria-hidden="true" />
+              {/* The icon carries the state as well as the colour, so it still
+                  reads at a glance for anyone who cannot rely on the fill. */}
+              {micEnabled ? <AudioOutlined /> : <AudioMutedOutlined />}
             </button>
           </Tooltip>
         </AudioDeviceDropdown>
@@ -103,8 +103,13 @@ export function QuickControls({
               className={`ct-quick-icon-button ${headphoneEnabled ? "active" : ""}`}
               onClick={onToggleHeadphone}
               aria-label="Kulaklık"
+              aria-pressed={headphoneEnabled}
             >
-              <Headphones size={14} aria-hidden="true" />
+              {headphoneEnabled ? (
+                <CustomerServiceOutlined />
+              ) : (
+                <MutedOutlined />
+              )}
             </button>
           </Tooltip>
         </AudioDeviceDropdown>
@@ -120,7 +125,7 @@ export function QuickControls({
               disabled={isLeavingLobby}
               aria-label="Lobiden ayrıl"
             >
-              <PlugZap size={14} aria-hidden="true" />
+              <DisconnectOutlined />
             </button>
           </Tooltip>
         )}
@@ -128,5 +133,3 @@ export function QuickControls({
     </footer>
   );
 }
-
-

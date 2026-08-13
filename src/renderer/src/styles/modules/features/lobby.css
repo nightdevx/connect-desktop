@@ -594,12 +594,13 @@
 }
 
 .ct-lobby-stage-icon-action {
-  @apply inline-flex h-9 w-9 items-center justify-center rounded-full border;
-  border-color: rgba(148, 163, 184, 0.32);
+  @apply inline-flex h-control-md w-control-md items-center justify-center rounded-full border;
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-secondary);
   background: rgba(14, 14, 14, 0.76);
+  font-size: var(--ct-icon-sm);
   backdrop-filter: blur(6px);
-  transition: all 0.16s ease;
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-lobby-stage-icon-action:hover:not(:disabled) {
@@ -644,10 +645,11 @@
 }
 
 .ct-lobby-flag {
-  @apply inline-flex h-6 w-6 items-center justify-center rounded-md border;
+  @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
   border-color: var(--ct-border);
   color: var(--ct-text-muted);
   background: rgba(14, 14, 14, 0.78);
+  font-size: var(--ct-icon-xs);
 }
 
 .ct-lobby-flag.active {
@@ -679,46 +681,43 @@
   color: var(--ct-text-secondary);
 }
 
+/* The primary in-call controls: control-lg with its paired icon-lg. */
 .ct-lobby-action-btn {
-  @apply inline-flex h-12 w-12 items-center justify-center rounded-xl border p-0 cursor-pointer;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 16px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  @apply inline-flex h-control-lg w-control-lg cursor-pointer items-center justify-center rounded-md border p-0;
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+  font-size: var(--ct-icon-lg);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-lobby-action-btn:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1) translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.08);
+  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-12);
 }
 
+/* Scale on press only. The old hover lifted the button by 2px and grew it by
+   10%, which made a row of five controls shuffle as the pointer crossed it. */
 .ct-lobby-action-btn:active:not(:disabled) {
-  transform: scale(0.92) translateY(0);
+  transform: scale(0.94);
 }
 
 .ct-lobby-action-btn.active {
-  border-color: #ffffff;
-  color: #000000;
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
 
 .ct-lobby-action-btn.danger {
   border-color: rgba(239, 68, 68, 0.2);
   color: #ffffff;
-  background: #ef4444;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  background: var(--ct-danger);
 }
 
 .ct-lobby-action-btn.danger:hover:not(:disabled) {
   border-color: rgba(239, 68, 68, 0.4);
   background: #f87171;
-  color: #ffffff;
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
 }
 
 .ct-lobby-action-btn:disabled {
@@ -779,11 +778,12 @@
 }
 
 .ct-pap-close {
-  @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border;
+  @apply inline-flex h-control-xs w-control-xs shrink-0 items-center justify-center rounded-sm border;
   border-color: var(--ct-border);
   color: var(--ct-text-muted);
-  background: rgba(14, 14, 14, 0.6);
-  transition: all 0.15s ease;
+  background: var(--ct-alpha-04);
+  font-size: var(--ct-icon-xs);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-pap-close:hover {
