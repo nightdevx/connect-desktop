@@ -1,32 +1,123 @@
+/* ==========================================================================
+   DESIGN TOKENS — the single source of truth for the renderer.
+
+   Everything downstream reads from here:
+     - tailwind.config.cjs maps utility names onto these var() references
+     - main.tsx feeds the same values into Ant Design's ConfigProvider
+     - modules/*.css compose with them and never hardcode a raw value
+
+   Adding a new colour, radius or size means adding a token here first.
+   ========================================================================== */
+
 :root {
   color-scheme: dark;
-  font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+
+  /* ---- Typography ------------------------------------------------------ */
+  --ct-font-sans: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
   --ct-font-mono:
     "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", monospace;
+
+  font-family: var(--ct-font-sans);
+
+  /* ---- Surfaces -------------------------------------------------------- */
   --ct-surface-0: #040404;
   --ct-surface-1: #090909;
   --ct-surface-2: #101010;
   --ct-surface-3: #181818;
-  --ct-border: rgba(255, 255, 255, 0.05);
-  --ct-border-strong: rgba(255, 255, 255, 0.12);
+  --ct-surface-4: #202020;
+
+  /* ---- White alpha ladder ---------------------------------------------
+     Eight steps replacing the 26 ad-hoc rgba(255,255,255,x) values that were
+     scattered across the stylesheets and JSX. Pick the nearest step. */
+  --ct-alpha-02: rgba(255, 255, 255, 0.02);
+  --ct-alpha-04: rgba(255, 255, 255, 0.04);
+  --ct-alpha-08: rgba(255, 255, 255, 0.08);
+  --ct-alpha-12: rgba(255, 255, 255, 0.12);
+  --ct-alpha-20: rgba(255, 255, 255, 0.2);
+  --ct-alpha-32: rgba(255, 255, 255, 0.32);
+  --ct-alpha-50: rgba(255, 255, 255, 0.5);
+  --ct-alpha-70: rgba(255, 255, 255, 0.7);
+
+  /* ---- Borders --------------------------------------------------------- */
+  --ct-border: var(--ct-alpha-08);
+  --ct-border-strong: var(--ct-alpha-20);
+
+  /* ---- Text -------------------------------------------------------------
+     --ct-text-muted was #71717a, which lands at 4.0:1 on --ct-surface-2 and
+     fails WCAG AA for body text. #8f8f8f is 5.9:1 and is also the grey the
+     JSX was already hardcoding in ten places. */
   --ct-text-primary: #ffffff;
   --ct-text-secondary: #d4d4d8;
-  --ct-text-muted: #71717a;
+  --ct-text-muted: #8f8f8f;
+  --ct-text-inverse: #0b0b0b;
+
+  /* ---- Accent (monochrome: white on black) ----------------------------- */
   --ct-accent: #ffffff;
-  --ct-accent-soft: rgba(255, 255, 255, 0.08);
-  --ct-accent-strong: rgba(255, 255, 255, 0.3);
+  --ct-accent-soft: var(--ct-alpha-08);
+  --ct-accent-strong: var(--ct-alpha-32);
   --ct-accent-glow: rgba(255, 255, 255, 0.15);
+
+  /* ---- Semantic -------------------------------------------------------- */
+  --ct-success: #10b981;
   --ct-warning: #f59e0b;
   --ct-danger: #ef4444;
-  --ct-success: #10b981;
+  --ct-info: #3b82f6;
 
-  /* Premium Design System Additions */
-  --ct-neon-emerald: #10b981;
+  /* ---- Radius (5 steps, replacing 11 ad-hoc values) -------------------- */
+  --ct-radius-sm: 6px;
+  --ct-radius-md: 10px;
+  --ct-radius-lg: 14px;
+  --ct-radius-xl: 20px;
+  --ct-radius-2xl: 24px;
+
+  /* ---- Control sizes (4 steps, replacing 7) ----------------------------
+     Every interactive square -- icon button, toggle, rail item -- is one of
+     these, so icons in the same row share an optical weight. */
+  --ct-control-xs: 24px;
+  --ct-control-sm: 32px;
+  --ct-control-md: 40px;
+  --ct-control-lg: 48px;
+
+  /* Icon size paired with each control size. */
+  --ct-icon-xs: 14px;
+  --ct-icon-sm: 16px;
+  --ct-icon-md: 18px;
+  --ct-icon-lg: 20px;
+
+  /* ---- Avatars --------------------------------------------------------- */
+  --ct-avatar-xs: 24px;
+  --ct-avatar-sm: 32px;
+  --ct-avatar-md: 40px;
+  --ct-avatar-lg: 64px;
+  --ct-avatar-xl: 96px;
+
+  /* ---- Elevation ------------------------------------------------------- */
+  --ct-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --ct-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --ct-shadow-lg: 0 20px 44px rgba(0, 0, 0, 0.6);
+  --ct-shadow-glow: 0 4px 16px var(--ct-accent-glow);
+
+  /* ---- Motion ---------------------------------------------------------- */
+  --ct-ease-premium: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --ct-ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ct-duration-fast: 150ms;
+  --ct-duration-base: 220ms;
+  --ct-duration-slow: 320ms;
+
+  /* ---- Layout ----------------------------------------------------------
+     --ct-gutter is the one horizontal rhythm the sidebar column obeys. Panels
+     apply it; their children add none of their own. */
+  --ct-gutter: 12px;
+  --ct-titlebar-height: 48px;
+  --ct-rail-width: 72px;
+  --ct-sidebar-width: 280px;
+
+  /* ---- Legacy aliases ---------------------------------------------------
+     Still referenced by feature stylesheets; kept until those are migrated. */
+  --ct-neon-emerald: var(--ct-success);
   --ct-neon-emerald-glow: rgba(16, 185, 129, 0.25);
   --ct-glass-bg: rgba(10, 10, 10, 0.6);
-  --ct-glass-border: rgba(255, 255, 255, 0.08);
-  --ct-ease-premium: cubic-bezier(0.25, 0.8, 0.25, 1);
-  --ct-ease-spring: cubic-bezier(0.4, 0, 0.2, 1);
+  --ct-glass-border: var(--ct-alpha-08);
 }
 
 * {
@@ -49,11 +140,15 @@ body {
       rgba(16, 185, 129, 0.03),
       transparent 35%
     ),
-    radial-gradient(
-      circle at 95% 5%,
-      rgba(255, 255, 255, 0.02),
-      transparent 30%
-    ),
+    radial-gradient(circle at 95% 5%, var(--ct-alpha-02), transparent 30%),
     linear-gradient(180deg, #050505 0%, #020202 100%);
   color: var(--ct-text-primary);
+}
+
+/* A focus ring that is visible on every surface, so keyboard users are never
+   lost. Applied on :focus-visible only -- mouse clicks stay clean. */
+:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
+  border-radius: var(--ct-radius-sm);
 }
