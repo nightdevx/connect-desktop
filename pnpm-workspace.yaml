@@ -1,8 +1,8 @@
-# electron-builder cannot walk pnpm's isolated store: peer-suffixed directories
-# like debug@4.4.3_supports-color@8.1.1 resolve, but their own dependencies get
-# dropped from the asar. That shipped 0.1.28 with debug/src/common.js present and
-# ms missing, so the app died on launch with "Cannot find module 'ms'".
-# A flat node_modules is the layout electron-builder actually supports.
+# electron-builder's pnpm module collector shipped 0.1.28 with debug/src/common.js
+# packed and the ms it requires missing, so the app died on launch with
+# "Cannot find module 'ms'". 26.15.3 fixes the collector; a flat node_modules is
+# the layout it handles best either way. Keep both -- scripts/check-packaged-deps.cjs
+# is what actually proves the archive is complete.
 nodeLinker: hoisted
 
 allowBuilds:
