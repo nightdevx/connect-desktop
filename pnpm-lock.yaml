@@ -36,6 +36,9 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@electron/asar':
+        specifier: ^3.4.1
+        version: 3.4.1
       '@tanstack/react-query':
         specifier: ^5.96.1
         version: 5.96.1(react@18.3.1)
