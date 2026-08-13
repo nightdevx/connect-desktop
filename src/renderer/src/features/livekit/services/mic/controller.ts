@@ -10,6 +10,7 @@ import {
   LiveKitNoiseSuppressionRuntime,
   ProcessorManager,
   type ActiveNoiseSuppressionMode,
+  type MicrophoneProcessor,
   type NoiseSuppressionPreset,
 } from "../../../rnnoise";
 import { AudioContextManager } from "./audio-context-manager";
@@ -146,7 +147,9 @@ export class LiveKitMicrophoneController {
 
       // 4. Update runtime state
       if (appliedProcessor) {
-        this.noiseSuppressionRuntime.markEnabled(appliedProcessor);
+        this.noiseSuppressionRuntime.markEnabled(
+          this.processorManager.isNoiseSuppressionActive(),
+        );
       } else {
         this.noiseSuppressionRuntime.markDisabled();
       }
@@ -311,7 +314,12 @@ export class LiveKitMicrophoneController {
             );
           }
 
-          this.noiseSuppressionRuntime.markEnabled(appliedProcessor);
+          // "processor" must mean RNNoise is really running, not merely that a
+          // processor was attached — the chain now attaches even when noise
+          // suppression is off.
+          this.noiseSuppressionRuntime.markEnabled(
+            appliedProcessor && this.processorManager.isNoiseSuppressionActive(),
+          );
 
           this.lastAppliedParticipantIdentity = participantIdentity;
           this.lastAppliedEnabled = true;
@@ -404,11 +412,10 @@ export class LiveKitMicrophoneController {
       noiseSuppressionPreset: preferences.noiseSuppressionPreset,
     });
 
-    if (!preferences.enhancedNoiseSuppressionEnabled) {
-      return options;
-    }
-
-    if (!wantsProcessor) {
+    // Our processor is now also used with noise suppression off (gain +
+    // limiter only). In that case the browser's own suppressor should stay on —
+    // it is the only denoiser left in the chain.
+    if (!preferences.enhancedNoiseSuppressionEnabled || !wantsProcessor) {
       return options;
     }
 
@@ -474,14 +481,21 @@ export class LiveKitMicrophoneController {
     return attempts;
   }
 
+  /**
+   * Microphone volume. Applied straight to the running processor graph, so it
+   * takes effect mid-sentence without renegotiating the track.
+   */
+  public setMicrophoneGain(percent: number): void {
+    this.processorManager.setGainPercent(percent);
+  }
+
+  // Always wanted, even with noise suppression off: the processor carries the
+  // output gain and limiter, which is how the microphone volume setting reaches
+  // the published track at all.
   private async resolveDesiredProcessor(
     participant: LocalParticipant,
     preferences: MicrophoneProcessingPreferences,
-  ): Promise<any | null> {
-    if (!preferences.enhancedNoiseSuppressionEnabled) {
-      return null;
-    }
-
+  ): Promise<MicrophoneProcessor | null> {
     // ponytail: worklet/wasm load or context.resume() has no internal timeout
     // and can hang (seen stuck on "Başlatılıyor..." indefinitely). Bound it here
     // so the UI always falls back to browser NS instead of hanging forever.
@@ -500,17 +514,20 @@ export class LiveKitMicrophoneController {
   private async resolveDesiredProcessorInternal(
     participant: LocalParticipant,
     preferences: MicrophoneProcessingPreferences,
-  ): Promise<any | null> {
+  ): Promise<MicrophoneProcessor | null> {
     const context = await this.ensureParticipantAudioContext(participant);
     if (!context) {
       this.onWarning?.(
-        "AudioContext oluşturulamadı, RNNoise devre dışı bırakılarak varsayılan mikrofon filtreleri kullanılıyor.",
+        "AudioContext oluşturulamadı, mikrofon işleme zinciri devre dışı; tarayıcı filtreleri kullanılıyor.",
       );
       return null;
     }
 
+    this.processorManager.setGainPercent(preferences.microphoneVolume);
+
     return this.processorManager.getOrCreateProcessor(
       preferences.noiseSuppressionPreset,
+      preferences.enhancedNoiseSuppressionEnabled,
     );
   }
 

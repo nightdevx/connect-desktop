@@ -143,6 +143,7 @@ export const appPreferencesSchema = z.object({
   launchOnStartup: z.boolean().optional(),
   minimizeToTray: z.boolean().optional(),
   closeToTray: z.boolean().optional(),
+  hardwareAcceleration: z.boolean().optional(),
 });
 
 export const initiateCallSchema = z.object({

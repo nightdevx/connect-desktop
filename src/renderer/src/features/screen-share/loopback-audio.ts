@@ -1,4 +1,5 @@
 import loopbackWorkletUrl from "./loopback-worklet.js?url";
+import { logLiveKitDebug } from "../livekit";
 
 // Builds a MediaStreamTrack from the main-process process-exclude loopback PCM
 // stream. Because the native capture excludes Connect's own process tree, this
@@ -27,12 +28,13 @@ export const startSystemLoopbackAudioTrack =
     await stopActiveSystemLoopback();
 
     const result = await window.streaming.startSystemAudioLoopback();
-    console.log("[loopback-audio] startSystemAudioLoopback result:", result);
+    logLiveKitDebug("loopback-audio", "start-result", { ...result });
     if (!result.ok || !result.sampleRate) {
-      console.warn(
-        "[loopback-audio] loopback unavailable:",
-        result.error ?? "no sampleRate",
-      );
+      // Not an error path the user needs in the console: the caller already
+      // surfaces "system audio unavailable" as a warning in the UI.
+      logLiveKitDebug("loopback-audio", "unavailable", {
+        reason: result.error ?? "no sampleRate",
+      });
       return null;
     }
 
@@ -50,15 +52,9 @@ export const startSystemLoopbackAudioTrack =
       const destination = ctx.createMediaStreamDestination();
       node.connect(destination);
 
-      let framesReceived = 0;
       const unsubscribe = window.streaming.onSystemAudioPcm((samples) => {
-        framesReceived += 1;
-        if (framesReceived === 1 || framesReceived % 200 === 0) {
-          console.log(
-            `[loopback-audio] PCM frames received: ${framesReceived} (chunk ${samples.length})`,
-          );
-        }
-        // Copy into a transferable buffer for the worklet port.
+        // Copy into a transferable buffer for the worklet port. No per-frame
+        // logging here: this runs ~100x/second for the whole share.
         const copy = new Float32Array(samples);
         node.port.postMessage(copy, [copy.buffer]);
       });
@@ -76,12 +72,12 @@ export const startSystemLoopbackAudioTrack =
       }
 
       active = { ctx, node, destination, unsubscribe, track };
-      console.log(
-        `[loopback-audio] loopback audio track ready (sampleRate=${result.sampleRate})`,
-      );
+      logLiveKitDebug("loopback-audio", "track-ready", {
+        sampleRate: result.sampleRate,
+      });
       return track;
     } catch (error) {
-      console.warn("[loopback-audio] failed to build loopback track:", error);
+      logLiveKitDebug("loopback-audio", "track-build-failed", { error });
       await window.streaming.stopSystemAudioLoopback();
       return null;
     }

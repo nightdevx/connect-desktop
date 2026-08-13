@@ -3,6 +3,8 @@ import type {
   Track,
 } from "livekit-client";
 import { type ActiveNoiseSuppressionMode } from "../mic";
+import type { NoiseSuppressionPreset } from "../../../rnnoise";
+import type { MediaStatsSnapshot } from "./stats-collector";
 
 export type ScreenShareMode = "slides" | "motion";
 export type LiveKitConnectionStatus =
@@ -40,29 +42,29 @@ export interface LiveKitStreamManagerCallbacks {
   onActiveSpeakersChanged?: (speakerIds: string[]) => void;
   onWarning?: (message: string) => void;
   onNoiseSuppressionModeChanged?: (mode: ActiveNoiseSuppressionMode) => void;
+  /** Real WebRTC stats, sampled once per second while connected. */
+  onMediaStats?: (snapshot: MediaStatsSnapshot) => void;
 }
 
 export interface LiveKitAudioProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
-  noiseSuppressionPreset: any;
+  noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
   masterVolume: number;
   microphoneVolume: number;
 }
 
-export interface QualityProfile {
-  name: string;
-  maxBitrateBps: number;
-  maxFramerate: number;
-}
 
 // Per-publish video encoding target, derived from the user-selected screen/camera
 // quality. Threaded into publishTrack so the selected resolution/fps/bitrate
 // actually reaches the encoder (previously capped by fixed publishDefaults).
+// width/height are required: the simulcast ladder is derived from them, and a
+// ladder guessed from the wrong base is what made the old fixed 720p/360p
+// layers describe a stream nobody was sending.
 export interface VideoPublishQuality {
   maxBitrateBps: number;
   maxFramerate: number;
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
 }

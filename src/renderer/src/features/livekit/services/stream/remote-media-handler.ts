@@ -8,16 +8,51 @@ import {
 } from "livekit-client";
 import { logLiveKitDebug } from "../debug-log";
 
+// Remote playback runs through a single WebAudio bus:
+//
+//   per-track source -> per-track gain -> master gain -> limiter -> sink element
+//
+// The previous implementation gave every participant a bare HTMLAudioElement
+// and set `el.volume`. That caps at 1.0, so the 0-200% master and per-user
+// volume sliders silently did nothing above 100% — the value was clamped away.
+// A GainNode has no such ceiling, and the shared limiter is what makes boosting
+// safe instead of just clipping.
+
+type InputKind = "mic" | "screen";
+
+interface BusInput {
+  sourceNode: MediaStreamAudioSourceNode;
+  gainNode: GainNode;
+  // Chromium does not pull audio from a remote MediaStreamTrack unless it is
+  // also attached to a media element. This one is muted and exists purely to
+  // keep the WebAudio graph fed.
+  pumpElement: HTMLAudioElement;
+}
+
+const inputKey = (identity: string, kind: InputKind): string => {
+  return `${identity}:${kind}`;
+};
+
+const percentToGain = (percent: number): number => {
+  if (!Number.isFinite(percent)) {
+    return 1;
+  }
+  return Math.max(0, percent) / 100;
+};
+
 export class RemoteMediaHandler {
-  // ---- Microphone audio ----
   private readonly participantVolumes = new Map<string, number>();
   private readonly participantMutes = new Map<string, boolean>();
-  private readonly remoteAudioElements = new Map<string, HTMLAudioElement>();
-
-  // ---- Screen share audio ----
   private readonly screenAudioVolumes = new Map<string, number>();
   private readonly screenAudioMutes = new Map<string, boolean>();
-  private readonly screenAudioElements = new Map<string, HTMLAudioElement>();
+
+  private readonly inputs = new Map<string, BusInput>();
+
+  private audioContext: AudioContext | null = null;
+  private masterGainNode: GainNode | null = null;
+  private limiterNode: DynamicsCompressorNode | null = null;
+  private destinationNode: MediaStreamAudioDestinationNode | null = null;
+  private sinkElement: HTMLAudioElement | null = null;
 
   private currentOutputDeviceId: string | null = null;
   private isDeafened = false;
@@ -25,12 +60,73 @@ export class RemoteMediaHandler {
 
   public constructor(private readonly room: Room) {}
 
-  /**
-   * @deprecated AudioContext kullanımından HTMLAudioElement yönetimine geçildi (AEC uyumluluğu için).
-   */
-  public getOrCreateRemoteAudioContext(): AudioContext | null {
-    return null;
+  // ---- Bus lifecycle ----
+
+  private ensureBus(): {
+    context: AudioContext;
+    masterGain: GainNode;
+  } | null {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return null;
+    }
+
+    if (this.audioContext && this.masterGainNode) {
+      if (this.audioContext.state === "suspended") {
+        void this.audioContext.resume().catch(() => undefined);
+      }
+      return { context: this.audioContext, masterGain: this.masterGainNode };
+    }
+
+    try {
+      const context = new AudioContext({ latencyHint: "interactive" });
+
+      const masterGain = context.createGain();
+      masterGain.gain.value = this.isDeafened ? 0 : this.masterVolume;
+
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.25;
+
+      const destination = context.createMediaStreamDestination();
+      masterGain.connect(limiter);
+      limiter.connect(destination);
+
+      const sinkElement = document.createElement("audio");
+      sinkElement.id = "connect-remote-audio-sink";
+      sinkElement.autoplay = true;
+      sinkElement.style.display = "none";
+      sinkElement.srcObject = destination.stream;
+      document.body.appendChild(sinkElement);
+
+      this.audioContext = context;
+      this.masterGainNode = masterGain;
+      this.limiterNode = limiter;
+      this.destinationNode = destination;
+      this.sinkElement = sinkElement;
+
+      this.applySinkId(sinkElement);
+      void sinkElement.play().catch((error) => {
+        logLiveKitDebug("remote-media", "sink-play-failed", { error });
+      });
+      if (context.state === "suspended") {
+        void context.resume().catch(() => undefined);
+      }
+
+      logLiveKitDebug("remote-media", "bus-created", {
+        sampleRate: context.sampleRate,
+      });
+
+      return { context, masterGain };
+    } catch (error) {
+      logLiveKitDebug("remote-media", "bus-create-failed", { error });
+      return null;
+    }
   }
+
+  // ---- Track attach / detach ----
 
   public handleTrackSubscribed(
     track: RemoteTrack,
@@ -39,11 +135,9 @@ export class RemoteMediaHandler {
     updateMedia: () => void,
   ) {
     if (track.kind === Track.Kind.Audio) {
-      if (publication.source === Track.Source.ScreenShareAudio) {
-        this.attachScreenAudioTrack(track, participant);
-      } else {
-        this.attachRemoteAudioTrack(track, participant);
-      }
+      const kind: InputKind =
+        publication.source === Track.Source.ScreenShareAudio ? "screen" : "mic";
+      this.attachAudioTrack(track, participant, kind);
     }
     updateMedia();
   }
@@ -55,259 +149,246 @@ export class RemoteMediaHandler {
     updateMedia: () => void,
   ) {
     if (track.kind === Track.Kind.Audio) {
-      if (publication.source === Track.Source.ScreenShareAudio) {
-        this.detachScreenAudioTrack(participant);
-      } else {
-        this.detachRemoteAudioTrack(participant);
-      }
+      const kind: InputKind =
+        publication.source === Track.Source.ScreenShareAudio ? "screen" : "mic";
+      this.detachAudioTrack(participant.identity, kind);
     }
     updateMedia();
   }
 
-  // ---- Microphone audio helpers ----
+  private attachAudioTrack(
+    track: RemoteTrack,
+    participant: Participant,
+    kind: InputKind,
+  ): void {
+    const key = inputKey(participant.identity, kind);
+    this.detachAudioTrack(participant.identity, kind);
 
-  private attachRemoteAudioTrack(track: RemoteTrack, participant: Participant) {
-    this.detachRemoteAudioTrack(participant);
+    const bus = this.ensureBus();
+    if (!bus || !track.mediaStreamTrack) {
+      return;
+    }
 
-    if (typeof document === "undefined") return;
+    try {
+      const stream = new MediaStream([track.mediaStreamTrack]);
 
-    const audioEl = document.createElement("audio");
-    audioEl.id = `remote-audio-${participant.identity}`;
-    audioEl.autoplay = true;
-    audioEl.style.display = "none";
-    document.body.appendChild(audioEl);
+      const pumpElement = document.createElement("audio");
+      pumpElement.id = `remote-audio-pump-${key}`;
+      pumpElement.autoplay = true;
+      pumpElement.muted = true;
+      pumpElement.style.display = "none";
+      pumpElement.srcObject = stream;
+      document.body.appendChild(pumpElement);
+      void pumpElement.play().catch(() => undefined);
 
-    const volume = this.participantVolumes.get(participant.identity) ?? 1;
-    const isMuted = this.participantMutes.get(participant.identity) ?? false;
+      const sourceNode = bus.context.createMediaStreamSource(stream);
+      const gainNode = bus.context.createGain();
+      gainNode.gain.value = this.resolveInputGain(participant.identity, kind);
 
-    audioEl.volume = Math.max(0, Math.min(1, (this.isDeafened || isMuted) ? 0 : volume * this.masterVolume));
+      sourceNode.connect(gainNode);
+      gainNode.connect(bus.masterGain);
 
-    this.applySinkId(audioEl, participant.identity);
-    track.attach(audioEl);
-    this.remoteAudioElements.set(participant.identity, audioEl);
+      this.inputs.set(key, { sourceNode, gainNode, pumpElement });
 
-    console.log(`[RemoteMediaHandler] Remote audio attached for ${participant.identity}`, {
-      volume: audioEl.volume,
-      muted: isMuted,
-      trackId: track.sid,
-    });
-
-    audioEl.play().catch(err => {
-      console.warn(`[RemoteMediaHandler] Remote audio play() failed for ${participant.identity}:`, err);
-    });
-
-    logLiveKitDebug("remote-media", "audio-attached", {
-      identity: participant.identity,
-      volume: audioEl.volume,
-    });
-  }
-
-  private detachRemoteAudioTrack(participant: Participant) {
-    const audioEl = this.remoteAudioElements.get(participant.identity);
-    if (audioEl) {
-      audioEl.pause();
-      audioEl.srcObject = null;
-      audioEl.remove();
-      this.remoteAudioElements.delete(participant.identity);
+      logLiveKitDebug("remote-media", "audio-attached", {
+        identity: participant.identity,
+        kind,
+        gain: gainNode.gain.value,
+      });
+    } catch (error) {
+      logLiveKitDebug("remote-media", "audio-attach-failed", {
+        identity: participant.identity,
+        kind,
+        error,
+      });
     }
   }
 
-  // ---- Screen share audio helpers ----
+  private detachAudioTrack(identity: string, kind: InputKind): void {
+    const key = inputKey(identity, kind);
+    const input = this.inputs.get(key);
+    if (!input) {
+      return;
+    }
 
-  private attachScreenAudioTrack(track: RemoteTrack, participant: Participant) {
-    this.detachScreenAudioTrack(participant);
-
-    if (typeof document === "undefined") return;
-
-    const audioEl = document.createElement("audio");
-    audioEl.id = `screen-audio-${participant.identity}`;
-    audioEl.autoplay = true;
-    audioEl.style.display = "none";
-    document.body.appendChild(audioEl);
-
-    const volume = this.screenAudioVolumes.get(participant.identity) ?? 1;
-    const isMuted = this.screenAudioMutes.get(participant.identity) ?? false;
-
-    audioEl.volume = Math.max(0, Math.min(1, (this.isDeafened || isMuted) ? 0 : volume * this.masterVolume));
-
-    this.applySinkId(audioEl, participant.identity);
-    track.attach(audioEl);
-    this.screenAudioElements.set(participant.identity, audioEl);
-
-    console.log(`[RemoteMediaHandler] Screen audio attached for ${participant.identity}`, {
-      volume: audioEl.volume,
-      muted: isMuted,
-      trackId: track.sid,
-    });
-
-    // Explicitly call play to ensure audio starts even if autoplay is delayed
-    audioEl.play().catch(err => {
-      console.warn(`[RemoteMediaHandler] Screen audio play() failed for ${participant.identity}:`, err);
-    });
-
-    logLiveKitDebug("remote-media", "screen-audio-attached", {
-      identity: participant.identity,
-      volume: audioEl.volume,
-    });
+    this.inputs.delete(key);
+    try {
+      input.sourceNode.disconnect();
+      input.gainNode.disconnect();
+    } catch {
+      // no-op
+    }
+    input.pumpElement.pause();
+    input.pumpElement.srcObject = null;
+    input.pumpElement.remove();
   }
 
-  private detachScreenAudioTrack(participant: Participant) {
-    const audioEl = this.screenAudioElements.get(participant.identity);
-    if (audioEl) {
-      audioEl.pause();
-      audioEl.srcObject = null;
-      audioEl.remove();
-      this.screenAudioElements.delete(participant.identity);
+  // ---- Volume ----
+
+  private resolveInputGain(identity: string, kind: InputKind): number {
+    if (kind === "screen") {
+      const muted = this.screenAudioMutes.get(identity) ?? false;
+      return muted ? 0 : (this.screenAudioVolumes.get(identity) ?? 1);
+    }
+    const muted = this.participantMutes.get(identity) ?? false;
+    return muted ? 0 : (this.participantVolumes.get(identity) ?? 1);
+  }
+
+  private applyInputGain(identity: string, kind: InputKind): void {
+    const input = this.inputs.get(inputKey(identity, kind));
+    if (input) {
+      input.gainNode.gain.value = this.resolveInputGain(identity, kind);
     }
   }
 
-  private applySinkId(audioEl: HTMLAudioElement, identity: string) {
-    if (!this.currentOutputDeviceId) return;
-    const sinkTarget = audioEl as HTMLAudioElement & {
+  public setParticipantVolume(identity: string, volume: number) {
+    this.participantVolumes.set(identity, Math.max(0, volume));
+    this.applyInputGain(identity, "mic");
+  }
+
+  public setParticipantMuted(identity: string, muted: boolean) {
+    this.participantMutes.set(identity, muted);
+    this.applyInputGain(identity, "mic");
+  }
+
+  public setScreenAudioVolume(identity: string, volumePercent: number) {
+    this.screenAudioVolumes.set(identity, percentToGain(volumePercent));
+    this.applyInputGain(identity, "screen");
+  }
+
+  public setScreenAudioMuted(identity: string, muted: boolean) {
+    this.screenAudioMutes.set(identity, muted);
+    this.applyInputGain(identity, "screen");
+  }
+
+  public hasScreenAudio(identity: string): boolean {
+    return this.inputs.has(inputKey(identity, "screen"));
+  }
+
+  public setMasterVolume(masterVolume: number) {
+    // 0-200 percent maps to 0-2x. The limiter downstream absorbs the peaks.
+    this.masterVolume = percentToGain(masterVolume);
+    if (this.masterGainNode && !this.isDeafened) {
+      this.masterGainNode.gain.value = this.masterVolume;
+    }
+  }
+
+  // ---- Deafen ----
+
+  /**
+   * Deafen now unsubscribes the remote audio tracks instead of just zeroing the
+   * volume. Silent-but-subscribed still pulled every participant's audio over
+   * the wire and still paid for decoding it.
+   *
+   * The master gain is cut synchronously so the user hears silence immediately;
+   * unsubscription is what makes it stop costing bandwidth a moment later.
+   */
+  public setDeafened(deafened: boolean) {
+    this.isDeafened = deafened;
+
+    if (this.masterGainNode) {
+      this.masterGainNode.gain.value = deafened ? 0 : this.masterVolume;
+    }
+
+    for (const participant of this.room.remoteParticipants.values()) {
+      for (const publication of participant.trackPublications.values()) {
+        if (publication.kind !== Track.Kind.Audio) {
+          continue;
+        }
+        try {
+          publication.setSubscribed(!deafened);
+        } catch (error) {
+          logLiveKitDebug("remote-media", "deafen-subscription-failed", {
+            identity: participant.identity,
+            error,
+          });
+        }
+      }
+    }
+
+    logLiveKitDebug("remote-media", "deafen-changed", { deafened });
+  }
+
+  public isDeafenedNow(): boolean {
+    return this.isDeafened;
+  }
+
+  // ---- Audio output device ----
+
+  private applySinkId(element: HTMLAudioElement): void {
+    if (!this.currentOutputDeviceId) {
+      return;
+    }
+    const sinkTarget = element as HTMLAudioElement & {
       setSinkId?: (sinkId: string) => Promise<void>;
     };
     if (typeof sinkTarget.setSinkId === "function") {
-      void sinkTarget.setSinkId(this.currentOutputDeviceId).catch((err) => {
+      void sinkTarget.setSinkId(this.currentOutputDeviceId).catch((error) => {
         logLiveKitDebug("remote-media", "set-sink-id-failed", {
-          identity,
           deviceId: this.currentOutputDeviceId,
-          error: err,
+          error,
         });
       });
     }
   }
 
-  // ---- Public mic volume/mute controls ----
-
-  public setParticipantVolume(identity: string, volume: number) {
-    this.participantVolumes.set(identity, volume);
-    const audioEl = this.remoteAudioElements.get(identity);
-    if (audioEl && !this.participantMutes.get(identity) && !this.isDeafened) {
-      audioEl.volume = Math.max(0, Math.min(1, volume * this.masterVolume));
-    }
-  }
-
-  public setParticipantMuted(identity: string, muted: boolean) {
-    this.participantMutes.set(identity, muted);
-    const audioEl = this.remoteAudioElements.get(identity);
-    if (audioEl) {
-      const participantVolume = this.participantVolumes.get(identity) ?? 1;
-      const volume = (muted || this.isDeafened) ? 0 : participantVolume * this.masterVolume;
-      audioEl.volume = Math.max(0, Math.min(1, volume));
-    }
-  }
-
-  // ---- Public screen audio controls ----
-
-  public setScreenAudioVolume(identity: string, volumePercent: number) {
-    const volume = Math.max(0, volumePercent) / 100;
-    this.screenAudioVolumes.set(identity, volume);
-    const audioEl = this.screenAudioElements.get(identity);
-    if (audioEl && !this.screenAudioMutes.get(identity) && !this.isDeafened) {
-      audioEl.volume = Math.max(0, Math.min(1, volume * this.masterVolume));
-    }
-  }
-
-  public setScreenAudioMuted(identity: string, muted: boolean) {
-    this.screenAudioMutes.set(identity, muted);
-    const audioEl = this.screenAudioElements.get(identity);
-    if (audioEl) {
-      const volume = this.screenAudioVolumes.get(identity) ?? 1;
-      audioEl.volume = Math.max(0, Math.min(1, (muted || this.isDeafened) ? 0 : volume * this.masterVolume));
-    }
-  }
-
-  public hasScreenAudio(identity: string): boolean {
-    return this.screenAudioElements.has(identity);
-  }
-
-  // ---- Master volume ----
-
-  public setMasterVolume(masterVolume: number) {
-    // masterVolume: 0..200 range (percent), normalize to 0..2
-    this.masterVolume = Math.max(0, masterVolume) / 100;
-
-    // Re-apply to all mic audio elements
-    this.remoteAudioElements.forEach((audioEl, identity) => {
-      const isMuted = this.participantMutes.get(identity) ?? false;
-      const participantVolume = this.participantVolumes.get(identity) ?? 1;
-      audioEl.volume = Math.max(0, Math.min(1, (this.isDeafened || isMuted) ? 0 : participantVolume * this.masterVolume));
-    });
-
-    // Re-apply to all screen audio elements
-    this.screenAudioElements.forEach((audioEl, identity) => {
-      const isMuted = this.screenAudioMutes.get(identity) ?? false;
-      const screenVolume = this.screenAudioVolumes.get(identity) ?? 1;
-      audioEl.volume = Math.max(0, Math.min(1, (this.isDeafened || isMuted) ? 0 : screenVolume * this.masterVolume));
-    });
-  }
-
-  // ---- Deafen ----
-
-  public setDeafened(deafened: boolean) {
-    this.isDeafened = deafened;
-
-    this.remoteAudioElements.forEach((audioEl, identity) => {
-      const isMuted = this.participantMutes.get(identity) ?? false;
-      const participantVolume = this.participantVolumes.get(identity) ?? 1;
-      const volume = (deafened || isMuted) ? 0 : participantVolume * this.masterVolume;
-      audioEl.volume = Math.max(0, Math.min(1, volume));
-    });
-
-    this.screenAudioElements.forEach((audioEl, identity) => {
-      const isMuted = this.screenAudioMutes.get(identity) ?? false;
-      const screenVolume = this.screenAudioVolumes.get(identity) ?? 1;
-      const volume = (deafened || isMuted) ? 0 : screenVolume * this.masterVolume;
-      audioEl.volume = Math.max(0, Math.min(1, volume));
-    });
-
-    logLiveKitDebug("remote-media", "deafen-changed", { deafened });
-  }
-
-  // ---- Audio output device ----
-
   public async setAudioOutputDevice(deviceId: string | null) {
     const nextDeviceId = deviceId || "";
-    if (this.currentOutputDeviceId === nextDeviceId) return;
+    if (this.currentOutputDeviceId === nextDeviceId) {
+      return;
+    }
 
     this.currentOutputDeviceId = nextDeviceId;
-    logLiveKitDebug("remote-media", "switching-output-device", { deviceId: nextDeviceId });
+    logLiveKitDebug("remote-media", "switching-output-device", {
+      deviceId: nextDeviceId,
+    });
 
-    const promises: Promise<void>[] = [];
-
-    const applyToEl = (audioEl: HTMLAudioElement) => {
-      const sinkTarget = audioEl as HTMLAudioElement & {
+    // One sink element for the whole bus, so this is a single call instead of
+    // one per participant.
+    if (this.sinkElement) {
+      const sinkTarget = this.sinkElement as HTMLAudioElement & {
         setSinkId?: (sinkId: string) => Promise<void>;
       };
       if (typeof sinkTarget.setSinkId === "function") {
-        promises.push(sinkTarget.setSinkId(nextDeviceId).catch((err) => {
+        await sinkTarget.setSinkId(nextDeviceId).catch((error) => {
           logLiveKitDebug("remote-media", "set-sink-id-change-failed", {
-            id: audioEl.id,
-            error: err,
+            error,
           });
-        }));
+        });
       }
-    };
-
-    this.remoteAudioElements.forEach(applyToEl);
-    this.screenAudioElements.forEach(applyToEl);
-
-    await Promise.all(promises);
+    }
   }
 
   // ---- Dispose ----
 
   public dispose() {
-    const disposeEl = (el: HTMLAudioElement) => {
-      el.pause();
-      el.srcObject = null;
-      el.remove();
-    };
+    for (const key of Array.from(this.inputs.keys())) {
+      const [identity, kind] = key.split(":");
+      this.detachAudioTrack(identity, kind as InputKind);
+    }
 
-    this.remoteAudioElements.forEach(disposeEl);
-    this.remoteAudioElements.clear();
+    if (this.sinkElement) {
+      this.sinkElement.pause();
+      this.sinkElement.srcObject = null;
+      this.sinkElement.remove();
+      this.sinkElement = null;
+    }
 
-    this.screenAudioElements.forEach(disposeEl);
-    this.screenAudioElements.clear();
+    try {
+      this.masterGainNode?.disconnect();
+      this.limiterNode?.disconnect();
+      this.destinationNode?.disconnect();
+    } catch {
+      // no-op
+    }
+    this.masterGainNode = null;
+    this.limiterNode = null;
+    this.destinationNode = null;
+
+    const context = this.audioContext;
+    this.audioContext = null;
+    if (context && context.state !== "closed") {
+      void context.close().catch(() => undefined);
+    }
   }
 }

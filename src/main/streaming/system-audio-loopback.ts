@@ -67,7 +67,6 @@ class SystemAudioLoopback {
   private sender: WebContents | null = null;
   private running = false;
   private frameCount = 0;
-  private lastLogAt = 0;
 
   public start(sender: WebContents): LoopbackStartResult {
     const native = loadAddon();
@@ -83,17 +82,8 @@ class SystemAudioLoopback {
     try {
       this.sender = sender;
       this.frameCount = 0;
-      this.lastLogAt = Date.now();
       const format = native.start((samples) => {
         this.frameCount += 1;
-        // Throttled heartbeat so we can confirm PCM is actually flowing.
-        const now = Date.now();
-        if (now - this.lastLogAt >= 3000) {
-          console.log(
-            `[system-audio-loopback] capturing: ${this.frameCount} frames, last chunk ${samples.length} samples`,
-          );
-          this.lastLogAt = now;
-        }
         if (this.sender && !this.sender.isDestroyed()) {
           this.sender.send(STREAMING_LOOPBACK_PCM_CHANNEL, samples);
         }

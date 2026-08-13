@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  EMPTY_MEDIA_STATS,
   LiveKitMediaSession,
+  type MediaStatsSnapshot,
   type ParticipantMediaMap,
   type RemoteParticipantAudioPreference,
+  type VideoPublishPreferences,
 } from "../services/stream";
 import type { ActiveNoiseSuppressionMode } from "../services/mic";
 import { useUiStore } from "../../../store/ui-store";
@@ -14,6 +17,7 @@ export function useLivekitSession(
   activeLobbyRef: React.MutableRefObject<string | null>,
   scheduleActiveLobbyReconnect: (reason: string, immediate: boolean) => void,
   kickedLobbyIdRef: React.MutableRefObject<string | null>,
+  videoPreferences: VideoPublishPreferences,
 ) {
   const setStatus = useUiStore((state) => state.setStatus);
   const [remoteParticipantStreams, setRemoteParticipantStreams] =
@@ -25,6 +29,8 @@ export function useLivekitSession(
   const [activeNoiseSuppressionMode, setActiveNoiseSuppressionMode] =
     useState<ActiveNoiseSuppressionMode>("none");
   const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
+  const [mediaStats, setMediaStats] =
+    useState<MediaStatsSnapshot>(EMPTY_MEDIA_STATS);
   const [liveKitConnectionState, setLiveKitConnectionState] = useState<
     "connecting" | "connected" | "reconnecting" | "disconnected"
   >("disconnected");
@@ -83,9 +89,14 @@ export function useLivekitSession(
       onNoiseSuppressionModeChanged: (mode: ActiveNoiseSuppressionMode) => {
         setActiveNoiseSuppressionMode(mode);
       },
+      onMediaStats: (snapshot: MediaStatsSnapshot) => {
+        setMediaStats(snapshot);
+      },
     });
 
     liveKitSessionRef.current = session;
+
+    session.setVideoPublishPreferences(videoPreferences);
 
     // Apply any current audio preferences immediately
     session.setAudioProcessingPreferences({
@@ -101,6 +112,7 @@ export function useLivekitSession(
     return () => {
       liveKitSessionRef.current = null;
       setActiveSpeakerIds([]);
+      setMediaStats(EMPTY_MEDIA_STATS);
       void session.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,6 +123,12 @@ export function useLivekitSession(
     scheduleActiveLobbyReconnect,
     kickedLobbyIdRef,
   ]);
+
+  // Codec / hardware preference changes apply to the next publish, so this can
+  // safely run without recreating the session.
+  useEffect(() => {
+    liveKitSessionRef.current?.setVideoPublishPreferences(videoPreferences);
+  }, [videoPreferences.codec, videoPreferences.hardwareAcceleration]);
 
   // Sync preferences without recreating the session
   useEffect(() => {
@@ -144,5 +162,6 @@ export function useLivekitSession(
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
     liveKitConnectionState,
+    mediaStats,
   };
 }

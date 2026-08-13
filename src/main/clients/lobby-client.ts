@@ -219,7 +219,7 @@ export class LobbyClient {
       muted: boolean;
       serverMuted: boolean;
       deafened: boolean;
-      speaking: boolean;
+
       cameraEnabled: boolean;
       screenSharing: boolean;
     }>;
@@ -236,7 +236,6 @@ export class LobbyClient {
         muted: boolean;
         serverMuted: boolean;
         deafened: boolean;
-        speaking: boolean;
         cameraEnabled: boolean;
         screenSharing: boolean;
       }>;
@@ -260,7 +259,6 @@ export class LobbyClient {
         muted: boolean;
         serverMuted: boolean;
         deafened: boolean;
-        speaking: boolean;
         cameraEnabled: boolean;
         screenSharing: boolean;
       }>;
@@ -278,7 +276,7 @@ export class LobbyClient {
           muted: boolean;
           serverMuted: boolean;
           deafened: boolean;
-          speaking: boolean;
+
           cameraEnabled: boolean;
           screenSharing: boolean;
         }>;

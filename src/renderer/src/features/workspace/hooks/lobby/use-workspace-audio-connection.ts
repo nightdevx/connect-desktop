@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import workspaceService from "../../services";
+import type { MediaStatsSnapshot } from "@/features/livekit";
 
 export type AudioConnectionTone = "ok" | "warn" | "error" | "idle";
 
@@ -25,28 +25,30 @@ interface NavigatorConnectionLike {
 
 interface UseWorkspaceAudioConnectionParams {
   activeLobbyId: string | null;
-  onProbeFailure: () => void;
-  liveKitConnectionState?: "connecting" | "connected" | "reconnecting" | "disconnected";
+  liveKitConnectionState?:
+    | "connecting"
+    | "connected"
+    | "reconnecting"
+    | "disconnected";
+  mediaStats: MediaStatsSnapshot;
 }
 
-const AUDIO_SAMPLE_LIMIT = 16;
-const AUDIO_PROBE_TIMEOUT_MS = 2_400;
-const AUDIO_PROBE_STABLE_INTERVAL_MS = 2_800;
-const AUDIO_PROBE_DEGRADED_INTERVAL_MS = 2_000;
-const AUDIO_PROBE_FAILURE_INTERVAL_MS = 1_200;
-const AUDIO_PROBE_BACKGROUND_INTERVAL_MS = 4_800;
-const AUDIO_PING_EMA_ALPHA = 0.35;
+const PING_EMA_ALPHA = 0.35;
+
+// Thresholds are on the real media path now, so they can be tighter than the
+// old backend-HTTP-derived ones.
+const PING_WARN_MS = 120;
+const PING_ERROR_MS = 250;
+const LOSS_WARN_PCT = 3;
+const LOSS_ERROR_PCT = 10;
+const JITTER_WARN_MS = 30;
 
 const getNetworkSnapshot = (): Pick<
   AudioConnectionSnapshot,
   "networkType" | "networkRttMs" | "downlinkMbps"
 > => {
   if (typeof navigator === "undefined") {
-    return {
-      networkType: null,
-      networkRttMs: null,
-      downlinkMbps: null,
-    };
+    return { networkType: null, networkRttMs: null, downlinkMbps: null };
   }
 
   const navigatorWithConnection = navigator as Navigator & {
@@ -92,227 +94,126 @@ const createIdleAudioSnapshot = (): AudioConnectionSnapshot => {
   };
 };
 
+const maxOrNull = (values: (number | null)[]): number | null => {
+  let best: number | null = null;
+  for (const value of values) {
+    if (value === null) {
+      continue;
+    }
+    best = best === null ? value : Math.max(best, value);
+  }
+  return best;
+};
+
+/**
+ * Connection quality derived from real WebRTC stats.
+ *
+ * This used to time a `/lobby/state` REST round trip and call it "ping", which
+ * measured backend reachability and told the user nothing about the media path
+ * — a healthy backend with a collapsing audio stream still read as green.
+ */
 export const useWorkspaceAudioConnection = ({
   activeLobbyId,
-  onProbeFailure,
   liveKitConnectionState,
+  mediaStats,
 }: UseWorkspaceAudioConnectionParams): AudioConnectionSnapshot => {
   const [audioConnection, setAudioConnection] =
     useState<AudioConnectionSnapshot>(createIdleAudioSnapshot);
-  const onProbeFailureRef = useRef(onProbeFailure);
-  const liveKitStateRef = useRef(liveKitConnectionState);
+
+  const smoothedPingRef = useRef<number | null>(null);
+  const successfulSamplesRef = useRef(0);
+  const failedSamplesRef = useRef(0);
 
   useEffect(() => {
-    onProbeFailureRef.current = onProbeFailure;
-  }, [onProbeFailure]);
-
-  useEffect(() => {
-    liveKitStateRef.current = liveKitConnectionState;
-  }, [liveKitConnectionState]);
+    smoothedPingRef.current = null;
+    successfulSamplesRef.current = 0;
+    failedSamplesRef.current = 0;
+    if (!activeLobbyId) {
+      setAudioConnection(createIdleAudioSnapshot());
+    }
+  }, [activeLobbyId]);
 
   useEffect(() => {
     if (!activeLobbyId) {
-      setAudioConnection(createIdleAudioSnapshot());
       return;
     }
 
-    let disposed = false;
-    let probeTimerId: number | null = null;
-    let successfulSamples = 0;
-    let failedSamples = 0;
-    let consecutiveFailures = 0;
-    let smoothedPingMs: number | null = null;
-    const recentPings: number[] = [];
-    const recentOutcomes: boolean[] = [];
+    // Voice quality is what the badge is about: a struggling 1440p screen share
+    // is expected to shed bitrate and must not paint the call as broken.
+    const audioOut = mediaStats.outbound.filter((entry) => entry.kind === "audio");
+    const audioIn = mediaStats.inbound.filter((entry) => entry.kind === "audio");
 
-    const pushOutcome = (success: boolean): void => {
-      recentOutcomes.push(success);
-      if (recentOutcomes.length > AUDIO_SAMPLE_LIMIT) {
-        recentOutcomes.shift();
-      }
-    };
+    const rttMs = mediaStats.rttMs;
+    if (rttMs !== null) {
+      successfulSamplesRef.current += 1;
+      smoothedPingRef.current =
+        smoothedPingRef.current === null
+          ? rttMs
+          : smoothedPingRef.current * (1 - PING_EMA_ALPHA) +
+            rttMs * PING_EMA_ALPHA;
+    } else if (mediaStats.at > 0) {
+      failedSamplesRef.current += 1;
+    }
 
-    const scheduleNextProbe = (): void => {
-      if (disposed) {
-        return;
-      }
+    const effectivePingMs = smoothedPingRef.current;
+    const packetLossPct = maxOrNull([
+      ...audioOut.map((entry) => entry.packetLossPct),
+      ...audioIn.map((entry) => entry.packetLossPct),
+    ]);
+    const jitterMs = maxOrNull(audioIn.map((entry) => entry.jitterMs));
 
-      let nextDelay = AUDIO_PROBE_STABLE_INTERVAL_MS;
-      if (consecutiveFailures >= 2) {
-        nextDelay = AUDIO_PROBE_FAILURE_INTERVAL_MS;
-      } else if (consecutiveFailures === 1) {
-        nextDelay = AUDIO_PROBE_DEGRADED_INTERVAL_MS;
-      }
+    const pingDisplay =
+      effectivePingMs !== null ? ` (${Math.round(effectivePingMs)} ms)` : "";
 
-      if (smoothedPingMs !== null && smoothedPingMs >= 220) {
-        nextDelay = Math.min(nextDelay, AUDIO_PROBE_DEGRADED_INTERVAL_MS);
-      }
+    let tone: AudioConnectionTone = "ok";
+    let statusText = `Ses bağlantısı iyi${pingDisplay}`;
 
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState !== "visible"
-      ) {
-        nextDelay = Math.max(nextDelay, AUDIO_PROBE_BACKGROUND_INTERVAL_MS);
-      }
+    if (
+      (packetLossPct !== null && packetLossPct >= LOSS_ERROR_PCT) ||
+      (effectivePingMs !== null && effectivePingMs >= PING_ERROR_MS)
+    ) {
+      tone = "error";
+      statusText = `Ses bağlantısı sorunlu${pingDisplay}`;
+    } else if (
+      (packetLossPct !== null && packetLossPct >= LOSS_WARN_PCT) ||
+      (effectivePingMs !== null && effectivePingMs >= PING_WARN_MS) ||
+      (jitterMs !== null && jitterMs >= JITTER_WARN_MS)
+    ) {
+      tone = "warn";
+      statusText = `Ses bağlantısı zayıf${pingDisplay}`;
+    } else if (effectivePingMs === null) {
+      statusText = "Ses bağlantısı ölçülüyor";
+    }
 
-      probeTimerId = window.setTimeout(() => {
-        void runProbe();
-      }, nextDelay);
-    };
-
-    const publishSnapshot = (
-      latestPingMs: number | null,
-      measuredAt: string,
-    ): void => {
-      const totalSamples = recentOutcomes.length;
-      const failedInWindow = recentOutcomes.reduce((sum, outcome) => {
-        return sum + (outcome ? 0 : 1);
-      }, 0);
-      const packetLossPct =
-        totalSamples > 0
-          ? Number(((failedInWindow / totalSamples) * 100).toFixed(1))
-          : null;
-
-      const effectivePingMs =
-        smoothedPingMs !== null
-          ? smoothedPingMs
-          : recentPings.length > 0
-            ? recentPings[recentPings.length - 1]
-            : latestPingMs;
-
-      const jitterMs =
-        recentPings.length > 1
-          ? Math.round(
-              recentPings.slice(1).reduce((sum, ping, index) => {
-                return sum + Math.abs(ping - recentPings[index]);
-              }, 0) /
-                (recentPings.length - 1),
-            )
-          : null;
-
-      let tone: AudioConnectionTone = "ok";
-      const pingDisplay = effectivePingMs !== null ? ` (${Math.round(effectivePingMs)} ms)` : "";
-      let statusText = `Ses bağlantısı iyi${pingDisplay}`;
-
-      if (successfulSamples === 0 && failedSamples > 0) {
-        tone = "error";
-        statusText = `Ses bağlantısı yok${pingDisplay}`;
-      } else if (
-        (packetLossPct !== null && packetLossPct >= 20) ||
-        (effectivePingMs !== null && effectivePingMs >= 350)
-      ) {
-        tone = "error";
-        statusText = `Ses bağlantısı sorunlu${pingDisplay}`;
-      } else if (
-        (packetLossPct !== null && packetLossPct >= 8) ||
-        (effectivePingMs !== null && effectivePingMs >= 180) ||
-        (jitterMs !== null && jitterMs >= 55)
-      ) {
+    // Transport state wins over the numbers: stats go stale the moment the
+    // peer connection drops, and stale-but-good numbers must not read as green.
+    if (liveKitConnectionState === "disconnected") {
+      tone = "error";
+      statusText = `Ses bağlantısı yok${pingDisplay}`;
+    } else if (
+      liveKitConnectionState === "reconnecting" ||
+      liveKitConnectionState === "connecting"
+    ) {
+      if (tone !== "error") {
         tone = "warn";
-        statusText = `Ses bağlantısı zayıf${pingDisplay}`;
       }
+      statusText = "Ses bağlantısı yeniden kuruluyor";
+    }
 
-      if (totalSamples < 2 && tone !== "error") {
-        statusText = "Ses bağlantısı ölçülüyor";
-      }
-
-      // LiveKit transport health overrides the backend-REST probe: the audio room
-      // can be down while the backend stays reachable, so the badge must reflect
-      // the real media path, not just backend reachability.
-      const lkState = liveKitStateRef.current;
-      if (lkState === "disconnected") {
-        tone = "error";
-        statusText = `Ses bağlantısı yok${pingDisplay}`;
-      } else if (lkState === "reconnecting" || lkState === "connecting") {
-        if (tone !== "error") {
-          tone = "warn";
-        }
-        statusText = "Ses bağlantısı yeniden kuruluyor";
-      }
-
-      setAudioConnection({
-        statusText,
-        tone,
-        pingMs:
-          effectivePingMs === null
-            ? null
-            : Math.max(1, Math.round(effectivePingMs)),
-        packetLossPct,
-        jitterMs,
-        successfulSamples,
-        failedSamples,
-        lastMeasuredAt: measuredAt,
-        ...getNetworkSnapshot(),
-      });
-    };
-
-    const runProbe = async (): Promise<void> => {
-      if (disposed) {
-        return;
-      }
-
-      const startedAt = performance.now();
-      const timeoutToken = Symbol("audio-probe-timeout");
-      const resultOrTimeout = await Promise.race([
-        workspaceService.getLobbyState({
-          lobbyId: activeLobbyId,
-        }),
-        new Promise<typeof timeoutToken>((resolve) => {
-          window.setTimeout(() => {
-            resolve(timeoutToken);
-          }, AUDIO_PROBE_TIMEOUT_MS);
-        }),
-      ]);
-
-      if (disposed) {
-        return;
-      }
-
-      if (resultOrTimeout !== timeoutToken && resultOrTimeout.ok) {
-        const pingMs = Math.max(1, Math.round(performance.now() - startedAt));
-        const measuredAt = new Date().toISOString();
-        successfulSamples += 1;
-        consecutiveFailures = 0;
-        pushOutcome(true);
-
-        smoothedPingMs =
-          smoothedPingMs === null
-            ? pingMs
-            : smoothedPingMs * (1 - AUDIO_PING_EMA_ALPHA) +
-              pingMs * AUDIO_PING_EMA_ALPHA;
-
-        recentPings.push(pingMs);
-        if (recentPings.length > AUDIO_SAMPLE_LIMIT) {
-          recentPings.shift();
-        }
-
-        publishSnapshot(smoothedPingMs, measuredAt);
-        scheduleNextProbe();
-        return;
-      }
-
-      failedSamples += 1;
-      consecutiveFailures += 1;
-      pushOutcome(false);
-      const measuredAt = new Date().toISOString();
-      publishSnapshot(smoothedPingMs, measuredAt);
-      onProbeFailureRef.current();
-      scheduleNextProbe();
-    };
-
-    void runProbe();
-
-    return () => {
-      disposed = true;
-      if (probeTimerId !== null) {
-        window.clearTimeout(probeTimerId);
-        probeTimerId = null;
-      }
-    };
-  }, [activeLobbyId]);
+    setAudioConnection({
+      statusText,
+      tone,
+      pingMs:
+        effectivePingMs === null ? null : Math.max(1, Math.round(effectivePingMs)),
+      packetLossPct,
+      jitterMs,
+      successfulSamples: successfulSamplesRef.current,
+      failedSamples: failedSamplesRef.current,
+      lastMeasuredAt:
+        mediaStats.at > 0 ? new Date(mediaStats.at).toISOString() : null,
+      ...getNetworkSnapshot(),
+    });
+  }, [activeLobbyId, liveKitConnectionState, mediaStats]);
 
   return audioConnection;
 };
-
-
-

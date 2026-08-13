@@ -36,6 +36,18 @@ export function registerAppHandlers(): void {
     }
   });
 
+  // Hardware-acceleration switches are read once at GPU process spawn, so the
+  // setting only takes effect after a full restart.
+  ipcMain.handle("desktop:app-relaunch", async () => {
+    try {
+      app.relaunch();
+      app.quit();
+      return ok({ relaunching: true });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:update-check", async () => {
     try {
       const result = await checkForAppUpdates();

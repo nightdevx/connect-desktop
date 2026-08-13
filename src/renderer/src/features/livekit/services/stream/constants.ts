@@ -12,8 +12,3 @@ export const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPrefere
     microphoneVolume: 100,
   };
 
-export const HIGH_PROFILE = {
-  name: "HIGH",
-  maxBitrateBps: 4_000_000,
-  maxFramerate: 30,
-};

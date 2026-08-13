@@ -46,8 +46,16 @@ export interface DesktopAppPreferences {
   launchOnStartup: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
+  // Applied as GPU/WebRTC command-line switches at startup, so a change only
+  // takes effect after a relaunch. Off = software encode/decode fallback for
+  // machines whose GPU driver produces a black or torn stream.
+  hardwareAcceleration: boolean;
 }
 
+// Server-reported lobby membership. Deliberately has no `speaking` flag: the
+// backend cannot know it (LiveKit does not report speaking state), so the field
+// was always false on the wire. Speaking is derived client-side from LiveKit's
+// ActiveSpeakersChanged — see LobbyParticipantView.
 export interface LobbyStateMember {
   userId: string;
   username: string;
@@ -55,7 +63,6 @@ export interface LobbyStateMember {
   muted: boolean;
   serverMuted: boolean;
   deafened: boolean;
-  speaking: boolean;
   cameraEnabled: boolean;
   screenSharing: boolean;
 }
@@ -95,6 +102,14 @@ export type LobbyStreamEvent =
   | {
       type: "lobbies-snapshot";
       lobbies: LobbyRealtimeSnapshot[];
+      at?: string;
+    }
+  | {
+      // Pushed by the lobby websocket so chat lands in well under a second.
+      // It used to arrive via a 3s REST poll.
+      type: "lobby-message";
+      lobbyId: string;
+      message: ChatMessage;
       at?: string;
     }
   | {
@@ -189,6 +204,7 @@ export interface DesktopApi {
       preferences: DesktopAppPreferences;
     }>
   >;
+  relaunchApp: () => Promise<DesktopResult<{ relaunching: boolean }>>;
   checkForAppUpdates: () => Promise<
     DesktopResult<{
       requested: boolean;

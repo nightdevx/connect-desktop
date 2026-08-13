@@ -26,6 +26,8 @@ import {
   useWorkspaceLobbies,
   useNetworkReconnect,
   useCallSession,
+  useRemoteParticipantAudio,
+  useRoomTransitions,
 } from "../features/workspace/hooks";
 import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
@@ -41,19 +43,6 @@ interface WorkspaceShellProps {
   onLogout: () => void;
   isLoggingOut: boolean;
 }
-
-const DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE = {
-  muted: false,
-  volumePercent: 100,
-  cameraHidden: false,
-};
-
-const clampRemoteParticipantVolumePercent = (volumePercent: number): number => {
-  if (!Number.isFinite(volumePercent)) {
-    return DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE.volumePercent;
-  }
-  return Math.min(200, Math.max(0, Math.round(volumePercent)));
-};
 
 function WorkspaceShell({
   currentUserId,
@@ -97,16 +86,69 @@ function WorkspaceShell({
     cameraPreferences,
     audioPreferences,
     streamPreferences,
+    hardwareAcceleration,
     saveCameraPreferences,
     saveAudioPreferences,
     saveStreamPreferences,
   } = useWorkspacePreferences();
+
+  const videoPublishPreferences = useMemo(
+    () => ({
+      codec: streamPreferences.videoCodec,
+      hardwareAcceleration,
+    }),
+    [streamPreferences.videoCodec, hardwareAcceleration],
+  );
 
   useEffect(() => {
     soundEffectManager.configure({
       enabled: audioPreferences.notificationSoundsEnabled,
     });
   }, [audioPreferences.notificationSoundsEnabled]);
+
+  // An unplugged device must not stay selected. The capture path already falls
+  // back to the default microphone on its own, but the stored preference kept
+  // pointing at the missing device — so the settings UI showed a device that
+  // was not being used and the user had no idea why their headset went quiet.
+  useEffect(() => {
+    // Before permission is granted, enumerateDevices returns entries with blank
+    // ids. Treating that as "device gone" would wipe the preference on startup.
+    const hasResolvedIds = (devices: MediaDeviceInfo[]): boolean =>
+      devices.some((device) => device.deviceId.length > 0);
+
+    const patch: Partial<AudioPreferences> = {};
+
+    const inputId = audioPreferences.selectedAudioInputDeviceId;
+    if (
+      inputId &&
+      hasResolvedIds(audioInputDevices) &&
+      !audioInputDevices.some((device) => device.deviceId === inputId)
+    ) {
+      patch.selectedAudioInputDeviceId = null;
+    }
+
+    const outputId = audioPreferences.selectedAudioOutputDeviceId;
+    if (
+      outputId &&
+      hasResolvedIds(audioOutputDevices) &&
+      !audioOutputDevices.some((device) => device.deviceId === outputId)
+    ) {
+      patch.selectedAudioOutputDeviceId = null;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return;
+    }
+
+    saveAudioPreferences({ ...audioPreferences, ...patch });
+    setStatus("Seçili ses cihazı çıkarıldı, varsayılan cihaza geçildi.", "warn");
+  }, [
+    audioInputDevices,
+    audioOutputDevices,
+    audioPreferences,
+    saveAudioPreferences,
+    setStatus,
+  ]);
 
   // ----- LIVEKIT SESSION -----
   const scheduleActiveLobbyReconnectProxy = useCallback(
@@ -128,6 +170,7 @@ function WorkspaceShell({
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
     liveKitConnectionState,
+    mediaStats,
   } = useLivekitSession(
     currentUserId,
     audioPreferences,
@@ -135,127 +178,20 @@ function WorkspaceShell({
     activeLobbyRef,
     scheduleActiveLobbyReconnectProxy,
     kickedLobbyIdRef,
+    videoPublishPreferences,
   );
 
-  const handleSetRemoteParticipantMuted = useCallback(
-    (participantUserId: string, muted: boolean): void => {
-      const currentPreference =
-        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
-        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
-      const nextPreference = {
-        ...currentPreference,
-        muted,
-      };
-      setRemoteParticipantAudioPreferences((previous) => ({
-        ...previous,
-        [participantUserId]: nextPreference,
-      }));
-      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
-        participantUserId,
-        nextPreference,
-      );
-    },
-    [
-      liveKitSessionRef,
-      remoteParticipantAudioPreferencesRef,
-      setRemoteParticipantAudioPreferences,
-    ],
-  );
-
-  const handleSetRemoteParticipantVolume = useCallback(
-    (participantUserId: string, volumePercent: number): void => {
-      const currentPreference =
-        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
-        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
-      const nextPreference = {
-        ...currentPreference,
-        volumePercent: clampRemoteParticipantVolumePercent(volumePercent),
-      };
-      setRemoteParticipantAudioPreferences((previous) => ({
-        ...previous,
-        [participantUserId]: nextPreference,
-      }));
-      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
-        participantUserId,
-        nextPreference,
-      );
-    },
-    [
-      liveKitSessionRef,
-      remoteParticipantAudioPreferencesRef,
-      setRemoteParticipantAudioPreferences,
-    ],
-  );
-
-  const handleSetRemoteParticipantScreenAudioMuted = useCallback(
-    (participantUserId: string, muted: boolean): void => {
-      const currentPreference =
-        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
-        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
-      const nextPreference = {
-        ...currentPreference,
-        screenAudioMuted: muted,
-      };
-      setRemoteParticipantAudioPreferences((previous) => ({
-        ...previous,
-        [participantUserId]: nextPreference,
-      }));
-      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
-        participantUserId,
-        nextPreference,
-      );
-    },
-    [
-      liveKitSessionRef,
-      remoteParticipantAudioPreferencesRef,
-      setRemoteParticipantAudioPreferences,
-    ],
-  );
-
-  const handleSetRemoteParticipantScreenAudioVolume = useCallback(
-    (participantUserId: string, volumePercent: number): void => {
-      const currentPreference =
-        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
-        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
-      const nextPreference = {
-        ...currentPreference,
-        screenAudioVolumePercent: clampRemoteParticipantVolumePercent(volumePercent),
-      };
-      setRemoteParticipantAudioPreferences((previous) => ({
-        ...previous,
-        [participantUserId]: nextPreference,
-      }));
-      liveKitSessionRef.current?.setRemoteParticipantAudioPreference(
-        participantUserId,
-        nextPreference,
-      );
-    },
-    [
-      liveKitSessionRef,
-      remoteParticipantAudioPreferencesRef,
-      setRemoteParticipantAudioPreferences,
-    ],
-  );
-
-
-
-  const handleSetRemoteParticipantCameraHidden = useCallback(
-    (participantUserId: string, cameraHidden: boolean): void => {
-      const currentPreference =
-        remoteParticipantAudioPreferencesRef.current[participantUserId] ??
-        DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE;
-      const nextPreference = {
-        ...currentPreference,
-        cameraHidden,
-      };
-      setRemoteParticipantAudioPreferences((previous) => ({
-        ...previous,
-        [participantUserId]: nextPreference,
-      }));
-      // Camera hiding is handled at the UI level in the participant tile
-    },
-    [remoteParticipantAudioPreferencesRef, setRemoteParticipantAudioPreferences],
-  );
+  const {
+    setMuted: handleSetRemoteParticipantMuted,
+    setVolume: handleSetRemoteParticipantVolume,
+    setScreenAudioMuted: handleSetRemoteParticipantScreenAudioMuted,
+    setScreenAudioVolume: handleSetRemoteParticipantScreenAudioVolume,
+    setCameraHidden: handleSetRemoteParticipantCameraHidden,
+  } = useRemoteParticipantAudio({
+    liveKitSessionRef,
+    preferencesRef: remoteParticipantAudioPreferencesRef,
+    setPreferences: setRemoteParticipantAudioPreferences,
+  });
 
   // ----- WORKSPACE USERS -----
   const {
@@ -353,6 +289,8 @@ function WorkspaceShell({
     selectedScreenShareSourceKind,
     selectedScreenShareQuality,
     setSelectedScreenShareQuality,
+    selectedScreenShareContentMode,
+    setSelectedScreenShareContentMode,
     captureSystemAudio,
     setCaptureSystemAudio,
     monitorScreenShareSources,
@@ -490,6 +428,10 @@ function WorkspaceShell({
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
     async (lobbyId: string): Promise<void> => {
+      // The LiveKit failure used to be swallowed here. The reconnect chain then
+      // saw a resolved promise, reset its backoff counter and told the user
+      // "connection restored" while there was no audio room at all. Let it
+      // throw so the caller can retry with backoff.
       const liveKitTask = (async () => {
         try {
           const result = await workspaceService.createLiveKitToken({ room: lobbyId });
@@ -505,8 +447,10 @@ function WorkspaceShell({
             `LiveKit bağlantısı kurulamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
             "warn",
           );
+          throw error;
         }
       })();
+
       await Promise.all([
         liveKitTask,
         syncLobbyAudioState(lobbyId),
@@ -553,7 +497,6 @@ function WorkspaceShell({
     clearActiveLobbyReconnectTimer,
     scheduleActiveLobbyReconnect,
   } = useWorkspaceLobbies({
-    workspaceSection,
     isOnline,
     shouldEmitReconnectStatus,
     setStatus,
@@ -715,81 +658,32 @@ function WorkspaceShell({
   }, [activeLobbyId, lobbyMembersById, currentUserId, leaveActiveLobby]);
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
-  const ensureCleanRoomTransition = useCallback(async (nextRoomId: string | null) => {
-    const currentRoomId = activeLobbyRef.current;
-    if (!currentRoomId) return;
-    if (currentRoomId === nextRoomId) return;
-
-    console.log(`[WorkspaceShell] Mutual exclusion: Transitioning from ${currentRoomId} to ${nextRoomId}. Cleaning up previous room.`);
-    
-    if (currentRoomId.startsWith("call_")) {
-      // When transitioning away from a call room, treat as hard end
-      // (the user is actively switching context, so we should notify the peer)
-      const peerUserId = callState.peerUser?.userId;
-      const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
-      await endActiveCall(peerInRoom);
-      resetLocalMediaCapture();
-      try {
-        await liveKitSessionRef.current?.disconnect();
-      } catch (e) {}
-    } else {
-      await leaveActiveLobby();
-    }
-  }, [callState.peerUser, remoteParticipantStreams, endActiveCall, leaveActiveLobby, resetLocalMediaCapture, liveKitSessionRef]);
-
-
-  const handleJoinLobby = useCallback(async (lobbyId: string) => {
-    await ensureCleanRoomTransition(lobbyId);
-    await joinLobby(lobbyId);
-  }, [ensureCleanRoomTransition, joinLobby]);
-
-  const handleInitiateCall = useCallback(async (targetUser: UserDirectoryEntry) => {
-    await ensureCleanRoomTransition(null);
-    await initiateCall(targetUser);
-  }, [ensureCleanRoomTransition, initiateCall]);
-
-  const handleAcceptCall = useCallback(async () => {
-    await ensureCleanRoomTransition(null);
-    await acceptCall();
-  }, [ensureCleanRoomTransition, acceptCall]);
-
-  const handleRejoinCall = useCallback(async () => {
-    await ensureCleanRoomTransition(null);
-    await rejoinCall();
-  }, [ensureCleanRoomTransition, rejoinCall]);
-
-  const handleEndActiveCall = useCallback(async () => {
-    // Compute peerInRoom: if peer is in LiveKit room → soft leave (they can continue)
-    // If peer is NOT in the room → hard end (we're last, notify peer, write DM)
-    const peerUserId = callState.peerUser?.userId;
-    const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
-    await endActiveCall(peerInRoom);
-    resetLocalMediaCapture();
-    try {
-      await liveKitSessionRef.current?.disconnect();
-    } catch (e) {}
-  }, [callState.peerUser, remoteParticipantStreams, endActiveCall, resetLocalMediaCapture, liveKitSessionRef]);
-
-  const handleLeaveLobbyOrEndCall = useCallback(async () => {
-    if (activeLobbyId?.startsWith("call_")) {
-      const peerUserId = callState.peerUser?.userId;
-      const peerInRoom = !!(peerUserId && remoteParticipantStreams[peerUserId]);
-      await endActiveCall(peerInRoom);
-      resetLocalMediaCapture();
-      try {
-        await liveKitSessionRef.current?.disconnect();
-      } catch (e) {}
-    } else {
-      await leaveActiveLobby();
-    }
-  }, [activeLobbyId, callState.peerUser, remoteParticipantStreams, endActiveCall, leaveActiveLobby, resetLocalMediaCapture, liveKitSessionRef]);
+  const {
+    handleJoinLobby,
+    handleInitiateCall,
+    handleAcceptCall,
+    handleRejoinCall,
+    handleEndActiveCall,
+    handleLeaveLobbyOrEndCall,
+  } = useRoomTransitions({
+    activeLobbyRef,
+    liveKitSessionRef,
+    activeLobbyId,
+    callPeer: callState.peerUser,
+    remoteParticipantStreams,
+    endActiveCall,
+    leaveActiveLobby,
+    resetLocalMediaCapture,
+    joinLobby,
+    initiateCall,
+    acceptCall,
+    rejoinCall,
+  });
 
   const audioConnection = useWorkspaceAudioConnection({
     activeLobbyId,
-    onProbeFailure: () => {
-      scheduleActiveLobbyReconnectProxy("lobby-state-probe", false);
-    },
     liveKitConnectionState,
+    mediaStats,
   });
 
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
@@ -1025,6 +919,8 @@ function WorkspaceShell({
         selectedSourceId={selectedScreenShareSourceId}
         selectedQuality={selectedScreenShareQuality}
         qualityOptions={SCREEN_SHARE_QUALITY_OPTIONS}
+        contentMode={selectedScreenShareContentMode}
+        onChangeContentMode={setSelectedScreenShareContentMode}
         captureSystemAudio={captureSystemAudio}
         onRefreshSources={loadScreenShareSources}
         onStart={startScreenShareFromModal}

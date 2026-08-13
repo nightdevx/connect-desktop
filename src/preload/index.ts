@@ -10,8 +10,6 @@ const UPDATE_EVENT_CHANNEL = "desktop:update-event";
 
 
 
-const STREAMING_START_CAPTURE_CHANNEL = "streaming:start-capture";
-const STREAMING_STOP_CAPTURE_CHANNEL = "streaming:stop-capture";
 const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
 const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
 const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
@@ -23,6 +21,7 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:app-preferences-get"),
   setAppPreferences: async (payload) =>
     ipcRenderer.invoke("desktop:app-preferences-set", payload),
+  relaunchApp: async () => ipcRenderer.invoke("desktop:app-relaunch"),
   checkForAppUpdates: async () => ipcRenderer.invoke("desktop:update-check"),
   installDownloadedUpdate: async () =>
     ipcRenderer.invoke("desktop:update-install"),
@@ -202,12 +201,6 @@ const desktopApi: DesktopApi = {
 };
 
 const streamingApi: StreamingApi = {
-  startCapture: async (sourceId, type) =>
-    ipcRenderer.invoke(STREAMING_START_CAPTURE_CHANNEL, {
-      sourceId,
-      type,
-    }),
-  stopCapture: async () => ipcRenderer.invoke(STREAMING_STOP_CAPTURE_CHANNEL),
   startSystemAudioLoopback: async () =>
     ipcRenderer.invoke(STREAMING_LOOPBACK_START_CHANNEL),
   stopSystemAudioLoopback: async () =>

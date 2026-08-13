@@ -64,7 +64,7 @@ export const lobbyService = {
           muted: boolean;
           serverMuted: boolean;
           deafened: boolean;
-          speaking: boolean;
+
           cameraEnabled: boolean;
           screenSharing: boolean;
         }>;
@@ -85,7 +85,6 @@ export const lobbyService = {
               muted: boolean;
               serverMuted: boolean;
               deafened: boolean;
-              speaking: boolean;
               cameraEnabled: boolean;
               screenSharing: boolean;
             }>;

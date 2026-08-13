@@ -1,7 +1,8 @@
-import { Modal, Button, Switch } from "antd";
+import { Modal, Button, Segmented, Switch } from "antd";
 import { SoundOutlined } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "../../../../../shared/desktop-api-types";
 import type {
+  ScreenShareContentMode,
   ScreenShareQualityOption,
   ScreenShareSourceKind,
 } from "../types";
@@ -18,7 +19,9 @@ interface ScreenShareModalProps {
   selectedSourceId: string | null;
   selectedQuality: string;
   qualityOptions: ScreenShareQualityOption[];
+  contentMode: ScreenShareContentMode;
   captureSystemAudio: boolean;
+  onChangeContentMode: (mode: ScreenShareContentMode) => void;
   onClose: () => void;
   onRefreshSources: () => void;
   onStart: () => void;
@@ -40,7 +43,9 @@ export function ScreenShareModal({
   selectedSourceId,
   selectedQuality,
   qualityOptions,
+  contentMode,
   captureSystemAudio,
+  onChangeContentMode,
   onClose,
   onRefreshSources,
   onStart,
@@ -217,6 +222,43 @@ export function ScreenShareModal({
                 </div>
               </label>
             ))}
+          </div>
+
+          {/* Content mode: decides what the encoder protects when bandwidth
+              runs short — frame rate or sharpness. */}
+          <div style={{ marginTop: "20px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.45)",
+                marginBottom: "8px",
+              }}
+            >
+              İçerik Türü
+            </div>
+            <Segmented
+              block
+              value={contentMode}
+              onChange={(value) =>
+                onChangeContentMode(value as ScreenShareContentMode)
+              }
+              options={[
+                { label: "Otomatik", value: "auto" },
+                { label: "Hareket", value: "motion" },
+                { label: "Metin", value: "detail" },
+              ]}
+            />
+            <div
+              style={{
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.35)",
+                marginTop: "6px",
+                lineHeight: 1.4,
+              }}
+            >
+              Hareket: oyun/video, bağlantı zayıflarsa akıcılık korunur.
+              Metin: sunum/kod, çözünürlük ve netlik korunur.
+            </div>
           </div>
 
           {/* Audio Share Toggle */}

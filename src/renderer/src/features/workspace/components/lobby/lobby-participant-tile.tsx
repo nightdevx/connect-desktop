@@ -18,6 +18,8 @@ import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
   isPlaceholder?: boolean;
+  // Derived locally from LiveKit's active-speaker signal, not from the server.
+  speaking: boolean;
 }
 
 

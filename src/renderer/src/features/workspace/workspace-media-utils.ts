@@ -11,6 +11,7 @@ import {
   SCREEN_SHARE_QUALITY_OPTIONS,
   getDefaultScreenShareQuality as getBaseDefaultScreenShareQuality,
 } from "../screen-share";
+import { type VideoCodecPreference } from "../livekit";
 
 export type {
   ScreenShareSourceKind,
@@ -147,14 +148,31 @@ export const readAudioPreferences = (): {
   }
 };
 
+const DEFAULT_STREAM_PREFERENCES: StreamPreferences = {
+  frameRate: 30,
+  captureSystemAudio: false,
+  videoCodec: "auto",
+};
+
+const VIDEO_CODEC_PREFERENCES: VideoCodecPreference[] = [
+  "auto",
+  "h264",
+  "vp8",
+  "vp9",
+  "av1",
+];
+
+const normalizeVideoCodec = (value: unknown): VideoCodecPreference => {
+  return VIDEO_CODEC_PREFERENCES.includes(value as VideoCodecPreference)
+    ? (value as VideoCodecPreference)
+    : "auto";
+};
+
 export const readStreamPreferences = (): StreamPreferences => {
   try {
     const raw = localStorage.getItem(STREAM_SETTINGS_STORAGE_KEY);
     if (!raw) {
-      return {
-        frameRate: 30,
-        captureSystemAudio: false,
-      };
+      return { ...DEFAULT_STREAM_PREFERENCES };
     }
 
     const parsed = JSON.parse(raw) as Partial<StreamPreferences>;
@@ -166,12 +184,10 @@ export const readStreamPreferences = (): StreamPreferences => {
     return {
       frameRate: parsedFrameRate,
       captureSystemAudio: Boolean(parsed.captureSystemAudio),
+      videoCodec: normalizeVideoCodec(parsed.videoCodec),
     };
   } catch {
-    return {
-      frameRate: 30,
-      captureSystemAudio: false,
-    };
+    return { ...DEFAULT_STREAM_PREFERENCES };
   }
 };
 

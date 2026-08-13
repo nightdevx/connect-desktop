@@ -202,6 +202,29 @@ export function SettingsStream({
             />
           </div>
 
+          <div>
+            <label className="ct-label" htmlFor="settings-stream-codec" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
+              Video Codec
+            </label>
+            <Select
+              id="settings-stream-codec"
+              value={draftStreamPreferences.videoCodec}
+              onChange={(value) => handlePreferenceChange("videoCodec", value)}
+              options={[
+                { value: "auto", label: "Otomatik (önerilen)" },
+                { value: "h264", label: "H.264 — en geniş donanım desteği" },
+                { value: "vp8", label: "VP8 — yazılım, en uyumlu" },
+                { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
+                { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
+              ]}
+              style={{ width: "100%", height: "40px" }}
+            />
+            <span style={{ display: "block", marginTop: "6px", fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8.
+              Değişiklik bir sonraki yayında geçerli olur.
+            </span>
+          </div>
+
           <div className="ct-settings-switch-item" style={{
             display: "flex",
             justifyContent: "space-between",

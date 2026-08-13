@@ -7,6 +7,7 @@ const defaultAppPreferences: DesktopAppPreferences = {
   launchOnStartup: false,
   minimizeToTray: false,
   closeToTray: false,
+  hardwareAcceleration: true,
 };
 
 type PreferencesListener = (preferences: DesktopAppPreferences) => void;
@@ -39,6 +40,10 @@ const sanitizeLoadedPreferences = (payload: unknown): DesktopAppPreferences => {
       typeof source.closeToTray === "boolean"
         ? source.closeToTray
         : defaultAppPreferences.closeToTray,
+    hardwareAcceleration:
+      typeof source.hardwareAcceleration === "boolean"
+        ? source.hardwareAcceleration
+        : defaultAppPreferences.hardwareAcceleration,
   };
 };
 
@@ -145,6 +150,13 @@ const syncLaunchOnStartupWithSystem = (
 
   getStore().set(synced);
   return synced;
+};
+
+// Reads the stored preferences without touching app.getLoginItemSettings(),
+// so it is safe to call before app.whenReady() — used by the startup GPU/WebRTC
+// switch setup, which must run before the GPU process spawns.
+export const peekDesktopAppPreferences = (): DesktopAppPreferences => {
+  return getStore().get();
 };
 
 export const getDesktopAppPreferences = (): DesktopAppPreferences => {

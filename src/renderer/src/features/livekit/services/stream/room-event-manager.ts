@@ -6,6 +6,7 @@ import {
   RemoteTrack,
   RemoteTrackPublication,
   DisconnectReason,
+  Track,
 } from "livekit-client";
 import { logLiveKitDebug } from "../debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
@@ -66,7 +67,15 @@ export class RoomEventManager {
   };
 
   private readonly handleTrackPublished = (pub: RemoteTrackPublication) => {
-    // Manual subscription because autoSubscribe is disabled in RoomOptions
+    // Manual subscription because autoSubscribe is disabled in RoomOptions.
+    // While deafened we deliberately stay unsubscribed from audio — otherwise
+    // a track published mid-deafen would quietly start costing bandwidth again.
+    if (
+      pub.kind === Track.Kind.Audio &&
+      this.remoteMediaHandler.isDeafenedNow()
+    ) {
+      return;
+    }
     void pub.setSubscribed(true);
   };
 

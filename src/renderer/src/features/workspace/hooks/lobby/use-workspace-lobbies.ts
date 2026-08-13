@@ -5,7 +5,6 @@ import type { LobbyStateMember, DesktopResult } from "@shared/desktop-api-types"
 import workspaceService from "../../services";
 
 interface UseWorkspaceLobbiesProps {
-  workspaceSection: string;
   isOnline: boolean;
   shouldEmitReconnectStatus: (key: any, delay: number) => boolean;
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
@@ -56,7 +55,6 @@ const sortLobbiesWithMainFirst = (
 };
 
 export function useWorkspaceLobbies({
-  workspaceSection,
   isOnline,
   shouldEmitReconnectStatus,
   setStatus,
@@ -72,7 +70,6 @@ export function useWorkspaceLobbies({
   const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
   
-  const workspaceSectionRef = useRef(workspaceSection);
   const activeLobbyRef = useRef(activeLobbyId);
   const joiningLobbyRef = useRef(joiningLobbyId);
   const leavingLobbyRef = useRef(isLeavingLobby);
@@ -82,7 +79,6 @@ export function useWorkspaceLobbies({
   const lobbyStreamReconnectAttemptRef = useRef(0);
   const activeLobbyReconnectTimerRef = useRef<number | null>(null);
 
-  useEffect(() => { workspaceSectionRef.current = workspaceSection; }, [workspaceSection]);
   useEffect(() => { activeLobbyRef.current = activeLobbyId; }, [activeLobbyId]);
   useEffect(() => { joiningLobbyRef.current = joiningLobbyId; }, [joiningLobbyId]);
   useEffect(() => { leavingLobbyRef.current = isLeavingLobby; }, [isLeavingLobby]);
@@ -91,10 +87,8 @@ export function useWorkspaceLobbies({
   useEffect(() => {
     if (!onlineRef.current && isOnline) {
       onlineRef.current = true;
-      if (workspaceSectionRef.current === "lobbies") {
-        clearLobbyReconnectTimer();
-        scheduleLobbyStreamReconnect(true);
-      }
+      clearLobbyReconnectTimer();
+      scheduleLobbyStreamReconnect(true);
       if (activeLobbyRef.current) {
         if (shouldEmitReconnectStatus("network", 4_000)) {
           setStatus("İnternet geri geldi, lobi bağlantısı yeniden kuruluyor...", "warn");
@@ -151,7 +145,6 @@ export function useWorkspaceLobbies({
   }, []);
 
   const scheduleLobbyStreamReconnect = useCallback((immediate = false): void => {
-    if (workspaceSectionRef.current !== "lobbies") return;
     if (lobbyStreamReconnectTimerRef.current !== null) return;
 
     const delay = immediate
@@ -166,7 +159,6 @@ export function useWorkspaceLobbies({
 
     lobbyStreamReconnectTimerRef.current = window.setTimeout(() => {
       lobbyStreamReconnectTimerRef.current = null;
-      if (workspaceSectionRef.current !== "lobbies") return;
       if (!onlineRef.current) {
         scheduleLobbyStreamReconnect();
         return;
@@ -189,10 +181,18 @@ export function useWorkspaceLobbies({
     reason: "network-online" | "lobby-stream-closed" | "lobby-state-probe" | "livekit-disconnected",
     immediate = false,
   ): void => {
-    if (!activeLobbyRef.current || activeLobbyReconnectTimerRef.current !== null) return;
+    if (!activeLobbyRef.current) return;
     // Never auto-rejoin a lobby the user was just server-kicked from — that
     // would silently undo the kick. A deliberate manual join clears this.
     if (kickedLobbyIdRef.current === activeLobbyRef.current) return;
+
+    if (activeLobbyReconnectTimerRef.current !== null) {
+      // An urgent trigger (LiveKit dropped, network came back) must not be
+      // swallowed by a backoff timer that is already counting down.
+      if (!immediate) return;
+      window.clearTimeout(activeLobbyReconnectTimerRef.current);
+      activeLobbyReconnectTimerRef.current = null;
+    }
 
     const delay = immediate
       ? 0
@@ -349,13 +349,11 @@ export function useWorkspaceLobbies({
     };
   }, [setStatus, shouldEmitReconnectStatus, clearLobbyReconnectTimer, scheduleLobbyStreamReconnect, syncLobbiesFromFallback, scheduleActiveLobbyReconnect]);
 
+  // The lobby stream stays open for the whole session, not just while the
+  // Lobbies tab is visible. It is one socket, it carries the roster, and on the
+  // server side it doubles as the membership heartbeat — closing it on a tab
+  // switch is what used to drop users out of the voice room after ~45s.
   useEffect(() => {
-    if (workspaceSection !== "lobbies") {
-      clearLobbyReconnectTimer();
-      lobbyStreamReconnectAttemptRef.current = 0;
-      return;
-    }
-
     let cancelled = false;
     void workspaceService.startLobbyStream().then((result) => {
       if (cancelled || result.ok) {
@@ -376,7 +374,7 @@ export function useWorkspaceLobbies({
       lobbyStreamReconnectAttemptRef.current = 0;
       void workspaceService.stopLobbyStream();
     };
-  }, [setStatus, workspaceSection, clearLobbyReconnectTimer, syncLobbiesFromFallback, scheduleLobbyStreamReconnect]);
+  }, [setStatus, clearLobbyReconnectTimer, syncLobbiesFromFallback, scheduleLobbyStreamReconnect]);
 
   return {
     knownLobbies,
