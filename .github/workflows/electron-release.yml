@@ -97,15 +97,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11 requires Node >= 22.13 — it imports node:sqlite, which does
+          # not exist on Node 20, so the whole install crashes there. Keep this
+          # in sync with the engines field in package.json.
+          node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install desktop dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build native audio-loopback addon
-        run: pnpm build:native
+      # The native addon is built by dist:win itself, so there is no separate
+      # step here — running it twice just recompiles against Electron's ABI for
+      # nothing.
 
       - name: Create .env from GitHub Secrets
         env:
@@ -159,89 +163,8 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
-  release-linux:
-    needs: detect-version
-    if: github.event_name == 'workflow_dispatch' || needs.detect-version.outputs.version_changed == 'true'
-    runs-on: ubuntu-latest
-    environment:
-      name: release-env
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Must run before setup-node so its `cache: pnpm` can find the store.
-      # Version comes from the packageManager field in package.json.
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install desktop dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Create .env from GitHub Secrets
-        env:
-          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
-        run: |
-          if [ -z "$CT_BACKEND_URL" ]; then
-            echo "Missing secret: CT_BACKEND_URL"
-            exit 1
-          fi
-          echo "CT_BACKEND_URL=$CT_BACKEND_URL" > .env
-
-      - name: Build desktop release artifacts
-        run: pnpm dist:linux
-
-      - name: Validate update artifacts
-        run: |
-          version="${{ needs.detect-version.outputs.version }}"
-          expectedAppImage="Connect-$version.AppImage"
-          appImagePath="release/$expectedAppImage"
-          expectedDeb="release/connect-desktop_${version}_amd64.deb"
-          latestLinuxYml="release/latest-linux.yml"
-
-          if [ ! -f "$appImagePath" ]; then
-            echo "Missing expected AppImage artifact: $appImagePath"
-            exit 1
-          fi
-
-          if [ ! -f "$expectedDeb" ]; then
-            echo "Missing expected deb artifact: $expectedDeb"
-            exit 1
-          fi
-
-          if [ ! -f "$latestLinuxYml" ]; then
-            echo "Missing latest-linux.yml metadata file"
-            exit 1
-          fi
-
-          if ! grep -q "$expectedAppImage" "$latestLinuxYml"; then
-            echo "latest-linux.yml does not reference expected AppImage: $expectedAppImage"
-            exit 1
-          fi
-
-          echo "Artifact validation passed for version $version"
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-artifacts
-          path: |
-            release/Connect-*.AppImage
-            release/connect-desktop_*_amd64.deb
-            release/latest-linux.yml
-          if-no-files-found: error
-
   publish-release:
-    needs: [detect-version, release-windows, release-linux]
+    needs: [detect-version, release-windows]
     if: github.event_name == 'workflow_dispatch' || needs.detect-version.outputs.version_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -254,12 +177,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: windows-artifacts
-          path: release
-
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-artifacts
           path: release
 
       - name: Publish GitHub release
@@ -277,7 +194,4 @@ jobs:
             release/Connect-Setup-*.exe
             release/Connect-Setup-*.exe.blockmap
             release/latest.yml
-            release/Connect-*.AppImage
-            release/connect-desktop_*_amd64.deb
-            release/latest-linux.yml
 
