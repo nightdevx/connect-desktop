@@ -26,7 +26,6 @@ const getUserDirectoryReconnectDelayMs = (attempt: number): number => {
 
 interface UseWorkspaceUsersParams {
   currentUsername: string;
-  workspaceSection: "users" | "lobbies" | "settings";
 }
 
 export interface UseWorkspaceUsersResult {
@@ -48,7 +47,6 @@ export interface UseWorkspaceUsersResult {
 
 export const useWorkspaceUsers = ({
   currentUsername,
-  workspaceSection,
 }: UseWorkspaceUsersParams): UseWorkspaceUsersResult => {
   const queryClient = useQueryClient();
   const reconnectTimerRef = useRef<number | null>(null);
@@ -124,19 +122,93 @@ export const useWorkspaceUsers = ({
     }, delay);
   };
 
+  // Always enabled, not gated on the visible tab. The directory feeds the
+  // sidebar, the lobby rosters and the DM list, and gating it meant a member
+  // sitting on Settings had a stale (or empty) directory the moment they came
+  // back.
   const usersQuery = useQuery({
     queryKey: ["workspace-users"],
     queryFn: () => workspaceService.getRegisteredUsers(),
-    enabled: workspaceSection === "users" || workspaceSection === "lobbies",
     staleTime: 15_000,
   });
 
   useEffect(() => {
+    const patchDirectory = (
+      userId: string,
+      patch: Partial<UserDirectoryEntry>,
+    ): void => {
+      queryClient.setQueryData<DesktopResult<{ users: UserDirectoryEntry[] }>>(
+        ["workspace-users"],
+        (previous) => {
+          if (!previous?.ok || !previous.data) {
+            return previous;
+          }
+
+          let changed = false;
+          const nextUsers = previous.data.users.map((user) => {
+            if (user.userId !== userId) {
+              return user;
+            }
+            changed = true;
+            return { ...user, ...patch };
+          });
+
+          // Nothing to update means nothing to re-render: returning `previous`
+          // unchanged keeps react-query from waking every subscriber.
+          if (!changed) {
+            return previous;
+          }
+
+          return { ...previous, data: { ...previous.data, users: nextUsers } };
+        },
+      );
+    };
+
     const unsubscribe = workspaceService.onUserDirectoryEvent((event) => {
+      // Presence flips carry only the flag, so merging the whole profile (and
+      // nulling the avatar with it) is not an option here.
+      if (event.type === "user-presence-updated") {
+        patchDirectory(event.presence.userId, {
+          appOnline: event.presence.appOnline,
+          presence:
+            event.presence.presence ??
+            (event.presence.appOnline ? "online" : "offline"),
+        });
+        return;
+      }
+
+      // A deleted (or self-deactivated) account must disappear for everyone,
+      // not linger until the next full refetch.
+      if (event.type === "profile-deleted") {
+        queryClient.setQueryData<DesktopResult<{ users: UserDirectoryEntry[] }>>(
+          ["workspace-users"],
+          (previous) => {
+            if (!previous?.ok || !previous.data) {
+              return previous;
+            }
+
+            const nextUsers = previous.data.users.filter(
+              (user) => user.userId !== event.user.userId,
+            );
+            if (nextUsers.length === previous.data.users.length) {
+              return previous;
+            }
+
+            return { ...previous, data: { ...previous.data, users: nextUsers } };
+          },
+        );
+        return;
+      }
+
       if (event.type !== "user-profile-updated") {
         if (event.type === "stream-status" && event.status === "connected") {
           reconnectAttemptRef.current = 0;
           clearReconnectTimer();
+          // Every registration, rename and deletion that happened while the
+          // socket was down was missed — the stream carries no backlog. Refetch
+          // once on (re)connect so the list is correct rather than "correct
+          // from here on".
+          void queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
           return;
         }
 
@@ -172,6 +244,9 @@ export const useWorkspaceUsers = ({
 
               return {
                 ...user,
+                // username was missing here, so a handle change never showed
+                // up on anyone else's screen.
+                username: event.user.username || user.username,
                 displayName: event.user.displayName,
                 avatarUrl: event.user.avatarUrl ?? null,
                 role: event.user.role ?? user.role,
@@ -179,6 +254,7 @@ export const useWorkspaceUsers = ({
               };
             });
           } else {
+            const appOnline = event.user.appOnline ?? false;
             const newUser: UserDirectoryEntry = {
               userId: event.user.userId,
               username: event.user.username || "",
@@ -186,7 +262,10 @@ export const useWorkspaceUsers = ({
               avatarUrl: event.user.avatarUrl ?? null,
               role: event.user.role ?? "member",
               createdAt: event.user.createdAt || new Date().toISOString(),
-              appOnline: event.user.appOnline ?? false,
+              appOnline,
+              // Without this the entry renders with no presence at all until
+              // the next presence event, which for an idle account never comes.
+              presence: appOnline ? "online" : "offline",
             };
             nextUsers = [...previous.data.users, newUser];
           }
@@ -209,17 +288,14 @@ export const useWorkspaceUsers = ({
     };
   }, [queryClient]);
 
+  // The directory stream stays open for the whole session, like the lobby
+  // stream. It used to be torn down whenever the user left the Users/Lobbies
+  // tabs, which had two consequences: every profile, presence and registration
+  // event that fired meanwhile was lost, and — because the server counts an
+  // open socket as "online" — a member sitting on the Settings tab or in a
+  // voice room was broadcast to everyone else as offline.
   useEffect(() => {
-    const shouldStream =
-      workspaceSection === "users" || workspaceSection === "lobbies";
-    streamWantedRef.current = shouldStream;
-
-    if (!shouldStream) {
-      clearReconnectTimer();
-      reconnectAttemptRef.current = 0;
-      void workspaceService.stopUserDirectoryStream();
-      return;
-    }
+    streamWantedRef.current = true;
 
     let cancelled = false;
 
@@ -253,7 +329,9 @@ export const useWorkspaceUsers = ({
 
       void workspaceService.stopUserDirectoryStream();
     };
-  }, [queryClient, workspaceSection]);
+    // Mount/unmount only: the stream must not be torn down on a tab change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const users =
     usersQuery.data?.ok && usersQuery.data.data

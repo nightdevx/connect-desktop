@@ -17,7 +17,17 @@ export interface ParticipantMediaState {
   participant: Participant;
   micEnabled: boolean;
   cameraEnabled: boolean;
+  // screenEnabled means "this stream is subscribed and rendering for me".
+  // screenAvailable means "this person is broadcasting".
+  //
+  // They used to be the same flag, because every screen track was subscribed
+  // automatically the moment it was published: opening a share pushed video to
+  // every person in the room whether or not they wanted to watch, and there was
+  // no way to stop. Watching is opt-in now, so the two have to be separate —
+  // the roster still needs to show that a stream exists in order to offer the
+  // "watch" button.
   screenEnabled: boolean;
+  screenAvailable: boolean;
   isSpeaking: boolean;
   audioLevel: number;
   camera: Track | MediaStream | null;

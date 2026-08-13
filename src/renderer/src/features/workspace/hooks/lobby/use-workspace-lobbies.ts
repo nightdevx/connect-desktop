@@ -78,10 +78,42 @@ export function useWorkspaceLobbies({
   const lobbyStreamReconnectTimerRef = useRef<number | null>(null);
   const lobbyStreamReconnectAttemptRef = useRef(0);
   const activeLobbyReconnectTimerRef = useRef<number | null>(null);
+  // Once the websocket has delivered a snapshot it is the authoritative list.
+  //
+  // Both this effect and the REST effect below wrote knownLobbies, and the REST
+  // one depends on lobbyMembersById — a fresh object on every snapshot. So each
+  // push ran: snapshot sets the new list, then the effect immediately replaces
+  // it with the (cached, 15s-stale) REST list. A lobby someone else had just
+  // created appeared for one frame and vanished.
+  const hasLiveSnapshotRef = useRef(false);
 
   useEffect(() => { activeLobbyRef.current = activeLobbyId; }, [activeLobbyId]);
   useEffect(() => { joiningLobbyRef.current = joiningLobbyId; }, [joiningLobbyId]);
   useEffect(() => { leavingLobbyRef.current = isLeavingLobby; }, [isLeavingLobby]);
+
+  // Latest-value refs for the reconnect scheduler.
+  //
+  // scheduleActiveLobbyReconnect used to depend on these directly. lobbiesQuery
+  // is a new tracked-result proxy on every render and performPostJoinSynchronization
+  // inherits churn from the camera/screen hook objects, so the callback got a
+  // new identity every render — which re-ran the stream-subscription effect
+  // below, whose cleanup cleared the pending reconnect timer. The first backoff
+  // window is 1–1.45s and the shell re-renders at least 1 Hz while in a room,
+  // so a dropped lobby socket reliably had its retry destroyed before it fired,
+  // with nothing left to re-arm it: the roster froze permanently and, because
+  // this socket doubles as the server-side membership heartbeat, the user was
+  // dropped from the voice room ~45s later.
+  const performPostJoinSyncRef = useRef(performPostJoinSynchronization);
+  const lobbiesQueryRef = useRef(lobbiesQuery);
+  const shouldEmitReconnectStatusRef = useRef(shouldEmitReconnectStatus);
+  const setStatusRef = useRef(setStatus);
+
+  useEffect(() => {
+    performPostJoinSyncRef.current = performPostJoinSynchronization;
+    lobbiesQueryRef.current = lobbiesQuery;
+    shouldEmitReconnectStatusRef.current = shouldEmitReconnectStatus;
+    setStatusRef.current = setStatus;
+  });
 
   // Online ref tracking for internal loops
   useEffect(() => {
@@ -219,17 +251,17 @@ export function useWorkspaceLobbies({
       const isCallRoom = targetLobbyID.startsWith("call_");
 
       if (isCallRoom) {
-        void performPostJoinSynchronization(targetLobbyID)
+        void performPostJoinSyncRef.current(targetLobbyID)
           .then(() => {
             activeLobbyReconnectAttemptRef.current = 0;
             if (attempt > 0 || reason !== "lobby-state-probe") {
-              setStatus("Arama bağlantısı yeniden kuruldu", "ok");
+              setStatusRef.current("Arama bağlantısı yeniden kuruldu", "ok");
             }
           })
           .catch((error: unknown) => {
             activeLobbyReconnectAttemptRef.current = attempt + 1;
-            if (shouldEmitReconnectStatus("activeLobby", 10_000)) {
-              setStatus(`Arama bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
+            if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
+              setStatusRef.current(`Arama bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
             }
             scheduleActiveLobbyReconnect(reason);
           })
@@ -243,24 +275,24 @@ export function useWorkspaceLobbies({
         .then(async (result) => {
           if (!result.ok) {
             activeLobbyReconnectAttemptRef.current = attempt + 1;
-            if (shouldEmitReconnectStatus("activeLobby", 10_000)) {
-              setStatus(`Lobi bağlantısı geri yüklenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`, "warn");
+            if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
+              setStatusRef.current(`Lobi bağlantısı geri yüklenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`, "warn");
             }
             scheduleActiveLobbyReconnect(reason);
             return;
           }
 
-          await performPostJoinSynchronization(targetLobbyID);
+          await performPostJoinSyncRef.current(targetLobbyID);
           activeLobbyReconnectAttemptRef.current = 0;
           if (attempt > 0 || reason !== "lobby-state-probe") {
-            setStatus("Lobi bağlantısı yeniden kuruldu", "ok");
+            setStatusRef.current("Lobi bağlantısı yeniden kuruldu", "ok");
           }
-          void lobbiesQuery.refetch();
+          void lobbiesQueryRef.current.refetch();
         })
         .catch((error: unknown) => {
           activeLobbyReconnectAttemptRef.current = attempt + 1;
-          if (shouldEmitReconnectStatus("activeLobby", 10_000)) {
-            setStatus(`Lobi bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
+          if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
+            setStatusRef.current(`Lobi bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
           }
           scheduleActiveLobbyReconnect(reason);
         })
@@ -268,10 +300,16 @@ export function useWorkspaceLobbies({
           activeLobbyReconnectInFlightRef.current = false;
         });
     }, delay);
-  }, [shouldEmitReconnectStatus, setStatus, performPostJoinSynchronization, lobbiesQuery]);
+    // Stable identity on purpose: everything mutable is read through a ref
+    // above. See the refs block near the top of this hook.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!lobbiesQuery.data?.ok || !lobbiesQuery.data.data) return;
+    // REST only seeds the list until the stream takes over; after that it is
+    // strictly older data and must not overwrite a live snapshot.
+    if (hasLiveSnapshotRef.current) return;
     const lobbiesFromQuery = lobbiesQuery.data.data.lobbies;
 
     setKnownLobbies((previous) => {
@@ -293,6 +331,7 @@ export function useWorkspaceLobbies({
       if (event.type === "lobbies-snapshot") {
         clearLobbyReconnectTimer();
         lobbyStreamReconnectAttemptRef.current = 0;
+        hasLiveSnapshotRef.current = true;
 
         const nextMembersById: Record<string, LobbyStateMember[]> = {};
         const nextLobbies: LobbyDescriptor[] = event.lobbies.map((snapshot) => {
@@ -303,7 +342,13 @@ export function useWorkspaceLobbies({
             room: snapshot.room,
             createdAt: snapshot.createdAt,
             createdBy: snapshot.createdBy,
+            // Carried by the snapshot now. Omitting them here is what used to
+            // make a locked room render as public between pushes.
+            createdByUsername: snapshot.createdByUsername,
             memberCount: snapshot.memberCount,
+            isLocked: snapshot.isLocked,
+            allowedUsers: snapshot.allowedUsers,
+            hasPassword: snapshot.hasPassword,
           };
         });
 
@@ -318,8 +363,8 @@ export function useWorkspaceLobbies({
       }
 
       if (event.type === "system-error") {
-        if (shouldEmitReconnectStatus("lobbyStream", 8_000)) {
-          setStatus(`Lobi akışı hatası: ${event.message}`, "warn");
+        if (shouldEmitReconnectStatusRef.current("lobbyStream", 8_000)) {
+          setStatusRef.current(`Lobi akışı hatası: ${event.message}`, "warn");
         }
         scheduleLobbyStreamReconnect();
         return;
@@ -332,9 +377,12 @@ export function useWorkspaceLobbies({
       }
 
       if (event.type === "stream-status" && event.status === "closed") {
-        if (shouldEmitReconnectStatus("lobbyStream", 8_000)) {
-          setStatus(`Lobi akışı kapandı: ${event.detail ?? "bağlantı sonlandı"}`, "warn");
+        if (shouldEmitReconnectStatusRef.current("lobbyStream", 8_000)) {
+          setStatusRef.current(`Lobi akışı kapandı: ${event.detail ?? "bağlantı sonlandı"}`, "warn");
         }
+        // The stream is no longer authoritative, so let REST drive the list
+        // again until the next snapshot arrives.
+        hasLiveSnapshotRef.current = false;
         void syncLobbiesFromFallback();
         scheduleLobbyStreamReconnect();
         if (activeLobbyRef.current) {
@@ -344,10 +392,12 @@ export function useWorkspaceLobbies({
     });
 
     return () => {
-      clearLobbyReconnectTimer();
+      // Only the subscription is torn down here. Clearing the reconnect timer
+      // was the actual bug: a pending backoff has to survive a re-subscription,
+      // or the retry is destroyed before it ever fires.
       unsubscribe();
     };
-  }, [setStatus, shouldEmitReconnectStatus, clearLobbyReconnectTimer, scheduleLobbyStreamReconnect, syncLobbiesFromFallback, scheduleActiveLobbyReconnect]);
+  }, [clearLobbyReconnectTimer, scheduleLobbyStreamReconnect, syncLobbiesFromFallback, scheduleActiveLobbyReconnect]);
 
   // The lobby stream stays open for the whole session, not just while the
   // Lobbies tab is visible. It is one socket, it carries the roster, and on the

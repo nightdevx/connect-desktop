@@ -77,6 +77,124 @@ const getUpdatePhaseLabel = (
   return "Hazır";
 };
 
+// Electron accelerators name modifiers differently from KeyboardEvent, and
+// nobody should have to type "CommandOrControl+Shift+M" by hand.
+const toAccelerator = (event: KeyboardEvent): string | null => {
+  const parts: string[] = [];
+  if (event.ctrlKey || event.metaKey) parts.push("CommandOrControl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+
+  const code = event.code;
+  let key: string | null = null;
+  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
+  else if (/^Digit[0-9]$/.test(code)) key = code.slice(5);
+  else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) key = code;
+  else if (code === "Space") key = "Space";
+
+  if (!key) {
+    return null;
+  }
+
+  // A bare letter would swallow that key for every application on the machine.
+  if (parts.length === 0 && !/^F\d/.test(key)) {
+    return null;
+  }
+
+  parts.push(key);
+  return parts.join("+");
+};
+
+interface HotkeyCaptureFieldProps {
+  label: string;
+  hint: string;
+  value: string;
+  // "accelerator" produces an Electron global-shortcut string; "key" stores a
+  // raw KeyboardEvent.code for the renderer-side push-to-talk listener.
+  mode: "accelerator" | "key";
+  disabled: boolean;
+  onChange: (value: string) => void;
+}
+
+function HotkeyCaptureField({
+  label,
+  hint,
+  value,
+  mode,
+  disabled,
+  onChange,
+}: HotkeyCaptureFieldProps) {
+  const [capturing, setCapturing] = useState(false);
+
+  useEffect(() => {
+    if (!capturing) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === "Escape") {
+        setCapturing(false);
+        return;
+      }
+
+      if (event.key === "Backspace" || event.key === "Delete") {
+        onChange("");
+        setCapturing(false);
+        return;
+      }
+
+      if (mode === "key") {
+        if (/^(Key[A-Z]|Digit[0-9]|F\d{1,2}|Space)$/.test(event.code)) {
+          onChange(event.code);
+          setCapturing(false);
+        }
+        return;
+      }
+
+      const accelerator = toAccelerator(event);
+      if (accelerator) {
+        onChange(accelerator);
+        setCapturing(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [capturing, mode, onChange]);
+
+  return (
+    <div
+      className="ct-settings-switch-item"
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+    >
+      <div
+        className="ct-settings-switch-item-content"
+        style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+      >
+        <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>
+          {label}
+        </strong>
+        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+          {hint}
+        </span>
+      </div>
+      <Button
+        size="small"
+        disabled={disabled}
+        onClick={() => setCapturing((previous) => !previous)}
+        style={{ minWidth: "160px", fontFamily: "monospace" }}
+      >
+        {capturing ? "Tuşa basın…" : value || "Atanmadı"}
+      </Button>
+    </div>
+  );
+}
+
 export function SettingsApplication() {
   const [messageApi, contextHolder] = message.useMessage();
   const [appVersion, setAppVersion] = useState("-");
@@ -88,6 +206,11 @@ export function SettingsApplication() {
     minimizeToTray: false,
     closeToTray: false,
     hardwareAcceleration: true,
+    desktopNotifications: true,
+    hotkeyToggleMute: "",
+    hotkeyToggleDeafen: "",
+    pushToTalk: false,
+    pushToTalkKey: "Space",
   });
   const [needsRelaunch, setNeedsRelaunch] = useState(false);
   const [isSavingAppPreference, setIsSavingAppPreference] = useState(false);
@@ -244,6 +367,13 @@ export function SettingsApplication() {
     key: keyof DesktopAppPreferences,
     value: boolean,
   ): Promise<void> => {
+    await handleAppPreferenceValueChange(key, value);
+  };
+
+  const handleAppPreferenceValueChange = async (
+    key: keyof DesktopAppPreferences,
+    value: boolean | string,
+  ): Promise<void> => {
     const previousPreferences = appPreferences;
 
     setIsSavingAppPreference(true);
@@ -389,6 +519,75 @@ export function SettingsApplication() {
               disabled={isSavingAppPreference}
             />
           </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Masaüstü bildirimleri</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Pencere arka plandayken gelen mesaj ve aramalar için işletim
+                sistemi bildirimi gösterir.
+              </span>
+            </div>
+            <Switch
+              checked={appPreferences.desktopNotifications}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("desktopNotifications", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
+
+          <div className="ct-settings-switch-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="ct-settings-switch-item-content" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: "600" }}>Bas-konuş</strong>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
+                Mikrofon normalde kapalı kalır, tuşu basılı tuttuğunuz sürece
+                açılır. Yalnızca uygulama penceresi öndeyken çalışır.
+              </span>
+            </div>
+            <Switch
+              checked={appPreferences.pushToTalk}
+              onChange={(checked) => {
+                void handleAppPreferenceToggle("pushToTalk", checked);
+              }}
+              disabled={isSavingAppPreference}
+            />
+          </div>
+
+          {appPreferences.pushToTalk && (
+            <HotkeyCaptureField
+              label="Bas-konuş tuşu"
+              hint="Alana tıklayıp istediğiniz tuşa basın."
+              value={appPreferences.pushToTalkKey}
+              mode="key"
+              disabled={isSavingAppPreference}
+              onChange={(next) => {
+                void handleAppPreferenceValueChange("pushToTalkKey", next);
+              }}
+            />
+          )}
+
+          <HotkeyCaptureField
+            label="Mikrofonu aç/kapat kısayolu"
+            hint="Genel kısayol: uygulama arka plandayken de çalışır. Temizlemek için Backspace."
+            value={appPreferences.hotkeyToggleMute}
+            mode="accelerator"
+            disabled={isSavingAppPreference}
+            onChange={(next) => {
+              void handleAppPreferenceValueChange("hotkeyToggleMute", next);
+            }}
+          />
+
+          <HotkeyCaptureField
+            label="Sesi aç/kapat kısayolu"
+            hint="Genel kısayol: uygulama arka plandayken de çalışır. Temizlemek için Backspace."
+            value={appPreferences.hotkeyToggleDeafen}
+            mode="accelerator"
+            disabled={isSavingAppPreference}
+            onChange={(next) => {
+              void handleAppPreferenceValueChange("hotkeyToggleDeafen", next);
+            }}
+          />
 
           {needsRelaunch && (
             <Alert

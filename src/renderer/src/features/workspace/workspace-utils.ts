@@ -1,3 +1,5 @@
+import type { PresenceStatus } from "@shared/auth-contracts";
+
 export type UserFilter = "all" | "online" | "offline";
 
 export const getApiErrorMessage = (error?: { message?: string }): string => {
@@ -8,12 +10,41 @@ export const getApiErrorMessage = (error?: { message?: string }): string => {
   return error.message;
 };
 
-export const getUserStatusLabel = (appOnline?: boolean): string => {
-  if (appOnline) {
-    return "Çevrimiçi";
+export const getUserStatusLabel = (
+  appOnline?: boolean,
+  presence?: PresenceStatus,
+): string => {
+  if (!appOnline) {
+    return "Çevrimdışı";
   }
 
-  return "Çevrimdışı";
+  switch (presence) {
+    case "idle":
+      return "Boşta";
+    case "dnd":
+      return "Rahatsız etmeyin";
+    default:
+      return "Çevrimiçi";
+  }
+};
+
+// Colours are shared by the sidebar dot, the profile drawer and the presence
+// picker so a status always reads the same way.
+export const PRESENCE_COLORS: Record<PresenceStatus, string> = {
+  online: "#22c55e",
+  idle: "#eab308",
+  dnd: "#ef4444",
+  offline: "#6b7280",
+};
+
+export const getPresenceColor = (
+  appOnline?: boolean,
+  presence?: PresenceStatus,
+): string => {
+  if (!appOnline) {
+    return PRESENCE_COLORS.offline;
+  }
+  return PRESENCE_COLORS[presence ?? "online"] ?? PRESENCE_COLORS.online;
 };
 
 export const formatDateLabel = (value: string): string => {

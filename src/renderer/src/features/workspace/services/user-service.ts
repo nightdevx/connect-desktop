@@ -1,8 +1,10 @@
 import type {
+  DesktopNotificationRequest,
   DesktopResult,
   UserDirectoryStreamEvent,
 } from "../../../../../shared/desktop-api-types";
 import type {
+  SelectablePresenceStatus,
   UserDirectoryEntry,
 } from "../../../../../shared/auth-contracts";
 
@@ -65,6 +67,57 @@ export const userService = {
     }
 
     return window.desktopApi.setWindowAttention(payload);
+  },
+  listBlockedUsers: () => {
+    if (typeof window.desktopApi.listBlockedUsers !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          blockedUserIds: string[];
+        }>,
+      );
+    }
+
+    return window.desktopApi.listBlockedUsers();
+  },
+  blockUser: (payload: { userId: string }) => {
+    if (typeof window.desktopApi.blockUser !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ blocked: boolean }>,
+      );
+    }
+
+    return window.desktopApi.blockUser(payload);
+  },
+  unblockUser: (payload: { userId: string }) => {
+    if (typeof window.desktopApi.unblockUser !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ unblocked: boolean }>,
+      );
+    }
+
+    return window.desktopApi.unblockUser(payload);
+  },
+  setPresence: (payload: { status: SelectablePresenceStatus }) => {
+    if (typeof window.desktopApi.setPresence !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          presence: SelectablePresenceStatus;
+        }>,
+      );
+    }
+
+    return window.desktopApi.setPresence(payload);
+  },
+  // The main process decides whether a toast is actually raised (preference off
+  // or window focused = no toast), so callers can fire and forget.
+  notify: (payload: DesktopNotificationRequest) => {
+    if (typeof window.desktopApi.notify !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ shown: boolean }>,
+      );
+    }
+
+    return window.desktopApi.notify(payload);
   },
   initiateCall: (payload: { targetUserId: string }) => {
     if (typeof window.desktopApi.initiateCall !== "function") {

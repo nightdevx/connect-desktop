@@ -82,6 +82,52 @@ export const persistAuthResult = (result: {
   });
 };
 
+// Single-flight token refresh.
+//
+// Refresh tokens are single-use server-side: redeeming one consumes it and
+// issues a new pair. Every 401 handler used to read the same stored token and
+// POST /auth/refresh independently, so when the access token expired the many
+// parallel IPC calls the renderer makes (lobby-state every 8s, lobby-messages
+// every 30s, the session query, user list, DM lists) all raced. One won; the
+// rest got 401 back — and desktop:auth-session treats a 401 as "session
+// invalid" and clears the store, so a losing racer wiped a session a sibling
+// call had just successfully refreshed and dumped the user to the login screen
+// mid-call.
+let refreshInFlight: Promise<void> | null = null;
+
+const refreshSession = async (): Promise<void> => {
+  if (refreshInFlight) {
+    // Someone else is already refreshing; ride along with their result.
+    return refreshInFlight;
+  }
+
+  const current = getSessionStore().get();
+  if (!current) {
+    throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
+  }
+
+  refreshInFlight = backendClient.auth
+    .refresh(current.refreshToken)
+    .then((refreshed) => {
+      persistAuthResult(refreshed);
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
+};
+
+// Read the token back from the store rather than from a local variable, so a
+// caller that piggy-backed on someone else's refresh still gets the new one.
+const currentAccessToken = (): string => {
+  const current = getSessionStore().get();
+  if (!current) {
+    throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
+  }
+  return current.accessToken;
+};
+
 export const ensureFreshSession = async (): Promise<void> => {
   const current = getSessionStore().get();
   if (!current) {
@@ -90,14 +136,13 @@ export const ensureFreshSession = async (): Promise<void> => {
 
   try {
     const me = await backendClient.auth.getMe(current.accessToken);
-    getSessionStore().set({ ...current, user: me.user });
+    getSessionStore().set({ ...getSessionStore().get()!, user: me.user });
   } catch (error) {
     if (!(error instanceof DesktopApiError) || error.statusCode !== 401) {
       throw error;
     }
 
-    const refreshed = await backendClient.auth.refresh(current.refreshToken);
-    persistAuthResult(refreshed);
+    await refreshSession();
   }
 };
 
@@ -116,8 +161,7 @@ export const withAccessToken = async <T>(
       throw error;
     }
 
-    const refreshed = await backendClient.auth.refresh(current.refreshToken);
-    persistAuthResult(refreshed);
-    return operation(refreshed.tokens.accessToken);
+    await refreshSession();
+    return operation(currentAccessToken());
   }
 };

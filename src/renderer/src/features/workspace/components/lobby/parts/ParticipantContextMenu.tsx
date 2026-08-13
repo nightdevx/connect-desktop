@@ -28,6 +28,10 @@ interface ParticipantContextMenuProps {
   isServerMuted?: boolean;
   onServerMute?: (muted: boolean) => void;
   onKick?: () => void;
+  // Screen watching is opt-in, so it needs an explicit way out. Unsubscribing
+  // stops the video at the SFU rather than just hiding it locally.
+  isWatchingScreen?: boolean;
+  onSetScreenWatching?: (watch: boolean) => void;
 }
 
 export function ParticipantContextMenu({
@@ -45,6 +49,8 @@ export function ParticipantContextMenu({
   isServerMuted,
   onServerMute,
   onKick,
+  isWatchingScreen = false,
+  onSetScreenWatching,
 }: ParticipantContextMenuProps) {
   const menuItems: MenuProps['items'] = [
     {
@@ -108,6 +114,16 @@ export function ParticipantContextMenu({
     ...(isScreenSharing ? [
       {
         type: 'divider' as const,
+      },
+      {
+        key: 'screen-watch',
+        label: isWatchingScreen ? 'İzlemeyi Bırak' : 'Yayını İzle',
+        icon: isWatchingScreen ? <EyeInvisibleOutlined /> : <DesktopOutlined />,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          onSetScreenWatching?.(!isWatchingScreen);
+          onClose();
+        },
       },
       {
         key: 'screen-audio-header',

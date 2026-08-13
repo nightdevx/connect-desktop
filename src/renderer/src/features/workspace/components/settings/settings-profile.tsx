@@ -25,7 +25,10 @@ interface ProfileSettingsProps {
   isLoggingOut?: boolean;
 }
 
-const MAX_AVATAR_FILE_BYTES = 512 * 1024;
+// 5 MB. The image is stored and transmitted as a base64 data URL, so it costs
+// ~6.7 MB on the wire; the backend's own limit (maxAvatarDataURLLength) is set
+// to match, and the /auth/profile route carries a 10 MiB body cap for it.
+const MAX_AVATAR_FILE_BYTES = 5 * 1024 * 1024;
 const SUPPORTED_AVATAR_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -324,7 +327,7 @@ export function SettingsProfile({
     }
 
     if (file.size > MAX_AVATAR_FILE_BYTES) {
-      messageApi.warning("Logo boyutu en fazla 512 KB olabilir.");
+      messageApi.warning("Profil resmi en fazla 5 MB olabilir.");
       return;
     }
 
@@ -449,7 +452,7 @@ export function SettingsProfile({
               )}
             </div>
 
-            <small style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>PNG/JPG/WEBP/GIF - En fazla 512 KB</small>
+            <small style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px" }}>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
           </div>
         </div>
 

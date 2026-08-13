@@ -396,6 +396,17 @@ export const useCallSession = ({
       ) {
         const { type, callId, callerId, callerName, targetUserId } = event.callPayload;
 
+        // The server now delivers call signals only to the two parties, but the
+        // client must still confirm the signal is about THIS call. Without the
+        // callId comparison below, ending any call cleared the call state of
+        // every other client that received the broadcast — an uninvolved user
+        // sitting in a lobby was silently ejected from it.
+        const concernsUs =
+          callerId === currentUserId || targetUserId === currentUserId;
+        if (!concernsUs) {
+          return;
+        }
+
         // 1. INCOMING CALL
         if (type === "incoming-call") {
           // If we are the caller or not the target user, ignore
@@ -442,6 +453,14 @@ export const useCallSession = ({
 
           if (!isMuted) {
             getSynth().startRingtone();
+            // A ringtone alone is useless if the app is minimised behind a
+            // full-screen game; the toast is what says who is calling.
+            void workspaceService.notify({
+              kind: "incoming-call",
+              title: "Gelen arama",
+              body: `${callerName} sizi arıyor`,
+              peerUserId: callerId,
+            });
           }
           setStatus(`${callerName} sizi arıyor...`, "ok");
         }
@@ -462,6 +481,8 @@ export const useCallSession = ({
         // Guard: ignore signals WE sent ourselves (targetUserId === currentUserId means we were the rejector)
         else if (type === "call-rejected") {
           if (targetUserId === currentUserId) return; // we sent this, ignore
+          // ...and only tear down if it is the call we are actually in.
+          if (callId !== callStateRef.current.callId) return;
 
           getSynth().stop();
           setCallState(initialCallState);
@@ -475,6 +496,7 @@ export const useCallSession = ({
         // Guard: ignore signals WE sent ourselves (callerId === currentUserId means we were the canceller)
         else if (type === "call-cancelled") {
           if (callerId === currentUserId) return; // we sent this, ignore
+          if (callId !== callStateRef.current.callId) return;
 
           getSynth().stop();
           setCallState(initialCallState);

@@ -75,6 +75,7 @@ class LoopbackCapture {
 
  private:
   void CaptureLoop();
+  void CleanupPartialStart();
 
   Napi::ThreadSafeFunction tsfn_;
   ComPtr<IAudioClient> client_;
@@ -84,7 +85,27 @@ class LoopbackCapture {
   std::atomic<bool> running_{false};
 };
 
+// Releases everything Start() may have acquired before it failed.
+//
+// Every `return false` below used to leave sampleReadyEvent_ open, and the JS
+// wrapper only calls tsfn.Release() and throws — running_ stays false, so
+// Stop() (the sole cleanup path) never runs. On a machine where the audio
+// endpoint is held in exclusive mode, IAudioClient::Start fails, the user
+// retries the screen-share toggle, and each retry overwrote the handle and
+// permanently leaked the previous one in a long-lived main process.
+void LoopbackCapture::CleanupPartialStart() {
+  if (sampleReadyEvent_) {
+    CloseHandle(sampleReadyEvent_);
+    sampleReadyEvent_ = nullptr;
+  }
+  captureClient_.Reset();
+  client_.Reset();
+}
+
 bool LoopbackCapture::Start(Napi::ThreadSafeFunction tsfn, std::string& error) {
+  // Anything left over from a previous failed attempt.
+  CleanupPartialStart();
+
   tsfn_ = tsfn;
 
   AUDIOCLIENT_ACTIVATION_PARAMS params = {};
@@ -101,6 +122,7 @@ bool LoopbackCapture::Start(Napi::ThreadSafeFunction tsfn, std::string& error) {
   ComPtr<ActivationHandler> handler = Make<ActivationHandler>();
   if (!handler || !handler->event_) {
     error = "failed to create activation handler";
+    CleanupPartialStart();
     return false;
   }
 
@@ -110,12 +132,14 @@ bool LoopbackCapture::Start(Napi::ThreadSafeFunction tsfn, std::string& error) {
       &activateParams, handler.Get(), &asyncOp);
   if (FAILED(hr)) {
     error = "ActivateAudioInterfaceAsync failed";
+    CleanupPartialStart();
     return false;
   }
 
   WaitForSingleObject(handler->event_, 5000);
   if (FAILED(handler->activateResult_) || !handler->client_) {
     error = "process loopback activation failed (Windows 10 2004+ required)";
+    CleanupPartialStart();
     return false;
   }
   client_ = handler->client_;
@@ -136,29 +160,34 @@ bool LoopbackCapture::Start(Napi::ThreadSafeFunction tsfn, std::string& error) {
       0, 0, &format, nullptr);
   if (FAILED(hr)) {
     error = "IAudioClient::Initialize failed";
+    CleanupPartialStart();
     return false;
   }
 
   sampleReadyEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
   if (!sampleReadyEvent_) {
     error = "failed to create sample-ready event";
+    CleanupPartialStart();
     return false;
   }
   hr = client_->SetEventHandle(sampleReadyEvent_);
   if (FAILED(hr)) {
     error = "SetEventHandle failed";
+    CleanupPartialStart();
     return false;
   }
 
   hr = client_->GetService(IID_PPV_ARGS(&captureClient_));
   if (FAILED(hr)) {
     error = "GetService(IAudioCaptureClient) failed";
+    CleanupPartialStart();
     return false;
   }
 
   hr = client_->Start();
   if (FAILED(hr)) {
     error = "IAudioClient::Start failed";
+    CleanupPartialStart();
     return false;
   }
 

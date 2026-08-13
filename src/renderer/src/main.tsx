@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme } from "antd";
 import App from "./App";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { queryClient } from "./services/query-client";
 import "./styles/global.css";
 
@@ -11,6 +12,16 @@ import "./styles/global.css";
 if (process.env.NODE_ENV !== "development") {
   Sentry.init({});
 }
+
+// An error boundary cannot see these. Without them a rejected promise in a
+// websocket callback or a throw inside a setTimeout vanished into the devtools
+// console, which nobody has open in a packaged build.
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("[renderer] unhandled promise rejection:", event.reason);
+});
+window.addEventListener("error", (event) => {
+  console.error("[renderer] uncaught error:", event.error ?? event.message);
+});
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -58,7 +69,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           }
         }}
       >
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </ConfigProvider>
     </QueryClientProvider>
   </React.StrictMode>,

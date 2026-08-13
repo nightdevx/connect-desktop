@@ -13,7 +13,11 @@ import type {
   SettingsSection,
   WorkspaceSection,
 } from "@/store/ui-store";
-import type { UseDirectMessagesResult, CallSessionState } from "../../hooks";
+import type {
+  UseDirectMessagesResult,
+  UseLobbyRoomResult,
+  CallSessionState,
+} from "../../hooks";
 import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import { LobbiesMainPanel } from "../lobby";
 import { SettingsMainPanel } from "../settings";
@@ -105,6 +109,23 @@ interface WorkspaceMainPanelProps {
   onDeleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
+  // Screen shares are opt-in; nothing is subscribed until the viewer asks.
+  isWatchingScreen: (userId: string) => boolean;
+  onWatchScreen: (userId: string) => void;
+  onStopWatchingScreen: (userId: string) => void;
+  lobbyChatExtras: {
+    replyTo: UseLobbyRoomResult["lobbyReplyTo"];
+    setReplyTo: UseLobbyRoomResult["setLobbyReplyTo"];
+    pendingAttachment: UseLobbyRoomResult["lobbyPendingAttachment"];
+    setPendingAttachment: UseLobbyRoomResult["setLobbyPendingAttachment"];
+    editMessage: UseLobbyRoomResult["editLobbyMessage"];
+    toggleReaction: UseLobbyRoomResult["toggleLobbyReaction"];
+    searchQuery: string;
+    searchResults: UseLobbyRoomResult["lobbySearchResults"];
+    isSearching: boolean;
+    runSearch: UseLobbyRoomResult["runLobbySearch"];
+    clearSearch: UseLobbyRoomResult["clearLobbySearch"];
+  };
   isLeavingLobby: boolean;
   onToggleMic: () => void;
   onToggleHeadphone: () => void;
@@ -122,6 +143,26 @@ interface WorkspaceMainPanelProps {
     sendDirectMessage: () => void;
     deleteDirectMessage: (messageId: string) => void;
     deletingDirectMessageId: string | null;
+    onTyping: () => void;
+    isPeerTyping: boolean;
+    currentUsername: string;
+    isSelectedUserBlocked: boolean;
+    isBlockUpdating: boolean;
+    onToggleBlocked: (userId: string) => Promise<void> | void;
+    onLoadOlderMessages: () => void;
+    isLoadingOlderMessages: boolean;
+    hasMoreMessages: boolean;
+    replyTo: UseDirectMessagesResult["replyTo"];
+    setReplyTo: UseDirectMessagesResult["setReplyTo"];
+    pendingAttachment: UseDirectMessagesResult["pendingAttachment"];
+    setPendingAttachment: UseDirectMessagesResult["setPendingAttachment"];
+    editMessage: UseDirectMessagesResult["handleEditMessage"];
+    toggleReaction: UseDirectMessagesResult["handleToggleReaction"];
+    searchQuery: string;
+    searchResults: UseDirectMessagesResult["searchResults"];
+    isSearching: boolean;
+    runSearch: UseDirectMessagesResult["runSearch"];
+    clearSearch: UseDirectMessagesResult["clearSearch"];
   };
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
@@ -183,6 +224,10 @@ export function WorkspaceMainPanel({
   onDeleteLobbyMessage,
   isSendingLobbyMessage,
   deletingLobbyMessageId,
+  isWatchingScreen,
+  onWatchScreen,
+  onStopWatchingScreen,
+  lobbyChatExtras,
   isLeavingLobby,
   onToggleMic,
   onToggleHeadphone,
@@ -229,14 +274,42 @@ export function WorkspaceMainPanel({
             currentUserId={currentUserId}
             selectedUser={selectedUser}
             onCopyUsername={onCopyUsername}
+            onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
+            onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
+            onSetRemoteParticipantCameraHidden={onSetRemoteParticipantCameraHidden}
+            onSetRemoteParticipantScreenAudioMuted={onSetRemoteParticipantScreenAudioMuted}
+            onSetRemoteParticipantScreenAudioVolume={onSetRemoteParticipantScreenAudioVolume}
+            isWatchingScreen={isWatchingScreen}
+            onWatchScreen={onWatchScreen}
+            onStopWatchingScreen={onStopWatchingScreen}
             directMessagesQuery={directMessagesProps.directMessagesQuery}
             directMessages={directMessagesProps.directMessages}
             messageDraft={directMessagesProps.messageDraft}
             onMessageDraftChange={directMessagesProps.setMessageDraft}
+            onTyping={directMessagesProps.onTyping}
+            isPeerTyping={directMessagesProps.isPeerTyping}
+            currentUsername={directMessagesProps.currentUsername}
+            isSelectedUserBlocked={directMessagesProps.isSelectedUserBlocked}
+            isBlockUpdating={directMessagesProps.isBlockUpdating}
+            onToggleBlocked={directMessagesProps.onToggleBlocked}
+            onLoadOlderMessages={directMessagesProps.onLoadOlderMessages}
+            isLoadingOlderMessages={directMessagesProps.isLoadingOlderMessages}
+            hasMoreMessages={directMessagesProps.hasMoreMessages}
             onSendMessage={directMessagesProps.sendDirectMessage}
             onDeleteMessage={directMessagesProps.deleteDirectMessage}
             deletingMessageId={directMessagesProps.deletingDirectMessageId}
             isSendingMessage={directMessagesProps.isSendingMessage}
+            replyTo={directMessagesProps.replyTo}
+            onSetReplyTo={directMessagesProps.setReplyTo}
+            pendingAttachment={directMessagesProps.pendingAttachment}
+            onSetPendingAttachment={directMessagesProps.setPendingAttachment}
+            onEditMessage={directMessagesProps.editMessage}
+            onToggleReaction={directMessagesProps.toggleReaction}
+            searchQuery={directMessagesProps.searchQuery}
+            searchResults={directMessagesProps.searchResults}
+            isSearching={directMessagesProps.isSearching}
+            onRunSearch={directMessagesProps.runSearch}
+            onClearSearch={directMessagesProps.clearSearch}
             onInitiateCall={onInitiateCall}
             micEnabled={micEnabled}
             headphoneEnabled={headphoneEnabled}
@@ -309,6 +382,20 @@ export function WorkspaceMainPanel({
             onDeleteLobbyMessage={onDeleteLobbyMessage}
             isSendingLobbyMessage={isSendingLobbyMessage}
             deletingLobbyMessageId={deletingLobbyMessageId}
+            isWatchingScreen={isWatchingScreen}
+            onWatchScreen={onWatchScreen}
+            onStopWatchingScreen={onStopWatchingScreen}
+            lobbyReplyTo={lobbyChatExtras.replyTo}
+            onSetLobbyReplyTo={lobbyChatExtras.setReplyTo}
+            lobbyPendingAttachment={lobbyChatExtras.pendingAttachment}
+            onSetLobbyPendingAttachment={lobbyChatExtras.setPendingAttachment}
+            onEditLobbyMessage={lobbyChatExtras.editMessage}
+            onToggleLobbyReaction={lobbyChatExtras.toggleReaction}
+            lobbySearchQuery={lobbyChatExtras.searchQuery}
+            lobbySearchResults={lobbyChatExtras.searchResults}
+            isSearchingLobbyMessages={lobbyChatExtras.isSearching}
+            onRunLobbySearch={lobbyChatExtras.runSearch}
+            onClearLobbySearch={lobbyChatExtras.clearSearch}
             isLeavingLobby={isLeavingLobby}
             onToggleMic={onToggleMic}
             onToggleHeadphone={onToggleHeadphone}

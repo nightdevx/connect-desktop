@@ -1,6 +1,11 @@
 import { app, ipcMain, desktopCapturer, BrowserWindow } from "electron";
 import { ok, fail, getWindowFromSender } from "../context";
-import { appPreferencesSchema, windowAttentionSchema } from "../validators";
+import {
+  appPreferencesSchema,
+  notifySchema,
+  windowAttentionSchema,
+} from "../validators";
+import { showDesktopNotification } from "../../notifications";
 import {
   getDesktopAppPreferences,
   updateDesktopAppPreferences,
@@ -31,6 +36,15 @@ export function registerAppHandlers(): void {
       const parsed = appPreferencesSchema.parse(payload);
       const preferences = updateDesktopAppPreferences(parsed);
       return ok({ preferences });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:notify", async (_event, payload) => {
+    try {
+      const parsed = notifySchema.parse(payload);
+      return ok(showDesktopNotification(parsed));
     } catch (error) {
       return fail(error);
     }
@@ -126,13 +140,16 @@ export function registerAppHandlers(): void {
   ipcMain.handle("desktop:window-toggle-maximize", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
+      // `isMaximized`, not `maximized`: the renderer and DesktopWindowState
+      // both read isMaximized, so the old key produced undefined on every read
+      // and the custom titlebar's maximize icon never flipped.
       if (win.isMaximized()) {
         win.unmaximize();
-        return ok({ maximized: false });
+        return ok({ isMaximized: false });
       }
 
       win.maximize();
-      return ok({ maximized: true });
+      return ok({ isMaximized: true });
     } catch (error) {
       return fail(error);
     }
@@ -159,7 +176,7 @@ export function registerAppHandlers(): void {
         } else {
           win.flashFrame(false);
         }
-        return ok({ requested: true });
+        return ok({ attention: true });
       } catch (error) {
         return fail(error);
       }
@@ -170,7 +187,7 @@ export function registerAppHandlers(): void {
     try {
       const win = getWindowFromSender(event.sender);
       return ok({
-        maximized: win.isMaximized(),
+        isMaximized: win.isMaximized(),
         minimized: win.isMinimized(),
         focused: win.isFocused(),
       });

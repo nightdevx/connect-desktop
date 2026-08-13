@@ -67,6 +67,12 @@ class SystemAudioLoopback {
   private sender: WebContents | null = null;
   private running = false;
   private frameCount = 0;
+  // Kept so stop() can detach it. Registering a new `destroyed` listener on
+  // every start() without removing the previous one accumulated them on the
+  // same WebContents — MaxListenersExceededWarning after eleven screen-share
+  // toggles — and a leftover handler from an earlier sender could stop a
+  // capture that now belongs to a different window.
+  private destroyHandler: (() => void) | null = null;
 
   public start(sender: WebContents): LoopbackStartResult {
     const native = loadAddon();
@@ -93,7 +99,13 @@ class SystemAudioLoopback {
         `[system-audio-loopback] started (sampleRate=${format.sampleRate}, channels=${format.channels})`,
       );
 
-      sender.once("destroyed", () => this.stop());
+      this.destroyHandler = () => {
+        // Only tear down if this capture still belongs to that sender.
+        if (this.sender === sender) {
+          this.stop();
+        }
+      };
+      sender.once("destroyed", this.destroyHandler);
 
       return {
         ok: true,
@@ -112,6 +124,8 @@ class SystemAudioLoopback {
   }
 
   public stop(): void {
+    this.detachDestroyHandler();
+
     if (!this.running) {
       this.sender = null;
       return;
@@ -126,6 +140,13 @@ class SystemAudioLoopback {
     } catch (error) {
       console.warn("[system-audio-loopback] stop failed:", error);
     }
+  }
+
+  private detachDestroyHandler(): void {
+    if (this.destroyHandler && this.sender && !this.sender.isDestroyed()) {
+      this.sender.removeListener("destroyed", this.destroyHandler);
+    }
+    this.destroyHandler = null;
   }
 }
 

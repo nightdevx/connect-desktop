@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { message } from "antd";
 import type { UserRole, UserDirectoryEntry } from "../../../shared/auth-contracts";
+import type { DesktopAppPreferences } from "../../../shared/desktop-api-types";
 import {
   CameraShareModal,
   WorkspaceMainPanel,
@@ -14,11 +15,15 @@ import { isAdminRole } from "../features/auth/permissions";
 import { LobbyPasswordPromptModal } from "../features/workspace/components/lobby/lobby-password-prompt-modal";
 import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
 import {
+  useBlockedUsers,
   useDirectMessages,
+  usePresenceStatus,
+  useVoiceHotkeys,
   useWorkspaceAudioConnection,
   useWorkspaceLobbyActions,
   useLobbyRoom,
   useWorkspaceMediaControls,
+  useScreenSubscriptions,
   useWorkspaceUsers,
   useMediaDevices,
   useWorkspacePreferences,
@@ -204,7 +209,9 @@ function WorkspaceShell({
     setSelectedUserId,
     filteredUsers,
     selectedUser,
-  } = useWorkspaceUsers({ currentUsername, workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection });
+    // No workspaceSection: the directory and its stream now run for the whole
+    // session rather than only while a particular tab is open.
+  } = useWorkspaceUsers({ currentUsername });
 
   // ----- 1-TO-1 CALL SESSION -----
   const {
@@ -231,11 +238,13 @@ function WorkspaceShell({
     }
   }, [callState.status, callState.peerUser, setWorkspaceSection, setSelectedUserId]);
 
-  const directMessagePeerUserIds = useMemo(() => {
+  // Peer ids only, so the unread seed does not re-run every time an avatar or
+  // presence flag changes in the directory.
+  const directoryPeerUserIds = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return [];
     return usersQuery.data.data.users
-      .map((user: any) => user.userId)
-      .filter((userId: string) => userId !== currentUserId);
+      .map((user) => user.userId)
+      .filter((userId) => userId !== currentUserId);
   }, [currentUserId, usersQuery.data]);
 
   const avatarByUserId = useMemo(() => {
@@ -262,6 +271,17 @@ function WorkspaceShell({
     deleteLobbyMessage,
     isSendingLobbyMessage,
     deletingLobbyMessageId,
+    lobbyReplyTo,
+    setLobbyReplyTo,
+    lobbyPendingAttachment,
+    setLobbyPendingAttachment,
+    editLobbyMessage,
+    toggleLobbyReaction,
+    lobbySearchQuery,
+    lobbySearchResults,
+    isSearchingLobbyMessages,
+    runLobbySearch,
+    clearLobbySearch,
     patchLobbyMemberState,
   } = useLobbyRoom({
     activeLobbyId,
@@ -303,6 +323,7 @@ function WorkspaceShell({
     cameraPreviewStream,
     cameraPreviewRef,
     handleMicToggle,
+    setMicState,
     handleHeadphoneToggle,
     handleCameraToggle,
     handleScreenToggle,
@@ -314,6 +335,7 @@ function WorkspaceShell({
     prepareCameraPreview,
     startCameraShareFromModal,
     syncLobbyAudioState,
+    reconcileDeclaredAudioState,
     syncLobbyMediaState,
     resetLocalMediaCapture,
   } = useWorkspaceMediaControls({
@@ -325,6 +347,22 @@ function WorkspaceShell({
     setStatus,
     patchLobbyMemberState,
   });
+
+  // ----- SCREEN SHARE WATCHING (opt-in) -----
+  const { isWatchingScreen, watchScreen, stopWatchingScreen } =
+    useScreenSubscriptions({ liveKitSessionRef, activeLobbyId });
+
+  // Mic/deafen drift watchdog. The local tile always renders local state, so a
+  // disagreement with the server roster is invisible here and visible to
+  // everyone else — this is what closes that gap.
+  useEffect(() => {
+    const self = lobbyMembers.find((member) => member.userId === currentUserId);
+    if (!self) {
+      return;
+    }
+
+    reconcileDeclaredAudioState(self.muted, self.deafened);
+  }, [lobbyMembers, currentUserId, reconcileDeclaredAudioState]);
 
   // ----- 1-TO-1 CALL MEMBERS -----
   const callMembers = useMemo(() => {
@@ -424,6 +462,89 @@ function WorkspaceShell({
     liveKitSessionRef,
     setStatus,
   ]);
+
+  // ----- HOTKEYS + PUSH-TO-TALK -----
+  const [desktopPreferences, setDesktopPreferences] =
+    useState<DesktopAppPreferences | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = (): void => {
+      void window.desktopApi.getAppPreferences().then((result) => {
+        if (active && result.ok && result.data?.preferences) {
+          setDesktopPreferences(result.data.preferences);
+        }
+      });
+    };
+
+    load();
+    // The settings panel writes preferences through its own IPC call, and there
+    // is no change event for them; refocusing the window is the cheapest point
+    // to notice an edit made in another section.
+    window.addEventListener("focus", load);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", load);
+    };
+  }, []);
+
+  const {
+    isBlocked,
+    blockUser,
+    unblockUser,
+    isUpdating: isBlockUpdating,
+  } = useBlockedUsers(true);
+
+  const handleToggleBlocked = useCallback(
+    async (userId: string): Promise<void> => {
+      const wasBlocked = isBlocked(userId);
+      const ok = wasBlocked
+        ? await unblockUser(userId)
+        : await blockUser(userId);
+
+      if (!ok) {
+        setStatus(
+          wasBlocked ? "Engel kaldırılamadı." : "Kullanıcı engellenemedi.",
+          "error",
+        );
+        return;
+      }
+
+      setStatus(
+        wasBlocked ? "Engel kaldırıldı." : "Kullanıcı engellendi.",
+        "ok",
+      );
+    },
+    [isBlocked, blockUser, unblockUser, setStatus],
+  );
+
+  // Presence is reported for as long as the workspace is mounted — that is
+  // exactly the window in which the user has a live directory socket.
+  const {
+    selectedStatus: selectedPresenceStatus,
+    effectiveStatus: effectivePresenceStatus,
+    setSelectedStatus: setSelectedPresenceStatus,
+  } = usePresenceStatus(true);
+
+  useVoiceHotkeys({
+    preferences: desktopPreferences,
+    micEnabled,
+    onToggleMic: handleMicToggle,
+    onToggleDeafen: handleHeadphoneToggle,
+    onSetMic: setMicState,
+  });
+
+  // Clicking an OS notification opens the conversation it came from.
+  useEffect(() => {
+    return window.desktopApi.onNotificationActivated((payload) => {
+      if (!payload.peerUserId) {
+        return;
+      }
+      setWorkspaceSection("users");
+      setSelectedUserId(payload.peerUserId);
+    });
+  }, [setSelectedUserId, setWorkspaceSection]);
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
@@ -540,12 +661,29 @@ function WorkspaceShell({
     handleDeleteMessage,
     deletingMessageId,
     unreadByPeerId,
+    typingPeerIds,
+    notifyTyping,
+    loadOlderMessages,
+    isLoadingOlderMessages,
+    hasMoreMessages,
+    replyTo,
+    setReplyTo,
+    pendingAttachment,
+    setPendingAttachment,
+    handleEditMessage,
+    handleToggleReaction,
+    searchQuery: directSearchQuery,
+    searchResults: directSearchResults,
+    isSearching: isSearchingDirectMessages,
+    runSearch: runDirectSearch,
+    clearSearch: clearDirectSearch,
   } = useDirectMessages({
     currentUserId,
-    peerUserIds: directMessagePeerUserIds,
+    peerUserIds: directoryPeerUserIds,
     selectedUserId,
     workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection,
     setStatus,
+    suppressNotifications: effectivePresenceStatus === "dnd",
   });
 
   const handleCopyUsername = useCallback(
@@ -610,14 +748,38 @@ function WorkspaceShell({
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
+  //
+  // Fires once per call room. performPostJoinSynchronization is read through a
+  // ref rather than listed as a dependency: it changes identity on every render
+  // (see use-workspace-media-controls), so this effect used to re-run on every
+  // render — at least 1 Hz from the media-stats tick and up to 10 Hz while
+  // anyone was speaking — minting a fresh LiveKit token each time. While the
+  // room was still `connecting` the idempotency check in connect() did not
+  // short-circuit either, so the second call tore the half-built room down and
+  // rebuilt it: a join loop that never settled on a slow network.
+  const performPostJoinSyncRef = useRef(performPostJoinSynchronization);
   useEffect(() => {
-    if (activeLobbyId && activeLobbyId.startsWith("call_")) {
-      console.log(`[WorkspaceShell] Active call lobby detected: ${activeLobbyId}. Auto-connecting to LiveKit.`);
-      performPostJoinSynchronization(activeLobbyId).catch((error) => {
-        console.error("[WorkspaceShell] Automatic call LiveKit synchronization failed:", error);
-      });
+    performPostJoinSyncRef.current = performPostJoinSynchronization;
+  });
+
+  const syncedCallLobbyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeLobbyId || !activeLobbyId.startsWith("call_")) {
+      syncedCallLobbyRef.current = null;
+      return;
     }
-  }, [activeLobbyId, performPostJoinSynchronization]);
+
+    if (syncedCallLobbyRef.current === activeLobbyId) {
+      return;
+    }
+    syncedCallLobbyRef.current = activeLobbyId;
+
+    performPostJoinSyncRef.current(activeLobbyId).catch((error) => {
+      // Let a failed connect be retried on the next entry into this room.
+      syncedCallLobbyRef.current = null;
+      console.error("[WorkspaceShell] Automatic call LiveKit synchronization failed:", error);
+    });
+  }, [activeLobbyId]);
 
   // ----- CLIENT KICK DETECTION -----
   useEffect(() => {
@@ -753,6 +915,8 @@ function WorkspaceShell({
               setSelectedUserId,
               unreadByUserId: unreadByPeerIdWithCalls,
               callState: callState,
+              presenceStatus: selectedPresenceStatus,
+              onPresenceStatusChange: setSelectedPresenceStatus,
             }}
             lobbiesProps={{
               lobbiesQuery,
@@ -875,6 +1039,22 @@ function WorkspaceShell({
             onLeaveLobby={handleLeaveLobbyOrEndCall}
             selectedUser={selectedUser}
             onCopyUsername={handleCopyUsername}
+            isWatchingScreen={isWatchingScreen}
+            onWatchScreen={watchScreen}
+            onStopWatchingScreen={stopWatchingScreen}
+            lobbyChatExtras={{
+              replyTo: lobbyReplyTo,
+              setReplyTo: setLobbyReplyTo,
+              pendingAttachment: lobbyPendingAttachment,
+              setPendingAttachment: setLobbyPendingAttachment,
+              editMessage: editLobbyMessage,
+              toggleReaction: toggleLobbyReaction,
+              searchQuery: lobbySearchQuery,
+              searchResults: lobbySearchResults,
+              isSearching: isSearchingLobbyMessages,
+              runSearch: runLobbySearch,
+              clearSearch: clearLobbySearch,
+            }}
             directMessagesProps={{
               directMessagesQuery,
               directMessages,
@@ -884,6 +1064,30 @@ function WorkspaceShell({
               sendDirectMessage: handleSendMessage,
               deleteDirectMessage: handleDeleteMessage,
               deletingDirectMessageId: deletingMessageId,
+              onTyping: notifyTyping,
+              isPeerTyping: Boolean(
+                selectedUserId && typingPeerIds.includes(selectedUserId),
+              ),
+              currentUsername,
+              isSelectedUserBlocked: Boolean(
+                selectedUserId && isBlocked(selectedUserId),
+              ),
+              isBlockUpdating,
+              onToggleBlocked: handleToggleBlocked,
+              onLoadOlderMessages: loadOlderMessages,
+              isLoadingOlderMessages,
+              hasMoreMessages,
+              replyTo,
+              setReplyTo,
+              pendingAttachment,
+              setPendingAttachment,
+              editMessage: handleEditMessage,
+              toggleReaction: handleToggleReaction,
+              searchQuery: directSearchQuery,
+              searchResults: directSearchResults,
+              isSearching: isSearchingDirectMessages,
+              runSearch: runDirectSearch,
+              clearSearch: clearDirectSearch,
             }}
             onSelectAudioInputDevice={handleSelectAudioInputDevice}
             onSelectAudioOutputDevice={handleSelectAudioOutputDevice}

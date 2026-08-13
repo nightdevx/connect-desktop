@@ -31,6 +31,9 @@ interface LobbyStageViewProps {
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
   isRailVisible: boolean;
   setIsRailVisible: (visible: boolean) => void;
+  // Screen shares are opt-in; the tile shows a "watch" prompt until then.
+  isWatchingScreen: (userId: string) => boolean;
+  onWatchScreen: (userId: string) => void;
 }
 
 export function LobbyStageView({
@@ -54,6 +57,8 @@ export function LobbyStageView({
   onSelectAudioOutputDevice,
   isRailVisible,
   setIsRailVisible,
+  isWatchingScreen,
+  onWatchScreen,
 }: LobbyStageViewProps) {
 
   return (
@@ -95,6 +100,8 @@ export function LobbyStageView({
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
               localAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.muted}
               localScreenAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.screenAudioMuted}
+              isWatchingScreen={isWatchingScreen(focusedParticipantSlot.participant.userId)}
+              onWatchScreen={onWatchScreen}
             />
           </div>
 
@@ -190,6 +197,8 @@ export function LobbyStageView({
                   onSelectAudioOutputDevice={onSelectAudioOutputDevice}
                   localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
                   localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
+                  isWatchingScreen={isWatchingScreen(slot.participant.userId)}
+                  onWatchScreen={onWatchScreen}
                 />
               ))}
             </div>
@@ -223,6 +232,8 @@ export function LobbyStageView({
             onSelectAudioOutputDevice={onSelectAudioOutputDevice}
             localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
             localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
+            isWatchingScreen={isWatchingScreen(slot.participant.userId)}
+            onWatchScreen={onWatchScreen}
           />
         ))
       )}

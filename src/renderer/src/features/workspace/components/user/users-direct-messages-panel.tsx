@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useMemo, type MouseEvent } from "react";
+import {
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  type MouseEvent,
+} from "react";
 import { Drawer, Input, Button, Tag, Divider, Descriptions, Avatar, Tooltip } from "antd";
 import {
   SendOutlined,
@@ -17,6 +24,9 @@ import {
   RightOutlined,
   MessageOutlined,
   CloseOutlined,
+  EditOutlined,
+  EnterOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import type { UserDirectoryEntry, ChatMessage } from "@shared/auth-contracts";
 import type { UseDirectMessagesResult } from "../../hooks/chat/use-direct-messages";
@@ -27,6 +37,273 @@ import {
   getUserStatusLabel,
 } from "../../workspace-utils";
 import { ConfirmActionModal } from "../common";
+import {
+  ChatAttachButton,
+  ChatAttachmentView,
+  ChatQuickReactionPicker,
+  ChatReactionBar,
+  ChatReplyQuote,
+  formatAttachmentSize,
+} from "../common/chat-message-parts";
+
+interface DirectChatMessageRowProps {
+  message: ChatMessage;
+  isOwnMessage: boolean;
+  isDeleting: boolean;
+  deleteDisabled: boolean;
+  peerLabel: string;
+  currentUsername: string;
+  currentUserId: string;
+  onRequestDelete: (messageId: string) => void;
+  onReply: (message: ChatMessage) => void;
+  onEdit: (messageId: string, body: string) => void;
+  onToggleReaction: (messageId: string, emoji: string, add: boolean) => void;
+}
+
+// Turkish usernames can contain letters outside \w, so the class is explicit
+// rather than \w+.
+const MENTION_PATTERN = /(@[A-Za-z0-9_çğıöşüÇĞİÖŞÜ.-]{2,64})/g;
+
+// Renders @name runs as highlighted spans, and marks the ones aimed at you.
+// A mention used to be indistinguishable from any other word in the message.
+const renderWithMentions = (
+  body: string,
+  currentUsername: string,
+): React.ReactNode[] => {
+  const normalizedSelf = `@${currentUsername.toLocaleLowerCase("tr-TR")}`;
+
+  return body.split(MENTION_PATTERN).map((part, index) => {
+    if (!part.startsWith("@")) {
+      return part;
+    }
+
+    const isSelf = part.toLocaleLowerCase("tr-TR") === normalizedSelf;
+    return (
+      <span
+        key={`${index}-${part}`}
+        className={`ct-chat-mention ${isSelf ? "self" : ""}`}
+        style={{
+          borderRadius: "4px",
+          padding: "0 3px",
+          fontWeight: 600,
+          color: isSelf ? "#0b0b0b" : "#93c5fd",
+          background: isSelf ? "#fbbf24" : "rgba(147, 197, 253, 0.12)",
+        }}
+      >
+        {part}
+      </span>
+    );
+  });
+};
+
+// mentionsUser answers "was I named in this message", used to decide whether a
+// lobby/DM message deserves a notification even when it is not addressed to a
+// conversation the user is looking at.
+export const mentionsUser = (body: string, username: string): boolean => {
+  if (!username) {
+    return false;
+  }
+  const needle = `@${username.toLocaleLowerCase("tr-TR")}`;
+  const matches: string[] =
+    body.toLocaleLowerCase("tr-TR").match(MENTION_PATTERN) ?? [];
+  return matches.includes(needle);
+};
+
+// One rendered message, memoized on primitives. The composer draft and the
+// call/typing state all live in this panel, so without this every keystroke
+// re-rendered the whole conversation backlog.
+const DirectChatMessageRow = memo(function DirectChatMessageRow({
+  message,
+  isOwnMessage,
+  isDeleting,
+  deleteDisabled,
+  peerLabel,
+  currentUsername,
+  currentUserId,
+  onRequestDelete,
+  onReply,
+  onEdit,
+  onToggleReaction,
+}: DirectChatMessageRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(message.body);
+  const isCallStart = message.body === "📞 Arama başladı";
+  const isCallEnd = message.body === "📞 Arama bitti";
+
+  if (isCallStart || isCallEnd) {
+    return (
+      <div
+        className="ct-chat-row-system"
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          margin: "12px 0",
+          width: "100%",
+        }}
+      >
+        <div
+          className="ct-chat-system-call-pill"
+          style={{
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "20px",
+            padding: "6px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: "500",
+              color: isCallStart ? "#22c55e" : "#ef4444",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <PhoneOutlined style={{ fontSize: "12px" }} />
+            {message.body}
+          </span>
+          <span
+            style={{
+              fontSize: "10px",
+              color: "rgba(255, 255, 255, 0.35)",
+              fontWeight: "500",
+            }}
+          >
+            • {formatTimeLabel(message.createdAt)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const commitEdit = (): void => {
+    const trimmed = editDraft.trim();
+    setIsEditing(false);
+    if (trimmed && trimmed !== message.body) {
+      onEdit(message.id, trimmed);
+    }
+  };
+
+  return (
+    <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
+      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
+        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
+
+        {isEditing ? (
+          <Input.TextArea
+            autoFocus
+            value={editDraft}
+            autoSize={{ minRows: 1, maxRows: 6 }}
+            onChange={(event) => setEditDraft(event.target.value)}
+            onBlur={commitEdit}
+            onPressEnter={(event) => {
+              if (event.shiftKey) {
+                return;
+              }
+              event.preventDefault();
+              commitEdit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setEditDraft(message.body);
+                setIsEditing(false);
+              }
+            }}
+            style={{ fontSize: 13 }}
+          />
+        ) : (
+          message.body && (
+            <p>{renderWithMentions(message.body, currentUsername)}</p>
+          )
+        )}
+
+        {message.attachment && (
+          <ChatAttachmentView attachment={message.attachment} />
+        )}
+
+        <ChatReactionBar
+          reactions={message.reactions ?? []}
+          currentUserId={currentUserId}
+          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
+        />
+
+        <div className="ct-chat-bubble-meta">
+          <span>
+            {isOwnMessage ? "Sen" : peerLabel} •{" "}
+            {formatTimeLabel(message.createdAt)}
+            {message.editedAt ? " • düzenlendi" : ""}
+          </span>
+
+          <span
+            className="ct-chat-message-actions"
+            style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
+          >
+            <ChatQuickReactionPicker
+              onPick={(emoji) => {
+                const existing = (message.reactions ?? []).find(
+                  (reaction) => reaction.emoji === emoji,
+                );
+                // Picking an emoji you already used removes it, so the picker
+                // doubles as a toggle rather than being a one-way action.
+                const mine = existing?.userIds.includes(currentUserId) ?? false;
+                onToggleReaction(message.id, emoji, !mine);
+              }}
+            />
+
+            <button
+              type="button"
+              className="ct-chat-message-delete"
+              onClick={() => onReply(message)}
+              aria-label="Yanıtla"
+              title="Yanıtla"
+            >
+              <EnterOutlined style={{ fontSize: "11px" }} />
+            </button>
+
+            {isOwnMessage && message.body && (
+              <button
+                type="button"
+                className="ct-chat-message-delete"
+                onClick={() => {
+                  setEditDraft(message.body);
+                  setIsEditing(true);
+                }}
+                aria-label="Mesajı düzenle"
+                title="Mesajı düzenle"
+              >
+                <EditOutlined style={{ fontSize: "11px" }} />
+              </button>
+            )}
+
+            {isOwnMessage && (
+              <button
+                type="button"
+                className="ct-chat-message-delete"
+                onClick={() => onRequestDelete(message.id)}
+                disabled={deleteDisabled}
+                aria-label="Mesajı sil"
+                title={isDeleting ? "Mesaj siliniyor" : "Mesajı sil"}
+              >
+                {isDeleting ? (
+                  <div className="ct-spinner-small" />
+                ) : (
+                  <DeleteOutlined style={{ fontSize: "11px" }} />
+                )}
+              </button>
+            )}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 // Calling and Stage Imports
 import { useLobbyParticipants } from "../lobby/hooks/use-lobby-participants";
@@ -51,11 +328,34 @@ interface UsersDirectMessagesPanelProps {
   directMessages: UseDirectMessagesResult["directMessages"];
   messageDraft: string;
   onMessageDraftChange: (value: string) => void;
+  // Throttled inside the hook; safe to call on every keystroke.
+  onTyping?: () => void;
+  isPeerTyping?: boolean;
+  currentUsername?: string;
+  isSelectedUserBlocked?: boolean;
+  isBlockUpdating?: boolean;
+  onToggleBlocked?: (userId: string) => Promise<void> | void;
+  onLoadOlderMessages?: () => void;
+  isLoadingOlderMessages?: boolean;
+  hasMoreMessages?: boolean;
   onSendMessage: () => void;
   onDeleteMessage: (messageId: string) => void;
   deletingMessageId: string | null;
   isSendingMessage: boolean;
   onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
+
+  // Reply / edit / reactions / attachments / search.
+  replyTo?: ChatMessage | null;
+  onSetReplyTo?: (message: ChatMessage | null) => void;
+  pendingAttachment?: UseDirectMessagesResult["pendingAttachment"];
+  onSetPendingAttachment?: UseDirectMessagesResult["setPendingAttachment"];
+  onEditMessage?: (messageId: string, body: string) => void;
+  onToggleReaction?: (messageId: string, emoji: string, add: boolean) => void;
+  searchQuery?: string;
+  searchResults?: ChatMessage[] | null;
+  isSearching?: boolean;
+  onRunSearch?: (query: string) => void;
+  onClearSearch?: () => void;
 
   // Call & Media Props
   micEnabled?: boolean;
@@ -66,6 +366,11 @@ interface UsersDirectMessagesPanelProps {
   localScreenStream?: MediaStream | null;
   remoteParticipantStreams?: ParticipantMediaMap;
   remoteParticipantAudioPreferences?: Record<string, RemoteParticipantAudioPreference>;
+  onSetRemoteParticipantMuted?: (participantUserId: string, muted: boolean) => void;
+  onSetRemoteParticipantVolume?: (participantUserId: string, volumePercent: number) => void;
+  onSetRemoteParticipantCameraHidden?: (participantUserId: string, hidden: boolean) => void;
+  onSetRemoteParticipantScreenAudioMuted?: (participantUserId: string, muted: boolean) => void;
+  onSetRemoteParticipantScreenAudioVolume?: (participantUserId: string, volumePercent: number) => void;
   activeSpeakerIds?: string[];
   avatarByUserId?: Record<string, string | null | undefined>;
   lobbyMembers?: LobbyStateMember[];
@@ -88,6 +393,10 @@ interface UsersDirectMessagesPanelProps {
   onCancelCall?: () => void;
   onEndActiveCall?: () => void;
   onRejoinCall?: () => void;
+  // Screen shares are opt-in; nothing is subscribed until the viewer asks.
+  isWatchingScreen?: (userId: string) => boolean;
+  onWatchScreen?: (userId: string) => void;
+  onStopWatchingScreen?: (userId: string) => void;
 }
 
 export function UsersDirectMessagesPanel({
@@ -98,11 +407,32 @@ export function UsersDirectMessagesPanel({
   directMessages,
   messageDraft,
   onMessageDraftChange,
+  onTyping,
+  isPeerTyping = false,
+  currentUsername = "",
+  isSelectedUserBlocked = false,
+  isBlockUpdating = false,
+  onToggleBlocked,
+  onLoadOlderMessages,
+  isLoadingOlderMessages = false,
+  hasMoreMessages = false,
   onSendMessage,
   onDeleteMessage,
   deletingMessageId,
   isSendingMessage,
   onInitiateCall,
+
+  replyTo = null,
+  onSetReplyTo,
+  pendingAttachment = null,
+  onSetPendingAttachment,
+  onEditMessage,
+  onToggleReaction,
+  searchQuery = "",
+  searchResults = null,
+  isSearching = false,
+  onRunSearch,
+  onClearSearch,
 
   // Call & Media Props Destructuring
   micEnabled,
@@ -113,6 +443,11 @@ export function UsersDirectMessagesPanel({
   localScreenStream,
   remoteParticipantStreams,
   remoteParticipantAudioPreferences,
+  onSetRemoteParticipantMuted,
+  onSetRemoteParticipantVolume,
+  onSetRemoteParticipantCameraHidden,
+  onSetRemoteParticipantScreenAudioMuted,
+  onSetRemoteParticipantScreenAudioVolume,
   activeSpeakerIds,
   avatarByUserId,
   lobbyMembers,
@@ -134,6 +469,10 @@ export function UsersDirectMessagesPanel({
   onRejectCall,
   onEndActiveCall,
   onRejoinCall,
+  // Defaults keep the call view working when the shell has no session yet.
+  isWatchingScreen = () => false,
+  onWatchScreen = () => undefined,
+  onStopWatchingScreen = () => undefined,
 }: UsersDirectMessagesPanelProps) {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
@@ -324,52 +663,41 @@ export function UsersDirectMessagesPanel({
     [focusedParticipantId, enhancedStageParticipantSlots],
   );
 
+  // These used to route through `window.__liveKitSession`, which nothing in the
+  // codebase ever assigned — the value was always undefined, so every guard
+  // short-circuited and right-clicking a peer tile during a call moved the UI
+  // but changed nothing. WorkspaceShell already builds working handlers via
+  // useRemoteParticipantAudio; WorkspaceMainPanel just never forwarded them
+  // here.
   const handleMute = (muted: boolean) => {
-    if (contextMenuParticipantId && remoteParticipantAudioPreferences && liveKitSessionRefFromGlobal) {
-      const nextPreference = {
-        ...(remoteParticipantAudioPreferences[contextMenuParticipantId] ?? { muted: false, volumePercent: 100 }),
-        muted,
-      };
-      liveKitSessionRefFromGlobal.setRemoteParticipantAudioPreference(contextMenuParticipantId, nextPreference);
+    if (contextMenuParticipantId) {
+      onSetRemoteParticipantMuted?.(contextMenuParticipantId, muted);
     }
   };
 
   const handleVolume = (volumePercent: number) => {
-    if (contextMenuParticipantId && remoteParticipantAudioPreferences && liveKitSessionRefFromGlobal) {
-      const nextPreference = {
-        ...(remoteParticipantAudioPreferences[contextMenuParticipantId] ?? { muted: false, volumePercent: 100 }),
-        volumePercent,
-      };
-      liveKitSessionRefFromGlobal.setRemoteParticipantAudioPreference(contextMenuParticipantId, nextPreference);
+    if (contextMenuParticipantId) {
+      onSetRemoteParticipantVolume?.(contextMenuParticipantId, volumePercent);
     }
   };
 
   const handleToggleCameraHidden = (hidden: boolean) => {
-    // UI hides camera directly through participant tile
+    if (contextMenuParticipantId) {
+      onSetRemoteParticipantCameraHidden?.(contextMenuParticipantId, hidden);
+    }
   };
 
   const handleScreenAudioMute = (muted: boolean) => {
-    if (contextMenuParticipantId && remoteParticipantAudioPreferences && liveKitSessionRefFromGlobal) {
-      const nextPreference = {
-        ...(remoteParticipantAudioPreferences[contextMenuParticipantId] ?? { muted: false, volumePercent: 100 }),
-        screenAudioMuted: muted,
-      };
-      liveKitSessionRefFromGlobal.setRemoteParticipantAudioPreference(contextMenuParticipantId, nextPreference);
+    if (contextMenuParticipantId) {
+      onSetRemoteParticipantScreenAudioMuted?.(contextMenuParticipantId, muted);
     }
   };
 
   const handleScreenAudioVolume = (volumePercent: number) => {
-    if (contextMenuParticipantId && remoteParticipantAudioPreferences && liveKitSessionRefFromGlobal) {
-      const nextPreference = {
-        ...(remoteParticipantAudioPreferences[contextMenuParticipantId] ?? { muted: false, volumePercent: 100 }),
-        screenAudioVolumePercent: volumePercent,
-      };
-      liveKitSessionRefFromGlobal.setRemoteParticipantAudioPreference(contextMenuParticipantId, nextPreference);
+    if (contextMenuParticipantId) {
+      onSetRemoteParticipantScreenAudioVolume?.(contextMenuParticipantId, volumePercent);
     }
   };
-
-  // Safe global reference fallback for contextual media commands
-  const liveKitSessionRefFromGlobal = (window as any).__liveKitSession;
 
   const showEmptyState =
     !directMessagesQuery.isPending &&
@@ -393,6 +721,30 @@ export function UsersDirectMessagesPanel({
   const renderChatBox = () => {
     return (
       <div className="ct-chat-thread-box" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        {onRunSearch && (
+          <div style={{ padding: "8px 16px 0" }}>
+            <Input
+              allowClear
+              size="small"
+              value={searchQuery}
+              placeholder="Bu sohbette ara…"
+              prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (!value.trim()) {
+                  onClearSearch?.();
+                  return;
+                }
+                onRunSearch(value);
+              }}
+              style={{
+                background: "rgba(12, 12, 12, 0.6)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+              }}
+            />
+          </div>
+        )}
         <div
           className={`ct-chat-messages ${showEmptyState ? "empty" : ""}`}
           ref={chatScrollRef}
@@ -418,144 +770,227 @@ export function UsersDirectMessagesPanel({
               </div>
             )}
 
-          {showEmptyState && (
+          {searchResults === null && showEmptyState && (
             <div className="ct-list-state ct-chat-empty-state">
               <p className="text-sm text-[#8f8f8f] mb-1">Bu kişiyle henüz mesajlaşma yok.</p>
               <p className="text-xs text-[#5f5f5f]">İlk mesajı göndermek için aşağıdaki yazma alanını kullanabilirsin.</p>
             </div>
           )}
 
-          {!showEmptyState && (
+          {searchResults !== null && (
             <div className="ct-chat-message-list">
-              {directMessages.map((message: ChatMessage) => {
-                const own = message.userId === currentUserId;
-                const isDeleting = deletingMessageId === message.id;
+              <div
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.5)",
+                }}
+              >
+                {isSearching
+                  ? "Aranıyor…"
+                  : `"${searchQuery}" için ${searchResults.length} sonuç`}
+              </div>
+              {searchResults.map((message: ChatMessage) => (
+                <DirectChatMessageRow
+                  key={`search-${message.id}`}
+                  message={message}
+                  isOwnMessage={message.userId === currentUserId}
+                  isDeleting={false}
+                  deleteDisabled
+                  peerLabel={
+                    selectedUser?.displayName || selectedUser?.username || ""
+                  }
+                  currentUsername={currentUsername}
+                  currentUserId={currentUserId}
+                  onRequestDelete={setPendingDeleteMessageId}
+                  onReply={(message) => onSetReplyTo?.(message)}
+                  onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
+                  onToggleReaction={(messageId, emoji, add) =>
+                    onToggleReaction?.(messageId, emoji, add)
+                  }
+                />
+              ))}
+            </div>
+          )}
 
-                const isCallStart = message.body === "📞 Arama başladı";
-                const isCallEnd = message.body === "📞 Arama bitti";
-                
-                if (isCallStart || isCallEnd) {
-                  return (
-                    <div
-                      key={message.id}
-                      className="ct-chat-row-system"
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        margin: "12px 0",
-                        width: "100%",
-                      }}
-                    >
-                      <div 
-                        className="ct-chat-system-call-pill"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.03)",
-                          border: "1px solid rgba(255, 255, 255, 0.08)",
-                          borderRadius: "20px",
-                          padding: "6px 16px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          backdropFilter: "blur(8px)",
-                          WebkitBackdropFilter: "blur(8px)",
-                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                        }}
-                      >
-                        <span style={{ 
-                          fontSize: "12px", 
-                          fontWeight: "500", 
-                          color: isCallStart ? "#22c55e" : "#ef4444",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px"
-                        }}>
-                          <PhoneOutlined style={{ fontSize: "12px" }} />
-                          {message.body}
-                        </span>
-                        <span style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.35)", fontWeight: "500" }}>
-                          • {formatTimeLabel(message.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={message.id}
-                    className={`ct-chat-row ${own ? "own" : ""}`}
+          {searchResults === null && !showEmptyState && (
+            <div className="ct-chat-message-list">
+              {hasMoreMessages && directMessages.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                  <Button
+                    size="small"
+                    type="text"
+                    loading={isLoadingOlderMessages}
+                    onClick={onLoadOlderMessages}
+                    style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px" }}
                   >
-                    <div className={`ct-chat-bubble ${own ? "own" : ""}`}>
-                      <p>{message.body}</p>
-                      <div className="ct-chat-bubble-meta">
-                        <span>
-                          {own
-                            ? "Sen"
-                            : selectedUser?.displayName ||
-                              selectedUser?.username || ""}{" "}
-                          • {formatTimeLabel(message.createdAt)}
-                        </span>
+                    Daha eski mesajları yükle
+                  </Button>
+                </div>
+              )}
 
-                        {own && (
-                          <button
-                            type="button"
-                            className="ct-chat-message-delete"
-                            onClick={() =>
-                              setPendingDeleteMessageId(message.id)
-                            }
-                            disabled={Boolean(deletingMessageId)}
-                            aria-label="Mesajı sil"
-                            title={
-                              isDeleting ? "Mesaj siliniyor" : "Mesajı sil"
-                            }
-                          >
-                            {isDeleting ? (
-                              <div className="ct-spinner-small" />
-                            ) : (
-                              <DeleteOutlined style={{ fontSize: "11px" }} />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {directMessages.map((message: ChatMessage) => (
+                <DirectChatMessageRow
+                  key={message.id}
+                  message={message}
+                  isOwnMessage={message.userId === currentUserId}
+                  isDeleting={deletingMessageId === message.id}
+                  deleteDisabled={Boolean(deletingMessageId)}
+                  peerLabel={
+                    selectedUser?.displayName || selectedUser?.username || ""
+                  }
+                  currentUsername={currentUsername}
+                  currentUserId={currentUserId}
+                  onRequestDelete={setPendingDeleteMessageId}
+                  onReply={(message) => onSetReplyTo?.(message)}
+                  onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
+                  onToggleReaction={(messageId, emoji, add) =>
+                    onToggleReaction?.(messageId, emoji, add)
+                  }
+                />
+              ))}
             </div>
           )}
         </div>
 
-        <div className="ct-chat-composer" style={{ padding: "16px", background: "transparent" }}>
-          <Input
-            size="large"
-            placeholder="Mesaj yaz..."
-            value={messageDraft}
-            onChange={(event) => onMessageDraftChange(event.target.value)}
-            onPressEnter={(event) => {
-              if (!event.shiftKey && messageDraft.trim()) {
-                event.preventDefault();
-                onSendMessage();
-              }
+        {isPeerTyping && (
+          <div
+            className="ct-chat-typing-indicator"
+            aria-live="polite"
+            style={{
+              padding: "0 16px 6px",
+              fontSize: "11px",
+              color: "rgba(255,255,255,0.45)",
+              fontStyle: "italic",
             }}
-            disabled={isSendingMessage}
-            suffix={
+          >
+            {selectedUser?.displayName || selectedUser?.username} yazıyor…
+          </div>
+        )}
+
+        <div className="ct-chat-composer" style={{ padding: "16px", background: "transparent" }}>
+          {replyTo && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+                padding: "6px 10px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.04)",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <ChatReplyQuote
+                  replyTo={{
+                    id: replyTo.id,
+                    username: replyTo.username,
+                    body: replyTo.body.slice(0, 120),
+                  }}
+                />
+              </div>
               <Button
                 type="text"
-                icon={<SendOutlined style={{ color: messageDraft.trim() ? "#ffffff" : "rgba(255,255,255,0.2)" }} />}
-                onClick={onSendMessage}
-                loading={isSendingMessage}
-                disabled={isSendingMessage || !messageDraft.trim()}
-                style={{ background: "transparent", border: "none" }}
+                size="small"
+                icon={<CloseOutlined />}
+                onClick={() => onSetReplyTo?.(null)}
+                aria-label="Yanıtı iptal et"
               />
-            }
-            style={{
-              background: "rgba(12, 12, 12, 0.8)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              color: "#f5f5f5",
-              borderRadius: "10px",
-              padding: "6px 12px",
-            }}
-          />
+            </div>
+          )}
+
+          {pendingAttachment && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+                padding: "6px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                background: "rgba(255,255,255,0.04)",
+              }}
+            >
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {pendingAttachment.name} ·{" "}
+                {formatAttachmentSize(pendingAttachment.size)}
+              </span>
+              <Button
+                type="text"
+                size="small"
+                icon={<CloseOutlined />}
+                onClick={() => onSetPendingAttachment?.(null)}
+                aria-label="Dosyayı kaldır"
+              />
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <ChatAttachButton
+              disabled={isSendingMessage}
+              onSelect={(upload, file) =>
+                onSetPendingAttachment?.({
+                  upload,
+                  name: file.name,
+                  size: file.size,
+                })
+              }
+            />
+            <Input
+              size="large"
+              placeholder={
+                pendingAttachment ? "Açıklama (isteğe bağlı)…" : "Mesaj yaz..."
+              }
+              value={messageDraft}
+              onChange={(event) => {
+                onMessageDraftChange(event.target.value);
+                if (event.target.value.trim()) {
+                  onTyping?.();
+                }
+              }}
+              onPressEnter={(event) => {
+                if (
+                  !event.shiftKey &&
+                  (messageDraft.trim() || pendingAttachment)
+                ) {
+                  event.preventDefault();
+                  onSendMessage();
+                }
+              }}
+              disabled={isSendingMessage}
+              suffix={
+                <Button
+                  type="text"
+                  icon={<SendOutlined style={{ color: messageDraft.trim() || pendingAttachment ? "#ffffff" : "rgba(255,255,255,0.2)" }} />}
+                  onClick={onSendMessage}
+                  loading={isSendingMessage}
+                  disabled={
+                    isSendingMessage ||
+                    (!messageDraft.trim() && !pendingAttachment)
+                  }
+                  style={{ background: "transparent", border: "none" }}
+                />
+              }
+              style={{
+                flex: 1,
+                background: "rgba(12, 12, 12, 0.8)",
+                borderColor: "rgba(255, 255, 255, 0.08)",
+                color: "#f5f5f5",
+                borderRadius: "10px",
+                padding: "6px 12px",
+              }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -663,6 +1098,8 @@ export function UsersDirectMessagesPanel({
                   onSelectAudioOutputDevice={onSelectAudioOutputDevice || (() => {})}
                   isRailVisible={isRailVisible}
                   setIsRailVisible={setIsRailVisible}
+                  isWatchingScreen={isWatchingScreen}
+                  onWatchScreen={onWatchScreen}
                 />
 
                 {/* LobbyActionToolbar */}
@@ -735,6 +1172,12 @@ export function UsersDirectMessagesPanel({
                   onToggleCameraHidden={handleToggleCameraHidden}
                   onScreenAudioMute={handleScreenAudioMute}
                   onScreenAudioVolume={handleScreenAudioVolume}
+                  isWatchingScreen={contextMenuParticipantId ? isWatchingScreen(contextMenuParticipantId) : false}
+                  onSetScreenWatching={(watch) => {
+                    if (!contextMenuParticipantId) return;
+                    if (watch) onWatchScreen(contextMenuParticipantId);
+                    else onStopWatchingScreen(contextMenuParticipantId);
+                  }}
                 />
               )}
             </div>
@@ -982,7 +1425,10 @@ export function UsersDirectMessagesPanel({
                 }
               >
                 <span className="text-white text-[12px] font-medium">
-                  {getUserStatusLabel(selectedUser.appOnline)}
+                  {getUserStatusLabel(
+                    selectedUser.appOnline,
+                    selectedUser.presence,
+                  )}
                 </span>
               </Descriptions.Item>
             </Descriptions>
@@ -1007,6 +1453,44 @@ export function UsersDirectMessagesPanel({
               >
                 Kullanıcı Adını Kopyala
               </Button>
+
+              {onToggleBlocked && (
+                <Button
+                  type="default"
+                  danger={!isSelectedUserBlocked}
+                  block
+                  loading={isBlockUpdating}
+                  onClick={() => {
+                    void onToggleBlocked(selectedUser.userId);
+                  }}
+                  style={{
+                    marginTop: "10px",
+                    background: "rgba(25, 25, 25, 0.8)",
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                    borderRadius: "8px",
+                    height: "38px",
+                    fontSize: "12px",
+                  }}
+                >
+                  {isSelectedUserBlocked
+                    ? "Engeli Kaldır"
+                    : "Kullanıcıyı Engelle"}
+                </Button>
+              )}
+
+              {isSelectedUserBlocked && (
+                <p
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "11px",
+                    color: "rgba(255,255,255,0.4)",
+                    textAlign: "center",
+                  }}
+                >
+                  Engellenen kullanıcıyla mesajlaşma ve arama karşılıklı olarak
+                  kapalıdır.
+                </p>
+              )}
             </div>
           </Drawer>
 

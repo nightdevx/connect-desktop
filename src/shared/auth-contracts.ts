@@ -71,6 +71,11 @@ export interface AuthResponse {
   tokens: AuthTokens;
 }
 
+// What the user is telling other people, as opposed to appOnline, which is
+// merely whether a socket exists. "offline" is derived, never chosen.
+export type PresenceStatus = "online" | "idle" | "dnd" | "offline";
+export type SelectablePresenceStatus = Exclude<PresenceStatus, "offline">;
+
 export interface UserDirectoryEntry {
   userId: string;
   username: string;
@@ -79,6 +84,7 @@ export interface UserDirectoryEntry {
   role: UserRole;
   createdAt: string;
   appOnline?: boolean;
+  presence?: PresenceStatus;
 }
 
 export interface LobbyDescriptor {
@@ -94,6 +100,34 @@ export interface LobbyDescriptor {
   hasPassword?: boolean;
 }
 
+// The quoted message shown above a reply. Denormalised by the server so a
+// reply still renders after the original scrolls out of the loaded page.
+export interface ChatReplyPreview {
+  id: string;
+  userId?: string;
+  username?: string;
+  body?: string;
+  // True when the quoted message has since been deleted.
+  deleted?: boolean;
+}
+
+// Metadata only. Bytes come from getChatAttachment, which returns a data URL.
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  isImage: boolean;
+}
+
+// userIds rather than a "mine" flag: the same payload is broadcast to every
+// client, so the viewer-relative answer has to be derived on the client.
+export interface ChatReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
 export interface ChatMessage {
   id: string;
   channel: string;
@@ -101,6 +135,14 @@ export interface ChatMessage {
   username: string;
   body: string;
   createdAt: string;
+  // Set once the author has edited it; rendered as a "(düzenlendi)" marker.
+  editedAt?: string;
+  replyTo?: ChatReplyPreview | null;
+  attachment?: ChatAttachment | null;
+  reactions?: ChatReaction[];
+  // Marks a re-publish of an existing message (edit or reaction) so the client
+  // replaces by id instead of appending.
+  updated?: boolean;
 }
 
 export interface AdminUserDetail {
@@ -113,6 +155,8 @@ export interface AdminUserDetail {
   avatarUrl: string | null;
   role: UserRole;
   bannedAt: string | null;
+  // Non-null while the account is inside its self-service deletion window.
+  deletionScheduledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

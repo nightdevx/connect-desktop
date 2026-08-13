@@ -1,7 +1,21 @@
 import { useState } from "react";
-import { Input, Button, message } from "antd";
-import { SafetyOutlined, LockOutlined } from "@ant-design/icons";
+import { Input, Button, message, Modal } from "antd";
+import {
+  SafetyOutlined,
+  LockOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+} from "@ant-design/icons";
 import { authService } from "../../../auth";
+
+// Matches the backend's AccountDeletionGrace. Only used for the wording, but
+// keep the two in step: telling someone "14 days" and purging after 7 is worse
+// than not telling them at all.
+const DELETION_GRACE_DAYS = 14;
+
+// Typed confirmation for the delete. A password field alone is muscle memory;
+// this makes the user state what they are doing.
+const DELETE_CONFIRM_WORD = "SİL";
 
 export function SettingsSecurity() {
   const [messageApi, contextHolder] = message.useMessage();
@@ -9,6 +23,68 @@ export function SettingsSecurity() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmWord, setDeleteConfirmWord] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportData = async (): Promise<void> => {
+    setIsExporting(true);
+    try {
+      const result = await authService.exportAccountData();
+      if (!result.ok) {
+        messageApi.error(
+          `Veriler dışa aktarılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+        );
+        return;
+      }
+      if (result.data?.saved) {
+        messageApi.success("Hesap verileri kaydedildi.");
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (): Promise<void> => {
+    if (deleteConfirmWord.trim().toLocaleUpperCase("tr-TR") !== DELETE_CONFIRM_WORD) {
+      messageApi.warning(`Onaylamak için "${DELETE_CONFIRM_WORD}" yazın.`);
+      return;
+    }
+
+    if (deletePassword.length < 8) {
+      messageApi.warning("Şifrenizi girin.");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      const result = await authService.deleteAccount({
+        password: deletePassword,
+      });
+
+      if (!result.ok) {
+        messageApi.error(
+          `Hesap silinemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+        );
+        return;
+      }
+
+      setIsDeleteModalOpen(false);
+      setDeletePassword("");
+      setDeleteConfirmWord("");
+      // The main process has already cleared the session; a reload drops the
+      // app back to the login screen without needing a shell-level callback.
+      window.location.reload();
+    } catch (error) {
+      messageApi.error(
+        `Hesap silinemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   const handleChangePassword = async (): Promise<void> => {
     if (currentPassword.trim().length < 8) {
@@ -155,7 +231,111 @@ export function SettingsSecurity() {
             Şifreyi Değiştir
           </Button>
         </div>
+
+        <div
+          style={{
+            marginTop: "32px",
+            paddingTop: "24px",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <h5 style={{ margin: 0, fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+            Hesap Verileri
+          </h5>
+          <p
+            style={{
+              margin: "6px 0 12px",
+              fontSize: "12px",
+              color: "rgba(255,255,255,0.45)",
+            }}
+          >
+            Profil bilgilerinizi ve engel listenizi JSON olarak indirin. Sohbet
+            geçmişi dahil değildir: mesajlar karşı tarafla ortak veridir.
+          </p>
+          <Button
+            icon={<DownloadOutlined />}
+            loading={isExporting}
+            onClick={() => {
+              void handleExportData();
+            }}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              borderColor: "rgba(255,255,255,0.12)",
+              color: "#f5f5f5",
+              height: "38px",
+              borderRadius: "6px",
+            }}
+          >
+            Verilerimi İndir
+          </Button>
+        </div>
+
+        <div
+          style={{
+            marginTop: "24px",
+            paddingTop: "24px",
+            borderTop: "1px solid rgba(255, 77, 79, 0.2)",
+          }}
+        >
+          <h5 style={{ margin: 0, fontSize: "13px", color: "#ff7875" }}>
+            Hesabı Sil
+          </h5>
+          <p
+            style={{
+              margin: "6px 0 12px",
+              fontSize: "12px",
+              color: "rgba(255,255,255,0.45)",
+            }}
+          >
+            Hesabınız hemen devre dışı bırakılır ve {DELETION_GRACE_DAYS} gün
+            sonra kalıcı olarak silinir. Bu süre içinde giriş yaparsanız hesabınız
+            geri gelir.
+          </p>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => setIsDeleteModalOpen(true)}
+            style={{ height: "38px", borderRadius: "6px" }}
+          >
+            Hesabımı Sil
+          </Button>
+        </div>
       </div>
+
+      <Modal
+        open={isDeleteModalOpen}
+        title="Hesabı Sil"
+        okText="Hesabımı Sil"
+        cancelText="Vazgeç"
+        confirmLoading={isDeletingAccount}
+        okButtonProps={{ danger: true }}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setDeletePassword("");
+          setDeleteConfirmWord("");
+        }}
+        onOk={() => {
+          void handleDeleteAccount();
+        }}
+      >
+        <p style={{ marginBottom: 12 }}>
+          Hesabınız hemen devre dışı bırakılacak ve {DELETION_GRACE_DAYS} gün
+          sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri
+          alabilirsiniz.
+        </p>
+        <Input.Password
+          placeholder="Şifreniz"
+          autoComplete="current-password"
+          value={deletePassword}
+          onChange={(event) => setDeletePassword(event.target.value)}
+          style={{ marginBottom: 8 }}
+        />
+        <Input
+          placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yazın`}
+          value={deleteConfirmWord}
+          onChange={(event) => setDeleteConfirmWord(event.target.value)}
+        />
+      </Modal>
     </div>
   );
 }

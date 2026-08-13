@@ -1,4 +1,5 @@
-import { ipcMain } from "electron";
+import { BrowserWindow, dialog, ipcMain } from "electron";
+import { writeFile } from "node:fs/promises";
 import {
   backendClient,
   directMessagesStreamManager,
@@ -24,6 +25,9 @@ import {
   adminUpdateUserSchema,
   adminResetPasswordSchema,
   adminListLobbyEventsSchema,
+  blockUserSchema,
+  setPresenceSchema,
+  deleteAccountSchema,
 } from "../validators";
 import { DesktopApiError } from "../../backend-client";
 
@@ -112,8 +116,69 @@ export function registerAuthHandlers(): void {
     lobbyStreamManager.stopAll();
     userDirectoryStreamManager.stopAll();
 
+    // Revoke server-side first, but never let that failure block the local
+    // sign-out: a user logging out on a flaky network still expects the app to
+    // forget them.
+    const current = getSessionStore().get();
+    if (current?.refreshToken) {
+      try {
+        await backendClient.auth.logout(current.refreshToken);
+      } catch (error) {
+        console.warn("[auth] server-side logout failed", error);
+      }
+    }
+
     getSessionStore().clear();
     return ok(getSessionSnapshot());
+  });
+
+  ipcMain.handle("desktop:auth-delete-account", async (_event, payload: unknown) => {
+    try {
+      const parsed = deleteAccountSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.deleteAccount(accessToken, parsed.password);
+      });
+
+      // The server has already revoked every session; drop the local one too so
+      // the app does not sit there retrying with a token that will never work.
+      directMessagesStreamManager.stopAll();
+      lobbyStreamManager.stopAll();
+      userDirectoryStreamManager.stopAll();
+      getSessionStore().clear();
+
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-export-data", async (event) => {
+    try {
+      const data = await withAccessToken((accessToken) => {
+        return backendClient.auth.exportAccountData(accessToken);
+      });
+
+      const dialogOptions = {
+        title: "Hesap verilerini kaydet",
+        defaultPath: "connect-hesap-verilerim.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      };
+      const window = BrowserWindow.fromWebContents(event.sender);
+      // Modal to the requesting window when there is one; the parentless
+      // overload is a different signature, not an optional argument.
+      const target = window
+        ? await dialog.showSaveDialog(window, dialogOptions)
+        : await dialog.showSaveDialog(dialogOptions);
+
+      if (target.canceled || !target.filePath) {
+        return ok({ saved: false });
+      }
+
+      await writeFile(target.filePath, JSON.stringify(data, null, 2), "utf8");
+      return ok({ saved: true, path: target.filePath });
+    } catch (error) {
+      return fail(error);
+    }
   });
 
   ipcMain.handle("desktop:auth-session", async () => {
@@ -121,7 +186,17 @@ export function registerAuthHandlers(): void {
       await ensureFreshSession();
       return ok(getSessionSnapshot());
     } catch (error) {
-      if (error instanceof DesktopApiError && error.statusCode === 401) {
+      if (
+        error instanceof DesktopApiError &&
+        // A banned account answers 403 USER_BANNED, not 401, so the session
+        // file used to survive and the app stayed mounted with every request
+        // failing until a restart.
+        // ACCOUNT_DEACTIVATED is the same shape: a 403 that means "this
+        // session is over", not "retry later".
+        (error.statusCode === 401 ||
+          error.code === "USER_BANNED" ||
+          error.code === "ACCOUNT_DEACTIVATED")
+      ) {
         getSessionStore().clear();
         return ok(getSessionSnapshot());
       }
@@ -186,10 +261,59 @@ export function registerAuthHandlers(): void {
     }
   });
 
+  ipcMain.handle("desktop:auth-presence", async (_event, payload: unknown) => {
+    try {
+      const parsed = setPresenceSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.setPresence(accessToken, parsed.status);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-blocks", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.listBlockedUsers(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-block", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.blockUser(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-unblock", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.unblockUser(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:user-directory-stream-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
-        userDirectoryStreamManager.start(event.sender, accessToken);
+        // Awaited: start now resolves only once the socket is open, so a
+        // failure propagates and the renderer's backoff actually escalates.
+        await userDirectoryStreamManager.start(event.sender, accessToken);
       });
 
       return ok({ started: true });

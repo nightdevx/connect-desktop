@@ -16,6 +16,7 @@ import type {
   AdminLobbySnapshot,
   AdminLobbyEvent,
   AdminStats,
+  PresenceStatus,
 } from "../../shared/auth-contracts";
 import type { BaseClient } from "./base-client";
 
@@ -26,6 +27,59 @@ export class AuthClient {
     return this.baseClient.request<AuthResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  }
+
+  public async listBlockedUsers(
+    accessToken: string,
+  ): Promise<{ blockedUserIds: string[] }> {
+    return this.baseClient.request<{ blockedUserIds: string[] }>(
+      "/auth/blocks",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async blockUser(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ blocked: boolean }> {
+    return this.baseClient.request<{ blocked: boolean }>(
+      `/auth/blocks/${encodeURIComponent(userId)}`,
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async unblockUser(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ unblocked: boolean }> {
+    return this.baseClient.request<{ unblocked: boolean }>(
+      `/auth/blocks/${encodeURIComponent(userId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async setPresence(
+    accessToken: string,
+    status: PresenceStatus,
+  ): Promise<{ presence: PresenceStatus }> {
+    return this.baseClient.request<{ presence: PresenceStatus }>(
+      "/auth/presence",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ status }),
+      },
+    );
+  }
+
+  // Ends the session server-side. Without it, logging out only deleted the
+  // local token file while the refresh token stayed valid for its full
+  // lifetime, so a token copied off a shared machine kept working.
+  public async logout(refreshToken: string): Promise<{ loggedOut: boolean }> {
+    return this.baseClient.request<{ loggedOut: boolean }>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
     });
   }
 
@@ -97,6 +151,34 @@ export class AuthClient {
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
+    });
+  }
+
+  // Deactivates the account and schedules the purge. The server revokes every
+  // session as part of it, so the caller must clear local state afterwards.
+  public async deleteAccount(
+    accessToken: string,
+    password: string,
+  ): Promise<{
+    deletion: { pending: boolean; requestedAt?: string; scheduledAt?: string };
+  }> {
+    return this.baseClient.request<{
+      deletion: { pending: boolean; requestedAt?: string; scheduledAt?: string };
+    }>("/auth/account/delete", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  public async exportAccountData(accessToken: string): Promise<unknown> {
+    return this.baseClient.request<unknown>("/auth/account/export", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
   }
 

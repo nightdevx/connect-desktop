@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # pnpm 11 imports node:sqlite, which only exists from 22.13.
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Warnings are allowed for now: the exhaustive-deps backlog is real work,
+      # not something to block the pipeline on today. Errors still fail.
+      - name: Lint
+        run: pnpm lint
+
+      # The three assert-based self-checks the project already ships. They had
+      # never been run by a machine.
+      - name: Self-checks
+        run: pnpm check
+        env:
+          # build:main generates .env.runtime from this.
+          CT_BACKEND_URL: http://127.0.0.1:4001

@@ -56,6 +56,9 @@ const desktopApi: DesktopApi = {
   verifyEmail: async (payload) =>
     ipcRenderer.invoke("desktop:auth-verify-email", payload),
   logout: async () => ipcRenderer.invoke("desktop:auth-logout"),
+  deleteAccount: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-delete-account", payload),
+  exportAccountData: async () => ipcRenderer.invoke("desktop:auth-export-data"),
   getSession: async () => ipcRenderer.invoke("desktop:auth-session"),
   getAuthProfile: async () => ipcRenderer.invoke("desktop:auth-profile"),
   updateAuthProfile: async (payload) =>
@@ -141,14 +144,26 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobby-messages-send", payload),
   deleteLobbyMessage: async (payload) =>
     ipcRenderer.invoke("desktop:lobby-messages-delete", payload),
+  editChatMessage: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-message-edit", payload),
+  setChatReaction: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-message-reaction", payload),
+  searchLobbyMessages: async (payload) =>
+    ipcRenderer.invoke("desktop:lobby-messages-search", payload),
+  searchDirectMessages: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-direct-search", payload),
+  getChatAttachment: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-attachment-get", payload),
+  saveChatAttachment: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-attachment-save", payload),
   listDirectMessages: async (payload) =>
     ipcRenderer.invoke("desktop:direct-messages-list", payload),
   sendDirectMessage: async (payload) =>
     ipcRenderer.invoke("desktop:direct-messages-send", payload),
-  startDirectMessagesStream: async (payload) =>
-    ipcRenderer.invoke("desktop:direct-messages-start", payload),
-  stopDirectMessagesStream: async (payload) =>
-    ipcRenderer.invoke("desktop:direct-messages-stop", payload),
+  startDirectMessagesStream: async () =>
+    ipcRenderer.invoke("desktop:direct-messages-start"),
+  stopDirectMessagesStream: async () =>
+    ipcRenderer.invoke("desktop:direct-messages-stop"),
   onDirectMessagesEvent: (listener) => {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,
@@ -185,6 +200,50 @@ const desktopApi: DesktopApi = {
 
     return () => {
       ipcRenderer.removeListener(WINDOW_STATE_EVENT_CHANNEL, wrappedListener);
+    };
+  },
+  setPresence: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-presence", payload),
+  listBlockedUsers: async () => ipcRenderer.invoke("desktop:auth-blocks"),
+  blockUser: async (payload) => ipcRenderer.invoke("desktop:auth-block", payload),
+  unblockUser: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-unblock", payload),
+  markDirectRead: async (payload) =>
+    ipcRenderer.invoke("desktop:direct-read", payload),
+  getDirectUnreadCounts: async (payload) =>
+    ipcRenderer.invoke("desktop:direct-unread", payload),
+  sendDirectTyping: async (payload) =>
+    ipcRenderer.invoke("desktop:direct-typing", payload),
+  notify: async (payload) => ipcRenderer.invoke("desktop:notify", payload),
+  onNotificationActivated: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ) => {
+      listener(payload as Parameters<typeof listener>[0]);
+    };
+
+    ipcRenderer.on("desktop:notification-activated", wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener(
+        "desktop:notification-activated",
+        wrappedListener,
+      );
+    };
+  },
+  onHotkey: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ) => {
+      listener(payload as Parameters<typeof listener>[0]);
+    };
+
+    ipcRenderer.on("desktop:hotkey", wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener("desktop:hotkey", wrappedListener);
     };
   },
   adminListUsers: async (params) => ipcRenderer.invoke("desktop:admin-list-users", params),

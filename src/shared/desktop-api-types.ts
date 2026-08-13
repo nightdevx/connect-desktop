@@ -18,6 +18,8 @@ import type {
   AdminLobbySnapshot,
   AdminLobbyEvent,
   AdminStats,
+  PresenceStatus,
+  SelectablePresenceStatus,
 } from "./auth-contracts";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 
@@ -50,6 +52,33 @@ export interface DesktopAppPreferences {
   // takes effect after a relaunch. Off = software encode/decode fallback for
   // machines whose GPU driver produces a black or torn stream.
   hardwareAcceleration: boolean;
+  // OS notifications for direct messages and incoming calls. Only raised while
+  // the window is not focused, so an open conversation never double-notifies.
+  desktopNotifications: boolean;
+  // Electron accelerator strings ("" = unbound). Registered globally, so they
+  // work while the app is in the background.
+  hotkeyToggleMute: string;
+  hotkeyToggleDeafen: string;
+  // Hold-to-talk. Electron's globalShortcut only reports key-DOWN, so genuine
+  // hold-to-talk cannot be done globally without a native keyboard hook; this
+  // one is handled in the renderer and therefore only applies while the window
+  // has focus. pushToTalkKey is a KeyboardEvent.code ("Space", "KeyV", …).
+  pushToTalk: boolean;
+  pushToTalkKey: string;
+}
+
+export type DesktopNotificationKind = "direct-message" | "incoming-call";
+
+export interface DesktopNotificationRequest {
+  kind: DesktopNotificationKind;
+  title: string;
+  body: string;
+  // Echoed back on activation so the renderer can open the right conversation.
+  peerUserId?: string;
+}
+
+export interface DesktopHotkeyEvent {
+  action: "toggle-mute" | "toggle-deafen";
 }
 
 // Server-reported lobby membership. Deliberately has no `speaking` flag: the
@@ -86,16 +115,33 @@ export interface LiveKitTokenPayload {
   expiresAt: string;
 }
 
+// The lobby list is rebuilt from each snapshot, so this must carry everything
+// LobbyDescriptor has. It used to omit the lock/password/allow-list fields,
+// which meant every push silently rendered a private room as public until the
+// next REST refetch put them back.
 export interface LobbyRealtimeSnapshot {
   id: string;
   name: string;
   room: string;
   createdAt: string;
   createdBy: string;
+  createdByUsername?: string;
   memberCount: number;
   members: LobbyStateMember[];
   size: number;
   revision: number;
+  isLocked?: boolean;
+  allowedUsers?: string;
+  hasPassword?: boolean;
+}
+
+// Inline file upload carried in the same payload as the message. mimeType is a
+// hint only: the backend sniffs the real type from the bytes and stores that.
+export interface ChatAttachmentUpload {
+  name: string;
+  mimeType?: string;
+  // Raw file, base64-encoded. A data: URL prefix is tolerated.
+  dataBase64: string;
 }
 
 export type LobbyStreamEvent =
@@ -113,6 +159,13 @@ export type LobbyStreamEvent =
       at?: string;
     }
   | {
+      // Tombstone. Only message.id is meaningful.
+      type: "lobby-message-deleted";
+      lobbyId: string;
+      message: ChatMessage;
+      at?: string;
+    }
+  | {
       type: "system-error";
       code: string;
       message: string;
@@ -125,13 +178,12 @@ export type LobbyStreamEvent =
       at?: string;
     };
 
+// One multiplexed socket carries every conversation, so peerUserId identifies
+// which one a frame belongs to; the connection-level frames have no peer at all.
+// (The "direct-chat-history" frame is gone: the client loads the conversation
+// it is looking at over REST rather than having the server push history for
+// every peer in the directory at once.)
 export type DirectMessagesStreamEvent =
-  | {
-      type: "direct-chat-history";
-      peerUserId: string;
-      messages: ChatMessage[];
-      at?: string;
-    }
   | {
       type: "direct-chat-message";
       peerUserId: string;
@@ -139,15 +191,27 @@ export type DirectMessagesStreamEvent =
       at?: string;
     }
   | {
-      type: "system-error";
+      // Tombstone. Only message.id is meaningful.
+      type: "direct-chat-message-deleted";
       peerUserId: string;
+      message: ChatMessage;
+      at?: string;
+    }
+  | {
+      // Transient. The server sends no "stopped typing"; the client expires it.
+      type: "direct-chat-typing";
+      peerUserId: string;
+      message: ChatMessage;
+      at?: string;
+    }
+  | {
+      type: "system-error";
       code: string;
       message: string;
       at?: string;
     }
   | {
       type: "stream-status";
-      peerUserId: string;
       status: "connected" | "closed";
       detail?: string;
       at?: string;
@@ -165,6 +229,27 @@ export type UserDirectoryStreamEvent =
         createdAt?: string;
         appOnline?: boolean;
         updatedAt: string;
+      };
+      at?: string;
+    }
+  | {
+      // The account is gone: admin delete, or the owner's own deletion
+      // request, which deactivates immediately.
+      type: "profile-deleted";
+      user: {
+        userId: string;
+        username?: string;
+      };
+      at?: string;
+    }
+  | {
+      // Online/offline only. The server no longer replays the whole profile
+      // (avatar data URL included) on every connect and disconnect.
+      type: "user-presence-updated";
+      presence: {
+        userId: string;
+        appOnline: boolean;
+        presence?: PresenceStatus;
       };
       at?: string;
     }
@@ -240,6 +325,18 @@ export interface DesktopApi {
   sendVerificationOTP: (payload: SendVerificationOTPRequest) => Promise<DesktopResult<{ sent: boolean }>>;
   verifyEmail: (payload: VerifyEmailRequest) => Promise<DesktopResult<{ verified: boolean }>>;
   logout: () => Promise<DesktopResult<SessionSnapshot>>;
+  // Deactivates immediately and schedules the purge; the session ends with it,
+  // so there is no matching "cancel" call — signing back in is the undo.
+  deleteAccount: (payload: {
+    password: string;
+  }) => Promise<
+    DesktopResult<{
+      deletion: { pending: boolean; requestedAt?: string; scheduledAt?: string };
+    }>
+  >;
+  exportAccountData: () => Promise<
+    DesktopResult<{ saved: boolean; path?: string }>
+  >;
   getSession: () => Promise<DesktopResult<SessionSnapshot>>;
   getAuthProfile: () => Promise<
     DesktopResult<{ profile: UserSettingsProfile }>
@@ -354,25 +451,57 @@ export interface DesktopApi {
   }) => Promise<DesktopResult<{ messages: ChatMessage[] }>>;
   sendLobbyMessage: (payload: {
     lobbyId: string;
+    // May be empty when an attachment is present.
     body: string;
+    replyToId?: string;
+    attachment?: ChatAttachmentUpload;
   }) => Promise<DesktopResult<{ message: ChatMessage }>>;
   deleteLobbyMessage: (payload: {
     messageId: string;
   }) => Promise<DesktopResult<{ deleted: boolean; messageId: string }>>;
+  editChatMessage: (payload: {
+    messageId: string;
+    body: string;
+  }) => Promise<DesktopResult<{ message: ChatMessage }>>;
+  setChatReaction: (payload: {
+    messageId: string;
+    emoji: string;
+    add: boolean;
+  }) => Promise<DesktopResult<{ message: ChatMessage }>>;
+  searchLobbyMessages: (payload: {
+    lobbyId: string;
+    query: string;
+    limit?: number;
+  }) => Promise<DesktopResult<{ messages: ChatMessage[] }>>;
+  searchDirectMessages: (payload: {
+    peerUserId: string;
+    query: string;
+    limit?: number;
+  }) => Promise<DesktopResult<{ messages: ChatMessage[] }>>;
+  // Bytes come back as a data URL: the renderer has no bearer token of its own.
+  getChatAttachment: (payload: {
+    attachmentId: string;
+  }) => Promise<
+    DesktopResult<{ dataUrl: string; mimeType: string; size: number }>
+  >;
+  saveChatAttachment: (payload: {
+    attachmentId: string;
+    fileName: string;
+  }) => Promise<DesktopResult<{ saved: boolean; path?: string }>>;
   listDirectMessages: (payload: {
     peerUserId: string;
     limit?: number;
-  }) => Promise<DesktopResult<{ messages: ChatMessage[] }>>;
+    // Message id cursor: returns the page immediately older than it.
+    before?: string;
+  }) => Promise<DesktopResult<{ messages: ChatMessage[]; hasMore?: boolean }>>;
   sendDirectMessage: (payload: {
     peerUserId: string;
     body: string;
+    replyToId?: string;
+    attachment?: ChatAttachmentUpload;
   }) => Promise<DesktopResult<{ message: ChatMessage }>>;
-  startDirectMessagesStream: (payload: {
-    peerUserId: string;
-  }) => Promise<DesktopResult<{ started: boolean; peerUserId: string }>>;
-  stopDirectMessagesStream: (payload?: {
-    peerUserId?: string;
-  }) => Promise<DesktopResult<{ stopped: boolean; peerUserId: string | null }>>;
+  startDirectMessagesStream: () => Promise<DesktopResult<{ started: boolean }>>;
+  stopDirectMessagesStream: () => Promise<DesktopResult<{ stopped: boolean }>>;
   onDirectMessagesEvent: (
     listener: (event: DirectMessagesStreamEvent) => void,
   ) => () => void;
@@ -382,6 +511,37 @@ export interface DesktopApi {
   setWindowAttention: (payload: {
     enabled: boolean;
   }) => Promise<DesktopResult<{ attention: boolean }>>;
+  setPresence: (payload: {
+    status: SelectablePresenceStatus;
+  }) => Promise<DesktopResult<{ presence: PresenceStatus }>>;
+  listBlockedUsers: () => Promise<
+    DesktopResult<{ blockedUserIds: string[] }>
+  >;
+  blockUser: (payload: {
+    userId: string;
+  }) => Promise<DesktopResult<{ blocked: boolean }>>;
+  unblockUser: (payload: {
+    userId: string;
+  }) => Promise<DesktopResult<{ unblocked: boolean }>>;
+  markDirectRead: (payload: {
+    peerUserId: string;
+  }) => Promise<DesktopResult<{ marked: boolean }>>;
+  getDirectUnreadCounts: (payload: {
+    peerUserIds: string[];
+  }) => Promise<DesktopResult<{ unreadByPeerUserId: Record<string, number> }>>;
+  sendDirectTyping: (payload: {
+    peerUserId: string;
+  }) => Promise<DesktopResult<{ sent: boolean }>>;
+  notify: (
+    payload: DesktopNotificationRequest,
+  ) => Promise<DesktopResult<{ shown: boolean }>>;
+  onNotificationActivated: (
+    listener: (payload: {
+      kind: DesktopNotificationKind;
+      peerUserId: string | null;
+    }) => void,
+  ) => () => void;
+  onHotkey: (listener: (event: DesktopHotkeyEvent) => void) => () => void;
   getWindowState: () => Promise<DesktopResult<DesktopWindowState>>;
   onWindowStateChanged: (
     listener: (state: DesktopWindowState) => void,

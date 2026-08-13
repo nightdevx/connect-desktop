@@ -16,6 +16,12 @@ files:
   - native/audio-loopback/index.js
   - native/audio-loopback/package.json
   - native/audio-loopback/build/Release/*.node
+  # tsc compiles the renderer too (it has to, that is how it gets typechecked)
+  # and writes 115 CommonJS files into dist/renderer/src that nothing ever
+  # loads — index.html points at the Vite bundle in dist/renderer/assets.
+  # `pnpm build` happens to wipe them because Vite empties its outDir after
+  # tsc runs, but any packaging that skips a full clean build shipped them.
+  - "!dist/renderer/src"
   - "!**/*.map"
   - "!**/*.d.ts"
   - "!**/*.d.cts"

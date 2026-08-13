@@ -1,7 +1,7 @@
 {
   "packageManager": "pnpm@11.15.1",
   "name": "connect-desktop",
-  "version": "0.1.30",
+  "version": "0.1.32",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {
@@ -30,6 +30,7 @@
     "build:renderer": "vite build",
     "build:native": "node scripts/build-native.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
     "check": "pnpm build:main && node scripts/check-media-stats.cjs && node scripts/check-video-layers.cjs && node scripts/check-loopback-worklet.cjs",
     "dist": "pnpm build && electron-builder",
     "check:package": "node scripts/check-packaged-deps.cjs",
@@ -38,19 +39,20 @@
     "dist:linux": "pnpm build && pnpm clean:release && electron-builder --linux --publish never",
     "dist:linux:publish": "pnpm build && pnpm clean:release && electron-builder --linux --publish always"
   },
+  "//dependencies": "electron-builder packs `dependencies` into the asar verbatim and ignores `devDependencies`. Only what the MAIN process requires at runtime belongs here: it is plain tsc output, so its `require`s resolve from node_modules. Everything the renderer imports is bundled by Vite and must NOT be listed here, or a second copy of it ships inside the archive unused.",
   "dependencies": {
-    "@ant-design/icons": "^6.2.2",
-    "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "@sentry/electron": "^7.13.0",
-    "@sentry/vite-plugin": "^5.3.0",
-    "antd": "^6.3.7",
     "dotenv": "^17.4.0",
     "electron-updater": "^6.3.9",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ant-design/icons": "^6.2.2",
     "@electron/asar": "^3.4.1",
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
+    "@sentry/vite-plugin": "^5.3.0",
+    "antd": "^6.3.7",
     "@tanstack/react-query": "^5.96.1",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.10",

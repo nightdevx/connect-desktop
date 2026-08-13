@@ -148,5 +148,15 @@ export function resolveParticipantRenderKey(
   activeLobbyId: string | null,
   sourcePreference: ParticipantSourcePreference,
 ): string {
-  return `${activeLobbyId ?? "no-lobby"}:${participant.userId}:${participant.joinedAt}:${sourcePreference}`;
+  // joinedAt is deliberately NOT part of the key.
+  //
+  // It used to be, and in a 1:1 call the roster is rebuilt from a useMemo whose
+  // deps change up to 10x/second while anyone speaks — each rebuild minting a
+  // fresh `new Date().toISOString()`. That made this slotId, and therefore the
+  // React key on every participant tile, change at the same rate: React
+  // unmounted and remounted every tile ten times a second, detaching the track
+  // from one <video> element and attaching it to a brand new one, so the
+  // camera and screen-share preview flickered or stayed black for the whole
+  // call. lobbyId + userId + source is already unique per tile.
+  return `${activeLobbyId ?? "no-lobby"}:${participant.userId}:${sourcePreference}`;
 }

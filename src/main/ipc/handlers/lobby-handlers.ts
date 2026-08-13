@@ -20,6 +20,7 @@ import {
   lobbyStateSchema,
   lobbyMessagesListSchema,
   lobbyMessageSendSchema,
+  lobbySearchSchema,
   lobbyMessageDeleteSchema,
   liveKitTokenSchema,
   initiateCallSchema,
@@ -220,7 +221,7 @@ export function registerLobbyHandlers(): void {
   ipcMain.handle("desktop:lobbies-stream-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
-        lobbyStreamManager.start(event.sender, accessToken);
+        await lobbyStreamManager.start(event.sender, accessToken);
       });
       return ok({ started: true });
     } catch (error) {
@@ -281,10 +282,27 @@ export function registerLobbyHandlers(): void {
     try {
       const parsed = lobbyMessageSendSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.chat.sendLobbyMessage(
+        return backendClient.chat.sendLobbyMessage(accessToken, parsed.lobbyId, {
+          body: parsed.body,
+          replyToId: parsed.replyToId,
+          attachment: parsed.attachment,
+        });
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobby-messages-search", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbySearchSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.chat.searchLobbyMessages(
           accessToken,
           parsed.lobbyId,
-          parsed.body,
+          parsed.query,
+          parsed.limit,
         );
       });
       return ok(result);

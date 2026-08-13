@@ -9,7 +9,10 @@ import {
   GlobalOutlined,
   WifiOutlined
 } from "@ant-design/icons";
-import type { LobbyDescriptor } from "@shared/auth-contracts";
+import type {
+  LobbyDescriptor,
+  SelectablePresenceStatus,
+} from "@shared/auth-contracts";
 import type {
   DesktopResult,
   LobbyStateMember,
@@ -40,6 +43,8 @@ interface WorkspaceSidebarProps {
     setSelectedUserId: (value: string | null) => void;
     unreadByUserId: Record<string, number>;
     callState?: CallSessionState;
+    presenceStatus: SelectablePresenceStatus;
+    onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
   };
   lobbiesProps: {
     lobbiesQuery: UseQueryResult<
@@ -263,6 +268,8 @@ export function WorkspaceSidebar({
             selectedUserId={usersProps.selectedUserId}
             onUserSelect={usersProps.setSelectedUserId}
             unreadByUserId={usersProps.unreadByUserId}
+            presenceStatus={usersProps.presenceStatus}
+            onPresenceStatusChange={usersProps.onPresenceStatusChange}
             callState={usersProps.callState}
           />
         )}

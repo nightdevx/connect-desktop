@@ -23,7 +23,10 @@ import {
   type LiveKitAudioProcessingPreferences,
   type RemoteParticipantAudioPreference,
 } from "./types";
-import { DEFAULT_AUDIO_PROCESSING_PREFERENCES } from "./constants";
+import {
+  DEFAULT_AUDIO_PROCESSING_PREFERENCES,
+  isScreenSource as isScreenSourceKind,
+} from "./constants";
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
@@ -94,6 +97,20 @@ export class LiveKitStreamManager {
   // fields were written but never read.
   private manualDisconnect = false;
   private replacingRoom = false;
+  // Desired remote-audio state, owned by the manager rather than the
+  // RemoteMediaHandler, which is discarded and rebuilt on every reconnect.
+  private desiredDeafened = false;
+  // Identities whose screen share this user has explicitly chosen to watch.
+  //
+  // Screen video is the single most expensive thing in the room, and it used to
+  // be pushed to everyone the instant someone started sharing. Watching is
+  // opt-in: nothing is subscribed until an identity is in here, and it survives
+  // reconnects so a hiccup does not silently stop a stream you were watching.
+  private readonly watchedScreenIdentities = new Set<string>();
+  private readonly remoteAudioPreferences = new Map<string, RemoteParticipantAudioPreference>();
+  // Single-flight guard for connect().
+  private connectPromise: Promise<void> | null = null;
+  private connectingLobbyId: string | null = null;
 
   private remoteMediaHandler: RemoteMediaHandler | null = null;
   private roomEventManager: RoomEventManager | null = null;
@@ -267,6 +284,29 @@ export class LiveKitStreamManager {
     token: string,
     lobbyId: string,
   ): Promise<void> {
+    // Single-flight. Without it, a second connect() landing while the first was
+    // still awaiting room.connect() took the `if (this.room)` branch and ran
+    // disconnect(), which nulls this.room — and the first call then resumed and
+    // dereferenced it, throwing, emitting "disconnected" and scheduling yet
+    // another reconnect. A self-sustaining failure loop.
+    if (this.connectPromise && this.connectingLobbyId === lobbyId) {
+      return this.connectPromise;
+    }
+
+    this.connectingLobbyId = lobbyId;
+    this.connectPromise = this.connectInternal(url, token, lobbyId).finally(() => {
+      this.connectPromise = null;
+      this.connectingLobbyId = null;
+    });
+
+    return this.connectPromise;
+  }
+
+  private async connectInternal(
+    url: string,
+    token: string,
+    lobbyId: string,
+  ): Promise<void> {
     // Idempotent only when the existing room is actually CONNECTED to the same
     // lobby. A stale/disconnected room (after an unexpected drop) must be torn
     // down and rebuilt, otherwise reconnect would silently no-op.
@@ -303,15 +343,36 @@ export class LiveKitStreamManager {
       },
     };
 
-    this.room = new Room(options);
-    this.remoteMediaHandler = new RemoteMediaHandler(this.room);
+    // Hold the room in a local. `this.room` is mutable and read again after two
+    // awaits below; a concurrent teardown would otherwise turn those reads into
+    // a null dereference.
+    const room = new Room(options);
+    this.room = room;
+    this.remoteMediaHandler = new RemoteMediaHandler(room);
+
+    // Re-seed the handler with the user's actual preferences.
+    //
+    // connect() builds a brand-new RemoteMediaHandler on every reconnect, and
+    // only the output device used to be re-applied — deafen, master volume and
+    // every per-participant volume/mute reset to defaults. So a user who had
+    // deafened, or dropped the master volume, or muted one loud participant,
+    // silently got the whole room back at 100% one second after any socket
+    // blip, with the UI still showing the old state. Ordered before
+    // registerEvents so the first subscribe pass sees the right deafen flag.
+    this.remoteMediaHandler.setMasterVolume(this.audioProcessingPreferences.masterVolume ?? 1);
+    this.remoteMediaHandler.setDeafened(this.desiredDeafened);
+    for (const [participantId, preference] of this.remoteAudioPreferences) {
+      this.applyRemoteParticipantAudioPreference(participantId, preference);
+    }
+
     this.roomEventManager = new RoomEventManager(
-      this.room,
+      room,
       this.callbacks,
       this.remoteMediaHandler,
       () => this.updateMediaMap(),
       (reason) => this.handleDisconnected(reason),
       () => this.restorePublishingState(),
+      (identity) => this.watchedScreenIdentities.has(identity),
     );
 
     this.roomEventManager.registerEvents();
@@ -319,7 +380,7 @@ export class LiveKitStreamManager {
 
     this.limitedTicks = 0;
     this.limitationNotified = false;
-    this.statsCollector = new MediaStatsCollector(this.room, (snapshot) => {
+    this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.(snapshot);
       this.evaluateQualityLimitation(snapshot);
     });
@@ -331,13 +392,20 @@ export class LiveKitStreamManager {
     try {
       this.callbacks.onConnectionStateChanged?.("connecting");
       // autoSubscribe and connectTimeout are ConnectOptions
-      await this.room.connect(url, token, { 
+      await room.connect(url, token, {
         autoSubscribe: false,
       });
-      
+
+      // Another connect replaced this room while we were awaiting. Drop ours
+      // rather than publishing into an abandoned room.
+      if (this.room !== room) {
+        await room.disconnect();
+        return;
+      }
+
       // Publish the microphone first: it is the lowest-bandwidth track and the
       // only one the user notices missing.
-      this.microphoneController.prepareParticipantAudioContext(this.room.localParticipant);
+      this.microphoneController.prepareParticipantAudioContext(room.localParticipant);
       await this.applyMicrophoneState();
 
       this.statsCollector?.start();
@@ -446,6 +514,9 @@ export class LiveKitStreamManager {
   }
 
   public setDeafened(deafened: boolean): void {
+    // Remember it here, not only in the handler: connect() throws the handler
+    // away and builds a new one on every reconnect.
+    this.desiredDeafened = deafened;
     this.remoteMediaHandler?.setDeafened(deafened);
   }
 
@@ -516,9 +587,54 @@ export class LiveKitStreamManager {
         if (deafened && publication.kind === Track.Kind.Audio) {
           continue;
         }
+        if (isScreenSourceKind(publication.source)) {
+          // Restores whatever the user had chosen to watch before the
+          // reconnect, rather than resubscribing everyone by default.
+          void publication.setSubscribed(
+            this.watchedScreenIdentities.has(participant.identity),
+          );
+          continue;
+        }
         void publication.setSubscribed(true);
       }
     }
+  }
+
+  /** Reports whether this user is currently watching the given screen share. */
+  public isWatchingScreen(identity: string): boolean {
+    return this.watchedScreenIdentities.has(identity);
+  }
+
+  /**
+   * Starts or stops watching one participant's screen share.
+   *
+   * Subscribing pulls the video (and its system audio, if any); unsubscribing
+   * stops the bytes at the SFU, so declining to watch actually costs nothing
+   * rather than merely hiding a stream that is still being delivered.
+   */
+  public setScreenSubscription(identity: string, watch: boolean): void {
+    const normalized = identity.trim();
+    if (!normalized) {
+      return;
+    }
+
+    if (watch) {
+      this.watchedScreenIdentities.add(normalized);
+    } else {
+      this.watchedScreenIdentities.delete(normalized);
+    }
+
+    const participant = this.room?.remoteParticipants.get(normalized);
+    if (participant) {
+      for (const publication of participant.trackPublications.values()) {
+        if (!isScreenSourceKind(publication.source)) {
+          continue;
+        }
+        void publication.setSubscribed(watch);
+      }
+    }
+
+    this.updateMediaMap();
   }
 
   // Video quality problems are invisible to the person causing them: their own
@@ -937,11 +1053,18 @@ export class LiveKitStreamManager {
       void this.updateLocalAudioSource(micStream);
     }
 
+    // "Available" is publication state; "enabled" is subscription state. For
+    // the local participant the two coincide — you always see your own share.
+    const screenAvailable =
+      !!(screenPub && !screenPub.isMuted) ||
+      (p instanceof LocalParticipant && p.isScreenShareEnabled);
+
     return {
       participant: p,
       micEnabled: p.isMicrophoneEnabled,
       cameraEnabled: !!(cameraPub?.isSubscribed && !cameraPub?.isMuted) || (p instanceof LocalParticipant && p.isCameraEnabled),
       screenEnabled: !!(screenPub?.isSubscribed && !screenPub?.isMuted) || (p instanceof LocalParticipant && p.isScreenShareEnabled),
+      screenAvailable,
       isSpeaking: p.isSpeaking || (p instanceof LocalParticipant && this.isSpeakingLocal),
       audioLevel: p instanceof LocalParticipant ? Math.max(p.audioLevel, this.localAudioLevel) : p.audioLevel,
       camera: cameraTrack || cameraStream,
@@ -991,17 +1114,28 @@ export class LiveKitStreamManager {
   }
 
   public setRemoteParticipantAudioPreference(identity: string, pref: RemoteParticipantAudioPreference): void {
-    if (this.remoteMediaHandler) {
-      this.remoteMediaHandler.setParticipantVolume(identity, pref.volumePercent / 100);
-      this.remoteMediaHandler.setParticipantMuted(identity, pref.muted);
+    // Remember it, so a reconnect can re-apply it to the fresh handler.
+    this.remoteAudioPreferences.set(identity, pref);
+    this.applyRemoteParticipantAudioPreference(identity, pref);
+  }
 
-      // Screen share audio controls
-      if (pref.screenAudioMuted !== undefined) {
-        this.remoteMediaHandler.setScreenAudioMuted(identity, pref.screenAudioMuted);
-      }
-      if (pref.screenAudioVolumePercent !== undefined) {
-        this.remoteMediaHandler.setScreenAudioVolume(identity, pref.screenAudioVolumePercent);
-      }
+  private applyRemoteParticipantAudioPreference(
+    identity: string,
+    pref: RemoteParticipantAudioPreference,
+  ): void {
+    if (!this.remoteMediaHandler) {
+      return;
+    }
+
+    this.remoteMediaHandler.setParticipantVolume(identity, pref.volumePercent / 100);
+    this.remoteMediaHandler.setParticipantMuted(identity, pref.muted);
+
+    // Screen share audio controls
+    if (pref.screenAudioMuted !== undefined) {
+      this.remoteMediaHandler.setScreenAudioMuted(identity, pref.screenAudioMuted);
+    }
+    if (pref.screenAudioVolumePercent !== undefined) {
+      this.remoteMediaHandler.setScreenAudioVolume(identity, pref.screenAudioVolumePercent);
     }
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { memo, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Avatar, Tooltip } from "antd";
 import {
   AudioOutlined,
@@ -14,6 +14,39 @@ import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { logLiveKitDebug } from "@/features/livekit";
 import { getDisplayInitials } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
+
+// useWindowActive reports whether this app window is in the foreground.
+//
+// It only gates the LOCAL preview: the person sharing their screen is looking
+// at the real thing, not at a thumbnail of it, and decoding + compositing that
+// thumbnail behind another window is pure waste on the machine already paying
+// to capture and encode the stream. Remote streams are deliberately NOT paused
+// — watching one is now an explicit choice, and stopping it because the viewer
+// alt-tabbed would undo that choice for them.
+const useWindowActive = (): boolean => {
+  const [active, setActive] = useState(
+    () => typeof document === "undefined" || !document.hidden,
+  );
+
+  useEffect(() => {
+    const update = (): void => {
+      setActive(document.visibilityState === "visible" && document.hasFocus());
+    };
+
+    update();
+    window.addEventListener("focus", update);
+    window.addEventListener("blur", update);
+    document.addEventListener("visibilitychange", update);
+
+    return () => {
+      window.removeEventListener("focus", update);
+      window.removeEventListener("blur", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+
+  return active;
+};
 
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
@@ -43,9 +76,13 @@ interface LobbyParticipantTileProps {
   // Local preferences for this remote participant
   localAudioMuted?: boolean;
   localScreenAudioMuted?: boolean;
+  // Screen shares are opt-in. isWatchingScreen is whether THIS viewer has
+  // subscribed; onWatchScreen starts it.
+  isWatchingScreen?: boolean;
+  onWatchScreen?: (userId: string) => void;
 }
 
-export function LobbyParticipantTile({
+function LobbyParticipantTileImpl({
   participant,
   avatarUrl,
   previewStream = null,
@@ -63,12 +100,32 @@ export function LobbyParticipantTile({
   onSelectAudioOutputDevice,
   localAudioMuted = false,
   localScreenAudioMuted = false,
+  isWatchingScreen = false,
+  onWatchScreen,
 }: LobbyParticipantTileProps) {
+  const windowActive = useWindowActive();
+
+  // A remote screen tile with nothing playing means the stream exists but this
+  // viewer has not asked for it. Offer the button instead of a black rectangle.
+  const showWatchPrompt =
+    kind === "screen" &&
+    !participant.isLocalUser &&
+    !participant.isPlaceholder &&
+    !isWatchingScreen &&
+    !previewStream &&
+    Boolean(onWatchScreen);
   const micOpen = !participant.muted && !participant.serverMuted;
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Your own preview, while you are working in another app, is a video nobody
+  // is looking at. The capture and the encode still run — viewers need them —
+  // but the local decode/composite does not have to. Fullscreen is exempt: the
+  // window can lose focus with the preview still on screen.
+  const previewSuspended =
+    participant.isLocalUser && !windowActive && !isFullscreen;
 
   const handleVideoLoadedMetadata = () => {
     if (videoRef.current) {
@@ -171,6 +228,26 @@ export function LobbyParticipantTile({
     }
   }, [previewStream]);
 
+  // Suspend/resume the local preview with window focus. Kept in its own effect
+  // so it does not re-attach the stream — pausing is enough to stop the decode,
+  // and detaching would make coming back cost a fresh negotiation.
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement || !previewStream) {
+      return;
+    }
+
+    if (previewSuspended) {
+      videoElement.pause();
+      return;
+    }
+
+    videoElement.play().catch(() => {
+      // Autoplay can be refused while the window is still coming forward; the
+      // next focus event retries.
+    });
+  }, [previewSuspended, previewStream]);
+
   return (
     <article
       className={[
@@ -202,6 +279,52 @@ export function LobbyParticipantTile({
         <div className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
           <DesktopOutlined style={{ fontSize: "11px" }} />
           <span>Ekran</span>
+        </div>
+      )}
+
+      {showWatchPrompt && (
+        <div
+          className="ct-lobby-tile-watch-prompt"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            zIndex: 25,
+            background: "rgba(10, 10, 10, 0.55)",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <DesktopOutlined style={{ fontSize: 22, opacity: 0.7 }} />
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+            {participant.username} yayında
+          </span>
+          <button
+            type="button"
+            onClick={(event) => {
+              // The tile itself handles click as "focus this participant".
+              event.stopPropagation();
+              onWatchScreen?.(participant.userId);
+            }}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.1)",
+              color: "#ffffff",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Yayını izle
+          </button>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+            Bırakmak için sağ tıklayın
+          </span>
         </div>
       )}
 
@@ -375,3 +498,45 @@ export function LobbyParticipantTile({
 }
 
 
+
+// The stage re-renders on every active-speaker signal from LiveKit — several
+// times a second while anyone is talking — and rebuilds the whole slot list, so
+// every tile got a brand-new `participant` object and re-rendered its <video>
+// subtree even when nothing about it had changed.
+//
+// The two callback props are deliberately NOT compared: LobbyStageView builds
+// them as inline arrows, so they are new on every render and a default
+// shallow-equal memo would never hit. They are safe to ignore because the only
+// thing they close over is the participant, which IS compared, and the handlers
+// themselves only call setState updaters.
+export const LobbyParticipantTile = memo(
+  LobbyParticipantTileImpl,
+  (previous, next) => {
+    const a = previous.participant;
+    const b = next.participant;
+
+    return (
+      a.userId === b.userId &&
+      a.username === b.username &&
+      a.muted === b.muted &&
+      a.serverMuted === b.serverMuted &&
+      a.deafened === b.deafened &&
+      a.speaking === b.speaking &&
+      a.isLocalUser === b.isLocalUser &&
+      a.isPlaceholder === b.isPlaceholder &&
+      previous.avatarUrl === next.avatarUrl &&
+      previous.previewStream === next.previewStream &&
+      previous.kind === next.kind &&
+      previous.isSelected === next.isSelected &&
+      previous.isFocusedLayout === next.isFocusedLayout &&
+      previous.isCompact === next.isCompact &&
+      previous.localAudioMuted === next.localAudioMuted &&
+      previous.localScreenAudioMuted === next.localScreenAudioMuted &&
+      previous.isWatchingScreen === next.isWatchingScreen &&
+      previous.audioInputDevices === next.audioInputDevices &&
+      previous.audioOutputDevices === next.audioOutputDevices &&
+      previous.selectedAudioInputDeviceId === next.selectedAudioInputDeviceId &&
+      previous.selectedAudioOutputDeviceId === next.selectedAudioOutputDeviceId
+    );
+  },
+);

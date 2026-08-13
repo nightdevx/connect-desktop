@@ -1,6 +1,7 @@
 import type { WebContents } from "electron";
 import WebSocket from "ws";
 import type { UserDirectoryStreamEvent } from "../../shared/desktop-api-types";
+import { awaitSocketOpen } from "./await-socket-open";
 
 export const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
 
@@ -47,10 +48,19 @@ export class UserDirectoryStreamManager {
     return { stopped: true };
   }
 
-  public start(sender: WebContents, accessToken: string): { started: boolean } {
+  // Resolves once the socket is open; see await-socket-open.ts for why.
+  public async start(
+    sender: WebContents,
+    accessToken: string,
+  ): Promise<{ started: boolean }> {
     this.stop(sender.id);
 
     const socket = new WebSocket(this.buildWebSocketURL(accessToken));
+    const opened = awaitSocketOpen(
+      socket,
+      "USER_DIRECTORY_WS_CONNECTION_ERROR",
+      "user directory websocket",
+    );
     const streamState: UserDirectoryStreamState = {
       socket,
       closing: false,
@@ -163,6 +173,7 @@ export class UserDirectoryStreamManager {
       });
     });
 
+    await opened;
     return { started: true };
   }
 

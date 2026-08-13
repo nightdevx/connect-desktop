@@ -10,6 +10,7 @@ import {
 } from "livekit-client";
 import { logLiveKitDebug } from "../debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
+import { isScreenSource } from "./constants";
 import { RemoteMediaHandler } from "./remote-media-handler";
 
 export class RoomEventManager {
@@ -20,6 +21,8 @@ export class RoomEventManager {
     private readonly updateMediaMap: () => void,
     private readonly onDisconnected: (reason?: DisconnectReason) => void,
     private readonly restorePublishingState: () => Promise<void>,
+    // Screen shares are opt-in, so publication alone must not subscribe.
+    private readonly isWatchingScreen: (identity: string) => boolean,
   ) {}
 
   public registerEvents() {
@@ -66,7 +69,10 @@ export class RoomEventManager {
     this.updateMediaMap();
   };
 
-  private readonly handleTrackPublished = (pub: RemoteTrackPublication) => {
+  private readonly handleTrackPublished = (
+    pub: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ) => {
     // Manual subscription because autoSubscribe is disabled in RoomOptions.
     // While deafened we deliberately stay unsubscribed from audio — otherwise
     // a track published mid-deafen would quietly start costing bandwidth again.
@@ -76,6 +82,19 @@ export class RoomEventManager {
     ) {
       return;
     }
+
+    // A screen share is never subscribed on publication. Opening a share used
+    // to start pushing video to every person in the room whether they wanted
+    // it or not; now it only lights up a "watch" affordance, and the bytes
+    // start flowing when someone actually asks for them.
+    if (isScreenSource(pub.source)) {
+      if (this.isWatchingScreen(participant.identity)) {
+        void pub.setSubscribed(true);
+      }
+      this.updateMediaMap();
+      return;
+    }
+
     void pub.setSubscribed(true);
   };
 

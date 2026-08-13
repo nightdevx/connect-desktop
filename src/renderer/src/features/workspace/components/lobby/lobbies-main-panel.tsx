@@ -9,6 +9,7 @@ import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth/permissions";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
+import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import { useLobbyStageLayout } from "./lobby-stage-layout";
 import { type LobbyParticipantView } from "./lobby-participant-tile";
 
@@ -55,6 +56,21 @@ interface LobbiesMainPanelProps {
   onDeleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
+  lobbyReplyTo: ChatMessage | null;
+  onSetLobbyReplyTo: (message: ChatMessage | null) => void;
+  lobbyPendingAttachment: PendingAttachment | null;
+  onSetLobbyPendingAttachment: (value: PendingAttachment | null) => void;
+  onEditLobbyMessage: (messageId: string, body: string) => void;
+  onToggleLobbyReaction: (
+    messageId: string,
+    emoji: string,
+    add: boolean,
+  ) => void;
+  lobbySearchQuery: string;
+  lobbySearchResults: ChatMessage[] | null;
+  isSearchingLobbyMessages: boolean;
+  onRunLobbySearch: (query: string) => void;
+  onClearLobbySearch: () => void;
   isLeavingLobby: boolean;
   onToggleMic: () => void;
   onToggleHeadphone: () => void;
@@ -67,6 +83,10 @@ interface LobbiesMainPanelProps {
   selectedAudioOutputDeviceId: string | null;
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
+  // Screen shares are opt-in; nothing is subscribed until the viewer asks.
+  isWatchingScreen: (userId: string) => boolean;
+  onWatchScreen: (userId: string) => void;
+  onStopWatchingScreen: (userId: string) => void;
 }
 
 const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
@@ -109,6 +129,17 @@ export function LobbiesMainPanel({
   onDeleteLobbyMessage,
   isSendingLobbyMessage,
   deletingLobbyMessageId,
+  lobbyReplyTo,
+  onSetLobbyReplyTo,
+  lobbyPendingAttachment,
+  onSetLobbyPendingAttachment,
+  onEditLobbyMessage,
+  onToggleLobbyReaction,
+  lobbySearchQuery,
+  lobbySearchResults,
+  isSearchingLobbyMessages,
+  onRunLobbySearch,
+  onClearLobbySearch,
   isLeavingLobby,
   onToggleMic,
   onToggleHeadphone,
@@ -121,6 +152,9 @@ export function LobbiesMainPanel({
   selectedAudioOutputDeviceId,
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
+  isWatchingScreen,
+  onWatchScreen,
+  onStopWatchingScreen,
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
@@ -358,6 +392,8 @@ export function LobbiesMainPanel({
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
               isRailVisible={isRailVisible}
               setIsRailVisible={setIsRailVisible}
+              isWatchingScreen={isWatchingScreen}
+              onWatchScreen={onWatchScreen}
             />
 
             {/* Bottom Actions Toolbar */}
@@ -392,6 +428,17 @@ export function LobbiesMainPanel({
               onDeleteLobbyMessage={onDeleteLobbyMessage}
               isSendingLobbyMessage={isSendingLobbyMessage}
               deletingLobbyMessageId={deletingLobbyMessageId}
+              replyTo={lobbyReplyTo}
+              onSetReplyTo={onSetLobbyReplyTo}
+              pendingAttachment={lobbyPendingAttachment}
+              onSetPendingAttachment={onSetLobbyPendingAttachment}
+              onEditMessage={onEditLobbyMessage}
+              onToggleReaction={onToggleLobbyReaction}
+              searchQuery={lobbySearchQuery}
+              searchResults={lobbySearchResults}
+              isSearching={isSearchingLobbyMessages}
+              onRunSearch={onRunLobbySearch}
+              onClearSearch={onClearLobbySearch}
             />
           </aside>
         </div>
@@ -419,6 +466,12 @@ export function LobbiesMainPanel({
           onToggleCameraHidden={handleToggleCameraHidden}
           onScreenAudioMute={handleScreenAudioMute}
           onScreenAudioVolume={handleScreenAudioVolume}
+          isWatchingScreen={contextMenuParticipantId ? isWatchingScreen(contextMenuParticipantId) : false}
+          onSetScreenWatching={(watch) => {
+            if (!contextMenuParticipantId) return;
+            if (watch) onWatchScreen(contextMenuParticipantId);
+            else onStopWatchingScreen(contextMenuParticipantId);
+          }}
           canModerate={canModerate}
           onServerMute={handleServerMuteParticipant}
           onKick={handleKickParticipant}

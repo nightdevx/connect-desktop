@@ -41,6 +41,14 @@ export const authService = {
   logout: (): Promise<DesktopResult<SessionSnapshot>> => {
     return window.desktopApi.logout();
   },
+  // Deactivates now, purges after the grace window. The session ends with it,
+  // so callers must send the user back to the login screen afterwards.
+  deleteAccount: (payload: { password: string }) => {
+    return window.desktopApi.deleteAccount(payload);
+  },
+  exportAccountData: () => {
+    return window.desktopApi.exportAccountData();
+  },
   getSession: (): Promise<DesktopResult<SessionSnapshot>> => {
     return window.desktopApi.getSession();
   },

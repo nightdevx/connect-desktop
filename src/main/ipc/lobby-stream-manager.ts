@@ -1,6 +1,7 @@
 import type { WebContents } from "electron";
 import WebSocket from "ws";
 import type { LobbyStreamEvent } from "../../shared/desktop-api-types";
+import { awaitSocketOpen } from "./await-socket-open";
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -44,7 +45,17 @@ export class LobbyStreamManager {
     return { stopped: true };
   }
 
-  public start(sender: WebContents, accessToken: string): { started: boolean } {
+  // Resolves once the socket is actually open, rejects if it fails before that.
+  //
+  // This used to return `{started:true}` synchronously, before the connect even
+  // began. The renderer took that as success and reset its backoff counter, so
+  // with the backend down the exponential backoff never escalated past its 1s
+  // base: every installed client re-dialled roughly once a second forever, and
+  // each `closed` event also fired two fallback HTTP requests.
+  public async start(
+    sender: WebContents,
+    accessToken: string,
+  ): Promise<{ started: boolean }> {
     this.stop(sender.id);
 
     const wsUrl = this.buildWebSocketUrl(accessToken);
@@ -53,6 +64,12 @@ export class LobbyStreamManager {
       socket,
       closing: false,
     };
+
+    const opened = awaitSocketOpen(
+      socket,
+      "LOBBY_WS_CONNECTION_ERROR",
+      "lobby websocket",
+    );
 
     const heartbeat = () => {
       if (streamState.pingTimeout) {
@@ -167,6 +184,7 @@ export class LobbyStreamManager {
       });
     });
 
+    await opened;
     return { started: true };
   }
 

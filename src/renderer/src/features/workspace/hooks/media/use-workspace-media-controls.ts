@@ -3,6 +3,7 @@ import type { LobbyStateMember, ScreenCaptureSourceDescriptor } from "@shared/de
 import type { LiveKitMediaSession } from "@/features/livekit";
 import { stopMediaStreamTracks, type ScreenShareQualityPreset, type ScreenShareSourceKind } from "../../workspace-media-utils";
 import type { ScreenShareContentMode } from "@/features/screen-share";
+import { stopActiveSystemLoopback } from "@/features/screen-share/loopback-audio";
 import type { CameraPreferences, StreamPreferences } from "../../components/settings/settings-main-panel-types";
 
 // Sub-hooks
@@ -63,6 +64,9 @@ export interface WorkspaceMediaControlsState {
   cameraPreviewStream: MediaStream | null;
   cameraPreviewRef: React.MutableRefObject<HTMLVideoElement | null>;
   handleMicToggle: () => void;
+  // Absolute set, used by push-to-talk where a toggle would desync on a
+  // dropped keyup.
+  setMicState: (enabled: boolean) => void;
   handleHeadphoneToggle: () => void;
   handleCameraToggle: () => void;
   handleScreenToggle: () => void;
@@ -74,6 +78,12 @@ export interface WorkspaceMediaControlsState {
   prepareCameraPreview: () => Promise<void>;
   startCameraShareFromModal: () => Promise<void>;
   syncLobbyAudioState: (lobbyId: string) => Promise<void>;
+  // Compares what the server roster says about US against what we believe and
+  // re-declares on a mismatch. Fed from the live roster in WorkspaceShell.
+  reconcileDeclaredAudioState: (
+    serverMuted: boolean | undefined,
+    serverDeafened: boolean | undefined,
+  ) => void;
   syncLobbyMediaState: (lobbyId: string) => Promise<void>;
   resetLocalMediaCapture: () => void;
 }
@@ -132,11 +142,20 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
       stopMediaStreamTracks(localCameraStreamRef.current);
       stopMediaStreamTracks(localScreenStreamRef.current);
       stopMediaStreamTracks(cameraPreviewStreamRef.current);
+      void stopActiveSystemLoopback();
     };
   }, []);
 
   // --- ORCHESTRATION ---
 
+  // Depend on the individual callbacks, not on the hook result objects.
+  //
+  // useCameraControls and useScreenShareControls return a fresh object literal
+  // on every render, so `[camera, screen]` gave this callback — and
+  // performPostJoinSynchronization, which wraps it — a new identity every time.
+  // The call-room auto-connect effect in WorkspaceShell listed that identity in
+  // its deps and therefore re-ran on every render, minting a LiveKit token
+  // 1–10 times a second for the whole duration of every call.
   const syncLobbyMediaState = useCallback(
     async (lobbyId: string): Promise<void> => {
       await Promise.all([
@@ -144,23 +163,37 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
         screen.syncLobbyMediaState(lobbyId),
       ]);
     },
-    [camera, screen]
+    [camera.syncLobbyMediaState, screen.syncLobbyMediaState]
   );
 
   const resetLocalMediaCapture = useCallback((): void => {
-    stopMediaStreamTracks(camera.localCameraStream);
-    stopMediaStreamTracks(screen.localScreenStream);
-    stopMediaStreamTracks(camera.cameraPreviewStream);
-    
+    stopMediaStreamTracks(localCameraStreamRef.current);
+    stopMediaStreamTracks(localScreenStreamRef.current);
+    stopMediaStreamTracks(cameraPreviewStreamRef.current);
+
     void liveKitSessionRef.current?.unpublishCamera();
     void liveKitSessionRef.current?.unpublishScreen();
+
+    // System audio loopback is a separate pipeline: a native WASAPI capture
+    // feeding PCM over IPC into an AudioWorklet. Stopping the video tracks does
+    // not stop it, and leaving the lobby never used to, so it kept capturing
+    // and firing ~100 IPC messages a second into a worklet nobody was listening
+    // to for the rest of the app's life.
+    void stopActiveSystemLoopback();
 
     camera.setLocalCameraStream(null);
     screen.setLocalScreenStream(null);
     camera.setCameraPreviewStream(null);
     camera.setCameraEnabled(false);
     screen.setScreenEnabled(false);
-  }, [camera, screen, liveKitSessionRef]);
+  }, [
+    camera.setLocalCameraStream,
+    camera.setCameraPreviewStream,
+    camera.setCameraEnabled,
+    screen.setLocalScreenStream,
+    screen.setScreenEnabled,
+    liveKitSessionRef,
+  ]);
 
   return {
     ...audio,

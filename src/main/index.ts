@@ -1,7 +1,15 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  Tray,
+  nativeImage,
+  session,
+  shell,
+} from "electron";
 import { join } from "node:path";
 import * as Sentry from "@sentry/electron/main";
-import { isDev } from "./utils/is-dev";
+import { devServerUrl, isDev } from "./utils/is-dev";
 import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
@@ -17,6 +25,8 @@ if (process.env.SENTRY_DSN && !isDev) {
   });
 }
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
+import { disposeGlobalHotkeys, installGlobalHotkeys } from "./global-hotkeys";
+import { clearDesktopNotifications } from "./notifications";
 import { createAppMenu } from "./menu";
 
 import {
@@ -48,7 +58,14 @@ const APP_ICON_PATH = join(
 );
 const APP_DISPLAY_NAME = "Connect";
 
+// Development-only. It exists so `dev:dual` can run two instances with separate
+// profiles; honouring it in a packaged build would let anyone who can set an
+// environment variable choose where session.json is read from and written to.
 const applyUserDataOverride = (): void => {
+  if (!isDev) {
+    return;
+  }
+
   const overridePath = process.env.CT_USER_DATA_DIR?.trim();
   if (!overridePath) {
     return;
@@ -180,6 +197,70 @@ const hideWindowToTray = (win: BrowserWindow): void => {
   win.hide();
 };
 
+// The only pages this app may ever render: the packaged renderer bundle, and
+// the Vite dev server in a development run.
+const isTrustedAppUrl = (rawUrl: string): boolean => {
+  if (!rawUrl) {
+    return false;
+  }
+
+  if (devServerUrl && rawUrl.startsWith(devServerUrl)) {
+    return true;
+  }
+
+  return rawUrl.startsWith("file://");
+};
+
+// Nothing stopped the renderer from navigating away from the app bundle. Any
+// XSS in a render path, or a hijacked dev-server URL, would have given an
+// attacker a persistent privileged origin: the preload re-attaches to the new
+// page, and because the window is frameless there is no address bar to show
+// the swap.
+const installNavigationGuards = (win: BrowserWindow): void => {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    // Hand real links to the OS browser; never open a second privileged window.
+    if (url.startsWith("https://") || url.startsWith("http://")) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
+  win.webContents.on("will-navigate", (event, url) => {
+    if (!isTrustedAppUrl(url)) {
+      event.preventDefault();
+      console.warn(`[security] blocked navigation to ${url}`);
+    }
+  });
+};
+
+// Electron approves every permission request when no handler is installed.
+// The app legitimately needs mic, camera and screen capture, but only from its
+// own page.
+const installPermissionHandlers = (): void => {
+  const allowed = new Set(["media", "clipboard-sanitized-write", "notifications"]);
+
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      const url = webContents?.getURL() ?? "";
+      callback(isTrustedAppUrl(url) && allowed.has(permission));
+    },
+  );
+
+  session.defaultSession.setPermissionCheckHandler(
+    (_webContents, permission, requestingOrigin) =>
+      allowed.has(permission) &&
+      (requestingOrigin.startsWith("file://") ||
+        Boolean(devServerUrl && requestingOrigin.startsWith(devServerUrl))),
+  );
+};
+
+// A <webview> would get its own webContents outside every guard above.
+app.on("web-contents-created", (_event, contents) => {
+  contents.on("will-attach-webview", (event) => {
+    event.preventDefault();
+  });
+});
+
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -197,9 +278,9 @@ function createMainWindow(): BrowserWindow {
     },
   });
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  installNavigationGuards(win);
 
-  if (isDev && devServerUrl) {
+  if (devServerUrl) {
     void win.loadURL(devServerUrl);
   } else {
     void win.loadFile(join(__dirname, "../renderer/index.html"));
@@ -266,12 +347,15 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       `[Connect] Backend: ${backendConfig.url} (source=${backendConfig.source}, env=${envPathLabel})`,
     );
 
+    installPermissionHandlers();
+
     initializeModularUpdater({
       beforeInstall: cleanupBeforeAppQuit,
       periodicCheckMs: 15 * 60 * 1000,
     });
     registerIpcHandlers();
     registerStreamingIpcHandlers();
+    installGlobalHotkeys();
 
     if (!unsubscribePreferencesListener) {
       unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {
@@ -315,6 +399,8 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
 
     void Promise.race([cleanupBeforeAppQuit(), timeout]).finally(() => {
       unregisterStreamingIpcHandlers();
+      disposeGlobalHotkeys();
+      clearDesktopNotifications();
       destroyModularUpdater();
       if (unsubscribePreferencesListener) {
         unsubscribePreferencesListener();

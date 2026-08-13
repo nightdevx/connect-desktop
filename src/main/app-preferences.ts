@@ -8,6 +8,39 @@ const defaultAppPreferences: DesktopAppPreferences = {
   minimizeToTray: false,
   closeToTray: false,
   hardwareAcceleration: true,
+  desktopNotifications: true,
+  // Unbound by default: a global shortcut is taken from every other app on the
+  // machine, so claiming one without being asked is rude.
+  hotkeyToggleMute: "",
+  hotkeyToggleDeafen: "",
+  pushToTalk: false,
+  pushToTalkKey: "Space",
+};
+
+// An accelerator arrives from the renderer, so it is untrusted input that ends
+// up in globalShortcut.register. Electron throws on a malformed string, and an
+// absurdly long one is never a real binding.
+const sanitizeAccelerator = (value: unknown, fallback: string): string => {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  if (trimmed.length > 64 || !/^[A-Za-z0-9+ ]+$/.test(trimmed)) {
+    return fallback;
+  }
+  return trimmed;
+};
+
+const sanitizeKeyCode = (value: unknown, fallback: string): string => {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  // KeyboardEvent.code values are ASCII identifiers.
+  return /^[A-Za-z0-9]{1,24}$/.test(trimmed) ? trimmed : fallback;
 };
 
 type PreferencesListener = (preferences: DesktopAppPreferences) => void;
@@ -44,6 +77,26 @@ const sanitizeLoadedPreferences = (payload: unknown): DesktopAppPreferences => {
       typeof source.hardwareAcceleration === "boolean"
         ? source.hardwareAcceleration
         : defaultAppPreferences.hardwareAcceleration,
+    desktopNotifications:
+      typeof source.desktopNotifications === "boolean"
+        ? source.desktopNotifications
+        : defaultAppPreferences.desktopNotifications,
+    hotkeyToggleMute: sanitizeAccelerator(
+      source.hotkeyToggleMute,
+      defaultAppPreferences.hotkeyToggleMute,
+    ),
+    hotkeyToggleDeafen: sanitizeAccelerator(
+      source.hotkeyToggleDeafen,
+      defaultAppPreferences.hotkeyToggleDeafen,
+    ),
+    pushToTalk:
+      typeof source.pushToTalk === "boolean"
+        ? source.pushToTalk
+        : defaultAppPreferences.pushToTalk,
+    pushToTalkKey: sanitizeKeyCode(
+      source.pushToTalkKey,
+      defaultAppPreferences.pushToTalkKey,
+    ),
   };
 };
 
@@ -168,10 +221,12 @@ export const updateDesktopAppPreferences = (
   patch: Partial<DesktopAppPreferences>,
 ): DesktopAppPreferences => {
   const current = getDesktopAppPreferences();
-  const next: DesktopAppPreferences = {
+  // Re-sanitize: the patch comes from the renderer, and the accelerators reach
+  // globalShortcut.register from here.
+  const next: DesktopAppPreferences = sanitizeLoadedPreferences({
     ...current,
     ...patch,
-  };
+  });
 
   if (next.launchOnStartup !== current.launchOnStartup) {
     applySystemLaunchOnStartup(next.launchOnStartup);

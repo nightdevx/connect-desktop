@@ -114,16 +114,28 @@ jobs:
       - name: Create .env from GitHub Secrets
         env:
           CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
+          # A DSN is a public write-only key; it has to be in the packaged env
+          # or the shipped app reports no crashes at all. Optional so a fork
+          # without the secret can still build.
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
             throw "Missing secret: CT_BACKEND_URL"
           }
 
-          @(
-            "CT_BACKEND_URL=$($env:CT_BACKEND_URL)"
-          ) | Set-Content -Path .env -Encoding UTF8
+          $lines = @("CT_BACKEND_URL=$($env:CT_BACKEND_URL)")
+          if (-not [string]::IsNullOrWhiteSpace($env:SENTRY_DSN)) {
+            $lines += "SENTRY_DSN=$($env:SENTRY_DSN)"
+          } else {
+            Write-Host "SENTRY_DSN not set: this build will report no crashes."
+          }
+          $lines | Set-Content -Path .env -Encoding UTF8
 
       - name: Build desktop release artifacts
+        env:
+          # Without this @sentry/vite-plugin silently skips the source-map
+          # upload, so every stack trace would be unreadable minified output.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm dist:win
 
       - name: Validate update artifacts and feed metadata

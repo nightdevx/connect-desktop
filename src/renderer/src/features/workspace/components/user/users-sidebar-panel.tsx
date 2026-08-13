@@ -1,11 +1,15 @@
-import { Input, Segmented, Badge } from "antd";
+import { Input, Segmented, Badge, Select } from "antd";
 import { SearchOutlined, PhoneOutlined } from "@ant-design/icons";
-import type { UserDirectoryEntry } from "@shared/auth-contracts";
+import type {
+  SelectablePresenceStatus,
+  UserDirectoryEntry,
+} from "@shared/auth-contracts";
 import type { UseWorkspaceUsersResult } from "../../hooks/user/use-workspace-users";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import {
   getApiErrorMessage,
   getDisplayInitials,
+  getPresenceColor,
   getUserStatusLabel,
 } from "../../workspace-utils";
 
@@ -20,7 +24,18 @@ interface UsersSidebarPanelProps {
   onUserSelect: (userId: string) => void;
   unreadByUserId: Record<string, number>;
   callState?: CallSessionState;
+  presenceStatus?: SelectablePresenceStatus;
+  onPresenceStatusChange?: (status: SelectablePresenceStatus) => void;
 }
+
+const PRESENCE_OPTIONS: Array<{
+  value: SelectablePresenceStatus;
+  label: string;
+}> = [
+  { value: "online", label: "Çevrimiçi" },
+  { value: "idle", label: "Boşta" },
+  { value: "dnd", label: "Rahatsız etmeyin" },
+];
 
 export function UsersSidebarPanel({
   usersQuery,
@@ -33,6 +48,8 @@ export function UsersSidebarPanel({
   onUserSelect,
   unreadByUserId,
   callState,
+  presenceStatus = "online",
+  onPresenceStatusChange,
 }: UsersSidebarPanelProps) {
   return (
     <>
@@ -48,6 +65,37 @@ export function UsersSidebarPanel({
           }
         }
       `}</style>
+      {onPresenceStatusChange && (
+        <div
+          className="ct-presence-picker"
+          style={{
+            padding: "12px 16px 0 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <span
+            style={{
+              width: "10px",
+              height: "10px",
+              borderRadius: "50%",
+              flexShrink: 0,
+              background: getPresenceColor(true, presenceStatus),
+            }}
+          />
+          <Select
+            size="small"
+            variant="borderless"
+            value={presenceStatus}
+            onChange={(value) => onPresenceStatusChange(value)}
+            options={PRESENCE_OPTIONS}
+            style={{ flex: 1 }}
+            aria-label="Durumunuz"
+          />
+        </div>
+      )}
+
       <div className="ct-users-toolbar" style={{ padding: "12px 16px 8px 16px" }}>
         <Input
           placeholder="İsim veya kullanıcı adı ara..."
@@ -187,7 +235,7 @@ export function UsersSidebarPanel({
                       height: "10px",
                       borderRadius: "50%",
                       border: "2px solid #0d0d0d",
-                      background: user.appOnline ? "#10b981" : "#6b7280",
+                      background: getPresenceColor(user.appOnline, user.presence),
                     }}
                   />
                 </div>
@@ -209,7 +257,7 @@ export function UsersSidebarPanel({
                     )}
                   </p>
                   <span style={statusStyle}>
-                    {getUserStatusLabel(user.appOnline)}
+                    {getUserStatusLabel(user.appOnline, user.presence)}
                   </span>
                 </div>
               </div>

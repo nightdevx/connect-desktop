@@ -71,6 +71,22 @@ export const startSystemLoopbackAudioTrack =
         return null;
       }
 
+      // Tie the native capture's lifetime to the track it produces. Every
+      // caller already stops the track; before this, only three paths inside
+      // use-screen-share-controls also called stopActiveSystemLoopback, so
+      // leaving the lobby or ending the settings stream test left WASAPI
+      // capturing and the IPC PCM feed running indefinitely.
+      //
+      // addEventListener rather than onended: stopMediaStreamTracks nulls the
+      // onended property, which does not remove a listener added this way.
+      track.addEventListener(
+        "ended",
+        () => {
+          void stopActiveSystemLoopback();
+        },
+        { once: true },
+      );
+
       active = { ctx, node, destination, unsubscribe, track };
       logLiveKitDebug("loopback-audio", "track-ready", {
         sampleRate: result.sampleRate,
