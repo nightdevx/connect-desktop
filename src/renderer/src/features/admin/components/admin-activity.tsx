@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Input, Tag, message, Space, Select } from "antd";
+import { Table, Button, Input, Tag, message, Select } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
@@ -102,7 +102,7 @@ export default function AdminActivity() {
           text = "GÜNCELLEME";
         }
         return (
-          <Tag color={color} style={{ fontWeight: "600" }}>
+          <Tag color={color} >
             {text}
           </Tag>
         );
@@ -113,8 +113,8 @@ export default function AdminActivity() {
       key: "lobby",
       render: (_: any, record: AdminLobbyEvent) => (
         <div>
-          <div style={{ fontWeight: "500", color: "#ffffff" }}>{record.lobbyName}</div>
-          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.45)" }}>
+          <div >{record.lobbyName}</div>
+          <div className="ct-admin-muted">
             ID: {record.lobbyId}
           </div>
         </div>
@@ -125,8 +125,8 @@ export default function AdminActivity() {
       key: "user",
       render: (_: any, record: AdminLobbyEvent) => (
         <div>
-          <div style={{ fontWeight: "500", color: "#ffffff" }}>@{record.username}</div>
-          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.45)" }}>
+          <div >@{record.username}</div>
+          <div className="ct-admin-muted">
             ID: {record.userId}
           </div>
         </div>
@@ -141,20 +141,20 @@ export default function AdminActivity() {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px", height: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="ct-admin-page">
+      <div >
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: "700", margin: "0 0 4px 0", color: "#ffffff" }}>
+          <h1 >
             Aktivite Logları
           </h1>
-          <p style={{ margin: 0, color: "rgba(255, 255, 255, 0.45)", fontSize: "14px" }}>
+          <p >
             Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı geçmişi
           </p>
         </div>
         <Button
           icon={<ReloadOutlined />}
           onClick={() => fetchEvents()}
-          style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}
+          
         >
           Yenile
         </Button>
@@ -162,35 +162,21 @@ export default function AdminActivity() {
 
       {/* Filters */}
       <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: "8px",
-          padding: "12px",
-          flexWrap: "wrap",
-        }}
+        className="ct-admin-toolbar"
       >
         <Input
           placeholder="İsim, kullanıcı adı, oda adı ara..."
-          prefix={<SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />}
+          prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{
-            flex: 1.5,
-            minWidth: "200px",
-            background: "rgba(15, 15, 15, 0.8)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#ffffff",
-          }}
+          className="ct-admin-toolbar-search"
         />
 
         <Select
           defaultValue="all"
           value={eventTypeFilter}
           onChange={setEventTypeFilter}
-          style={{ width: "180px" }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Olay Tipleri" },
@@ -212,10 +198,7 @@ export default function AdminActivity() {
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
           }
           options={lobbiesList.map(l => ({ value: l.id, label: `${l.name} (${l.id.substring(0, 8)})` }))}
-          style={{
-            flex: 1,
-            minWidth: "160px",
-          }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
         />
 
@@ -229,10 +212,7 @@ export default function AdminActivity() {
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
           }
           options={usersList.map(u => ({ value: u.id, label: `@${u.username}${u.displayName ? ` (${u.displayName})` : ""}` }))}
-          style={{
-            flex: 1,
-            minWidth: "160px",
-          }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
         />
       </div>
@@ -252,11 +232,7 @@ export default function AdminActivity() {
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
         scroll={{ y: "calc(100vh - 260px)" }}
-        style={{
-          background: "rgba(20, 20, 20, 0.4)",
-          borderRadius: "12px",
-          overflow: "hidden",
-        }}
+        className="ct-admin-table-wrap"
       />
     </div>
   );

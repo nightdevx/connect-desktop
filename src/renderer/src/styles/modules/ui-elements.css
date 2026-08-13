@@ -89,6 +89,20 @@ background: rgba(239, 68, 68, 0.1);
 color: var(--ct-success);
 }
 
+.ct-icon-warning {
+color: var(--ct-warning);
+}
+
+.ct-icon-info {
+color: var(--ct-info);
+}
+
+/* antd disables the button, which already dims it; the icon should not fight
+   that with its own colour. */
+.ant-btn:disabled .anticon {
+color: var(--ct-alpha-32);
+}
+
 .ct-icon-danger {
 color: var(--ct-danger);
 }

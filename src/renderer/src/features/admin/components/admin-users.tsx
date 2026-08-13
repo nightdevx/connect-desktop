@@ -164,13 +164,13 @@ export default function AdminUsers() {
       title: "Kullanıcı",
       key: "user",
       render: (_: any, record: AdminUserDetail) => (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <Avatar src={record.avatarUrl} style={{ background: "#a855f7" }}>
+        <div className="ct-admin-table-user">
+          <Avatar src={record.avatarUrl} className="ct-admin-avatar">
             {record.displayName[0]?.toUpperCase()}
           </Avatar>
           <div>
-            <div style={{ fontWeight: "600", color: "#ffffff" }}>{record.displayName}</div>
-            <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.45)" }}>
+            <div >{record.displayName}</div>
+            <div className="ct-admin-muted">
               @{record.username}
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function AdminUsers() {
         <div>
           <div>{record.email || "-"}</div>
           {record.email && (
-            <Tag color={record.emailVerified ? "success" : "warning"} style={{ marginTop: "4px" }}>
+            <Tag color={record.emailVerified ? "success" : "warning"} >
               {record.emailVerified ? "Doğrulanmış" : "Doğrulanmamış"}
             </Tag>
           )}
@@ -227,7 +227,7 @@ export default function AdminUsers() {
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleEditClick(record)}
-              style={{ color: isSelf ? "rgba(255, 255, 255, 0.25)" : "#3b82f6" }}
+              className="ct-icon-info"
               title={isSelf ? "Kendi hesabınızı düzenleyemezsiniz" : "Düzenle"}
               disabled={isSelf}
             />
@@ -235,7 +235,7 @@ export default function AdminUsers() {
               type="text"
               icon={<LockOutlined />}
               onClick={() => handleResetPasswordClick(record)}
-              style={{ color: isSelf ? "rgba(255, 255, 255, 0.25)" : "#fbbf24" }}
+              className="ct-icon-warning"
               title={isSelf ? "Kendi şifrenizi buradan sıfırlayamazsınız" : "Şifre Sıfırla"}
               disabled={isSelf}
             />
@@ -249,7 +249,7 @@ export default function AdminUsers() {
               <Button
                 type="text"
                 icon={<StopOutlined />}
-                style={{ color: isSelf ? "rgba(255, 255, 255, 0.25)" : (record.bannedAt ? "#10b981" : "#ef4444") }}
+                className={record.bannedAt ? "ct-icon-success" : "ct-icon-danger"}
                 title={isSelf ? "Kendi hesabınızı yasaklayamazsınız" : (record.bannedAt ? "Yasağı Kaldır" : "Yasakla")}
                 disabled={isSelf}
               />
@@ -276,47 +276,33 @@ export default function AdminUsers() {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px", height: "100%" }}>
+    <div className="ct-admin-page">
       <div>
-        <h1 style={{ fontSize: "24px", fontWeight: "700", margin: "0 0 4px 0", color: "#ffffff" }}>
+        <h1 >
           Kullanıcı Yönetimi
         </h1>
-        <p style={{ margin: 0, color: "rgba(255, 255, 255, 0.45)", fontSize: "14px" }}>
+        <p >
           Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini sıfırlayın veya yasaklayın
         </p>
       </div>
 
       {/* Filters Bar */}
       <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: "8px",
-          padding: "12px",
-          flexWrap: "wrap",
-        }}
+        className="ct-admin-toolbar"
       >
         <Input
           placeholder="İsim, kullanıcı adı veya e-posta ara..."
-          prefix={<SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />}
+          prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: "200px",
-            background: "rgba(15, 15, 15, 0.8)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#ffffff",
-          }}
+          className="ct-admin-toolbar-search"
         />
 
         <Select
           defaultValue="all"
           value={roleFilter}
           onChange={setRoleFilter}
-          style={{ width: "150px" }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Roller" },
@@ -329,7 +315,7 @@ export default function AdminUsers() {
           defaultValue="all"
           value={statusFilter}
           onChange={setStatusFilter}
-          style={{ width: "150px" }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Durumlar" },
@@ -341,7 +327,7 @@ export default function AdminUsers() {
         <Button
           type="primary"
           onClick={() => fetchUsers()}
-          style={{ background: "#a855f7", borderColor: "#a855f7" }}
+          
         >
           Yenile
         </Button>
@@ -362,16 +348,12 @@ export default function AdminUsers() {
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
         scroll={{ y: "calc(100vh - 260px)" }}
-        style={{
-          background: "rgba(20, 20, 20, 0.4)",
-          borderRadius: "12px",
-          overflow: "hidden",
-        }}
+        className="ct-admin-table-wrap"
       />
 
       {/* Edit Drawer */}
       <Drawer
-        title={<span style={{ color: "#ffffff" }}>Profil Düzenle</span>}
+        title={<span >Profil Düzenle</span>}
         placement="right"
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
@@ -380,11 +362,11 @@ export default function AdminUsers() {
         bodyStyle={{ background: "#141414" }}
         extra={
           <Space>
-            <Button onClick={() => setIsEditOpen(false)} style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}>Kapat</Button>
+            <Button onClick={() => setIsEditOpen(false)} >Kapat</Button>
             <Button
               type="primary"
               onClick={() => editForm.submit()}
-              style={{ background: "#a855f7", borderColor: "#a855f7" }}
+              
             >
               Kaydet
             </Button>
@@ -394,30 +376,30 @@ export default function AdminUsers() {
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
             name="displayName"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Görünen Ad</span>}
+            label={<span >Görünen Ad</span>}
             rules={[{ required: true, message: "Görünen ad girilmelidir" }]}
           >
-            <Input style={{ background: "rgba(15, 15, 15, 0.8)", borderColor: "rgba(255, 255, 255, 0.08)", color: "#ffffff" }} />
+            <Input  />
           </Form.Item>
 
           <Form.Item
             name="email"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>E-posta Adresi</span>}
+            label={<span >E-posta Adresi</span>}
             rules={[{ type: "email", message: "Geçerli bir e-posta girin" }]}
           >
-            <Input style={{ background: "rgba(15, 15, 15, 0.8)", borderColor: "rgba(255, 255, 255, 0.08)", color: "#ffffff" }} />
+            <Input  />
           </Form.Item>
 
           <Form.Item
             name="bio"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Biyografi</span>}
+            label={<span >Biyografi</span>}
           >
-            <Input.TextArea rows={4} style={{ background: "rgba(15, 15, 15, 0.8)", borderColor: "rgba(255, 255, 255, 0.08)", color: "#ffffff" }} />
+            <Input.TextArea rows={4}  />
           </Form.Item>
 
           <Form.Item
             name="role"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Sistem Rolü</span>}
+            label={<span >Sistem Rolü</span>}
             rules={[{ required: true }]}
           >
             <Select
@@ -433,38 +415,37 @@ export default function AdminUsers() {
 
       {/* Reset Password Modal */}
       <Modal
-        title={<span style={{ color: "#ffffff" }}>Şifre Sıfırla</span>}
+        rootClassName="ct-modal"
+        title={<span >Şifre Sıfırla</span>}
         open={isResetOpen}
         onCancel={() => setIsResetOpen(false)}
         footer={[
-          <Button key="cancel" onClick={() => setIsResetOpen(false)} style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}>
+          <Button key="cancel" onClick={() => setIsResetOpen(false)} >
             İptal
           </Button>,
           <Button
             key="submit"
             type="primary"
             onClick={() => resetForm.submit()}
-            style={{ background: "#a855f7", borderColor: "#a855f7" }}
+            
           >
             Şifreyi Güncelle
           </Button>,
         ]}
-        style={{ background: "#141414" }}
-        bodyStyle={{ background: "#141414" }}
       >
-        <div style={{ color: "rgba(255,255,255,0.6)", marginBottom: "16px" }}>
+        <div >
           <strong>@{resettingUser?.username}</strong> kullanıcısı için yeni bir şifre tanımlayın.
         </div>
         <Form form={resetForm} layout="vertical" onFinish={handleResetPasswordSubmit}>
           <Form.Item
             name="password"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Yeni Şifre</span>}
+            label={<span >Yeni Şifre</span>}
             rules={[
               { required: true, message: "Yeni şifre girilmelidir" },
               { min: 8, message: "Şifre en az 8 karakter olmalıdır" },
             ]}
           >
-            <Input.Password style={{ background: "rgba(15, 15, 15, 0.8)", borderColor: "rgba(255, 255, 255, 0.08)", color: "#ffffff" }} />
+            <Input.Password  />
           </Form.Item>
         </Form>
       </Modal>

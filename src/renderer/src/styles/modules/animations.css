@@ -59,6 +59,18 @@
   }
 }
 
+@keyframes ctPulseDot {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
 @keyframes callIconPulse {
   0%,
   100% {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Card, Col, Row, Spin, Alert, List, Tag, Badge, Tooltip, Space } from "antd";
 import {
   UserOutlined,
@@ -15,6 +16,70 @@ import {
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent, AdminUserDetail } from "@shared/auth-contracts";
+
+interface StatCard {
+  tone: "violet" | "emerald" | "blue" | "amber";
+  label: string;
+  value: number;
+  icon: ReactNode;
+  hint: ReactNode;
+}
+
+// The five metric tiles differed only in colour and copy, so they were five
+// near-identical blocks of inline styles. One shape, one data array.
+const buildStatCards = (stats: AdminStats | null): StatCard[] => [
+  {
+    tone: "violet",
+    label: "Toplam Kullanıcı",
+    value: stats?.totalUsers ?? 0,
+    icon: <UserOutlined />,
+    hint: (
+      <>
+        <ArrowUpOutlined /> Son 30 gün içinde
+      </>
+    ),
+  },
+  {
+    tone: "emerald",
+    label: "Çevrimiçi",
+    value: stats?.onlineUsers ?? 0,
+    icon: <GlobalOutlined />,
+    hint: (
+      <>
+        <span className="ct-stat-pulse-dot" /> Anlık aktif bağlantı
+      </>
+    ),
+  },
+  {
+    tone: "blue",
+    label: "Aktif Odalar",
+    value: stats?.totalLobbies ?? 0,
+    icon: <HomeOutlined />,
+    hint: "Canlı sesli kanallar",
+  },
+  {
+    tone: "amber",
+    label: "Odadaki Üyeler",
+    value: stats?.activeMembers ?? 0,
+    icon: <TeamOutlined />,
+    hint: "Görüşmedeki kullanıcılar",
+  },
+  {
+    tone: "violet",
+    label: "Bugünkü Olaylar",
+    value: stats?.todayEvents ?? 0,
+    icon: <CalendarOutlined />,
+    hint: "Son 24 saat lobi aktiviteleri",
+  },
+];
+
+const EVENT_LABELS: Record<string, { badge: string; text: string }> = {
+  join: { badge: "success", text: "giriş yaptı" },
+  leave: { badge: "error", text: "çıkış yaptı" },
+  create: { badge: "purple", text: "oda oluşturdu" },
+  delete: { badge: "warning", text: "odayı sildi" },
+  edit: { badge: "processing", text: "odayı güncelledi" },
+};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -53,7 +118,7 @@ export default function AdminDashboard() {
 
   if (loading && !stats) {
     return (
-      <div style={{ display: "flex", flex: 1, justifyContent: "center", alignItems: "center", height: "100%" }}>
+      <div className="ct-admin-center-state">
         <Spin size="large" tip="İstastistikler Yükleniyor..." />
       </div>
     );
@@ -62,11 +127,11 @@ export default function AdminDashboard() {
   if (error && !stats) {
     return (
       <Alert
+        className="ct-alert"
         message="Hata"
         description={error}
         type="error"
         showIcon
-        style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "#ffffff" }}
       />
     );
   }
@@ -102,134 +167,30 @@ export default function AdminDashboard() {
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - padding} L ${points[0].x} ${chartHeight - padding} Z`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px", height: "100%", paddingBottom: "24px" }}>
-      <div>
-        <h1 style={{ fontSize: "24px", fontWeight: "700", margin: "0 0 4px 0", color: "#ffffff" }}>
-          Sistem İncelemesi
-        </h1>
-        <p style={{ margin: 0, color: "rgba(255, 255, 255, 0.45)", fontSize: "14px" }}>
-          Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel bakış
+    <div className="ct-admin-page">
+      <header className="ct-admin-page-header">
+        <h1>Sistem İncelemesi</h1>
+        <p>
+          Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel
+          bakış
         </p>
-      </div>
+      </header>
 
-      {/* Metric Cards */}
-      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", width: "100%" }}>
-        <div style={{ flex: "1 1 0px", minWidth: "180px" }}>
-          <Card
-            style={{
-              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)",
-              borderColor: "rgba(168, 85, 247, 0.2)",
-              borderRadius: "12px",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: "16px" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+      <div className="ct-stat-grid">
+        {buildStatCards(stats).map((card) => (
+          <article key={card.label} className={`ct-stat-card ${card.tone}`}>
+            <div className="ct-stat-card-top">
               <div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "4px" }}>Toplam Kullanıcı</div>
-                <div style={{ fontSize: "24px", fontWeight: "700", color: "#c084fc" }}>{stats?.totalUsers || 0}</div>
+                <div className="ct-stat-label">{card.label}</div>
+                <div className="ct-stat-value">{card.value}</div>
               </div>
-              <UserOutlined style={{ fontSize: "20px", color: "#c084fc", background: "rgba(168, 85, 247, 0.2)", padding: "8px", borderRadius: "8px" }} />
+              <span className="ct-stat-icon" aria-hidden="true">
+                {card.icon}
+              </span>
             </div>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}>
-              <ArrowUpOutlined style={{ color: "#10b981", marginRight: "4px" }} />
-              Son 30 gün içinde
-            </div>
-          </Card>
-        </div>
-
-        <div style={{ flex: "1 1 0px", minWidth: "180px" }}>
-          <Card
-            style={{
-              background: "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)",
-              borderColor: "rgba(16, 185, 129, 0.2)",
-              borderRadius: "12px",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: "16px" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "4px" }}>Çevrimiçi</div>
-                <div style={{ fontSize: "24px", fontWeight: "700", color: "#34d399" }}>{stats?.onlineUsers || 0}</div>
-              </div>
-              <GlobalOutlined style={{ fontSize: "20px", color: "#34d399", background: "rgba(16, 185, 129, 0.2)", padding: "8px", borderRadius: "8px" }} />
-            </div>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ display: "inline-block", width: "6px", height: "6px", borderRadius: "50%", background: "#34d399", animation: "pulse 1.5s infinite" }}></span>
-              Anlık aktif bağlantı
-            </div>
-          </Card>
-        </div>
-
-        <div style={{ flex: "1 1 0px", minWidth: "180px" }}>
-          <Card
-            style={{
-              background: "linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)",
-              borderColor: "rgba(59, 130, 246, 0.2)",
-              borderRadius: "12px",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: "16px" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "4px" }}>Aktif Odalar</div>
-                <div style={{ fontSize: "24px", fontWeight: "700", color: "#60a5fa" }}>{stats?.totalLobbies || 0}</div>
-              </div>
-              <HomeOutlined style={{ fontSize: "20px", color: "#60a5fa", background: "rgba(59, 130, 246, 0.2)", padding: "8px", borderRadius: "8px" }} />
-            </div>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}>
-              Canlı sesli kanallar
-            </div>
-          </Card>
-        </div>
-
-        <div style={{ flex: "1 1 0px", minWidth: "180px" }}>
-          <Card
-            style={{
-              background: "linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)",
-              borderColor: "rgba(245, 158, 11, 0.2)",
-              borderRadius: "12px",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: "16px" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "4px" }}>Odadaki Üyeler</div>
-                <div style={{ fontSize: "24px", fontWeight: "700", color: "#fbbf24" }}>{stats?.activeMembers || 0}</div>
-              </div>
-              <TeamOutlined style={{ fontSize: "20px", color: "#fbbf24", background: "rgba(245, 158, 11, 0.2)", padding: "8px", borderRadius: "8px" }} />
-            </div>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}>
-              Görüşmedeki kullanıcılar
-            </div>
-          </Card>
-        </div>
-
-        <div style={{ flex: "1 1 0px", minWidth: "180px" }}>
-          <Card
-            style={{
-              background: "linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%)",
-              borderColor: "rgba(239, 68, 68, 0.2)",
-              borderRadius: "12px",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: "16px" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "4px" }}>Bugünkü Olaylar</div>
-                <div style={{ fontSize: "24px", fontWeight: "700", color: "#f87171" }}>{stats?.todayEvents || 0}</div>
-              </div>
-              <CalendarOutlined style={{ fontSize: "20px", color: "#f87171", background: "rgba(239, 68, 68, 0.2)", padding: "8px", borderRadius: "8px" }} />
-            </div>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}>
-              Son 24 saat lobi aktiviteleri
-            </div>
-          </Card>
-        </div>
+            <div className="ct-stat-hint">{card.hint}</div>
+          </article>
+        ))}
       </div>
 
       {/* SVG Charts Section */}
@@ -237,28 +198,24 @@ export default function AdminDashboard() {
         {/* Activity Trend Line Chart */}
         <Col xs={24} lg={15}>
           <Card
-            style={{
-              background: "rgba(20, 20, 20, 0.4)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "12px",
-              color: "#ffffff",
-              minHeight: "280px",
-            }}
-            title={<span style={{ color: "#ffffff", fontWeight: "600" }}>Lobi Olay Hareketliliği (Son 12 Saat)</span>}
+            className="ct-admin-card"
+            title="Lobi Olay Hareketliliği (Son 12 Saat)"
           >
-            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", gap: "16px", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
-                <div>Olay Sayısı Gelişimi</div>
-              </div>
-              <div style={{ position: "relative", width: "100%", height: "160px" }}>
-                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} width="100%" height="100%" style={{ overflow: "visible" }}>
+            <div className="ct-chart-body">
+              <div className="ct-chart-caption">Olay Sayısı Gelişimi</div>
+              <div className="ct-chart-plot">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  width="100%"
+                  height="100%"
+                >
                   <defs>
                     <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#a855f7" stopOpacity="0.45" />
                       <stop offset="100%" stopColor="#a855f7" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
-                  
+
                   {/* Grid lines */}
                   <line x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                   <line x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3,3" />
@@ -266,22 +223,22 @@ export default function AdminDashboard() {
 
                   {/* Area path */}
                   <path d={areaPath} fill="url(#area-gradient)" />
-                  
+
                   {/* Line path */}
                   <path d={linePath} fill="none" stroke="#a855f7" strokeWidth="2.5" />
-                  
+
                   {/* Data Point Circles */}
                   {points.map((p: { x: number; y: number; val: number }, idx: number) => (
                     <g key={idx}>
                       <circle cx={p.x} cy={p.y} r="4.5" fill="#141414" stroke="#a855f7" strokeWidth="2" />
                       <Tooltip title={`${idx + 1} saat önce: ${p.val} olay`}>
-                        <circle cx={p.x} cy={p.y} r="10" fill="transparent" style={{ cursor: "pointer" }} />
+                        <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
                       </Tooltip>
                     </g>
                   ))}
                 </svg>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "0 10px", fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div className="ct-chart-axis">
                 <span>12 saat önce</span>
                 <span>8 saat önce</span>
                 <span>4 saat önce</span>
@@ -293,22 +250,13 @@ export default function AdminDashboard() {
 
         {/* Roles Donut Chart */}
         <Col xs={24} lg={9}>
-          <Card
-            style={{
-              background: "rgba(20, 20, 20, 0.4)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "12px",
-              color: "#ffffff",
-              minHeight: "280px",
-            }}
-            title={<span style={{ color: "#ffffff", fontWeight: "600" }}>Kullanıcı Rol Dağılımı</span>}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", gap: "12px", height: "160px" }}>
-              <div style={{ position: "relative", width: "min(120px, 100%)", aspectRatio: "1 / 1", flexShrink: 0 }}>
-                <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ transform: "rotate(-90deg)" }}>
+          <Card className="ct-admin-card" title="Kullanıcı Rol Dağılımı">
+            <div className="ct-donut-row">
+              <div className="ct-donut">
+                <svg viewBox="0 0 100 100" width="100%" height="100%">
                   {/* Outer circle background */}
                   <circle cx="50" cy="50" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-                  
+
                   {/* Members arc */}
                   <circle
                     cx="50"
@@ -320,7 +268,7 @@ export default function AdminDashboard() {
                     strokeDasharray={`${memberStrokeLength} ${circumference}`}
                     strokeLinecap="round"
                   />
-                  
+
                   {/* Admins arc */}
                   <circle
                     cx="50"
@@ -334,43 +282,43 @@ export default function AdminDashboard() {
                     strokeLinecap="round"
                   />
                 </svg>
-                {/* Center total text */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "20px", fontWeight: "700", color: "#ffffff" }}>{totalUsers}</div>
-                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>Kullanıcı</div>
+                <div className="ct-donut-center">
+                  <strong>{totalUsers}</strong>
+                  <span>Kullanıcı</span>
                 </div>
               </div>
 
-              {/* Legends */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#a855f7" }}></span>
+              <div className="ct-legend">
+                <div className="ct-legend-item">
+                  <span
+                    className="ct-legend-dot"
+                    style={{ background: "#a855f7" }}
+                  />
                   <div>
-                    <div style={{ fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Yöneticiler ({adminCount})</div>
-                    <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>%{adminPercentage} Pay</div>
+                    <strong>Yöneticiler ({adminCount})</strong>
+                    <span>%{adminPercentage} Pay</span>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3b82f6" }}></span>
+                <div className="ct-legend-item">
+                  <span
+                    className="ct-legend-dot"
+                    style={{ background: "#3b82f6" }}
+                  />
                   <div>
-                    <div style={{ fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Üyeler ({memberCount})</div>
-                    <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>%{memberPercentage} Pay</div>
+                    <strong>Üyeler ({memberCount})</strong>
+                    <span>%{memberPercentage} Pay</span>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "rgba(255,255,255,0.45)" }}>
-              <span>Doğrulanmış E-posta: <strong>%{verifiedPercentage}</strong></span>
-              <span>Yasaklı Üye: <strong>{bannedCount}</strong></span>
+
+            <div className="ct-card-footnote">
+              <span>
+                Doğrulanmış E-posta: <strong>%{verifiedPercentage}</strong>
+              </span>
+              <span>
+                Yasaklı Üye: <strong>{bannedCount}</strong>
+              </span>
             </div>
           </Card>
         </Col>
@@ -381,52 +329,37 @@ export default function AdminDashboard() {
         {/* Live Activity Feed */}
         <Col xs={24} md={12}>
           <Card
-            style={{
-              background: "rgba(20, 20, 20, 0.4)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "12px",
-              color: "#ffffff",
-              minHeight: "260px",
-            }}
-            title={<span style={{ color: "#ffffff", fontWeight: "600" }}><ClockCircleOutlined style={{ marginRight: "8px" }} />Canlı Aktivite Akışı</span>}
+            className="ct-admin-card"
+            title={
+              <>
+                <ClockCircleOutlined />
+                Canlı Aktivite Akışı
+              </>
+            }
           >
             {recentEvents.length === 0 ? (
-              <div style={{ display: "flex", height: "140px", justifyContent: "center", alignItems: "center", color: "rgba(255, 255, 255, 0.35)" }}>
+              <div className="ct-admin-center-state">
                 Henüz sistem aktivitesi loglanmadı.
               </div>
             ) : (
               <List
                 dataSource={recentEvents}
                 renderItem={(item) => {
-                  let badgeColor = "default";
-                  let actionText = item.eventType.toUpperCase();
-                  if (item.eventType === "join") {
-                    badgeColor = "success";
-                    actionText = "giriş yaptı";
-                  } else if (item.eventType === "leave") {
-                    badgeColor = "error";
-                    actionText = "çıkış yaptı";
-                  } else if (item.eventType === "create") {
-                    badgeColor = "purple";
-                    actionText = "oda oluşturdu";
-                  } else if (item.eventType === "delete") {
-                    badgeColor = "warning";
-                    actionText = "odayı sildi";
-                  } else if (item.eventType === "edit") {
-                    badgeColor = "processing";
-                    actionText = "odayı güncelledi";
-                  }
+                  const label = EVENT_LABELS[item.eventType] ?? {
+                    badge: "default",
+                    text: item.eventType.toUpperCase(),
+                  };
 
                   return (
-                    <List.Item style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "10px 0" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                    <List.Item>
+                      <div className="ct-activity-row">
                         <Space>
-                          <Badge status={badgeColor as any} />
-                          <span style={{ fontWeight: "600" }}>@{item.username}</span>
-                          <span style={{ color: "rgba(255,255,255,0.45)" }}>{actionText}</span>
-                          <Tag color="rgba(255,255,255,0.08)" style={{ color: "#ffffff", border: "none" }}>{item.lobbyName}</Tag>
+                          <Badge status={label.badge as any} />
+                          <strong>@{item.username}</strong>
+                          <span>{label.text}</span>
+                          <Tag>{item.lobbyName}</Tag>
                         </Space>
-                        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }}>
+                        <span className="ct-activity-time">
                           {new Date(item.occurredAt).toLocaleTimeString("tr-TR")}
                         </span>
                       </div>
@@ -441,93 +374,82 @@ export default function AdminDashboard() {
         {/* System Info & Health */}
         <Col xs={24} md={12}>
           <Card
-            style={{
-              background: "rgba(20, 20, 20, 0.4)",
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "12px",
-              color: "#ffffff",
-              minHeight: "260px",
-            }}
-            title={<span style={{ color: "#ffffff", fontWeight: "600" }}><DatabaseOutlined style={{ marginRight: "8px" }} />Sistem Durumu & Yapılandırma</span>}
+            className="ct-admin-card"
+            title={
+              <>
+                <DatabaseOutlined />
+                Sistem Durumu & Yapılandırma
+              </>
+            }
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                <div style={{ background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "11px", marginBottom: "4px" }}>Veritabanı Servisi</div>
-                  <Space>
+            <div className="ct-chart-body">
+              <div className="ct-admin-kv-grid">
+                <div className="ct-admin-kv">
+                  <span>Veritabanı Servisi</span>
+                  <strong>
                     {stats?.dbStatus === "connected" ? (
                       <>
-                        <CheckCircleOutlined style={{ color: "#10b981" }} />
-                        <span style={{ fontWeight: "600" }}>PostgreSQL (Bağlı)</span>
-                        <Badge status="success" style={{ marginLeft: "4px" }} />
+                        <CheckCircleOutlined className="ct-icon-success" />
+                        PostgreSQL (Bağlı)
                       </>
                     ) : stats?.dbStatus === "in_memory" ? (
                       <>
-                        <CheckCircleOutlined style={{ color: "#eab308" }} />
-                        <span style={{ fontWeight: "600" }}>SQLite (Bellek İçi)</span>
-                        <Badge status="warning" style={{ marginLeft: "4px" }} />
+                        <CheckCircleOutlined className="ct-icon-warning" />
+                        SQLite (Bellek İçi)
                       </>
                     ) : (
                       <>
-                        <CloseCircleOutlined style={{ color: "#ef4444" }} />
-                        <span style={{ fontWeight: "600" }}>PostgreSQL (Bağlantı Yok)</span>
-                        <Badge status="error" style={{ marginLeft: "4px" }} />
+                        <CloseCircleOutlined className="ct-icon-danger" />
+                        PostgreSQL (Bağlantı Yok)
                       </>
                     )}
-                  </Space>
+                  </strong>
                 </div>
-                
-                <div style={{ background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "11px", marginBottom: "4px" }}>LiveKit Video/Ses Sunucusu</div>
-                  <Space>
+
+                <div className="ct-admin-kv">
+                  <span>LiveKit Video/Ses Sunucusu</span>
+                  <strong>
                     {stats?.liveKitStatus === "connected" ? (
                       <>
-                        <ThunderboltOutlined style={{ color: "#fbbf24" }} />
-                        <span style={{ fontWeight: "600" }}>Aktif / Bağlı</span>
-                        <Badge status="success" style={{ marginLeft: "4px" }} />
+                        <ThunderboltOutlined className="ct-icon-warning" />
+                        Aktif / Bağlı
                       </>
                     ) : (
                       <>
-                        <CloseCircleOutlined style={{ color: "#ef4444" }} />
-                        <span style={{ fontWeight: "600" }}>Bağlantı Yok</span>
-                        <Badge status="error" style={{ marginLeft: "4px" }} />
+                        <CloseCircleOutlined className="ct-icon-danger" />
+                        Bağlantı Yok
                       </>
                     )}
-                  </Space>
+                  </strong>
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", fontSize: "13px" }}>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "2px" }}>Bağlantı Adresi</div>
-                  <div style={{ fontWeight: "500", wordBreak: "break-all" }}>{stats?.apiUrl || "http://127.0.0.1:4000"}</div>
+              <div className="ct-admin-kv-grid">
+                <div className="ct-admin-kv plain">
+                  <span>Bağlantı Adresi</span>
+                  <strong>{stats?.apiUrl || "http://127.0.0.1:4000"}</strong>
                 </div>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "2px" }}>Çalışma Modu</div>
-                  <div style={{ fontWeight: "500" }}>
-                    {stats?.envMode === "production" ? "Üretim (Production)" : stats?.envMode === "test" ? "Test" : "Geliştirme (Development)"}
-                  </div>
+                <div className="ct-admin-kv plain">
+                  <span>Çalışma Modu</span>
+                  <strong>
+                    {stats?.envMode === "production"
+                      ? "Üretim (Production)"
+                      : stats?.envMode === "test"
+                        ? "Test"
+                        : "Geliştirme (Development)"}
+                  </strong>
                 </div>
-                <div>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: "2px" }}>LiveKit URL</div>
-                  <div style={{ fontWeight: "500", fontSize: "12px", color: "rgba(255,255,255,0.8)", wordBreak: "break-all" }}>
+                <div className="ct-admin-kv plain">
+                  <span>LiveKit URL</span>
+                  <strong>
                     {stats?.liveKitUrl || "wss://livekitservice..."}
-                  </div>
+                  </strong>
                 </div>
               </div>
             </div>
           </Card>
         </Col>
       </Row>
-      
-      {/* Styles inject for pulse effect */}
-      <style>{`
-        @keyframes pulse {
-          0% { transform: scale(0.9); opacity: 0.8; }
-          50% { transform: scale(1.2); opacity: 1; }
-          100% { transform: scale(0.9); opacity: 0.8; }
-        }
-      `}</style>
     </div>
   );
 }
