@@ -1,6 +1,6 @@
 .ct-auth-card {
-  @apply w-full max-w-md rounded-3xl border p-8 md:p-10;
-  border-color: rgba(255, 255, 255, 0.05);
+  @apply w-full max-w-md rounded-2xl border p-8 md:p-10;
+  border-color: var(--ct-border);
   background: linear-gradient(
     135deg,
     rgba(18, 18, 18, 0.8) 0%,

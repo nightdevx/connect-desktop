@@ -1,5 +1,12 @@
 import { Tooltip, Badge } from "antd";
-import { TeamOutlined, AppstoreOutlined, SettingOutlined, SafetyCertificateOutlined, LogoutOutlined } from "@ant-design/icons";
+import {
+  TeamOutlined,
+  AppstoreOutlined,
+  SettingOutlined,
+  SafetyCertificateOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
+import type { ReactNode } from "react";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { isAdminRole } from "@/features/auth/permissions";
 
@@ -14,6 +21,40 @@ interface WorkspaceRailProps {
   isLoggingOut?: boolean;
 }
 
+interface RailItem {
+  section: WorkspaceSection;
+  label: string;
+  title: string;
+  icon: ReactNode;
+}
+
+const ITEMS: RailItem[] = [
+  {
+    section: "users",
+    label: "Arkadaş",
+    title: "Arkadaşlar",
+    icon: <TeamOutlined />,
+  },
+  {
+    section: "lobbies",
+    label: "Lobiler",
+    title: "Lobiler",
+    icon: <AppstoreOutlined />,
+  },
+  {
+    section: "settings",
+    label: "Ayarlar",
+    title: "Ayarlar",
+    icon: <SettingOutlined />,
+  },
+  {
+    section: "admin",
+    label: "Yönetim",
+    title: "Yönetim",
+    icon: <SafetyCertificateOutlined />,
+  },
+];
+
 export function WorkspaceRail({
   workspaceSection,
   onSectionChange,
@@ -22,97 +63,66 @@ export function WorkspaceRail({
   onLogout,
   isLoggingOut,
 }: WorkspaceRailProps) {
+  const items = ITEMS.filter(
+    (item) => item.section !== "admin" || isAdminRole(currentUserRole),
+  );
+
   return (
     <aside className="ct-rail" aria-label="Navigasyon">
-      <div className="ct-rail-top-logo">
-        <span className="ct-rail-logo">CT</span>
-      </div>
+      <nav className="ct-rail-items">
+        {items.map((item) => {
+          const isActive = workspaceSection === item.section;
 
-      <div className="ct-rail-separator" />
-
-      <div className="ct-rail-items">
-        <Tooltip title="Arkadaşlar" placement="right" mouseEnterDelay={0.15}>
-          <div className="ct-rail-item-wrapper">
-            <div className={`ct-rail-indicator ${workspaceSection === "users" ? "active" : ""}`} />
-            <button
-              type="button"
-              className={`ct-rail-button-premium ${workspaceSection === "users" ? "active" : ""}`}
-              onClick={() => onSectionChange("users")}
-              aria-label="Arkadaşlar"
+          return (
+            <Tooltip
+              key={item.section}
+              title={item.title}
+              placement="right"
+              mouseEnterDelay={0.15}
             >
-              <Badge count={totalUnreadDirectMessages} size="small" offset={[6, -2]}>
-                <TeamOutlined className="ct-rail-icon-premium" />
-              </Badge>
-              <small>Arkadaş</small>
-            </button>
-          </div>
-        </Tooltip>
-
-        <Tooltip title="Lobiler" placement="right" mouseEnterDelay={0.15}>
-          <div className="ct-rail-item-wrapper">
-            <div className={`ct-rail-indicator ${workspaceSection === "lobbies" ? "active" : ""}`} />
-            <button
-              type="button"
-              className={`ct-rail-button-premium ${workspaceSection === "lobbies" ? "active" : ""}`}
-              onClick={() => onSectionChange("lobbies")}
-              aria-label="Lobiler"
-            >
-              <AppstoreOutlined className="ct-rail-icon-premium" />
-              <small>Lobiler</small>
-            </button>
-          </div>
-        </Tooltip>
-
-        <Tooltip title="Ayarlar" placement="right" mouseEnterDelay={0.15}>
-          <div className="ct-rail-item-wrapper">
-            <div className={`ct-rail-indicator ${workspaceSection === "settings" ? "active" : ""}`} />
-            <button
-              type="button"
-              className={`ct-rail-button-premium ${workspaceSection === "settings" ? "active" : ""}`}
-              onClick={() => onSectionChange("settings")}
-              aria-label="Ayarlar"
-            >
-              <SettingOutlined className="ct-rail-icon-premium" />
-              <small>Ayar</small>
-            </button>
-          </div>
-        </Tooltip>
-
-        {isAdminRole(currentUserRole) && (
-          <Tooltip title="Yönetim" placement="right" mouseEnterDelay={0.15}>
-            <div className="ct-rail-item-wrapper">
-              <div className={`ct-rail-indicator ${workspaceSection === "admin" ? "active" : ""}`} />
-              <button
-                type="button"
-                className={`ct-rail-button-premium ${workspaceSection === "admin" ? "active" : ""}`}
-                onClick={() => onSectionChange("admin")}
-                aria-label="Yönetim"
-              >
-                <SafetyCertificateOutlined className="ct-rail-icon-premium" />
-                <small>Yönetim</small>
-              </button>
-            </div>
-          </Tooltip>
-        )}
-      </div>
+              <div className="ct-rail-item">
+                <span
+                  className={`ct-rail-indicator ${isActive ? "active" : ""}`}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  className={`ct-rail-button ${isActive ? "active" : ""}`}
+                  onClick={() => onSectionChange(item.section)}
+                  aria-label={item.title}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {item.section === "users" ? (
+                    <Badge
+                      count={totalUnreadDirectMessages}
+                      size="small"
+                      offset={[6, -2]}
+                    >
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
+                  <span>{item.label}</span>
+                </button>
+              </div>
+            </Tooltip>
+          );
+        })}
+      </nav>
 
       {onLogout && (
         <Tooltip title="Çıkış Yap" placement="right" mouseEnterDelay={0.15}>
-          <div className="ct-rail-item-wrapper" style={{ marginTop: "auto" }}>
+          <div className="ct-rail-item ct-rail-spacer">
             <button
               type="button"
-              className="ct-rail-button-premium"
+              className="ct-rail-button danger"
               onClick={onLogout}
               disabled={isLoggingOut}
-              style={{
-                color: "#ef4444",
-                borderColor: "rgba(239, 68, 68, 0.15)",
-                background: "rgba(239, 68, 68, 0.05)"
-              }}
               aria-label="Çıkış Yap"
             >
-              <LogoutOutlined className="ct-rail-icon-premium" />
-              <small>Çıkış</small>
+              <LogoutOutlined />
+              <span>Çıkış</span>
             </button>
           </div>
         </Tooltip>
@@ -120,5 +130,3 @@ export function WorkspaceRail({
     </aside>
   );
 }
-
-

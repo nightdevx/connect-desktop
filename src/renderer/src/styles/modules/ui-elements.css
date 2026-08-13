@@ -1,30 +1,3 @@
-.ct-meta-pill {
-@apply inline-flex h-9 items-center rounded-full border px-3.5 text-xs font-medium;
-border-color: var(--ct-border);
-color: var(--ct-text-secondary);
-background: rgba(24, 24, 24, 0.72);
-}
-
-.ct-meta-pill.live::before {
-content: "";
-@apply mr-2 h-2 w-2 rounded-full;
-background: var(--ct-text-muted);
-}
-
-.ct-meta-pill.live[data-state="ok"]::before {
-background: var(--ct-success);
-box-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
-}
-
-.ct-meta-pill.live[data-state="warn"]::before {
-background: var(--ct-warning);
-}
-
-.ct-meta-pill.live[data-state="error"]::before {
-background: var(--ct-danger);
-box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
-}
-
 .ct-label {
 @apply grid gap-1.5 text-sm font-semibold;
 color: var(--ct-text-secondary);
@@ -102,10 +75,6 @@ box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
 
 .ct-btn-danger:hover:not(:disabled) {
 box-shadow: 0 8px 22px rgba(255, 255, 255, 0.22);
-}
-
-.ct-header-logout-button {
-@apply min-h-9 px-3;
 }
 
 .ct-icon-button {

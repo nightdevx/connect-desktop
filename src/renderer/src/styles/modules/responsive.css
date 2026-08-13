@@ -1,36 +1,15 @@
 @media (max-width: 980px) {
-  .ct-app-header {
-    @apply gap-2 px-3 py-2;
-  }
-
-  .ct-app-header > :first-child {
-    @apply min-w-0;
-  }
-
-  .ct-app-header-actions {
-    @apply min-w-0 flex-nowrap justify-end;
-  }
-
-  .ct-app-header-actions > .ct-meta-pill:first-child {
+  /* The version string is the first thing worth dropping when the titlebar
+     runs out of room -- it is also in Settings > Application. */
+  .ct-titlebar-version {
     @apply hidden;
-  }
-
-  .ct-meta-pill.live {
-    @apply h-8 max-w-[180px] truncate px-3 text-[11px];
-  }
-
-  .ct-meta-pill.live::before {
-    @apply shrink-0;
-  }
-
-  .ct-header-logout-button {
-    @apply min-h-8 shrink-0 px-2.5 text-xs;
   }
 }
 
 @media (max-width: 900px) {
   .ct-workspace-shell {
-    @apply grid-cols-[60px_minmax(0,1fr)] grid-rows-[auto_auto];
+    @apply grid-rows-[auto_auto];
+    grid-template-columns: var(--ct-rail-width) minmax(0, 1fr);
   }
 
   .ct-sidebar {
@@ -160,10 +139,6 @@
 }
 
 @media (max-width: 760px) {
-  .ct-app-header {
-    @apply flex-col items-start;
-  }
-
   .ct-workspace-shell {
     @apply grid-cols-1;
   }
@@ -184,10 +159,6 @@
 
   .ct-main-panel-header {
     @apply flex-col items-start;
-  }
-
-  .ct-titlebar-meta {
-    @apply hidden;
   }
 
   .ct-audio-details-grid {

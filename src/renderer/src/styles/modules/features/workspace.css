@@ -1,9 +1,94 @@
 .ct-workspace-shell {
-  @apply grid h-full w-full min-h-0 grid-cols-[76px_280px_minmax(0,1fr)] overflow-hidden;
+  @apply grid h-full w-full min-h-0 overflow-hidden;
+  grid-template-columns: var(--ct-rail-width) var(--ct-sidebar-width) minmax(0, 1fr);
   background: rgba(12, 12, 12, 0.92);
 }
 
-/* .ct-rail and its buttons live in theme.css (single source). */
+/* ==========================================================================
+   RAIL
+   Items are full-width pills rather than free-floating squares, so the icon
+   column, the label and the active indicator all share one vertical axis
+   instead of each being centred against a different box.
+   ========================================================================== */
+
+.ct-rail {
+  @apply flex flex-col items-stretch gap-1 border-r px-2 py-3;
+  border-color: var(--ct-border);
+  background: rgba(6, 6, 6, 0.98);
+}
+
+.ct-rail-items {
+  @apply flex flex-col gap-1;
+}
+
+.ct-rail-item {
+  @apply relative flex;
+}
+
+/* Flush against the rail's outer edge: the wrapper is inset by the rail's
+   8px padding, so -8px puts the bar exactly on the border. */
+.ct-rail-indicator {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+  opacity: 0;
+  transition: all var(--ct-duration-slow) var(--ct-ease-premium);
+}
+
+.ct-rail-item:hover .ct-rail-indicator {
+  height: 14px;
+  opacity: 0.5;
+}
+
+.ct-rail-indicator.active {
+  height: 26px;
+  opacity: 1;
+  box-shadow: 0 0 10px var(--ct-accent-glow);
+}
+
+.ct-rail-button {
+  @apply flex w-full flex-col items-center gap-1 rounded-lg border px-1 py-2 text-micro font-semibold;
+  border-color: transparent;
+  color: var(--ct-text-muted);
+  background: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-rail-button:hover:not(.active) {
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+}
+
+.ct-rail-button.active {
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: 0 4px 16px var(--ct-accent-glow);
+}
+
+.ct-rail-button .anticon {
+  font-size: var(--ct-icon-lg);
+}
+
+.ct-rail-button.danger {
+  color: var(--ct-danger);
+}
+
+.ct-rail-button.danger:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+  background: var(--ct-danger);
+}
+
+.ct-rail-spacer {
+  @apply mt-auto;
+}
 
 .ct-sidebar {
   @apply grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
