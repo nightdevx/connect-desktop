@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Plus, Wifi, WifiOff, X } from "lucide-react";
 import { Switch, Divider, Modal, Select, Input } from "antd";
-import { 
-  DashboardOutlined, 
-  DisconnectOutlined, 
-  SyncOutlined,
-  HourglassOutlined,
-  GlobalOutlined,
-  WifiOutlined
+import {
+  CloseOutlined,
+  DashboardOutlined,
+  DisconnectOutlined,
+  ExclamationCircleOutlined,
+  PlusOutlined,
+  ThunderboltOutlined,
+  WifiOutlined,
 } from "@ant-design/icons";
 import type {
   LobbyDescriptor,
@@ -152,11 +152,11 @@ export function WorkspaceSidebar({
 
   const audioStatusIcon =
     audioConnectionProps.tone === "error" ? (
-      <WifiOff size={14} aria-hidden="true" />
+      <ExclamationCircleOutlined aria-hidden="true" />
     ) : audioConnectionProps.tone === "warn" ? (
-      <Activity size={14} aria-hidden="true" />
+      <ThunderboltOutlined aria-hidden="true" />
     ) : (
-      <Wifi size={14} aria-hidden="true" />
+      <WifiOutlined aria-hidden="true" />
     );
 
   useEffect(() => {
@@ -236,24 +236,20 @@ export function WorkspaceSidebar({
   return (
     <aside className="ct-sidebar" aria-label="Yan panel">
       <header className="ct-sidebar-header">
-        <div className="ct-sidebar-header-row">
-          <h3>{sectionTitle}</h3>
+        <h3>{sectionTitle}</h3>
 
-          {workspaceSection === "lobbies" && (
-            <button
-              type="button"
-              className="ct-sidebar-header-action"
-              onClick={handleCreateLobbyClick}
-              disabled={lobbiesProps.isCreatingLobby}
-              title="Lobi oluştur"
-              aria-label="Lobi oluştur"
-            >
-              <Plus size={14} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
-        {/* Lobi Oluşturma Modali alt tarafta Modal bileşeni olarak yer alıyor */}
+        {workspaceSection === "lobbies" && (
+          <button
+            type="button"
+            className="ct-sidebar-header-action"
+            onClick={handleCreateLobbyClick}
+            disabled={lobbiesProps.isCreatingLobby}
+            title="Lobi oluştur"
+            aria-label="Lobi oluştur"
+          >
+            <PlusOutlined />
+          </button>
+        )}
       </header>
 
       <div className="ct-sidebar-body">
@@ -361,7 +357,7 @@ export function WorkspaceSidebar({
                       transition: "all 0.15s"
                     }}
                   >
-                    <X size={14} aria-hidden="true" />
+                    <CloseOutlined aria-hidden="true" />
                   </button>
                 </header>
 

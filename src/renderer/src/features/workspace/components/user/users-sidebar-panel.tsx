@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import { Input, Segmented, Badge, Select } from "antd";
 import { SearchOutlined, PhoneOutlined } from "@ant-design/icons";
 import type {
@@ -37,6 +38,12 @@ const PRESENCE_OPTIONS: Array<{
   { value: "dnd", label: "Rahatsız etmeyin" },
 ];
 
+const FILTER_OPTIONS = [
+  { label: "Tümü", value: "all" },
+  { label: "Çevrimiçi", value: "online" },
+  { label: "Çevrimdışı", value: "offline" },
+];
+
 export function UsersSidebarPanel({
   usersQuery,
   userSearch,
@@ -51,83 +58,62 @@ export function UsersSidebarPanel({
   presenceStatus = "online",
   onPresenceStatusChange,
 }: UsersSidebarPanelProps) {
+  const isReady =
+    !usersQuery.isPending && !usersQuery.isError && Boolean(usersQuery.data?.ok);
+
+  // A div with an onClick is invisible to the keyboard. Rows are options in a
+  // listbox and answer to Enter and Space like every other list control.
+  const activateOnKey = (
+    event: KeyboardEvent<HTMLLIElement>,
+    userId: string,
+  ): void => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    onUserSelect(userId);
+  };
+
   return (
     <>
-      <style>{`
-        @keyframes callIconPulse {
-          0%, 100% {
-            opacity: 0.6;
-            transform: scale(0.9);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1.15);
-          }
-        }
-      `}</style>
       {onPresenceStatusChange && (
-        <div
-          className="ct-presence-picker"
-          style={{
-            padding: "12px 16px 0 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
+        <div className="ct-presence-picker">
           <span
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: getPresenceColor(true, presenceStatus),
-            }}
+            className="ct-presence-swatch"
+            style={{ background: getPresenceColor(true, presenceStatus) }}
+            aria-hidden="true"
           />
           <Select
             size="small"
             variant="borderless"
             value={presenceStatus}
-            onChange={(value) => onPresenceStatusChange(value)}
+            onChange={onPresenceStatusChange}
             options={PRESENCE_OPTIONS}
-            style={{ flex: 1 }}
             aria-label="Durumunuz"
           />
         </div>
       )}
 
-      <div className="ct-users-toolbar" style={{ padding: "12px 16px 8px 16px" }}>
-        <Input
-          placeholder="İsim veya kullanıcı adı ara..."
-          value={userSearch}
-          onChange={(event) => onUserSearchChange(event.target.value)}
-          prefix={<SearchOutlined style={{ color: "rgba(255, 255, 255, 0.3)" }} />}
-          allowClear
-          className="ct-search-premium"
-          style={{
-            background: "rgba(10, 10, 10, 0.6)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#f5f5f5",
-            borderRadius: "8px",
-          }}
-        />
-      </div>
+      <Input
+        className="ct-sidebar-search"
+        placeholder="İsim veya kullanıcı adı ara..."
+        value={userSearch}
+        onChange={(event) => onUserSearchChange(event.target.value)}
+        prefix={<SearchOutlined />}
+        allowClear
+      />
 
-      <div className="px-4 py-2">
-        <Segmented
-          block
-          value={userFilter}
-          onChange={(value) => onUserFilterChange(value as any)}
-          options={[
-            { label: "Tümü", value: "all" },
-            { label: "Çevrimiçi", value: "online" },
-            { label: "Çevrimdışı", value: "offline" },
-          ]}
-          className="ct-segmented-premium"
-        />
-      </div>
+      <Segmented
+        block
+        value={userFilter}
+        onChange={(value) =>
+          onUserFilterChange(value as UseWorkspaceUsersResult["userFilter"])
+        }
+        options={FILTER_OPTIONS}
+        className="ct-segmented-premium"
+      />
 
-      <ul className="ct-list" style={{ marginTop: "8px" }}>
+      <ul className="ct-list" role="listbox" aria-label="Kullanıcılar">
         {usersQuery.isPending && (
           <li className="ct-list-state">Kullanıcılar yükleniyor...</li>
         )}
@@ -147,133 +133,76 @@ export function UsersSidebarPanel({
             </li>
           )}
 
-        {!usersQuery.isPending &&
-          !usersQuery.isError &&
-          usersQuery.data?.ok &&
-          filteredUsers.length === 0 && (
-            <li className="ct-list-state">
-              <div style={{ marginBottom: "12px", opacity: 0.3 }}>
-                <SearchOutlined style={{ fontSize: "24px" }} />
-              </div>
-              <p style={{ margin: 0 }}>Aramaya uygun kullanıcı bulunamadı.</p>
-              <span style={{ fontSize: "12px", opacity: 0.5, display: "block", marginTop: "4px" }}>
-                Farklı bir isim denemeyi veya filtreleri değiştirmeyi deneyin.
-              </span>
-            </li>
-          )}
+        {isReady && filteredUsers.length === 0 && (
+          <li className="ct-list-state">
+            <SearchOutlined className="ct-list-state-icon" />
+            <p>Aramaya uygun kullanıcı bulunamadı.</p>
+            <span>Farklı bir isim deneyin veya filtreleri değiştirin.</span>
+          </li>
+        )}
 
         {filteredUsers.map((user) => {
           const unreadCount = unreadByUserId[user.userId] ?? 0;
           const isSelected = selectedUserId === user.userId;
           const isUnread = unreadCount > 0 && !isSelected;
-          const isCalling = callState?.status === "incoming" && callState.callerId === user.userId;
-
-          const itemStyle: React.CSSProperties = {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "10px 16px",
-            margin: "2px 8px",
-            borderRadius: "8px",
-            transition: "all 0.2s ease",
-            ...(isUnread
-              ? {
-                  background: "rgba(59, 130, 246, 0.08)",
-                  borderLeft: "3px solid #3b82f6",
-                  borderRadius: "0 8px 8px 0",
-                }
-              : {}),
-          };
-
-          const nameStyle: React.CSSProperties = {
-            margin: 0,
-            fontSize: "13px",
-            fontWeight: isSelected ? "500" : isUnread ? "700" : "500",
-            color: isSelected ? "#000000" : isUnread ? "#ffffff" : "#f5f5f5",
-          };
-
-          const statusStyle: React.CSSProperties = {
-            fontSize: "11px",
-            color: isSelected ? "rgba(0,0,0,0.6)" : isUnread ? "#93c5fd" : "rgba(255,255,255,0.4)",
-          };
+          const isCalling =
+            callState?.status === "incoming" &&
+            callState.callerId === user.userId;
 
           return (
             <li
               key={user.userId}
-              className={`ct-list-item clickable ${isSelected ? "active" : ""}`}
+              className={`ct-list-item clickable ${isSelected ? "active" : ""} ${isUnread ? "unread" : ""}`}
+              role="option"
+              aria-selected={isSelected}
+              tabIndex={0}
               onClick={() => onUserSelect(user.userId)}
-              style={itemStyle}
+              onKeyDown={(event) => activateOnKey(event, user.userId)}
             >
-              <div className="ct-list-user" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div
-                  className="ct-user-avatar with-presence"
-                  style={{ position: "relative", display: "inline-block" }}
-                  aria-hidden="true"
-                >
-                  <div className="ct-user-avatar-core" style={{ width: "36px", height: "36px", borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1f1f1f" }}>
+              <div className="ct-list-user">
+                <div className="ct-user-avatar with-presence" aria-hidden="true">
+                  <div className="ct-user-avatar-core">
                     {user.avatarUrl ? (
                       <img
                         className="ct-user-avatar-image"
                         src={user.avatarUrl}
                         alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
                     ) : (
-                      <span className="ct-user-avatar-fallback" style={{ fontSize: "12px", color: "#f5f5f5", fontWeight: "600" }}>
+                      <span className="ct-user-avatar-fallback">
                         {getDisplayInitials(user.displayName || user.username)}
                       </span>
                     )}
                   </div>
 
                   <span
-                    className={`ct-presence-dot ${user.appOnline ? "online" : "offline"}`}
+                    className="ct-presence-dot"
                     style={{
-                      position: "absolute",
-                      bottom: "-1px",
-                      right: "-1px",
-                      width: "10px",
-                      height: "10px",
-                      borderRadius: "50%",
-                      border: "2px solid #0d0d0d",
                       background: getPresenceColor(user.appOnline, user.presence),
                     }}
                   />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <p style={nameStyle}>
-                    {user.displayName || user.username}
+                <div className="ct-list-user-meta">
+                  <p>
+                    <span className="truncate">
+                      {user.displayName || user.username}
+                    </span>
                     {isCalling && (
                       <PhoneOutlined
-                        style={{
-                          color: "#22c55e",
-                          marginLeft: "8px",
-                          fontSize: "12px",
-                          display: "inline-block",
-                          verticalAlign: "middle",
-                          animation: "callIconPulse 1.2s infinite ease-in-out",
-                        }}
+                        className="ct-calling-icon"
+                        aria-label="Sizi arıyor"
                       />
                     )}
                   </p>
-                  <span style={statusStyle}>
+                  <span>
                     {getUserStatusLabel(user.appOnline, user.presence)}
                   </span>
                 </div>
               </div>
 
               {unreadCount > 0 && (
-                <Badge
-                  count={unreadCount}
-                  overflowCount={99}
-                  style={{
-                    backgroundColor: isSelected ? "#000000" : "#3b82f6",
-                    color: "#ffffff",
-                    fontWeight: "700",
-                    fontSize: "10px",
-                    boxShadow: "none",
-                  }}
-                />
+                <Badge count={unreadCount} overflowCount={99} />
               )}
             </li>
           );
@@ -282,5 +211,3 @@ export function UsersSidebarPanel({
     </>
   );
 }
-
-

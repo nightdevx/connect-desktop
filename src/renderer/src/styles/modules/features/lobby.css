@@ -1,68 +1,111 @@
-.ct-lobby-list-content {
-  @apply min-w-0 flex-1;
+/* ==========================================================================
+   SIDEBAR LOBBY ROW
+   A lobby row is a .ct-list-item, so it inherits the sidebar's padding and
+   the active-state inversion. Nothing here re-declares a colour per state --
+   children inherit and use opacity, which reads on both grounds.
+   ========================================================================== */
+
+.ct-lobby-item {
+  @apply flex w-full min-w-0 flex-col gap-2;
 }
 
-.ct-lobby-title-row {
+.ct-lobby-item-head {
   @apply flex items-center justify-between gap-2;
 }
 
-.ct-lobby-status-chip {
-  @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: rgba(16, 16, 16, 0.76);
+.ct-lobby-item-title {
+  @apply m-0 flex min-w-0 items-center gap-1.5 text-sm font-semibold;
+  color: var(--ct-text-primary);
 }
 
-.ct-lobby-status-chip.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+.ct-lobby-item-title .anticon {
+  font-size: var(--ct-icon-xs);
+  flex-shrink: 0;
+}
+
+.ct-lobby-item-lock {
+  color: var(--ct-warning);
+}
+
+.ct-lobby-item-crown {
+  color: var(--ct-success);
+}
+
+.ct-lobby-item-count {
+  @apply inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-item-empty {
+  @apply text-2xs;
+  color: var(--ct-text-muted);
 }
 
 .ct-lobby-member-list {
-  @apply mt-1.5 m-0 list-none space-y-1 p-0;
+  @apply m-0 flex list-none flex-col gap-1 p-0;
 }
 
 .ct-lobby-member-item {
-  @apply flex items-center justify-between gap-2;
+  @apply flex items-center justify-between gap-2 rounded-sm border px-2 py-1.5;
+  border-color: var(--ct-alpha-04);
+  background: var(--ct-alpha-02);
+}
+
+.ct-list-item.clickable.active .ct-lobby-member-item {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .ct-lobby-member-main {
-  @apply flex min-w-0 items-center gap-1.5;
+  @apply flex min-w-0 items-center gap-2;
 }
 
 .ct-lobby-member-name {
-  @apply m-0 truncate text-xs font-medium;
+  @apply m-0 truncate text-2xs font-medium;
   color: var(--ct-text-secondary);
 }
 
+.ct-lobby-member-avatar.ant-avatar {
+  @apply shrink-0 border;
+  border-color: var(--ct-alpha-12);
+  background: var(--ct-surface-3);
+  color: var(--ct-text-primary);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.ct-list-item.clickable.active .ct-lobby-member-avatar.ant-avatar {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  color: var(--ct-text-inverse);
+}
+
 .ct-lobby-member-icons {
-  @apply inline-flex items-center gap-1;
+  @apply flex shrink-0 items-center gap-1.5;
 }
 
-.ct-lobby-member-icon {
-  @apply inline-flex h-5 w-5 items-center justify-center rounded-md border;
-  border-color: var(--ct-border);
+.ct-lobby-member-flag {
+  @apply inline-flex items-center;
+  font-size: var(--ct-icon-xs);
   color: var(--ct-text-muted);
-  background: rgba(14, 14, 14, 0.72);
 }
 
-.ct-lobby-member-icon.active {
-  border-color: var(--ct-accent-strong);
+.ct-lobby-member-flag.on {
+  color: var(--ct-success);
+}
+
+.ct-lobby-member-flag.off {
+  opacity: 0.4;
+}
+
+/* Server-side mute is a moderation state, not a preference -- it stays loud. */
+.ct-lobby-member-flag.forced {
+  color: var(--ct-danger);
+  opacity: 1;
+}
+
+.ct-lobby-member-flag.neutral {
   color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-lobby-member-icon.inactive {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--ct-text-muted);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.ct-lobby-member-icon.signal {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
 }
 
 .ct-lobby-select-card {

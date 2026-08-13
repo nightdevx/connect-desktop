@@ -96,81 +96,141 @@
   background: rgba(12, 12, 12, 0.9);
 }
 
+/* --------------------------------------------------------------------------
+   Sidebar rhythm
+
+   One gutter, declared once. The body applies it; its children add no
+   horizontal padding or margin of their own, and every interactive row uses
+   the same 12px inner padding. That is what puts the search field, the filter
+   segment and the avatar column on a single vertical line -- they used to sit
+   at 28px, 28px and 36px because each block invented its own inset.
+   -------------------------------------------------------------------------- */
+
 .ct-sidebar-header {
-  @apply border-b px-4 py-3;
+  @apply flex h-14 shrink-0 items-center justify-between gap-2 border-b;
+  padding-inline: var(--ct-gutter);
   border-color: var(--ct-border);
 }
 
 .ct-sidebar-header h3 {
-  @apply m-0 text-sm font-semibold uppercase tracking-[0.1em];
+  @apply m-0 truncate text-xs font-bold uppercase tracking-[0.12em];
   color: var(--ct-text-secondary);
-}
-
-.ct-sidebar-header-row {
-  @apply flex items-center justify-between gap-2;
 }
 
 .ct-sidebar-header-action {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border;
+  @apply inline-flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-md border;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.85);
-  transition: all 0.18s ease;
+  background: var(--ct-alpha-04);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-sidebar-header-action:hover:not(:disabled) {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  transform: translateY(-1px);
+  background: var(--ct-alpha-08);
 }
 
 .ct-sidebar-header-action:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.ct-inline-create-lobby {
-  @apply mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2;
-}
-
-.ct-inline-create-lobby .ct-input {
-  @apply min-h-9;
-}
-
-.ct-inline-create-lobby .ct-btn-primary {
-  @apply min-h-9 px-3 text-xs;
-}
-
 .ct-sidebar-body {
-  @apply min-h-0 overflow-y-auto p-3;
+  @apply flex min-h-0 flex-col gap-2 overflow-y-auto;
+  padding: var(--ct-gutter);
 }
 
-.ct-users-toolbar {
-  @apply mb-2 flex items-center;
+/* Ant Design's Input pads to 11px; nudge it to the gutter so the search icon
+   lines up with the avatars below it to the pixel. */
+.ct-sidebar-search.ant-input-affix-wrapper {
+  padding-inline: var(--ct-gutter);
 }
 
-.ct-users-search {
-  @apply flex min-h-10 flex-1 items-center gap-2 rounded-lg border px-2.5;
-  border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.56);
-  color: var(--ct-text-secondary);
-}
-
-.ct-users-search input {
-  @apply h-8 w-full border-0 bg-transparent p-0 text-sm outline-none;
-  color: var(--ct-text-primary);
-}
-
-.ct-users-search input::placeholder {
+.ct-sidebar-search .ant-input-prefix {
+  margin-inline-end: 8px;
   color: var(--ct-text-muted);
 }
 
-.ct-users-filters {
-  @apply mb-3 grid grid-cols-3 gap-1.5;
+.ct-presence-picker {
+  @apply flex h-control-md shrink-0 items-center gap-2 rounded-md border px-3;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
+}
+
+.ct-presence-picker .ant-select {
+  @apply min-w-0 flex-1;
+}
+
+.ct-presence-picker .ant-select-selector {
+  padding-inline: 0 !important;
+}
+
+.ct-presence-swatch {
+  @apply h-2.5 w-2.5 shrink-0 rounded-full;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar list rows
+   -------------------------------------------------------------------------- */
+
+.ct-list-user {
+  @apply flex min-w-0 flex-1 items-center gap-3;
+}
+
+.ct-list-user-meta {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-list-user-meta p {
+  @apply m-0 flex min-w-0 items-center gap-1.5 truncate text-sm font-medium;
+  color: var(--ct-text-primary);
+}
+
+.ct-list-user-meta span {
+  @apply truncate text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-list-item.unread .ct-list-user-meta p {
+  @apply font-bold;
+}
+
+.ct-list-item.unread .ct-list-user-meta span {
+  color: #93c5fd;
+}
+
+/* The active row inverts to a white background. Rather than passing an
+   isActive flag into every nested colour, children inherit and lean on
+   opacity, which reads correctly on both the light and the dark ground. */
+.ct-list-item.clickable.active .ct-list-user-meta p,
+.ct-list-item.clickable.active .ct-lobby-item-title {
+  color: inherit;
+}
+
+.ct-list-item.clickable.active .ct-list-user-meta span,
+.ct-list-item.clickable.active .ct-lobby-item-count,
+.ct-list-item.clickable.active .ct-lobby-item-empty,
+.ct-list-item.clickable.active .ct-lobby-member-name {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.ct-list-item.clickable.active .ct-lobby-item-title .anticon,
+.ct-list-item.clickable.active .ct-lobby-member-flag {
+  color: inherit;
+  opacity: 0.65;
+}
+
+.ct-calling-icon {
+  color: var(--ct-success);
+  font-size: var(--ct-icon-xs);
+  animation: callIconPulse 1.2s infinite ease-in-out;
 }
 
 .ct-audio-connection-anchor {
-  @apply relative mx-3 mt-3 mb-1.5;
+  @apply relative;
+  margin: 0 var(--ct-gutter) 6px;
 }
 
 .ct-audio-connection-card {
@@ -225,7 +285,8 @@
 }
 
 .ct-quick-idle {
-  @apply flex items-center justify-between gap-3 border-t px-3 py-3.5;
+  @apply flex items-center justify-between gap-3 border-t py-3;
+  padding-inline: var(--ct-gutter);
   border-color: var(--ct-border);
   backdrop-filter: blur(16px);
   background: rgba(10, 10, 10, 0.82);
@@ -236,31 +297,24 @@
 }
 
 .ct-quick-idle-logo {
-  @apply grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.03);
+  @apply grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full border text-2xs font-bold;
+  border-color: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
   letter-spacing: 0.06em;
-  overflow: hidden;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ct-quick-idle-logo:hover {
-  transform: rotate(5deg) scale(1.08);
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .ct-quick-idle-meta {
-  @apply min-w-0 flex flex-col gap-0.5;
+  @apply flex min-w-0 flex-col gap-0.5;
 }
 
 .ct-quick-idle-meta strong {
-  @apply block truncate text-[13px] font-bold leading-none;
+  @apply block truncate text-sm font-bold leading-none;
   color: var(--ct-text-primary);
 }
 
 .ct-quick-idle-meta span {
-  @apply block truncate text-[10px] uppercase font-semibold tracking-wide opacity-50;
+  @apply block truncate text-micro font-semibold uppercase;
   color: var(--ct-text-muted);
 }
 

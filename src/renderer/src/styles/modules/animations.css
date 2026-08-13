@@ -59,6 +59,18 @@
   }
 }
 
+@keyframes callIconPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
 @keyframes ctaPulseAccept {
   0%, 100% {
     transform: scale(1);

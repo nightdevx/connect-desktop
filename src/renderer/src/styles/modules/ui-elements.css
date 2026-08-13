@@ -115,11 +115,13 @@ background: #ffffff;
 }
 
 .ct-list {
-@apply m-0 flex list-none flex-col gap-2 p-0;
+@apply m-0 flex list-none flex-col gap-0.5 p-0;
 }
 
+/* px-3 is the same 12px the sidebar body uses, so a row's content starts at
+   exactly 24px from the panel edge -- the same place as the search icon. */
 .ct-list-item {
-@apply flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5;
+@apply flex items-center justify-between gap-3 rounded-md border px-3 py-2;
 border-color: transparent;
 background: transparent;
 }
@@ -135,36 +137,56 @@ background: rgba(255, 255, 255, 0.04);
 }
 
 .ct-list-item.clickable.active {
-border-color: #ffffff;
-color: #000000;
-background: #ffffff;
-box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+border-color: var(--ct-accent);
+color: var(--ct-text-inverse);
+background: var(--ct-accent);
+box-shadow: 0 4px 12px var(--ct-accent-glow);
 }
 
+/* An inset shadow rather than a border-left: a real border would shift the
+   row's content by 3px, so unread rows would no longer line up with read ones. */
+.ct-list-item.unread:not(.active) {
+background: rgba(59, 130, 246, 0.08);
+box-shadow: inset 3px 0 0 var(--ct-info);
+}
+
+/* Kept close to a row's own height so the panel does not jump when the list
+   swaps between "loading", "empty" and populated. It used to be py-12 against
+   rows of py-2. */
 .ct-list-state {
-  @apply py-12 px-6 text-center text-sm font-medium;
+  @apply flex flex-col items-center gap-1 px-3 py-8 text-center text-sm font-medium;
   color: var(--ct-text-muted);
-  line-height: 1.6;
   animation: ctFadeIn 0.3s ease;
 }
 
+.ct-list-state p {
+  @apply m-0;
+}
+
+.ct-list-state-icon {
+  @apply mb-2 opacity-30;
+  font-size: 24px;
+}
+
 .ct-list-state.error {
-  @apply bg-red-500/5 rounded-xl border border-red-500/10 mx-2 my-4 py-6;
-  color: #ef4444;
+  @apply rounded-md border py-6;
+  border-color: rgba(239, 68, 68, 0.16);
+  background: rgba(239, 68, 68, 0.06);
+  color: var(--ct-danger);
 }
 
 .ct-user-avatar {
-@apply relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border;
+@apply relative grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full border;
 border-color: var(--ct-border);
-background: rgba(12, 12, 12, 0.8);
+background: var(--ct-surface-3);
 }
 
 .ct-user-avatar.lg {
-@apply h-11 w-11;
+@apply h-avatar-md w-avatar-md;
 }
 
 .ct-user-avatar.sm {
-@apply h-6 w-6;
+@apply h-avatar-xs w-avatar-xs;
 }
 
 .ct-user-avatar.with-presence {
@@ -176,12 +198,11 @@ overflow: visible;
 }
 
 .ct-user-avatar.with-presence .ct-presence-dot {
-@apply absolute h-2.5 w-2.5;
-right: -2px;
-bottom: -2px;
-border: 2px solid rgba(17, 24, 39, 0.95);
+@apply absolute block h-2.5 w-2.5;
+right: -1px;
+bottom: -1px;
+border: 2px solid var(--ct-surface-1);
 margin-top: 0;
-display: block;
 }
 
 .ct-user-avatar-image {

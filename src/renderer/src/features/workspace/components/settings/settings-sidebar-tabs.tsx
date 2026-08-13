@@ -25,37 +25,37 @@ const TABS: TabConfig[] = [
     id: "profile",
     label: "Profil",
     description: "Hesap görünümü ve kişisel bilgiler",
-    icon: <UserOutlined style={{ fontSize: "16px" }} />,
+    icon: <UserOutlined />,
   },
   {
     id: "security",
     label: "Güvenlik",
     description: "Şifre ve hesap güvenliği",
-    icon: <SafetyOutlined style={{ fontSize: "16px" }} />,
+    icon: <SafetyOutlined />,
   },
   {
     id: "camera",
     label: "Kamera",
     description: "Kamera kalitesi ve önizleme",
-    icon: <VideoCameraOutlined style={{ fontSize: "16px" }} />,
+    icon: <VideoCameraOutlined />,
   },
   {
     id: "audio",
     label: "Ses",
     description: "Mikrofon ve ses ayarları",
-    icon: <AudioOutlined style={{ fontSize: "16px" }} />,
+    icon: <AudioOutlined />,
   },
   {
     id: "stream",
     label: "Yayın",
     description: "Ekran paylaşımı ve yayın kalitesi",
-    icon: <DesktopOutlined style={{ fontSize: "16px" }} />,
+    icon: <DesktopOutlined />,
   },
   {
     id: "application",
     label: "Uygulama",
     description: "Sürüm, güncelleme ve uygulama durumu",
-    icon: <SettingOutlined style={{ fontSize: "16px" }} />,
+    icon: <SettingOutlined />,
   },
 ];
 

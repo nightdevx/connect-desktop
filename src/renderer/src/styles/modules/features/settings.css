@@ -1,50 +1,54 @@
 .ct-settings-tabs {
-  @apply flex flex-col gap-2;
+  @apply flex flex-col gap-0.5;
 }
 
+/* px-3 matches .ct-list-item, so the settings tabs and the user/lobby rows
+   start at the same 24px from the panel edge. The hover/active translateX
+   that used to nudge tabs 2-4px sideways is gone: the ::before accent bar
+   already carries the state without moving the text off the column. */
 .ct-settings-tab {
-  @apply flex items-center gap-3 rounded-xl border px-4 py-3 text-left;
-  border-color: var(--ct-border);
+  @apply relative flex items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left;
+  border-color: transparent;
   color: var(--ct-text-secondary);
-  background: rgba(18, 18, 18, 0.65);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  background: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-settings-tab::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: 50%;
+  translate: 0 -50%;
   width: 3px;
-  background: transparent;
-  transition: background 0.2s ease;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+  transition: height var(--ct-duration-base) var(--ct-ease-premium);
 }
 
-.ct-settings-tab:hover {
-  border-color: var(--ct-border-strong);
-  background: rgba(22, 22, 22, 0.75);
-  transform: translateX(2px);
+.ct-settings-tab:hover:not(.active) {
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
 }
 
 .ct-settings-tab.active {
-  border-color: var(--ct-accent-strong);
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
   background: var(--ct-accent-soft);
-  transform: translateX(4px);
 }
 
 .ct-settings-tab.active::before {
-  background: var(--ct-accent);
+  height: 60%;
   box-shadow: 0 0 12px var(--ct-accent-glow);
 }
 
 .ct-settings-tab-icon {
   @apply flex shrink-0 items-center justify-center;
   color: var(--ct-text-muted);
-  transition: color 0.2s ease;
+  font-size: var(--ct-icon-sm);
+  transition: color var(--ct-duration-base) ease;
 }
 
 .ct-settings-tab.active .ct-settings-tab-icon {
