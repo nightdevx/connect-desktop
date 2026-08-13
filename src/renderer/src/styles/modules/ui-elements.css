@@ -85,6 +85,14 @@ color: var(--ct-danger);
 background: rgba(239, 68, 68, 0.1);
 }
 
+.ct-icon-success {
+color: var(--ct-success);
+}
+
+.ct-icon-danger {
+color: var(--ct-danger);
+}
+
 .ct-inline-note {
 @apply mt-1.5 block text-2xs;
 color: var(--ct-warning);

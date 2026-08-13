@@ -132,19 +132,22 @@
 }
 
 .ct-lobby-chat-toggle {
-  @apply inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
+  @apply inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold;
   border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(18, 18, 18, 0.68);
+  color: var(--ct-alpha-70);
+  background: rgba(18, 18, 18, 0.72);
+  backdrop-filter: blur(12px);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-lobby-chat-toggle.in-stage {
-  @apply absolute right-3 top-3 z-20;
+  @apply absolute right-4 top-4 z-30;
 }
 
 .ct-lobby-chat-toggle:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
+  background: rgba(24, 24, 24, 0.85);
 }
 
 .ct-lobby-room-header {
@@ -419,6 +422,53 @@
   inset: auto !important;
 }
 
+/* Watch-this-screen prompt: screen shares are opt-in, so an unwatched tile
+   shows this instead of subscribing to the track on its own. */
+.ct-lobby-tile-watch-prompt {
+  @apply absolute inset-0 z-20 flex flex-col items-center justify-center gap-2;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.ct-lobby-tile-watch-prompt .anticon {
+  font-size: 22px;
+  opacity: 0.7;
+}
+
+.ct-lobby-tile-watch-title {
+  @apply text-xs;
+  color: var(--ct-alpha-70);
+}
+
+.ct-lobby-tile-watch-hint {
+  @apply text-micro;
+  color: var(--ct-alpha-32);
+}
+
+.ct-lobby-tile-watch-btn {
+  @apply cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold;
+  border-color: var(--ct-alpha-20);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-12);
+  transition: background var(--ct-duration-fast) ease;
+}
+
+.ct-lobby-tile-watch-btn:hover {
+  background: var(--ct-alpha-20);
+}
+
+.ct-lobby-tile-fullscreen-btn {
+  @apply absolute right-3 top-3 z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
+  border-color: var(--ct-alpha-20);
+  color: var(--ct-text-primary);
+  background: rgba(15, 15, 15, 0.7);
+  font-size: var(--ct-icon-sm);
+  opacity: 0;
+  transform: scale(0.9);
+  backdrop-filter: blur(8px);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
 .ct-lobby-tile-fullscreen-exit-btn {
   position: absolute;
   top: 24px;
@@ -464,9 +514,17 @@
 }
 
 .ct-lobby-tile-avatar {
-  @apply h-20 w-20 rounded-full border object-cover;
-  border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  @apply h-avatar-lg w-avatar-lg rounded-full border object-cover;
+  border-color: var(--ct-alpha-20);
+  box-shadow: var(--ct-shadow-md);
+}
+
+.ct-lobby-avatar-container.ant-avatar {
+  border: 1.5px solid var(--ct-alpha-12);
+  background: var(--ct-surface-4);
+  color: var(--ct-text-primary);
+  font-weight: 700;
+  box-shadow: var(--ct-shadow-sm);
 }
 
 .ct-lobby-tile-center-logo.media-on {
@@ -652,16 +710,28 @@
   font-size: var(--ct-icon-xs);
 }
 
+/* The variant drives the icon colour, so the JSX stops passing a hex per
+   glyph. "muted" is the viewer's own choice, "inactive" is the participant's. */
+.ct-lobby-flag .anticon {
+  color: inherit;
+}
+
 .ct-lobby-flag.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  border-color: rgba(16, 185, 129, 0.24);
+  color: var(--ct-success);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .ct-lobby-flag.inactive {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--ct-border);
   color: var(--ct-text-muted);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ct-alpha-04);
+}
+
+.ct-lobby-flag.muted {
+  border-color: rgba(239, 68, 68, 0.24);
+  color: var(--ct-danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .ct-lobby-flag.signal {

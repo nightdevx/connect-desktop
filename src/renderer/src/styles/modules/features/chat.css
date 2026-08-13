@@ -3,8 +3,47 @@
   }
 
   .ct-chat-panel-plain {
-    @apply flex h-full min-h-0 flex-col p-3 md:p-4;
+    @apply flex h-full w-full min-h-0 flex-col overflow-hidden p-3 md:p-4;
     background: transparent;
+  }
+
+  /* While a call is up the panel becomes stage + chat drawer, edge to edge. */
+  .ct-chat-panel-plain.in-call {
+    @apply p-0;
+  }
+
+  .ct-call-split {
+    @apply relative flex h-full w-full overflow-hidden;
+  }
+
+  .ct-call-stage {
+    @apply relative flex h-full min-w-0 flex-1 flex-col overflow-hidden;
+    background: #0a0a0a;
+  }
+
+  .ct-call-chat-drawer {
+    @apply flex h-full flex-col overflow-hidden;
+    width: 350px;
+    border-left: 1px solid var(--ct-border);
+    background: rgba(10, 10, 10, 0.98);
+    backdrop-filter: blur(12px);
+    transition: all var(--ct-duration-slow) var(--ct-ease-spring);
+  }
+
+  .ct-call-chat-drawer.closed {
+    width: 0;
+    opacity: 0;
+    border-left-color: transparent;
+  }
+
+  .ct-call-chat-drawer-header {
+    @apply flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3;
+    border-color: var(--ct-border);
+  }
+
+  .ct-call-chat-drawer-header strong {
+    @apply inline-flex items-center gap-2.5 text-base font-semibold;
+    color: var(--ct-text-primary);
   }
 
   /* Header shell: .ct-chat-user-header-premium in theme.css. */
@@ -111,9 +150,66 @@
   }
 
   .ct-chat-thread-box {
-    @apply flex min-h-0 flex-1 flex-col rounded-xl border;
+    @apply flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border;
     border-color: var(--ct-border);
     background: rgba(15, 15, 15, 0.38);
+  }
+
+  /* --- Thread furniture ------------------------------------------------- */
+
+  .ct-chat-search {
+    @apply shrink-0 px-4 pt-2;
+  }
+
+  .ct-chat-search-summary {
+    @apply px-3 py-1.5 text-2xs;
+    color: var(--ct-alpha-50);
+  }
+
+  .ct-chat-load-older {
+    @apply flex justify-center py-2;
+  }
+
+  .ct-chat-typing-indicator {
+    @apply shrink-0 px-4 pb-1.5 text-2xs italic;
+    color: var(--ct-text-muted);
+  }
+
+  /* --- Composer ---------------------------------------------------------- */
+
+  .ct-chat-composer {
+    @apply flex shrink-0 flex-col gap-1.5 border-t p-4;
+    border-color: var(--ct-border);
+    background: transparent;
+  }
+
+  .ct-chat-composer-row {
+    @apply flex items-center gap-1;
+  }
+
+  /* Reply preview and pending attachment share one shape: a strip above the
+     input with the content on the left and a dismiss button on the right. */
+  .ct-composer-chip {
+    @apply flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs;
+    background: var(--ct-alpha-04);
+  }
+
+  .ct-composer-chip-text {
+    @apply min-w-0 flex-1 truncate;
+    color: var(--ct-text-secondary);
+  }
+
+  .ct-chat-input.ant-input-affix-wrapper {
+    @apply flex-1;
+    border-radius: var(--ct-radius-md);
+  }
+
+  .ct-chat-send-btn {
+    color: var(--ct-text-primary);
+  }
+
+  .ct-chat-send-btn:disabled {
+    color: var(--ct-alpha-20);
   }
 
   .ct-chat-thread-box .ct-chat-messages {
@@ -131,6 +227,45 @@
 
   .ct-chat-message-list {
     @apply flex flex-col gap-2;
+  }
+
+  /* --- Mentions and system rows ----------------------------------------- */
+
+  .ct-chat-mention {
+    @apply rounded-sm px-0.5 font-semibold;
+    color: #93c5fd;
+    background: rgba(147, 197, 253, 0.12);
+  }
+
+  /* A mention of you is the one thing worth interrupting the palette for. */
+  .ct-chat-mention.self {
+    color: var(--ct-text-inverse);
+    background: #fbbf24;
+  }
+
+  .ct-chat-row-system {
+    @apply flex w-full justify-center py-3;
+  }
+
+  .ct-chat-system-call-pill {
+    @apply inline-flex items-center gap-2 rounded-full border px-4 py-1.5;
+    border-color: var(--ct-border);
+    background: var(--ct-alpha-04);
+    backdrop-filter: blur(8px);
+  }
+
+  .ct-chat-system-call-label {
+    @apply inline-flex items-center gap-1.5 text-xs font-medium;
+    color: var(--ct-success);
+  }
+
+  .ct-chat-system-call-label.ended {
+    color: var(--ct-danger);
+  }
+
+  .ct-chat-system-call-time {
+    @apply text-micro font-medium;
+    color: var(--ct-alpha-32);
   }
 
   .ct-chat-row {
@@ -169,6 +304,94 @@
 
   .ct-chat-bubble-meta {
     @apply mt-1 flex items-center justify-between gap-2;
+  }
+
+  .ct-chat-message-actions {
+    @apply inline-flex items-center gap-0.5;
+  }
+
+  /* --- Reply quote, attachment, reactions --------------------------------
+     Shared by both conversation surfaces. */
+
+  .ct-chat-reply-quote {
+    @apply mb-1.5 pl-2 text-xs leading-snug;
+    border-left: 2px solid rgba(147, 197, 253, 0.6);
+    opacity: 0.75;
+  }
+
+  .ct-chat-reply-quote strong {
+    @apply block text-2xs;
+  }
+
+  .ct-chat-reply-quote em {
+    opacity: 0.7;
+  }
+
+  .ct-chat-attachment {
+    @apply relative mt-1.5;
+  }
+
+  .ct-chat-attachment-image {
+    @apply block max-w-full cursor-pointer rounded-sm;
+    max-height: 280px;
+  }
+
+  .ct-chat-attachment-loading {
+    @apply flex items-center justify-center rounded-sm text-2xs;
+    width: 180px;
+    height: 110px;
+    background: var(--ct-alpha-04);
+    opacity: 0.6;
+  }
+
+  .ct-chat-attachment-file {
+    @apply flex items-center gap-2 rounded-sm border px-2.5 py-2;
+    border-color: var(--ct-border);
+    background: var(--ct-alpha-04);
+  }
+
+  .ct-chat-attachment-meta {
+    @apply min-w-0 flex-1;
+  }
+
+  .ct-chat-attachment-name {
+    @apply truncate text-xs;
+  }
+
+  .ct-chat-attachment-size {
+    @apply text-micro;
+    opacity: 0.55;
+  }
+
+  .ct-chat-reactions {
+    @apply mt-1 flex flex-wrap gap-1;
+  }
+
+  .ct-chat-reaction {
+    @apply inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-2xs leading-none;
+    border-color: var(--ct-border-strong);
+    color: inherit;
+    background: var(--ct-alpha-04);
+  }
+
+  /* Your own reaction reads as "pressed", so a count you contributed to is
+     distinguishable from one you only watched. */
+  .ct-chat-reaction.mine {
+    border-color: rgba(147, 197, 253, 0.8);
+    background: rgba(147, 197, 253, 0.18);
+  }
+
+  .ct-chat-reaction:disabled {
+    cursor: default;
+  }
+
+  .ct-chat-reaction-picker {
+    @apply flex gap-0.5;
+  }
+
+  .ct-chat-reaction-picker button {
+    @apply cursor-pointer border-0 bg-transparent p-0.5 leading-none;
+    font-size: 15px;
   }
 
   /* A 20px hit target was below the point where a pointer reliably lands on
@@ -266,6 +489,35 @@
   white-space: nowrap; /* Prevent text from wrapping */
   overflow: hidden;
   text-overflow: ellipsis; /* Add ... if text is too long */
+}
+
+.ct-banner-lines {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-banner-lines strong {
+  @apply truncate text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-banner-lines span {
+  @apply truncate text-2xs;
+  color: var(--ct-alpha-50);
+}
+
+.ct-call-pulse-avatar-container {
+  @apply relative h-avatar-sm w-avatar-sm shrink-0;
+}
+
+.ct-call-pulse-avatar-container .ant-avatar {
+  border: 1.5px solid var(--ct-alpha-20);
+  background: var(--ct-surface-3);
+  animation: callAvatarDimPulse 2s infinite ease-in-out;
+}
+
+.ct-chat-user-header-avatar.ant-avatar {
+  border: 1.5px solid var(--ct-alpha-12);
+  background: var(--ct-surface-3);
 }
 
 @media (prefers-reduced-motion: reduce) {

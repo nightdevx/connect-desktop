@@ -82,13 +82,6 @@ const renderWithMentions = (
       <span
         key={`${index}-${part}`}
         className={`ct-chat-mention ${isSelf ? "self" : ""}`}
-        style={{
-          borderRadius: "4px",
-          padding: "0 3px",
-          fontWeight: 600,
-          color: isSelf ? "#0b0b0b" : "#93c5fd",
-          background: isSelf ? "#fbbf24" : "rgba(147, 197, 253, 0.12)",
-        }}
       >
         {part}
       </span>
@@ -132,50 +125,15 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
 
   if (isCallStart || isCallEnd) {
     return (
-      <div
-        className="ct-chat-row-system"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          margin: "12px 0",
-          width: "100%",
-        }}
-      >
-        <div
-          className="ct-chat-system-call-pill"
-          style={{
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: "20px",
-            padding: "6px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-          }}
-        >
+      <div className="ct-chat-row-system">
+        <div className="ct-chat-system-call-pill">
           <span
-            style={{
-              fontSize: "12px",
-              fontWeight: "500",
-              color: isCallStart ? "#22c55e" : "#ef4444",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
+            className={`ct-chat-system-call-label ${isCallEnd ? "ended" : ""}`}
           >
-            <PhoneOutlined style={{ fontSize: "12px" }} />
+            <PhoneOutlined />
             {message.body}
           </span>
-          <span
-            style={{
-              fontSize: "10px",
-              color: "rgba(255, 255, 255, 0.35)",
-              fontWeight: "500",
-            }}
-          >
+          <span className="ct-chat-system-call-time">
             • {formatTimeLabel(message.createdAt)}
           </span>
         </div>
@@ -216,7 +174,7 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
                 setIsEditing(false);
               }
             }}
-            style={{ fontSize: 13 }}
+           
           />
         ) : (
           message.body && (
@@ -243,7 +201,7 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
 
           <span
             className="ct-chat-message-actions"
-            style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
+           
           >
             <ChatQuickReactionPicker
               onPick={(emoji) => {
@@ -264,7 +222,7 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
               aria-label="Yanıtla"
               title="Yanıtla"
             >
-              <EnterOutlined style={{ fontSize: "11px" }} />
+              <EnterOutlined />
             </button>
 
             {isOwnMessage && message.body && (
@@ -278,7 +236,7 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
                 aria-label="Mesajı düzenle"
                 title="Mesajı düzenle"
               >
-                <EditOutlined style={{ fontSize: "11px" }} />
+                <EditOutlined />
               </button>
             )}
 
@@ -294,7 +252,7 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
                 {isDeleting ? (
                   <div className="ct-spinner-small" />
                 ) : (
-                  <DeleteOutlined style={{ fontSize: "11px" }} />
+                  <DeleteOutlined />
                 )}
               </button>
             )}
@@ -720,15 +678,15 @@ export function UsersDirectMessagesPanel({
 
   const renderChatBox = () => {
     return (
-      <div className="ct-chat-thread-box" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div className="ct-chat-thread-box">
         {onRunSearch && (
-          <div style={{ padding: "8px 16px 0" }}>
+          <div className="ct-chat-search">
             <Input
               allowClear
               size="small"
               value={searchQuery}
               placeholder="Bu sohbette ara…"
-              prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
+              prefix={<SearchOutlined />}
               onChange={(event) => {
                 const value = event.target.value;
                 if (!value.trim()) {
@@ -737,18 +695,12 @@ export function UsersDirectMessagesPanel({
                 }
                 onRunSearch(value);
               }}
-              style={{
-                background: "rgba(12, 12, 12, 0.6)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-              }}
             />
           </div>
         )}
         <div
           className={`ct-chat-messages ${showEmptyState ? "empty" : ""}`}
           ref={chatScrollRef}
-          style={{ flex: 1, overflowY: "auto" }}
         >
           {directMessagesQuery.isPending && (
             <div className="ct-list-state">Mesajlar yükleniyor...</div>
@@ -772,20 +724,16 @@ export function UsersDirectMessagesPanel({
 
           {searchResults === null && showEmptyState && (
             <div className="ct-list-state ct-chat-empty-state">
-              <p className="text-sm text-[#8f8f8f] mb-1">Bu kişiyle henüz mesajlaşma yok.</p>
-              <p className="text-xs text-[#5f5f5f]">İlk mesajı göndermek için aşağıdaki yazma alanını kullanabilirsin.</p>
+              <p>Bu kişiyle henüz mesajlaşma yok.</p>
+              <span>
+                İlk mesajı göndermek için aşağıdaki yazma alanını kullanabilirsin.
+              </span>
             </div>
           )}
 
           {searchResults !== null && (
             <div className="ct-chat-message-list">
-              <div
-                style={{
-                  padding: "6px 12px",
-                  fontSize: 11,
-                  color: "rgba(255,255,255,0.5)",
-                }}
-              >
+              <div className="ct-chat-search-summary">
                 {isSearching
                   ? "Aranıyor…"
                   : `"${searchQuery}" için ${searchResults.length} sonuç`}
@@ -816,13 +764,12 @@ export function UsersDirectMessagesPanel({
           {searchResults === null && !showEmptyState && (
             <div className="ct-chat-message-list">
               {hasMoreMessages && directMessages.length > 0 && (
-                <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                <div className="ct-chat-load-older">
                   <Button
                     size="small"
                     type="text"
                     loading={isLoadingOlderMessages}
                     onClick={onLoadOlderMessages}
-                    style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px" }}
                   >
                     Daha eski mesajları yükle
                   </Button>
@@ -854,34 +801,15 @@ export function UsersDirectMessagesPanel({
         </div>
 
         {isPeerTyping && (
-          <div
-            className="ct-chat-typing-indicator"
-            aria-live="polite"
-            style={{
-              padding: "0 16px 6px",
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.45)",
-              fontStyle: "italic",
-            }}
-          >
+          <div className="ct-chat-typing-indicator" aria-live="polite">
             {selectedUser?.displayName || selectedUser?.username} yazıyor…
           </div>
         )}
 
-        <div className="ct-chat-composer" style={{ padding: "16px", background: "transparent" }}>
+        <div className="ct-chat-composer">
           {replyTo && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 6,
-                padding: "6px 10px",
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.04)",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="ct-composer-chip">
+              <div className="ct-composer-chip-text">
                 <ChatReplyQuote
                   replyTo={{
                     id: replyTo.id,
@@ -901,27 +829,8 @@ export function UsersDirectMessagesPanel({
           )}
 
           {pendingAttachment && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 6,
-                padding: "6px 10px",
-                borderRadius: 8,
-                fontSize: 12,
-                background: "rgba(255,255,255,0.04)",
-              }}
-            >
-              <span
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
+            <div className="ct-composer-chip">
+              <span className="ct-composer-chip-text">
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
               </span>
@@ -935,7 +844,7 @@ export function UsersDirectMessagesPanel({
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div className="ct-chat-composer-row">
             <ChatAttachButton
               disabled={isSendingMessage}
               onSelect={(upload, file) =>
@@ -968,27 +877,22 @@ export function UsersDirectMessagesPanel({
                 }
               }}
               disabled={isSendingMessage}
+              className="ct-chat-input"
               suffix={
                 <Button
                   type="text"
-                  icon={<SendOutlined style={{ color: messageDraft.trim() || pendingAttachment ? "#ffffff" : "rgba(255,255,255,0.2)" }} />}
+                  size="small"
+                  className="ct-chat-send-btn"
+                  icon={<SendOutlined />}
                   onClick={onSendMessage}
                   loading={isSendingMessage}
                   disabled={
                     isSendingMessage ||
                     (!messageDraft.trim() && !pendingAttachment)
                   }
-                  style={{ background: "transparent", border: "none" }}
+                  aria-label="Gönder"
                 />
               }
-              style={{
-                flex: 1,
-                background: "rgba(12, 12, 12, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "10px",
-                padding: "6px 12px",
-              }}
             />
           </div>
         </div>
@@ -1000,78 +904,30 @@ export function UsersDirectMessagesPanel({
 
   return (
     <article
-      className={`ct-chat-panel ${isCallActive ? "ct-chat-panel-plain flex flex-row" : "ct-chat-panel-plain"}`}
-      style={{
-        height: "100%",
-        width: "100%",
-        overflow: "hidden",
-        padding: isCallActive ? 0 : undefined
-      }}
+      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""}`}
     >
       {selectedUser ? (
         <>
           {isCallActive ? (
-            <div style={{ display: "flex", width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+            <div className="ct-call-split">
               {/* LEFT SIDE: EMBEDDED CALL STAGE */}
-              <section 
-                className="ct-lobby-stage-panel" 
+              <section
+                className="ct-lobby-stage-panel ct-call-stage"
                 ref={stagePanelRef}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  overflow: "hidden",
-                  position: "relative",
-                  background: "#0a0a0a"
-                }}
               >
                 {/* Embedded Stage Toggle Chat Button */}
                 <button
                   type="button"
                   className="ct-lobby-chat-toggle in-stage"
                   onClick={() => setIsChatOpen((prev) => !prev)}
-                  style={{
-                    position: "absolute",
-                    top: "16px",
-                    right: "16px",
-                    zIndex: 30,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "8px 16px",
-                    borderRadius: "20px",
-                    background: "rgba(18, 18, 18, 0.72)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)",
-                    color: "rgba(255, 255, 255, 0.85)",
-                    fontSize: "12px",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(24, 24, 24, 0.85)";
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.16)";
-                    e.currentTarget.style.color = "#ffffff";
-                    e.currentTarget.style.transform = "scale(1.03)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(18, 18, 18, 0.72)";
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
-                    e.currentTarget.style.color = "rgba(255, 255, 255, 0.85)";
-                    e.currentTarget.style.transform = "none";
-                  }}
                 >
                   {isChatOpen ? (
                     <>
-                      <RightOutlined style={{ fontSize: "11px" }} /> Sohbeti Kapat
+                      <RightOutlined /> Sohbeti Kapat
                     </>
                   ) : (
                     <>
-                      <LeftOutlined style={{ fontSize: "11px" }} /> Sohbeti Aç
+                      <LeftOutlined /> Sohbeti Aç
                     </>
                   )}
                 </button>
@@ -1124,30 +980,21 @@ export function UsersDirectMessagesPanel({
               </section>
 
               {/* RIGHT SIDE: SLIDABLE CHAT */}
-              <aside 
-                style={{
-                  width: isChatOpen ? "350px" : "0px",
-                  opacity: isChatOpen ? 1 : 0,
-                  borderLeft: isChatOpen ? "1px solid rgba(255, 255, 255, 0.08)" : "none",
-                  transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  background: "rgba(10, 10, 10, 0.98)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  overflow: "hidden"
-                }}
+              <aside
+                className={`ct-call-chat-drawer ${isChatOpen ? "" : "closed"}`}
+                aria-hidden={!isChatOpen}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <MessageOutlined style={{ color: "rgba(255,255,255,0.65)" }} />
-                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#ffffff" }}>Sohbet</span>
-                  </div>
+                <div className="ct-call-chat-drawer-header">
+                  <strong>
+                    <MessageOutlined />
+                    Sohbet
+                  </strong>
                   <Button
                     type="text"
-                    icon={<RightOutlined style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)" }} />}
+                    size="small"
+                    icon={<RightOutlined />}
                     onClick={() => setIsChatOpen(false)}
+                    aria-label="Sohbeti kapat"
                   />
                 </div>
                 {renderChatBox()}
@@ -1191,10 +1038,7 @@ export function UsersDirectMessagesPanel({
                       size={42}
                       src={selectedUser.avatarUrl}
                       icon={!selectedUser.avatarUrl && <UserOutlined />}
-                      style={{
-                        border: "1.5px solid rgba(255, 255, 255, 0.15)",
-                        background: "#121212",
-                      }}
+                      className="ct-chat-user-header-avatar"
                     />
                     <span
                       className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-[#0d0d0d] ${
@@ -1220,9 +1064,9 @@ export function UsersDirectMessagesPanel({
                       type="text"
                       icon={
                         isMuted ? (
-                          <BellFilled style={{ color: "#ef4444", fontSize: "16px" }} />
+                          <BellFilled className="ct-icon-danger" />
                         ) : (
-                          <BellOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: "16px" }} />
+                          <BellOutlined />
                         )
                       }
                       onClick={(e) => {
@@ -1236,7 +1080,7 @@ export function UsersDirectMessagesPanel({
                     <Tooltip title="Ara">
                       <Button
                         type="text"
-                        icon={<PhoneOutlined style={{ color: "#22c55e", fontSize: "16px" }} />}
+                        icon={<PhoneOutlined className="ct-icon-success" />}
                         onClick={(e) => {
                           e.stopPropagation();
                           onInitiateCall(selectedUser);
@@ -1247,7 +1091,7 @@ export function UsersDirectMessagesPanel({
                   <Tooltip title="Kullanıcı Bilgisi">
                     <Button
                       type="text"
-                      icon={<InfoCircleOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: "16px" }} />}
+                      icon={<InfoCircleOutlined />}
                       onClick={(e) => {
                         e.stopPropagation();
                         setIsUserPopupOpen(true);
@@ -1262,23 +1106,19 @@ export function UsersDirectMessagesPanel({
                 <div className="ct-muted-call-banner">
                   {/* Left side: Avatar and Text */}
                   <div className="ct-banner-text-content">
-                    <div className="ct-call-pulse-avatar-container" style={{ position: "relative", width: "32px", height: "32px", flexShrink: 0 }}>
+                    <div className="ct-call-pulse-avatar-container" >
                       <Avatar
                         size={32}
                         src={selectedUser.avatarUrl}
                         icon={!selectedUser.avatarUrl && <UserOutlined />}
-                        style={{
-                          border: "1.5px solid rgba(255, 255, 255, 0.2)",
-                          background: "#121212",
-                          animation: "callAvatarDimPulse 2s infinite ease-in-out"
-                        }}
+                        
                       />
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div className="ct-banner-lines">
+                      <span >
                         {selectedUser.displayName || selectedUser.username} arıyor...
                       </span>
-                      <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span >
                         Gelen sesli/görüntülü arama
                       </span>
                     </div>
@@ -1311,8 +1151,8 @@ export function UsersDirectMessagesPanel({
               {ongoingCall && ongoingCall.peerUser.userId === selectedUser?.userId && callState?.status !== "active" && (
                 <div className="ct-rejoin-banner">
                   <div className="ct-banner-text-content">
-                    <PhoneOutlined style={{ color: "#10b981", fontSize: "14px", flexShrink: 0 }} />
-                    <span style={{ fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Devam eden aktif bir sesli/görüntülü arama var.</span>
+                    <PhoneOutlined className="ct-icon-success" />
+                    <span >Devam eden aktif bir sesli/görüntülü arama var.</span>
                   </div>
                   <Button
                     type="primary"
@@ -1366,10 +1206,7 @@ export function UsersDirectMessagesPanel({
                   size={96}
                   src={selectedUser.avatarUrl}
                   icon={!selectedUser.avatarUrl && <UserOutlined />}
-                  style={{
-                    border: "2px solid rgba(255, 255, 255, 0.15)",
-                    background: "#161616",
-                  }}
+                  className="ct-chat-user-header-avatar"
                 />
                 <span
                   className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-[#0a0a0a] ${
@@ -1385,14 +1222,14 @@ export function UsersDirectMessagesPanel({
                 <p className="text-[13px] text-[#8f8f8f] mt-0.5">@{selectedUser.username}</p>
               </div>
 
-              <Tag color={selectedUser.role === "admin" ? "gold" : "default"} style={{ margin: 0, borderRadius: "4px" }}>
+              <Tag color={selectedUser.role === "admin" ? "gold" : "default"}>
                 {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
               </Tag>
             </div>
 
-            <Divider style={{ borderColor: "rgba(255, 255, 255, 0.08)", margin: "0 0 20px 0" }} />
+            <Divider />
 
-            <Descriptions title={null} column={1} layout="horizontal" size="small" style={{ margin: 0 }}>
+            <Descriptions title={null} column={1} layout="horizontal" size="small">
               <Descriptions.Item
                 label={
                   <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
@@ -1442,14 +1279,6 @@ export function UsersDirectMessagesPanel({
                   void onCopyUsername(selectedUser.username);
                   setIsUserPopupOpen(false);
                 }}
-                style={{
-                  background: "rgba(25, 25, 25, 0.8)",
-                  borderColor: "rgba(255, 255, 255, 0.08)",
-                  color: "#f5f5f5",
-                  borderRadius: "8px",
-                  height: "38px",
-                  fontSize: "12px",
-                }}
               >
                 Kullanıcı Adını Kopyala
               </Button>
@@ -1463,14 +1292,7 @@ export function UsersDirectMessagesPanel({
                   onClick={() => {
                     void onToggleBlocked(selectedUser.userId);
                   }}
-                  style={{
-                    marginTop: "10px",
-                    background: "rgba(25, 25, 25, 0.8)",
-                    borderColor: "rgba(255, 255, 255, 0.08)",
-                    borderRadius: "8px",
-                    height: "38px",
-                    fontSize: "12px",
-                  }}
+                  className="mt-2.5"
                 >
                   {isSelectedUserBlocked
                     ? "Engeli Kaldır"
@@ -1479,14 +1301,7 @@ export function UsersDirectMessagesPanel({
               )}
 
               {isSelectedUserBlocked && (
-                <p
-                  style={{
-                    marginTop: "8px",
-                    fontSize: "11px",
-                    color: "rgba(255,255,255,0.4)",
-                    textAlign: "center",
-                  }}
-                >
+                <p className="ct-field-hint mt-2 text-center">
                   Engellenen kullanıcıyla mesajlaşma ve arama karşılıklı olarak
                   kapalıdır.
                 </p>
@@ -1515,8 +1330,8 @@ export function UsersDirectMessagesPanel({
           />
         </>
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-[rgba(5,5,5,0.2)]" style={{ height: "100%" }}>
-          <ExclamationCircleOutlined style={{ fontSize: "32px", color: "rgba(255,255,255,0.15)", marginBottom: "16px" }} />
+        <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-[rgba(5,5,5,0.2)]" >
+          <ExclamationCircleOutlined className="ct-list-state-icon" />
           <h3 className="text-base font-semibold text-white mb-1">Bir Sohbet Seç</h3>
           <p className="text-xs text-[#8f8f8f] max-w-[280px]">
             Direkt mesajları görmek, dosya göndermek ve sesli/görüntülü bağlantı kurmak için soldaki listeden bir arkadaşını seçebilirsin.

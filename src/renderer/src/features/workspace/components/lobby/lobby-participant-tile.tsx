@@ -277,7 +277,7 @@ function LobbyParticipantTileImpl({
     >
       {kind === "screen" && (
         <div className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
-          <DesktopOutlined style={{ fontSize: "11px" }} />
+          <DesktopOutlined  />
           <span>Ekran</span>
         </div>
       )}
@@ -285,21 +285,10 @@ function LobbyParticipantTileImpl({
       {showWatchPrompt && (
         <div
           className="ct-lobby-tile-watch-prompt"
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            zIndex: 25,
-            background: "rgba(10, 10, 10, 0.55)",
-            backdropFilter: "blur(2px)",
-          }}
+          
         >
-          <DesktopOutlined style={{ fontSize: 22, opacity: 0.7 }} />
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+          <DesktopOutlined  />
+          <span className="ct-lobby-tile-watch-title">
             {participant.username} yayında
           </span>
           <button
@@ -309,20 +298,11 @@ function LobbyParticipantTileImpl({
               event.stopPropagation();
               onWatchScreen?.(participant.userId);
             }}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 999,
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.1)",
-              color: "#ffffff",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="ct-lobby-tile-watch-btn"
           >
             Yayını izle
           </button>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+          <span className="ct-lobby-tile-watch-hint">
             Bırakmak için sağ tıklayın
           </span>
         </div>
@@ -348,36 +328,15 @@ function LobbyParticipantTileImpl({
               className="ct-lobby-tile-fullscreen-exit-btn"
               title="Tam Ekrandan Çık"
             >
-              <FullscreenExitOutlined style={{ fontSize: "16px" }} />
+              <FullscreenExitOutlined  />
             </button>
           ) : (
             <button
               onClick={handleToggleFullscreen}
               className="ct-lobby-tile-fullscreen-btn"
               title="Tam Ekran Yap"
-              style={{
-                position: "absolute",
-                top: "12px",
-                right: "12px",
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                background: "rgba(15, 15, 15, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#ffffff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                zIndex: 30,
-                opacity: 0,
-                transform: "scale(0.9)",
-                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                backdropFilter: "blur(6px)",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-              }}
             >
-              <FullscreenOutlined style={{ fontSize: "14px" }} />
+              <FullscreenOutlined  />
             </button>
           )}
         </div>
@@ -391,17 +350,7 @@ function LobbyParticipantTileImpl({
           size={isCompact ? 40 : 64}
           src={avatarUrl}
           className="ct-lobby-avatar-container"
-          style={{
-            background: "rgba(30, 30, 30, 0.9)",
-            border: "1.5px solid rgba(255, 255, 255, 0.15)",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#ffffff",
-            fontWeight: "bold",
-            fontSize: isCompact ? "14px" : "20px",
-          }}
+          
         >
           {getDisplayInitials(participant.username)}
         </Avatar>
@@ -430,9 +379,9 @@ function LobbyParticipantTileImpl({
                 title="Sağ tık: giriş cihazı"
               >
                 {micOpen ? (
-                  <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                  <AudioOutlined  />
                 ) : (
-                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                  <AudioMutedOutlined  />
                 )}
               </span>
             </AudioDeviceDropdown>
@@ -440,11 +389,11 @@ function LobbyParticipantTileImpl({
             <Tooltip title={localAudioMuted ? "Siz susturdunuz" : (micOpen ? "Mikrofon açık" : "Mikrofon kapalı")}>
               <span className={`ct-lobby-flag ${localAudioMuted ? "muted" : (micOpen ? "active" : "inactive")}`}>
                 {localAudioMuted ? (
-                  <AudioMutedOutlined style={{ fontSize: "11px", color: "#ef4444" }} />
+                  <AudioMutedOutlined  />
                 ) : micOpen ? (
-                  <AudioOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                  <AudioOutlined  />
                 ) : (
-                  <AudioMutedOutlined style={{ fontSize: "11px", color: participant.serverMuted ? "#ef4444" : "#6b7280" }} />
+                  <AudioMutedOutlined  />
                 )}
               </span>
             </Tooltip>
@@ -462,9 +411,9 @@ function LobbyParticipantTileImpl({
                 title="Sağ tık: çıkış cihazı"
               >
                 {headphoneOpen ? (
-                  <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                  <CustomerServiceOutlined  />
                 ) : (
-                  <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                  <MutedOutlined  />
                 )}
               </span>
             </AudioDeviceDropdown>
@@ -473,9 +422,9 @@ function LobbyParticipantTileImpl({
               className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
             >
               {headphoneOpen ? (
-                <CustomerServiceOutlined style={{ fontSize: "11px", color: "#10b981" }} />
+                <CustomerServiceOutlined  />
               ) : (
-                <MutedOutlined style={{ fontSize: "11px", color: "#6b7280" }} />
+                <MutedOutlined  />
               )}
             </span>
           )}
@@ -484,9 +433,9 @@ function LobbyParticipantTileImpl({
             <Tooltip title={localScreenAudioMuted ? "Yayın sesini susturdunuz" : "Ekran paylaşımı açık"}>
               <span className={`ct-lobby-flag ${localScreenAudioMuted ? "muted" : "signal"}`}>
                 {localScreenAudioMuted ? (
-                  <MutedOutlined style={{ fontSize: "11px", color: "#ef4444" }} />
+                  <MutedOutlined  />
                 ) : (
-                  <DesktopOutlined style={{ fontSize: "11px", color: "#ffffff" }} />
+                  <DesktopOutlined  />
                 )}
               </span>
             </Tooltip>

@@ -41,18 +41,6 @@ interface LobbyChatMessageRowProps {
 // re-rendered the entire backlog — up to 200 bubbles with an antd Button and
 // Tooltip each. onRequestDelete is a setState updater, so its identity is
 // stable and the default shallow compare is enough.
-const iconButtonStyle = {
-  width: "20px",
-  height: "20px",
-  minWidth: "20px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "rgba(255,255,255,0.45)",
-  border: "none",
-  background: "transparent",
-} as const;
-
 const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
   message,
   isOwnMessage,
@@ -100,11 +88,11 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
                 setIsEditing(false);
               }
             }}
-            style={{ fontSize: 13 }}
+            
           />
         ) : (
           message.body && (
-            <p style={{ margin: 0, wordBreak: "break-word" }}>{message.body}</p>
+            <p >{message.body}</p>
           )
         )}
 
@@ -120,19 +108,14 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
 
         <div
           className="ct-chat-bubble-meta"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: "4px",
-          }}
+          
         >
-          <span style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.35)" }}>
+          <span >
             {message.username} • {formatTimeLabel(message.createdAt)}
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+          <span >
             <ChatQuickReactionPicker
               onPick={(emoji) => {
                 const existing = (message.reactions ?? []).find(
@@ -148,9 +131,9 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
                 type="text"
                 shape="circle"
                 size="small"
-                icon={<EnterOutlined style={{ fontSize: "11px" }} />}
+                icon={<EnterOutlined  />}
                 onClick={() => onReply(message)}
-                style={iconButtonStyle}
+                className="ct-chat-message-delete"
               />
             </Tooltip>
 
@@ -160,12 +143,12 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
                   type="text"
                   shape="circle"
                   size="small"
-                  icon={<EditOutlined style={{ fontSize: "11px" }} />}
+                  icon={<EditOutlined  />}
                   onClick={() => {
                     setEditDraft(message.body);
                     setIsEditing(true);
                   }}
-                  style={iconButtonStyle}
+                  className="ct-chat-message-delete"
                 />
               </Tooltip>
             )}
@@ -181,12 +164,12 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
                     isDeleting ? (
                       <Spin size="small" />
                     ) : (
-                      <DeleteOutlined style={{ fontSize: "11px" }} />
+                      <DeleteOutlined  />
                     )
                   }
                   onClick={() => onRequestDelete(message.id)}
                   disabled={deleteDisabled}
-                  style={iconButtonStyle}
+                  className="ct-chat-message-delete"
                 />
               </Tooltip>
             )}
@@ -277,16 +260,16 @@ export function LobbyChatPanel({
     lobbyMessages.length === 0;
 
   return (
-    <section className="ct-lobby-chat-panel" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="ct-chat-thread-box" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <section className="ct-lobby-chat-panel" >
+      <div className="ct-chat-thread-box" >
         {onRunSearch && (
-          <div style={{ padding: "10px 16px 0" }}>
+          <div className="ct-chat-search">
             <Input
               allowClear
               size="small"
               value={searchQuery}
               placeholder="Bu lobide ara…"
-              prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
+              prefix={<SearchOutlined  />}
               onChange={(event) => {
                 const value = event.target.value;
                 if (!value.trim()) {
@@ -295,40 +278,32 @@ export function LobbyChatPanel({
                 }
                 onRunSearch(value);
               }}
-              style={{
-                background: "rgba(12, 12, 12, 0.6)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-              }}
+              
             />
           </div>
         )}
         <div
           ref={messagesContainerRef}
           className="ct-chat-messages" 
-          style={{ flex: 1, overflowY: "auto", padding: "16px" }}
+          
         >
           <div className="ct-scroll-indicator top" />
 
           {lobbyMessagesQuery.isPending && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", flexDirection: "column", gap: "10px", padding: "40px 0" }}>
+            <div className="ct-list-state">
               <Spin size="small" />
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sohbet yükleniyor...</span>
+              <span >Sohbet yükleniyor...</span>
             </div>
           )}
 
           {!lobbyMessagesQuery.isPending && lobbyMessagesQuery.isError && (
-            <div style={{ padding: "8px 16px" }}>
+            <div className="ct-chat-search">
               <Alert
                 message="Hata"
                 description={`Sohbet alınamadı: ${lobbyMessagesQuery.error.message}`}
                 type="error"
                 showIcon
-                style={{
-                  background: "rgba(255, 77, 79, 0.05)",
-                  border: "1px solid rgba(255, 77, 79, 0.15)",
-                  color: "#ff4d4f"
-                }}
+                className="ct-alert"
               />
             </div>
           )}
@@ -336,23 +311,19 @@ export function LobbyChatPanel({
           {!lobbyMessagesQuery.isPending &&
             !lobbyMessagesQuery.isError &&
             !lobbyMessagesQuery.data?.ok && (
-              <div style={{ padding: "8px 16px" }}>
+              <div className="ct-chat-search">
                 <Alert
                   message="Hata"
                   description={`Sohbet alınamadı: ${getApiErrorMessage(lobbyMessagesQuery.data?.error)}`}
                   type="error"
                   showIcon
-                  style={{
-                    background: "rgba(255, 77, 79, 0.05)",
-                    border: "1px solid rgba(255, 77, 79, 0.15)",
-                    color: "#ff4d4f"
-                  }}
+                  className="ct-alert"
                 />
               </div>
             )}
 
           {searchResults === null && showEmptyState && (
-            <div className="ct-list-state ct-chat-empty-state" style={{ padding: "32px 16px", textAlign: "center" }}>
+            <div className="ct-list-state ct-chat-empty-state" >
               <p className="text-xs text-[#5f5f5f]">Bu lobide henüz mesaj yok. İlk mesajı sen gönder!</p>
             </div>
           )}
@@ -360,11 +331,7 @@ export function LobbyChatPanel({
           {searchResults !== null && (
             <div className="ct-chat-message-list">
               <div
-                style={{
-                  padding: "6px 4px",
-                  fontSize: 11,
-                  color: "rgba(255,255,255,0.5)",
-                }}
+                className="ct-chat-search-summary"
               >
                 {isSearching
                   ? "Aranıyor…"
@@ -420,20 +387,12 @@ export function LobbyChatPanel({
           </button>
         </div>
 
-        <div className="ct-chat-composer" style={{ padding: "12px 16px", background: "transparent" }}>
+        <div className="ct-chat-composer" >
           {replyTo && (
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 6,
-                padding: "6px 10px",
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.04)",
-              }}
+              className="ct-composer-chip"
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ct-composer-chip-text">
                 <ChatReplyQuote
                   replyTo={{
                     id: replyTo.id,
@@ -454,25 +413,10 @@ export function LobbyChatPanel({
 
           {pendingAttachment && (
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 6,
-                padding: "6px 10px",
-                borderRadius: 8,
-                fontSize: 12,
-                background: "rgba(255,255,255,0.04)",
-              }}
+              className="ct-composer-chip"
             >
               <span
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
+                className="ct-composer-chip-text"
               >
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
@@ -487,7 +431,7 @@ export function LobbyChatPanel({
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div className="ct-chat-composer-row">
             <ChatAttachButton
               disabled={isSendingLobbyMessage}
               onSelect={(upload, file) =>
@@ -519,24 +463,17 @@ export function LobbyChatPanel({
               suffix={
                 <Button
                   type="text"
-                  icon={<SendOutlined style={{ color: lobbyMessageDraft.trim() || pendingAttachment ? "#ffffff" : "rgba(255,255,255,0.2)" }} />}
+                  icon={<SendOutlined  />}
                   onClick={onSendLobbyMessage}
                   loading={isSendingLobbyMessage}
                   disabled={
                     isSendingLobbyMessage ||
                     (!lobbyMessageDraft.trim() && !pendingAttachment)
                   }
-                  style={{ background: "transparent", border: "none" }}
+                  className="ct-chat-send-btn"
                 />
               }
-              style={{
-                flex: 1,
-                background: "rgba(12, 12, 12, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "8px",
-                padding: "6px 12px",
-              }}
+              className="ct-chat-input"
             />
           </div>
         </div>
