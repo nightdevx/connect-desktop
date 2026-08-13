@@ -3,34 +3,7 @@
   background: rgba(12, 12, 12, 0.92);
 }
 
-.ct-rail {
-  @apply flex flex-col items-center gap-2 border-r p-2;
-  border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.92);
-}
-
-.ct-rail-button {
-  @apply flex h-14 w-12 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.85);
-  transition: all 0.18s ease;
-}
-
-.ct-rail-button span {
-  @apply inline-flex items-center justify-center;
-}
-
-.ct-rail-button:hover {
-  border-color: var(--ct-border-strong);
-  background: rgba(28, 28, 28, 0.9);
-}
-
-.ct-rail-button.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
+/* .ct-rail and its buttons live in theme.css (single source). */
 
 .ct-sidebar {
   @apply grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
@@ -109,21 +82,6 @@
 
 .ct-users-filters {
   @apply mb-3 grid grid-cols-3 gap-1.5;
-}
-
-.ct-quick-controls {
-  @apply grid gap-2 border-t p-3;
-  border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.75);
-  justify-items: center;
-}
-
-.ct-quick-controls.compact {
-  @apply grid-cols-2;
-}
-
-.ct-quick-controls.expanded {
-  @apply grid-cols-3;
 }
 
 .ct-audio-connection-anchor {

@@ -61,10 +61,6 @@
     flex-direction: row;
   }
 
-  .ct-lobby-room-grid {
-    @apply grid-cols-1;
-  }
-
   .ct-lobby-room-grid-v2,
   .ct-lobby-room-grid-v2.chat-closed {
     grid-template-columns: minmax(0, 1fr);
@@ -101,12 +97,6 @@
   .ct-lobby-participant-tile.compact {
     flex-basis: clamp(156px, 42vw, 220px);
     width: clamp(156px, 42vw, 220px);
-  }
-
-  .ct-lobby-inline-audio-controls {
-    left: 10px;
-    right: 10px;
-    top: 10px;
   }
 
   .ct-lobby-participant-tile {
@@ -200,24 +190,8 @@
     @apply hidden;
   }
 
-  .ct-quick-controls {
-    @apply grid-cols-5;
-  }
-
-  .ct-quick-controls.compact {
-    @apply grid-cols-2;
-  }
-
   .ct-audio-details-grid {
     @apply grid-cols-1;
-  }
-
-  .ct-settings-readonly-grid {
-    @apply grid-cols-1;
-  }
-
-  .ct-audio-connection-metrics {
-    @apply flex-wrap;
   }
 
   .ct-audio-popover {
@@ -232,14 +206,6 @@
   .ct-lobby-stage-grid.focused-layout {
     padding: 54px 8px 94px;
     gap: 8px;
-  }
-
-  .ct-lobby-inline-audio-controls {
-    left: 8px;
-    right: 8px;
-    top: 8px;
-    padding: 7px;
-    gap: 6px;
   }
 
   .ct-lobby-inline-volume-value {

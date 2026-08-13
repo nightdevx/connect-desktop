@@ -7,19 +7,10 @@
     background: transparent;
   }
 
-  .ct-chat-user-header {
-    @apply mb-3 flex items-center justify-between rounded-xl border px-3 py-2.5 text-left;
-    border-color: var(--ct-border);
-    background: rgba(15, 15, 15, 0.42);
-    transition: border-color 0.18s ease;
-  }
+  /* Header shell: .ct-chat-user-header-premium in theme.css. */
 
   .ct-chat-user-header-left {
     @apply flex min-w-0 items-center gap-2;
-  }
-
-  .ct-chat-user-header:hover {
-    border-color: var(--ct-border-strong);
   }
 
   .ct-chat-user-header-main {
@@ -34,11 +25,6 @@
   .ct-chat-user-header-main span {
     @apply mt-0.5 block truncate text-xs;
     color: var(--ct-text-muted);
-  }
-
-  .ct-chat-user-status {
-    @apply inline-flex items-center gap-2 text-xs font-medium;
-    color: var(--ct-text-secondary);
   }
 
   .ct-chat-messages {

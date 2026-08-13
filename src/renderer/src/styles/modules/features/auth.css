@@ -30,12 +30,6 @@
   animation: slowRotate 20s linear infinite;
 }
 
-.ct-orb {
-  @apply mx-auto mb-4 h-16 w-16 rounded-2xl;
-  background: var(--ct-accent);
-  box-shadow: 0 10px 28px var(--ct-accent-glow);
-}
-
 .ct-auth-tab {
   @apply h-11 rounded-xl border text-sm font-semibold;
   border-color: var(--ct-border);

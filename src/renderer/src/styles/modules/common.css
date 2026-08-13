@@ -61,21 +61,6 @@
   font-size: 13px;
 }
 
-.ct-audio-device-item {
-  @apply flex items-center justify-between rounded-lg border p-2 transition-all duration-150;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.ct-audio-device-item.active {
-  border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.ct-audio-device-item span {
-  @apply truncate text-xs text-[#d1d1d1];
-}
-
 .ct-user-popup-overlay {
   @apply fixed inset-0 z-50 grid place-items-center p-4;
   background: rgba(0, 0, 0, 0.7);

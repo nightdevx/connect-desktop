@@ -118,10 +118,6 @@
   color: var(--ct-text-muted);
 }
 
-.ct-lobby-room-grid {
-  @apply grid h-full min-h-0 flex-1;
-}
-
 .ct-lobby-room-grid-v2 {
   grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px);
   gap: 0;

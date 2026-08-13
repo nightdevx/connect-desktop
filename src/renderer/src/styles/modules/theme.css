@@ -150,24 +150,7 @@
   transition: all 0.3s var(--ct-ease-premium);
 }
 
-/* Sidebar List Item Premium Hover States */
-.ct-list-item.clickable {
-  background: transparent;
-  border: 1px solid transparent !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ct-list-item.clickable:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-.ct-list-item.clickable.active {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border-color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
-}
+/* .ct-list-item lives in ui-elements.css (single source). */
 
 /* Premium Chat Header Styling */
 .ct-chat-user-header-premium {
@@ -263,22 +246,7 @@
   @apply text-[#8f8f8f] hover:text-white transition-colors !important;
 }
 
-.ct-btn-primary {
-  @apply border-0 shadow-lg !important;
-  background: linear-gradient(135deg, #ffffff 0%, #d1d1d1 100%) !important;
-  color: #000000 !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.ct-btn-primary:hover {
-  @apply transform -translate-y-0.5 shadow-xl !important;
-  background: linear-gradient(135deg, #ffffff 0%, #e5e5e5 100%) !important;
-  filter: brightness(1.1);
-}
-
-.ct-btn-primary:active {
-  @apply transform translate-y-0 !important;
-}
+/* .ct-btn-primary lives in ui-elements.css (single source). */
 
 /* Speaking Indicator Glow - Static Steady Version */
 .ct-lobby-participant-tile.speaking {
