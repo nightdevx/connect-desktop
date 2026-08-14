@@ -17,7 +17,6 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -26,7 +25,14 @@ const projectRoot = path.join(__dirname, "..");
 const main = async () => {
   const { build } = await import("vite");
 
-  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ct-publish-plan-"));
+  // Inside the project, not os.tmpdir(). livekit-client is left external below,
+  // so Node resolves that bare specifier from wherever the bundle sits — and
+  // from a system temp directory there is no node_modules to walk up to. It
+  // passes on a machine that happens to have one above the temp path and fails
+  // on CI, which is exactly how it was found.
+  const cacheRoot = path.join(projectRoot, "node_modules", ".cache");
+  fs.mkdirSync(cacheRoot, { recursive: true });
+  const outDir = fs.mkdtempSync(path.join(cacheRoot, "ct-publish-plan-"));
 
   await build({
     root: projectRoot,
