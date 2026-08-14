@@ -283,6 +283,16 @@ export function LobbiesMainPanel({
     setFocusedParticipantId((prev) => (prev === participant.userId ? null : participant.userId));
   };
 
+  // Watching a share also focuses it. Subscribing on its own left the stream in
+  // a ~380px grid tile, and adaptive streaming sizes the delivered layer to the
+  // element it is rendered in — so asking to watch a 1080p share got you its
+  // 480x270 layer, on which no text is legible. Focusing gives it the stage,
+  // which is what makes the SFU send the top layer.
+  const handleWatchScreen = (userId: string): void => {
+    onWatchScreen(userId);
+    setFocusedParticipantId(userId);
+  };
+
   const handleParticipantContextMenu = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.preventDefault();
@@ -384,7 +394,7 @@ export function LobbiesMainPanel({
               isRailVisible={isRailVisible}
               setIsRailVisible={setIsRailVisible}
               isWatchingScreen={isWatchingScreen}
-              onWatchScreen={onWatchScreen}
+              onWatchScreen={handleWatchScreen}
             />
 
             {/* Bottom Actions Toolbar */}

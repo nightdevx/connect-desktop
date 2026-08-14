@@ -42,6 +42,14 @@ const scaleLayer = (
   };
 };
 
+// Above this width a third encoding costs more than it is worth. Every
+// simulcast layer is a separate encoder instance, and hardware H.264 encoders
+// have a hard concurrent-session limit (consumer NVENC historically 2-3, shared
+// with whatever else is recording). At 1440p and up the half layer is already
+// 1280x720 or better, which serves a weak subscriber perfectly well, so the
+// quarter layer buys very little for a whole extra encode of a huge frame.
+const MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS = 2560;
+
 /**
  * Extra simulcast layers below the primary encoding, ordered low quality first
  * (the order LiveKit expects). Returns an empty array when the target is
@@ -53,7 +61,10 @@ export const buildSimulcastLayerSpecs = (
   const layers: VideoLayerSpec[] = [];
 
   // Quarter scale first (lowest quality), then half.
-  if (target.width / 4 >= MIN_LAYER_WIDTH) {
+  if (
+    target.width / 4 >= MIN_LAYER_WIDTH &&
+    target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS
+  ) {
     layers.push(scaleLayer(target, 1 / 4, 15));
   }
   if (target.width / 2 >= MIN_LAYER_WIDTH) {
@@ -61,4 +72,46 @@ export const buildSimulcastLayerSpecs = (
   }
 
   return layers;
+};
+
+/**
+ * Rescales a preset's bitrate ceiling to the resolution actually being captured.
+ *
+ * The quality presets pair a resolution with a bitrate ("2160p / 14 Mbps"), but
+ * the capture constraints are ceilings: sharing a 1080p monitor — or a small
+ * window — under the 2160p preset produces a 1920x1080 track that was still
+ * being published with the 2160p bitrate. That is four times more than the
+ * frame needs. The encoder spends it, send-side BWE probes up to find it, and
+ * on any uplink that cannot actually carry it the result is loss and the
+ * stuttering this is meant to prevent. A 800x600 window under the same preset
+ * was being handed 14 Mbps.
+ *
+ * Same exponent as the layer ladder, so a downscaled publish lands on the same
+ * curve as the layer it would have been.
+ */
+export const scaleBitrateToResolution = (params: {
+  presetBitrateBps: number;
+  presetWidth: number;
+  presetHeight: number;
+  actualWidth: number;
+  actualHeight: number;
+}): number => {
+  const { presetBitrateBps, presetWidth, presetHeight, actualWidth, actualHeight } =
+    params;
+
+  const presetPixels = presetWidth * presetHeight;
+  const actualPixels = actualWidth * actualHeight;
+
+  if (presetPixels <= 0 || actualPixels <= 0 || actualPixels >= presetPixels) {
+    // Never scale UP: the preset is the ceiling the user chose, and a capture
+    // larger than the preset is not something the constraints allow anyway.
+    return presetBitrateBps;
+  }
+
+  return Math.max(
+    80_000,
+    Math.round(
+      presetBitrateBps * (actualPixels / presetPixels) ** BITRATE_PIXEL_EXPONENT,
+    ),
+  );
 };

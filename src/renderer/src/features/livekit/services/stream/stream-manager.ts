@@ -31,6 +31,7 @@ import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
 import { findQualityLimitation } from "@shared/media-stats";
+import { scaleBitrateToResolution } from "@shared/video-layers";
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
@@ -746,13 +747,32 @@ export class LiveKitStreamManager {
     fallback: VideoPublishTarget,
   ): VideoPublishTarget {
     const settings = track.getSettings();
+
+    const width = settings.width ?? quality?.width ?? fallback.width;
+    const height = settings.height ?? quality?.height ?? fallback.height;
+
+    const presetWidth = quality?.width ?? fallback.width;
+    const presetHeight = quality?.height ?? fallback.height;
+    const presetBitrateBps = quality?.maxBitrateBps ?? fallback.maxBitrateBps;
+
+    // The dimensions already came from the track; the bitrate has to follow it
+    // down or a 1080p monitor shared under the 2160p preset publishes 1080p at
+    // a 2160p ceiling.
+    const maxBitrateBps = scaleBitrateToResolution({
+      presetBitrateBps,
+      presetWidth,
+      presetHeight,
+      actualWidth: width,
+      actualHeight: height,
+    });
+
     return {
-      width: settings.width ?? quality?.width ?? fallback.width,
-      height: settings.height ?? quality?.height ?? fallback.height,
+      width,
+      height,
       maxFramerate:
         quality?.maxFramerate ??
         Math.round(settings.frameRate ?? fallback.maxFramerate),
-      maxBitrateBps: quality?.maxBitrateBps ?? fallback.maxBitrateBps,
+      maxBitrateBps,
     };
   }
 

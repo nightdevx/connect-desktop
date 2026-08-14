@@ -446,6 +446,57 @@
   color: var(--ct-danger);
 }
 
+/* Video half of the same panel. The stats behind it were being sampled every
+   second and rendered nowhere, so a bad stream had no number attached to it
+   anywhere in the app. */
+.ct-video-quality {
+  @apply flex flex-col gap-2 border-t pt-3;
+  border-color: var(--ct-border);
+}
+
+.ct-video-quality h5 {
+  @apply m-0 text-micro font-bold uppercase tracking-[0.12em];
+  color: var(--ct-text-secondary);
+}
+
+.ct-video-quality-problem {
+  @apply m-0 rounded-sm border px-2 py-1.5 text-2xs;
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+}
+
+.ct-video-quality.warn .ct-video-quality-problem {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.ct-video-quality.error .ct-video-quality-problem {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--ct-danger);
+}
+
+.ct-video-quality-rows {
+  @apply m-0 flex flex-col gap-1;
+}
+
+.ct-video-quality-rows > div {
+  @apply flex items-baseline justify-between gap-3;
+}
+
+.ct-video-quality-rows dt {
+  @apply shrink-0 text-micro;
+  color: var(--ct-text-muted);
+}
+
+.ct-video-quality-rows dd {
+  @apply m-0 truncate text-2xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-video-quality-rows dd.alarm {
+  color: var(--ct-danger);
+}
+
 .ct-audio-popover-actions {
   @apply flex flex-col gap-2 border-t pt-3;
   border-color: var(--ct-border);

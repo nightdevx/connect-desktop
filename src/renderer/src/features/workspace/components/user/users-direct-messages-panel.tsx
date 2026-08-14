@@ -603,6 +603,13 @@ export function UsersDirectMessagesPanel({
     setFocusedParticipantId((prev) => (prev === participant.userId ? null : participant.userId));
   };
 
+  // Same as the lobby stage: subscribing to a share without giving it the stage
+  // leaves adaptive streaming sizing the delivered layer to a small grid tile.
+  const handleWatchScreen = (userId: string): void => {
+    onWatchScreen(userId);
+    setFocusedParticipantId(userId);
+  };
+
   const handleParticipantContextMenu = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView) => {
     if (participant.isLocalUser) return;
     event.preventDefault();
@@ -1027,7 +1034,7 @@ export function UsersDirectMessagesPanel({
                   isRailVisible={isRailVisible}
                   setIsRailVisible={setIsRailVisible}
                   isWatchingScreen={isWatchingScreen}
-                  onWatchScreen={onWatchScreen}
+                  onWatchScreen={handleWatchScreen}
                 />
 
                 {/* LobbyActionToolbar */}

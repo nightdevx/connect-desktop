@@ -18,6 +18,7 @@ import type {
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import type { UseQueryResult } from "@tanstack/react-query";
+import type { VideoQualitySnapshot } from "../../hooks/lobby/use-video-quality";
 import type {
   SettingsSection,
   WorkspaceSection,
@@ -119,6 +120,7 @@ interface WorkspaceSidebarProps {
     activeNoiseMode: "none" | "browser" | "processor";
     onToggleEnhancedNoiseSuppression: () => void;
   };
+  videoQualityProps: VideoQualitySnapshot;
 }
 
 const TONE_LABELS: Record<
@@ -140,6 +142,7 @@ export function WorkspaceSidebar({
   quickControlsProps,
   audioConnectionProps,
   audioProcessingProps,
+  videoQualityProps,
 }: WorkspaceSidebarProps) {
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
   const [newLobbyName, setNewLobbyName] = useState("");
@@ -360,6 +363,83 @@ export function WorkspaceSidebar({
                     </strong>
                   </div>
                 </div>
+
+                {videoQualityProps.active && (
+                  <section
+                    className={`ct-video-quality ${videoQualityProps.tone}`}
+                    aria-label="Yayın kalitesi"
+                  >
+                    <h5>Yayın Kalitesi</h5>
+
+                    {videoQualityProps.problem && (
+                      <p className="ct-video-quality-problem">
+                        {videoQualityProps.problem}
+                      </p>
+                    )}
+
+                    {videoQualityProps.outgoing && (
+                      <dl className="ct-video-quality-rows">
+                        <div>
+                          <dt>Gönderilen</dt>
+                          <dd>
+                            {videoQualityProps.outgoing.resolution}
+                            {videoQualityProps.outgoing.fps !== null &&
+                              ` · ${videoQualityProps.outgoing.fps} fps`}
+                            {videoQualityProps.outgoing.bitrateMbps !== null &&
+                              ` · ${videoQualityProps.outgoing.bitrateMbps} Mbps`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Kodlayıcı</dt>
+                          <dd>
+                            {videoQualityProps.outgoing.codec ?? "-"}
+                            {videoQualityProps.outgoing.hardware === true
+                              ? " · donanım"
+                              : videoQualityProps.outgoing.hardware === false
+                                ? " · yazılım"
+                                : ""}
+                            {` · ${videoQualityProps.outgoing.layerCount} katman`}
+                          </dd>
+                        </div>
+                        {videoQualityProps.headroomMbps !== null && (
+                          <div>
+                            <dt>Yükleme başlık payı</dt>
+                            <dd>{videoQualityProps.headroomMbps} Mbps</dd>
+                          </div>
+                        )}
+                      </dl>
+                    )}
+
+                    {videoQualityProps.incoming && (
+                      <dl className="ct-video-quality-rows">
+                        <div>
+                          <dt>Alınan</dt>
+                          <dd>
+                            {videoQualityProps.incoming.resolution}
+                            {videoQualityProps.incoming.fps !== null &&
+                              ` · ${videoQualityProps.incoming.fps} fps`}
+                            {videoQualityProps.incoming.bitrateMbps !== null &&
+                              ` · ${videoQualityProps.incoming.bitrateMbps} Mbps`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Donma</dt>
+                          <dd
+                            className={
+                              (videoQualityProps.incoming.freezeCount ?? 0) > 0
+                                ? "alarm"
+                                : undefined
+                            }
+                          >
+                            {videoQualityProps.incoming.freezeCount ?? 0} kez
+                            {videoQualityProps.incoming.jitterBufferMs !== null &&
+                              ` · ${videoQualityProps.incoming.jitterBufferMs} ms tampon`}
+                          </dd>
+                        </div>
+                      </dl>
+                    )}
+                  </section>
+                )}
 
                 <div className="ct-audio-popover-actions">
                   <div className="ct-audio-toggle-row">

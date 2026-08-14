@@ -593,6 +593,14 @@
   background: #0a0a0a;
 }
 
+/* A camera fills its tile: cropping a face is fine. A shared screen must not
+   be cropped — the tile is 16:9 and monitors are not, so `cover` was cutting
+   the edges off every 16:10, ultrawide or windowed share, and the parts the
+   viewer needed were often exactly the parts being clipped. */
+.ct-lobby-participant-tile.screen-share .ct-lobby-tile-video {
+  object-fit: contain;
+}
+
 .ct-lobby-tile-center-logo {
   @apply absolute inset-0 grid place-items-center text-[44px] font-extrabold;
   color: var(--ct-text-primary);

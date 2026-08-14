@@ -20,6 +20,7 @@ import {
   usePresenceStatus,
   useVoiceHotkeys,
   useWorkspaceAudioConnection,
+  useVideoQuality,
   useWorkspaceLobbyActions,
   useLobbyRoom,
   useWorkspaceMediaControls,
@@ -890,6 +891,8 @@ function WorkspaceShell({
     mediaStats,
   });
 
+  const videoQuality = useVideoQuality(mediaStats);
+
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
     console.log(`[WorkspaceShell] Mikrofon cihazı değiştiriliyor: ${deviceId ?? "Varsayılan"}`);
     saveAudioPreferences({
@@ -1006,6 +1009,7 @@ function WorkspaceShell({
               onDisconnect: handleLeaveLobbyOrEndCall,
             }}
             audioConnectionProps={audioConnection}
+            videoQualityProps={videoQuality}
             audioProcessingProps={{
               enhancedNoiseSuppressionEnabled:
                 audioPreferences.enhancedNoiseSuppressionEnabled,

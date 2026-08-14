@@ -4,6 +4,7 @@ export * from "./lobby/use-room-transitions";
 export * from "./lobby/use-workspace-lobbies";
 export * from "./lobby/use-workspace-lobby-actions";
 export * from "./lobby/use-workspace-audio-connection";
+export * from "./lobby/use-video-quality";
 export * from "./user/use-workspace-users";
 export * from "./user/use-call-session";
 export * from "./user/use-presence-status";
