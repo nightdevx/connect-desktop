@@ -4,6 +4,7 @@ import type {
   UserDirectoryStreamEvent,
 } from "../../../../../shared/desktop-api-types";
 import type {
+  FriendEntry,
   FriendRequestLists,
   PrivacySettings,
   SelectablePresenceStatus,
@@ -33,6 +34,15 @@ export const userService = {
     DesktopResult<{ users: UserDirectoryEntry[] }>
   > => {
     return window.desktopApi.getRegisteredUsers();
+  },
+  lookupUserByUsername: (payload: { username: string }) => {
+    if (typeof window.desktopApi.lookupUserByUsername !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ user: FriendEntry }>,
+      );
+    }
+
+    return window.desktopApi.lookupUserByUsername(payload);
   },
   startUserDirectoryStream: () => {
     if (typeof window.desktopApi.startUserDirectoryStream !== "function") {
@@ -76,6 +86,7 @@ export const userService = {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{
           blockedUserIds: string[];
+          blockedUsers?: FriendEntry[];
         }>,
       );
     }

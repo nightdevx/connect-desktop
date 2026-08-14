@@ -115,6 +115,19 @@ export function registerDMHandlers(): void {
     }
   });
 
+  // No payload: every peer this user has history with, which is what seeds the
+  // sidebar's open-conversation list on a fresh install.
+  ipcMain.handle("desktop:chat-conversations", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.chat.listConversations(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:direct-messages-list", async (_event, payload: unknown) => {
     try {
       const parsed = directMessagesListSchema.parse(payload);

@@ -18,7 +18,6 @@ import {
   GlobalOutlined,
   InfoCircleOutlined,
   UserOutlined,
-  ExclamationCircleOutlined,
   PhoneOutlined,
   BellOutlined,
   BellFilled,
@@ -40,6 +39,7 @@ import {
   getUserStatusLabel,
 } from "../../workspace-utils";
 import { ConfirmActionModal } from "../common";
+import { FriendsHomePanel, type FriendsHomePanelProps } from "./friends-home-panel";
 import {
   ChatAttachButton,
   ChatAttachmentView,
@@ -285,6 +285,10 @@ import workspaceService from "../../services";
 interface UsersDirectMessagesPanelProps {
   currentUserId: string;
   selectedUser: UserDirectoryEntry | null;
+  // The friends home stands in for a selected conversation, so everything it
+  // needs arrives as one object the shell hands over in a single line. Optional
+  // only so the shell can be wired after this panel; the empty state is gone.
+  friendsHome?: Omit<FriendsHomePanelProps, "currentUserId">;
   onCopyUsername: (username: string) => Promise<void>;
   directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
   directMessages: UseDirectMessagesResult["directMessages"];
@@ -364,6 +368,7 @@ interface UsersDirectMessagesPanelProps {
 export function UsersDirectMessagesPanel({
   currentUserId,
   selectedUser,
+  friendsHome,
   onCopyUsername,
   directMessagesQuery,
   directMessages,
@@ -1128,7 +1133,10 @@ export function UsersDirectMessagesPanel({
 
                   <div className="ct-chat-user-header-main">
                     <h3>{selectedUser.displayName || selectedUser.username}</h3>
-                    <span>@{selectedUser.username}</span>
+                    {/* A conversation seeded from history — or opened by a call
+                        — knows a non-friend's display name and nothing else, so
+                        a bare "@" is all this would render. */}
+                    {selectedUser.username && <span>@{selectedUser.username}</span>}
                   </div>
                 </div>
 
@@ -1299,7 +1307,9 @@ export function UsersDirectMessagesPanel({
                 <h3 className="text-[17px] font-bold text-white leading-snug">
                   {selectedUser.displayName || selectedUser.username}
                 </h3>
-                <p className="text-[13px] text-[#8f8f8f] mt-0.5">@{selectedUser.username}</p>
+                {selectedUser.username && (
+                  <p className="text-[13px] text-[#8f8f8f] mt-0.5">@{selectedUser.username}</p>
+                )}
               </div>
 
               <Tag color={selectedUser.role === "admin" ? "gold" : "default"}>
@@ -1355,6 +1365,9 @@ export function UsersDirectMessagesPanel({
                 type="default"
                 icon={<CopyOutlined />}
                 block
+                // Nothing to copy when the handle is unknown, and a silent
+                // empty clipboard reads as the copy having worked.
+                disabled={!selectedUser.username}
                 onClick={() => {
                   void onCopyUsername(selectedUser.username);
                   setIsUserPopupOpen(false);
@@ -1410,13 +1423,9 @@ export function UsersDirectMessagesPanel({
           />
         </>
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-[rgba(5,5,5,0.2)]" >
-          <ExclamationCircleOutlined className="ct-list-state-icon" />
-          <h3 className="text-base font-semibold text-white mb-1">Bir Sohbet Seç</h3>
-          <p className="text-xs text-[#8f8f8f] max-w-[280px]">
-            Direkt mesajları görmek, dosya göndermek ve sesli/görüntülü bağlantı kurmak için soldaki listeden bir arkadaşını seçebilirsin.
-          </p>
-        </div>
+        friendsHome && (
+          <FriendsHomePanel {...friendsHome} currentUserId={currentUserId} />
+        )
       )}
     </article>
   );

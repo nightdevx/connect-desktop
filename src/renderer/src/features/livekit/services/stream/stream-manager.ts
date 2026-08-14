@@ -5,6 +5,7 @@ import {
   ConnectionState,
   DisconnectReason,
   LocalParticipant,
+  type LocalTrackPublication,
   type Participant,
   type RoomOptions,
   type TrackPublication,
@@ -31,7 +32,10 @@ import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
 import { findQualityLimitation } from "@shared/media-stats";
-import { scaleBitrateToResolution } from "@shared/video-layers";
+import {
+  describeEncodingMismatch,
+  scaleBitrateToResolution,
+} from "@shared/video-layers";
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
@@ -810,6 +814,58 @@ export class LiveKitStreamManager {
   }
 
   /**
+   * Reads back what the browser is really encoding and complains if it does not
+   * match what we asked for.
+   *
+   * The app computed a correct encoding target for a long time while LiveKit
+   * quietly discarded it — a screen share published with `videoEncoding` had it
+   * replaced by the library's `screenShareEncoding` default (1080p **15fps** at
+   * 2.5 Mbps), and nothing anywhere noticed. `getParameters()` is the only place
+   * where the option merge, the SDP and the browser have all had their say, so
+   * it is the only honest check that publish options survived the trip.
+   */
+  private verifyPublishedEncodings(
+    label: string,
+    publication: LocalTrackPublication,
+    target: VideoPublishTarget,
+  ): void {
+    const sender = publication.track?.sender;
+    if (!sender) {
+      return;
+    }
+
+    let encodings: RTCRtpEncodingParameters[];
+    try {
+      encodings = sender.getParameters().encodings ?? [];
+    } catch {
+      // Sender can be torn down between publish and readback.
+      return;
+    }
+
+    const mismatch = describeEncodingMismatch(target, encodings);
+
+    logLiveKitDebug("stream-manager", `publish-${label}-encodings`, {
+      requested: {
+        maxFramerate: target.maxFramerate,
+        maxBitrate: target.maxBitrateBps,
+      },
+      actual: encodings.map((encoding) => ({
+        rid: encoding.rid ?? null,
+        maxBitrate: encoding.maxBitrate ?? null,
+        maxFramerate: encoding.maxFramerate ?? null,
+        scaleResolutionDownBy: encoding.scaleResolutionDownBy ?? null,
+      })),
+      mismatch,
+    });
+
+    if (mismatch) {
+      console.warn(
+        `[LiveKitStreamManager] ${label} publish did not honour the requested encoding: ${mismatch}`,
+      );
+    }
+  }
+
+  /**
    * Codec / hardware-acceleration preferences. Applied to the next publish —
    * changing the codec of a live track means renegotiating it, which is a
    * visible glitch we do not want to trigger from a settings toggle.
@@ -887,6 +943,7 @@ export class LiveKitStreamManager {
         target,
         codec: this.resolvedVideoCodec,
         contentMode: "motion",
+        isScreenShare: false,
       });
 
       logLiveKitDebug("stream-manager", "publish-camera", {
@@ -898,11 +955,13 @@ export class LiveKitStreamManager {
         scalabilityMode: plan.scalabilityMode ?? null,
       });
 
-      await participant.publishTrack(videoTrack, {
+      const publication = await participant.publishTrack(videoTrack, {
         name: "camera",
         source: Track.Source.Camera,
         ...plan,
       });
+
+      this.verifyPublishedEncodings("camera", publication, target);
     } else {
       if (!participant.isCameraEnabled) {
         await participant.setCameraEnabled(true);
@@ -956,6 +1015,7 @@ export class LiveKitStreamManager {
         target,
         codec: this.resolvedVideoCodec,
         contentMode,
+        isScreenShare: true,
       });
 
       logLiveKitDebug("stream-manager", "publish-screen", {
@@ -964,15 +1024,17 @@ export class LiveKitStreamManager {
         ...target,
         codec: plan.videoCodec,
         simulcast: plan.simulcast,
-        layers: plan.videoSimulcastLayers?.length ?? 0,
+        layers: plan.screenShareSimulcastLayers?.length ?? 0,
         scalabilityMode: plan.scalabilityMode ?? null,
       });
 
-      await participant.publishTrack(screenTrack, {
+      const publication = await participant.publishTrack(screenTrack, {
         name: "screen",
         source: Track.Source.ScreenShare,
         ...plan,
       });
+
+      this.verifyPublishedEncodings("screen", publication, target);
 
       // Also publish audio track if available (screen share audio)
       const audioTracks = this.desiredScreenStream?.getAudioTracks() ?? [];

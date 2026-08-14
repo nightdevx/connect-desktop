@@ -17,6 +17,7 @@ import type {
   AdminLobbyEvent,
   AdminStats,
   PresenceStatus,
+  FriendEntry,
   FriendRequestLists,
   PrivacySettings,
   UpdatePrivacyRequest,
@@ -33,11 +34,28 @@ export class AuthClient {
     });
   }
 
+  // blockedUsers names the rows so a block stays reversible: the directory is
+  // friends-only, and blocking a non-friend would otherwise have no way back.
+  // blockedUserIds stays for installed builds that only read it.
   public async listBlockedUsers(
     accessToken: string,
-  ): Promise<{ blockedUserIds: string[] }> {
-    return this.baseClient.request<{ blockedUserIds: string[] }>(
+  ): Promise<{ blockedUserIds: string[]; blockedUsers?: FriendEntry[] }> {
+    return this.baseClient.request<{
+      blockedUserIds: string[];
+      blockedUsers?: FriendEntry[];
+    }>(
       "/auth/blocks",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  // Exact match only — this is a user enumeration surface, not a search.
+  public async lookupUserByUsername(
+    accessToken: string,
+    username: string,
+  ): Promise<{ user: FriendEntry }> {
+    return this.baseClient.request<{ user: FriendEntry }>(
+      `/auth/users/lookup/${encodeURIComponent(username)}`,
       { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
     );
   }

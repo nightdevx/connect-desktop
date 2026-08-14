@@ -10,8 +10,10 @@ import {
   WifiOutlined,
 } from "@ant-design/icons";
 import type {
+  FriendEntry,
   LobbyDescriptor,
   SelectablePresenceStatus,
+  UserDirectoryEntry,
 } from "@shared/auth-contracts";
 import type {
   DesktopResult,
@@ -23,31 +25,36 @@ import type {
   SettingsSection,
   WorkspaceSection,
 } from "@/store/ui-store";
-import type { UseWorkspaceUsersResult } from "../../hooks";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
+import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { LobbiesSidebarPanel } from "../lobby";
 import { QuickControls } from "../common";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
+import { getApiErrorMessage } from "../../workspace-utils";
+import { SEED_ADMIN_ID } from "@/features/auth/permissions";
+import workspaceService from "../../services";
 
 interface WorkspaceSidebarProps {
   sectionTitle: string;
   workspaceSection: WorkspaceSection;
   usersProps: {
-    usersQuery: UseWorkspaceUsersResult["usersQuery"];
-    userSearch: string;
-    setUserSearch: (value: string) => void;
-    userFilter: UseWorkspaceUsersResult["userFilter"];
-    setUserFilter: (value: UseWorkspaceUsersResult["userFilter"]) => void;
-    filteredUsers: UseWorkspaceUsersResult["filteredUsers"];
+    conversations: OpenConversation[];
+    onCloseConversation: (userId: string) => void;
+    /** Friends + self: presence and status labels only, never names. */
+    directoryUsers: UserDirectoryEntry[];
     selectedUserId: string | null;
-    setSelectedUserId: (value: string | null) => void;
+    onUserSelect: (userId: string) => void;
     unreadByUserId: Record<string, number>;
     friends: FriendsController;
     callState?: CallSessionState;
     presenceStatus: SelectablePresenceStatus;
     onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
+    // Owned by the shell because the friends home has the same button, and the
+    // modal itself stays here in the header where the + lives.
+    isAddFriendOpen: boolean;
+    onAddFriendOpenChange: (open: boolean) => void;
   };
   lobbiesProps: {
     lobbiesQuery: UseQueryResult<
@@ -156,7 +163,12 @@ export function WorkspaceSidebar({
   const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
   const [newLobbyPassword, setNewLobbyPassword] = useState("");
   const [isTextOnly, setIsTextOnly] = useState(false);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  // allUsers is friends + self now, so the select alone can never reach a
+  // stranger. These are the ones pulled in by exact username while this modal
+  // is open — kept only so their tag renders a name instead of a bare id.
+  const [lookedUpUsers, setLookedUpUsers] = useState<FriendEntry[]>([]);
+  const [lookupUsername, setLookupUsername] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
   // sendRequest is keyed by username, so it marks no pendingUserIds — there is
   // no user id to hang one on until the server answers. This button owns it.
@@ -176,7 +188,53 @@ export function WorkspaceSidebar({
     // open and silently locked the next lobby created.
     setNewLobbyPassword("");
     setIsTextOnly(false);
+    setLookedUpUsers([]);
+    setLookupUsername("");
     setIsCreateLobbyOpen(true);
+  };
+
+  // The same picker the "Lobi Ayarları" modal has: friends come from the select,
+  // anyone else by exact username. Fixing one of the two would have left a newly
+  // created locked lobby openable to friends only.
+  const handleLookupAdd = async (): Promise<void> => {
+    // A pasted "@ali" is the same person as "ali"; the route matches exactly.
+    const username = lookupUsername.trim().replace(/^@/, "");
+    if (!username) {
+      return;
+    }
+
+    setIsLookingUp(true);
+    try {
+      const result = await workspaceService.lookupUserByUsername({ username });
+      if (!result.ok || !result.data) {
+        messageApi.error(
+          result.error?.code === "USER_NOT_FOUND" ||
+            result.error?.code === "VALIDATION_ERROR"
+            ? "Kullanıcı bulunamadı."
+            : getApiErrorMessage(result.error),
+        );
+        return;
+      }
+
+      const user = result.data.user;
+      if (user.userId === lobbiesProps.currentUserId) {
+        messageApi.info("Lobi sahibi zaten erişebilir.");
+        setLookupUsername("");
+        return;
+      }
+
+      setLookedUpUsers((previous) =>
+        previous.some((entry) => entry.userId === user.userId)
+          ? previous
+          : [...previous, user],
+      );
+      setAllowedUsers((previous) =>
+        previous.includes(user.userId) ? previous : [...previous, user.userId],
+      );
+      setLookupUsername("");
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   // A password is only ever checked when joining, and a message room is never
@@ -192,9 +250,16 @@ export function WorkspaceSidebar({
       return;
     }
 
-    setFriendUsername("");
-    setIsAddFriendOpen(true);
+    usersProps.onAddFriendOpenChange(true);
   };
+
+  // The modal is opened from two places now — this header and the friends home —
+  // so the field is cleared on the transition rather than at one of the callers.
+  useEffect(() => {
+    if (usersProps.isAddFriendOpen) {
+      setFriendUsername("");
+    }
+  }, [usersProps.isAddFriendOpen]);
 
   const handleAddFriendSubmit = async (): Promise<void> => {
     if (isSendingFriendRequest) {
@@ -211,7 +276,7 @@ export function WorkspaceSidebar({
 
       messageApi.success(result.message);
       setFriendUsername("");
-      setIsAddFriendOpen(false);
+      usersProps.onAddFriendOpenChange(false);
     } finally {
       setIsSendingFriendRequest(false);
     }
@@ -277,6 +342,8 @@ export function WorkspaceSidebar({
     setAllowedUsers([]);
     setNewLobbyPassword("");
     setIsTextOnly(false);
+    setLookedUpUsers([]);
+    setLookupUsername("");
     setIsCreateLobbyOpen(false);
   };
 
@@ -316,14 +383,11 @@ export function WorkspaceSidebar({
       <div className="ct-sidebar-body">
         {workspaceSection === "users" && (
           <UsersSidebarPanel
-            usersQuery={usersProps.usersQuery}
-            userSearch={usersProps.userSearch}
-            onUserSearchChange={usersProps.setUserSearch}
-            userFilter={usersProps.userFilter}
-            onUserFilterChange={usersProps.setUserFilter}
-            filteredUsers={usersProps.filteredUsers}
+            conversations={usersProps.conversations}
+            onCloseConversation={usersProps.onCloseConversation}
+            directoryUsers={usersProps.directoryUsers}
             selectedUserId={usersProps.selectedUserId}
-            onUserSelect={usersProps.setSelectedUserId}
+            onUserSelect={usersProps.onUserSelect}
             unreadByUserId={usersProps.unreadByUserId}
             friends={usersProps.friends}
             presenceStatus={usersProps.presenceStatus}
@@ -639,15 +703,34 @@ export function WorkspaceSidebar({
               <span>İzin Verilecek Kullanıcılar</span>
               <Select
                 mode="multiple"
-                placeholder="Kullanıcıları seçin..."
+                placeholder="Arkadaşlarından seç..."
                 value={allowedUsers}
                 onChange={setAllowedUsers}
-                options={lobbiesProps.allUsers
-                  .filter((u) => u.id !== lobbiesProps.currentUserId)
-                  .map((u) => ({
+                options={[
+                  ...lobbiesProps.allUsers
+                    .filter(
+                      (u) =>
+                        u.id !== lobbiesProps.currentUserId &&
+                        u.id !== SEED_ADMIN_ID,
+                    )
+                    .map((u) => ({
+                      label: `@${u.username} (${u.displayName})`,
+                      value: u.id,
+                    })),
+                  ...lookedUpUsers.map((u) => ({
                     label: `@${u.username} (${u.displayName})`,
-                    value: u.id,
-                  }))}
+                    value: u.userId,
+                  })),
+                ]}
+              />
+              <Input.Search
+                placeholder="Kullanıcı adıyla ekle"
+                enterButton="Ekle"
+                value={lookupUsername}
+                onChange={(event) => setLookupUsername(event.target.value)}
+                onSearch={() => void handleLookupAdd()}
+                loading={isLookingUp}
+                maxLength={32}
               />
             </label>
           )}
@@ -674,9 +757,9 @@ export function WorkspaceSidebar({
       <Modal
         rootClassName="ct-modal"
         title="Arkadaş Ekle"
-        open={isAddFriendOpen}
+        open={usersProps.isAddFriendOpen}
         onOk={() => void handleAddFriendSubmit()}
-        onCancel={() => setIsAddFriendOpen(false)}
+        onCancel={() => usersProps.onAddFriendOpenChange(false)}
         confirmLoading={isSendingFriendRequest}
         okButtonProps={{
           // 3-32 mirrors the backend username pattern and the IPC zod schema.

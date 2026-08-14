@@ -5,6 +5,7 @@ import type {
 } from "../../../../../shared/desktop-api-types";
 import type {
   ChatMessage,
+  FriendEntry,
 } from "../../../../../shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
@@ -118,6 +119,15 @@ export const chatService = {
   },
   deleteChatMessage: (payload: { messageId: string }) => {
     return chatService.deleteLobbyMessage(payload);
+  },
+  listConversations: (): Promise<
+    DesktopResult<{ peerUserIds: string[]; conversations?: FriendEntry[] }>
+  > => {
+    if (typeof window.desktopApi.listConversations !== "function") {
+      return Promise.resolve(desktopBridgeOutdatedError);
+    }
+
+    return window.desktopApi.listConversations();
   },
   listDirectMessages: (payload: {
     peerUserId: string;

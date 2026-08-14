@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
-import type { FriendRequestLists } from "@shared/auth-contracts";
+import type { FriendEntry, FriendRequestLists } from "@shared/auth-contracts";
 import type { DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 
 const FRIENDS_QUERY_KEY = ["friends"];
 const FRIEND_REQUESTS_QUERY_KEY = ["friend-requests"];
+// The directory is friends-only now, so a friendship change adds or removes a
+// row there. Patched by hand below rather than left to that query's 15s
+// staleTime, which only refetches on mount or focus.
+const WORKSPACE_USERS_QUERY_KEY = ["workspace-users"];
 
 type FriendsQueryData = DesktopResult<{ friendUserIds: string[] }>;
 type FriendRequestsQueryData = DesktopResult<FriendRequestLists>;
 
-// One shared empty array rather than a fresh [] per render: these ids feed
+// One shared empty array rather than a fresh [] per render: these feed
 // useMemo/useCallback deps downstream, and a new identity on every render would
 // invalidate all of them while the lists are still loading.
 const EMPTY_IDS: string[] = [];
+const EMPTY_ENTRIES: FriendEntry[] = [];
 
-// Both return the SAME array when nothing changed, which is what lets every
+// All four return the SAME array when nothing changed, which is what lets every
 // patch below short-circuit instead of waking react-query's subscribers.
 const withId = (ids: string[], id: string): string[] =>
   ids.includes(id) ? ids : [...ids, id];
@@ -24,12 +29,22 @@ const withId = (ids: string[], id: string): string[] =>
 const withoutId = (ids: string[], id: string): string[] =>
   ids.includes(id) ? ids.filter((value) => value !== id) : ids;
 
+const withEntry = (entries: FriendEntry[], entry: FriendEntry): FriendEntry[] =>
+  entries.some((value) => value.userId === entry.userId)
+    ? entries
+    : [...entries, entry];
+
+const withoutEntry = (entries: FriendEntry[], userId: string): FriendEntry[] =>
+  entries.some((value) => value.userId === userId)
+    ? entries.filter((value) => value.userId !== userId)
+    : entries;
+
 const dropFromRequests = (
   lists: FriendRequestLists,
   userId: string,
 ): FriendRequestLists => {
-  const incoming = withoutId(lists.incoming, userId);
-  const outgoing = withoutId(lists.outgoing, userId);
+  const incoming = withoutEntry(lists.incoming, userId);
+  const outgoing = withoutEntry(lists.outgoing, userId);
   if (incoming === lists.incoming && outgoing === lists.outgoing) {
     return lists;
   }
@@ -93,8 +108,10 @@ const SEND_REQUEST_FALLBACK = "Arkadaşlık isteği gönderilemedi.";
 
 export interface FriendsController {
   friendIds: string[];
-  incomingRequests: string[];
-  outgoingRequests: string[];
+  // Named, not bare ids: a request comes from someone who is not a friend yet,
+  // so the friends-only directory cannot name them.
+  incomingRequests: FriendEntry[];
+  outgoingRequests: FriendEntry[];
   isLoading: boolean;
   // Per-id, not one global boolean: a requests list has a button per row.
   pendingUserIds: string[];
@@ -146,15 +163,17 @@ export const useFriends = (enabled: boolean): FriendsController => {
       }
 
       if (event.type === "friend-request") {
-        const { userId } = event.friend;
+        // The event carries the name; keep it. Nothing else can supply one for
+        // a request that arrived while the app was open.
+        const friend = event.friend;
         patchRequests(queryClient, (lists) => {
           // Guard against our own request echoing back: an id in both lists
           // would render an Accept button for a request we sent ourselves.
-          if (lists.outgoing.includes(userId)) {
+          if (lists.outgoing.some((entry) => entry.userId === friend.userId)) {
             return lists;
           }
 
-          const incoming = withId(lists.incoming, userId);
+          const incoming = withEntry(lists.incoming, friend);
           return incoming === lists.incoming ? lists : { ...lists, incoming };
         });
         return;
@@ -166,6 +185,11 @@ export const useFriends = (enabled: boolean): FriendsController => {
         const { userId } = event.friend;
         patchFriends(queryClient, (ids) => withId(ids, userId));
         patchRequests(queryClient, (lists) => dropFromRequests(lists, userId));
+        // A new friend has no directory row yet - no avatar, no presence, no
+        // row at all - until some unrelated refetch happens to run.
+        void queryClient.invalidateQueries({
+          queryKey: WORKSPACE_USERS_QUERY_KEY,
+        });
         return;
       }
 
@@ -175,6 +199,10 @@ export const useFriends = (enabled: boolean): FriendsController => {
         const { userId } = event.friend;
         patchFriends(queryClient, (ids) => withoutId(ids, userId));
         patchRequests(queryClient, (lists) => dropFromRequests(lists, userId));
+        // Mirror of the accept case: they are out of the directory now.
+        void queryClient.invalidateQueries({
+          queryKey: WORKSPACE_USERS_QUERY_KEY,
+        });
       }
     });
 
@@ -223,6 +251,9 @@ export const useFriends = (enabled: boolean): FriendsController => {
       // into the single edge that was already there.
       if (result.data?.accepted) {
         void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
+        void queryClient.invalidateQueries({
+          queryKey: WORKSPACE_USERS_QUERY_KEY,
+        });
         return { ok: true, message: "Artık arkadaşsınız." };
       }
 
@@ -247,6 +278,11 @@ export const useFriends = (enabled: boolean): FriendsController => {
 
         patchFriends(queryClient, (ids) => withId(ids, userId));
         patchRequests(queryClient, (lists) => dropFromRequests(lists, userId));
+        // Not left to the echoing WS event: with the socket down this is the
+        // only thing that puts the new friend in the directory.
+        void queryClient.invalidateQueries({
+          queryKey: WORKSPACE_USERS_QUERY_KEY,
+        });
         return true;
       } finally {
         setPendingUserIds((previous) => withoutId(previous, userId));
@@ -270,6 +306,9 @@ export const useFriends = (enabled: boolean): FriendsController => {
 
         patchFriends(queryClient, (ids) => withoutId(ids, userId));
         patchRequests(queryClient, (lists) => dropFromRequests(lists, userId));
+        void queryClient.invalidateQueries({
+          queryKey: WORKSPACE_USERS_QUERY_KEY,
+        });
         return true;
       } finally {
         setPendingUserIds((previous) => withoutId(previous, userId));
@@ -280,8 +319,8 @@ export const useFriends = (enabled: boolean): FriendsController => {
 
   return {
     friendIds,
-    incomingRequests: requestLists?.incoming ?? EMPTY_IDS,
-    outgoingRequests: requestLists?.outgoing ?? EMPTY_IDS,
+    incomingRequests: requestLists?.incoming ?? EMPTY_ENTRIES,
+    outgoingRequests: requestLists?.outgoing ?? EMPTY_ENTRIES,
     // A disabled react-query sits in `pending` forever, which would pin this
     // true for anyone who never opens the section.
     isLoading: enabled && (friendsQuery.isPending || requestsQuery.isPending),

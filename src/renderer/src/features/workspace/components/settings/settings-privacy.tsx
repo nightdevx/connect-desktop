@@ -7,6 +7,7 @@ import type {
 } from "@shared/auth-contracts";
 import { authService } from "../../../auth";
 import { userService } from "../../services";
+import { useBlockedUsers } from "../../hooks";
 
 // Mirrors the backend column defaults, so an account created before privacy
 // existed shows what it actually does: reachable by everyone.
@@ -29,6 +30,13 @@ export function SettingsPrivacy() {
   const [draft, setDraft] = useState<PrivacySettings>(DEFAULT_PRIVACY);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // ponytail: a second instance of the hook — WorkspaceShell holds its own, and
+  // it stays stale until relaunch after an unblock here, so the conversation
+  // toggle can lag. Thread the shell's controller down if that shows up.
+  const { blockedUsers, unblockUser } = useBlockedUsers(true);
+  // The hook's isUpdating is one boolean for the whole list, so two rows would
+  // share a spinner and the first unblock to finish would clear both.
+  const [unblockingIds, setUnblockingIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +103,20 @@ export function SettingsPrivacy() {
       messageApi.success("Gizlilik ayarları kaydedildi.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUnblock = async (userId: string): Promise<void> => {
+    setUnblockingIds((previous) => [...previous, userId]);
+    try {
+      if (await unblockUser(userId)) {
+        messageApi.success("Engel kaldırıldı.");
+        return;
+      }
+
+      messageApi.error("Engel kaldırılamadı.");
+    } finally {
+      setUnblockingIds((previous) => previous.filter((id) => id !== userId));
     }
   };
 
@@ -186,6 +208,47 @@ export function SettingsPrivacy() {
           >
             Gizlilik Ayarlarını Kaydet
           </Button>
+        </div>
+
+        {/* The only other way back is a toggle inside an open conversation, and
+            a blocked non-friend has no row anywhere to open one from. */}
+        <div className="ct-settings-subsection">
+          <h5>Engellenen Kullanıcılar</h5>
+          <p className="ct-field-hint">
+            Engellediğin kişiler sana mesaj gönderemez ve seni arayamaz.
+          </p>
+
+          {blockedUsers.length === 0 ? (
+            <p className="ct-list-state">Engellediğin kimse yok.</p>
+          ) : (
+            <ul className="ct-list" aria-label="Engellenen kullanıcılar">
+              {[...blockedUsers]
+                .sort((a, b) =>
+                  a.displayName.localeCompare(b.displayName, "tr"),
+                )
+                .map((user) => (
+                  <li key={user.userId} className="ct-list-item">
+                    <div className="ct-list-user">
+                      <div className="ct-list-user-meta">
+                        <p>{user.displayName}</p>
+                        <span>@{user.username}</span>
+                      </div>
+                    </div>
+                    <div className="ct-list-item-actions">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          void handleUnblock(user.userId);
+                        }}
+                        loading={unblockingIds.includes(user.userId)}
+                      >
+                        Engeli Kaldır
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

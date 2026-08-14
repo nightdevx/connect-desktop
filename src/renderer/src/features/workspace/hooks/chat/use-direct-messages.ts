@@ -62,6 +62,9 @@ export interface UseDirectMessagesResult {
   handleDeleteMessage: (messageId: string) => void;
   deletingMessageId: string | null;
   unreadByPeerId: Record<string, number>;
+  // Usernames learned from incoming messages, keyed by peer. The only source
+  // that names a stranger who writes while the app is open.
+  peerNamesById: Record<string, string>;
   // Peer ids currently typing. The server sends no "stopped" signal, so each
   // entry expires on its own.
   typingPeerIds: string[];
@@ -132,6 +135,7 @@ export const useDirectMessages = ({
   const [typingByPeerId, setTypingByPeerId] = useState<Record<string, number>>(
     {},
   );
+  const [peerNamesById, setPeerNamesById] = useState<Record<string, string>>({});
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   // Composer attachments: the picked file plus its base64 payload. Held here
   // rather than in the panel so switching conversations clears it with the
@@ -267,6 +271,22 @@ export const useDirectMessages = ({
     });
   };
 
+  // A stranger's message is the only thing that ever names them: the directory
+  // holds friends only, and the conversation seed is fetched once at launch. So
+  // the sender's own username is kept here, or a DM arriving from a non-friend
+  // while the app is open opens a sidebar row reading "Bilinmeyen kullanıcı".
+  const rememberPeerName = (peerUserId: string, username: string): void => {
+    if (!username) {
+      return;
+    }
+
+    setPeerNamesById((previous) =>
+      previous[peerUserId] === username
+        ? previous
+        : { ...previous, [peerUserId]: username },
+    );
+  };
+
   const unreadTotal = useMemo(() => {
     return Object.values(unreadByPeerId).reduce((sum, count) => sum + count, 0);
   }, [unreadByPeerId]);
@@ -359,6 +379,8 @@ export const useDirectMessages = ({
       if (!isIncoming) {
         return;
       }
+
+      rememberPeerName(peerUserId, incoming.username);
 
       const isActivePeer =
         workspaceSection === "users" && selectedUserId === peerUserId;
@@ -850,6 +872,7 @@ export const useDirectMessages = ({
     handleDeleteMessage,
     deletingMessageId,
     unreadByPeerId,
+    peerNamesById,
     typingPeerIds,
     notifyTyping,
     loadOlderMessages,

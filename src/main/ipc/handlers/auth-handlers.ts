@@ -263,6 +263,20 @@ export function registerAuthHandlers(): void {
     }
   });
 
+  // The directory is friends-only, so a stranger is reachable only by typing
+  // their handle exactly. Same bounds as a friend request: the same handles.
+  ipcMain.handle("desktop:auth-user-lookup", async (_event, payload: unknown) => {
+    try {
+      const parsed = friendRequestSendSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.lookupUserByUsername(accessToken, parsed.username);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:auth-presence", async (_event, payload: unknown) => {
     try {
       const parsed = setPresenceSchema.parse(payload);

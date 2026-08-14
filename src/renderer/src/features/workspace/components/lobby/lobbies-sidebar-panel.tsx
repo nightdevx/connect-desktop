@@ -15,7 +15,7 @@ import {
   CrownOutlined,
   MessageOutlined,
 } from "@ant-design/icons";
-import type { LobbyDescriptor } from "@shared/auth-contracts";
+import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
   LobbyStateMember,
@@ -82,6 +82,12 @@ export function LobbiesSidebarPanel({
   const [editRemovePassword, setEditRemovePassword] = useState(false);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
+  // allUsers is friends + self now, so the select alone can never reach a
+  // stranger. These are the ones pulled in by exact username this session —
+  // kept only so their tag renders a name instead of a bare id.
+  const [lookedUpUsers, setLookedUpUsers] = useState<FriendEntry[]>([]);
+  const [lookupUsername, setLookupUsername] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
 
   useEffect(() => {
     if (editingLobby) {
@@ -93,6 +99,8 @@ export function LobbiesSidebarPanel({
       setEditAllowedUsers(users);
       setEditPassword("");
       setEditRemovePassword(false);
+      setLookedUpUsers([]);
+      setLookupUsername("");
     }
   }, [editingLobby]);
 
@@ -124,6 +132,47 @@ export function LobbiesSidebarPanel({
       message.success(muted ? `${username} susturuldu` : `${username} sesi açıldı`);
     } else {
       message.error(getApiErrorMessage(result.error));
+    }
+  };
+
+  const handleLookupAdd = async (): Promise<void> => {
+    // A pasted "@ali" is the same person as "ali"; the route matches exactly.
+    const username = lookupUsername.trim().replace(/^@/, "");
+    if (!username) {
+      return;
+    }
+
+    setIsLookingUp(true);
+    try {
+      const result = await workspaceService.lookupUserByUsername({ username });
+      if (!result.ok || !result.data) {
+        message.error(
+          result.error?.code === "USER_NOT_FOUND" ||
+            result.error?.code === "VALIDATION_ERROR"
+            ? "Kullanıcı bulunamadı."
+            : getApiErrorMessage(result.error),
+        );
+        return;
+      }
+
+      const user = result.data.user;
+      if (user.userId === currentUserId) {
+        message.info("Lobi sahibi zaten erişebilir.");
+        setLookupUsername("");
+        return;
+      }
+
+      setLookedUpUsers((previous) =>
+        previous.some((entry) => entry.userId === user.userId)
+          ? previous
+          : [...previous, user],
+      );
+      setEditAllowedUsers((previous) =>
+        previous.includes(user.userId) ? previous : [...previous, user.userId],
+      );
+      setLookupUsername("");
+    } finally {
+      setIsLookingUp(false);
     }
   };
 
@@ -487,17 +536,36 @@ export function LobbiesSidebarPanel({
               <span>Erişimi Olan Kullanıcılar</span>
               <Select
                 mode="multiple"
-                placeholder="Kullanıcı seçin..."
+                placeholder="Arkadaşlarından seç..."
                 value={editAllowedUsers}
                 onChange={setEditAllowedUsers}
-                options={allUsers
-                  .filter(
-                    (u) => u.id !== currentUserId && u.id !== SEED_ADMIN_ID,
-                  )
-                  .map((u) => ({
+                options={[
+                  ...allUsers
+                    .filter(
+                      (u) => u.id !== currentUserId && u.id !== SEED_ADMIN_ID,
+                    )
+                    .map((u) => ({
+                      label: `@${u.username} (${u.displayName})`,
+                      value: u.id,
+                    })),
+                  ...lookedUpUsers.map((u) => ({
                     label: `@${u.username} (${u.displayName})`,
-                    value: u.id,
-                  }))}
+                    value: u.userId,
+                  })),
+                ]}
+              />
+              {/* ponytail: an already-allowed non-friend from an earlier edit
+                  still renders as a bare id — there is no lookup-by-id route,
+                  only this by-username one. Add names to the descriptor's
+                  allowedUsers if that reads badly. */}
+              <Input.Search
+                placeholder="Kullanıcı adıyla ekle"
+                enterButton="Ekle"
+                value={lookupUsername}
+                onChange={(event) => setLookupUsername(event.target.value)}
+                onSearch={() => void handleLookupAdd()}
+                loading={isLookingUp}
+                maxLength={32}
               />
             </label>
           )}

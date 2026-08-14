@@ -394,7 +394,8 @@ export const useCallSession = ({
         event.type === "call-rejected" ||
         event.type === "call-cancelled"
       ) {
-        const { type, callId, callerId, callerName, targetUserId } = event.callPayload;
+        const { type, callId, callerId, callerName, callerUsername, targetUserId } =
+          event.callPayload;
 
         // The server now delivers call signals only to the two parties, but the
         // client must still confirm the signal is about THIS call. Without the
@@ -430,6 +431,25 @@ export const useCallSession = ({
               peerUser = result.data.users.find((u) => u.userId === callerId) || null;
             }
           } catch (e) {}
+
+          // The directory is friends + self, so a call from someone you are not
+          // friends with resolves to nothing there. Everything downstream keys
+          // off peerUser — the stage tiles, the dock, the conversation header —
+          // so a null one answered into a live call with no hang-up button. The
+          // signal already names the caller; only the avatar and the profile
+          // fields degrade.
+          if (!peerUser) {
+            peerUser = {
+              userId: callerId,
+              // Not callerName: this is the handle the profile card copies and
+              // Arkadaş Ekle looks up, and a display name there resolves to
+              // nobody. Empty is honest — the same blank a seeded row carries.
+              username: callerUsername ?? "",
+              displayName: callerName,
+              role: "member",
+              createdAt: "",
+            };
+          }
 
           // Check if muted in local storage
           let isMuted = false;

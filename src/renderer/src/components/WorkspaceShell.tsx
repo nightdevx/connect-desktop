@@ -38,12 +38,21 @@ import {
   useCallSession,
   useRemoteParticipantAudio,
   useRoomTransitions,
+  useOpenConversations,
 } from "../features/workspace/hooks";
+import type { OpenConversation } from "../features/workspace/hooks";
 import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
 import workspaceService from "../features/workspace/services";
 import { useUiStore } from "../store/ui-store";
 import type { AudioPreferences } from "../features/workspace/components/settings/settings-main-panel-types";
+
+const toConversationPeer = (user: UserDirectoryEntry): OpenConversation => ({
+  userId: user.userId,
+  username: user.username,
+  displayName: user.displayName,
+  avatarUrl: user.avatarUrl ?? null,
+});
 
 interface WorkspaceShellProps {
   currentUserId: string;
@@ -212,17 +221,27 @@ function WorkspaceShell({
   // ----- WORKSPACE USERS -----
   const {
     usersQuery,
-    userSearch,
-    setUserSearch,
-    userFilter,
-    setUserFilter,
     selectedUserId,
     setSelectedUserId,
-    filteredUsers,
+    directoryUsers,
     selectedUser,
     // No workspaceSection: the directory and its stream now run for the whole
     // session rather than only while a particular tab is open.
   } = useWorkspaceUsers({ currentUsername });
+
+  // The sidebar lists conversations, not the directory: it is client-owned, so
+  // opening one is this shell's job and every route into a conversation below
+  // goes through openConversation.
+  const {
+    conversations,
+    open: openConversation,
+    close: closeConversation,
+    isOpen: isConversationOpen,
+  } = useOpenConversations(currentUserId);
+
+  // The Arkadaş Ekle modal lives in the sidebar header, but the friends home
+  // needs the same button, so the flag is up here and the modal stays there.
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
 
   // ----- 1-TO-1 CALL SESSION -----
   const {
@@ -242,21 +261,137 @@ function WorkspaceShell({
     setStatus,
   });
 
+  // Filled from useDirectMessages further down: names learned from the messages
+  // strangers send. A ref because conversationPeer is defined above that call.
+  const peerNamesRef = useRef<Record<string, string>>({});
+
+  // Names a peer from whatever knows them, best source first: the directory has
+  // the freshest profile but only for friends, the call signal names a stranger
+  // who is ringing, the stored conversation is the snapshot taken the last time
+  // either of those did, and a live message names whoever just wrote. A row that
+  // is all four empty renders as "Bilinmeyen kullanıcı" rather than blocking the
+  // selection.
+  const conversationPeer = useCallback(
+    (userId: string): OpenConversation => {
+      const directoryUser = directoryUsers.find(
+        (user) => user.userId === userId,
+      );
+      if (directoryUser) {
+        return toConversationPeer(directoryUser);
+      }
+
+      if (callState.peerUser?.userId === userId) {
+        return toConversationPeer(callState.peerUser);
+      }
+
+      const stored = conversations.find((entry) => entry.userId === userId);
+      if (stored) {
+        return stored;
+      }
+
+      // Last resort before the row reads "Bilinmeyen kullanıcı": a stranger who
+      // messages while the app is open is in none of the sources above — the
+      // directory holds friends only and the conversation seed was fetched at
+      // launch — but their own message named them. Read through a ref because
+      // useDirectMessages is called further down this component.
+      const learned = peerNamesRef.current[userId];
+      return {
+        userId,
+        username: learned ?? "",
+        displayName: learned ?? "",
+      };
+    },
+    [callState.peerUser, conversations, directoryUsers],
+  );
+
+  // The single door into a conversation. Selecting a peer with no row would
+  // leave the sidebar with nothing highlighted and no way back to the thread,
+  // so the row is created here rather than at each of the call, notification
+  // and click sites. Already-open rows are left alone: open() moves a peer to
+  // the front, and a plain click must not reshuffle the list under the cursor.
+  const selectConversation = useCallback(
+    (peer: OpenConversation): void => {
+      if (!isConversationOpen(peer.userId)) {
+        openConversation(peer);
+      }
+      setWorkspaceSection("users");
+      setSelectedUserId(peer.userId);
+    },
+    [isConversationOpen, openConversation, setSelectedUserId, setWorkspaceSection],
+  );
+
+  const selectConversationById = useCallback(
+    (userId: string): void => {
+      selectConversation(conversationPeer(userId));
+    },
+    [conversationPeer, selectConversation],
+  );
+
+  // Closing the row you are reading drops you back to the friends home. Leaving
+  // the selection alone would keep the thread on screen with nothing in the
+  // sidebar pointing at it, and no unread to bring the row back.
+  const closeSelectedConversation = useCallback(
+    (userId: string): void => {
+      closeConversation(userId);
+      if (selectedUserId === userId) {
+        setSelectedUserId(null);
+      }
+    },
+    [closeConversation, selectedUserId, setSelectedUserId],
+  );
+
+  // selectedUser resolves through the friends-only directory, so it is null for
+  // every conversation with a non-friend — and a null one would put the friends
+  // home on screen instead of the thread, mid-call included. The row's own
+  // snapshot names them; role and join date exist only in the directory, so the
+  // profile drawer degrades to "Üye" and "Bilinmiyor".
+  const resolvedSelectedUser = useMemo<UserDirectoryEntry | null>(() => {
+    if (selectedUser || !selectedUserId) {
+      return selectedUser;
+    }
+
+    const peer = conversationPeer(selectedUserId);
+    return {
+      userId: peer.userId,
+      username: peer.username,
+      displayName: peer.displayName || peer.username || "Bilinmeyen kullanıcı",
+      avatarUrl: peer.avatarUrl ?? null,
+      role: "member",
+      createdAt: "",
+    };
+  }, [conversationPeer, selectedUser, selectedUserId]);
+
+  // Both selectors change identity whenever the conversation list does, and the
+  // effects below must not re-run for that: one would drag the user back to the
+  // call peer every time an unrelated message arrived, the other would tear
+  // down and re-register the notification listener.
+  const selectConversationRef = useRef(selectConversation);
+  const selectConversationByIdRef = useRef(selectConversationById);
+  useEffect(() => {
+    selectConversationRef.current = selectConversation;
+    selectConversationByIdRef.current = selectConversationById;
+  });
+
   useEffect(() => {
     if (callState.status === "active" && callState.peerUser) {
-      setWorkspaceSection("users");
-      setSelectedUserId(callState.peerUser.userId);
+      selectConversationRef.current(toConversationPeer(callState.peerUser));
     }
-  }, [callState.status, callState.peerUser, setWorkspaceSection, setSelectedUserId]);
+  }, [callState.status, callState.peerUser]);
 
   // Peer ids only, so the unread seed does not re-run every time an avatar or
-  // presence flag changes in the directory.
+  // presence flag changes in the directory. The open conversations are unioned
+  // in because the directory is friends-only now: seeding from it alone lost
+  // the badge for every non-friend you have history with.
   const directoryPeerUserIds = useMemo(() => {
-    if (!usersQuery.data?.ok || !usersQuery.data.data) return [];
-    return usersQuery.data.data.users
-      .map((user) => user.userId)
-      .filter((userId) => userId !== currentUserId);
-  }, [currentUserId, usersQuery.data]);
+    const users =
+      usersQuery.data?.ok && usersQuery.data.data ? usersQuery.data.data.users : [];
+    const peerIds = new Set([
+      ...users.map((user) => user.userId),
+      ...conversations.map((entry) => entry.userId),
+    ]);
+    peerIds.delete(currentUserId);
+    return [...peerIds];
+  }, [conversations, currentUserId, usersQuery.data]);
 
   const avatarByUserId = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return {};
@@ -559,10 +694,9 @@ function WorkspaceShell({
       if (!payload.peerUserId) {
         return;
       }
-      setWorkspaceSection("users");
-      setSelectedUserId(payload.peerUserId);
+      selectConversationByIdRef.current(payload.peerUserId);
     });
-  }, [setSelectedUserId, setWorkspaceSection]);
+  }, []);
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
@@ -712,6 +846,7 @@ function WorkspaceShell({
     handleDeleteMessage,
     deletingMessageId,
     unreadByPeerId,
+    peerNamesById,
     typingPeerIds,
     notifyTyping,
     loadOlderMessages,
@@ -736,6 +871,8 @@ function WorkspaceShell({
     setStatus,
     suppressNotifications: effectivePresenceStatus === "dnd",
   });
+
+  peerNamesRef.current = peerNamesById;
 
   const handleCopyUsername = useCallback(
     async (username: string): Promise<void> => {
@@ -938,9 +1075,8 @@ function WorkspaceShell({
     if (!callPeerUserId) {
       return;
     }
-    setWorkspaceSection("users");
-    setSelectedUserId(callPeerUserId);
-  }, [callPeerUserId, setWorkspaceSection, setSelectedUserId]);
+    selectConversationById(callPeerUserId);
+  }, [callPeerUserId, selectConversationById]);
 
   // Answering from a lobby, from settings or from another conversation used to
   // leave the callee looking at whatever they were looking at, with the call
@@ -952,10 +1088,12 @@ function WorkspaceShell({
     const peerUserId = incomingCallerId;
     await handleAcceptCall();
     if (peerUserId) {
-      setWorkspaceSection("users");
-      setSelectedUserId(peerUserId);
+      // Through the selector, not setSelectedUserId: a caller you are not
+      // friends with has no directory entry and no row yet, and the stage only
+      // renders inside their conversation.
+      selectConversationById(peerUserId);
     }
-  }, [incomingCallerId, handleAcceptCall, setWorkspaceSection, setSelectedUserId]);
+  }, [incomingCallerId, handleAcceptCall, selectConversationById]);
 
   const audioConnection = useWorkspaceAudioConnection({
     activeLobbyId,
@@ -997,6 +1135,36 @@ function WorkspaceShell({
     return counts;
   }, [unreadByPeerId, callState.status, callState.callerId]);
 
+  // Anything NEW waiting for you gets a row, so a peer whose conversation was
+  // closed comes back the moment they write or ring — the same rule Discord
+  // uses. It reads the unread map rather than the socket so it also covers a
+  // peer the friends-only directory has never heard of.
+  //
+  // A rising count, not a standing one: acting on "has unread" made closing an
+  // unread row impossible, because dropping the row changed the conversation
+  // list, which re-ran this effect, which found the same unread and put the row
+  // straight back. Reading the conversation clears the count, so the seen map
+  // resets with it and the next message opens the row again.
+  const seenUnreadRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    const seen = seenUnreadRef.current;
+    const next: Record<string, number> = {};
+
+    for (const [userId, count] of Object.entries(unreadByPeerIdWithCalls)) {
+      next[userId] = count;
+      if (count > (seen[userId] ?? 0) && !isConversationOpen(userId)) {
+        openConversation(conversationPeer(userId));
+      }
+    }
+
+    seenUnreadRef.current = next;
+  }, [
+    conversationPeer,
+    isConversationOpen,
+    openConversation,
+    unreadByPeerIdWithCalls,
+  ]);
+
   const totalUnreadDirectMessages = useMemo(() => {
     // Incoming friend requests ride this badge because the users sidebar — their
     // only renderer — is unmounted whenever the section is not "users", so a
@@ -1030,19 +1198,18 @@ function WorkspaceShell({
             sectionTitle={sectionTitle}
             workspaceSection={workspaceSection}
             usersProps={{
-              usersQuery,
-              userSearch,
-              setUserSearch,
-              userFilter,
-              setUserFilter,
-              filteredUsers,
+              conversations,
+              onCloseConversation: closeSelectedConversation,
+              directoryUsers,
               selectedUserId,
-              setSelectedUserId,
+              onUserSelect: selectConversationById,
               unreadByUserId: unreadByPeerIdWithCalls,
               friends,
               callState: callState,
               presenceStatus: selectedPresenceStatus,
               onPresenceStatusChange: setSelectedPresenceStatus,
+              isAddFriendOpen,
+              onAddFriendOpenChange: setIsAddFriendOpen,
             }}
             lobbiesProps={{
               lobbiesQuery,
@@ -1166,7 +1333,13 @@ function WorkspaceShell({
             onToggleScreen={handleScreenToggle}
             onToggleCamera={handleCameraToggle}
             onLeaveLobby={handleLeaveLobbyOrEndCall}
-            selectedUser={selectedUser}
+            selectedUser={resolvedSelectedUser}
+            friendsHome={{
+              friends,
+              directoryUsers,
+              onOpenConversation: selectConversation,
+              onAddFriend: () => setIsAddFriendOpen(true),
+            }}
             onCopyUsername={handleCopyUsername}
             isWatchingScreen={isWatchingScreen}
             onWatchScreen={watchScreen}
@@ -1258,6 +1431,7 @@ function WorkspaceShell({
         contentMode={selectedScreenShareContentMode}
         onChangeContentMode={setSelectedScreenShareContentMode}
         captureSystemAudio={captureSystemAudio}
+        uplinkHeadroomBps={mediaStats.availableOutgoingBitrateBps}
         onRefreshSources={loadScreenShareSources}
         onStart={startScreenShareFromModal}
         onSelectSource={setSelectedScreenShareSourceId}

@@ -27,6 +27,7 @@ import type {
   StreamPreferences,
 } from "../settings/settings-main-panel-types";
 import { UsersDirectMessagesPanel } from "../user";
+import type { FriendsHomePanelProps } from "../user";
 import type {
   ParticipantMediaMap,
   RemoteParticipantAudioPreference,
@@ -142,6 +143,9 @@ interface WorkspaceMainPanelProps {
   onToggleCamera: () => void;
   onLeaveLobby: () => void;
   selectedUser: UserDirectoryEntry | null;
+  // What stands in for a conversation when none is selected. currentUserId is
+  // already a prop of the panel below, so it is filled in there.
+  friendsHome: Omit<FriendsHomePanelProps, "currentUserId">;
   onCopyUsername: (username: string) => Promise<void>;
   directMessagesProps: {
     directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
@@ -245,6 +249,7 @@ export function WorkspaceMainPanel({
   onToggleCamera,
   onLeaveLobby,
   selectedUser,
+  friendsHome,
   onCopyUsername,
   directMessagesProps,
   onSelectAudioInputDevice,
@@ -258,8 +263,11 @@ export function WorkspaceMainPanel({
   onEndActiveCall,
   onRejoinCall,
 }: WorkspaceMainPanelProps) {
+  // The friends home fills the no-selection case now, so the users section owns
+  // its whole panel: keeping the selectedUser test would have stacked the
+  // "Arkadaşlar / Hoş geldin" intro on top of a screen that already has a title.
   const hideWorkspaceIntro =
-    (workspaceSection === "users" && selectedUser !== null) ||
+    workspaceSection === "users" ||
     (workspaceSection === "lobbies" && lobbyRoomId !== null);
 
   return (
@@ -283,6 +291,7 @@ export function WorkspaceMainPanel({
           <UsersDirectMessagesPanel
             currentUserId={currentUserId}
             selectedUser={selectedUser}
+            friendsHome={friendsHome}
             onCopyUsername={onCopyUsername}
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}

@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../../shared/auth-contracts";
+import type { ChatMessage, FriendEntry } from "../../shared/auth-contracts";
 import type { ChatAttachmentUpload } from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
@@ -163,6 +163,21 @@ export class ChatClient {
           Authorization: `Bearer ${accessToken}`,
         },
       },
+    );
+  }
+
+  // Named: the friends-only directory cannot label a stranger or a blocked
+  // peer, so the sidebar takes their name from here. peerUserIds is kept for
+  // an older backend that answers with ids alone.
+  public async listConversations(
+    accessToken: string,
+  ): Promise<{ peerUserIds: string[]; conversations?: FriendEntry[] }> {
+    return this.baseClient.request<{
+      peerUserIds: string[];
+      conversations?: FriendEntry[];
+    }>(
+      "/chat/conversations",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
     );
   }
 

@@ -64,6 +64,8 @@ const desktopApi: DesktopApi = {
   updateAuthProfile: async (payload) =>
     ipcRenderer.invoke("desktop:auth-profile-update", payload),
   getRegisteredUsers: async () => ipcRenderer.invoke("desktop:auth-users"),
+  lookupUserByUsername: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-user-lookup", payload),
   startUserDirectoryStream: async () =>
     ipcRenderer.invoke("desktop:user-directory-stream-start"),
   stopUserDirectoryStream: async () =>
@@ -156,6 +158,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:chat-attachment-get", payload),
   saveChatAttachment: async (payload) =>
     ipcRenderer.invoke("desktop:chat-attachment-save", payload),
+  listConversations: async () =>
+    ipcRenderer.invoke("desktop:chat-conversations"),
   listDirectMessages: async (payload) =>
     ipcRenderer.invoke("desktop:direct-messages-list", payload),
   sendDirectMessage: async (payload) =>

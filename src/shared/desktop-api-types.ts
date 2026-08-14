@@ -20,6 +20,7 @@ import type {
   AdminStats,
   PresenceStatus,
   SelectablePresenceStatus,
+  FriendEntry,
   FriendRequestLists,
   PrivacySettings,
   UpdatePrivacyRequest,
@@ -276,6 +277,9 @@ export type UserDirectoryStreamEvent =
         callId: string;
         callerId: string;
         callerName: string;
+        // Optional: an older backend does not send it, and the handle is only
+        // ever used where an empty one is already the seeded-row case.
+        callerUsername?: string;
         targetUserId: string;
       };
       at?: string;
@@ -360,9 +364,14 @@ export interface DesktopApi {
   updateAuthProfile: (
     payload: UpdateProfileRequest,
   ) => Promise<DesktopResult<{ profile: UserSettingsProfile }>>;
+  // Friends and self only. Anyone else has to be reached by exact username.
   getRegisteredUsers: () => Promise<
     DesktopResult<{ users: UserDirectoryEntry[] }>
   >;
+  // Exact match, 404 USER_NOT_FOUND otherwise. Never a prefix search.
+  lookupUserByUsername: (payload: {
+    username: string;
+  }) => Promise<DesktopResult<{ user: FriendEntry }>>;
   startUserDirectoryStream: () => Promise<DesktopResult<{ started: boolean }>>;
   stopUserDirectoryStream: () => Promise<DesktopResult<{ stopped: boolean }>>;
   onUserDirectoryEvent: (
@@ -506,6 +515,13 @@ export interface DesktopApi {
     attachmentId: string;
     fileName: string;
   }) => Promise<DesktopResult<{ saved: boolean; path?: string }>>;
+  // Peers with any direct-message history; the sidebar seeds its open list here.
+  // conversations carries the names — a non-friend peer is absent from the
+  // directory, so this is the only place the sidebar can learn what to call
+  // them. Optional: an older backend still answers with ids alone.
+  listConversations: () => Promise<
+    DesktopResult<{ peerUserIds: string[]; conversations?: FriendEntry[] }>
+  >;
   listDirectMessages: (payload: {
     peerUserId: string;
     limit?: number;
@@ -532,8 +548,9 @@ export interface DesktopApi {
   setPresence: (payload: {
     status: SelectablePresenceStatus;
   }) => Promise<DesktopResult<{ presence: PresenceStatus }>>;
+  // blockedUsers is optional: an older backend answers with the ids alone.
   listBlockedUsers: () => Promise<
-    DesktopResult<{ blockedUserIds: string[] }>
+    DesktopResult<{ blockedUserIds: string[]; blockedUsers?: FriendEntry[] }>
   >;
   blockUser: (payload: {
     userId: string;

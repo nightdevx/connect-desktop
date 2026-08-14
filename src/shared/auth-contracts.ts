@@ -49,9 +49,19 @@ export interface UpdatePrivacyRequest {
   allowFriendRequests?: boolean;
 }
 
+// A named user id. The directory only lists friends and self, so anything that
+// must render a name for someone outside that set — a pending request, a block,
+// an exact-username lookup — carries the name in its own payload. No avatar: it
+// rides the users-WS on every friend event and avatars are data URLs.
+export interface FriendEntry {
+  userId: string;
+  username: string;
+  displayName: string;
+}
+
 export interface FriendRequestLists {
-  incoming: string[];
-  outgoing: string[];
+  incoming: FriendEntry[];
+  outgoing: FriendEntry[];
 }
 
 export interface UserSettingsProfile {

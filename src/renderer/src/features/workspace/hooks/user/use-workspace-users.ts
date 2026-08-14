@@ -394,13 +394,19 @@ export const useWorkspaceUsers = ({
   //   }
   // }, [filteredUsers, selectedUserId]);
 
+  // Off the UNFILTERED directory. Deriving it from filteredUsers blanked the
+  // open conversation the moment the user typed in the search box, and with a
+  // friends-only directory it would blank every conversation with a non-friend
+  // for good. Peers the directory does not contain at all (a non-friend you
+  // have history with) resolve to null here; the shell falls back to the
+  // conversation snapshot for those.
   const selectedUser = useMemo(() => {
     if (!selectedUserId) {
       return null;
     }
 
-    return filteredUsers.find((user) => user.userId === selectedUserId) ?? null;
-  }, [filteredUsers, selectedUserId]);
+    return directoryUsers.find((user) => user.userId === selectedUserId) ?? null;
+  }, [directoryUsers, selectedUserId]);
 
   return {
     usersQuery,
