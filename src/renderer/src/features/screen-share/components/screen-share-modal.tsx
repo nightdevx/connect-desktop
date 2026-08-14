@@ -1,6 +1,7 @@
 import { Modal, Button, Segmented, Switch } from "antd";
 import { SoundOutlined } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "../../../../../shared/desktop-api-types";
+import { estimateScreenShareUplinkBps } from "../constants";
 import type {
   ScreenShareContentMode,
   ScreenShareQualityOption,
@@ -21,6 +22,13 @@ interface ScreenShareModalProps {
   qualityOptions: ScreenShareQualityOption[];
   contentMode: ScreenShareContentMode;
   captureSystemAudio: boolean;
+  /**
+   * Congestion control's current estimate of the uplink, or null before it has
+   * one. It is a floor rather than a ceiling — send-side BWE only probes above
+   * what is already being sent — so this marks presets as risky, never blocks
+   * them.
+   */
+  uplinkHeadroomBps: number | null;
   onChangeContentMode: (mode: ScreenShareContentMode) => void;
   onClose: () => void;
   onRefreshSources: () => void;
@@ -30,6 +38,10 @@ interface ScreenShareModalProps {
   onChangeQuality: (quality: any) => void;
   onToggleCaptureSystemAudio: (enabled: boolean) => void;
 }
+
+const mbps = (bps: number): string => {
+  return (bps / 1_000_000).toFixed(1);
+};
 
 export function ScreenShareModal({
   isOpen,
@@ -45,6 +57,7 @@ export function ScreenShareModal({
   qualityOptions,
   contentMode,
   captureSystemAudio,
+  uplinkHeadroomBps,
   onChangeContentMode,
   onClose,
   onRefreshSources,
@@ -186,27 +199,49 @@ export function ScreenShareModal({
         <div className="ct-screen-share-column">
           <h5>Kalite</h5>
           <div className="ct-screen-share-quality-list">
-            {qualityOptions.map((qualityOption) => (
-              <label
-                key={qualityOption.id}
-                className={`ct-screen-share-quality ${selectedQuality === qualityOption.id ? "active" : ""}`}
-                htmlFor={`screen-quality-${qualityOption.id}`}
-              >
-                <input
-                  id={`screen-quality-${qualityOption.id}`}
-                  type="radio"
-                  name="screen-share-quality"
-                  checked={selectedQuality === qualityOption.id}
-                  onChange={() => onChangeQuality(qualityOption.id)}
-                  
-                />
-                <div>
-                  <strong>{qualityOption.label}</strong>
-                  <span>{qualityOption.description}</span>
-                </div>
-              </label>
-            ))}
+            {qualityOptions.map((qualityOption) => {
+              // ponytail: marks the preset, does not switch it. Auto-downgrade
+              // needs a headroom reading taken while video is actually flowing;
+              // this one is measured against audio only and would under-pick.
+              const requiredBps = estimateScreenShareUplinkBps(qualityOption);
+              // 0.85 rather than 1.0: audio, retransmits and BWE's own probing
+              // all come out of the same uplink, and an estimate that is exactly
+              // met is one that gets missed the first time anything else moves.
+              const overBudget =
+                uplinkHeadroomBps !== null &&
+                requiredBps > uplinkHeadroomBps * 0.85;
+
+              return (
+                <label
+                  key={qualityOption.id}
+                  className={`ct-screen-share-quality ${selectedQuality === qualityOption.id ? "active" : ""} ${overBudget ? "over-budget" : ""}`}
+                  htmlFor={`screen-quality-${qualityOption.id}`}
+                >
+                  <input
+                    id={`screen-quality-${qualityOption.id}`}
+                    type="radio"
+                    name="screen-share-quality"
+                    checked={selectedQuality === qualityOption.id}
+                    onChange={() => onChangeQuality(qualityOption.id)}
+                  />
+                  <div>
+                    <strong>{qualityOption.label}</strong>
+                    <span>
+                      {qualityOption.description} • ~{mbps(requiredBps)} Mbps
+                      {overBudget ? " • bağlantına ağır gelebilir" : ""}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
           </div>
+
+          {uplinkHeadroomBps !== null && (
+            <div className="ct-field-hint">
+              Ölçülen yükleme başlık payı: {mbps(uplinkHeadroomBps)} Mbps.
+              Gösterilen değerler tüm katmanların toplamıdır.
+            </div>
+          )}
 
           {/* Content mode: decides what the encoder protects when bandwidth
               runs short — frame rate or sharpness. */}

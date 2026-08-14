@@ -17,7 +17,17 @@ try {
   process.exit(1);
 }
 
-const { buildSimulcastLayerSpecs, scaleBitrateToResolution } = mod;
+const {
+  buildSimulcastLayerSpecs,
+  describeEncodingMismatch,
+  estimateLadderBitrateBps,
+  scaleBitrateToResolution,
+  SCREEN_SHARE_MAX_ENCODINGS,
+  CAMERA_MAX_ENCODINGS,
+} = mod;
+
+assert.equal(SCREEN_SHARE_MAX_ENCODINGS, 2);
+assert.equal(CAMERA_MAX_ENCODINGS, 3);
 
 // --- 1440p60 screen share --------------------------------------------------
 // One extra layer, not two: at 1440p and up a third encoding costs a hardware
@@ -46,14 +56,16 @@ assert.ok(
   "no layer exceeds the primary bitrate",
 );
 
-// --- 1080p60 screen share: still three encodings ---------------------------
-const high = buildSimulcastLayerSpecs({
+// --- 1080p60: three encodings for camera, two for screen share -------------
+const target1080p60 = {
   width: 1920,
   height: 1080,
   maxBitrateBps: 5_000_000,
   maxFramerate: 60,
-});
-assert.equal(high.length, 2, "1080p keeps the full ladder");
+};
+
+const high = buildSimulcastLayerSpecs(target1080p60, CAMERA_MAX_ENCODINGS);
+assert.equal(high.length, 2, "1080p camera keeps the full ladder");
 assert.deepEqual(
   high.map((layer) => [layer.width, layer.height]),
   [
@@ -67,6 +79,50 @@ assert.ok(
   "lower layer gets less bitrate",
 );
 assert.equal(high[0].maxFramerate, 15, "quarter layer is capped at 15fps");
+
+// Screen share drops the quarter layer: a 480x270 desktop is unreadable, and
+// the uplink is spent on the sum of the ladder, not on the top layer alone.
+const highScreen = buildSimulcastLayerSpecs(
+  target1080p60,
+  SCREEN_SHARE_MAX_ENCODINGS,
+);
+assert.equal(highScreen.length, 1, "1080p screen share gets two encodings");
+assert.deepEqual(
+  [highScreen[0].width, highScreen[0].height],
+  [960, 540],
+  "the surviving screen layer is the half one",
+);
+
+// --- ladder cost is the sum, not the headline bitrate ----------------------
+const cameraCost = estimateLadderBitrateBps(
+  target1080p60,
+  CAMERA_MAX_ENCODINGS,
+);
+const screenCost = estimateLadderBitrateBps(
+  target1080p60,
+  SCREEN_SHARE_MAX_ENCODINGS,
+);
+assert.ok(
+  cameraCost > 5_000_000,
+  "the ladder always costs more than the primary encoding alone",
+);
+assert.ok(
+  screenCost < cameraCost,
+  "dropping the quarter layer lowers what the uplink has to carry",
+);
+// The uplink this was tuned against reported ~6.8 Mbps of headroom, and the
+// three-encoding ladder did not fit it.
+assert.ok(
+  cameraCost > 6_800_000 && screenCost < 6_800_000,
+  `1080p60 should fit a 6.8 Mbps uplink at two encodings but not three: camera=${cameraCost} screen=${screenCost}`,
+);
+
+// A single encoding costs exactly the primary bitrate.
+assert.equal(
+  estimateLadderBitrateBps(target1080p60, 1),
+  5_000_000,
+  "one encoding means no extra layers",
+);
 
 // --- 720p30 camera ---------------------------------------------------------
 const camera = buildSimulcastLayerSpecs({
@@ -195,5 +251,51 @@ assert.equal(
   3_000_000,
   "zero preset dimensions fall back to the preset bitrate",
 );
+
+// --- the publish actually reached the encoder ------------------------------
+// This is the check that was missing while every screen share published at
+// 15fps: the arithmetic above was right, LiveKit just never read it.
+const screenTarget = {
+  width: 1920,
+  height: 1080,
+  maxBitrateBps: 5_000_000,
+  maxFramerate: 60,
+};
+
+assert.equal(
+  describeEncodingMismatch(screenTarget, [
+    { maxBitrate: 1_767_767, maxFramerate: 30 },
+    { maxBitrate: 5_000_000, maxFramerate: 60 },
+  ]),
+  null,
+  "a publish that honoured the target reports no mismatch",
+);
+
+// The exact shape of the bug: LiveKit's screen-share default, h1080fps15.
+const regression = describeEncodingMismatch(screenTarget, [
+  { maxBitrate: 625_000, maxFramerate: 15 },
+  { maxBitrate: 2_500_000, maxFramerate: 15 },
+]);
+assert.ok(regression, "the h1080fps15 fallback must be reported as a mismatch");
+assert.match(regression, /maxFramerate 15 < requested 60/);
+assert.match(regression, /maxBitrate 2500000/);
+
+assert.equal(
+  describeEncodingMismatch(screenTarget, []),
+  "encoder reported no encodings",
+);
+
+// SVC codecs get their bitrate trimmed on purpose (0.7 for AV1); that is not a
+// fault and must not fire the warning.
+assert.equal(
+  describeEncodingMismatch(screenTarget, [
+    { maxBitrate: 3_500_000, maxFramerate: 60 },
+  ]),
+  null,
+  "a deliberate SVC bitrate trim is not a mismatch",
+);
+
+// A browser that reports nothing must not be read as a failure.
+assert.equal(describeEncodingMismatch(screenTarget, [{}]), null);
 
 console.log("video-layers self-check passed");

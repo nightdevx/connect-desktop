@@ -1,4 +1,8 @@
 import {
+  estimateLadderBitrateBps,
+  SCREEN_SHARE_MAX_ENCODINGS,
+} from "@shared/video-layers";
+import {
   SCREEN_SHARE_RESOLUTION_DIMENSIONS,
   type ScreenShareQualityOption,
   type ScreenShareQualityPreset,
@@ -66,6 +70,27 @@ export const getScreenShareQualityDimensions = (
   return SCREEN_SHARE_RESOLUTION_DIMENSIONS[
     getScreenShareQualityOption(preset).resolution
   ];
+};
+
+/**
+ * What a preset really costs on the uplink: the whole simulcast ladder, not the
+ * headline bitrate. The picker used to advertise "1080p • 60 FPS" and nothing
+ * else, so a preset that could not possibly fit looked exactly like one that
+ * could — the user found out by watching the stream fall apart.
+ */
+export const estimateScreenShareUplinkBps = (
+  option: ScreenShareQualityOption,
+): number => {
+  const dimensions = SCREEN_SHARE_RESOLUTION_DIMENSIONS[option.resolution];
+  return estimateLadderBitrateBps(
+    {
+      width: dimensions.width,
+      height: dimensions.height,
+      maxBitrateBps: option.maxBitrateBps,
+      maxFramerate: option.frameRate,
+    },
+    SCREEN_SHARE_MAX_ENCODINGS,
+  );
 };
 
 export const getDefaultScreenShareQuality = (

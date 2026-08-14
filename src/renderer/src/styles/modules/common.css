@@ -169,6 +169,13 @@
   background: var(--ct-accent-soft);
 }
 
+/* A preset whose whole simulcast ladder does not fit the measured uplink. Still
+   selectable — the estimate is a floor, not a verdict — but it should not look
+   like a free choice. */
+.ct-screen-share-quality.over-budget span {
+  color: var(--ct-warning);
+}
+
 /* Opt-in system-audio capture. The whole row brightens when it is on, so the
    state is legible without reading the switch. */
 .ct-share-audio-toggle {

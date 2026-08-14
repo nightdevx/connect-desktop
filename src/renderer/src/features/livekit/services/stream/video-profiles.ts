@@ -4,7 +4,12 @@ import {
   type TrackPublishOptions,
   type VideoCodec,
 } from "livekit-client";
-import { buildSimulcastLayerSpecs, type VideoLayerSpec } from "@shared/video-layers";
+import {
+  buildSimulcastLayerSpecs,
+  CAMERA_MAX_ENCODINGS,
+  SCREEN_SHARE_MAX_ENCODINGS,
+  type VideoLayerSpec,
+} from "@shared/video-layers";
 
 export type VideoCodecPreference = "auto" | "h264" | "vp8" | "vp9" | "av1";
 export type VideoContentMode = "motion" | "detail";
@@ -68,12 +73,52 @@ export type VideoPublishPlan = Pick<
   TrackPublishOptions,
   | "videoCodec"
   | "videoEncoding"
+  | "screenShareEncoding"
   | "simulcast"
   | "videoSimulcastLayers"
+  | "screenShareSimulcastLayers"
   | "scalabilityMode"
   | "backupCodec"
   | "degradationPreference"
 >;
+
+/**
+ * Which option keys LiveKit actually reads for this track's source.
+ *
+ * This is the whole reason the selected quality never reached the encoder.
+ * `computeVideoEncodings` starts with:
+ *
+ *     let videoEncoding = options?.videoEncoding;
+ *     if (isScreenShare) videoEncoding = options?.screenShareEncoding;
+ *
+ * and picks `screenShareSimulcastLayers` over `videoSimulcastLayers` the same
+ * way. A screen share published with `videoEncoding`/`videoSimulcastLayers` had
+ * both silently dropped and fell back to the library default,
+ * `ScreenSharePresets.h1080fps15` — 1920x1080 at 2.5 Mbps and **15 fps**, plus
+ * one default half layer at 625 kbps. Which is exactly what the stats panel
+ * reported (1920x1080 / 15 fps / 3.11 Mbps / 2 layers) no matter which preset
+ * was chosen: 720p60, 1080p60, 1440p60 and 2160p30 all published at 15 fps.
+ *
+ * Both key pairs carry the same values here rather than only the source's own.
+ * They are read by source, never merged, so the unused pair is inert — and a
+ * track published under the other source (a screen capture sent as a camera
+ * track, for instance) still gets the right encoding instead of silently
+ * reverting to a library default. That silent revert is the bug.
+ */
+const applySourceKeyedEncoding = (
+  plan: VideoPublishPlan,
+  encoding: { maxBitrate: number; maxFramerate: number },
+  layers: VideoPreset[] | undefined,
+): VideoPublishPlan => {
+  return {
+    ...plan,
+    videoEncoding: encoding,
+    screenShareEncoding: encoding,
+    ...(layers
+      ? { videoSimulcastLayers: layers, screenShareSimulcastLayers: layers }
+      : {}),
+  };
+};
 
 /**
  * Publish options for one video track.
@@ -87,44 +132,53 @@ export const buildVideoPublishPlan = (params: {
   target: VideoPublishTarget;
   codec: VideoCodec;
   contentMode: VideoContentMode;
+  isScreenShare: boolean;
 }): VideoPublishPlan => {
-  const { target, codec, contentMode } = params;
+  const { target, codec, contentMode, isScreenShare } = params;
 
   const degradationPreference: RTCDegradationPreference =
     contentMode === "motion" ? "maintain-framerate" : "maintain-resolution";
 
-  const videoEncoding = {
+  const encoding = {
     maxBitrate: target.maxBitrateBps,
     maxFramerate: target.maxFramerate,
   };
 
-  const layers = buildSimulcastLayerSpecs(target);
+  const layers = buildSimulcastLayerSpecs(
+    target,
+    isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : CAMERA_MAX_ENCODINGS,
+  );
 
   if (isSvcCodec(codec)) {
-    return {
-      videoCodec: codec,
-      videoEncoding,
-      // LiveKit ignores simulcast for SVC codecs; the ladder comes from
-      // scalabilityMode instead.
-      simulcast: false,
-      scalabilityMode: resolveScalabilityMode(layers.length),
-      // VP9/AV1 are not decodable everywhere. The default backup policy only
-      // spins up the VP8 track when a subscriber actually needs it, so this
-      // costs nothing in an all-Chromium fleet.
-      backupCodec: true,
-      degradationPreference,
-    };
+    return applySourceKeyedEncoding(
+      {
+        videoCodec: codec,
+        // LiveKit ignores simulcast for SVC codecs; the ladder comes from
+        // scalabilityMode instead.
+        simulcast: false,
+        scalabilityMode: resolveScalabilityMode(layers.length),
+        // VP9/AV1 are not decodable everywhere. The default backup policy only
+        // spins up the VP8 track when a subscriber actually needs it, so this
+        // costs nothing in an all-Chromium fleet.
+        backupCodec: true,
+        degradationPreference,
+      },
+      encoding,
+      undefined,
+    );
   }
 
-  return {
-    videoCodec: codec,
-    videoEncoding,
-    simulcast: layers.length > 0,
-    videoSimulcastLayers: layers.map(toVideoPreset),
-    // H.264 and VP8 decode everywhere; a backup track would be pure waste.
-    backupCodec: false,
-    degradationPreference,
-  };
+  return applySourceKeyedEncoding(
+    {
+      videoCodec: codec,
+      simulcast: layers.length > 0,
+      // H.264 and VP8 decode everywhere; a backup track would be pure waste.
+      backupCodec: false,
+      degradationPreference,
+    },
+    encoding,
+    layers.map(toVideoPreset),
+  );
 };
 
 /**

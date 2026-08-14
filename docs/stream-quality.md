@@ -128,11 +128,90 @@ sentezlendiği için yalnızca orada patlıyordu.
 
 İkisi de düzeltilmeden ekran paylaşımı aramada görünmüyor.
 
+### Y7 — Seçilen kalite kodlayıcıya hiç ulaşmıyordu (15 fps kilidi)
+
+Y1–Y6'dan sonra da panel şunu gösteriyordu:
+
+```
+Gönderilen: 1920x1080 · 15 fps · 3.11 Mbps
+Kodlayıcı:  H264 · donanım · 2 katman
+```
+
+"1080p • 60 FPS" preset'i seçiliyken. Sebep uygulamanın aritmetiği değil,
+LiveKit'in seçenek adlandırması. `computeVideoEncodings`:
+
+```js
+let videoEncoding = options?.videoEncoding;
+if (isScreenShare) videoEncoding = options?.screenShareEncoding;
+```
+
+Simulcast merdiveni de aynı şekilde `screenShareSimulcastLayers`'tan okunuyor.
+`Track.Source.ScreenShare` ile publish edilen bir track'te
+`videoEncoding`/`videoSimulcastLayers` **sessizce düşüyor** ve `Room`'un
+birleştirdiği kütüphane varsayılanı devreye giriyor:
+`ScreenSharePresets.h1080fps15` — 1920×1080, 2.5 Mbps, **15 fps**. Varsayılan
+merdiven de tek bir yarım katman üretiyor (960×540, 625 kbps).
+
+Gözlenen dört sayının tamamı buradan geliyor: 2.5 + 0.625 = **3.125 Mbps**,
+**2 katman**, **15 fps**. Preset'ten bağımsız: 720p60, 1080p60, 1440p60 ve
+2160p30 hepsi 15 fps yayınlanıyordu — 1440p seçmek aynı 2.5 Mbps'i 1.8 kat
+piksele yaydığı için kaliteyi *düşürüyordu*.
+
+Sonuç olarak `SCREEN_SHARE_QUALITY_OPTIONS` bitrate'leri,
+`scaleBitrateToResolution` ve `buildSimulcastLayerSpecs` ekran paylaşımı yolunda
+ölü koddu. Kamera etkilenmemişti (`isScreenShare` false).
+
+`buildVideoPublishPlan` artık aynı değerleri iki anahtar çiftine de yazıyor.
+LiveKit'in gerçek `computeVideoEncodings`'i node'da çalıştırılarak ölçüldü:
+
+```
+ÖNCE:  rid=q  960x540 @15fps 0.625 Mbps
+       rid=h 1920x1080 @15fps 2.500 Mbps   toplam 3.125 Mbps
+SONRA: rid=q  960x540 @30fps 1.768 Mbps
+       rid=h 1920x1080 @60fps 5.000 Mbps   toplam 6.768 Mbps
+```
+
+### Y8 — Ekran paylaşımında merdiven bütçeyi bölüyordu
+
+Uplink merdivenin **toplamına** gider, üst katmana değil. 1080p60 üç kodlamayla
+5 + 1.77 + 0.63 = 7.4 Mbps ister; preset'in hedeflediği ~7 Mbps'lik uplink'e
+sığmaz. Ekran videosunda en alt katman zaten işe yaramaz — 480×270 bir masaüstü
+okunmaz, kimse onu duraklamış yayına tercih etmez.
+
+Ekran paylaşımı artık **iki kodlama** (`SCREEN_SHARE_MAX_ENCODINGS`), kamera üç
+(`CAMERA_MAX_ENCODINGS`) — kamera kareleri küçük ve ızgara döşemesinde 320×180
+bir yüz gayet kullanılabilir. 1080p60 böylece 7.4 yerine 6.77 Mbps istiyor.
+
+### Y9 — Kalite seçicisi uplink'i hiç hesaba katmıyordu
+
+`availableOutgoingBitrate` ölçülüyor ama yalnız panelde yazıyordu. Yayın
+modalinde her preset artık **tüm merdivenin** toplam maliyetini gösteriyor ve
+ölçülen başlık payının %85'ini aşan preset'ler işaretleniyor. Engellemiyor:
+send-side BWE yalnızca gönderdiğinin üstünü yokladığı için bu tahmin bir taban,
+tavan değil — 3.1 Mbps'te kilitliyken 6.79 Mbps okunması gerçek uplink'in o
+kadar olduğu anlamına gelmez.
+
+### Y10 — Publish'in encoder'a ulaştığını hiçbir şey doğrulamıyordu
+
+Y7 bu boşlukta yaşadı: `check-video-layers.cjs` uygulamanın aritmetiğini test
+ediyordu, LiveKit'in onu *kullandığını* değil. İki yeni koruma:
+
+- `verifyPublishedEncodings` — publish sonrası `sender.getParameters()` okunuyor,
+  istenen ile karşılaştırılıyor, sapma varsa debug log + konsol uyarısı.
+- `scripts/check-publish-plan.cjs` — `buildVideoPublishPlan` çıktısının
+  `screenShareEncoding`/`screenShareSimulcastLayers` taşıdığını doğrular
+  (modül livekit-client'a bağlı olduğu için vite ile bundle edilip çalıştırılır).
+
 ## 3. Doğrulama
 
-`pnpm typecheck`, `pnpm build`, `eslint src/renderer` (0 hata),
-`scripts/check-video-layers.cjs` ve `scripts/check-media-stats.cjs` geçiyor.
-Bitrate ölçekleme ve yeni merdiven için self-check'e vaka eklendi.
+`pnpm typecheck`, `pnpm build`, `eslint src` (0 hata), `pnpm check`
+(`check-media-stats`, `check-video-layers`, `check-publish-plan`,
+`check-loopback-worklet`) geçiyor. Bitrate ölçekleme, merdiven bütçesi ve
+encoder geri-okuması için self-check'e vaka eklendi.
+
+Y7 ayrıca LiveKit'in kendi `computeVideoEncodings`'i node'da çalıştırılarak
+ölçüldü — düzeltme öncesi çıktı, panelin gösterdiği dört sayının (1920x1080 /
+15 fps / 3.11 Mbps / 2 katman) birebir aynısı.
 
 Sonradan iki gerçek istemciyle test edildi (yerel Postgres + yerel LiveKit,
 iki ayrı Electron profili, iki hesap). Ölçülenler:

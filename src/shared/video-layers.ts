@@ -51,27 +51,115 @@ const scaleLayer = (
 const MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS = 2560;
 
 /**
+ * Encoding budget for a screen share.
+ *
+ * Uplink is spent on the SUM of the ladder, not on the top layer: a 1080p60
+ * share with three encodings asks for 5 + 1.8 + 0.6 = 7.4 Mbps, which does not
+ * fit the ~7 Mbps uplink the preset was sized for. Screen video is also the one
+ * source where the bottom layer is close to useless — a 480x270 desktop is
+ * unreadable, so nobody watching would rather have it than a paused stream.
+ * Two encodings put the budget where it is actually seen. Camera keeps three:
+ * those frames are small, and a 320x180 face in a grid tile is perfectly usable.
+ */
+export const SCREEN_SHARE_MAX_ENCODINGS = 2;
+export const CAMERA_MAX_ENCODINGS = 3;
+
+/**
  * Extra simulcast layers below the primary encoding, ordered low quality first
  * (the order LiveKit expects). Returns an empty array when the target is
  * already small enough that extra layers are just wasted encoder passes.
+ *
+ * `maxEncodings` counts the primary encoding too, so 2 means "one extra layer".
  */
 export const buildSimulcastLayerSpecs = (
   target: VideoLayerSpec,
+  maxEncodings: number = CAMERA_MAX_ENCODINGS,
 ): VideoLayerSpec[] => {
   const layers: VideoLayerSpec[] = [];
+  const extraLayerBudget = Math.max(0, maxEncodings - 1);
 
   // Quarter scale first (lowest quality), then half.
   if (
+    extraLayerBudget >= 2 &&
     target.width / 4 >= MIN_LAYER_WIDTH &&
     target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS
   ) {
     layers.push(scaleLayer(target, 1 / 4, 15));
   }
-  if (target.width / 2 >= MIN_LAYER_WIDTH) {
+  if (extraLayerBudget >= 1 && target.width / 2 >= MIN_LAYER_WIDTH) {
     layers.push(scaleLayer(target, 1 / 2, 30));
   }
 
   return layers;
+};
+
+/**
+ * What the whole ladder asks of the uplink, primary encoding included.
+ *
+ * The quality picker used to show only the primary bitrate ("1080p / 5 Mbps"),
+ * which is not the number that has to fit: simulcast sends every active layer.
+ * Comparing this against `availableOutgoingBitrate` is the only way to tell a
+ * user their preset does not fit before they publish it and watch it stutter.
+ */
+export const estimateLadderBitrateBps = (
+  target: VideoLayerSpec,
+  maxEncodings: number = CAMERA_MAX_ENCODINGS,
+): number => {
+  return buildSimulcastLayerSpecs(target, maxEncodings).reduce(
+    (total, layer) => total + layer.maxBitrateBps,
+    target.maxBitrateBps,
+  );
+};
+
+/**
+ * Compares what the encoder is really doing against what was asked for.
+ *
+ * The layer arithmetic below has had a self-check all along, but nothing
+ * verified that LiveKit *consumed* it — which is exactly the gap a publish bug
+ * lived in: a screen share sent with `videoEncoding` had it silently replaced
+ * by the library's `screenShareEncoding` default (1080p at 15fps / 2.5 Mbps),
+ * and every preset published at 15fps no matter what the user picked. Sender
+ * parameters are the one place where the option merge, SDP negotiation and the
+ * browser have all had their say.
+ *
+ * Returns a human-readable complaint, or null when the publish landed.
+ */
+export const describeEncodingMismatch = (
+  target: VideoLayerSpec,
+  encodings: {
+    maxBitrate?: number;
+    maxFramerate?: number;
+  }[],
+): string | null => {
+  if (encodings.length === 0) {
+    return "encoder reported no encodings";
+  }
+
+  // The primary encoding is the last one: presets are ordered lowest first.
+  const primary = encodings[encodings.length - 1];
+  const problems: string[] = [];
+
+  if (
+    typeof primary.maxFramerate === "number" &&
+    primary.maxFramerate < target.maxFramerate
+  ) {
+    problems.push(
+      `maxFramerate ${primary.maxFramerate} < requested ${target.maxFramerate}`,
+    );
+  }
+
+  // A tolerance rather than equality: LiveKit trims the bitrate of SVC codecs
+  // (0.85 for VP9, 0.7 for AV1) on purpose, and that is not a fault.
+  if (
+    typeof primary.maxBitrate === "number" &&
+    primary.maxBitrate < target.maxBitrateBps * 0.6
+  ) {
+    problems.push(
+      `maxBitrate ${primary.maxBitrate} << requested ${target.maxBitrateBps}`,
+    );
+  }
+
+  return problems.length > 0 ? problems.join(", ") : null;
 };
 
 /**
