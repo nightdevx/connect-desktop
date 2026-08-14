@@ -400,7 +400,17 @@ function WorkspaceShell({
         deafened: false,
         speaking: activeSpeakerIds.includes(callState.peerUser.userId),
         cameraEnabled: remoteParticipantStreams[callState.peerUser.userId]?.cameraEnabled ?? false,
-        screenSharing: remoteParticipantStreams[callState.peerUser.userId]?.screenEnabled ?? false,
+        // screenAvailable (published), not screenEnabled (subscribed).
+        //
+        // Screen shares are opt-in, so screenEnabled only turns true once this
+        // viewer has already asked to watch. Using it here meant a 1:1 call
+        // never grew a screen slot for the peer, so the "Yayını izle" prompt
+        // was never rendered and there was no way to start watching: you could
+        // not watch because you were not watching. In a lobby the roster comes
+        // from the server so this never showed up; a call has no roster and
+        // synthesises its members right here.
+        screenSharing:
+          remoteParticipantStreams[callState.peerUser.userId]?.screenAvailable ?? false,
       }
     ];
   }, [

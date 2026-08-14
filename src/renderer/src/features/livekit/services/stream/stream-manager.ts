@@ -61,6 +61,13 @@ const isSameParticipantMediaState = (
     left.micEnabled === right.micEnabled &&
     left.cameraEnabled === right.cameraEnabled &&
     left.screenEnabled === right.screenEnabled &&
+    // screenAvailable was missing here. Because screen shares are opt-in,
+    // starting one changes nothing else about the publisher from a viewer's
+    // point of view: screenEnabled stays false (nobody has subscribed yet) and
+    // screen/screenStream stay null (no track). So this comparator reported
+    // "unchanged", updateMediaMap skipped the callback, and the viewer's React
+    // state never learned that anyone had started broadcasting.
+    left.screenAvailable === right.screenAvailable &&
     left.isSpeaking === right.isSpeaking &&
     left.camera === right.camera &&
     left.screen === right.screen &&

@@ -106,15 +106,52 @@ Ses bağlantı panelinde artık bir **Yayın Kalitesi** bölümü var:
 
 Bir sorun bildirildiğinde bakılacak ilk yer burası.
 
+### Y6 — 1:1 aramada ekran paylaşımı karşı tarafa hiç görünmüyordu
+
+İki istemciyle test ederken çıktı ve iki ayrı kusurun üst üste binmesiymiş.
+Lobide roster sunucudan geldiği için görünmüyordu; aramada üyeler istemcide
+sentezlendiği için yalnızca orada patlıyordu.
+
+1. `WorkspaceShell.callMembers`, karşı tarafın `screenSharing` bayrağını
+   `screenEnabled`'dan okuyordu. `screenEnabled` "abone olundu" demek; ekran
+   paylaşımları ise opt-in. Yani izlemeye basmadan bayrak açılmıyor, bayrak
+   açılmadan ekran slotu üretilmiyor, slot olmadan "Yayını izle" düğmesi
+   çizilmiyordu: **izlemediğiniz için izleyemiyordunuz.** Artık `screenAvailable`
+   (yayınlandı) okunuyor.
+2. `isSameParticipantMediaState` dokuz alanı karşılaştırıyor ama
+   **`screenAvailable`'ı karşılaştırmıyordu**. Opt-in olduğu için biri yayına
+   başladığında izleyici açısından başka hiçbir alan değişmiyor
+   (`screenEnabled` false kalıyor, `screen`/`screenStream` null kalıyor), bu
+   yüzden karşılaştırıcı "değişmedi" diyor, `updateMediaMap` geri çağrıyı
+   atlıyor ve izleyicinin React durumu birinin yayına başladığını hiç
+   öğrenmiyordu.
+
+İkisi de düzeltilmeden ekran paylaşımı aramada görünmüyor.
+
 ## 3. Doğrulama
 
 `pnpm typecheck`, `pnpm build`, `eslint src/renderer` (0 hata),
 `scripts/check-video-layers.cjs` ve `scripts/check-media-stats.cjs` geçiyor.
 Bitrate ölçekleme ve yeni merdiven için self-check'e vaka eklendi.
 
-İki istemcili gerçek bir yayın denenemedi (bu makinedeki geliştirme
-profillerinin oturumu düşmüş). Y1/Y2 saf aritmetik ve self-check'le sınandı;
-Y3/Y4/Y5 kod ve CSS düzeyinde. Gerçek ölçüm için Y5'teki panel var.
+Sonradan iki gerçek istemciyle test edildi (yerel Postgres + yerel LiveKit,
+iki ayrı Electron profili, iki hesap). Ölçülenler:
+
+```
+aramayı kabul et -> ilk uzak ses track'i:  arayan 1628 ms, kabul eden 1407 ms
+ses bağlantısı:                            "iyi (39 ms)" / "iyi (29 ms)"
+paylaşan (Ultra preset, 2560x1080 monitör): H264 · donanım · 2 katman
+ekran döşemesi object-fit:                  contain   (kamera döşemesi: cover)
+izleyen: izlemeye basınca odaklandı,        "Donma: 0 kez · 72 ms tampon"
+```
+
+Y2 (1440p+ iki kodlama), Y3 (kırpma yok), Y4 (izle → odakla), Y5 (panel gerçek
+sayıları gösteriyor) ve Y6 çalışan uygulamada doğrulandı. Y1 aritmetiği
+self-check'le sınandı.
+
+Bant genişliği sayıları (0.5 Mbps) test ortamının kendisi: iki Electron ve SFU
+aynı makinede, LiveKit "UDP receive buffer is too small (425 KB / 5 MB)" uyarısı
+veriyor. İşlevsel sonuçlar geçerli, throughput sayıları üretimi temsil etmiyor.
 
 ## 4. Sunucu tarafında yapılması gerekenler
 
