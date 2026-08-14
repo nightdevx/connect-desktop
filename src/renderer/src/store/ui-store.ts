@@ -7,6 +7,7 @@ export type AdminSection = "dashboard" | "users" | "lobbies" | "activity";
 export type SettingsSection =
   | "profile"
   | "security"
+  | "privacy"
   | "camera"
   | "audio"
   | "stream"

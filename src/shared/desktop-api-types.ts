@@ -20,6 +20,9 @@ import type {
   AdminStats,
   PresenceStatus,
   SelectablePresenceStatus,
+  FriendRequestLists,
+  PrivacySettings,
+  UpdatePrivacyRequest,
 } from "./auth-contracts";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 
@@ -133,6 +136,7 @@ export interface LobbyRealtimeSnapshot {
   isLocked?: boolean;
   allowedUsers?: string;
   hasPassword?: boolean;
+  isTextOnly?: boolean;
 }
 
 // Inline file upload carried in the same payload as the message. mimeType is a
@@ -250,6 +254,18 @@ export type UserDirectoryStreamEvent =
         userId: string;
         appOnline: boolean;
         presence?: PresenceStatus;
+      };
+      at?: string;
+    }
+  | {
+      // Ids and names only: the friend half of the users-WS carries no profile,
+      // so it is safe to publish per-recipient. userId is always the OTHER
+      // party from the receiving client's point of view.
+      type: "friend-request" | "friend-accepted" | "friend-removed";
+      friend: {
+        userId: string;
+        username: string;
+        displayName: string;
       };
       at?: string;
     }
@@ -373,6 +389,8 @@ export interface DesktopApi {
     isLocked?: boolean;
     allowedUsers?: string[];
     password?: string;
+    // Chat-only room. Create-only: updateLobby has no counterpart.
+    isTextOnly?: boolean;
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   updateLobby: (payload: {
     lobbyId: string;
@@ -523,6 +541,24 @@ export interface DesktopApi {
   unblockUser: (payload: {
     userId: string;
   }) => Promise<DesktopResult<{ unblocked: boolean }>>;
+  listFriends: () => Promise<DesktopResult<{ friendUserIds: string[] }>>;
+  listFriendRequests: () => Promise<DesktopResult<FriendRequestLists>>;
+  // accepted is true when the target had already asked: the mutual-pending case
+  // collapses to one accepted edge instead of a second row.
+  sendFriendRequest: (payload: {
+    username: string;
+  }) => Promise<DesktopResult<{ requested: boolean; accepted: boolean }>>;
+  acceptFriendRequest: (payload: {
+    userId: string;
+  }) => Promise<DesktopResult<{ accepted: boolean }>>;
+  // Also serves reject and cancel — the same edge, deleted from either side.
+  removeFriend: (payload: {
+    userId: string;
+  }) => Promise<DesktopResult<{ removed: boolean }>>;
+  getPrivacySettings: () => Promise<DesktopResult<{ privacy: PrivacySettings }>>;
+  updatePrivacySettings: (
+    payload: UpdatePrivacyRequest,
+  ) => Promise<DesktopResult<{ privacy: PrivacySettings }>>;
   markDirectRead: (payload: {
     peerUserId: string;
   }) => Promise<DesktopResult<{ marked: boolean }>>;

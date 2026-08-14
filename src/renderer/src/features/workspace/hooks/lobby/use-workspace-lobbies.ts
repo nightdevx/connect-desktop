@@ -349,6 +349,9 @@ export function useWorkspaceLobbies({
             isLocked: snapshot.isLocked,
             allowedUsers: snapshot.allowedUsers,
             hasPassword: snapshot.hasPassword,
+            // Same trap as isLocked: dropping it here turns a text room back
+            // into a voice room — with a live mic — on the next push.
+            isTextOnly: snapshot.isTextOnly,
           };
         });
 

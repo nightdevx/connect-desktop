@@ -102,6 +102,7 @@ export const lobbyService = {
     isLocked?: boolean;
     allowedUsers?: string[];
     password?: string;
+    isTextOnly?: boolean;
   }): Promise<DesktopResult<{ lobby: LobbyDescriptor }>> => {
     return window.desktopApi.createLobby(payload);
   },

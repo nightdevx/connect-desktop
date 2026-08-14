@@ -361,3 +361,23 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* --------------------------------------------------------------------------
+   Friend requests
+
+   A group label above a short list, not a section heading. Its 12px inset is
+   the same inner padding every row uses, so the label starts on the vertical
+   line the avatars sit on -- it is not a second gutter on top of the body's.
+   -------------------------------------------------------------------------- */
+
+.ct-list-group-title {
+  @apply m-0 text-micro font-bold uppercase tracking-[0.12em];
+  padding-inline: 12px;
+  color: var(--ct-text-muted);
+}
+
+/* Outside .ct-list-user, which is the flex-1 half: that is what makes a long
+   name truncate rather than squeeze the accept and reject buttons. */
+.ct-list-item-actions {
+  @apply flex shrink-0 items-center gap-0.5;
+}

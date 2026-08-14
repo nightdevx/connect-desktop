@@ -17,6 +17,9 @@ import type {
   AdminLobbyEvent,
   AdminStats,
   PresenceStatus,
+  FriendRequestLists,
+  PrivacySettings,
+  UpdatePrivacyRequest,
 } from "../../shared/auth-contracts";
 import type { BaseClient } from "./base-client";
 
@@ -56,6 +59,81 @@ export class AuthClient {
     return this.baseClient.request<{ unblocked: boolean }>(
       `/auth/blocks/${encodeURIComponent(userId)}`,
       { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async listFriends(
+    accessToken: string,
+  ): Promise<{ friendUserIds: string[] }> {
+    return this.baseClient.request<{ friendUserIds: string[] }>(
+      "/auth/friends",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async listFriendRequests(
+    accessToken: string,
+  ): Promise<FriendRequestLists> {
+    return this.baseClient.request<FriendRequestLists>(
+      "/auth/friends/requests",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  // By username, not id: the target is typed in, and the backend never reveals
+  // an id the caller has not already seen.
+  public async sendFriendRequest(
+    accessToken: string,
+    username: string,
+  ): Promise<{ requested: boolean; accepted: boolean }> {
+    return this.baseClient.request<{ requested: boolean; accepted: boolean }>(
+      `/auth/friends/requests/${encodeURIComponent(username)}`,
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async acceptFriendRequest(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ accepted: boolean }> {
+    return this.baseClient.request<{ accepted: boolean }>(
+      `/auth/friends/${encodeURIComponent(userId)}/accept`,
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  // Unfriend, reject and cancel are all this one DELETE: the edge is the same
+  // row whichever side asks for it to go.
+  public async removeFriend(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ removed: boolean }> {
+    return this.baseClient.request<{ removed: boolean }>(
+      `/auth/friends/${encodeURIComponent(userId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async getPrivacySettings(
+    accessToken: string,
+  ): Promise<{ privacy: PrivacySettings }> {
+    return this.baseClient.request<{ privacy: PrivacySettings }>(
+      "/auth/privacy",
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
+  public async updatePrivacySettings(
+    accessToken: string,
+    payload: UpdatePrivacyRequest,
+  ): Promise<{ privacy: PrivacySettings }> {
+    return this.baseClient.request<{ privacy: PrivacySettings }>(
+      "/auth/privacy",
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+      },
     );
   }
 

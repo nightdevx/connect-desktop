@@ -62,6 +62,7 @@ export function registerLobbyHandlers(): void {
           parsed.isLocked,
           parsed.allowedUsers,
           parsed.password,
+          parsed.isTextOnly,
         );
       });
       return ok(result);

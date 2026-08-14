@@ -31,6 +31,10 @@
   color: var(--ct-success);
 }
 
+.ct-lobby-item-text {
+  color: var(--ct-text-muted);
+}
+
 .ct-lobby-item-count {
   @apply inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums;
   color: var(--ct-text-muted);
@@ -274,6 +278,14 @@
 
 .ct-lobby-room-grid-v2.chat-closed {
   grid-template-columns: minmax(0, 1fr) 0;
+}
+
+/* Mirror of .chat-closed for a text-only lobby. The stage <section> is not
+   rendered at all there, so this is one column rather than a zero-width one:
+   a `0 minmax(0,1fr)` track pair would drop the chat, the only child, into the
+   collapsed column. */
+.ct-lobby-room-grid-v2.stage-closed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .ct-lobby-stage-panel {
@@ -788,6 +800,24 @@
 .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
   border-left-color: transparent;
   background: transparent;
+}
+
+/* In a text room the chat IS the room, so it must never be the slide-over
+   drawer responsive.css turns .ct-lobby-chat-slot into below 1100px — there is
+   no stage behind it, so the drawer would leave the room blank. Three classes
+   beats that rule's one, and media queries add no specificity, so this wins
+   inside it without responsive.css having to know about text rooms. */
+.ct-lobby-room-grid-v2.stage-closed .ct-lobby-chat-slot {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: auto;
+  transform: none;
+  pointer-events: auto;
+  border-left: 0;
+  background: rgba(0, 0, 0, 0.34);
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .ct-lobby-chat-panel {

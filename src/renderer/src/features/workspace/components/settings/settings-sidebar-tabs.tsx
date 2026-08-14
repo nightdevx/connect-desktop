@@ -2,6 +2,7 @@ import type { SettingsSection } from "@/store/ui-store";
 import {
   UserOutlined,
   SafetyOutlined,
+  EyeInvisibleOutlined,
   VideoCameraOutlined,
   AudioOutlined,
   DesktopOutlined,
@@ -32,6 +33,12 @@ const TABS: TabConfig[] = [
     label: "Güvenlik",
     description: "Şifre ve hesap güvenliği",
     icon: <SafetyOutlined />,
+  },
+  {
+    id: "privacy",
+    label: "Gizlilik",
+    description: "Sana kimlerin ulaşabileceği",
+    icon: <EyeInvisibleOutlined />,
   },
   {
     id: "camera",

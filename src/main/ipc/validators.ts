@@ -113,6 +113,8 @@ export const createLobbySchema = z.object({
   isLocked: z.boolean().optional(),
   allowedUsers: z.array(z.string()).optional(),
   password: z.string().max(128).optional(),
+  // Immutable after creation, so it has no counterpart in updateLobbySchema.
+  isTextOnly: z.boolean().optional(),
 });
 
 export const updateLobbySchema = z.object({
@@ -202,6 +204,20 @@ export const directMessagesListSchema = z.object({
 
 export const blockUserSchema = z.object({
   userId: z.string().min(2).max(128),
+});
+
+// Friend requests target a username, not an id; the backend pattern is
+// ^[a-z0-9_.-]{3,32}$, so the length bound matches it rather than the id one.
+export const friendRequestSendSchema = z.object({
+  username: z.string().min(3).max(32),
+});
+
+// Every field optional: an omitted key means "leave unchanged", which is why
+// this cannot be folded into updateProfileSchema's PUT semantics.
+export const updatePrivacySchema = z.object({
+  allowDirectMessagesFrom: z.enum(["everyone", "friends"]).optional(),
+  allowCallsFrom: z.enum(["everyone", "friends"]).optional(),
+  allowFriendRequests: z.boolean().optional(),
 });
 
 export const unreadCountsSchema = z.object({

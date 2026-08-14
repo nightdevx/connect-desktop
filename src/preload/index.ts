@@ -208,6 +208,18 @@ const desktopApi: DesktopApi = {
   blockUser: async (payload) => ipcRenderer.invoke("desktop:auth-block", payload),
   unblockUser: async (payload) =>
     ipcRenderer.invoke("desktop:auth-unblock", payload),
+  listFriends: async () => ipcRenderer.invoke("desktop:auth-friends"),
+  listFriendRequests: async () =>
+    ipcRenderer.invoke("desktop:auth-friend-requests"),
+  sendFriendRequest: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-friend-request-send", payload),
+  acceptFriendRequest: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-friend-accept", payload),
+  removeFriend: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-friend-remove", payload),
+  getPrivacySettings: async () => ipcRenderer.invoke("desktop:auth-privacy"),
+  updatePrivacySettings: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-privacy-update", payload),
   markDirectRead: async (payload) =>
     ipcRenderer.invoke("desktop:direct-read", payload),
   getDirectUnreadCounts: async (payload) =>

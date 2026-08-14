@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Switch, Modal, Select, Input } from "antd";
+import { Switch, Modal, Select, Input, message } from "antd";
 import {
   CloseOutlined,
   DashboardOutlined,
@@ -25,6 +25,7 @@ import type {
 } from "@/store/ui-store";
 import type { UseWorkspaceUsersResult } from "../../hooks";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
+import type { FriendsController } from "../../hooks/user/use-friends";
 import { LobbiesSidebarPanel } from "../lobby";
 import { QuickControls } from "../common";
 import { SettingsSidebarTabs } from "../settings";
@@ -43,6 +44,7 @@ interface WorkspaceSidebarProps {
     selectedUserId: string | null;
     setSelectedUserId: (value: string | null) => void;
     unreadByUserId: Record<string, number>;
+    friends: FriendsController;
     callState?: CallSessionState;
     presenceStatus: SelectablePresenceStatus;
     onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
@@ -56,6 +58,8 @@ interface WorkspaceSidebarProps {
     lobbyMembersById: Record<string, LobbyStateMember[]>;
     avatarByUserId: Record<string, string | null | undefined>;
     activeLobbyId: string | null;
+    /** The text room being read, which is never a connection — see WorkspaceShell. */
+    openTextRoomId: string | null;
     joiningLobbyId: string | null;
     onJoinLobby: (lobbyId: string) => void;
     onCreateLobby: (
@@ -63,6 +67,7 @@ interface WorkspaceSidebarProps {
       isLocked?: boolean,
       allowedUsers?: string[],
       password?: string,
+      isTextOnly?: boolean,
     ) => Promise<boolean>;
     onUpdateLobby: (
       lobbyId: string,
@@ -144,11 +149,18 @@ export function WorkspaceSidebar({
   audioProcessingProps,
   videoQualityProps,
 }: WorkspaceSidebarProps) {
+  const [messageApi, contextHolder] = message.useMessage();
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
   const [newLobbyName, setNewLobbyName] = useState("");
   const [isLocked, setIsLocked] = useState(false);
   const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
   const [newLobbyPassword, setNewLobbyPassword] = useState("");
+  const [isTextOnly, setIsTextOnly] = useState(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [friendUsername, setFriendUsername] = useState("");
+  // sendRequest is keyed by username, so it marks no pendingUserIds — there is
+  // no user id to hang one on until the server answers. This button owns it.
+  const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
   const [isAudioPopupOpen, setIsAudioPopupOpen] = useState(false);
   const audioAnchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -160,7 +172,49 @@ export function WorkspaceSidebar({
     setNewLobbyName("");
     setIsLocked(false);
     setAllowedUsers([]);
+    // Was missing: a password typed into a cancelled modal survived to the next
+    // open and silently locked the next lobby created.
+    setNewLobbyPassword("");
+    setIsTextOnly(false);
     setIsCreateLobbyOpen(true);
+  };
+
+  // A password is only ever checked when joining, and a message room is never
+  // joined — one typed before switching room type would be saved and enforce
+  // nothing, so the field is dropped and the value with it.
+  const handleRoomTypeChange = (nextIsTextOnly: boolean): void => {
+    setIsTextOnly(nextIsTextOnly);
+    setNewLobbyPassword("");
+  };
+
+  const handleAddFriendClick = (): void => {
+    if (workspaceSection !== "users") {
+      return;
+    }
+
+    setFriendUsername("");
+    setIsAddFriendOpen(true);
+  };
+
+  const handleAddFriendSubmit = async (): Promise<void> => {
+    if (isSendingFriendRequest) {
+      return;
+    }
+
+    setIsSendingFriendRequest(true);
+    try {
+      const result = await usersProps.friends.sendRequest(friendUsername);
+      if (!result.ok) {
+        messageApi.error(result.message);
+        return;
+      }
+
+      messageApi.success(result.message);
+      setFriendUsername("");
+      setIsAddFriendOpen(false);
+    } finally {
+      setIsSendingFriendRequest(false);
+    }
   };
 
   const audioStatusIcon =
@@ -212,6 +266,7 @@ export function WorkspaceSidebar({
       isLocked,
       allowedUsers,
       newLobbyPassword.trim() || undefined,
+      isTextOnly,
     );
     if (!created) {
       return;
@@ -221,13 +276,28 @@ export function WorkspaceSidebar({
     setIsLocked(false);
     setAllowedUsers([]);
     setNewLobbyPassword("");
+    setIsTextOnly(false);
     setIsCreateLobbyOpen(false);
   };
 
   return (
     <aside className="ct-sidebar" aria-label="Yan panel">
+      {contextHolder}
+
       <header className="ct-sidebar-header">
         <h3>{sectionTitle}</h3>
+
+        {workspaceSection === "users" && (
+          <button
+            type="button"
+            className="ct-sidebar-header-action"
+            onClick={handleAddFriendClick}
+            title="Arkadaş ekle"
+            aria-label="Arkadaş ekle"
+          >
+            <PlusOutlined />
+          </button>
+        )}
 
         {workspaceSection === "lobbies" && (
           <button
@@ -255,6 +325,7 @@ export function WorkspaceSidebar({
             selectedUserId={usersProps.selectedUserId}
             onUserSelect={usersProps.setSelectedUserId}
             unreadByUserId={usersProps.unreadByUserId}
+            friends={usersProps.friends}
             presenceStatus={usersProps.presenceStatus}
             onPresenceStatusChange={usersProps.onPresenceStatusChange}
             callState={usersProps.callState}
@@ -268,6 +339,7 @@ export function WorkspaceSidebar({
             lobbyMembersById={lobbiesProps.lobbyMembersById}
             avatarByUserId={lobbiesProps.avatarByUserId}
             activeLobbyId={lobbiesProps.activeLobbyId}
+            openTextRoomId={lobbiesProps.openTextRoomId}
             joiningLobbyId={lobbiesProps.joiningLobbyId}
             onJoinLobby={lobbiesProps.onJoinLobby}
             onUpdateLobby={lobbiesProps.onUpdateLobby}
@@ -533,10 +605,31 @@ export function WorkspaceSidebar({
             />
           </label>
 
+          {/* Create-only: the flag is immutable afterwards, so "Lobi Ayarları"
+              has no counterpart for it. */}
+          <label className="ct-field">
+            <span>Oda Türü</span>
+            <Select
+              value={isTextOnly}
+              onChange={handleRoomTypeChange}
+              options={[
+                { label: "Sesli Oda", value: false },
+                { label: "Mesaj Odası", value: true },
+              ]}
+            />
+            <small className="ct-field-hint">
+              Mesaj odasında sesli bağlantı kurulmaz, sadece sohbet edilir.
+            </small>
+          </label>
+
           <div className="ct-field-row">
             <div className="ct-field-row-text">
               <strong>Kilitli Oda</strong>
-              <span>Yalnızca davet edilen kişiler katılabilir</span>
+              <span>
+                {isTextOnly
+                  ? "Yalnızca davet edilen kişiler görebilir"
+                  : "Yalnızca davet edilen kişiler katılabilir"}
+              </span>
             </div>
             <Switch checked={isLocked} onChange={setIsLocked} />
           </div>
@@ -559,16 +652,56 @@ export function WorkspaceSidebar({
             </label>
           )}
 
+          {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur ve
+              mesaj odasına katılım diye bir şey yok. */}
+          {!isTextOnly && (
+            <label className="ct-field">
+              <span>Oda Şifresi (opsiyonel)</span>
+              <Input.Password
+                placeholder="Şifre belirleyin (boş = şifresiz)"
+                value={newLobbyPassword}
+                onChange={(event) => setNewLobbyPassword(event.target.value)}
+                maxLength={128}
+              />
+              <small className="ct-field-hint">
+                Şifreyi bilen herkes bu odaya katılabilir.
+              </small>
+            </label>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        rootClassName="ct-modal"
+        title="Arkadaş Ekle"
+        open={isAddFriendOpen}
+        onOk={() => void handleAddFriendSubmit()}
+        onCancel={() => setIsAddFriendOpen(false)}
+        confirmLoading={isSendingFriendRequest}
+        okButtonProps={{
+          // 3-32 mirrors the backend username pattern and the IPC zod schema.
+          // The old 2/64 bounds were copied from the id-shaped block schema, so
+          // anything outside 3-32 died as a ZodError and surfaced as the generic
+          // "Arkadaşlık isteği gönderilemedi." with no hint about the length.
+          disabled: friendUsername.trim().length < 3,
+        }}
+        okText={isSendingFriendRequest ? "Gönderiliyor..." : "İstek Gönder"}
+        cancelText="İptal"
+        destroyOnHidden
+      >
+        <div className="ct-modal-form">
           <label className="ct-field">
-            <span>Oda Şifresi (opsiyonel)</span>
-            <Input.Password
-              placeholder="Şifre belirleyin (boş = şifresiz)"
-              value={newLobbyPassword}
-              onChange={(event) => setNewLobbyPassword(event.target.value)}
-              maxLength={128}
+            <span>Kullanıcı Adı</span>
+            <input
+              type="text"
+              className="ct-input"
+              value={friendUsername}
+              onChange={(event) => setFriendUsername(event.target.value)}
+              placeholder="Örn. mehmet"
+              maxLength={32}
             />
             <small className="ct-field-hint">
-              Şifreyi bilen herkes bu odaya katılabilir.
+              Kullanıcı adını tam olarak yazın.
             </small>
           </label>
         </div>

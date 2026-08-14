@@ -37,14 +37,27 @@ export function LobbySelectionScreen({
             <li key={lobby.id} className="ct-lobby-select-card">
               <div className="min-w-0">
                 <strong># {lobby.name}</strong>
-                <span>{lobby.memberCount} üye aktif</span>
+                {/* Nobody is ever "in" a message room, so an occupancy count
+                    there would always read 0 and a "Katıl" button would promise
+                    a connection this click does not make. */}
+                <span>
+                  {lobby.isTextOnly
+                    ? "Sohbet kanalı"
+                    : `${lobby.memberCount} üye aktif`}
+                </span>
               </div>
               <Button
                 type="default"
                 onClick={() => onJoinLobby(lobby.id)}
                 disabled={joiningLobbyId !== null}
               >
-                {joiningLobbyId === lobby.id ? <LoadingOutlined /> : "Katıl"}
+                {joiningLobbyId === lobby.id ? (
+                  <LoadingOutlined />
+                ) : lobby.isTextOnly ? (
+                  "Aç"
+                ) : (
+                  "Katıl"
+                )}
               </Button>
             </li>
           ))}

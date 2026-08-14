@@ -511,7 +511,15 @@ export class LiveKitStreamManager {
     this.mediaMap = {};
     this.streamCache.clear();
     this.callbacks.onRemoteStreamsChanged?.({});
-    this.callbacks.onConnectionStateChanged?.("disconnected");
+    // Only when a room was actually torn down. The hook treats "disconnected"
+    // with an active lobby as a dropped connection and schedules the rejoin
+    // chain — every other deliberate teardown clears activeLobbyId first, but
+    // the text-only branch of performPostJoinSynchronization cannot: the user
+    // IS in that lobby. Announcing a no-op teardown there made the chain rejoin,
+    // re-run the sync, disconnect again, and loop forever.
+    if (room) {
+      this.callbacks.onConnectionStateChanged?.("disconnected");
+    }
   }
 
   public async setCameraEnabled(

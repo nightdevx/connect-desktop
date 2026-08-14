@@ -30,6 +30,30 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+// Who may reach a user. The recipient's setting is what counts, checked one
+// way: a friends-only user may still message a stranger, not the reverse.
+export type PrivacyAudience = "everyone" | "friends";
+
+export interface PrivacySettings {
+  allowDirectMessagesFrom: PrivacyAudience;
+  allowCallsFrom: PrivacyAudience;
+  allowFriendRequests: boolean;
+}
+
+// Every field optional: omitted means "leave unchanged". This is why privacy
+// has its own PATCH /auth/privacy instead of riding /auth/profile, whose nil
+// fields CLEAR the column.
+export interface UpdatePrivacyRequest {
+  allowDirectMessagesFrom?: PrivacyAudience;
+  allowCallsFrom?: PrivacyAudience;
+  allowFriendRequests?: boolean;
+}
+
+export interface FriendRequestLists {
+  incoming: string[];
+  outgoing: string[];
+}
+
 export interface UserSettingsProfile {
   displayName: string;
   email: string | null;
@@ -37,6 +61,9 @@ export interface UserSettingsProfile {
   bio: string | null;
   avatarUrl: string | null;
   updatedAt: string;
+  // Read-only here; writes go to PATCH /auth/privacy. Optional so a client
+  // talking to a backend without the field still parses.
+  privacy?: PrivacySettings;
 }
 
 export interface UpdateProfileRequest {
@@ -97,6 +124,8 @@ export interface LobbyDescriptor {
   isLocked?: boolean;
   allowedUsers?: string;
   hasPassword?: boolean;
+  // Chat-only room: no LiveKit token, no voice reconciler. Fixed at creation.
+  isTextOnly?: boolean;
 }
 
 // The quoted message shown above a reply. Denormalised by the server so a

@@ -237,6 +237,14 @@ export function LobbiesMainPanel({
   );
   const canModerate = canManageLobby(activeLobby?.createdBy ?? "", currentUserId, currentUserRole);
 
+  // A text room has no stage, no roster and no toolbar: the chat is the entire
+  // room and there is nothing to toggle it against. Nothing here leaves it
+  // either — a text room is never joined, so "leaving" is just clicking
+  // somewhere else. That is also why LobbyActionToolbar must stay inside this
+  // branch: its leave button, and the sidebar's disconnect, belong to the voice
+  // lobby that may well still be running underneath this chat.
+  const isTextOnly = activeLobby?.isTextOnly ?? false;
+
   const handleServerMuteParticipant = (): void => {
     if (!activeLobbyId || !contextMenuParticipantId) return;
     const targetId = contextMenuParticipantId;
@@ -341,7 +349,10 @@ export function LobbiesMainPanel({
       <article
         className={`ct-content-card ct-lobby-room-card connected ct-lobby-main-layer room ${activeLobbyId ? "" : "hidden-layer"}`}
       >
-        <div className={`ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}>
+        <div
+          className={`ct-lobby-room-grid-v2 ${isTextOnly ? "stage-closed" : isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
+        >
+          {!isTextOnly && (
           <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
             <button
               type="button"
@@ -417,8 +428,9 @@ export function LobbiesMainPanel({
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
             />
           </section>
+          )}
 
-          <aside className={`ct-lobby-chat-slot ${isLobbyChatOpen ? "open" : ""}`}>
+          <aside className={`ct-lobby-chat-slot ${isTextOnly || isLobbyChatOpen ? "open" : ""}`}>
             <LobbyChatPanel
               currentUserId={currentUserId}
               lobbyMessagesQuery={lobbyMessagesQuery}

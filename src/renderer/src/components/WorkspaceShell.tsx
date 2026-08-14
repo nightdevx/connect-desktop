@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { message } from "antd";
-import type { UserRole, UserDirectoryEntry } from "../../../shared/auth-contracts";
+import type {
+  UserRole,
+  UserDirectoryEntry,
+} from "../../../shared/auth-contracts";
 import type { DesktopAppPreferences } from "../../../shared/desktop-api-types";
 import {
   CameraShareModal,
@@ -17,6 +20,7 @@ import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/scre
 import {
   useBlockedUsers,
   useDirectMessages,
+  useFriends,
   usePresenceStatus,
   useVoiceHotkeys,
   useWorkspaceAudioConnection,
@@ -77,6 +81,12 @@ function WorkspaceShell({
   useEffect(() => {
     activeLobbyRef.current = activeLobbyId;
   }, [activeLobbyId]);
+
+  // Which text room is on screen. Kept apart from activeLobbyId on purpose:
+  // that one means "the voice room I am connected to" and nothing else. A text
+  // room is opened, never joined, so putting one on screen must leave the
+  // LiveKit session — and everything else keyed off activeLobbyId — alone.
+  const [openTextRoomId, setOpenTextRoomId] = useState<string | null>(null);
 
   // Marks a lobbyId the current user was just server-kicked from. While set,
   // the reconnect loop must not silently rejoin that lobby (it would undo the
@@ -285,7 +295,10 @@ function WorkspaceShell({
     clearLobbySearch,
     patchLobbyMemberState,
   } = useLobbyRoom({
-    activeLobbyId,
+    // The chat follows whatever room is on screen. A text room never becomes
+    // activeLobbyId, so it has to be named here or its messages would never
+    // load — and while one is open the voice lobby's chat is not what is shown.
+    activeLobbyId: openTextRoomId ?? activeLobbyId,
     workspaceSection: workspaceSection === "admin" ? "lobbies" : workspaceSection,
     setStatus,
   });
@@ -352,18 +365,6 @@ function WorkspaceShell({
   // ----- SCREEN SHARE WATCHING (opt-in) -----
   const { isWatchingScreen, watchScreen, stopWatchingScreen } =
     useScreenSubscriptions({ liveKitSessionRef, activeLobbyId });
-
-  // Mic/deafen drift watchdog. The local tile always renders local state, so a
-  // disagreement with the server roster is invisible here and visible to
-  // everyone else — this is what closes that gap.
-  useEffect(() => {
-    const self = lobbyMembers.find((member) => member.userId === currentUserId);
-    if (!self) {
-      return;
-    }
-
-    reconcileDeclaredAudioState(self.muted, self.deafened);
-  }, [lobbyMembers, currentUserId, reconcileDeclaredAudioState]);
 
   // ----- 1-TO-1 CALL MEMBERS -----
   const callMembers = useMemo(() => {
@@ -506,6 +507,12 @@ function WorkspaceShell({
     unblockUser,
     isUpdating: isBlockUpdating,
   } = useBlockedUsers(true);
+
+  // Enabled for the whole session, not while the users tab is open: `false`
+  // unsubscribes from the users-WS, so a request arriving while the user sits
+  // on Lobiler would be lost until the next reconnect. Admins never leave the
+  // "admin" section on their own, which would make it never true at all.
+  const friends = useFriends(true);
 
   const handleToggleBlocked = useCallback(
     async (userId: string): Promise<void> => {
@@ -651,13 +658,46 @@ function WorkspaceShell({
   // it yet. This is what lets the REST poll run slowly without a laggy roster.
   const activeLobbyRosterMembers = useMemo(() => {
     if (!activeLobbyId || activeLobbyId.startsWith("call_")) return lobbyMembers;
-    return lobbyMembersById[activeLobbyId] ?? lobbyMembers;
-  }, [activeLobbyId, lobbyMembersById, lobbyMembers]);
+    // lobbyMembers is the REST roster of whichever room the chat is showing, so
+    // while a text room is open it describes that room and not this lobby. The
+    // WS snapshot is the only trustworthy source then.
+    const restFallback = openTextRoomId ? [] : lobbyMembers;
+    return lobbyMembersById[activeLobbyId] ?? restFallback;
+  }, [activeLobbyId, openTextRoomId, lobbyMembersById, lobbyMembers]);
+
+  // Mic/deafen drift watchdog. The local tile always renders local state, so a
+  // disagreement with the server roster is invisible here and visible to
+  // everyone else — this is what closes that gap. It reads the active lobby's
+  // roster rather than the chat's, which is a different room whenever a text
+  // room is open.
+  useEffect(() => {
+    const self = activeLobbyRosterMembers.find(
+      (member) => member.userId === currentUserId,
+    );
+    if (!self) {
+      return;
+    }
+
+    reconcileDeclaredAudioState(self.muted, self.deafened);
+  }, [activeLobbyRosterMembers, currentUserId, reconcileDeclaredAudioState]);
 
   const activeLobby = useMemo(() => {
     if (!activeLobbyId) return null;
     return lobbies.find((lobby) => lobby.id === activeLobbyId) ?? null;
   }, [activeLobbyId, lobbies]);
+
+  // Resolved against the live list rather than trusted as stored: a text room
+  // deleted while it was open would otherwise stay on screen as a room that no
+  // longer exists — and, with no descriptor to read isTextOnly from, would come
+  // back as a full voice stage complete with mic and camera controls.
+  const openTextRoom = useMemo(() => {
+    if (!openTextRoomId) return null;
+    return (
+      lobbies.find(
+        (lobby) => lobby.id === openTextRoomId && lobby.isTextOnly,
+      ) ?? null
+    );
+  }, [openTextRoomId, lobbies]);
 
   const hasActiveLobby = activeLobbyId !== null;
 
@@ -853,6 +893,25 @@ function WorkspaceShell({
     rejoinCall,
   });
 
+  // Every way into a room funnels through here — the sidebar rows and the
+  // selection screen's buttons — so the "is this a channel or a connection"
+  // decision lives in one place. A text room only changes what is on screen;
+  // the voice lobby underneath keeps running and stays audible.
+  const handleSelectLobby = useCallback(
+    (lobbyId: string): void => {
+      if (lobbies.find((lobby) => lobby.id === lobbyId)?.isTextOnly) {
+        setOpenTextRoomId(lobbyId);
+        return;
+      }
+
+      // Closing the text room is also how the user gets back to a voice lobby
+      // they are already connected to: joinLobby short-circuits on that click.
+      setOpenTextRoomId(null);
+      void handleJoinLobby(lobbyId);
+    },
+    [lobbies, handleJoinLobby],
+  );
+
   // ----- CALL PRESENCE -----
   //
   // A 1:1 call borrows the lobby machinery under the room id `call_<id>`, which
@@ -861,7 +920,10 @@ function WorkspaceShell({
   // hid the lobby list behind an empty room with no roster. The lobbies half of
   // the tree gets the id only when it names a real lobby.
   const isInCallRoom = Boolean(activeLobbyId?.startsWith("call_"));
-  const lobbyRoomId = isInCallRoom ? null : activeLobbyId;
+
+  // What the lobbies panel puts on screen. An open text room wins: that is what
+  // the user just clicked, and the voice lobby carries on underneath it.
+  const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : activeLobbyId);
 
   const callPeerUserId = callState.peerUser?.userId ?? null;
 
@@ -936,8 +998,16 @@ function WorkspaceShell({
   }, [unreadByPeerId, callState.status, callState.callerId]);
 
   const totalUnreadDirectMessages = useMemo(() => {
-    return Object.values(unreadByPeerIdWithCalls).reduce((sum, count) => sum + count, 0);
-  }, [unreadByPeerIdWithCalls]);
+    // Incoming friend requests ride this badge because the users sidebar — their
+    // only renderer — is unmounted whenever the section is not "users", so a
+    // request arriving while the user sits in Lobiler changed nothing on screen.
+    // Deliberately no workspaceService.notify here, unlike DMs and calls: its zod
+    // schema only accepts those two kinds, and the badge is the whole fix.
+    return (
+      Object.values(unreadByPeerIdWithCalls).reduce((sum, count) => sum + count, 0) +
+      friends.incomingRequests.length
+    );
+  }, [unreadByPeerIdWithCalls, friends.incomingRequests]);
 
   return (
     <section className="ct-workspace-shell">
@@ -969,6 +1039,7 @@ function WorkspaceShell({
               selectedUserId,
               setSelectedUserId,
               unreadByUserId: unreadByPeerIdWithCalls,
+              friends,
               callState: callState,
               presenceStatus: selectedPresenceStatus,
               onPresenceStatusChange: setSelectedPresenceStatus,
@@ -978,9 +1049,10 @@ function WorkspaceShell({
               lobbies,
               lobbyMembersById,
               avatarByUserId,
-              activeLobbyId: lobbyRoomId,
+              activeLobbyId: isInCallRoom ? null : activeLobbyId,
+              openTextRoomId: openTextRoom?.id ?? null,
               joiningLobbyId,
-              onJoinLobby: handleJoinLobby,
+              onJoinLobby: handleSelectLobby,
               onCreateLobby: createLobby,
               onUpdateLobby: updateLobby,
               onDeleteLobby: deleteLobby,
@@ -1069,10 +1141,10 @@ function WorkspaceShell({
             activeLobbyName={
               isInCallRoom
                 ? (callState.peerUser?.displayName || "Arama")
-                : (activeLobby?.name ?? null)
+                : (openTextRoom?.name ?? activeLobby?.name ?? null)
             }
             joiningLobbyId={joiningLobbyId}
-            onJoinLobby={handleJoinLobby}
+            onJoinLobby={handleSelectLobby}
             onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
             onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}

@@ -4,7 +4,10 @@ import type {
   UserDirectoryStreamEvent,
 } from "../../../../../shared/desktop-api-types";
 import type {
+  FriendRequestLists,
+  PrivacySettings,
   SelectablePresenceStatus,
+  UpdatePrivacyRequest,
   UserDirectoryEntry,
 } from "../../../../../shared/auth-contracts";
 
@@ -96,6 +99,79 @@ export const userService = {
     }
 
     return window.desktopApi.unblockUser(payload);
+  },
+  listFriends: () => {
+    if (typeof window.desktopApi.listFriends !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          friendUserIds: string[];
+        }>,
+      );
+    }
+
+    return window.desktopApi.listFriends();
+  },
+  listFriendRequests: () => {
+    if (typeof window.desktopApi.listFriendRequests !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<FriendRequestLists>,
+      );
+    }
+
+    return window.desktopApi.listFriendRequests();
+  },
+  sendFriendRequest: (payload: { username: string }) => {
+    if (typeof window.desktopApi.sendFriendRequest !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          requested: boolean;
+          accepted: boolean;
+        }>,
+      );
+    }
+
+    return window.desktopApi.sendFriendRequest(payload);
+  },
+  acceptFriendRequest: (payload: { userId: string }) => {
+    if (typeof window.desktopApi.acceptFriendRequest !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ accepted: boolean }>,
+      );
+    }
+
+    return window.desktopApi.acceptFriendRequest(payload);
+  },
+  // Unfriend, reject and cancel are the same call: one edge, one delete.
+  removeFriend: (payload: { userId: string }) => {
+    if (typeof window.desktopApi.removeFriend !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ removed: boolean }>,
+      );
+    }
+
+    return window.desktopApi.removeFriend(payload);
+  },
+  getPrivacySettings: () => {
+    if (typeof window.desktopApi.getPrivacySettings !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          privacy: PrivacySettings;
+        }>,
+      );
+    }
+
+    return window.desktopApi.getPrivacySettings();
+  },
+  updatePrivacySettings: (payload: UpdatePrivacyRequest) => {
+    if (typeof window.desktopApi.updatePrivacySettings !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          privacy: PrivacySettings;
+        }>,
+      );
+    }
+
+    return window.desktopApi.updatePrivacySettings(payload);
   },
   setPresence: (payload: { status: SelectablePresenceStatus }) => {
     if (typeof window.desktopApi.setPresence !== "function") {

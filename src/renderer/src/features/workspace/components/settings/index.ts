@@ -2,6 +2,7 @@ export * from "./settings-main-panel";
 export * from "./settings-sidebar-tabs";
 export * from "./settings-profile";
 export * from "./settings-security";
+export * from "./settings-privacy";
 export * from "./settings-camera";
 export * from "./settings-audio";
 export * from "./settings-stream";

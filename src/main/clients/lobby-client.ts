@@ -21,13 +21,16 @@ export class LobbyClient {
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string,
+    isTextOnly?: boolean,
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ name, isLocked, allowedUsers, password }),
+      // isTextOnly is create-only: there is no edit path for it, so updateLobby
+      // deliberately does not carry it.
+      body: JSON.stringify({ name, isLocked, allowedUsers, password, isTextOnly }),
     });
   }
 

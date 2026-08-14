@@ -28,6 +28,8 @@ import {
   blockUserSchema,
   setPresenceSchema,
   deleteAccountSchema,
+  friendRequestSendSchema,
+  updatePrivacySchema,
 } from "../validators";
 import { DesktopApiError } from "../../backend-client";
 
@@ -301,6 +303,88 @@ export function registerAuthHandlers(): void {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.unblockUser(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-friends", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.listFriends(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-friend-requests", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.listFriendRequests(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-friend-request-send", async (_event, payload: unknown) => {
+    try {
+      const parsed = friendRequestSendSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.sendFriendRequest(accessToken, parsed.username);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-friend-accept", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.acceptFriendRequest(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Unfriend, reject and cancel all land here: one edge, one delete.
+  ipcMain.handle("desktop:auth-friend-remove", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.removeFriend(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-privacy", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.getPrivacySettings(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-privacy-update", async (_event, payload: unknown) => {
+    try {
+      const parsed = updatePrivacySchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.updatePrivacySettings(accessToken, parsed);
       });
       return ok(result);
     } catch (error) {

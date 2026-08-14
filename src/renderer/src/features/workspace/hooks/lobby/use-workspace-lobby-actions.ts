@@ -44,6 +44,7 @@ export interface WorkspaceLobbyActionsState {
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string,
+    isTextOnly?: boolean,
   ) => Promise<boolean>;
   updateLobby: (
     lobbyId: string,
@@ -89,6 +90,8 @@ export const useWorkspaceLobbyActions = ({
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string,
+    // Create-only: there is no edit path, so updateLobby has no counterpart.
+    isTextOnly?: boolean,
   ): Promise<boolean> => {
     const trimmed = name.trim();
     if (trimmed.length < 2) {
@@ -103,6 +106,7 @@ export const useWorkspaceLobbyActions = ({
         isLocked,
         allowedUsers,
         password,
+        isTextOnly,
       });
       if (!result.ok) {
         setStatus(

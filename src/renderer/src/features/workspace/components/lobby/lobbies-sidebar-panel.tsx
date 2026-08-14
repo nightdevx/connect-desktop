@@ -13,6 +13,7 @@ import {
   LockOutlined,
   LogoutOutlined,
   CrownOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type {
@@ -34,7 +35,10 @@ interface LobbiesSidebarPanelProps {
   lobbyMembersById: Record<string, LobbyStateMember[]>;
   avatarByUserId: Record<string, string | null | undefined>;
   activeLobbyId: string | null;
+  /** The open text room. It is read, not joined, so it is never activeLobbyId. */
+  openTextRoomId: string | null;
   joiningLobbyId: string | null;
+  /** Opens a room: joins it if it is a voice lobby, just displays it if not. */
   onJoinLobby: (lobbyId: string) => void;
   onUpdateLobby: (
     lobbyId: string,
@@ -57,6 +61,7 @@ export function LobbiesSidebarPanel({
   lobbyMembersById,
   avatarByUserId,
   activeLobbyId,
+  openTextRoomId,
   joiningLobbyId,
   onJoinLobby,
   onUpdateLobby,
@@ -199,12 +204,22 @@ export function LobbiesSidebarPanel({
           const isEditing = renamingLobbyId === lobby.id;
           const isDeleting = deletingLobbyId === lobby.id;
           const members = lobbyMembersById[lobby.id] ?? [];
-          const isActive = activeLobbyId === lobby.id;
+          // Two different kinds of "current": connected to a voice lobby, and
+          // reading a text room. Both are where the user is, so both highlight —
+          // and they can be true at the same time on two different rows.
+          const isCurrent =
+            activeLobbyId === lobby.id || openTextRoomId === lobby.id;
+          // Only one of them is actually on screen, though. Clicking the voice
+          // lobby you are already connected to while reading a text room has to
+          // stay live: that click is how you get back to it.
+          const isDisplayed = openTextRoomId
+            ? openTextRoomId === lobby.id
+            : activeLobbyId === lobby.id;
           const creatorPresent = members.some((m) => m.userId === lobby.createdBy);
           const isDisabled = isEditing || isDeleting || joiningLobbyId !== null;
 
           const handleLobbyClick = (): void => {
-            if (isDisabled || isActive) {
+            if (isDisabled || isDisplayed) {
               return;
             }
 
@@ -234,9 +249,9 @@ export function LobbiesSidebarPanel({
           const lobbyElement = (
             <li
               key={lobby.id}
-              className={`ct-list-item clickable ${isActive ? "active" : ""}`}
+              className={`ct-list-item clickable ${isCurrent ? "active" : ""}`}
               role="option"
-              aria-selected={isActive}
+              aria-selected={isCurrent}
               tabIndex={0}
               onClick={handleLobbyClick}
               onKeyDown={(event) => {
@@ -251,6 +266,12 @@ export function LobbiesSidebarPanel({
                 <div className="ct-lobby-item-head">
                   <p className="ct-lobby-item-title">
                     <span className="truncate">#&nbsp;{lobby.name}</span>
+                    {lobby.isTextOnly && (
+                      <MessageOutlined
+                        className="ct-lobby-item-text"
+                        title="Mesaj odası — sesli bağlantı yok"
+                      />
+                    )}
                     {lobby.isLocked && (
                       <LockOutlined
                         className="ct-lobby-item-lock"
@@ -264,7 +285,7 @@ export function LobbiesSidebarPanel({
                       />
                     )}
                   </p>
-                  {members.length > 0 && (
+                  {!lobby.isTextOnly && members.length > 0 && (
                     <span className="ct-lobby-item-count">
                       <TeamOutlined />
                       {members.length}
@@ -272,7 +293,12 @@ export function LobbiesSidebarPanel({
                   )}
                 </div>
 
-                {members.length === 0 ? (
+                {/* A message room has no occupancy at all — nobody is ever "in"
+                    one — so it gets neither a count nor "Lobide kimse yok.",
+                    which would read as an empty voice lobby. */}
+                {lobby.isTextOnly ? (
+                  <span className="ct-lobby-item-empty">Sohbet kanalı</span>
+                ) : members.length === 0 ? (
                   <span className="ct-lobby-item-empty">Lobide kimse yok.</span>
                 ) : (
                   <ul className="ct-lobby-member-list" aria-label="Lobi üyeleri">
@@ -447,7 +473,11 @@ export function LobbiesSidebarPanel({
           <div className="ct-field-row">
             <div className="ct-field-row-text">
               <strong>Özel Lobi (Kilitli)</strong>
-              <span>Sadece davet edilen kullanıcılar katılabilir.</span>
+              <span>
+                {editingLobby?.isTextOnly
+                  ? "Sadece davet edilen kullanıcılar görebilir."
+                  : "Sadece davet edilen kullanıcılar katılabilir."}
+              </span>
             </div>
             <Switch checked={editIsLocked} onChange={setEditIsLocked} />
           </div>
@@ -472,30 +502,35 @@ export function LobbiesSidebarPanel({
             </label>
           )}
 
-          <label className="ct-field">
-            <span>Oda Şifresi</span>
-            <Input.Password
-              placeholder={
-                editingLobby?.hasPassword
-                  ? "Değiştirmek için yeni şifre girin (boş = değişmez)"
-                  : "Şifre belirleyin (boş = şifresiz)"
-              }
-              value={editPassword}
-              onChange={(event) => setEditPassword(event.target.value)}
-              disabled={editRemovePassword}
-              maxLength={128}
-            />
-            {editingLobby?.hasPassword && (
-              <span className="ct-field-inline-toggle">
-                <Switch
-                  size="small"
-                  checked={editRemovePassword}
-                  onChange={setEditRemovePassword}
-                />
-                Şifreyi kaldır
-              </span>
-            )}
-          </label>
+          {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur, mesaj
+              odasına katılım diye bir şey yok. Kilit (izinli kullanıcılar) mesaj
+              odalarında da geçerlidir; sohbet erişimi onun üzerinden denetlenir. */}
+          {!editingLobby?.isTextOnly && (
+            <label className="ct-field">
+              <span>Oda Şifresi</span>
+              <Input.Password
+                placeholder={
+                  editingLobby?.hasPassword
+                    ? "Değiştirmek için yeni şifre girin (boş = değişmez)"
+                    : "Şifre belirleyin (boş = şifresiz)"
+                }
+                value={editPassword}
+                onChange={(event) => setEditPassword(event.target.value)}
+                disabled={editRemovePassword}
+                maxLength={128}
+              />
+              {editingLobby?.hasPassword && (
+                <span className="ct-field-inline-toggle">
+                  <Switch
+                    size="small"
+                    checked={editRemovePassword}
+                    onChange={setEditRemovePassword}
+                  />
+                  Şifreyi kaldır
+                </span>
+              )}
+            </label>
+          )}
         </div>
       </Modal>
 

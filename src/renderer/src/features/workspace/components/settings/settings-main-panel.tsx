@@ -3,6 +3,7 @@ import type { SettingsSection } from "@/store/ui-store";
 import { SettingsApplication } from "./settings-application";
 import { SettingsProfile } from "./settings-profile";
 import { SettingsSecurity } from "./settings-security";
+import { SettingsPrivacy } from "./settings-privacy";
 import { SettingsCamera } from "./settings-camera";
 import { SettingsAudio } from "./settings-audio";
 import { SettingsStream } from "./settings-stream";
@@ -56,6 +57,8 @@ export function SettingsMainPanel({
       )}
 
       {settingsSection === "security" && <SettingsSecurity />}
+
+      {settingsSection === "privacy" && <SettingsPrivacy />}
 
       {settingsSection === "camera" && (
         <SettingsCamera
