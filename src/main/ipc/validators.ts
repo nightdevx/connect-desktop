@@ -11,11 +11,6 @@ export const registerSchema = z.object({
   // 72 bytes, matching bcrypt's hard limit. Anything longer used to pass here
   // and then fail server-side with an unexplained 500.
   password: z.string().min(8).max(72),
-  // The backend has had ENABLE_INVITE_CODE since forever, but this schema had
-  // no field for it — and zod strips unknown keys, so the code never reached
-  // the API even when a caller supplied one. Turning the flag on therefore
-  // made every registration fail with no client-side way to satisfy it.
-  inviteCode: z.string().min(6).max(64).optional(),
 });
 
 export const forgotPasswordSchema = z.object({
