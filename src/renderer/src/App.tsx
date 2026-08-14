@@ -19,6 +19,7 @@ function App() {
     appVersion,
     isOffline,
     retryConnection,
+    isBooting,
     isLoading,
     isLoggingOut,
     session,
@@ -108,9 +109,10 @@ function App() {
     };
   }, []);
 
-  const mainWrapClassName = isAuthenticated
-    ? "ct-main-wrap ct-main-wrap--workspace"
-    : "ct-main-wrap ct-main-wrap--auth";
+  const mainWrapClassName =
+    isAuthenticated && !isBooting
+      ? "ct-main-wrap ct-main-wrap--workspace"
+      : "ct-main-wrap ct-main-wrap--auth";
 
   const handleMinimize = (): void => {
     void window.desktopApi.minimizeWindow();
@@ -211,7 +213,17 @@ function App() {
         </header>
 
         <section className={mainWrapClassName}>
-          {isOffline ? (
+          {/* The session check is a round trip, and until it answers we do not
+              know which of the two screens is the right one. Rendering the
+              login card while waiting meant a returning user saw it flash and
+              be replaced by the workspace on every cold start. The placeholder
+              fades in on a delay, so a fast answer shows nothing at all. */}
+          {isBooting ? (
+            <div className="ct-boot" role="status" aria-label="Oturum kontrol ediliyor">
+              <img src={logo} alt="" className="ct-boot-logo" />
+              <span className="ct-boot-bar" aria-hidden="true" />
+            </div>
+          ) : isOffline ? (
             <section className="ct-offline-card">
               <div className="ct-offline-icon">
                 <WifiOutlined />

@@ -278,7 +278,9 @@ function createMainWindow(): BrowserWindow {
     frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
-    backgroundColor: "#0b1020",
+    // Matches --ct-surface-0. It was a navy that appears nowhere in the app, so
+    // the window opened on a blue frame before the first paint replaced it.
+    backgroundColor: "#040404",
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,

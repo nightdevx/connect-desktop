@@ -172,6 +172,46 @@
 }
 
 /* ==========================================================================
+   BOOT STATE
+   Held between first paint and the session answer. The 140ms delay on an
+   otherwise-zero opacity means a session that resolves quickly never paints
+   this at all -- the app goes straight to the screen it belongs on.
+   ========================================================================== */
+
+.ct-boot {
+  @apply flex flex-col items-center gap-6;
+  opacity: 0;
+  animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) 140ms both;
+}
+
+.ct-boot-logo {
+  @apply h-20 w-auto object-contain;
+}
+
+.ct-boot-bar {
+  @apply block overflow-hidden rounded-full;
+  width: 120px;
+  height: 2px;
+  background: var(--ct-alpha-08);
+}
+
+.ct-boot-bar::after {
+  content: "";
+  @apply block h-full rounded-full;
+  width: 33%;
+  background: var(--ct-accent);
+  animation: ctBootBar 1.1s var(--ct-ease-premium) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-boot-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
+/* ==========================================================================
    OFFLINE STATE
    ========================================================================== */
 
