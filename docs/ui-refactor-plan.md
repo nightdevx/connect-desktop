@@ -322,28 +322,86 @@ Yanında:
 
 ---
 
-## 5. Etki tahmini
+## 5. Sonuç (uygulandı)
 
-| Metrik | Şimdi | Sonra |
+| Metrik | Önce | Sonra |
 |---|---|---|
-| Inline stil objesi | ≥733 | <80 |
-| `!important` | 297 | ~20 |
+| Inline stil objesi | 733 | **16** (hepsi gerekçeli) |
+| `!important` | 297 | **39** |
 | Ölü CSS dosyası | 246 KB | 0 |
-| Çakışan CSS kuralı | 6 | 0 |
+| Çakışan CSS kuralı | 7 | 0 |
+| Ölü CSS kural bloğu | 95 | 0 |
 | Buton boyutu | 7 | 4 |
 | Radius değeri | 11 | 5 |
-| Font-size değeri | 12 | 6 |
-| İkon kütüphanesi | 2 | 1 |
+| İkon kütüphanesi | 2 | 1 (`lucide-react` bağımlılıktan kaldırıldı) |
+| Modal görünümü | 4 | 1 |
 | Üst krom yüksekliği | 104px | 48px |
-| Sidebar sol hizası | 4 farklı | 1 |
+| Sidebar sol hizası | 4 farklı | **1** (ölçüldü: x=97) |
+| Kırılım noktası | 3 (980/900/760) | 2 (900/760) |
+| Derlenen CSS | 115 KB | 97 KB |
 
----
+Kalan 16 inline stilin tamamı meşru:
 
-## 6. Risk ve doğrulama
+| Adet | Yer | Neden |
+|---|---|---|
+| 9 | `AppErrorBoundary` | React ağacı çöktükten sonra çizilir; uygulamanın kendi sınıflarına bağımlı olamaz |
+| 2 | kullanıcı sidebar'ı | presence rengi kullanıcı başına hesaplanıyor |
+| 2 | `AudioDeviceDropdown` | CSS anchor positioning `anchorName`'i inline istiyor |
+| 2 | admin gösterge paneli | SVG stroke rengiyle eşleşmesi gereken legend noktaları |
+| 1 | `ParticipantContextMenu` | menünün imleç konumu |
 
-- **Görsel regresyon riski Faz 2-3'te toplanıyor.** Bu iki faz ayrı commit'lerde gitmeli.
-- `connect-desktop` bir git deposu → her faz sonunda commit, geri alınabilir.
-- Mantık dosyalarına (`hooks/`, `services/`, `features/livekit`, `features/rnnoise`)
-  **dokunulmayacak**; refactor yalnız sunum katmanı.
-- Doğrulama: her faz sonunda `pnpm build` + uygulamayı açıp 5 bölümü gezmek
-  (auth · arkadaşlar/DM · lobiler · ayarlar · yönetim).
+## 6. Süreçte bulunan ve düzeltilen hatalar
+
+Refactor sırasında ortaya çıkan, planda olmayan gerçek kusurlar:
+
+1. **`setStatus()` sessizdi.** ~50 çağrı yeri (cihaz çıkarıldı, mikrofon yenilenemedi,
+   kullanıcı engellendi) vardı ama ağaçta `statusMessage`'ı okuyan hiçbir şey yoktu —
+   tüm kullanıcı geri bildirimi yutuluyordu. Tek tüketici eklendi; store'a `statusNonce`
+   geldi ki aynı metin tekrar geldiğinde de bildirim çıksın.
+2. **`callAvatarDimPulse` iki kez tanımlıydı.** `CallOverlay` runtime'da `<style>` ile
+   lobby.css'in aynı isimli keyframe'ini eziyordu; hangisinin kazandığı mount sırasına
+   bağlıydı. Overlay'in kendi versiyonu `callAvatarPulseGlow` olarak ayrıldı.
+3. **≤900px'te lobi sohbeti tüm ekranı kaplıyordu.** Responsive kurallar artık render
+   edilmeyen `.ct-lobby-chat-drawer`/`-backdrop`'u hedefliyordu; geriye kayacak hiçbir
+   şeyi olmayan bir `position: fixed; inset: 0` kutu kalıyordu.
+4. **`.ct-ns-mode-badge` iki dosyada tanımlıydı** (`common.css` + `features/rnnoise/styles.css`).
+   İkincisi global.css'ten değil bir feature modülünden import edildiği için hangisinin
+   kazandığı modül değerlendirme sırasına bağlıydı.
+5. **Liste satırları klavyeyle erişilemiyordu.** Kullanıcı ve lobi satırları `role`,
+   `tabIndex` ve tuş işleyicisi olmayan tıklanabilir `<li>`'lerdi.
+6. **Lobi seçim ekranı kaydırılamıyordu**; oda listesi kartın altından taşıyordu.
+7. **`--ct-text-muted` WCAG AA'yı geçmiyordu** (#71717a, 4.0:1). #8f8f8f'e çıkarıldı (5.9:1).
+8. **El yapımı hover'lar.** 3 bileşen `onMouseEnter`/`onMouseLeave` ile stil takas ediyordu.
+9. **Runtime `<style>` enjeksiyonu** 3 bileşende; her mount'ta DOM'a yeniden giriyordu.
+10. **Dar pencere düzeni yanlış eksende tasarruf ediyordu.** Sidebar'ı üste yığmak 480px
+    yükseklikte arkadaş listesini ~48px'e düşürüyordu; artık sütun düzeni korunup
+    rail/sidebar token'ları daraltılıyor.
+
+## 7. Sohbet arayüzü (ek istek)
+
+- **Composer** tek tam genişlik çubuk: solda emoji + dosya ekle, ortada tüm boşluğu
+  dolduran alan, sağda gönder. Yükseklik 40 → **32px**.
+- **Emoji tepkileri** artık her mesajda 6 glif olarak durmuyor; tek buton popover açıyor.
+- **Mesaj aksiyonları** (tepki/yanıt/düzenle/sil) balonun üstünde, hover veya klavye
+  odağında görünen tek çerçeveli grup. `position: absolute` olduğu için gizliyken balon
+  genişliğine katkı vermiyor — daha önce tek kelimelik bir mesaj bile dört buton kadar
+  genişti.
+- **Yazma emoji seti** 32 glif, 8'lik ızgara. Emoji picker bağımlılığı eklenmedi.
+
+## 8. Doğrulama
+
+Her faz sonunda `pnpm typecheck` + `pnpm build`; sonunda `eslint` 0 hata.
+
+Uygulama gerçekten çalıştırıldı: Electron CDP üzerinden (yeni bağımlılık yok, mevcut
+`ws` kullanıldı) 1280×800 ve 720×480'de beş bölüm gezildi, ekran görüntüsü alındı ve
+hizalama piksel olarak ölçüldü. Yatay taşma yok.
+
+```
+sidebar: 72          sidebarHeaderH3: 84
+presenceSwatch: 97   searchIcon: 97   rowAvatar: 97   <-- tek dikey çizgi
+titlebarH: 48        sidebarHeaderH: 56              railW: 72
+kontrol yükseklikleri: [40, 56]
+```
+
+Uygulamayı çalıştırıp sürmek için kullanılan CDP scriptleri geçici dizinde; kalıcı hale
+getirmek istenirse `/run-skill-generator` ile proje skill'i olarak kaydedilebilir.
