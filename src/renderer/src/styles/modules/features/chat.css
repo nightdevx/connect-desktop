@@ -173,16 +173,29 @@
     color: var(--ct-text-muted);
   }
 
-  /* --- Composer ---------------------------------------------------------- */
+  /* --- Composer ----------------------------------------------------------
+     One full-width bar: emoji and attach on the left, the field taking every
+     remaining pixel, send on the right. Slimmer than the 40px control height
+     used elsewhere -- a message field is typed in, not pointed at. */
 
   .ct-chat-composer {
-    @apply flex shrink-0 flex-col gap-1.5 border-t p-4;
+    @apply flex shrink-0 flex-col gap-1.5 border-t px-3 py-2.5;
     border-color: var(--ct-border);
     background: transparent;
   }
 
   .ct-chat-composer-row {
-    @apply flex items-center gap-1;
+    @apply flex w-full items-center gap-1;
+  }
+
+  .ct-chat-composer-row > .ant-btn {
+    @apply h-control-sm w-control-sm shrink-0;
+    color: var(--ct-text-muted);
+    font-size: var(--ct-icon-sm);
+  }
+
+  .ct-chat-composer-row > .ant-btn:hover:not(:disabled) {
+    color: var(--ct-text-primary);
   }
 
   /* Reply preview and pending attachment share one shape: a strip above the
@@ -197,16 +210,28 @@
     color: var(--ct-text-secondary);
   }
 
+  /* min-w-0 lets the field actually shrink to its flex basis, so it fills the
+     bar instead of being pushed wide by its own placeholder. */
   .ct-chat-input.ant-input-affix-wrapper {
-    @apply flex-1;
+    @apply h-control-sm min-w-0 flex-1 py-0;
     border-radius: var(--ct-radius-md);
   }
 
-  .ct-chat-send-btn {
-    color: var(--ct-text-primary);
+  .ct-chat-input.ant-input-affix-wrapper .ant-input {
+    @apply text-sm;
   }
 
-  .ct-chat-send-btn:disabled {
+  .ct-chat-input .ant-input-suffix {
+    margin-inline-start: 4px;
+  }
+
+  .ct-chat-send-btn.ant-btn {
+    @apply grid h-control-xs w-control-xs min-w-0 place-items-center p-0;
+    color: var(--ct-text-primary);
+    font-size: var(--ct-icon-xs);
+  }
+
+  .ct-chat-send-btn.ant-btn:disabled {
     color: var(--ct-alpha-20);
   }
 
@@ -279,8 +304,9 @@
      width: min(78%, 620px) with a 220px floor, so a one-word reply rendered
      as a mostly-empty box two thirds the width of the thread. */
   .ct-chat-bubble {
-    @apply rounded-lg border px-3 py-2;
+    @apply relative rounded-lg border px-3 py-2;
     width: fit-content;
+    min-width: 96px;
     max-width: min(78%, 620px);
     border-color: var(--ct-border);
     background: rgba(18, 18, 18, 0.85);
@@ -307,8 +333,95 @@
     @apply mt-1 flex items-center justify-between gap-2;
   }
 
+  /* --- Message actions ---------------------------------------------------
+     Reply / edit / delete / react used to be four identical 24px squares
+     sitting in every bubble at all times, next to six always-visible emoji.
+     They now form one bordered group that surfaces on hover or keyboard
+     focus, so a bubble at rest is just the message. */
+
+  /* Absolutely positioned, so a hidden action group contributes no width. It
+     used to sit inside the meta row, which meant every bubble -- including a
+     one-word "tamam" -- was at least as wide as four buttons plus a timestamp. */
   .ct-chat-message-actions {
-    @apply inline-flex items-center gap-0.5;
+    @apply absolute inline-flex shrink-0 items-center gap-0.5 rounded-full border p-0.5;
+    top: -14px;
+    right: 8px;
+    /* Absolute boxes are capped at the containing block's width, and a bubble
+       can be 96px -- without this the four buttons wrapped onto two rows. */
+    width: max-content;
+    z-index: 5;
+    border-color: var(--ct-border);
+    background: var(--ct-surface-2);
+    box-shadow: var(--ct-shadow-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--ct-duration-fast) ease;
+  }
+
+  /* Own messages hang on the right, so their group opens to the left where
+     there is room. */
+  .ct-chat-row.own .ct-chat-message-actions {
+    right: auto;
+    left: 8px;
+  }
+
+  .ct-chat-bubble:hover .ct-chat-message-actions,
+  .ct-chat-bubble:focus-within .ct-chat-message-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ct-chat-action {
+    @apply inline-flex h-control-xs w-control-xs shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent;
+    color: var(--ct-text-muted);
+    font-size: var(--ct-icon-xs);
+    transition: all var(--ct-duration-fast) ease;
+  }
+
+  .ct-chat-action:hover:not(:disabled) {
+    color: var(--ct-text-primary);
+    background: var(--ct-alpha-12);
+  }
+
+  .ct-chat-action.danger:hover:not(:disabled) {
+    color: #ffffff;
+    background: var(--ct-danger);
+  }
+
+  .ct-chat-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Emoji sets, shared by the reaction button and the composer. */
+  .ct-emoji-popover .ant-popover-inner {
+    padding: 6px;
+    border: 1px solid var(--ct-border);
+    border-radius: var(--ct-radius-md);
+    background: var(--ct-surface-2);
+    box-shadow: var(--ct-shadow-md);
+  }
+
+  /* The reaction set is six, so it stays one row; the composer's wider set
+     wraps to eight per row. */
+  .ct-emoji-grid {
+    @apply grid gap-0.5;
+    grid-template-columns: repeat(6, max-content);
+  }
+
+  .ct-emoji-grid:has(> :nth-child(9)) {
+    grid-template-columns: repeat(8, max-content);
+  }
+
+  .ct-emoji-cell {
+    @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-sm border-0 bg-transparent;
+    font-size: 17px;
+    line-height: 1;
+    transition: background var(--ct-duration-fast) ease;
+  }
+
+  .ct-emoji-cell:hover {
+    background: var(--ct-alpha-12);
   }
 
   /* --- Reply quote, attachment, reactions --------------------------------
@@ -386,14 +499,7 @@
     cursor: default;
   }
 
-  .ct-chat-reaction-picker {
-    @apply flex gap-0.5;
-  }
-
-  .ct-chat-reaction-picker button {
-    @apply cursor-pointer border-0 bg-transparent p-0.5 leading-none;
-    font-size: 15px;
-  }
+  /* Reaction picker is now .ct-emoji-grid inside a popover. */
 
   /* A 20px hit target was below the point where a pointer reliably lands on
      it; control-xs is the smallest size on the scale and still comfortable. */

@@ -18,7 +18,7 @@ import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent, AdminUserDetail } from "@shared/auth-contracts";
 
 interface StatCard {
-  tone: "violet" | "emerald" | "blue" | "amber";
+  tone: "violet" | "emerald" | "blue" | "amber" | "red";
   label: string;
   value: number;
   icon: ReactNode;
@@ -65,7 +65,7 @@ const buildStatCards = (stats: AdminStats | null): StatCard[] => [
     hint: "Görüşmedeki kullanıcılar",
   },
   {
-    tone: "violet",
+    tone: "red",
     label: "Bugünkü Olaylar",
     value: stats?.todayEvents ?? 0,
     icon: <CalendarOutlined />,

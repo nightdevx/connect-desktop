@@ -14,8 +14,9 @@ import type { DesktopResult } from "@shared/desktop-api-types";
 import { ConfirmActionModal } from "../common";
 import {
   ChatAttachButton,
+  ChatComposerEmojiButton,
   ChatAttachmentView,
-  ChatQuickReactionPicker,
+  ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
   formatAttachmentSize,
@@ -106,17 +107,14 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
           onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
         />
 
-        <div
-          className="ct-chat-bubble-meta"
-          
-        >
-          <span >
+        <div className="ct-chat-bubble-meta">
+          <span>
             {message.username} • {formatTimeLabel(message.createdAt)}
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 
-          <span >
-            <ChatQuickReactionPicker
+          <span className="ct-chat-message-actions">
+            <ChatReactionButton
               onPick={(emoji) => {
                 const existing = (message.reactions ?? []).find(
                   (reaction) => reaction.emoji === emoji,
@@ -127,50 +125,47 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
             />
 
             <Tooltip title="Yanıtla">
-              <Button
-                type="text"
-                shape="circle"
-                size="small"
-                icon={<EnterOutlined  />}
+              <button
+                type="button"
+                className="ct-chat-action"
                 onClick={() => onReply(message)}
-                className="ct-chat-message-delete"
-              />
+                aria-label="Yanıtla"
+              >
+                <EnterOutlined />
+              </button>
             </Tooltip>
 
             {isOwnMessage && message.body && (
-              <Tooltip title="Mesajı Düzenle">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  icon={<EditOutlined  />}
+              <Tooltip title="Düzenle">
+                <button
+                  type="button"
+                  className="ct-chat-action"
                   onClick={() => {
                     setEditDraft(message.body);
                     setIsEditing(true);
                   }}
-                  className="ct-chat-message-delete"
-                />
+                  aria-label="Mesajı düzenle"
+                >
+                  <EditOutlined />
+                </button>
               </Tooltip>
             )}
 
             {isOwnMessage && (
-              <Tooltip title="Mesajı Sil">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  danger
-                  icon={
-                    isDeleting ? (
-                      <Spin size="small" />
-                    ) : (
-                      <DeleteOutlined  />
-                    )
-                  }
+              <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
+                <button
+                  type="button"
+                  className="ct-chat-action danger"
                   onClick={() => onRequestDelete(message.id)}
                   disabled={deleteDisabled}
-                  className="ct-chat-message-delete"
-                />
+                  aria-label="Mesajı sil"
+                >
+                  {isDeleting ? (
+                    <div className="ct-spinner-small" />
+                  ) : (
+                    <DeleteOutlined />
+                  )}
+                </button>
               </Tooltip>
             )}
           </span>
@@ -432,6 +427,10 @@ export function LobbyChatPanel({
           )}
 
           <div className="ct-chat-composer-row">
+            <ChatComposerEmojiButton
+              disabled={isSendingLobbyMessage}
+              onPick={(emoji) => setLobbyMessageDraft(lobbyMessageDraft + emoji)}
+            />
             <ChatAttachButton
               disabled={isSendingLobbyMessage}
               onSelect={(upload, file) =>

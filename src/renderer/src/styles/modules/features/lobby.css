@@ -108,8 +108,45 @@
   color: var(--ct-text-primary);
 }
 
+/* --------------------------------------------------------------------------
+   Selection screen (no lobby joined yet)
+
+   The hero takes the leftover height and centres itself in it; the room list
+   keeps its own height at the bottom. It used to be justify-between with a
+   fixed py-16 hero, so once there were a few rooms the list ran off the
+   bottom of a card that could not scroll.
+   -------------------------------------------------------------------------- */
+
+.ct-lobby-selection {
+  @apply flex flex-col gap-6 overflow-y-auto p-6;
+}
+
+.ct-lobby-selection-hero {
+  @apply flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center;
+}
+
+.ct-lobby-selection-hero h3 {
+  @apply m-0 mb-2 text-lg font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-selection-hero p {
+  @apply m-0 max-w-[340px] text-sm;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-selection-rooms {
+  @apply shrink-0 border-t pt-6;
+  border-color: var(--ct-border);
+}
+
+.ct-lobby-selection-rooms > h4 {
+  @apply m-0 mb-3 text-2xs font-semibold uppercase tracking-wider;
+  color: var(--ct-text-muted);
+}
+
 .ct-lobby-select-card {
-  @apply rounded-md border px-4 py-3.5;
+  @apply flex items-center justify-between gap-3 rounded-md border px-4 py-3;
   border-color: var(--ct-alpha-04);
   background: var(--ct-alpha-02);
   transition: all var(--ct-duration-base) var(--ct-ease-premium);
@@ -120,6 +157,16 @@
   background: var(--ct-alpha-04);
 }
 
+.ct-lobby-select-card strong {
+  @apply block text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-select-card span {
+  @apply block text-2xs;
+  color: var(--ct-text-muted);
+}
+
 /* The selection screen and the live room occupy the same box and cross-fade;
    the visible one is picked with a class rather than eight ternaries. */
 .ct-lobby-main-stack {
@@ -127,7 +174,7 @@
 }
 
 .ct-lobby-main-layer {
-  @apply absolute inset-0;
+  @apply absolute inset-0 min-h-0;
   transition:
     transform var(--ct-duration-slow) var(--ct-ease-spring),
     opacity var(--ct-duration-slow) var(--ct-ease-spring);

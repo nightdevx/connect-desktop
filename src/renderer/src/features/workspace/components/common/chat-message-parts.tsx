@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Tooltip, message as antdMessage } from "antd";
+import { Button, Popover, Tooltip, message as antdMessage } from "antd";
 import {
   DownloadOutlined,
   FileOutlined,
   PaperClipOutlined,
+  SmileOutlined,
 } from "@ant-design/icons";
 import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
@@ -56,17 +57,12 @@ interface ChatReplyQuoteProps {
 
 export function ChatReplyQuote({ replyTo }: ChatReplyQuoteProps): JSX.Element {
   return (
-    <div
-      className="ct-chat-reply-quote"
-      
-    >
+    <div className="ct-chat-reply-quote">
       {replyTo.deleted ? (
-        <em >Silinmiş mesaj</em>
+        <em>Silinmiş mesaj</em>
       ) : (
         <>
-          <strong >
-            {replyTo.username}
-          </strong>
+          <strong>{replyTo.username}</strong>
           <span>{replyTo.body}</span>
         </>
       )}
@@ -146,9 +142,9 @@ export function ChatAttachmentView({
   }, [attachment.id, attachment.name]);
 
   return (
-    <div className="ct-chat-attachment" >
+    <div className="ct-chat-attachment">
       {attachment.isImage && !failed ? (
-        <div >
+        <div>
           {dataUrl ? (
             <img
               src={dataUrl}
@@ -158,23 +154,16 @@ export function ChatAttachmentView({
               title="Kaydetmek için tıklayın"
             />
           ) : (
-            <div
-              className="ct-chat-attachment-loading"
-            >
+            <div className="ct-chat-attachment-loading">
               Görsel yükleniyor…
             </div>
           )}
         </div>
       ) : (
-        <div
-          className="ct-chat-attachment-file"
-        >
+        <div className="ct-chat-attachment-file">
           <FileOutlined />
           <div className="ct-chat-attachment-meta">
-            <div
-              className="ct-chat-attachment-name"
-              title={attachment.name}
-            >
+            <div className="ct-chat-attachment-name" title={attachment.name}>
               {attachment.name}
             </div>
             <div className="ct-chat-attachment-size">
@@ -213,10 +202,7 @@ export function ChatReactionBar({
   }
 
   return (
-    <div
-      className="ct-chat-reactions"
-      
-    >
+    <div className="ct-chat-reactions">
       {reactions.map((reaction) => {
         // "mine" is derived here rather than sent by the server: the same
         // payload is broadcast to every client.
@@ -239,27 +225,122 @@ export function ChatReactionBar({
   );
 }
 
-interface ChatQuickReactionPickerProps {
+interface EmojiGridProps {
+  emojis: readonly string[];
   onPick: (emoji: string) => void;
+  labelFor: (emoji: string) => string;
 }
 
-export function ChatQuickReactionPicker({
-  onPick,
-}: ChatQuickReactionPickerProps): JSX.Element {
+function EmojiGrid({ emojis, onPick, labelFor }: EmojiGridProps): JSX.Element {
   return (
-    <div className="ct-chat-reaction-picker">
-      {QUICK_REACTIONS.map((emoji) => (
+    <div className="ct-emoji-grid">
+      {emojis.map((emoji) => (
         <button
           key={emoji}
           type="button"
+          className="ct-emoji-cell"
           onClick={() => onPick(emoji)}
-          
-          aria-label={`${emoji} tepkisi ekle`}
+          aria-label={labelFor(emoji)}
         >
           {emoji}
         </button>
       ))}
     </div>
+  );
+}
+
+interface ChatReactionButtonProps {
+  onPick: (emoji: string) => void;
+}
+
+// One button that opens the set, rather than six emoji sitting in every
+// message row. Six glyphs per message read as decoration and crowded out the
+// reply/edit/delete actions next to them.
+export function ChatReactionButton({
+  onPick,
+}: ChatReactionButtonProps): JSX.Element {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      trigger="click"
+      placement="top"
+      rootClassName="ct-emoji-popover"
+      content={
+        <EmojiGrid
+          emojis={QUICK_REACTIONS}
+          labelFor={(e) => `${e} tepkisi ekle`}
+          onPick={(emoji) => {
+            onPick(emoji);
+            setOpen(false);
+          }}
+        />
+      }
+    >
+      <Tooltip title="Tepki ekle">
+        <button
+          type="button"
+          className="ct-chat-action"
+          aria-label="Tepki ekle"
+          aria-haspopup="true"
+        >
+          <SmileOutlined />
+        </button>
+      </Tooltip>
+    </Popover>
+  );
+}
+
+// A wider set for writing, still a fixed list. A real picker means search, a
+// virtualised grid and skin-tone state; nobody has asked for one.
+export const COMPOSER_EMOJIS = [
+  "😀", "😁", "😂", "🤣", "😊", "😉", "😍", "😘",
+  "🤔", "😐", "😴", "😢", "😭", "😡", "🥳", "😎",
+  "👍", "👎", "👌", "🙏", "👏", "💪", "🤝", "🫡",
+  "❤️", "🔥", "✨", "🎉", "💯", "👀", "🚀", "☕",
+] as const;
+
+interface ChatComposerEmojiButtonProps {
+  onPick: (emoji: string) => void;
+  disabled?: boolean;
+}
+
+export function ChatComposerEmojiButton({
+  onPick,
+  disabled,
+}: ChatComposerEmojiButtonProps): JSX.Element {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover
+      open={disabled ? false : open}
+      onOpenChange={setOpen}
+      trigger="click"
+      placement="topLeft"
+      rootClassName="ct-emoji-popover"
+      content={
+        <EmojiGrid
+          emojis={COMPOSER_EMOJIS}
+          labelFor={(e) => `${e} ekle`}
+          onPick={(emoji) => {
+            onPick(emoji);
+            setOpen(false);
+          }}
+        />
+      }
+    >
+      <Tooltip title="Emoji ekle">
+        <Button
+          type="text"
+          size="small"
+          disabled={disabled}
+          icon={<SmileOutlined />}
+          aria-label="Emoji ekle"
+        />
+      </Tooltip>
+    </Popover>
   );
 }
 
@@ -311,6 +392,7 @@ export function ChatAttachButton({
       <Tooltip title="Dosya ekle (en fazla 5 MB)">
         <Button
           type="text"
+          size="small"
           disabled={disabled}
           icon={<PaperClipOutlined />}
           onClick={() => inputRef.current?.click()}

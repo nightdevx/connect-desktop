@@ -492,7 +492,7 @@ export function SettingsProfile({
 
             {profileSettings.email && profileSettings.email === savedEmail && !profileSettings.emailVerified && (
               <div className="ct-inset-panel">
-                <div>
+                <div className="ct-inset-panel-row">
                   <span>
                     E-posta adresinizi doğrulamak için bir doğrulama kodu gönderin.
                   </span>
@@ -508,7 +508,7 @@ export function SettingsProfile({
                 </div>
 
                 {verificationSent && (
-                  <div>
+                  <div className="ct-inset-panel-row">
                     <Input
                       placeholder="000000"
                       value={verificationCode}

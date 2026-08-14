@@ -233,43 +233,38 @@
   margin: 0 var(--ct-gutter) 6px;
 }
 
+/* The tone says what the connection is doing, so it uses the semantic palette
+   rather than three shades of the same white. */
 .ct-audio-connection-card {
-  @apply inline-flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold;
+  @apply inline-flex h-control-md w-full items-center gap-2 rounded-md border px-3 text-left text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: linear-gradient(
-    135deg,
-    rgba(18, 18, 18, 0.84),
-    rgba(10, 10, 10, 0.92)
-  );
-  transition:
-    border-color 0.18s ease,
-    transform 0.18s ease,
-    color 0.18s ease;
+  background: var(--ct-alpha-02);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-audio-connection-card:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  transform: translateY(-1px);
+  background: var(--ct-alpha-04);
 }
 
 .ct-audio-connection-card.ok {
-  border-color: rgba(255, 255, 255, 0.32);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(16, 185, 129, 0.24);
+  color: var(--ct-success);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .ct-audio-connection-card.warn {
-  border-color: rgba(255, 255, 255, 0.24);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: var(--ct-warning);
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .ct-audio-connection-card.error {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(239, 68, 68, 0.24);
+  color: var(--ct-danger);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .ct-audio-connection-icon {

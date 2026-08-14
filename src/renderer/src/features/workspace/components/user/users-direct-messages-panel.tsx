@@ -40,7 +40,8 @@ import { ConfirmActionModal } from "../common";
 import {
   ChatAttachButton,
   ChatAttachmentView,
-  ChatQuickReactionPicker,
+  ChatComposerEmojiButton,
+  ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
   formatAttachmentSize,
@@ -199,11 +200,8 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 
-          <span
-            className="ct-chat-message-actions"
-           
-          >
-            <ChatQuickReactionPicker
+          <span className="ct-chat-message-actions">
+            <ChatReactionButton
               onPick={(emoji) => {
                 const existing = (message.reactions ?? []).find(
                   (reaction) => reaction.emoji === emoji,
@@ -215,46 +213,49 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
               }}
             />
 
-            <button
-              type="button"
-              className="ct-chat-message-delete"
-              onClick={() => onReply(message)}
-              aria-label="Yanıtla"
-              title="Yanıtla"
-            >
-              <EnterOutlined />
-            </button>
-
-            {isOwnMessage && message.body && (
+            <Tooltip title="Yanıtla">
               <button
                 type="button"
-                className="ct-chat-message-delete"
-                onClick={() => {
-                  setEditDraft(message.body);
-                  setIsEditing(true);
-                }}
-                aria-label="Mesajı düzenle"
-                title="Mesajı düzenle"
+                className="ct-chat-action"
+                onClick={() => onReply(message)}
+                aria-label="Yanıtla"
               >
-                <EditOutlined />
+                <EnterOutlined />
               </button>
+            </Tooltip>
+
+            {isOwnMessage && message.body && (
+              <Tooltip title="Düzenle">
+                <button
+                  type="button"
+                  className="ct-chat-action"
+                  onClick={() => {
+                    setEditDraft(message.body);
+                    setIsEditing(true);
+                  }}
+                  aria-label="Mesajı düzenle"
+                >
+                  <EditOutlined />
+                </button>
+              </Tooltip>
             )}
 
             {isOwnMessage && (
-              <button
-                type="button"
-                className="ct-chat-message-delete"
-                onClick={() => onRequestDelete(message.id)}
-                disabled={deleteDisabled}
-                aria-label="Mesajı sil"
-                title={isDeleting ? "Mesaj siliniyor" : "Mesajı sil"}
-              >
-                {isDeleting ? (
-                  <div className="ct-spinner-small" />
-                ) : (
-                  <DeleteOutlined />
-                )}
-              </button>
+              <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
+                <button
+                  type="button"
+                  className="ct-chat-action danger"
+                  onClick={() => onRequestDelete(message.id)}
+                  disabled={deleteDisabled}
+                  aria-label="Mesajı sil"
+                >
+                  {isDeleting ? (
+                    <div className="ct-spinner-small" />
+                  ) : (
+                    <DeleteOutlined />
+                  )}
+                </button>
+              </Tooltip>
             )}
           </span>
         </div>
@@ -845,6 +846,10 @@ export function UsersDirectMessagesPanel({
           )}
 
           <div className="ct-chat-composer-row">
+            <ChatComposerEmojiButton
+              disabled={isSendingMessage}
+              onPick={(emoji) => onMessageDraftChange(messageDraft + emoji)}
+            />
             <ChatAttachButton
               disabled={isSendingMessage}
               onSelect={(upload, file) =>
@@ -856,7 +861,6 @@ export function UsersDirectMessagesPanel({
               }
             />
             <Input
-              size="large"
               placeholder={
                 pendingAttachment ? "Açıklama (isteğe bağlı)…" : "Mesaj yaz..."
               }
