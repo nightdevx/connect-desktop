@@ -65,6 +65,15 @@ interface WorkspaceMainPanelProps {
   onSaveStreamPreferences: (next: StreamPreferences) => void;
   lobbies: LobbyDescriptor[];
   activeLobbyId: string | null;
+  /**
+   * activeLobbyId with 1:1 call rooms filtered out.
+   *
+   * A call runs in a room named `call_<id>` through the same machinery as a
+   * lobby, so the raw id is what the media and DM surfaces need. The lobbies
+   * panel must not see it: it opens its connected-room layer for any non-null
+   * id, which meant being in a call replaced the lobby list with an empty room.
+   */
+  lobbyRoomId: string | null;
   activeLobbyName: string | null;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
@@ -206,6 +215,7 @@ export function WorkspaceMainPanel({
   onSaveStreamPreferences,
   lobbies,
   activeLobbyId,
+  lobbyRoomId,
   activeLobbyName,
   joiningLobbyId,
   onJoinLobby,
@@ -250,7 +260,7 @@ export function WorkspaceMainPanel({
 }: WorkspaceMainPanelProps) {
   const hideWorkspaceIntro =
     (workspaceSection === "users" && selectedUser !== null) ||
-    (workspaceSection === "lobbies" && activeLobbyId !== null);
+    (workspaceSection === "lobbies" && lobbyRoomId !== null);
 
   return (
     <section
@@ -348,7 +358,7 @@ export function WorkspaceMainPanel({
           <LobbiesMainPanel
             lobbiesCount={lobbies.length}
             lobbies={lobbies}
-            activeLobbyId={activeLobbyId}
+            activeLobbyId={lobbyRoomId}
             activeLobbyName={activeLobbyName}
             currentUserId={currentUserId}
             currentUsername={currentUsername}

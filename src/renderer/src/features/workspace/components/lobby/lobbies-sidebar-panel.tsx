@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dropdown, Modal, Input, Button, Avatar, Switch, Select, message } from "antd";
+import { Dropdown, Modal, Input, Avatar, Switch, Select, message } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -166,7 +166,7 @@ export function LobbiesSidebarPanel({
 
   return (
     <>
-      <ul className="ct-list" style={{ marginTop: "8px" }}>
+      <ul className="ct-list" role="listbox" aria-label="Lobiler">
         {lobbiesQuery.isPending && (
           <li className="ct-list-state">Lobiler yükleniyor...</li>
         )}
@@ -190,10 +190,8 @@ export function LobbiesSidebarPanel({
           lobbiesQuery.data?.ok &&
           lobbies.length === 0 && (
             <li className="ct-list-state">
-              <div style={{ marginBottom: "12px", opacity: 0.3 }}>
-                <TeamOutlined style={{ fontSize: "24px" }} />
-              </div>
-              <p style={{ margin: 0 }}>Aktif lobi bulunamadı.</p>
+              <TeamOutlined className="ct-list-state-icon" />
+              <p>Aktif lobi bulunamadı.</p>
             </li>
           )}
 
@@ -237,86 +235,47 @@ export function LobbiesSidebarPanel({
             <li
               key={lobby.id}
               className={`ct-list-item clickable ${isActive ? "active" : ""}`}
+              role="option"
+              aria-selected={isActive}
+              tabIndex={0}
               onClick={handleLobbyClick}
-              style={{
-                padding: "12px 16px",
-                margin: "4px 8px",
-                borderRadius: "8px",
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-                listStyleType: "none",
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") {
+                  return;
+                }
+                event.preventDefault();
+                handleLobbyClick();
               }}
             >
-              <div className="w-full flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "13.5px",
-                      fontWeight: "600",
-                      color: isActive ? "#000000" : "#ffffff",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}
-                  >
-                    # {lobby.name}
+              <div className="ct-lobby-item">
+                <div className="ct-lobby-item-head">
+                  <p className="ct-lobby-item-title">
+                    <span className="truncate">#&nbsp;{lobby.name}</span>
                     {lobby.isLocked && (
                       <LockOutlined
-                        style={{
-                          fontSize: "11px",
-                          color: isActive ? "rgba(0, 0, 0, 0.6)" : "#fbbf24",
-                        }}
+                        className="ct-lobby-item-lock"
                         title="Bu lobi kilitlidir"
                       />
                     )}
                     {creatorPresent && (
                       <CrownOutlined
-                        style={{
-                          fontSize: "11px",
-                          color: isActive ? "rgba(0, 0, 0, 0.6)" : "#10b981",
-                        }}
+                        className="ct-lobby-item-crown"
                         title="Kurucu şu an lobide"
                       />
                     )}
                   </p>
                   {members.length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "11px",
-                        color: isActive ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.4)",
-                      }}
-                    >
-                      <TeamOutlined style={{ fontSize: "11px" }} />
-                      <span>{members.length}</span>
-                    </div>
+                    <span className="ct-lobby-item-count">
+                      <TeamOutlined />
+                      {members.length}
+                    </span>
                   )}
                 </div>
 
                 {members.length === 0 ? (
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color: isActive ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.35)",
-                    }}
-                  >
-                    Lobide kimse yok.
-                  </span>
+                  <span className="ct-lobby-item-empty">Lobide kimse yok.</span>
                 ) : (
-                  <ul
-                    className="ct-lobby-member-list"
-                    aria-label="Lobi üyeleri"
-                    style={{
-                      margin: 0,
-                      padding: "4px 0 0 0",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
+                  <ul className="ct-lobby-member-list" aria-label="Lobi üyeleri">
                     {members.map((member) => {
                       const micOpen = !member.muted && !member.serverMuted;
                       const headphoneOpen = !member.deafened;
@@ -329,158 +288,69 @@ export function LobbiesSidebarPanel({
                           key={member.userId}
                           className="ct-lobby-member-item"
                           onContextMenu={(e) => e.stopPropagation()}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "6px 8px",
-                            borderRadius: "6px",
-                            background: isActive
-                              ? "rgba(0, 0, 0, 0.04)"
-                              : "rgba(255, 255, 255, 0.03)",
-                            border: isActive
-                              ? "1px solid rgba(0,0,0,0.06)"
-                              : "1px solid rgba(255,255,255,0.04)",
-                          }}
                         >
-                          <div
-                            className="ct-lobby-member-main"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                            }}
-                          >
+                          <div className="ct-lobby-member-main">
                             <Avatar
                               size={20}
                               src={avatarByUserId[member.userId]}
-                              style={{
-                                border: isActive
-                                  ? "1px solid rgba(0, 0, 0, 0.1)"
-                                  : "1px solid rgba(255, 255, 255, 0.1)",
-                                background: isActive ? "#ffffff" : "#1a1a1a",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: isActive ? "#000000" : "#ffffff",
-                                fontSize: "8px",
-                                fontWeight: "bold",
-                              }}
+                              className="ct-lobby-member-avatar"
                             >
                               {getDisplayInitials(member.username)}
                             </Avatar>
 
-                            <p
-                              className="ct-lobby-member-name"
-                              style={{
-                                margin: 0,
-                                fontSize: "11.5px",
-                                fontWeight: "500",
-                                color: isActive ? "#000000" : "rgba(255,255,255,0.75)",
-                              }}
-                            >
+                            <p className="ct-lobby-member-name">
                               {member.username}
                             </p>
 
                             {member.userId === lobby.createdBy && (
                               <CrownOutlined
                                 title="Lobi sahibi"
-                                style={{
-                                  fontSize: "10px",
-                                  color: isActive ? "rgba(0, 0, 0, 0.6)" : "#10b981",
-                                }}
+                                className="ct-lobby-member-flag on"
                               />
                             )}
                           </div>
 
-                          <div
-                            className="ct-lobby-member-icons"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                            }}
-                          >
-                            <div
-                              title={`Mikrofon ${micOpen ? "açık" : "kapalı"}`}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                opacity: micOpen ? 1 : 0.4,
-                              }}
-                            >
-                              {micOpen ? (
-                                <AudioOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: isActive ? "#000000" : "#10b981",
-                                  }}
-                                />
-                              ) : (
-                                <AudioMutedOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: member.serverMuted
-                                      ? "#ef4444"
-                                      : isActive
-                                        ? "rgba(0,0,0,0.5)"
-                                        : "#6b7280",
-                                  }}
-                                />
-                              )}
-                            </div>
+                          <div className="ct-lobby-member-icons">
+                            {micOpen ? (
+                              <AudioOutlined
+                                className="ct-lobby-member-flag on"
+                                title="Mikrofon açık"
+                              />
+                            ) : (
+                              <AudioMutedOutlined
+                                className={`ct-lobby-member-flag ${member.serverMuted ? "forced" : "off"}`}
+                                title={
+                                  member.serverMuted
+                                    ? "Yönetici tarafından susturuldu"
+                                    : "Mikrofon kapalı"
+                                }
+                              />
+                            )}
 
-                            <div
-                              title={`Kulaklık ${headphoneOpen ? "açık" : "kapalı"}`}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                opacity: headphoneOpen ? 1 : 0.4,
-                              }}
-                            >
-                              {headphoneOpen ? (
-                                <CustomerServiceOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: isActive ? "#000000" : "#10b981",
-                                  }}
-                                />
-                              ) : (
-                                <MutedOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: isActive ? "rgba(0,0,0,0.5)" : "#6b7280",
-                                  }}
-                                />
-                              )}
-                            </div>
+                            {headphoneOpen ? (
+                              <CustomerServiceOutlined
+                                className="ct-lobby-member-flag on"
+                                title="Kulaklık açık"
+                              />
+                            ) : (
+                              <MutedOutlined
+                                className="ct-lobby-member-flag off"
+                                title="Kulaklık kapalı"
+                              />
+                            )}
 
                             {member.cameraEnabled && (
-                              <div
+                              <VideoCameraOutlined
+                                className="ct-lobby-member-flag neutral"
                                 title="Kamera açık"
-                                style={{ display: "flex", alignItems: "center" }}
-                              >
-                                <VideoCameraOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: isActive ? "#000000" : "#ffffff",
-                                  }}
-                                />
-                              </div>
+                              />
                             )}
 
                             {member.screenSharing && (
-                              <div
+                              <DesktopOutlined
+                                className="ct-lobby-member-flag neutral"
                                 title="Ekran paylaşımı açık"
-                                style={{ display: "flex", alignItems: "center" }}
-                              >
-                                <DesktopOutlined
-                                  style={{
-                                    fontSize: "11px",
-                                    color: isActive ? "#000000" : "#ffffff",
-                                  }}
-                                />
-                              </div>
+                              />
                             )}
                           </div>
                         </li>
@@ -542,129 +412,68 @@ export function LobbiesSidebarPanel({
       </ul>
 
       <Modal
-        title={
-          <span style={{ color: "#ffffff", fontWeight: "bold" }}>
-            Lobi Ayarları
-          </span>
-        }
+        rootClassName="ct-modal"
+        title="Lobi Ayarları"
         open={editingLobby !== null}
         onOk={handleUpdateSubmit}
         onCancel={() => setEditingLobby(null)}
         okText="Kaydet"
         cancelText="İptal"
+        destroyOnHidden
         okButtonProps={{
           disabled: editLobbyName.trim().length < 2,
-          loading: renamingLobbyId !== null && editingLobby !== null && renamingLobbyId === editingLobby.id,
-          style: { background: "#ffffff", color: "#000000", fontWeight: "600" },
-        }}
-        cancelButtonProps={{
-          style: {
-            background: "transparent",
-            borderColor: "rgba(255,255,255,0.15)",
-            color: "#ffffff",
-          },
-        }}
-        styles={{
-          mask: {
-            backdropFilter: "blur(6px)",
-            background: "rgba(0, 0, 0, 0.6)",
-          },
-          body: {
-            background: "transparent",
-            color: "#f5f5f5",
-          },
-          header: {
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-            paddingBottom: "12px",
-          },
+          loading:
+            renamingLobbyId !== null &&
+            editingLobby !== null &&
+            renamingLobbyId === editingLobby.id,
         }}
       >
-        <div style={{ padding: "20px 0" }}>
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              className="ct-label"
-              htmlFor="edit-lobby-name"
-              style={{
-                display: "block",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.45)",
-                marginBottom: "8px",
-              }}
-            >
-              Lobi Adı
-            </label>
+        <div className="ct-modal-form">
+          <label className="ct-field" htmlFor="edit-lobby-name">
+            <span>Lobi Adı</span>
             <Input
               id="edit-lobby-name"
               value={editLobbyName}
               onChange={(event) => setEditLobbyName(event.target.value)}
               minLength={2}
               maxLength={64}
-              disabled={editingLobby !== null && renamingLobbyId === editingLobby.id}
+              disabled={
+                editingLobby !== null && renamingLobbyId === editingLobby.id
+              }
               autoFocus
-              style={{
-                background: "rgba(20, 20, 20, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
-                borderRadius: "6px",
-                height: "40px",
-              }}
             />
-          </div>
+          </label>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#ffffff" }}>Özel Lobi (Kilitli)</label>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>Sadece davet edilen kullanıcılar katılabilir.</span>
+          <div className="ct-field-row">
+            <div className="ct-field-row-text">
+              <strong>Özel Lobi (Kilitli)</strong>
+              <span>Sadece davet edilen kullanıcılar katılabilir.</span>
             </div>
-            <Switch
-              checked={editIsLocked}
-              onChange={(checked) => setEditIsLocked(checked)}
-              style={{
-                background: editIsLocked ? "#a855f7" : "rgba(255,255,255,0.15)"
-              }}
-            />
+            <Switch checked={editIsLocked} onChange={setEditIsLocked} />
           </div>
 
           {editIsLocked && (
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                className="ct-label"
-                style={{
-                  display: "block",
-                  fontSize: "12px",
-                  color: "rgba(255,255,255,0.45)",
-                  marginBottom: "8px",
-                }}
-              >
-                Erişimi Olan Kullanıcılar (Katılabilecekler)
-              </label>
+            <label className="ct-field">
+              <span>Erişimi Olan Kullanıcılar</span>
               <Select
                 mode="multiple"
                 placeholder="Kullanıcı seçin..."
                 value={editAllowedUsers}
-                onChange={(value) => setEditAllowedUsers(value)}
-                style={{ width: "100%" }}
-                dropdownStyle={{ background: "#1f1f1f", border: "1px solid rgba(255,255,255,0.08)" }}
+                onChange={setEditAllowedUsers}
                 options={allUsers
-                  .filter(u => u.id !== currentUserId && u.id !== SEED_ADMIN_ID)
-                  .map(u => ({ label: `@${u.username} (${u.displayName})`, value: u.id }))
-                }
+                  .filter(
+                    (u) => u.id !== currentUserId && u.id !== SEED_ADMIN_ID,
+                  )
+                  .map((u) => ({
+                    label: `@${u.username} (${u.displayName})`,
+                    value: u.id,
+                  }))}
               />
-            </div>
+            </label>
           )}
 
-          <div style={{ marginTop: "16px" }}>
-            <label
-              className="ct-label"
-              style={{
-                display: "block",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.45)",
-                marginBottom: "8px",
-              }}
-            >
-              Oda Şifresi
-            </label>
+          <label className="ct-field">
+            <span>Oda Şifresi</span>
             <Input.Password
               placeholder={
                 editingLobby?.hasPassword
@@ -675,31 +484,18 @@ export function LobbiesSidebarPanel({
               onChange={(event) => setEditPassword(event.target.value)}
               disabled={editRemovePassword}
               maxLength={128}
-              style={{
-                background: "rgba(20, 20, 20, 0.8)",
-                borderColor: "rgba(255, 255, 255, 0.08)",
-              }}
             />
             {editingLobby?.hasPassword && (
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginTop: "10px",
-                  fontSize: "12px",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-              >
+              <span className="ct-field-inline-toggle">
                 <Switch
                   size="small"
                   checked={editRemovePassword}
-                  onChange={(checked) => setEditRemovePassword(checked)}
+                  onChange={setEditRemovePassword}
                 />
                 Şifreyi kaldır
-              </label>
+              </span>
             )}
-          </div>
+          </label>
         </div>
       </Modal>
 

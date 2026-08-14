@@ -8,7 +8,7 @@ import {
   WorkspaceMainPanel,
   WorkspaceRail,
   WorkspaceSidebar,
-  CallOverlay,
+  CallDock,
 } from "../features/workspace/components";
 import AdminPanel from "../features/admin/components/admin-panel";
 import { isAdminRole } from "../features/auth/permissions";
@@ -842,6 +842,48 @@ function WorkspaceShell({
     rejoinCall,
   });
 
+  // ----- CALL PRESENCE -----
+  //
+  // A 1:1 call borrows the lobby machinery under the room id `call_<id>`, which
+  // is right for media and wrong for the lobbies UI: that panel opened its
+  // "connected room" layer for any non-null activeLobbyId, so being in a call
+  // hid the lobby list behind an empty room with no roster. The lobbies half of
+  // the tree gets the id only when it names a real lobby.
+  const isInCallRoom = Boolean(activeLobbyId?.startsWith("call_"));
+  const lobbyRoomId = isInCallRoom ? null : activeLobbyId;
+
+  const callPeerUserId = callState.peerUser?.userId ?? null;
+
+  // The stage lives in the peer's conversation, so that is the one place the
+  // dock would be repeating itself.
+  const isCallStageVisible =
+    workspaceSection === "users" &&
+    callPeerUserId !== null &&
+    selectedUserId === callPeerUserId;
+
+  const openCallConversation = useCallback((): void => {
+    if (!callPeerUserId) {
+      return;
+    }
+    setWorkspaceSection("users");
+    setSelectedUserId(callPeerUserId);
+  }, [callPeerUserId, setWorkspaceSection, setSelectedUserId]);
+
+  // Answering from a lobby, from settings or from another conversation used to
+  // leave the callee looking at whatever they were looking at, with the call
+  // running and its stage rendered nowhere.
+  const incomingCallerId = callState.callerId;
+  const handleAcceptCallAndOpen = useCallback(async (): Promise<void> => {
+    // Read before accepting: acceptCall moves the state to "active" and the
+    // caller id would be gone from this closure's next read.
+    const peerUserId = incomingCallerId;
+    await handleAcceptCall();
+    if (peerUserId) {
+      setWorkspaceSection("users");
+      setSelectedUserId(peerUserId);
+    }
+  }, [incomingCallerId, handleAcceptCall, setWorkspaceSection, setSelectedUserId]);
+
   const audioConnection = useWorkspaceAudioConnection({
     activeLobbyId,
     liveKitConnectionState,
@@ -923,7 +965,7 @@ function WorkspaceShell({
               lobbies,
               lobbyMembersById,
               avatarByUserId,
-              activeLobbyId,
+              activeLobbyId: lobbyRoomId,
               joiningLobbyId,
               onJoinLobby: handleJoinLobby,
               onCreateLobby: createLobby,
@@ -1009,8 +1051,9 @@ function WorkspaceShell({
             onSaveStreamPreferences={saveStreamPreferences}
             lobbies={lobbies}
             activeLobbyId={activeLobbyId}
+            lobbyRoomId={lobbyRoomId}
             activeLobbyName={
-              activeLobbyId?.startsWith("call_")
+              isInCallRoom
                 ? (callState.peerUser?.displayName || "Arama")
                 : (activeLobby?.name ?? null)
             }
@@ -1094,7 +1137,7 @@ function WorkspaceShell({
             onInitiateCall={handleInitiateCall}
             callState={callState}
             ongoingCall={ongoingCall}
-            onAcceptCall={handleAcceptCall}
+            onAcceptCall={handleAcceptCallAndOpen}
             onRejectCall={rejectCall}
             onCancelCall={cancelCall}
             onEndActiveCall={handleEndActiveCall}
@@ -1103,11 +1146,14 @@ function WorkspaceShell({
         </>
       )}
 
-      <CallOverlay
+      <CallDock
         callState={callState}
-        onAccept={handleAcceptCall}
+        isStageVisible={isCallStageVisible}
+        onAccept={handleAcceptCallAndOpen}
         onReject={rejectCall}
         onCancel={cancelCall}
+        onEnd={handleEndActiveCall}
+        onOpenConversation={openCallConversation}
       />
 
       <ScreenShareModal

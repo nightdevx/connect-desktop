@@ -1,50 +1,49 @@
-/* ── NS Mode Badge ────────────────────────────────────────────────── */
+/* ── NS Mode Badge ──────────────────────────────────────────────────────
+   Which noise-suppression path is actually running. This is the single
+   definition: common.css briefly carried a second copy, and since this file
+   is imported from features/rnnoise/index.ts rather than global.css, which
+   one won depended on module evaluation order.
+   ---------------------------------------------------------------------- */
+
 .ct-ns-mode-badge {
-  @apply mt-2 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
+  @apply flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-micro font-semibold;
   border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: rgba(10, 10, 10, 0.55);
-  transition: all 0.25s ease;
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-02);
+  transition: all var(--ct-duration-base) ease;
 }
 
 .ct-ns-mode-dot {
-  @apply inline-block h-2 w-2 shrink-0 rounded-full;
-  background: currentColor;
+  @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
+  background: var(--ct-alpha-32);
 }
 
-/* Processor modu: RNNoise aktif — yeşil */
+/* RNNoise running: the state the user asked for. */
 .ct-ns-mode-badge--processor {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  border-color: rgba(16, 185, 129, 0.24);
+  color: var(--ct-success);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .ct-ns-mode-badge--processor .ct-ns-mode-dot {
-  background: var(--ct-accent);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+  background: var(--ct-success);
+  box-shadow: 0 0 6px var(--ct-success);
   animation: ctNsDotPulse 2.4s ease-in-out infinite;
 }
 
-/* Browser fallback modu — turuncu/amber */
+/* Browser fallback: working, but not the good filter. */
 .ct-ns-mode-badge--browser {
-  border-color: rgba(255, 255, 255, 0.26);
-  color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: var(--ct-warning);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .ct-ns-mode-badge--browser .ct-ns-mode-dot {
-  background: var(--ct-text-muted);
+  background: var(--ct-warning);
 }
 
-/* Başlatılıyor / none modu — gri */
-.ct-ns-mode-badge--none {
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: rgba(10, 10, 10, 0.4);
-}
-
+/* Starting up, or waiting for the microphone. */
 .ct-ns-mode-badge--none .ct-ns-mode-dot {
-  background: var(--ct-text-muted);
   animation: ctNsDotBlink 1.2s ease-in-out infinite;
 }
 
@@ -52,11 +51,9 @@
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 5px rgba(255, 255, 255, 0.45);
   }
   50% {
-    opacity: 0.7;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+    opacity: 0.6;
   }
 }
 

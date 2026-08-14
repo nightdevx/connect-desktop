@@ -3,23 +3,53 @@
   }
 
   .ct-chat-panel-plain {
-    @apply flex h-full min-h-0 flex-col p-3 md:p-4;
+    @apply flex h-full w-full min-h-0 flex-col overflow-hidden p-3 md:p-4;
     background: transparent;
   }
 
-  .ct-chat-user-header {
-    @apply mb-3 flex items-center justify-between rounded-xl border px-3 py-2.5 text-left;
-    border-color: var(--ct-border);
-    background: rgba(15, 15, 15, 0.42);
-    transition: border-color 0.18s ease;
+  /* While a call is up the panel becomes stage + chat drawer, edge to edge. */
+  .ct-chat-panel-plain.in-call {
+    @apply p-0;
   }
+
+  .ct-call-split {
+    @apply relative flex h-full w-full overflow-hidden;
+  }
+
+  .ct-call-stage {
+    @apply relative flex h-full min-w-0 flex-1 flex-col overflow-hidden;
+    background: #0a0a0a;
+  }
+
+  .ct-call-chat-drawer {
+    @apply flex h-full flex-col overflow-hidden;
+    width: 350px;
+    border-left: 1px solid var(--ct-border);
+    background: rgba(10, 10, 10, 0.98);
+    backdrop-filter: blur(12px);
+    transition: all var(--ct-duration-slow) var(--ct-ease-spring);
+  }
+
+  .ct-call-chat-drawer.closed {
+    width: 0;
+    opacity: 0;
+    border-left-color: transparent;
+  }
+
+  .ct-call-chat-drawer-header {
+    @apply flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3;
+    border-color: var(--ct-border);
+  }
+
+  .ct-call-chat-drawer-header strong {
+    @apply inline-flex items-center gap-2.5 text-base font-semibold;
+    color: var(--ct-text-primary);
+  }
+
+  /* Header shell: .ct-chat-user-header-premium in theme.css. */
 
   .ct-chat-user-header-left {
     @apply flex min-w-0 items-center gap-2;
-  }
-
-  .ct-chat-user-header:hover {
-    border-color: var(--ct-border-strong);
   }
 
   .ct-chat-user-header-main {
@@ -36,17 +66,11 @@
     color: var(--ct-text-muted);
   }
 
-  .ct-chat-user-status {
-    @apply inline-flex items-center gap-2 text-xs font-medium;
-    color: var(--ct-text-secondary);
-  }
-
   .ct-chat-messages {
-    @apply min-h-0 h-full space-y-2 overflow-y-auto rounded-xl border p-3;
+    @apply relative min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border p-4;
     border-color: var(--ct-border);
     background: rgba(15, 15, 15, 0.45);
     container-type: scroll-state;
-    position: relative;
   }
 
   /* Scrollability Indicators using Scroll-State Queries */
@@ -98,22 +122,21 @@
     pointer-events: none;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     
-    /* Sleek Dark Premium styling */
-    background: var(--ct-accent) !important;
-    border: 1px solid var(--ct-accent-strong) !important;
-    color: #0b0b0b !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    padding: 6px 14px !important;
-    border-radius: 9999px !important;
-    box-shadow: 0 4px 16px var(--ct-accent-glow) !important;
+    border: 1px solid var(--ct-accent-strong);
+    border-radius: 9999px;
+    padding: 6px 14px;
+    background: var(--ct-accent);
+    color: var(--ct-text-inverse);
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: var(--ct-shadow-glow);
     cursor: pointer;
     white-space: nowrap;
   }
 
   .ct-scroll-to-bottom-btn:hover {
-    transform: translateX(-50%) translateY(-1px) !important;
-    box-shadow: 0 6px 20px var(--ct-accent-glow) !important;
+    transform: translateX(-50%) translateY(-1px);
+    box-shadow: 0 6px 20px var(--ct-accent-glow);
   }
 
   @container scroll-state(scrollable: bottom) {
@@ -125,9 +148,94 @@
   }
 
   .ct-chat-thread-box {
-    @apply flex min-h-0 flex-1 flex-col rounded-xl border;
+    @apply flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border;
     border-color: var(--ct-border);
     background: rgba(15, 15, 15, 0.38);
+  }
+
+  /* --- Thread furniture ------------------------------------------------- */
+
+  .ct-chat-search {
+    @apply shrink-0 px-4 pt-2;
+  }
+
+  .ct-chat-search-summary {
+    @apply px-3 py-1.5 text-2xs;
+    color: var(--ct-alpha-50);
+  }
+
+  /* Older pages load on scroll, so this is a status line rather than a
+     control. It keeps a fixed height so the prepend anchor stays honest. */
+  .ct-chat-load-older {
+    @apply flex h-7 shrink-0 items-center justify-center gap-2 text-2xs;
+    color: var(--ct-text-muted);
+  }
+
+  .ct-chat-typing-indicator {
+    @apply shrink-0 px-4 pb-1.5 text-2xs italic;
+    color: var(--ct-text-muted);
+  }
+
+  /* --- Composer ----------------------------------------------------------
+     One full-width bar: emoji and attach on the left, the field taking every
+     remaining pixel, send on the right. Slimmer than the 40px control height
+     used elsewhere -- a message field is typed in, not pointed at. */
+
+  .ct-chat-composer {
+    @apply flex shrink-0 flex-col gap-1.5 border-t px-3 py-2.5;
+    border-color: var(--ct-border);
+    background: transparent;
+  }
+
+  .ct-chat-composer-row {
+    @apply flex w-full items-center gap-1;
+  }
+
+  .ct-chat-composer-row > .ant-btn {
+    @apply h-control-sm w-control-sm shrink-0;
+    color: var(--ct-text-muted);
+    font-size: var(--ct-icon-sm);
+  }
+
+  .ct-chat-composer-row > .ant-btn:hover:not(:disabled) {
+    color: var(--ct-text-primary);
+  }
+
+  /* Reply preview and pending attachment share one shape: a strip above the
+     input with the content on the left and a dismiss button on the right. */
+  .ct-composer-chip {
+    @apply flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs;
+    background: var(--ct-alpha-04);
+  }
+
+  .ct-composer-chip-text {
+    @apply min-w-0 flex-1 truncate;
+    color: var(--ct-text-secondary);
+  }
+
+  /* min-w-0 lets the field actually shrink to its flex basis, so it fills the
+     bar instead of being pushed wide by its own placeholder. */
+  .ct-chat-input.ant-input-affix-wrapper {
+    @apply h-control-sm min-w-0 flex-1 py-0;
+    border-radius: var(--ct-radius-md);
+  }
+
+  .ct-chat-input.ant-input-affix-wrapper .ant-input {
+    @apply text-sm;
+  }
+
+  .ct-chat-input .ant-input-suffix {
+    margin-inline-start: 4px;
+  }
+
+  .ct-chat-send-btn.ant-btn {
+    @apply grid h-control-xs w-control-xs min-w-0 place-items-center p-0;
+    color: var(--ct-text-primary);
+    font-size: var(--ct-icon-xs);
+  }
+
+  .ct-chat-send-btn.ant-btn:disabled {
+    color: var(--ct-alpha-20);
   }
 
   .ct-chat-thread-box .ct-chat-messages {
@@ -147,6 +255,45 @@
     @apply flex flex-col gap-2;
   }
 
+  /* --- Mentions and system rows ----------------------------------------- */
+
+  .ct-chat-mention {
+    @apply rounded-sm px-0.5 font-semibold;
+    color: #93c5fd;
+    background: rgba(147, 197, 253, 0.12);
+  }
+
+  /* A mention of you is the one thing worth interrupting the palette for. */
+  .ct-chat-mention.self {
+    color: var(--ct-text-inverse);
+    background: #fbbf24;
+  }
+
+  .ct-chat-row-system {
+    @apply flex w-full justify-center py-3;
+  }
+
+  .ct-chat-system-call-pill {
+    @apply inline-flex items-center gap-2 rounded-full border px-4 py-1.5;
+    border-color: var(--ct-border);
+    background: var(--ct-alpha-04);
+    backdrop-filter: blur(8px);
+  }
+
+  .ct-chat-system-call-label {
+    @apply inline-flex items-center gap-1.5 text-xs font-medium;
+    color: var(--ct-success);
+  }
+
+  .ct-chat-system-call-label.ended {
+    color: var(--ct-danger);
+  }
+
+  .ct-chat-system-call-time {
+    @apply text-micro font-medium;
+    color: var(--ct-alpha-32);
+  }
+
   .ct-chat-row {
     @apply flex;
     justify-content: flex-start;
@@ -156,10 +303,13 @@
     justify-content: flex-end;
   }
 
+  /* One width for every bubble, derived from the thread's own width and capped
+     at a readable measure. Requested explicitly: a uniform column reads as a
+     transcript, where content-sized bubbles gave a ragged left/right edge. */
   .ct-chat-bubble {
-    @apply rounded-xl border px-3 py-2;
+    @apply relative rounded-lg border px-3 py-2;
     width: min(78%, 620px);
-    min-width: min(220px, 100%);
+    max-width: 100%;
     border-color: var(--ct-border);
     background: rgba(18, 18, 18, 0.85);
   }
@@ -185,19 +335,189 @@
     @apply mt-1 flex items-center justify-between gap-2;
   }
 
+  /* --- Message actions ---------------------------------------------------
+     Reply / edit / delete / react used to be four identical 24px squares
+     sitting in every bubble at all times, next to six always-visible emoji.
+     They now form one bordered group that surfaces on hover or keyboard
+     focus, so a bubble at rest is just the message. */
+
+  /* Absolutely positioned, so a hidden action group contributes no width. It
+     used to sit inside the meta row, which meant every bubble -- including a
+     one-word "tamam" -- was at least as wide as four buttons plus a timestamp. */
+  .ct-chat-message-actions {
+    @apply absolute inline-flex shrink-0 items-center gap-0.5 rounded-full border p-0.5;
+    top: -14px;
+    right: 8px;
+    /* Absolute boxes are capped at the containing block's width, and a bubble
+       can be 96px -- without this the four buttons wrapped onto two rows. */
+    width: max-content;
+    z-index: 5;
+    border-color: var(--ct-border);
+    background: var(--ct-surface-2);
+    box-shadow: var(--ct-shadow-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--ct-duration-fast) ease;
+  }
+
+  /* Own messages hang on the right, so their group opens to the left where
+     there is room. */
+  .ct-chat-row.own .ct-chat-message-actions {
+    right: auto;
+    left: 8px;
+  }
+
+  .ct-chat-bubble:hover .ct-chat-message-actions,
+  .ct-chat-bubble:focus-within .ct-chat-message-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ct-chat-action {
+    @apply inline-flex h-control-xs w-control-xs shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent;
+    color: var(--ct-text-muted);
+    font-size: var(--ct-icon-xs);
+    transition: all var(--ct-duration-fast) ease;
+  }
+
+  .ct-chat-action:hover:not(:disabled) {
+    color: var(--ct-text-primary);
+    background: var(--ct-alpha-12);
+  }
+
+  .ct-chat-action.danger:hover:not(:disabled) {
+    color: #ffffff;
+    background: var(--ct-danger);
+  }
+
+  .ct-chat-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Emoji sets, shared by the reaction button and the composer. */
+  .ct-emoji-popover .ant-popover-inner {
+    padding: 6px;
+    border: 1px solid var(--ct-border);
+    border-radius: var(--ct-radius-md);
+    background: var(--ct-surface-2);
+    box-shadow: var(--ct-shadow-md);
+  }
+
+  /* The reaction set is six, so it stays one row; the composer's wider set
+     wraps to eight per row. */
+  .ct-emoji-grid {
+    @apply grid gap-0.5;
+    grid-template-columns: repeat(6, max-content);
+  }
+
+  .ct-emoji-grid:has(> :nth-child(9)) {
+    grid-template-columns: repeat(8, max-content);
+  }
+
+  .ct-emoji-cell {
+    @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-sm border-0 bg-transparent;
+    font-size: 17px;
+    line-height: 1;
+    transition: background var(--ct-duration-fast) ease;
+  }
+
+  .ct-emoji-cell:hover {
+    background: var(--ct-alpha-12);
+  }
+
+  /* --- Reply quote, attachment, reactions --------------------------------
+     Shared by both conversation surfaces. */
+
+  .ct-chat-reply-quote {
+    @apply mb-1.5 pl-2 text-xs leading-snug;
+    border-left: 2px solid rgba(147, 197, 253, 0.6);
+    opacity: 0.75;
+  }
+
+  .ct-chat-reply-quote strong {
+    @apply block text-2xs;
+  }
+
+  .ct-chat-reply-quote em {
+    opacity: 0.7;
+  }
+
+  .ct-chat-attachment {
+    @apply relative mt-1.5;
+  }
+
+  .ct-chat-attachment-image {
+    @apply block max-w-full cursor-pointer rounded-sm;
+    max-height: 280px;
+  }
+
+  .ct-chat-attachment-loading {
+    @apply flex items-center justify-center rounded-sm text-2xs;
+    width: 180px;
+    height: 110px;
+    background: var(--ct-alpha-04);
+    opacity: 0.6;
+  }
+
+  .ct-chat-attachment-file {
+    @apply flex items-center gap-2 rounded-sm border px-2.5 py-2;
+    border-color: var(--ct-border);
+    background: var(--ct-alpha-04);
+  }
+
+  .ct-chat-attachment-meta {
+    @apply min-w-0 flex-1;
+  }
+
+  .ct-chat-attachment-name {
+    @apply truncate text-xs;
+  }
+
+  .ct-chat-attachment-size {
+    @apply text-micro;
+    opacity: 0.55;
+  }
+
+  .ct-chat-reactions {
+    @apply mt-1 flex flex-wrap gap-1;
+  }
+
+  .ct-chat-reaction {
+    @apply inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-2xs leading-none;
+    border-color: var(--ct-border-strong);
+    color: inherit;
+    background: var(--ct-alpha-04);
+  }
+
+  /* Your own reaction reads as "pressed", so a count you contributed to is
+     distinguishable from one you only watched. */
+  .ct-chat-reaction.mine {
+    border-color: rgba(147, 197, 253, 0.8);
+    background: rgba(147, 197, 253, 0.18);
+  }
+
+  .ct-chat-reaction:disabled {
+    cursor: default;
+  }
+
+  /* Reaction picker is now .ct-emoji-grid inside a popover. */
+
+  /* A 20px hit target was below the point where a pointer reliably lands on
+     it; control-xs is the smallest size on the scale and still comfortable. */
   .ct-chat-message-delete {
-    @apply inline-flex h-5 w-5 items-center justify-center rounded-md border;
-    border-color: rgba(255, 255, 255, 0.25);
-    color: var(--ct-text-secondary);
-    background: rgba(255, 255, 255, 0.08);
-    opacity: 0.85;
+    @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
+    border-color: transparent;
+    color: var(--ct-text-muted);
+    background: transparent;
+    font-size: var(--ct-icon-xs);
+    transition: all var(--ct-duration-fast) ease;
   }
 
   .ct-chat-message-delete:hover:not(:disabled) {
-    border-color: rgba(255, 255, 255, 0.45);
+    border-color: var(--ct-border-strong);
     color: var(--ct-text-primary);
-    background: rgba(255, 255, 255, 0.16);
-    opacity: 1;
+    background: var(--ct-alpha-12);
   }
 
   .ct-chat-message-delete:disabled {
@@ -216,12 +536,13 @@
   }
 
   .ct-chat-send-icon {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-xl border;
+    @apply inline-flex h-control-md w-control-md items-center justify-center rounded-md border;
     border-color: var(--ct-accent-strong);
-    color: #0b0b0b;
+    color: var(--ct-text-inverse);
     background: var(--ct-accent);
-    box-shadow: 0 6px 18px var(--ct-accent-glow);
-    transition: all 0.2s ease;
+    font-size: var(--ct-icon-sm);
+    box-shadow: var(--ct-shadow-glow);
+    transition: all var(--ct-duration-base) ease;
   }
 
   .ct-chat-send-icon:hover:not(:disabled) {
@@ -277,6 +598,35 @@
   white-space: nowrap; /* Prevent text from wrapping */
   overflow: hidden;
   text-overflow: ellipsis; /* Add ... if text is too long */
+}
+
+.ct-banner-lines {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-banner-lines strong {
+  @apply truncate text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-banner-lines span {
+  @apply truncate text-2xs;
+  color: var(--ct-alpha-50);
+}
+
+.ct-call-pulse-avatar-container {
+  @apply relative h-avatar-sm w-avatar-sm shrink-0;
+}
+
+.ct-call-pulse-avatar-container .ant-avatar {
+  border: 1.5px solid var(--ct-alpha-20);
+  background: var(--ct-surface-3);
+  animation: callAvatarDimPulse 2s infinite ease-in-out;
+}
+
+.ct-chat-user-header-avatar.ant-avatar {
+  border: 1.5px solid var(--ct-alpha-12);
+  background: var(--ct-surface-3);
 }
 
 @media (prefers-reduced-motion: reduce) {

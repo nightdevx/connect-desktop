@@ -1,50 +1,54 @@
 .ct-settings-tabs {
-  @apply flex flex-col gap-2;
+  @apply flex flex-col gap-0.5;
 }
 
+/* px-3 matches .ct-list-item, so the settings tabs and the user/lobby rows
+   start at the same 24px from the panel edge. The hover/active translateX
+   that used to nudge tabs 2-4px sideways is gone: the ::before accent bar
+   already carries the state without moving the text off the column. */
 .ct-settings-tab {
-  @apply flex items-center gap-3 rounded-xl border px-4 py-3 text-left;
-  border-color: var(--ct-border);
+  @apply relative flex items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left;
+  border-color: transparent;
   color: var(--ct-text-secondary);
-  background: rgba(18, 18, 18, 0.65);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  background: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-settings-tab::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: 50%;
+  translate: 0 -50%;
   width: 3px;
-  background: transparent;
-  transition: background 0.2s ease;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+  transition: height var(--ct-duration-base) var(--ct-ease-premium);
 }
 
-.ct-settings-tab:hover {
-  border-color: var(--ct-border-strong);
-  background: rgba(22, 22, 22, 0.75);
-  transform: translateX(2px);
+.ct-settings-tab:hover:not(.active) {
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
 }
 
 .ct-settings-tab.active {
-  border-color: var(--ct-accent-strong);
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
   background: var(--ct-accent-soft);
-  transform: translateX(4px);
 }
 
 .ct-settings-tab.active::before {
-  background: var(--ct-accent);
+  height: 60%;
   box-shadow: 0 0 12px var(--ct-accent-glow);
 }
 
 .ct-settings-tab-icon {
   @apply flex shrink-0 items-center justify-center;
   color: var(--ct-text-muted);
-  transition: color 0.2s ease;
+  font-size: var(--ct-icon-sm);
+  transition: color var(--ct-duration-base) ease;
 }
 
 .ct-settings-tab.active .ct-settings-tab-icon {
@@ -77,12 +81,19 @@
 }
 
 .ct-settings-section {
-  @apply grid gap-4;
+  @apply flex flex-col gap-6;
   animation: fadeSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Title block on the left, the section's primary action on the right, both on
+   the same baseline. */
 .ct-settings-section-header {
-  @apply flex items-start gap-3;
+  @apply flex items-center justify-between gap-4 border-b pb-4;
+  border-color: var(--ct-border);
+}
+
+.ct-settings-section-header-main {
+  @apply flex min-w-0 items-start gap-3;
 }
 
 .ct-settings-section-header h4 {
@@ -91,50 +102,44 @@
 }
 
 .ct-settings-section-header-icon {
-  @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.2),
-    rgba(255, 255, 255, 0.08)
-  );
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  @apply flex h-control-md w-control-md shrink-0 items-center justify-center rounded-md border;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-08);
   color: var(--ct-text-primary);
+  font-size: var(--ct-icon-lg);
 }
 
 .ct-settings-section-description {
-  @apply m-0 text-sm;
+  @apply m-0 mt-1 text-sm;
   color: var(--ct-text-muted);
-  line-height: 1.6;
 }
 
 .ct-settings-content {
-  @apply grid gap-4;
+  @apply flex flex-col gap-6;
 }
 
 .ct-settings-form-group {
-  @apply grid gap-3;
+  @apply flex flex-col gap-3;
 }
 
 .ct-settings-grid {
-  @apply grid gap-3;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  @apply flex flex-col gap-4;
 }
 
 .ct-settings-info-grid {
-  @apply grid gap-2;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  @apply grid gap-4 rounded-md border p-4;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
 .ct-settings-info-item {
-  @apply flex flex-col gap-1 rounded-lg px-3 py-2;
-  background: rgba(14, 14, 14, 0.5);
+  @apply flex flex-col gap-1;
 }
 
 .ct-settings-info-label {
-  @apply text-[11px] font-medium;
+  @apply text-2xs font-medium uppercase tracking-wider;
   color: var(--ct-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .ct-settings-info-value {
@@ -143,83 +148,57 @@
 }
 
 .ct-settings-profile-avatar-row {
-  @apply flex flex-wrap items-center gap-4 rounded-xl p-4;
-  background: linear-gradient(
-    145deg,
-    rgba(20, 20, 20, 0.4),
-    rgba(12, 12, 12, 0.5)
-  );
+  @apply flex flex-wrap items-center gap-5 rounded-md border p-4;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
-.ct-settings-profile-avatar {
-  @apply grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full border-2;
-  border-color: rgba(255, 255, 255, 0.25);
-  background: linear-gradient(
-    135deg,
-    rgba(20, 20, 20, 0.9),
-    rgba(12, 12, 12, 0.95)
-  );
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-
-.ct-settings-profile-avatar img {
-  @apply h-full w-full object-cover;
-}
-
-.ct-settings-profile-avatar span {
-  @apply text-xl font-bold;
+.ct-settings-profile-avatar.ant-avatar {
+  @apply shrink-0 border;
+  border-color: var(--ct-alpha-12);
+  background: var(--ct-alpha-04);
   color: var(--ct-text-primary);
-  letter-spacing: 0.06em;
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .ct-settings-profile-avatar-actions {
-  @apply min-w-0 flex-1;
+  @apply flex min-w-0 flex-1 flex-col gap-2;
+}
+
+.ct-settings-profile-avatar-buttons {
+  @apply flex flex-wrap gap-2;
 }
 
 .ct-settings-profile-avatar-actions small {
-  @apply mt-2 block text-xs;
+  @apply block text-2xs;
   color: var(--ct-text-muted);
 }
 
-.ct-textarea {
-  min-height: 110px;
-  resize: vertical;
-}
-
+/* A grouped list: one card, hairline dividers between rows. Rows used to be
+   separate floating cards that also lifted 1px on hover, so passing the mouse
+   down a settings page made the whole column ripple. */
 .ct-settings-switch-list {
-  @apply grid gap-3;
+  @apply flex flex-col overflow-hidden rounded-md border;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
-.ct-settings-device-field {
-  @apply flex min-w-[220px] flex-1 flex-col gap-1.5;
-}
-
-.ct-settings-device-field span {
-  @apply text-xs font-semibold;
-  color: var(--ct-text-secondary);
+.ct-settings-switch-list > * + * {
+  border-top: 1px solid var(--ct-border);
 }
 
 .ct-settings-switch-item {
-  @apply flex items-center justify-between gap-4 rounded-xl p-4 cursor-pointer;
-  background: rgba(12, 12, 12, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  @apply flex items-center justify-between gap-4 p-4;
+  transition: background var(--ct-duration-fast) ease;
 }
 
 .ct-settings-switch-item.compact {
-  @apply p-2.5 px-3.5;
+  @apply px-4 py-2.5;
 }
 
 .ct-settings-switch-item:hover {
-  background: rgba(18, 18, 18, 0.7);
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.ct-settings-switch-item:has(input:focus-visible) {
-  border-color: var(--ct-accent);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  background: var(--ct-alpha-02);
 }
 
 .ct-settings-switch-item-content {
@@ -227,93 +206,25 @@
 }
 
 .ct-settings-switch-item strong {
-  @apply block text-sm font-semibold;
+  @apply block text-sm font-semibold leading-snug;
   color: var(--ct-text-primary);
-  line-height: 1.4;
 }
 
 .ct-settings-switch-item span {
   @apply block text-xs;
   color: var(--ct-text-muted);
-  line-height: 1.5;
-}
-
-.ct-settings-switch {
-  @apply relative inline-flex h-7 w-12 shrink-0 items-center rounded-full;
-  background: rgba(35, 35, 35, 0.8);
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ct-settings-switch:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.ct-settings-switch input {
-  @apply absolute inset-0 h-full w-full opacity-0 cursor-pointer;
-  margin: 0;
-}
-
-.ct-settings-switch-slider {
-  @apply absolute left-0.5 top-0.5 h-6 w-6 rounded-full;
-  background: linear-gradient(135deg, #cfcfcf, #8f8f8f);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.ct-settings-switch-slider::after {
-  content: "";
-  @apply absolute inset-0 rounded-full;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-}
-
-.ct-settings-switch input:checked + .ct-settings-switch-slider {
-  transform: translateX(100%);
-  background: linear-gradient(135deg, #f5f5f5, #cfcfcf);
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.32);
-}
-
-.ct-settings-switch input:checked + .ct-settings-switch-slider::before {
-  content: "\2713";
-  @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white;
-  animation: checkmarkFade 0.2s ease-out;
-}
-
-.ct-settings-switch-item:has(input:checked) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.24);
-}
-
-.ct-settings-notice {
-  @apply m-0 rounded-lg border px-3 py-2 text-sm;
-  border-color: rgba(255, 255, 255, 0.24);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.ct-settings-preview-box {
-  @apply min-h-[220px] rounded-xl p-2;
-  background: rgba(10, 10, 10, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.ct-settings-preview-box p {
-  @apply m-0 grid h-full min-h-[200px] place-items-center text-sm;
-  color: var(--ct-text-muted);
 }
 
 .ct-settings-preview-video {
-  @apply h-full min-h-[200px] w-full rounded-lg object-cover;
-  background: rgba(0, 0, 0, 0.85);
+  @apply h-full w-full;
+  object-fit: contain;
+  background: #000;
 }
 
 .ct-settings-audio-meter-wrap {
-  @apply rounded-lg p-3;
-  background: rgba(12, 12, 12, 0.5);
+  @apply rounded-md border p-4;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
 .ct-settings-audio-meter-wrap span {
@@ -326,28 +237,15 @@
   color: var(--ct-text-primary);
 }
 
-.ct-settings-audio-meter {
-  @apply mt-2 h-2.5 w-full overflow-hidden rounded-full;
-  background: rgba(30, 30, 30, 0.6);
-}
-
-.ct-settings-audio-meter-fill {
-  @apply h-full rounded-full;
-  background: linear-gradient(90deg, #f5f5f5, #bdbdbd, #8a8a8a);
-  transition: width 0.12s linear;
-}
-
 .ct-settings-volume-grid {
   @apply grid gap-4;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  margin-bottom: 24px;
 }
 
 .ct-settings-volume-card {
-  @apply grid gap-3 rounded-xl border p-4;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(12, 12, 12, 0.52);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+  @apply flex flex-col gap-3 rounded-md border p-4;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
 .ct-settings-volume-header {
@@ -361,67 +259,113 @@
 }
 
 .ct-settings-volume-value {
-  @apply rounded-full px-2.5 py-1 text-xs font-semibold;
+  @apply rounded-full border px-2.5 py-0.5 text-2xs font-semibold tabular-nums;
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--ct-alpha-08);
 }
 
 .ct-settings-volume-value.boost {
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.35);
+  color: var(--ct-warning);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .ct-settings-actions {
-  @apply mt-2 flex flex-wrap gap-2;
+  @apply flex flex-wrap gap-3;
 }
 
-.ct-action-row {
-  @apply mt-3 flex flex-wrap gap-2;
+.ct-block-control {
+  @apply w-full;
 }
 
-.ct-action-row .ct-btn-secondary {
-  @apply inline-flex items-center gap-2;
+.ct-settings-two-col {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.ct-settings-footer {
-  @apply mx-3 mt-2 rounded-xl border p-3;
+/* A subsection separated by a rule rather than by a gap, so related settings
+   stay visually grouped. */
+.ct-settings-subsection {
+  @apply mt-8 flex flex-col gap-4 border-t pt-6;
   border-color: var(--ct-border);
-  background: rgba(12, 12, 12, 0.74);
 }
 
-.ct-settings-footer h4 {
-  @apply m-0 text-sm font-semibold;
-  color: var(--ct-text-primary);
+.ct-settings-subsection.danger {
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
-.ct-settings-footer p {
-  @apply mb-0 mt-1 text-xs leading-5;
-  color: var(--ct-text-muted);
-}
-
-.ct-settings-footer-actions {
-  @apply mt-3 flex flex-col gap-2;
-}
-
-.ct-settings-footer-chip {
-  @apply rounded-lg border px-2.5 py-2 text-left text-xs font-semibold;
-  border-color: var(--ct-border);
+.ct-settings-subsection p {
+  @apply m-0 text-sm;
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.78);
-  transition:
-    border-color 0.16s ease,
-    color 0.16s ease;
 }
 
-.ct-settings-footer-chip:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
+.ct-settings-subsection.danger p {
+  color: #ff7875;
 }
 
-.ct-settings-footer-chip.active {
-  border-color: var(--ct-accent-strong);
+/* Camera / stream preview surface. Fixed aspect so switching resolution does
+   not resize the panel around it. */
+.ct-media-preview {
+  @apply relative flex w-full items-center justify-center overflow-hidden rounded-md border;
+  aspect-ratio: 16 / 9;
+  max-height: 360px;
+  border-color: var(--ct-border);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.ct-media-preview video,
+.ct-media-preview img {
+  @apply h-full w-full;
+  object-fit: contain;
+}
+
+.ct-media-preview-placeholder {
+  @apply m-0 text-xs;
+  color: var(--ct-alpha-32);
+}
+
+.ct-media-preview-badge {
+  @apply absolute left-2 top-2 rounded-sm border px-2 py-1 text-micro font-semibold tabular-nums;
+  border-color: var(--ct-alpha-20);
   color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.ct-settings-update-alert {
+  @apply block;
+}
+
+/* Monospace so a captured accelerator does not change width as it is typed. */
+.ct-hotkey-button {
+  min-width: 160px;
+  font-family: var(--ct-font-mono);
+}
+
+/* Ant Design's Alert, themed once so the settings pages stop passing a style
+   object per instance. */
+.ct-alert.ant-alert {
+  border-radius: var(--ct-radius-sm);
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
+}
+
+.ct-alert.ant-alert-success {
+  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.ct-alert.ant-alert-warning {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.ct-alert.ant-alert-error {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.ct-metric-value {
+  @apply min-w-[32px] text-right text-xs tabular-nums;
+  color: var(--ct-text-primary);
 }

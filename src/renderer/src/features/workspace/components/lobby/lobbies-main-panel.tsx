@@ -317,7 +317,7 @@ export function LobbiesMainPanel({
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+    <div className="ct-lobby-main-stack">
       {/* 1. Lobby Selection Screen */}
       <LobbySelectionScreen
         activeLobbyId={activeLobbyId}
@@ -329,18 +329,9 @@ export function LobbiesMainPanel({
 
       {/* 2. Active Lobby Room */}
       <article
-        className="ct-content-card ct-lobby-room-card connected"
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: activeLobbyId ? 1 : 0,
-          transform: activeLobbyId ? "translateY(0) scale(1)" : "translateY(16px) scale(1.03)",
-          pointerEvents: activeLobbyId ? "auto" : "none",
-          transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-          visibility: activeLobbyId ? "visible" : "hidden"
-        }}
+        className={`ct-content-card ct-lobby-room-card connected ct-lobby-main-layer room ${activeLobbyId ? "" : "hidden-layer"}`}
       >
-        <div className={`ct-lobby-room-grid ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}>
+        <div className={`ct-lobby-room-grid-v2 ${isLobbyChatOpen ? "chat-open" : "chat-closed"}`}>
           <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
             <button
               type="button"
@@ -349,11 +340,11 @@ export function LobbiesMainPanel({
             >
               {isLobbyChatOpen ? (
                 <>
-                  <RightOutlined style={{ fontSize: "11px", marginRight: "4px" }} /> Sohbeti Kapat
+                  <RightOutlined  /> Sohbeti Kapat
                 </>
               ) : (
                 <>
-                  <LeftOutlined style={{ fontSize: "11px", marginRight: "4px" }} /> Sohbeti Aç
+                  <LeftOutlined  /> Sohbeti Aç
                 </>
               )}
             </button>

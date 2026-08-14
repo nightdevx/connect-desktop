@@ -295,7 +295,10 @@ export const useWorkspaceLobbyActions = ({
 
       setActiveLobbyId(null);
       resetLocalMediaCapture();
-      void liveKitSessionRef.current?.disconnect();
+      // Awaited: ensureCleanRoomTransition awaits this function before joining
+      // the next room, and a teardown still in flight when the next connect()
+      // starts used to take the new room down with it.
+      await liveKitSessionRef.current?.disconnect();
       soundEffectManager.playMemberLeft();
       // The kick warning already told the user what happened; a second
       // contradicting "ok" toast right after is confusing, not informative.

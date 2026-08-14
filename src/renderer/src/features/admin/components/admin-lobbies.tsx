@@ -142,11 +142,11 @@ export default function AdminLobbies() {
       title: "Oda Bilgisi",
       key: "lobby",
       render: (_: any, record: AdminLobbySnapshot) => (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <HomeOutlined style={{ fontSize: "20px", color: "#a855f7" }} />
+        <div className="ct-admin-table-user">
+          <HomeOutlined  />
           <div>
-            <div style={{ fontWeight: "600", color: "#ffffff" }}>{record.lobby.name}</div>
-            <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.45)" }}>
+            <div >{record.lobby.name}</div>
+            <div className="ct-admin-muted">
               ID: {record.lobby.id}
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function AdminLobbies() {
             type="text"
             icon={<EditOutlined />}
             onClick={() => handleEditClick(record)}
-            style={{ color: "#3b82f6" }}
+            className="ct-icon-info"
             title="Adı Değiştir"
           />
           <Popconfirm
@@ -204,7 +204,7 @@ export default function AdminLobbies() {
   const expandedRowRender = (record: AdminLobbySnapshot) => {
     if (record.members.length === 0) {
       return (
-        <div style={{ padding: "8px 16px", color: "rgba(255, 255, 255, 0.45)", fontSize: "13px" }}>
+        <div className="ct-admin-empty">
           Odada şu anda kimse yok.
         </div>
       );
@@ -216,11 +216,11 @@ export default function AdminLobbies() {
         dataIndex: "username",
         key: "username",
         render: (username: string) => (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Avatar size="small" style={{ background: "#8b5cf6" }}>
+          <div className="ct-admin-table-user">
+            <Avatar size="small" className="ct-admin-avatar">
               {username[0]?.toUpperCase()}
             </Avatar>
-            <span style={{ color: "#ffffff", fontWeight: "500" }}>@{username}</span>
+            <span >@{username}</span>
           </div>
         ),
       },
@@ -280,7 +280,7 @@ export default function AdminLobbies() {
             okText="Evet"
             cancelText="Hayır"
           >
-            <Button type="link" danger size="small" style={{ padding: 0 }}>
+            <Button type="link" danger size="small" >
               Odadan At
             </Button>
           </Popconfirm>
@@ -300,18 +300,14 @@ export default function AdminLobbies() {
           }
         }}
       >
-        <div style={{ padding: "8px 16px" }}>
+        <div className="ct-admin-empty">
           <Table
             columns={memberColumns}
             dataSource={record.members}
             rowKey="userId"
             pagination={false}
             size="small"
-            style={{
-              background: "rgba(10, 10, 10, 0.25)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "8px",
-            }}
+            className="ct-admin-table-wrap"
           />
         </div>
       </ConfigProvider>
@@ -319,20 +315,20 @@ export default function AdminLobbies() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px", height: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="ct-admin-page">
+      <div >
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: "700", margin: "0 0 4px 0", color: "#ffffff" }}>
+          <h1 >
             Aktif Odalar
           </h1>
-          <p style={{ margin: 0, color: "rgba(255, 255, 255, 0.45)", fontSize: "14px" }}>
+          <p >
             Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık izleyin
           </p>
         </div>
         <Button
           icon={<ReloadOutlined />}
           onClick={() => fetchLobbies()}
-          style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}
+          
         >
           Yenile
         </Button>
@@ -340,35 +336,21 @@ export default function AdminLobbies() {
 
       {/* Filters Bar */}
       <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: "8px",
-          padding: "12px",
-          flexWrap: "wrap",
-        }}
+        className="ct-admin-toolbar"
       >
         <Input
           placeholder="Oda adı, ID veya oluşturan ara..."
-          prefix={<SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />}
+          prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: "200px",
-            background: "rgba(15, 15, 15, 0.8)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-            color: "#ffffff",
-          }}
+          className="ct-admin-toolbar-search"
         />
 
         <Select
           defaultValue="all"
           value={lockedFilter}
           onChange={setLockedFilter}
-          style={{ width: "150px" }}
+          className="ct-admin-toolbar-filter"
           dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Odalar" },
@@ -393,50 +375,45 @@ export default function AdminLobbies() {
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
         scroll={{ y: "calc(100vh - 260px)" }}
-        style={{
-          background: "rgba(20, 20, 20, 0.4)",
-          borderRadius: "12px",
-          overflow: "hidden",
-        }}
+        className="ct-admin-table-wrap"
       />
 
       {/* Edit Name Modal */}
       <Modal
-        title={<span style={{ color: "#ffffff" }}>Oda Yetkilerini Düzenle</span>}
+        rootClassName="ct-modal"
+        title={<span >Oda Yetkilerini Düzenle</span>}
         open={isEditOpen}
         onCancel={() => setIsEditOpen(false)}
         footer={[
-          <Button key="cancel" onClick={() => setIsEditOpen(false)} style={{ color: "#ffffff", background: "transparent", borderColor: "rgba(255,255,255,0.2)" }}>
+          <Button key="cancel" onClick={() => setIsEditOpen(false)} >
             İptal
           </Button>,
           <Button
             key="submit"
             type="primary"
             onClick={() => editForm.submit()}
-            style={{ background: "#a855f7", borderColor: "#a855f7" }}
+            
           >
             Güncelle
           </Button>,
         ]}
-        style={{ background: "#141414" }}
-        bodyStyle={{ background: "#141414" }}
       >
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
             name="name"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Oda Adı</span>}
+            label={<span >Oda Adı</span>}
             rules={[
               { required: true, message: "Oda adı girilmelidir" },
               { min: 2, message: "En az 2 karakter olmalıdır" },
             ]}
           >
-            <Input style={{ background: "rgba(15, 15, 15, 0.8)", borderColor: "rgba(255, 255, 255, 0.08)", color: "#ffffff" }} />
+            <Input  />
           </Form.Item>
 
           <Form.Item
             name="isLocked"
             valuePropName="checked"
-            label={<span style={{ color: "rgba(255,255,255,0.85)" }}>Kilitli Oda</span>}
+            label={<span >Kilitli Oda</span>}
           >
             <Switch />
           </Form.Item>
@@ -447,12 +424,12 @@ export default function AdminLobbies() {
               return isLocked ? (
                 <Form.Item
                   name="allowedUsers"
-                  label={<span style={{ color: "rgba(255,255,255,0.85)" }}>İzin Verilen Kullanıcılar</span>}
+                  label={<span >İzin Verilen Kullanıcılar</span>}
                 >
                   <Select
                     mode="multiple"
                     placeholder="Kullanıcıları seçin..."
-                    style={{ width: "100%" }}
+                    
                     options={allUsers
                       .filter((u) => u.id !== editingLobby?.lobby.createdBy)
                       .map((u) => ({

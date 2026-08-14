@@ -237,7 +237,15 @@ const installNavigationGuards = (win: BrowserWindow): void => {
 // The app legitimately needs mic, camera and screen capture, but only from its
 // own page.
 const installPermissionHandlers = (): void => {
-  const allowed = new Set(["media", "clipboard-sanitized-write", "notifications"]);
+  // "fullscreen" is what Electron asks for when the renderer calls
+  // Element.requestFullscreen(). Leaving it out silently rejected every
+  // request, so the tile fullscreen buttons did nothing at all.
+  const allowed = new Set([
+    "media",
+    "clipboard-sanitized-write",
+    "notifications",
+    "fullscreen",
+  ]);
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -270,7 +278,9 @@ function createMainWindow(): BrowserWindow {
     frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
-    backgroundColor: "#0b1020",
+    // Matches --ct-surface-0. It was a navy that appears nowhere in the app, so
+    // the window opened on a blue frame before the first paint replaced it.
+    backgroundColor: "#040404",
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,

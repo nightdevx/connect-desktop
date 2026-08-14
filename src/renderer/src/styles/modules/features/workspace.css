@@ -1,35 +1,101 @@
 .ct-workspace-shell {
-  @apply grid h-full w-full min-h-0 grid-cols-[76px_280px_minmax(0,1fr)] overflow-hidden;
+  @apply grid h-full w-full min-h-0 overflow-hidden;
+  grid-template-columns: var(--ct-rail-width) var(--ct-sidebar-width) minmax(0, 1fr);
   background: rgba(12, 12, 12, 0.92);
 }
 
+/* ==========================================================================
+   RAIL
+   Items are full-width pills rather than free-floating squares, so the icon
+   column, the label and the active indicator all share one vertical axis
+   instead of each being centred against a different box.
+   ========================================================================== */
+
 .ct-rail {
-  @apply flex flex-col items-center gap-2 border-r p-2;
+  @apply flex flex-col items-stretch gap-1 border-r px-2 py-3;
   border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.92);
+  background: rgba(6, 6, 6, 0.98);
+}
+
+.ct-rail-items {
+  @apply flex flex-col gap-1;
+}
+
+.ct-rail-item {
+  @apply relative flex;
+}
+
+/* Flush against the rail's outer edge: the wrapper is inset by the rail's
+   8px padding, so -8px puts the bar exactly on the border. */
+.ct-rail-indicator {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+  opacity: 0;
+  transition: all var(--ct-duration-slow) var(--ct-ease-premium);
+}
+
+.ct-rail-item:hover .ct-rail-indicator {
+  height: 14px;
+  opacity: 0.5;
+}
+
+.ct-rail-indicator.active {
+  height: 26px;
+  opacity: 1;
+  box-shadow: 0 0 10px var(--ct-accent-glow);
 }
 
 .ct-rail-button {
-  @apply flex h-14 w-12 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-semibold;
+  @apply flex w-full flex-col items-center gap-1 rounded-lg border px-1 py-2 text-micro font-semibold;
+  border-color: transparent;
+  color: var(--ct-text-muted);
+  background: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-rail-button:hover:not(.active) {
   border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.85);
-  transition: all 0.18s ease;
-}
-
-.ct-rail-button span {
-  @apply inline-flex items-center justify-center;
-}
-
-.ct-rail-button:hover {
-  border-color: var(--ct-border-strong);
-  background: rgba(28, 28, 28, 0.9);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
 }
 
 .ct-rail-button.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: 0 4px 16px var(--ct-accent-glow);
+}
+
+.ct-rail-button .anticon {
+  font-size: var(--ct-icon-lg);
+}
+
+/* antd's Badge root runs resetComponent(), which pins colour to the theme's
+   text colour -- white, the same white as the active pill's background. Only
+   the Arkadaslar item wraps its icon in a Badge, so only that icon vanished
+   once the section was selected. */
+.ct-rail-button .ant-badge {
+  color: inherit;
+}
+
+.ct-rail-button.danger {
+  color: var(--ct-danger);
+}
+
+.ct-rail-button.danger:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+  background: var(--ct-danger);
+}
+
+.ct-rail-spacer {
+  @apply mt-auto;
 }
 
 .ct-sidebar {
@@ -38,135 +104,175 @@
   background: rgba(12, 12, 12, 0.9);
 }
 
+/* --------------------------------------------------------------------------
+   Sidebar rhythm
+
+   One gutter, declared once. The body applies it; its children add no
+   horizontal padding or margin of their own, and every interactive row uses
+   the same 12px inner padding. That is what puts the search field, the filter
+   segment and the avatar column on a single vertical line -- they used to sit
+   at 28px, 28px and 36px because each block invented its own inset.
+   -------------------------------------------------------------------------- */
+
 .ct-sidebar-header {
-  @apply border-b px-4 py-3;
+  @apply flex h-14 shrink-0 items-center justify-between gap-2 border-b;
+  padding-inline: var(--ct-gutter);
   border-color: var(--ct-border);
 }
 
 .ct-sidebar-header h3 {
-  @apply m-0 text-sm font-semibold uppercase tracking-[0.1em];
+  @apply m-0 truncate text-xs font-bold uppercase tracking-[0.12em];
   color: var(--ct-text-secondary);
-}
-
-.ct-sidebar-header-row {
-  @apply flex items-center justify-between gap-2;
 }
 
 .ct-sidebar-header-action {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border;
+  @apply inline-flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-md border;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.85);
-  transition: all 0.18s ease;
+  background: var(--ct-alpha-04);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-sidebar-header-action:hover:not(:disabled) {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  transform: translateY(-1px);
+  background: var(--ct-alpha-08);
 }
 
 .ct-sidebar-header-action:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.ct-inline-create-lobby {
-  @apply mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2;
-}
-
-.ct-inline-create-lobby .ct-input {
-  @apply min-h-9;
-}
-
-.ct-inline-create-lobby .ct-btn-primary {
-  @apply min-h-9 px-3 text-xs;
-}
-
 .ct-sidebar-body {
-  @apply min-h-0 overflow-y-auto p-3;
+  @apply flex min-h-0 flex-col gap-2 overflow-y-auto;
+  padding: var(--ct-gutter);
 }
 
-.ct-users-toolbar {
-  @apply mb-2 flex items-center;
+/* Ant Design's Input pads to 11px; nudge it to the gutter so the search icon
+   lines up with the avatars below it to the pixel. */
+.ct-sidebar-search.ant-input-affix-wrapper {
+  padding-inline: var(--ct-gutter);
 }
 
-.ct-users-search {
-  @apply flex min-h-10 flex-1 items-center gap-2 rounded-lg border px-2.5;
-  border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.56);
-  color: var(--ct-text-secondary);
-}
-
-.ct-users-search input {
-  @apply h-8 w-full border-0 bg-transparent p-0 text-sm outline-none;
-  color: var(--ct-text-primary);
-}
-
-.ct-users-search input::placeholder {
+.ct-sidebar-search .ant-input-prefix {
+  margin-inline-end: 8px;
   color: var(--ct-text-muted);
 }
 
-.ct-users-filters {
-  @apply mb-3 grid grid-cols-3 gap-1.5;
-}
-
-.ct-quick-controls {
-  @apply grid gap-2 border-t p-3;
+.ct-presence-picker {
+  @apply flex h-control-md shrink-0 items-center gap-2 rounded-md border px-3;
   border-color: var(--ct-border);
-  background: rgba(8, 8, 8, 0.75);
-  justify-items: center;
+  background: var(--ct-alpha-02);
 }
 
-.ct-quick-controls.compact {
-  @apply grid-cols-2;
+.ct-presence-picker .ant-select {
+  @apply min-w-0 flex-1;
 }
 
-.ct-quick-controls.expanded {
-  @apply grid-cols-3;
+.ct-presence-picker .ant-select-selector {
+  padding-inline: 0 !important;
+}
+
+.ct-presence-swatch {
+  @apply h-2.5 w-2.5 shrink-0 rounded-full;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar list rows
+   -------------------------------------------------------------------------- */
+
+.ct-list-user {
+  @apply flex min-w-0 flex-1 items-center gap-3;
+}
+
+.ct-list-user-meta {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-list-user-meta p {
+  @apply m-0 flex min-w-0 items-center gap-1.5 truncate text-sm font-medium;
+  color: var(--ct-text-primary);
+}
+
+.ct-list-user-meta span {
+  @apply truncate text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-list-item.unread .ct-list-user-meta p {
+  @apply font-bold;
+}
+
+.ct-list-item.unread .ct-list-user-meta span {
+  color: #93c5fd;
+}
+
+/* The active row inverts to a white background. Rather than passing an
+   isActive flag into every nested colour, children inherit and lean on
+   opacity, which reads correctly on both the light and the dark ground. */
+.ct-list-item.clickable.active .ct-list-user-meta p,
+.ct-list-item.clickable.active .ct-lobby-item-title {
+  color: inherit;
+}
+
+.ct-list-item.clickable.active .ct-list-user-meta span,
+.ct-list-item.clickable.active .ct-lobby-item-count,
+.ct-list-item.clickable.active .ct-lobby-item-empty,
+.ct-list-item.clickable.active .ct-lobby-member-name {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.ct-list-item.clickable.active .ct-lobby-item-title .anticon,
+.ct-list-item.clickable.active .ct-lobby-member-flag {
+  color: inherit;
+  opacity: 0.65;
+}
+
+.ct-calling-icon {
+  color: var(--ct-success);
+  font-size: var(--ct-icon-xs);
+  animation: callIconPulse 1.2s infinite ease-in-out;
 }
 
 .ct-audio-connection-anchor {
-  @apply relative mx-3 mt-3 mb-1.5;
+  @apply relative;
+  margin: 0 var(--ct-gutter) 6px;
 }
 
+/* The tone says what the connection is doing, so it uses the semantic palette
+   rather than three shades of the same white. */
 .ct-audio-connection-card {
-  @apply inline-flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold;
+  @apply inline-flex h-control-md w-full items-center gap-2 rounded-md border px-3 text-left text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: linear-gradient(
-    135deg,
-    rgba(18, 18, 18, 0.84),
-    rgba(10, 10, 10, 0.92)
-  );
-  transition:
-    border-color 0.18s ease,
-    transform 0.18s ease,
-    color 0.18s ease;
+  background: var(--ct-alpha-02);
+  transition: all var(--ct-duration-fast) ease;
 }
 
 .ct-audio-connection-card:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  transform: translateY(-1px);
+  background: var(--ct-alpha-04);
 }
 
 .ct-audio-connection-card.ok {
-  border-color: rgba(255, 255, 255, 0.32);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(16, 185, 129, 0.24);
+  color: var(--ct-success);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .ct-audio-connection-card.warn {
-  border-color: rgba(255, 255, 255, 0.24);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: var(--ct-warning);
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .ct-audio-connection-card.error {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(239, 68, 68, 0.24);
+  color: var(--ct-danger);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .ct-audio-connection-icon {
@@ -182,7 +288,8 @@
 }
 
 .ct-quick-idle {
-  @apply flex items-center justify-between gap-3 border-t px-3 py-3.5;
+  @apply flex items-center justify-between gap-3 border-t py-3;
+  padding-inline: var(--ct-gutter);
   border-color: var(--ct-border);
   backdrop-filter: blur(16px);
   background: rgba(10, 10, 10, 0.82);
@@ -193,31 +300,24 @@
 }
 
 .ct-quick-idle-logo {
-  @apply grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.03);
+  @apply grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full border text-2xs font-bold;
+  border-color: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
   letter-spacing: 0.06em;
-  overflow: hidden;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ct-quick-idle-logo:hover {
-  transform: rotate(5deg) scale(1.08);
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .ct-quick-idle-meta {
-  @apply min-w-0 flex flex-col gap-0.5;
+  @apply flex min-w-0 flex-col gap-0.5;
 }
 
 .ct-quick-idle-meta strong {
-  @apply block truncate text-[13px] font-bold leading-none;
+  @apply block truncate text-sm font-bold leading-none;
   color: var(--ct-text-primary);
 }
 
 .ct-quick-idle-meta span {
-  @apply block truncate text-[10px] uppercase font-semibold tracking-wide opacity-50;
+  @apply block truncate text-micro font-semibold uppercase;
   color: var(--ct-text-muted);
 }
 
@@ -226,85 +326,38 @@
 }
 
 .ct-quick-icon-button {
-  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border;
-  border-color: rgba(255, 255, 255, 0.05);
+  @apply inline-flex h-control-md w-control-md items-center justify-center rounded-md border;
+  border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--ct-alpha-02);
+  font-size: var(--ct-icon-sm);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-quick-icon-button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.06) translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+  background: var(--ct-alpha-08);
 }
 
 .ct-quick-icon-button:active:not(:disabled) {
-  transform: scale(0.92) translateY(0);
+  transform: scale(0.94);
 }
 
 .ct-quick-icon-button.active {
-  border-color: #ffffff;
-  color: #000000;
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
-}
-
-.ct-quick-icon-button.danger {
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--ct-text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
 
 .ct-quick-icon-button.danger:hover:not(:disabled) {
   border-color: rgba(239, 68, 68, 0.3);
   color: #ffffff;
-  background: #ef4444;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  background: var(--ct-danger);
 }
 
 .ct-quick-icon-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-.ct-quick-device-menu {
-  position: fixed;
-  z-index: 70;
-  min-width: 220px;
-  max-width: 320px;
-  @apply rounded-xl border p-1.5;
-  border-color: rgba(255, 255, 255, 0.06);
-  background: rgba(10, 10, 10, 0.75);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-.ct-quick-device-menu-header {
-  @apply px-2 py-1 text-[11px] font-semibold uppercase;
-  color: var(--ct-text-muted);
-  letter-spacing: 0.05em;
-}
-
-.ct-quick-device-menu-item {
-  @apply block w-full rounded-md px-2 py-1.5 text-left text-xs;
-  color: var(--ct-text-secondary);
-  transition: background-color 0.15s ease;
-}
-
-.ct-quick-device-menu-item:hover {
-  background: rgba(24, 24, 24, 0.82);
-  color: var(--ct-text-primary);
-}
-
-.ct-quick-device-menu-item.active {
-  background: var(--ct-accent-soft);
-  color: var(--ct-text-primary);
-}
-
-.ct-quick-device-menu-empty {
-  @apply px-2 py-1.5 text-xs;
-  color: var(--ct-text-muted);
 }

@@ -57,6 +57,9 @@ export class AppErrorBoundary extends Component<
           inset: 0,
           zIndex: 9999,
           display: "flex",
+          // Deliberately inline. This screen renders when the React tree has
+          // already failed, so it must not depend on any of the app's own
+          // classes still being reachable.
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
-import { User, Lock, Mail } from "lucide-react";
+import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
 import type { LoginRequest } from "../../../../../shared/auth-contracts";
 
 const mutedIconStyle = { color: "#6b6b6b" };
@@ -91,7 +91,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               size="large"
               placeholder="örnek@mail.com"
               className="ct-input-premium"
-              prefix={<Mail size={16} style={mutedIconStyle} />}
+              prefix={<MailOutlined style={mutedIconStyle} />}
               autoComplete="email"
               autoFocus
             />
@@ -105,13 +105,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               block
               size="large"
               className="ct-btn-primary"
-              style={{
-                height: "48px",
-                borderRadius: "14px",
-                fontWeight: 700,
-                fontSize: "14px",
-                letterSpacing: "0.02em"
-              }}
+              
             >
               Doğrulama Kodu Gönder
             </Button>
@@ -161,7 +155,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
                 size="large"
                 placeholder="örnek@mail.com"
                 className="ct-input-premium"
-                prefix={<Mail size={16} style={mutedIconStyle} />}
+                prefix={<MailOutlined style={mutedIconStyle} />}
                 autoComplete="email"
                 autoFocus
               />
@@ -179,12 +173,11 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             <Input
               size="large"
               placeholder="000000"
-              className="ct-input-premium"
+              className="ct-input-premium ct-code-input"
               maxLength={6}
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus={!!resetEmail}
-              style={{ letterSpacing: "8px", textAlign: "center", fontWeight: "bold" }}
             />
           </Form.Item>
 
@@ -200,7 +193,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               size="large"
               placeholder="Yeni şifreniz"
               className="ct-input-premium"
-              prefix={<Lock size={16} style={mutedIconStyle} />}
+              prefix={<LockOutlined style={mutedIconStyle} />}
               autoComplete="new-password"
             />
           </Form.Item>
@@ -213,13 +206,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               block
               size="large"
               className="ct-btn-primary"
-              style={{
-                height: "48px",
-                borderRadius: "14px",
-                fontWeight: 700,
-                fontSize: "14px",
-                letterSpacing: "0.02em"
-              }}
+              
             >
               Şifreyi Sıfırla
             </Button>
@@ -264,7 +251,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             size="large"
             placeholder="Kullanıcı adınız"
             className="ct-input-premium"
-            prefix={<User size={16} style={mutedIconStyle} />}
+            prefix={<UserOutlined style={mutedIconStyle} />}
             autoComplete="username"
             autoFocus
             spellCheck={false}
@@ -274,30 +261,13 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         <Form.Item
           label={
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
+              className="ct-auth-form-row"
             >
               <span>Şifre</span>
               <button
                 type="button"
                 onClick={() => { setMode("forgot"); form.resetFields(); }}
-                style={{
-                  textTransform: "none",
-                  letterSpacing: "normal",
-                  fontWeight: 500,
-                  fontSize: "11px",
-                  color: "#9a9a9a",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  textDecoration: "underline",
-                  textUnderlineOffset: "3px",
-                }}
+                className="ct-link-button"
               >
                 Şifremi Unuttum
               </button>
@@ -314,7 +284,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             size="large"
             placeholder="Şifreniz"
             className="ct-input-premium"
-            prefix={<Lock size={16} style={mutedIconStyle} />}
+            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="current-password"
           />
         </Form.Item>
@@ -327,20 +297,14 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             block
             size="large"
             className="ct-btn-primary"
-            style={{
-              height: "48px",
-              borderRadius: "14px",
-              fontWeight: 700,
-              fontSize: "14px",
-              letterSpacing: "0.02em"
-            }}
+            
           >
             {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
           </Button>
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-center text-sm" style={{ color: "var(--ct-text-muted)" }}>
+      <p className="mt-6 text-center text-sm" >
         Hesabın yok mu?{" "}
         <button type="button" className="ct-link" onClick={onGoRegister}>
           Kayıt Ol

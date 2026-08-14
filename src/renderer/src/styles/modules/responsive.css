@@ -1,49 +1,33 @@
-@media (max-width: 980px) {
-  .ct-app-header {
-    @apply gap-2 px-3 py-2;
+/* ==========================================================================
+   RESPONSIVE
+
+   The window's own minimum is 720x480 (src/main/index.ts), so height is the
+   scarcer axis, not width. Narrow layouts therefore keep the three-column
+   shell and buy space by shrinking the rail and sidebar tokens -- stacking the
+   sidebar above the main panel would spend the axis there is least of, and at
+   480px tall it left the friend list about 48px high.
+
+     <= 900px   sidebar narrows; lobby chat slides in over the stage
+     <= 760px   rail goes icon-only and narrows further
+
+   Anything laid out with auto-fit/minmax -- the stat grid, the settings grids,
+   the admin key/value grids -- reflows on its own and is not repeated here.
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  /* Retuning the tokens moves the shell grid, the rail and every rule derived
+     from them in one step. */
+  :root {
+    --ct-sidebar-width: 224px;
   }
 
-  .ct-app-header > :first-child {
-    @apply min-w-0;
-  }
-
-  .ct-app-header-actions {
-    @apply min-w-0 flex-nowrap justify-end;
-  }
-
-  .ct-app-header-actions > .ct-meta-pill:first-child {
+  /* The version string is the first thing worth dropping when the titlebar
+     runs out of room -- it is also in Settings > Application. */
+  .ct-titlebar-version {
     @apply hidden;
   }
 
-  .ct-meta-pill.live {
-    @apply h-8 max-w-[180px] truncate px-3 text-[11px];
-  }
-
-  .ct-meta-pill.live::before {
-    @apply shrink-0;
-  }
-
-  .ct-header-logout-button {
-    @apply min-h-8 shrink-0 px-2.5 text-xs;
-  }
-}
-
-@media (max-width: 900px) {
-  .ct-workspace-shell {
-    @apply grid-cols-[60px_minmax(0,1fr)] grid-rows-[auto_auto];
-  }
-
-  .ct-sidebar {
-    @apply col-start-2 col-end-3 row-start-1 row-end-2 border-r-0 border-b;
-  }
-
-  .ct-main-panel {
-    @apply col-start-2 col-end-3 row-start-2 row-end-3;
-  }
-
   .ct-admin-panel-shell {
-    grid-column: 2 / 3;
-    grid-row: 1 / 3;
     flex-direction: column;
   }
 
@@ -52,23 +36,36 @@
     flex-direction: row;
     flex-shrink: 0;
     overflow-x: auto;
-    border-right: 0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ct-border);
+  }
+
+  .ct-admin-sidebar-header {
+    @apply hidden;
   }
 
   .ct-admin-sidebar-nav {
-    flex-direction: row;
+    @apply flex-row;
   }
 
-  .ct-lobby-room-grid {
-    @apply grid-cols-1;
+  .ct-admin-nav-item {
+    @apply shrink-0;
+  }
+
+  .ct-admin-panel-content {
+    @apply p-4;
+  }
+
+  /* A 350px chat drawer beside the call stage leaves too little for video. */
+  .ct-call-chat-drawer {
+    width: min(60vw, 300px);
   }
 
   .ct-lobby-room-grid-v2,
   .ct-lobby-room-grid-v2.chat-closed {
     grid-template-columns: minmax(0, 1fr);
-    border-radius: 14px;
+    border-radius: var(--ct-radius-lg);
   }
 
   .ct-lobby-stage-panel {
@@ -77,15 +74,16 @@
 
   .ct-lobby-stage-grid {
     --ct-stage-max-width: 100%;
-    max-height: 100%;
-    padding: 58px 10px 84px;
     max-width: none;
+    max-height: 100%;
+    padding: var(--ct-stage-clear-top) 10px var(--ct-stage-clear-bottom);
   }
 
   .ct-lobby-stage-grid.focused-layout {
     grid-template-rows: auto auto;
-    padding: 58px 10px 98px;
     gap: 10px;
+    padding: var(--ct-stage-clear-top) 10px
+      calc(var(--ct-stage-clear-bottom) + 14px);
   }
 
   .ct-lobby-focused-slot {
@@ -98,126 +96,89 @@
     padding: 2px 2px 8px;
   }
 
-  .ct-lobby-participant-tile.compact {
-    flex-basis: clamp(156px, 42vw, 220px);
-    width: clamp(156px, 42vw, 220px);
-  }
-
-  .ct-lobby-inline-audio-controls {
-    left: 10px;
-    right: 10px;
-    top: 10px;
-  }
-
   .ct-lobby-participant-tile {
     width: 100%;
     max-width: none;
     min-height: 0;
-    aspect-ratio: 16 / 9;
     height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .ct-lobby-participant-tile.compact {
+    flex-basis: clamp(156px, 42vw, 220px);
+    width: clamp(156px, 42vw, 220px);
   }
 
   .ct-screen-share-grid {
     grid-template-columns: 1fr;
   }
 
+  /* Lobby chat slides in over the stage instead of taking a column.
+     These used to target .ct-lobby-chat-drawer and .ct-lobby-chat-backdrop,
+     neither of which the panel renders any more -- so the slot was left as a
+     full-screen fixed box with nothing to slide, and the chat covered the
+     whole window at this width. The slot is the drawer. */
   .ct-lobby-chat-slot {
     position: fixed;
-    inset: 0;
-    z-index: 40;
-    border-left: 0;
-    background: transparent;
-    pointer-events: none;
-  }
-
-  .ct-lobby-chat-backdrop {
-    display: block;
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgba(0, 0, 0, 0.62);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  .ct-lobby-chat-drawer {
-    position: absolute;
     right: 0;
-    top: 0;
+    top: var(--ct-titlebar-height);
     bottom: 0;
-    width: min(94vw, 380px);
-    background: rgba(12, 12, 12, 0.94);
+    left: auto;
+    z-index: 40;
+    width: min(94vw, 360px);
     border-left: 1px solid var(--ct-border);
+    background: rgba(12, 12, 12, 0.96);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--ct-shadow-lg);
     transform: translateX(100%);
-    transition: transform 0.2s ease;
+    transition: transform var(--ct-duration-base) var(--ct-ease-spring);
+    pointer-events: none;
   }
 
   .ct-lobby-chat-slot.open {
-    pointer-events: auto;
-  }
-
-  .ct-lobby-chat-slot.open .ct-lobby-chat-backdrop {
-    opacity: 1;
-  }
-
-  .ct-lobby-chat-slot.open .ct-lobby-chat-drawer {
     transform: translateX(0);
-  }
-
-  .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
-    pointer-events: none;
+    pointer-events: auto;
   }
 }
 
 @media (max-width: 760px) {
-  .ct-app-header {
-    @apply flex-col items-start;
-  }
-
-  .ct-workspace-shell {
-    @apply grid-cols-1;
+  /* Icon-only rail. The tooltip already names each section, and the label was
+     the only reason the rail needed 72px. */
+  :root {
+    --ct-rail-width: 56px;
+    --ct-sidebar-width: 200px;
   }
 
   .ct-rail {
-    @apply flex-row justify-start border-r-0 border-b;
+    @apply px-1.5;
   }
 
-  .ct-sidebar,
-  .ct-main-panel {
-    @apply col-auto row-auto;
+  .ct-rail-button {
+    @apply gap-0 px-0 py-2.5;
   }
 
-  .ct-admin-panel-shell {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .ct-main-panel-header {
-    @apply flex-col items-start;
-  }
-
-  .ct-titlebar-meta {
+  .ct-rail-button > span:last-child {
     @apply hidden;
   }
 
-  .ct-quick-controls {
-    @apply grid-cols-5;
+  .ct-rail-indicator {
+    left: -6px;
   }
 
-  .ct-quick-controls.compact {
-    @apply grid-cols-2;
+  .ct-main-panel-header {
+    @apply flex-col items-start gap-1 px-4;
+  }
+
+  .ct-main-panel-content {
+    @apply p-4;
+  }
+
+  .ct-settings-section-header {
+    @apply flex-col items-start;
   }
 
   .ct-audio-details-grid {
     @apply grid-cols-1;
-  }
-
-  .ct-settings-readonly-grid {
-    @apply grid-cols-1;
-  }
-
-  .ct-audio-connection-metrics {
-    @apply flex-wrap;
   }
 
   .ct-audio-popover {
@@ -225,38 +186,58 @@
     right: -4px;
   }
 
+  /* Below this width the stage has no room to share with a drawer. */
+  .ct-call-chat-drawer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(94vw, 300px);
+  }
+
   .ct-lobby-stage-grid {
-    padding: 54px 8px 82px;
+    padding: var(--ct-stage-clear-top) 8px var(--ct-stage-clear-bottom);
   }
 
   .ct-lobby-stage-grid.focused-layout {
-    padding: 54px 8px 94px;
     gap: 8px;
-  }
-
-  .ct-lobby-inline-audio-controls {
-    left: 8px;
-    right: 8px;
-    top: 8px;
-    padding: 7px;
-    gap: 6px;
+    padding: var(--ct-stage-clear-top) 8px
+      calc(var(--ct-stage-clear-bottom) + 12px);
   }
 
   .ct-lobby-inline-volume-value {
     width: 38px;
-    font-size: 11px;
   }
 
   .ct-lobby-stage-actions {
     bottom: 8px;
     gap: 8px;
+    padding-inline: 12px;
   }
 
-  .ct-lobby-stage-icon-action {
-    @apply h-10 w-10;
+  .ct-lobby-action-btn {
+    @apply h-control-md w-control-md;
+    font-size: var(--ct-icon-md);
   }
 
-  .ct-lobby-tile-footer {
-    @apply px-3 py-2.5;
+  .ct-chat-bubble {
+    max-width: 92%;
+  }
+}
+
+/* A short window (the minimum is 480px tall) has no room for the connection
+   card and the quick controls to both sit at full height under the list. */
+@media (max-height: 620px) {
+  .ct-audio-connection-card {
+    @apply h-control-sm text-2xs;
+  }
+
+  .ct-quick-idle {
+    @apply py-2;
+  }
+
+  .ct-quick-idle-meta span {
+    @apply hidden;
   }
 }

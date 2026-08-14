@@ -10,10 +10,9 @@
     <title>Connect</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Inter is in no font stack; global.css loads Space Grotesk and JetBrains
+         Mono. This link was a render-blocking request on every cold start for a
+         font that was never used. -->
   </head>
   <body>
     <div id="root"></div>

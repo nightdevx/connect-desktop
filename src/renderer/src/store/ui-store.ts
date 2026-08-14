@@ -16,6 +16,8 @@ interface UiState {
   activePage: AuthPage;
   statusMessage: string;
   statusTone: StatusTone;
+  /** Bumped on every setStatus so repeating the same text still notifies. */
+  statusNonce: number;
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
   adminSection: AdminSection;
@@ -30,6 +32,7 @@ export const useUiStore = create<UiState>((set) => ({
   activePage: "login",
   statusMessage: "Giriş gerekli",
   statusTone: "warn",
+  statusNonce: 0,
   workspaceSection: "lobbies",
   settingsSection: "profile",
   adminSection: "dashboard",
@@ -41,7 +44,11 @@ export const useUiStore = create<UiState>((set) => ({
     }
   },
   setStatus: (message, tone) =>
-    set({ statusMessage: message, statusTone: tone }),
+    set((state) => ({
+      statusMessage: message,
+      statusTone: tone,
+      statusNonce: state.statusNonce + 1,
+    })),
   setWorkspaceSection: (section) => {
     if (document.startViewTransition) {
       document.startViewTransition(() => set({ workspaceSection: section }));

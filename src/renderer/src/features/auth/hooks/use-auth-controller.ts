@@ -6,6 +6,7 @@ export const useAuthController = () => {
   const activePage = useUiStore((state) => state.activePage);
   const statusMessage = useUiStore((state) => state.statusMessage);
   const statusTone = useUiStore((state) => state.statusTone);
+  const statusNonce = useUiStore((state) => state.statusNonce);
   const setActivePage = useUiStore((state) => state.setActivePage);
   const sessionState = useAuthSession();
   const actionState = useAuthActions();
@@ -14,6 +15,7 @@ export const useAuthController = () => {
     activePage,
     statusMessage,
     statusTone,
+    statusNonce,
     appVersion: sessionState.appVersion,
     isBooting: sessionState.isBooting,
     isOffline: sessionState.isOffline,

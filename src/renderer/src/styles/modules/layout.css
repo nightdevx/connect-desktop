@@ -1,151 +1,249 @@
 .ct-app-shell {
-@apply h-screen min-h-screen;
-background: var(--ct-surface-0);
+  @apply h-screen min-h-screen;
+  background: var(--ct-surface-0);
 }
 
 .ct-app-content {
-@apply flex h-full min-h-screen flex-col;
+  @apply flex h-full min-h-screen flex-col;
 }
 
-.ct-window-titlebar {
-  @apply flex h-10 items-center justify-between border-b px-3 text-xs;
-  border-color: rgba(255, 255, 255, 0.04);
-  background: rgba(4, 4, 4, 0.45);
+/* ==========================================================================
+   TITLEBAR
+   One bar, not two. The window chrome and the app header used to be stacked
+   (40px + 64px), both showing the "Connect" wordmark and the same kicker, so
+   104px of height was spent saying the same thing twice before any content.
+   ========================================================================== */
+
+.ct-titlebar {
+  @apply flex h-titlebar shrink-0 items-center justify-between gap-3 border-b pl-3 pr-2;
+  border-color: var(--ct-border);
+  background: rgba(4, 4, 4, 0.72);
   backdrop-filter: blur(20px);
   -webkit-app-region: drag;
   user-select: none;
 }
 
-.ct-titlebar-right {
-  @apply flex items-center gap-2;
+.ct-titlebar-brand {
+  @apply flex min-w-0 items-center gap-2.5;
 }
 
-.ct-logo-dot {
-  @apply inline-block h-2 w-2 rounded-full;
-  background: var(--ct-neon-emerald);
-  box-shadow: 0 0 8px var(--ct-neon-emerald);
+.ct-titlebar-logo {
+  @apply h-6 w-6 shrink-0 object-contain;
 }
 
-.ct-titlebar-label {
-  @apply font-bold uppercase tracking-[0.2em];
+.ct-titlebar-name {
+  @apply text-xs font-bold uppercase tracking-[0.18em];
   color: var(--ct-text-secondary);
 }
 
-.ct-titlebar-meta {
+.ct-titlebar-actions {
+  @apply flex min-w-0 items-center gap-2;
+}
+
+.ct-titlebar-version {
+  @apply shrink-0 text-2xs font-medium tabular-nums;
   color: var(--ct-text-muted);
-  font-weight: 500;
-  letter-spacing: 0.05em;
+}
+
+/* Update status chip. `tone` picks the colour; the geometry never changes, so
+   the bar does not reflow as the update state moves through its phases. */
+.ct-update-chip {
+  @apply inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-3 text-2xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+  -webkit-app-region: no-drag;
+}
+
+.ct-update-chip.ready {
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--ct-success);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.ct-update-chip.busy {
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--ct-info);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.ct-update-chip.found {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--ct-warning);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.ct-update-install {
+  @apply inline-flex h-7 shrink-0 items-center rounded-full px-3 text-2xs font-bold;
+  color: #ffffff;
+  background: var(--ct-success);
+  transition: filter var(--ct-duration-fast) ease;
+  -webkit-app-region: no-drag;
+}
+
+.ct-update-install:hover {
+  filter: brightness(1.12);
 }
 
 .ct-window-controls {
-  @apply flex items-center gap-1.5;
+  @apply flex items-center gap-1;
   -webkit-app-region: no-drag;
 }
 
 .ct-window-control {
-  @apply inline-flex h-6 w-6 items-center justify-center rounded-lg border;
-  border-color: rgba(255, 255, 255, 0.05);
+  @apply inline-flex h-control-sm w-control-sm items-center justify-center rounded-md;
   color: var(--ct-text-muted);
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.25s var(--ct-ease-premium);
+  background: transparent;
+  transition: all var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
 .ct-window-control:hover {
-  border-color: rgba(255, 255, 255, 0.15);
   color: var(--ct-text-primary);
-  background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.05);
+  background: var(--ct-alpha-08);
 }
 
 .ct-window-control.danger:hover {
-  border-color: rgba(239, 68, 68, 0.3);
   color: #ffffff;
-  background: rgba(239, 68, 68, 0.85);
-  transform: scale(1.05);
+  background: var(--ct-danger);
 }
 
-.ct-app-header {
-@apply flex min-h-16 items-center justify-between gap-3 border-b px-4 py-3 md:px-6;
-border-color: var(--ct-border);
-background: rgba(12, 12, 12, 0.94);
-}
-
-.ct-app-logo {
-@apply grid h-10 w-10 place-items-center rounded-xl text-sm font-extrabold;
-color: #0b0b0b;
-background: var(--ct-accent);
-}
-
-.ct-app-kicker {
-@apply m-0 text-[10px] uppercase tracking-[0.18em];
-color: var(--ct-text-muted);
-}
-
-.ct-app-title {
-@apply m-0 text-lg font-bold;
-color: var(--ct-text-primary);
-}
-
-.ct-app-header-actions {
-@apply flex items-center gap-2;
-}
+/* ==========================================================================
+   MAIN REGION
+   ========================================================================== */
 
 .ct-main-wrap {
-@apply flex min-h-0 flex-1;
+  @apply flex min-h-0 flex-1;
 }
 
 .ct-main-wrap--auth {
-@apply items-center justify-center overflow-y-auto px-4 py-7 md:px-6 md:py-10;
+  @apply items-center justify-center overflow-y-auto px-4 py-8 md:px-6;
 }
 
 .ct-main-wrap--workspace {
-@apply items-stretch justify-stretch overflow-hidden p-0;
+  @apply items-stretch justify-stretch overflow-hidden p-0;
 }
 
 .ct-main-panel {
-@apply grid min-h-0 grid-rows-[auto_1fr];
-background: rgba(12, 12, 12, 0.66);
+  @apply grid min-h-0 grid-rows-[auto_1fr];
+  background: rgba(12, 12, 12, 0.66);
 }
 
 .ct-main-panel.no-header {
-@apply grid-rows-[minmax(0,1fr)];
+  @apply grid-rows-[minmax(0,1fr)];
 }
 
 .ct-main-panel-header {
-@apply flex items-start justify-between gap-3 border-b px-5 py-4;
-border-color: var(--ct-border);
+  @apply flex items-start justify-between gap-3 border-b px-5 py-4;
+  border-color: var(--ct-border);
 }
 
 .ct-main-panel-header h2 {
-@apply m-0 text-lg font-bold;
-color: var(--ct-text-primary);
+  @apply m-0 text-lg font-bold;
+  color: var(--ct-text-primary);
 }
 
 .ct-main-panel-header p {
-@apply m-0 mt-1 text-sm;
-color: var(--ct-text-muted);
+  @apply m-0 mt-1 text-sm;
+  color: var(--ct-text-muted);
 }
 
 .ct-main-panel-content {
-@apply min-h-0 overflow-y-auto p-5;
+  @apply min-h-0 overflow-y-auto p-5;
 }
 
 .ct-main-panel.no-header .ct-main-panel-content {
-@apply h-full;
+  @apply h-full;
 }
 
 .ct-main-panel-content.chat-mode {
-@apply flex h-full min-h-0 overflow-hidden p-0;
+  @apply flex h-full min-h-0 overflow-hidden p-0;
 }
 
 .ct-main-panel-content.lobby-mode {
-@apply flex h-full min-h-0 overflow-hidden p-0;
+  @apply flex h-full min-h-0 overflow-hidden p-0;
 }
 
 .ct-main-panel-content.lobby-mode > .ct-content-card {
-@apply flex-1 min-h-0;
+  @apply flex-1 min-h-0;
 }
 
 .ct-main-panel-content.chat-mode > .ct-chat-panel-plain {
-@apply flex-1 min-h-0;
+  @apply flex-1 min-h-0;
+}
+
+/* ==========================================================================
+   BOOT STATE
+   Held between first paint and the session answer. The 140ms delay on an
+   otherwise-zero opacity means a session that resolves quickly never paints
+   this at all -- the app goes straight to the screen it belongs on.
+   ========================================================================== */
+
+.ct-boot {
+  @apply flex flex-col items-center gap-6;
+  opacity: 0;
+  animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) 140ms both;
+}
+
+.ct-boot-logo {
+  @apply h-20 w-auto object-contain;
+}
+
+.ct-boot-bar {
+  @apply block overflow-hidden rounded-full;
+  width: 120px;
+  height: 2px;
+  background: var(--ct-alpha-08);
+}
+
+.ct-boot-bar::after {
+  content: "";
+  @apply block h-full rounded-full;
+  width: 33%;
+  background: var(--ct-accent);
+  animation: ctBootBar 1.1s var(--ct-ease-premium) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-boot-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
+/* ==========================================================================
+   OFFLINE STATE
+   ========================================================================== */
+
+.ct-offline-card {
+  @apply flex w-full max-w-md flex-col items-center justify-center gap-1 rounded-2xl border p-8 text-center;
+  min-height: 360px;
+  border-color: var(--ct-border);
+  background: rgba(10, 10, 10, 0.45);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ct-offline-icon {
+  @apply mb-6 grid h-16 w-16 place-items-center rounded-full border;
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--ct-info);
+  background: rgba(30, 58, 138, 0.2);
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.18);
+  font-size: 28px;
+}
+
+.ct-offline-card h2 {
+  @apply m-0 mb-2 text-xl font-bold;
+  color: var(--ct-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.ct-offline-card p {
+  @apply m-0 mb-6 max-w-[290px] text-base;
+  color: var(--ct-text-muted);
+}
+
+.ct-offline-retry {
+  @apply inline-flex items-center gap-2;
 }

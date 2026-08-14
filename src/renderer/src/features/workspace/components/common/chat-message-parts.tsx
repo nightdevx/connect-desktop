@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Tooltip, message as antdMessage } from "antd";
+import { Button, Popover, Tooltip, message as antdMessage } from "antd";
 import {
   DownloadOutlined,
   FileOutlined,
   PaperClipOutlined,
+  SmileOutlined,
 } from "@ant-design/icons";
 import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
@@ -56,24 +57,12 @@ interface ChatReplyQuoteProps {
 
 export function ChatReplyQuote({ replyTo }: ChatReplyQuoteProps): JSX.Element {
   return (
-    <div
-      className="ct-chat-reply-quote"
-      style={{
-        borderLeft: "2px solid rgba(147, 197, 253, 0.6)",
-        paddingLeft: 8,
-        marginBottom: 6,
-        opacity: 0.75,
-        fontSize: 12,
-        lineHeight: 1.35,
-      }}
-    >
+    <div className="ct-chat-reply-quote">
       {replyTo.deleted ? (
-        <em style={{ opacity: 0.7 }}>Silinmiş mesaj</em>
+        <em>Silinmiş mesaj</em>
       ) : (
         <>
-          <strong style={{ display: "block", fontSize: 11 }}>
-            {replyTo.username}
-          </strong>
+          <strong>{replyTo.username}</strong>
           <span>{replyTo.body}</span>
         </>
       )}
@@ -153,67 +142,31 @@ export function ChatAttachmentView({
   }, [attachment.id, attachment.name]);
 
   return (
-    <div className="ct-chat-attachment" style={{ marginTop: 6 }}>
+    <div className="ct-chat-attachment">
       {attachment.isImage && !failed ? (
-        <div style={{ position: "relative" }}>
+        <div>
           {dataUrl ? (
             <img
               src={dataUrl}
               alt={attachment.name}
-              style={{
-                maxWidth: "100%",
-                maxHeight: 280,
-                borderRadius: 8,
-                display: "block",
-                cursor: "pointer",
-              }}
+              className="ct-chat-attachment-image"
               onClick={() => void handleSave()}
               title="Kaydetmek için tıklayın"
             />
           ) : (
-            <div
-              style={{
-                width: 180,
-                height: 110,
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.04)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                opacity: 0.6,
-              }}
-            >
+            <div className="ct-chat-attachment-loading">
               Görsel yükleniyor…
             </div>
           )}
         </div>
       ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 10px",
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
+        <div className="ct-chat-attachment-file">
           <FileOutlined />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                fontSize: 12,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={attachment.name}
-            >
+          <div className="ct-chat-attachment-meta">
+            <div className="ct-chat-attachment-name" title={attachment.name}>
               {attachment.name}
             </div>
-            <div style={{ fontSize: 10, opacity: 0.55 }}>
+            <div className="ct-chat-attachment-size">
               {formatAttachmentSize(attachment.size)}
             </div>
           </div>
@@ -249,10 +202,7 @@ export function ChatReactionBar({
   }
 
   return (
-    <div
-      className="ct-chat-reactions"
-      style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}
-    >
+    <div className="ct-chat-reactions">
       {reactions.map((reaction) => {
         // "mine" is derived here rather than sent by the server: the same
         // payload is broadcast to every client.
@@ -263,23 +213,8 @@ export function ChatReactionBar({
             type="button"
             disabled={disabled}
             onClick={() => onToggle(reaction.emoji, !mine)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 11,
-              lineHeight: 1,
-              padding: "3px 7px",
-              borderRadius: 10,
-              cursor: disabled ? "default" : "pointer",
-              border: mine
-                ? "1px solid rgba(147, 197, 253, 0.8)"
-                : "1px solid rgba(255,255,255,0.1)",
-              background: mine
-                ? "rgba(147, 197, 253, 0.18)"
-                : "rgba(255,255,255,0.05)",
-              color: "inherit",
-            }}
+            className={`ct-chat-reaction ${mine ? "mine" : ""}`}
+            aria-pressed={mine}
           >
             <span>{reaction.emoji}</span>
             <span>{reaction.count}</span>
@@ -290,34 +225,122 @@ export function ChatReactionBar({
   );
 }
 
-interface ChatQuickReactionPickerProps {
+interface EmojiGridProps {
+  emojis: readonly string[];
   onPick: (emoji: string) => void;
+  labelFor: (emoji: string) => string;
 }
 
-export function ChatQuickReactionPicker({
-  onPick,
-}: ChatQuickReactionPickerProps): JSX.Element {
+function EmojiGrid({ emojis, onPick, labelFor }: EmojiGridProps): JSX.Element {
   return (
-    <div style={{ display: "flex", gap: 2 }}>
-      {QUICK_REACTIONS.map((emoji) => (
+    <div className="ct-emoji-grid">
+      {emojis.map((emoji) => (
         <button
           key={emoji}
           type="button"
+          className="ct-emoji-cell"
           onClick={() => onPick(emoji)}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: 15,
-            lineHeight: 1,
-            padding: 2,
-          }}
-          aria-label={`${emoji} tepkisi ekle`}
+          aria-label={labelFor(emoji)}
         >
           {emoji}
         </button>
       ))}
     </div>
+  );
+}
+
+interface ChatReactionButtonProps {
+  onPick: (emoji: string) => void;
+}
+
+// One button that opens the set, rather than six emoji sitting in every
+// message row. Six glyphs per message read as decoration and crowded out the
+// reply/edit/delete actions next to them.
+export function ChatReactionButton({
+  onPick,
+}: ChatReactionButtonProps): JSX.Element {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      trigger="click"
+      placement="top"
+      rootClassName="ct-emoji-popover"
+      content={
+        <EmojiGrid
+          emojis={QUICK_REACTIONS}
+          labelFor={(e) => `${e} tepkisi ekle`}
+          onPick={(emoji) => {
+            onPick(emoji);
+            setOpen(false);
+          }}
+        />
+      }
+    >
+      <Tooltip title="Tepki ekle">
+        <button
+          type="button"
+          className="ct-chat-action"
+          aria-label="Tepki ekle"
+          aria-haspopup="true"
+        >
+          <SmileOutlined />
+        </button>
+      </Tooltip>
+    </Popover>
+  );
+}
+
+// A wider set for writing, still a fixed list. A real picker means search, a
+// virtualised grid and skin-tone state; nobody has asked for one.
+export const COMPOSER_EMOJIS = [
+  "😀", "😁", "😂", "🤣", "😊", "😉", "😍", "😘",
+  "🤔", "😐", "😴", "😢", "😭", "😡", "🥳", "😎",
+  "👍", "👎", "👌", "🙏", "👏", "💪", "🤝", "🫡",
+  "❤️", "🔥", "✨", "🎉", "💯", "👀", "🚀", "☕",
+] as const;
+
+interface ChatComposerEmojiButtonProps {
+  onPick: (emoji: string) => void;
+  disabled?: boolean;
+}
+
+export function ChatComposerEmojiButton({
+  onPick,
+  disabled,
+}: ChatComposerEmojiButtonProps): JSX.Element {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover
+      open={disabled ? false : open}
+      onOpenChange={setOpen}
+      trigger="click"
+      placement="topLeft"
+      rootClassName="ct-emoji-popover"
+      content={
+        <EmojiGrid
+          emojis={COMPOSER_EMOJIS}
+          labelFor={(e) => `${e} ekle`}
+          onPick={(emoji) => {
+            onPick(emoji);
+            setOpen(false);
+          }}
+        />
+      }
+    >
+      <Tooltip title="Emoji ekle">
+        <Button
+          type="text"
+          size="small"
+          disabled={disabled}
+          icon={<SmileOutlined />}
+          aria-label="Emoji ekle"
+        />
+      </Tooltip>
+    </Popover>
   );
 }
 
@@ -363,12 +386,13 @@ export function ChatAttachButton({
       <input
         ref={inputRef}
         type="file"
-        style={{ display: "none" }}
+        hidden
         onChange={(event) => void handleChange(event)}
       />
       <Tooltip title="Dosya ekle (en fazla 5 MB)">
         <Button
           type="text"
+          size="small"
           disabled={disabled}
           icon={<PaperClipOutlined />}
           onClick={() => inputRef.current?.click()}

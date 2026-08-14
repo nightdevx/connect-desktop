@@ -1,5 +1,5 @@
 import { Form, Input, Button } from "antd";
-import { User, Lock, Mail, KeyRound } from "lucide-react";
+import { UserOutlined, LockOutlined, MailOutlined, KeyOutlined } from "@ant-design/icons";
 import type { RegisterRequest } from "../../../../../shared/auth-contracts";
 
 const mutedIconStyle = { color: "#6b6b6b" };
@@ -57,7 +57,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="örnek@mail.com"
             className="ct-input-premium"
-            prefix={<Mail size={16} style={mutedIconStyle} />}
+            prefix={<MailOutlined style={mutedIconStyle} />}
             autoComplete="email"
             autoFocus
             spellCheck={false}
@@ -77,7 +77,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Kullanıcı adınız"
             className="ct-input-premium"
-            prefix={<User size={16} style={mutedIconStyle} />}
+            prefix={<UserOutlined style={mutedIconStyle} />}
             autoComplete="username"
             spellCheck={false}
           />
@@ -96,7 +96,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Varsa davet kodunuz (isteğe bağlı)"
             className="ct-input-premium"
-            prefix={<KeyRound size={16} style={mutedIconStyle} />}
+            prefix={<KeyOutlined style={mutedIconStyle} />}
             autoComplete="off"
             spellCheck={false}
           />
@@ -117,7 +117,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Şifreniz"
             className="ct-input-premium"
-            prefix={<Lock size={16} style={mutedIconStyle} />}
+            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="new-password"
           />
         </Form.Item>
@@ -142,7 +142,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Şifrenizi tekrar girin"
             className="ct-input-premium"
-            prefix={<Lock size={16} style={mutedIconStyle} />}
+            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="new-password"
           />
         </Form.Item>
@@ -155,20 +155,14 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             block
             size="large"
             className="ct-btn-primary"
-            style={{
-              height: "48px",
-              borderRadius: "14px",
-              fontWeight: 700,
-              fontSize: "14px",
-              letterSpacing: "0.02em"
-            }}
+            
           >
             {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
           </Button>
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-center text-sm" style={{ color: "var(--ct-text-muted)" }}>
+      <p className="mt-6 text-center text-sm" >
         Zaten hesabın var mı?{" "}
         <button type="button" className="ct-link" onClick={onGoLogin}>
           Giriş Yap

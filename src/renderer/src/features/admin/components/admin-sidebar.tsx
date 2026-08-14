@@ -17,27 +17,11 @@ export default function AdminSidebar() {
   ] as const;
 
   return (
-    <div
-      className="ct-admin-sidebar"
-      style={{
-        borderRight: "1px solid rgba(255, 255, 255, 0.08)",
-        background: "rgba(20, 20, 20, 0.6)",
-      }}
-    >
-      <div
-        style={{
-          padding: "0 20px 20px 20px",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
-          marginBottom: "16px",
-        }}
-      >
-        <h2 style={{ fontSize: "16px", fontWeight: "700", margin: 0, color: "#a855f7" }}>
-          Yönetim Paneli
-        </h2>
-        <span style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.45)" }}>
-          Sistem Yönetim Araçları
-        </span>
-      </div>
+    <aside className="ct-admin-sidebar" aria-label="Yönetim navigasyonu">
+      <header className="ct-admin-sidebar-header">
+        <h2>Yönetim Paneli</h2>
+        <span>Sistem Yönetim Araçları</span>
+      </header>
 
       <nav className="ct-admin-sidebar-nav">
         {menuItems.map((item) => {
@@ -45,22 +29,10 @@ export default function AdminSidebar() {
           return (
             <button
               key={item.key}
+              type="button"
+              className={`ct-admin-nav-item ${active ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
               onClick={() => setAdminSection(item.key)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "10px 16px",
-                borderRadius: "6px",
-                border: "none",
-                background: active ? "rgba(168, 85, 247, 0.15)" : "transparent",
-                color: active ? "#c084fc" : "rgba(255, 255, 255, 0.75)",
-                fontSize: "14px",
-                fontWeight: active ? "600" : "400",
-                textAlign: "left",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
             >
               {item.icon}
               <span>{item.label}</span>
@@ -68,6 +40,6 @@ export default function AdminSidebar() {
           );
         })}
       </nav>
-    </div>
+    </aside>
   );
 }

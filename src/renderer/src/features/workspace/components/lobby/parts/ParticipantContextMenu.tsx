@@ -56,7 +56,7 @@ export function ParticipantContextMenu({
     {
       key: 'title',
       label: (
-        <div className="ct-participant-context-menu-title" style={{ padding: '4px 0 8px 0' }}>
+        <div className="ct-participant-context-menu-title">
           Katılımcı Ayarları
         </div>
       ),
@@ -88,8 +88,8 @@ export function ParticipantContextMenu({
     {
       key: 'volume-header',
       label: (
-        <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
-          <SoundOutlined style={{ marginRight: '8px' }} />
+        <div className="ct-participant-context-menu-hint">
+          <SoundOutlined />
           <span>Mikrofon Sesi: %{preference.volumePercent}</span>
         </div>
       ),
@@ -128,8 +128,8 @@ export function ParticipantContextMenu({
       {
         key: 'screen-audio-header',
         label: (
-          <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
-            <DesktopOutlined style={{ marginRight: '8px' }} />
+          <div className="ct-participant-context-menu-hint">
+            <DesktopOutlined />
             <span>Yayın Sesi: %{preference.screenAudioVolumePercent ?? 100}</span>
           </div>
         ),
@@ -168,7 +168,7 @@ export function ParticipantContextMenu({
       {
         key: 'moderation-header',
         label: (
-          <div className="ct-participant-context-menu-hint" style={{ padding: '4px 0' }}>
+          <div className="ct-participant-context-menu-hint">
             Moderasyon
           </div>
         ),

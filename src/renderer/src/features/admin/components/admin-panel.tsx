@@ -24,14 +24,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div
-      className="ct-admin-panel-shell"
-      style={{
-        background: "rgba(10, 10, 10, 0.45)",
-        backdropFilter: "blur(16px)",
-        color: "#ffffff",
-      }}
-    >
+    <div className="ct-admin-panel-shell">
       <AdminSidebar />
       <div className="ct-admin-panel-content">{renderContent()}</div>
     </div>
