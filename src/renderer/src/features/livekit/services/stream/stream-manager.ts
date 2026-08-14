@@ -403,21 +403,28 @@ export class LiveKitStreamManager {
         return;
       }
 
-      // Publish the microphone first: it is the lowest-bandwidth track and the
-      // only one the user notices missing.
-      this.microphoneController.prepareParticipantAudioContext(room.localParticipant);
-      await this.applyMicrophoneState();
+      // Subscribe to what is already in the room BEFORE touching the
+      // microphone. The two are independent — hearing the room does not depend
+      // on publishing into it — and the mic path is the slow one: device
+      // enumeration, getUserMedia, two audioWorklet.addModule() loads and a
+      // WebAssembly compile for RNNoise. With `autoSubscribe: false` this call
+      // is the only thing that subscribes to tracks already present, so putting
+      // it after `await applyMicrophoneState()` meant whoever joined second sat
+      // in silence for the whole length of their own microphone setup. In a 1:1
+      // call that is always the person who answered.
+      //
+      // (Pacing is left to `dynacast` and `adaptiveStream`. This used to be a
+      // hand-rolled ladder of setTimeouts — 200ms settle, 20ms between audio
+      // tracks, a 1000ms pause, then 50ms between video tracks — which pushed
+      // join to ~2.5s and raced against room teardown.)
+      this.subscribeToExistingTracks();
 
       this.statsCollector?.start();
 
-      // Subscribe to what is already in the room. This used to be a hand-rolled
-      // ladder of setTimeouts — 200ms settle, 20ms between audio tracks, a
-      // 1000ms pause, then 50ms between video tracks — which pushed join to
-      // ~2.5s and raced against room teardown (the deferred block kept running
-      // after a disconnect). Pacing is what `dynacast` and `adaptiveStream`
-      // already do, informed by real congestion signals rather than guesses.
-      this.subscribeToExistingTracks();
-
+      // restorePublishingState starts with applyMicrophoneState, so the mic is
+      // published here; it used to be called explicitly as well, which was a
+      // second (idempotent, but still awaited) pass over the same work.
+      this.microphoneController.prepareParticipantAudioContext(room.localParticipant);
       await this.restorePublishingState();
     } catch (error) {
       this.callbacks.onConnectionStateChanged?.("disconnected");
@@ -440,6 +447,16 @@ export class LiveKitStreamManager {
   }
 
   public async disconnect(): Promise<void> {
+    // Pin the room this call is tearing down, the same way connectInternal
+    // does. `this.room` is read again after several awaits below, and callers
+    // do not always await this method — leaveActiveLobby fires it and returns,
+    // so answering a call right after leaving a lobby had connect() install a
+    // new room while this teardown was still suspended. It would then resume,
+    // disconnect the CALL's room, null it out, dispose its media handler and
+    // report "disconnected": a call with no audio, recovered only by the
+    // reconnect chain seconds later.
+    const room = this.room;
+
     this.manualDisconnect = !this.replacingRoom;
     this.currentLobbyId = null;
     this.stopAudioMonitoring();
@@ -447,11 +464,11 @@ export class LiveKitStreamManager {
     this.statsCollector = null;
 
     // 1. Explicitly disable/mute and stop the microphone track and processor BEFORE disconnecting the room!
-    if (this.room) {
+    if (room) {
       try {
         await this.microphoneController.applyMicrophoneState({
           enabled: false,
-          participant: this.room.localParticipant,
+          participant: room.localParticipant,
           preferences: this.buildMicrophonePreferences(),
           publishOptions: this.buildMicrophonePublishOptions(),
         });
@@ -460,13 +477,22 @@ export class LiveKitStreamManager {
       }
     }
 
+    // Always close the room this call was asked to close, even if it is no
+    // longer the current one — otherwise the old socket leaks.
+    if (room) {
+      await room.disconnect();
+    }
+
+    // Everything below is shared state (the local audio graph, the microphone
+    // controller, the media map). If a newer room owns it now, leave it alone.
+    if (this.room !== room) {
+      return;
+    }
+
     // 2. Cleanup local audio monitoring (AudioContext, source node, analyzer)
     await this.cleanupLocalAudioMonitoring();
 
-    if (this.room) {
-      await this.room.disconnect();
-      this.room = null;
-    }
+    this.room = null;
 
     if (this.remoteMediaHandler) {
       this.remoteMediaHandler.dispose();

@@ -356,6 +356,12 @@ function LobbyParticipantTileImpl({
         </Avatar>
       </div>
 
+      {/* A placeholder tile is someone the call is waiting on. The dimmed,
+          dashed tile says "not here yet"; this says why. */}
+      {participant.isPlaceholder && (
+        <span className="ct-lobby-tile-ringing">Aranıyor…</span>
+      )}
+
       <footer className="ct-lobby-tile-footer">
         <div className="ct-lobby-tile-userline">
           <p title={participant.username}>

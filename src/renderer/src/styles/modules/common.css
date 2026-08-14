@@ -238,103 +238,102 @@
 }
 
 /* ==========================================================================
-   CALL OVERLAY
+   CALL DOCK
+
+   A call is a state the app is in, not a screen that replaces it. This used to
+   be a full-screen modal (fixed inset-0, z-index 999999, aria-modal) that
+   locked the workspace for the whole ring; it is now a card in the corner, so
+   the user can keep reading, switch conversations or open a lobby while the
+   phone is ringing.
    ========================================================================== */
 
-.ct-call-overlay {
-  @apply fixed inset-0 flex items-center justify-center;
-  z-index: 999999;
-  background: rgba(9, 9, 11, 0.85);
-  backdrop-filter: blur(20px);
-}
-
-.ct-call-card {
-  @apply relative flex w-[420px] max-w-[90vw] flex-col items-center overflow-hidden rounded-2xl border px-6 py-12 text-center;
-  border-color: var(--ct-border);
-  background: rgba(24, 24, 27, 0.65);
+/* Top right, clear of the titlebar. Not bottom right: that is where the
+   message composer's send button and the lobby toolbar live. antd's toasts are
+   top-centre, so they do not collide either. */
+.ct-call-dock {
+  @apply fixed flex items-center gap-3 rounded-2xl border p-3;
+  right: 16px;
+  top: calc(var(--ct-titlebar-height) + 12px);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  z-index: 900;
+  border-color: var(--ct-border-strong);
+  background: rgba(20, 20, 20, 0.92);
+  backdrop-filter: blur(16px);
   box-shadow: var(--ct-shadow-lg);
+  animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) both;
 }
 
-.ct-call-waves {
-  @apply pointer-events-none absolute;
-  top: 30%;
-  left: 50%;
-  translate: -50% -50%;
-  width: 250px;
-  height: 250px;
-  z-index: 0;
+.ct-call-dock.incoming {
+  border-color: rgba(34, 197, 94, 0.45);
 }
 
-.ct-call-wave {
-  @apply absolute inset-0 rounded-full;
-  border: 2px solid rgba(99, 102, 241, 0.25);
-  opacity: 0;
-  animation: callPulseRing 3s infinite linear;
+.ct-call-dock-avatar-wrap {
+  @apply relative shrink-0;
 }
 
-.ct-call-wave:nth-child(2) {
-  animation-delay: 1s;
-}
-
-.ct-call-wave:nth-child(3) {
-  animation-delay: 2s;
-}
-
-.ct-call-avatar-wrap {
-  @apply relative z-10 mb-8;
-}
-
-.ct-call-avatar {
-  @apply grid h-32 w-32 place-items-center rounded-full object-cover text-[42px] font-bold;
-  border: 3px solid var(--ct-alpha-12);
+.ct-call-dock-avatar {
+  @apply grid h-avatar-md w-avatar-md place-items-center rounded-full object-cover text-sm font-bold;
+  border: 2px solid var(--ct-alpha-12);
   color: #ffffff;
 }
 
-.ct-call-avatar.fallback {
+.ct-call-dock-avatar.fallback {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
 }
 
-.ct-call-card.incoming .ct-call-avatar {
+.ct-call-dock.incoming .ct-call-dock-avatar {
   animation: callAvatarBreathe 4s infinite ease-in-out;
 }
 
-.ct-call-card.outgoing .ct-call-avatar {
+.ct-call-dock.outgoing .ct-call-dock-avatar {
   animation: callAvatarPulseGlow 3s infinite ease-in-out;
 }
 
-.ct-call-name {
-  @apply relative z-10 m-0 mb-2 text-2xl font-bold;
+.ct-call-dock-text {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.ct-call-dock-name {
+  @apply truncate text-sm font-semibold;
   color: var(--ct-text-primary);
-  letter-spacing: -0.5px;
 }
 
-.ct-call-status {
-  @apply relative z-10 m-0 mb-10 text-base font-medium;
-  color: var(--ct-alpha-50);
-  letter-spacing: 0.5px;
+.ct-call-dock-status {
+  @apply inline-flex items-center gap-1.5 truncate text-2xs;
+  color: var(--ct-text-muted);
 }
 
-.ct-call-actions {
-  @apply relative z-10 flex items-center justify-center gap-8;
+.ct-call-dock-actions {
+  @apply flex shrink-0 items-center gap-2;
 }
 
-.ct-call-btn {
-  @apply grid h-16 w-16 cursor-pointer place-items-center rounded-full border-0 text-2xl;
+.ct-call-dock-btn {
+  @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-full border-0;
   color: #ffffff;
+  font-size: var(--ct-icon-sm);
   box-shadow: var(--ct-shadow-md);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
-.ct-call-btn:hover {
-  filter: brightness(1.1);
+.ct-call-dock-btn:hover {
+  filter: brightness(1.12);
 }
 
-.ct-call-btn.accept {
+.ct-call-dock-btn:active {
+  transform: scale(0.94);
+}
+
+.ct-call-dock-btn.accept {
   background: #22c55e;
   animation: buttonBreathe 2s infinite ease-in-out;
 }
 
-.ct-call-btn.reject {
+.ct-call-dock-btn.open {
+  background: var(--ct-alpha-12);
+}
+
+.ct-call-dock-btn.reject {
   background: var(--ct-danger);
 }
 

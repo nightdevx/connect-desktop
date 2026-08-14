@@ -879,6 +879,14 @@
   filter: grayscale(80%) brightness(60%);
 }
 
+.ct-lobby-tile-ringing {
+  @apply pointer-events-none absolute left-1/2 z-10 text-2xs font-semibold uppercase tracking-[0.18em];
+  top: calc(50% + 44px);
+  translate: -50% 0;
+  color: var(--ct-text-muted);
+  animation: callAvatarDimPulse 2s infinite ease-in-out;
+}
+
 .ct-call-placeholder-pulsing .ct-lobby-tile-userline p {
   color: var(--ct-text-muted);
   font-style: italic;
