@@ -76,6 +76,14 @@
   font-size: var(--ct-icon-lg);
 }
 
+/* antd's Badge root runs resetComponent(), which pins colour to the theme's
+   text colour -- white, the same white as the active pill's background. Only
+   the Arkadaslar item wraps its icon in a Badge, so only that icon vanished
+   once the section was selected. */
+.ct-rail-button .ant-badge {
+  color: inherit;
+}
+
 .ct-rail-button.danger {
   color: var(--ct-danger);
 }

@@ -164,8 +164,11 @@
     color: var(--ct-alpha-50);
   }
 
+  /* Older pages load on scroll, so this is a status line rather than a
+     control. It keeps a fixed height so the prepend anchor stays honest. */
   .ct-chat-load-older {
-    @apply flex justify-center py-2;
+    @apply flex h-7 shrink-0 items-center justify-center gap-2 text-2xs;
+    color: var(--ct-text-muted);
   }
 
   .ct-chat-typing-indicator {
@@ -300,14 +303,13 @@
     justify-content: flex-end;
   }
 
-  /* Sized to its content up to a readable measure. It used to be a fixed
-     width: min(78%, 620px) with a 220px floor, so a one-word reply rendered
-     as a mostly-empty box two thirds the width of the thread. */
+  /* One width for every bubble, derived from the thread's own width and capped
+     at a readable measure. Requested explicitly: a uniform column reads as a
+     transcript, where content-sized bubbles gave a ragged left/right edge. */
   .ct-chat-bubble {
     @apply relative rounded-lg border px-3 py-2;
-    width: fit-content;
-    min-width: 96px;
-    max-width: min(78%, 620px);
+    width: min(78%, 620px);
+    max-width: 100%;
     border-color: var(--ct-border);
     background: rgba(18, 18, 18, 0.85);
   }

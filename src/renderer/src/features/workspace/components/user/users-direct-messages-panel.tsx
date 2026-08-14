@@ -1,6 +1,8 @@
 import {
   memo,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useMemo,
@@ -27,6 +29,7 @@ import {
   EditOutlined,
   EnterOutlined,
   SearchOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import type { UserDirectoryEntry, ChatMessage } from "@shared/auth-contracts";
 import type { UseDirectMessagesResult } from "../../hooks/chat/use-direct-messages";
@@ -664,18 +667,82 @@ export function UsersDirectMessagesPanel({
     Boolean(directMessagesQuery.data?.ok) &&
     directMessages.length === 0;
 
-  useEffect(() => {
-    if (!selectedUser) {
-      return;
-    }
+  // --- Thread scrolling ----------------------------------------------------
+  // Three behaviours share one scroll container: jump to the newest message
+  // when a conversation opens, follow new messages only while the reader is
+  // already at the bottom, and pull the previous page in when they reach the
+  // top. The old effect forced scrollTop to the bottom on every length change,
+  // which is why older messages needed a button -- prepending a page would
+  // otherwise have thrown the reader straight back to the newest message.
+  const atBottomRef = useRef(true);
+  // Distance from the bottom, captured before a prepend so the same message
+  // can be put back under the cursor once the page lands.
+  const prependAnchorRef = useRef<number | null>(null);
+  const lastPeerIdRef = useRef<string | null>(null);
 
+  const handleChatScroll = useCallback(() => {
     const container = chatScrollRef.current;
     if (!container) {
       return;
     }
 
-    container.scrollTop = container.scrollHeight;
-  }, [directMessages.length, selectedUser]);
+    atBottomRef.current =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+
+    if (
+      container.scrollTop < 120 &&
+      hasMoreMessages &&
+      !isLoadingOlderMessages &&
+      prependAnchorRef.current === null &&
+      directMessages.length > 0
+    ) {
+      prependAnchorRef.current = container.scrollHeight - container.scrollTop;
+      onLoadOlderMessages?.();
+    }
+  }, [
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    onLoadOlderMessages,
+    directMessages.length,
+  ]);
+
+  // Layout effect, not effect: the correction has to land in the same frame as
+  // the prepend, or the thread visibly jumps before snapping back.
+  useLayoutEffect(() => {
+    const container = chatScrollRef.current;
+    if (!selectedUser || !container) {
+      return;
+    }
+
+    if (lastPeerIdRef.current !== selectedUser.userId) {
+      lastPeerIdRef.current = selectedUser.userId;
+      prependAnchorRef.current = null;
+      atBottomRef.current = true;
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
+    const anchor = prependAnchorRef.current;
+    if (anchor !== null) {
+      prependAnchorRef.current = null;
+      container.scrollTop = container.scrollHeight - anchor;
+      return;
+    }
+
+    if (atBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+    }
+    // Keyed on the id, not the object: an unstable `selectedUser` identity
+    // would re-run this every render and pin the thread to the bottom.
+  }, [directMessages.length, selectedUser?.userId]);
+
+  // A request that came back empty (or failed) leaves the anchor set, which
+  // would freeze the next attempt. Clear it once the load settles.
+  useEffect(() => {
+    if (!isLoadingOlderMessages) {
+      prependAnchorRef.current = null;
+    }
+  }, [isLoadingOlderMessages]);
 
   const renderChatBox = () => {
     return (
@@ -702,6 +769,7 @@ export function UsersDirectMessagesPanel({
         <div
           className={`ct-chat-messages ${showEmptyState ? "empty" : ""}`}
           ref={chatScrollRef}
+          onScroll={handleChatScroll}
         >
           {directMessagesQuery.isPending && (
             <div className="ct-list-state">Mesajlar yükleniyor...</div>
@@ -765,15 +833,15 @@ export function UsersDirectMessagesPanel({
           {searchResults === null && !showEmptyState && (
             <div className="ct-chat-message-list">
               {hasMoreMessages && directMessages.length > 0 && (
-                <div className="ct-chat-load-older">
-                  <Button
-                    size="small"
-                    type="text"
-                    loading={isLoadingOlderMessages}
-                    onClick={onLoadOlderMessages}
-                  >
-                    Daha eski mesajları yükle
-                  </Button>
+                <div className="ct-chat-load-older" aria-live="polite">
+                  {isLoadingOlderMessages ? (
+                    <>
+                      <LoadingOutlined />
+                      <span>Daha eski mesajlar yükleniyor…</span>
+                    </>
+                  ) : (
+                    <span>Daha eskisi için yukarı kaydırın</span>
+                  )}
                 </div>
               )}
 
