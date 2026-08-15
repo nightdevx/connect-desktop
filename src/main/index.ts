@@ -298,6 +298,14 @@ function createMainWindow(): BrowserWindow {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Chromium throttles a hidden window's timers to about one tick a second,
+      // then to roughly one a minute after a few minutes. Every lobby timer
+      // lives in the renderer — the membership heartbeat and the whole
+      // reconnect backoff chain — so minimising the app while sitting in voice
+      // starved the heartbeat until the server reaped the member as stale.
+      // Sitting in a room with the window in the background is the normal way
+      // to use this app, not an edge case.
+      backgroundThrottling: false,
     },
   });
 

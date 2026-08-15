@@ -8,6 +8,7 @@ import {
   SearchOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -208,9 +209,32 @@ export function FriendsHomePanel({
     { value: "offline", label: "Çevrimdışı" },
   ];
 
+  // Above every empty state, because "no friends" and "the call failed" used to
+  // render identically — which is how a broken list stayed unreported.
+  const renderLoadError = (): ReactNode => (
+    <li className="ct-list-state error">
+      <WarningOutlined className="ct-list-state-icon" />
+      <p>Arkadaş listesi yüklenemedi.</p>
+      <span>
+        {friends.loadError?.code === "REQUEST_FAILED" &&
+        friends.loadError?.statusCode === 404
+          ? "Sunucu bu özelliği tanımıyor; güncellenmesi gerekiyor."
+          : "Bağlantınızı kontrol edip tekrar deneyin."}
+      </span>
+      <span className="ct-list-state-detail">
+        {friends.loadError?.code ?? "UNKNOWN"}
+        {friends.loadError?.statusCode ? ` · ${friends.loadError.statusCode}` : ""}
+      </span>
+    </li>
+  );
+
   const renderFriendList = (): ReactNode => {
     if (friends.isLoading) {
       return <li className="ct-list-state">Arkadaşlar yükleniyor...</li>;
+    }
+
+    if (friends.loadError) {
+      return renderLoadError();
     }
 
     if (visibleFriends.length === 0) {
@@ -368,9 +392,11 @@ export function FriendsHomePanel({
             </p>
 
             <ul className="ct-list" role="list" aria-label="Gelen istekler">
-              {incomingRows.length === 0 && (
-                <li className="ct-list-state">Bekleyen istek yok.</li>
-              )}
+              {friends.loadError
+                ? renderLoadError()
+                : incomingRows.length === 0 && (
+                    <li className="ct-list-state">Bekleyen istek yok.</li>
+                  )}
 
               {incomingRows.map((row) => {
                 // Both buttons carry the row's pending flag: it is keyed by user

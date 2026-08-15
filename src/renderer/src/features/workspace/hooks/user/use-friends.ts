@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import type { FriendEntry, FriendRequestLists } from "@shared/auth-contracts";
-import type { DesktopResult } from "@shared/desktop-api-types";
+import type { ApiErrorPayload, DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 
 const FRIENDS_QUERY_KEY = ["friends"];
@@ -108,6 +108,12 @@ const SEND_REQUEST_FALLBACK = "Arkadaşlık isteği gönderilemedi.";
 
 export interface FriendsController {
   friendIds: string[];
+  // Whether the lists are empty because there is nothing, or because the call
+  // failed. Without this every failure — a 404 from an out-of-date server, a
+  // 500, a dropped connection — rendered as "you have no friends yet", so a
+  // broken backend and an empty social graph looked identical on screen and
+  // the app reported nothing anywhere.
+  loadError: ApiErrorPayload | null;
   // Named, not bare ids: a request comes from someone who is not a friend yet,
   // so the friends-only directory cannot name them.
   incomingRequests: FriendEntry[];
@@ -219,6 +225,16 @@ export const useFriends = (enabled: boolean): FriendsController => {
       ? requestsQuery.data.data
       : null;
 
+  // Either list failing is worth showing: they render side by side, and a
+  // half-loaded friends section is still a broken one.
+  const loadError =
+    (friendsQuery.data && !friendsQuery.data.ok
+      ? (friendsQuery.data.error ?? null)
+      : null) ??
+    (requestsQuery.data && !requestsQuery.data.ok
+      ? (requestsQuery.data.error ?? null)
+      : null);
+
   // No pending marker here: sendRequest is keyed by username and there is no
   // user id to hang one on until the server answers. Its caller owns that
   // button's busy state.
@@ -319,6 +335,7 @@ export const useFriends = (enabled: boolean): FriendsController => {
 
   return {
     friendIds,
+    loadError,
     incomingRequests: requestLists?.incoming ?? EMPTY_ENTRIES,
     outgoingRequests: requestLists?.outgoing ?? EMPTY_ENTRIES,
     // A disabled react-query sits in `pending` forever, which would pin this

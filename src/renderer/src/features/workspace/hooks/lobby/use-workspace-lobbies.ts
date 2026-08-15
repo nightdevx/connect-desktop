@@ -254,7 +254,12 @@ export function useWorkspaceLobbies({
         void performPostJoinSyncRef.current(targetLobbyID)
           .then(() => {
             activeLobbyReconnectAttemptRef.current = 0;
-            if (attempt > 0 || reason !== "lobby-state-probe") {
+            // Only after a visible failure, and at most once per bucket. See
+            // the lobby branch below for why the old condition never held.
+            if (
+              attempt > 0 &&
+              shouldEmitReconnectStatusRef.current("activeLobby", 10_000)
+            ) {
               setStatusRef.current("Arama bağlantısı yeniden kuruldu", "ok");
             }
           })
@@ -284,7 +289,21 @@ export function useWorkspaceLobbies({
 
           await performPostJoinSyncRef.current(targetLobbyID);
           activeLobbyReconnectAttemptRef.current = 0;
-          if (attempt > 0 || reason !== "lobby-state-probe") {
+          // This was the toast the user saw over and over.
+          //
+          // Every failure branch around it is rate-limited by
+          // shouldEmitReconnectStatus; the success branch was not, and its one
+          // suppression term compared against "lobby-state-probe" — a reason no
+          // caller anywhere passes. The right-hand side was therefore always
+          // true, so a reconnect that succeeded first try still announced
+          // itself, once per attempt, for every flap.
+          //
+          // Announce a recovery only when there was a visible failure to
+          // recover from, and no more often than the failures themselves.
+          if (
+            attempt > 0 &&
+            shouldEmitReconnectStatusRef.current("activeLobby", 10_000)
+          ) {
             setStatusRef.current("Lobi bağlantısı yeniden kuruldu", "ok");
           }
           void lobbiesQueryRef.current.refetch();

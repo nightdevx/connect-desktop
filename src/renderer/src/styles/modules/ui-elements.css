@@ -279,6 +279,15 @@ box-shadow: inset 3px 0 0 var(--ct-info);
   color: var(--ct-danger);
 }
 
+/* The raw server code, under the human sentence. Small and dim on purpose:
+   nobody needs it until something is wrong, and then it is the only thing
+   that turns "it does not work" into a diagnosis. */
+.ct-list-state-detail {
+  @apply mt-1 font-mono text-xs;
+  color: var(--ct-text-muted);
+  opacity: 0.75;
+}
+
 .ct-user-avatar {
 @apply relative grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full border;
 border-color: var(--ct-border);

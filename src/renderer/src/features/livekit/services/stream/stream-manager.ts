@@ -320,13 +320,24 @@ export class LiveKitStreamManager {
     token: string,
     lobbyId: string,
   ): Promise<void> {
-    // Idempotent only when the existing room is actually CONNECTED to the same
-    // lobby. A stale/disconnected room (after an unexpected drop) must be torn
-    // down and rebuilt, otherwise reconnect would silently no-op.
+    // Idempotent when the existing room for this lobby is alive — and
+    // Reconnecting counts as alive.
+    //
+    // Only Connected used to count, which meant an app-level rejoin arriving
+    // during livekit-client's own resume tore down a session that was about to
+    // come back. That is not hypothetical: the lobby websocket and the media
+    // transport are different connections, but nearly every real network event
+    // hits both, so a `stream-status: closed` escalated into a full re-join at
+    // exactly the moment the Room was in Reconnecting. The rebuild then joined
+    // with the same LiveKit identity while the SFU still held the previous
+    // participant for its 20s departure_timeout, so the server evicted the
+    // session we had just left behind — and that eviction arrived as another
+    // Disconnected, which scheduled another rejoin.
     if (
       this.room &&
       this.currentLobbyId === lobbyId &&
-      this.room.state === ConnectionState.Connected
+      (this.room.state === ConnectionState.Connected ||
+        this.room.state === ConnectionState.Reconnecting)
     ) {
       return;
     }
@@ -1230,10 +1241,27 @@ export class LiveKitStreamManager {
 
   private handleDisconnected(reason?: DisconnectReason) {
     if (this.manualDisconnect || this.replacingRoom) return;
+
+    // The reason used to be ignored, so a deliberate removal and a flaky uplink
+    // took the same path: tear down, tell the app, and the app immediately
+    // rejoined. For a removal that is a fight with the server — most sharply
+    // with DUPLICATE_IDENTITY, where the rejoin IS what caused the eviction, so
+    // reconnecting reproduces the condition and the two loop.
+    //
+    // These four are decisions, not failures. Report them as a plain
+    // disconnect and let the user act.
+    const isFinal =
+      reason === DisconnectReason.DUPLICATE_IDENTITY ||
+      reason === DisconnectReason.PARTICIPANT_REMOVED ||
+      reason === DisconnectReason.ROOM_DELETED ||
+      reason === DisconnectReason.CLIENT_INITIATED;
+
     // Unexpected drop: discard the dead room/handlers so the app-level reconnect
     // (performPostJoinSynchronization -> connect with a fresh token) can rebuild.
     this.teardownRoomState();
-    this.callbacks.onConnectionStateChanged?.("disconnected");
+    this.callbacks.onConnectionStateChanged?.(
+      isFinal ? "closed" : "disconnected",
+    );
   }
 
   // Lightweight teardown for an unexpected disconnect — releases the dead room

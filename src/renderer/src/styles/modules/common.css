@@ -1,14 +1,14 @@
 .ct-audio-device-popover {
   margin: 0;
-  padding: 6px;
+  padding: 4px;
   border: 1px solid var(--ct-border);
-  border-radius: 12px;
+  border-radius: var(--ct-radius-md);
   background: rgba(12, 12, 12, 0.97) !important;
   backdrop-filter: blur(16px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
   color: var(--ct-text-primary);
   font-size: 12px;
-  min-width: 190px;
+  min-width: 168px;
   
   /* CSS Anchor Positioning */
   inset: auto;
@@ -28,9 +28,10 @@
 }
 
 .ct-device-menu-item {
-  padding: 8px 12px;
+  padding: 5px 10px;
+  line-height: 18px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--ct-radius-sm);
   color: rgba(255, 255, 255, 0.75);
   transition: all 0.15s ease;
   font-size: 13px;
@@ -52,11 +53,11 @@
 .ct-device-menu-divider {
   height: 1px;
   background: var(--ct-border);
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 .ct-device-menu-empty {
-  padding: 8px 12px;
+  padding: 5px 10px;
   color: var(--ct-text-muted);
   font-size: 13px;
 }

@@ -118,6 +118,12 @@ jobs:
           # or the shipped app reports no crashes at all. Optional so a fork
           # without the secret can still build.
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          # The GIF button renders only when this is present at BUILD time:
+          # generate-runtime-env.js bakes it into resources/.env.runtime, which
+          # is a packaged build's only source of env. Leaving it out of this
+          # list is why v0.1.57 shipped with the GIF button missing from every
+          # composer while it worked in dev.
+          CT_KLIPY_API_KEY: ${{ secrets.CT_KLIPY_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
             throw "Missing secret: CT_BACKEND_URL"
@@ -128,6 +134,11 @@ jobs:
             $lines += "SENTRY_DSN=$($env:SENTRY_DSN)"
           } else {
             Write-Host "SENTRY_DSN not set: this build will report no crashes."
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:CT_KLIPY_API_KEY)) {
+            $lines += "CT_KLIPY_API_KEY=$($env:CT_KLIPY_API_KEY)"
+          } else {
+            Write-Host "CT_KLIPY_API_KEY not set: this build will have no GIF button."
           }
           $lines | Set-Content -Path .env -Encoding UTF8
 

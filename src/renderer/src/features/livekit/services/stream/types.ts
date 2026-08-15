@@ -11,7 +11,13 @@ export type LiveKitConnectionStatus =
   | "disconnected"
   | "connecting"
   | "connected"
-  | "reconnecting";
+  | "reconnecting"
+  // The server ended this session on purpose — the participant was removed,
+  // the room was deleted, or the same identity connected somewhere else.
+  // Distinct from "disconnected" because retrying does not help: at best it
+  // fails, and for a duplicate identity the retry is what caused the eviction,
+  // so reconnecting just reproduces it.
+  | "closed";
 
 export interface ParticipantMediaState {
   participant: Participant;

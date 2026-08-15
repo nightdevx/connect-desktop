@@ -76,12 +76,25 @@ export class LobbyStreamManager {
         clearTimeout(streamState.pingTimeout);
       }
 
+      // The server pings every 20s and gives up on us after 40s of silence.
+      //
+      // At 35s this watchdog had 15s of slack over that ping and killed the
+      // connection first — with terminate(), an immediate RST, no probe. An
+      // idle lobby sends no data frames at all (the snapshot ticker is
+      // signature-deduped server-side), so the ping IS the only traffic, and
+      // one coalesced by the proxy or delayed by a main-process stall was
+      // enough to tear down a healthy socket. Every such teardown cascades into
+      // a full re-join.
+      //
+      // 50s is 2.5 ping intervals, and lands after the server's own 40s
+      // deadline — so a truly dead peer is closed by the side that can tell,
+      // and this is only the backstop.
       streamState.pingTimeout = setTimeout(() => {
         if (streamState.closing || socket.readyState === WebSocket.CLOSED) {
           return;
         }
         socket.terminate();
-      }, 35000);
+      }, 50_000);
     };
 
     const cleanup = () => {

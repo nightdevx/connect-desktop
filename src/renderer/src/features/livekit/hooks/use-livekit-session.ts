@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   EMPTY_MEDIA_STATS,
   LiveKitMediaSession,
+  type LiveKitConnectionStatus,
   type MediaStatsSnapshot,
   type ParticipantMediaMap,
   type RemoteParticipantAudioPreference,
@@ -31,9 +32,8 @@ export function useLivekitSession(
   const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
   const [mediaStats, setMediaStats] =
     useState<MediaStatsSnapshot>(EMPTY_MEDIA_STATS);
-  const [liveKitConnectionState, setLiveKitConnectionState] = useState<
-    "connecting" | "connected" | "reconnecting" | "disconnected"
-  >("disconnected");
+  const [liveKitConnectionState, setLiveKitConnectionState] =
+    useState<LiveKitConnectionStatus>("disconnected");
   const liveKitSessionRef = useRef<LiveKitMediaSession | null>(null);
   const remoteParticipantAudioPreferencesRef = useRef<
     Record<string, RemoteParticipantAudioPreference>
@@ -53,10 +53,16 @@ export function useLivekitSession(
       onActiveSpeakersChanged: (speakerIds: string[]) => {
         setActiveSpeakerIds(speakerIds);
       },
-      onConnectionStateChanged: (
-        state: "connecting" | "connected" | "reconnecting" | "disconnected",
-      ) => {
+      onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
         setLiveKitConnectionState(state);
+
+        // Ended by the server. Say so once and stop — the reconnect chain would
+        // either fail repeatedly or, for a duplicate identity, evict the very
+        // session it just created and loop.
+        if (state === "closed") {
+          setStatus("Ses bağlantısı sonlandırıldı.", "warn");
+          return;
+        }
 
         if (state === "reconnecting") {
           if (shouldEmitReconnectStatus("livekit", 7_000)) {

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { MediaStatsSnapshot } from "@/features/livekit";
+import type {
+  LiveKitConnectionStatus,
+  MediaStatsSnapshot,
+} from "@/features/livekit";
 
 export type AudioConnectionTone = "ok" | "warn" | "error" | "idle";
 
@@ -25,11 +28,7 @@ interface NavigatorConnectionLike {
 
 interface UseWorkspaceAudioConnectionParams {
   activeLobbyId: string | null;
-  liveKitConnectionState?:
-    | "connecting"
-    | "connected"
-    | "reconnecting"
-    | "disconnected";
+  liveKitConnectionState?: LiveKitConnectionStatus;
   mediaStats: MediaStatsSnapshot;
 }
 
@@ -187,7 +186,11 @@ export const useWorkspaceAudioConnection = ({
 
     // Transport state wins over the numbers: stats go stale the moment the
     // peer connection drops, and stale-but-good numbers must not read as green.
-    if (liveKitConnectionState === "disconnected") {
+    if (liveKitConnectionState === "closed") {
+      // Ended deliberately by the server, so nothing is retrying behind this.
+      tone = "error";
+      statusText = "Ses bağlantısı sonlandırıldı";
+    } else if (liveKitConnectionState === "disconnected") {
       tone = "error";
       statusText = `Ses bağlantısı yok${pingDisplay}`;
     } else if (

@@ -779,11 +779,15 @@ function WorkspaceShell({
   const activeLobbyReconnectAttemptRef = useRef(0);
   const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
   const hasSeenCurrentUserInLobbyRef = useRef(false);
+  // When the roster first stopped listing us. Absence has to PERSIST before it
+  // is believed — see the kick-detection effect.
+  const absentFromLobbySinceRef = useRef<number | null>(null);
 
   // Reset hasSeenActiveLobbyStateRef and hasSeenCurrentUserInLobbyRef for non-active lobbies
   useEffect(() => {
     const activeId = activeLobbyId;
     hasSeenCurrentUserInLobbyRef.current = false;
+    absentFromLobbySinceRef.current = null;
     for (const key of Object.keys(hasSeenActiveLobbyStateRef.current)) {
       if (key !== activeId) {
         delete hasSeenActiveLobbyStateRef.current[key];
@@ -999,40 +1003,81 @@ function WorkspaceShell({
   }, [activeLobbyId]);
 
   // ----- CLIENT KICK DETECTION -----
+  //
+  // Leaving the room is destructive and the evidence is a single websocket
+  // frame, so absence has to PERSIST before it is believed. It used to eject on
+  // the first snapshot that did not list us, which turned every upstream hiccup
+  // into a real departure: a reconciler tick taken while the client was
+  // mid-reconnect, a heartbeat gap, one dropped frame. That is the "people
+  // randomly fall out of the lobby" report.
+  //
+  // No timer drives this. A snapshot arrives about once a second while the
+  // stream is healthy, and if the stream is NOT healthy we have no evidence at
+  // all — which is exactly when we must not act. Silence is not a kick.
   useEffect(() => {
     if (!activeLobbyId || activeLobbyId.startsWith("call_")) return;
+
+    const ejectSelf = (why: string): void => {
+      console.log(`[WorkspaceShell] ${why} (${activeLobbyId})`);
+      message.warning("Odadan atıldınız veya oda kapatıldı.");
+      // Reset synchronously (not just on the eventual activeLobbyId->null
+      // transition) so a second push landing before leaveActiveLobby's async
+      // REST call resolves can't re-fire this branch.
+      hasSeenCurrentUserInLobbyRef.current = false;
+      absentFromLobbySinceRef.current = null;
+      delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
+      kickedLobbyIdRef.current = activeLobbyId;
+      void leaveActiveLobby("kicked");
+    };
+
+    // Absence must hold for this long across consecutive snapshots. The server
+    // gives a genuinely absent member 30s before dropping them from the roster,
+    // so anything shorter here is the client second-guessing a roster that has
+    // not made up its mind. Long enough to ride out a blip, short enough that a
+    // real kick still feels immediate — the audio is already gone by then,
+    // LiveKit removes the participant on the spot.
+    const KICK_CONFIRM_MS = 6_000;
+
+    const confirmAbsence = (why: string): void => {
+      const now = Date.now();
+      if (absentFromLobbySinceRef.current === null) {
+        absentFromLobbySinceRef.current = now;
+        return;
+      }
+      if (now - absentFromLobbySinceRef.current < KICK_CONFIRM_MS) {
+        return;
+      }
+      ejectSelf(why);
+    };
 
     const members = lobbyMembersById[activeLobbyId];
     if (members) {
       hasSeenActiveLobbyStateRef.current[activeLobbyId] = true;
-      const isStillInLobby = members.some((m) => m.userId === currentUserId);
-      if (isStillInLobby) {
+
+      if (members.some((m) => m.userId === currentUserId)) {
         hasSeenCurrentUserInLobbyRef.current = true;
-      } else {
-        // Only kick if we have previously been seen in this lobby since joining
-        if (hasSeenCurrentUserInLobbyRef.current) {
-          console.log(`[WorkspaceShell] Current user is not in active lobby ${activeLobbyId}. Kicked.`);
-          message.warning("Odadan atıldınız veya oda kapatıldı.");
-          // Reset synchronously (not just on the eventual activeLobbyId->null
-          // transition) so a second SSE push landing before leaveActiveLobby's
-          // async REST call resolves can't re-fire this branch.
-          hasSeenCurrentUserInLobbyRef.current = false;
-          delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
-          kickedLobbyIdRef.current = activeLobbyId;
-          void leaveActiveLobby("kicked");
-        }
+        absentFromLobbySinceRef.current = null;
+        return;
       }
-    } else {
-      // Only treat as deleted if we have previously seen this lobby's state.
-      // This prevents racing with the initial stream update right after joining.
-      if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
-        console.log(`[WorkspaceShell] Active lobby ${activeLobbyId} was deleted.`);
-        message.warning("Odadan atıldınız veya oda kapatıldı.");
-        hasSeenCurrentUserInLobbyRef.current = false;
-        delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
-        kickedLobbyIdRef.current = activeLobbyId;
-        void leaveActiveLobby("kicked");
+
+      // An empty roster for a lobby we believe we are sitting in contradicts
+      // itself: if everyone else had left we would still be listed. Treat it as
+      // a bad frame, not as a removal.
+      if (members.length === 0) {
+        return;
       }
+
+      // Only meaningful once we have actually been seen in this lobby.
+      if (hasSeenCurrentUserInLobbyRef.current) {
+        confirmAbsence("Current user missing from the active lobby roster");
+      }
+      return;
+    }
+
+    // The lobby is absent from the snapshot entirely. Same treatment: only
+    // after we have seen its state, and only if it stays gone.
+    if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
+      confirmAbsence("Active lobby missing from the snapshot");
     }
   }, [activeLobbyId, lobbyMembersById, currentUserId, leaveActiveLobby]);
 
