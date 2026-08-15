@@ -198,16 +198,11 @@
   transform: translateY(16px) scale(1.03);
 }
 
+/* Row order in the focused layout comes from the DOM now, not from grid-row
+   assignments -- see .ct-lobby-stage-grid.focused-layout below. */
 .ct-lobby-stage-slot-row {
-  @apply flex justify-center;
-  grid-column: 1 / -1;
-  grid-row: 2;
-  margin: 4px 0;
+  @apply flex shrink-0 justify-center;
   z-index: 10;
-}
-
-.ct-lobby-stage-row-3 {
-  grid-row: 3;
 }
 
 /* Same pill as the stage's chat toggle, so the two controls that float over
@@ -324,14 +319,23 @@
   position: relative;
 }
 
+/* The focused layout is a column, not a grid.
+   As a grid it sized the focused tile off viewport width alone
+   (clamp(680px, 74vw, 1180px)); at 16:9 that asked for up to 663px of height
+   the stage did not have, so the stage grew a vertical scrollbar on every
+   focus. Worse, the show/hide pill and the thumbnail rail both resolved to
+   grid-row 2 -- `.ct-lobby-participant-rail` is declared after
+   `.ct-lobby-stage-row-3` at equal specificity -- so they were drawn stacked on
+   top of each other in one cell. A column with a single flexible row hands the
+   tile whatever height is actually left over and takes its order from the DOM.
+   Scoped to .focused-layout throughout: the non-focused grid keeps
+   `display: grid` and `overflow: auto` from the base rule untouched. */
 .ct-lobby-stage-grid.focused-layout {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  grid-auto-flow: row;
-  gap: 12px;
-  justify-items: stretch;
-  align-content: start;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
   /* Extra room for the participant rail that sits under the focused tile. */
   padding-bottom: calc(var(--ct-stage-clear-bottom) + 18px);
 }
@@ -341,37 +345,78 @@
 }
 
 .ct-lobby-focused-slot {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  width: min(100%, clamp(680px, 74vw, 1180px));
+  flex: 1 1 auto;
+  /* Both needed, or the flex item refuses to shrink under its content and the
+     scrollbar comes straight back. */
+  min-height: 0;
+  min-width: 0;
+  width: min(100%, 1180px);
   max-width: 100%;
-  margin: 0 auto;
-  align-self: start;
+  /* One row of exactly the slot's height, so the tile's `max-height: 100%`
+     below has a definite box to resolve against. */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
   position: relative;
   z-index: 2;
 }
 
+/* Capped on height as well as width, so the focused tile is fitted on both axes
+   exactly like a grid tile is. aspect-ratio transfers the max-height into a
+   max-width, so 16:9 holds whichever axis runs out first -- previously a short,
+   wide stage letterboxed the focused video differently from the grid. */
+.ct-lobby-focused-slot > .ct-lobby-participant-tile {
+  justify-self: center;
+  align-self: center;
+  max-height: 100%;
+}
+
+/* Hiding the rail is a request for MORE video. This used to pin the slot to
+   --ct-stage-tile-width -- the grid's per-participant thumbnail width, ~180px
+   in a busy room -- so hiding the rail shrank the focused tile to a thumbnail. */
 .ct-lobby-focused-slot.full-stage {
-  width: var(--ct-stage-tile-width);
-  max-width: 100%;
+  width: min(100%, 1400px);
 }
 
 .ct-lobby-participant-rail {
-  grid-column: 1 / -1;
-  grid-row: 2;
+  flex: 0 0 auto;
   width: min(100%, 1120px);
   max-width: 100%;
-  margin: 0 auto;
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
-  justify-content: center;
+  align-items: center;
+  /* `safe`, because a rail wider than the stage centred with plain `center`
+     overflows into both gutters and the leading thumbnails can never be
+     scrolled back into view. */
+  justify-content: safe center;
   gap: 10px;
-  padding: 2px 4px 8px;
+  padding: 2px 4px 6px;
   overflow-x: auto;
   overflow-y: hidden;
   position: relative;
   z-index: 1;
+}
+
+/* The tile's own `align-self: stretch` would override the rail's centring and
+   let the flex line dictate the thumbnail's height, overriding its 16:9. */
+.ct-lobby-participant-rail > .ct-lobby-participant-tile {
+  align-self: center;
+}
+
+/* A default Chromium scrollbar under the thumbnails is most of a thumbnail's
+   worth of stage height, and this is the row that has the least to spare. */
+.ct-lobby-participant-rail::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ct-lobby-participant-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ct-lobby-participant-rail::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--ct-alpha-20);
 }
 
 .ct-lobby-participant-tile {
@@ -430,17 +475,29 @@
   transform: translateY(-1px);
 }
 
-.ct-lobby-participant-tile:hover .ct-lobby-tile-fullscreen-btn {
+.ct-lobby-participant-tile:hover .ct-lobby-tile-fullscreen-btn,
+.ct-lobby-participant-tile:hover .ct-lobby-tile-pip-btn {
   opacity: 1;
   transform: scale(1);
 }
 
-.ct-lobby-tile-fullscreen-btn:hover {
+/* An open PiP window is off in its own frame, so the button that opened it has
+   to stay visible without the hover that revealed it. */
+.ct-lobby-tile-pip-btn.active {
+  opacity: 1;
+  transform: scale(1);
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
+}
+
+.ct-lobby-tile-fullscreen-btn:hover,
+.ct-lobby-tile-pip-btn:hover {
   border-color: var(--ct-alpha-32);
   background: var(--ct-alpha-20);
 }
 
-.ct-lobby-tile-fullscreen-btn:active {
+.ct-lobby-tile-fullscreen-btn:active,
+.ct-lobby-tile-pip-btn:active {
   transform: scale(0.95);
 }
 
@@ -524,6 +581,18 @@
   inset: auto;
 }
 
+/* Matches the exit button's size and sits beside it, so "pop this out" is still
+   reachable from fullscreen rather than a round trip through the tile. */
+.ct-lobby-video-container:fullscreen .ct-lobby-tile-pip-btn {
+  top: 24px;
+  right: 78px;
+  width: 44px;
+  height: 44px;
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
 /* Watch-this-screen prompt: screen shares are opt-in, so an unwatched tile
    shows this instead of subscribing to the track on its own. */
 .ct-lobby-tile-watch-prompt {
@@ -559,8 +628,9 @@
   background: var(--ct-alpha-20);
 }
 
-.ct-lobby-tile-fullscreen-btn {
-  @apply absolute right-3 top-3 z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
+.ct-lobby-tile-fullscreen-btn,
+.ct-lobby-tile-pip-btn {
+  @apply absolute top-3 z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
   border-color: var(--ct-alpha-20);
   color: var(--ct-text-primary);
   background: rgba(15, 15, 15, 0.7);
@@ -569,6 +639,16 @@
   transform: scale(0.9);
   backdrop-filter: blur(8px);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-lobby-tile-fullscreen-btn {
+  right: 12px;
+}
+
+/* Parked left of the fullscreen button: same 12px edge gap, plus that button's
+   width and an 8px separation. */
+.ct-lobby-tile-pip-btn {
+  right: calc(20px + var(--ct-control-sm));
 }
 
 .ct-lobby-tile-fullscreen-exit-btn {

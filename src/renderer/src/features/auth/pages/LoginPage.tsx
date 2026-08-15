@@ -2,12 +2,16 @@ import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
 import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
 import type { LoginRequest } from "../../../../../shared/auth-contracts";
+import type { ApiErrorPayload } from "@shared/desktop-api-types";
+import { describeAuthError } from "../auth-error-messages";
+import { AuthErrorAlert } from "../components/AuthErrorAlert";
 
 const mutedIconStyle = { color: "#6b6b6b" };
 
 interface LoginPageProps {
   loading: boolean;
-  onSubmit: (payload: LoginRequest) => Promise<void>;
+  /** Resolves with the failure, or null when the sign-in worked. */
+  onSubmit: (payload: LoginRequest) => Promise<ApiErrorPayload | null>;
   onGoRegister: () => void;
 }
 
@@ -16,9 +20,26 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
   const [mode, setMode] = useState<"login" | "forgot" | "reset">("login");
   const [resetEmail, setResetEmail] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<ApiErrorPayload | null>(null);
 
   const handleSubmit = async (values: any) => {
-    await onSubmit({ username: values.username, password: values.password });
+    setSubmitError(null);
+    const failure = await onSubmit({
+      username: values.username,
+      password: values.password,
+    });
+    setSubmitError(failure);
+
+    if (!failure) {
+      return;
+    }
+
+    // Mark the input the error is actually about, so the message and the field
+    // agree instead of the user hunting for which one to change.
+    const info = describeAuthError(failure, "login");
+    if (info.field && info.field !== "email") {
+      form.setFields([{ name: info.field, errors: [info.title] }]);
+    }
   };
 
   const handleForgotPassword = async (values: any) => {
@@ -231,20 +252,26 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         </p>
       </div>
 
+      <AuthErrorAlert error={submitError} context="login" />
+
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
         requiredMark={false}
         className="ct-premium-form"
+        // Editing anything means the user is acting on the message; keeping it
+        // on screen would leave a stale reason next to changed input.
+        onValuesChange={() => setSubmitError(null)}
       >
         <Form.Item
           label="Kullanıcı Adı"
           name="username"
           rules={[
-            { required: true, message: "Lütfen kullanıcı adınızı girin!" },
-            { min: 3, message: "Kullanıcı adı en az 3 karakter olmalıdır!" },
-            { max: 64, message: "Kullanıcı adı en fazla 64 karakter olmalıdır!" }
+            // Only "not empty". Sign-in must not invent its own rules: an
+            // account created before a rule changed would be told its own
+            // username is invalid and never get as far as asking the server.
+            { required: true, message: "Lütfen kullanıcı adınızı girin!" }
           ]}
         >
           <Input
@@ -275,9 +302,10 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           }
           name="password"
           rules={[
-            { required: true, message: "Lütfen şifrenizi girin!" },
-            { min: 8, message: "Şifre en az 8 karakter olmalıdır!" },
-            { max: 256, message: "Şifre en fazla 256 karakter olmalıdır!" }
+            // Same reason as the username above: length rules belong to
+            // registration. Blocking a short password here only hides the real
+            // answer ("bu şifre bu hesaba ait değil") behind a made-up one.
+            { required: true, message: "Lütfen şifrenizi girin!" }
           ]}
         >
           <Input.Password

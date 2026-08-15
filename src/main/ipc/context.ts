@@ -5,6 +5,7 @@ import { DirectMessagesStreamManager } from "./direct-messages-stream-manager";
 import { LobbyStreamManager } from "./lobby-stream-manager";
 import { UserDirectoryStreamManager } from "./user-directory-stream-manager";
 import { SessionStore } from "../session-store";
+import { isSessionFatal } from "../auth-failure";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
 
@@ -95,6 +96,37 @@ export const persistAuthResult = (result: {
 // mid-call.
 let refreshInFlight: Promise<void> | null = null;
 
+export const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
+
+// Ends the session everywhere at once, and tells the renderer.
+//
+// Until this existed, a dead refresh token was only ever discovered by whichever
+// IPC call happened to be in flight. That call returned the backend's raw
+// English error to its own call site and nothing else happened: the tokens
+// stayed on disk, the three websocket managers kept reconnecting with them, and
+// the renderer — which has no 401 interceptor and only re-reads the session on
+// mount — left the whole workspace mounted behind an authentication that no
+// longer existed. The user saw "refresh token is invalid or already used" in a
+// toast and could keep clicking through lobbies, DMs and settings.
+export const endSession = (reason: string): void => {
+  if (!getSessionStore().get()) {
+    // Already ended. Do not broadcast a second time — the renderer would
+    // re-announce an expiry the user has already been told about.
+    return;
+  }
+
+  getSessionStore().clear();
+  directMessagesStreamManager.stopAll();
+  lobbyStreamManager.stopAll();
+  userDirectoryStreamManager.stopAll();
+
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(SESSION_EXPIRED_CHANNEL, { reason });
+    }
+  }
+};
+
 const refreshSession = async (): Promise<void> => {
   if (refreshInFlight) {
     // Someone else is already refreshing; ride along with their result.
@@ -110,6 +142,17 @@ const refreshSession = async (): Promise<void> => {
     .refresh(current.refreshToken)
     .then((refreshed) => {
       persistAuthResult(refreshed);
+    })
+    .catch((error: unknown) => {
+      if (isSessionFatal(error)) {
+        endSession(
+          error instanceof DesktopApiError ? error.code : "UNAUTHORIZED",
+        );
+      }
+
+      // Callers still see the failure; ending the session is in addition to
+      // reporting it, not instead of.
+      throw error;
     })
     .finally(() => {
       refreshInFlight = null;

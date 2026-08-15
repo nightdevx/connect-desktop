@@ -60,6 +60,41 @@ const pickSentryDsn = () => {
   return null;
 };
 
+// The KLIPY key for the composer's GIF button. main/config.ts reads it from
+// process.env.CT_KLIPY_API_KEY, and a packaged build's only env source is
+// resources/.env.runtime -- so without this the key was undefined in every
+// installed build and the GIF button never rendered outside dev.
+//
+// This does put the key in the asar, which anyone with the installer can read.
+// That is inherent to a client-side GIF key (Tenor, Giphy and KLIPY all work
+// this way); it is rate-limited and rotatable, and it is not an account
+// credential. Use a key issued for this app, not a shared one.
+const pickKlipyApiKey = () => {
+  const found =
+    process.env.CT_KLIPY_API_KEY?.trim() ||
+    (existsSync(projectEnvPath)
+      ? parse(readFileSync(projectEnvPath, "utf8")).CT_KLIPY_API_KEY?.trim()
+      : "");
+  if (!found) {
+    return null;
+  }
+
+  // Same shape main/config.ts enforces before use. Shipping a key it will
+  // reject produces a build that logs "klipy=process.env" and still has no GIF
+  // button — say so here instead, where someone is watching.
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(found)) {
+    console.warn(
+      "[generate-runtime-env] CT_KLIPY_API_KEY has an unexpected shape and will be rejected at runtime; not writing it.",
+    );
+    return null;
+  }
+
+  return {
+    value: found,
+    source: process.env.CT_KLIPY_API_KEY?.trim() ? "process.env" : ".env",
+  };
+};
+
 const picked = pickBackendUrl();
 if (!picked) {
   throw new Error(
@@ -90,9 +125,21 @@ if (sentryDsn) {
   );
 }
 
+// Optional by design, same as the DSN: no key means the GIF button never
+// renders and the composer looks as it did before GIFs existed. Warn so a
+// build that quietly lost the feature is still noticed.
+const klipyApiKey = pickKlipyApiKey();
+if (klipyApiKey) {
+  lines.push(`CT_KLIPY_API_KEY=${klipyApiKey.value}`);
+} else {
+  console.warn(
+    "[generate-runtime-env] CT_KLIPY_API_KEY not set: the GIF button will not appear in this build.",
+  );
+}
+
 writeFileSync(runtimeEnvPath, lines.join("\n") + "\n", "utf8");
 console.log(
   `[generate-runtime-env] wrote ${runtimeEnvPath} (backend=${picked.source}${
     sentryDsn ? `, sentry=${sentryDsn.source}` : ", sentry=absent"
-  })`,
+  }${klipyApiKey ? `, klipy=${klipyApiKey.source}` : ", klipy=absent"})`,
 );

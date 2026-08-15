@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Badge, Select, Dropdown } from "antd";
+import { Badge, Select, Dropdown, Tooltip } from "antd";
 import {
   MessageOutlined,
   PhoneOutlined,
   CloseCircleOutlined,
+  CloseOutlined,
+  HomeOutlined,
   UserDeleteOutlined,
 } from "@ant-design/icons";
 import type {
@@ -24,6 +26,9 @@ import {
 interface UsersSidebarPanelProps {
   conversations: OpenConversation[];
   onCloseConversation: (userId: string) => void;
+  // Clears the selection so the friends home renders. Distinct from
+  // onCloseConversation: this leaves every open conversation open.
+  onOpenHome: () => void;
   directoryUsers: UserDirectoryEntry[];
   selectedUserId: string | null;
   onUserSelect: (userId: string) => void;
@@ -46,6 +51,7 @@ const PRESENCE_OPTIONS: Array<{
 export function UsersSidebarPanel({
   conversations,
   onCloseConversation,
+  onOpenHome,
   directoryUsers,
   selectedUserId,
   onUserSelect,
@@ -116,6 +122,20 @@ export function UsersSidebarPanel({
           />
         </div>
       )}
+
+      {/* Sits outside the listbox on purpose: a listbox may only own options,
+          and this is navigation, not a conversation. Before it existed the only
+          way back to the friends home was to right-click your open conversation
+          and close it — which also removed it from this list. */}
+      <button
+        type="button"
+        className={`ct-list-home ${selectedUserId === null ? "active" : ""}`}
+        onClick={onOpenHome}
+        aria-current={selectedUserId === null ? "page" : undefined}
+      >
+        <HomeOutlined />
+        <span>Ana Sayfa</span>
+      </button>
 
       <ul className="ct-list" role="listbox" aria-label="Sohbetler">
         {conversations.length === 0 && (
@@ -197,9 +217,32 @@ export function UsersSidebarPanel({
                 </div>
               </div>
 
-              {unreadCount > 0 && (
-                <Badge count={unreadCount} overflowCount={99} />
-              )}
+              <div className="ct-list-item-actions">
+                {unreadCount > 0 && (
+                  <Badge count={unreadCount} overflowCount={99} />
+                )}
+
+                {/* Revealed on hover, next to the unread badge. The right-click
+                    menu below still offers the same thing — this is the
+                    discoverable version of it. stopPropagation because the row
+                    itself selects the conversation. */}
+                <Tooltip title="Sohbeti Kapat">
+                  <button
+                    type="button"
+                    className="ct-list-item-close"
+                    aria-label={`${name} sohbetini kapat`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCloseConversation(userId);
+                    }}
+                    // Enter/Space on the button would otherwise bubble to the
+                    // row's own key handler and reopen what was just closed.
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <CloseOutlined />
+                  </button>
+                </Tooltip>
+              </div>
             </li>
           );
 

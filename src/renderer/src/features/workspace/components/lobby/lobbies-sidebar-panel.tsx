@@ -440,6 +440,20 @@ export function LobbiesSidebarPanel({
                           key={member.userId}
                           trigger={["contextMenu"]}
                           menu={{
+                            // This overlay is portalled into document.body, but a
+                            // portal only moves the DOM node — React synthetic
+                            // events still bubble along the React tree, and that
+                            // tree runs Dropdown -> ul.ct-lobby-member-list ->
+                            // li.ct-list-item, whose onClick is handleLobbyClick.
+                            // So moderating a member of a lobby you are not in
+                            // used to join you to it (mic on, leaving whatever
+                            // room you were in) right before the kick landed.
+                            // Neither rc-menu nor antd stops the click, so the
+                            // guard has to live here. Menu-level rather than
+                            // per-item so a future item cannot forget it, and it
+                            // covers the keyboard path too: Enter on the item
+                            // would otherwise reach the row's own onKeyDown.
+                            onClick: ({ domEvent }) => domEvent.stopPropagation(),
                             items: [
                               {
                                 key: "mute",

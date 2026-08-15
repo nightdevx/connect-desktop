@@ -383,72 +383,103 @@ export function SettingsProfile({
       </div>
 
       <div className="ct-settings-content">
-        <div className="ct-settings-profile-avatar-row">
-          <Avatar
-            size={80}
-            src={profileSettings.avatarUrl}
-            icon={!profileSettings.avatarUrl && <UserOutlined />}
-            className="ct-settings-profile-avatar"
-          >
-            {!profileSettings.avatarUrl && getInitials(profileSettings.displayName || currentUsername)}
-          </Avatar>
+        <div className="ct-settings-subsection">
+          <h5>Görünüm</h5>
 
-          <div className="ct-settings-profile-avatar-actions">
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={(event) => {
-                void handleAvatarSelect(event);
-              }}
-              hidden
-            />
+          <div className="ct-settings-profile-avatar-row">
+            <Avatar
+              size={80}
+              src={profileSettings.avatarUrl}
+              icon={!profileSettings.avatarUrl && <UserOutlined />}
+              className="ct-settings-profile-avatar"
+            >
+              {!profileSettings.avatarUrl &&
+                getInitials(profileSettings.displayName || currentUsername)}
+            </Avatar>
 
-            <div className="ct-settings-profile-avatar-buttons">
-              <Button
-                type="text"
-                icon={<UploadOutlined />}
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={isProfileLoading || isSavingProfile}
-              >
-                Logo Yükle
-              </Button>
+            <div className="ct-settings-profile-avatar-actions">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={(event) => {
+                  void handleAvatarSelect(event);
+                }}
+                hidden
+              />
 
-              {profileSettings.avatarUrl && (
+              <div className="ct-settings-profile-avatar-buttons">
                 <Button
-                  danger
                   type="text"
-                  icon={<DeleteOutlined />}
-                  onClick={handleAvatarClear}
+                  icon={<UploadOutlined />}
+                  onClick={() => avatarInputRef.current?.click()}
                   disabled={isProfileLoading || isSavingProfile}
                 >
-                  Logoyu Kaldır
+                  Logo Yükle
                 </Button>
-              )}
+
+                {profileSettings.avatarUrl && (
+                  <Button
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={handleAvatarClear}
+                    disabled={isProfileLoading || isSavingProfile}
+                  >
+                    Logoyu Kaldır
+                  </Button>
+                )}
+              </div>
+
+              <small>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
+            </div>
+          </div>
+
+          <div className="ct-settings-grid">
+            <div>
+              <label className="ct-field-label" htmlFor="settings-display-name">
+                Görünen Ad
+              </label>
+              <Input
+                id="settings-display-name"
+                value={profileSettings.displayName}
+                onChange={(event) =>
+                  setProfileSettings((previous) => ({
+                    ...previous,
+                    displayName: event.target.value,
+                  }))
+                }
+                maxLength={40}
+                disabled={isProfileLoading || isSavingProfile}
+              />
             </div>
 
-            <small>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
+            <div>
+              <label className="ct-field-label" htmlFor="settings-profile-bio">
+                Hakkımda
+              </label>
+              <Input.TextArea
+                id="settings-profile-bio"
+                value={profileSettings.bio}
+                onChange={(event) =>
+                  setProfileSettings((previous) => ({
+                    ...previous,
+                    bio: event.target.value,
+                  }))
+                }
+                maxLength={220}
+                rows={4}
+                disabled={isProfileLoading || isSavingProfile}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="ct-settings-grid">
-          <div>
-            <label className="ct-field-label" htmlFor="settings-display-name">
-              Görünen Ad
-            </label>
-            <Input
-              id="settings-display-name"
-              value={profileSettings.displayName}
-              onChange={(event) =>
-                setProfileSettings((previous) => ({
-                  ...previous,
-                  displayName: event.target.value,
-                }))
-              }
-              maxLength={40}
-              disabled={isProfileLoading || isSavingProfile}
-            />
-          </div>
+        {/* Its own block: the address, its verification state and the OTP
+            exchange are one flow, and inline in the name/bio grid the code
+            panel read as a third profile field. */}
+        <div className="ct-settings-subsection">
+          <h5>E-posta</h5>
 
           <div>
             <div>
@@ -457,18 +488,12 @@ export function SettingsProfile({
               </label>
               {profileSettings.email ? (
                 profileSettings.emailVerified ? (
-                  <span className="ct-status-chip ok">
-                    Doğrulanmış
-                  </span>
+                  <span className="ct-status-chip ok">Doğrulanmış</span>
                 ) : (
-                  <span className="ct-status-chip warn">
-                    Doğrulanmamış
-                  </span>
+                  <span className="ct-status-chip warn">Doğrulanmamış</span>
                 )
               ) : (
-                <span className="ct-status-chip danger">
-                  E-posta Yok
-                </span>
+                <span className="ct-status-chip danger">E-posta Yok</span>
               )}
             </div>
             <Input
@@ -483,107 +508,101 @@ export function SettingsProfile({
               placeholder="örnek@mail.com"
               disabled={isProfileLoading || isSavingProfile}
             />
-            
+
             {profileSettings.email && profileSettings.email !== savedEmail && (
               <div className="ct-inline-note">
                 E-posta adresini doğrulamak için önce profili kaydedin.
               </div>
             )}
 
-            {profileSettings.email && profileSettings.email === savedEmail && !profileSettings.emailVerified && (
-              <div className="ct-inset-panel">
-                <div className="ct-inset-panel-row">
-                  <span>
-                    E-posta adresinizi doğrulamak için bir doğrulama kodu gönderin.
-                  </span>
-                  {!verificationSent && (
-                    <Button
-                      type="primary"
-                      onClick={() => { void handleSendVerificationCode(); }}
-                      loading={isSendingCode}
-                    >
-                      Doğrulama Kodu Gönder
-                    </Button>
+            {profileSettings.email &&
+              profileSettings.email === savedEmail &&
+              !profileSettings.emailVerified && (
+                <div className="ct-inset-panel">
+                  <div className="ct-inset-panel-row">
+                    <span>
+                      E-posta adresinizi doğrulamak için bir doğrulama kodu
+                      gönderin.
+                    </span>
+                    {!verificationSent && (
+                      <Button
+                        type="primary"
+                        onClick={() => {
+                          void handleSendVerificationCode();
+                        }}
+                        loading={isSendingCode}
+                      >
+                        Doğrulama Kodu Gönder
+                      </Button>
+                    )}
+                  </div>
+
+                  {verificationSent && (
+                    <div className="ct-inset-panel-row">
+                      <Input
+                        placeholder="000000"
+                        value={verificationCode}
+                        onChange={(e) =>
+                          setVerificationCode(e.target.value.trim())
+                        }
+                        maxLength={6}
+                        className="ct-code-input"
+                      />
+                      <Button
+                        type="primary"
+                        onClick={() => {
+                          void handleVerifyEmailCode();
+                        }}
+                        loading={isVerifyingCode}
+                        disabled={verificationCode.length !== 6}
+                      >
+                        Doğrula
+                      </Button>
+                      <Button
+                        type="text"
+                        onClick={() => {
+                          void handleSendVerificationCode();
+                        }}
+                        loading={isSendingCode}
+                      >
+                        Yeniden Gönder
+                      </Button>
+                    </div>
                   )}
                 </div>
-
-                {verificationSent && (
-                  <div className="ct-inset-panel-row">
-                    <Input
-                      placeholder="000000"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.trim())}
-                      maxLength={6}
-                      className="ct-code-input"
-                    />
-                    <Button
-                      type="primary"
-                      onClick={() => { void handleVerifyEmailCode(); }}
-                      loading={isVerifyingCode}
-                      disabled={verificationCode.length !== 6}
-                    >
-                      Doğrula
-                    </Button>
-                    <Button
-                      type="text"
-                      onClick={() => { void handleSendVerificationCode(); }}
-                      loading={isSendingCode}
-                      
-                    >
-                      Yeniden Gönder
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="ct-field-label" htmlFor="settings-profile-bio">
-              Hakkımda
-            </label>
-            <Input.TextArea
-              id="settings-profile-bio"
-              value={profileSettings.bio}
-              onChange={(event) =>
-                setProfileSettings((previous) => ({
-                  ...previous,
-                  bio: event.target.value,
-                }))
-              }
-              maxLength={220}
-              rows={4}
-              disabled={isProfileLoading || isSavingProfile}
-            />
+              )}
           </div>
         </div>
 
-        <div className="ct-settings-info-grid">
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Kullanıcı Adı</span>
-            <strong className="ct-settings-info-value">
-              @{currentUsername}
-            </strong>
-          </div>
-          <div className="ct-settings-info-item">
-            <span className="ct-settings-info-label">Rol</span>
-            <strong className="ct-settings-info-value">Yönetici</strong>
-          </div>
-        </div>
+        <div className="ct-settings-subsection">
+          <h5>Hesap</h5>
 
-        <div className="ct-settings-actions">
+          <div className="ct-settings-info-grid">
+            <div className="ct-settings-info-item">
+              <span className="ct-settings-info-label">Kullanıcı Adı</span>
+              <strong className="ct-settings-info-value">
+                @{currentUsername}
+              </strong>
+            </div>
+            <div className="ct-settings-info-item">
+              <span className="ct-settings-info-label">Rol</span>
+              <strong className="ct-settings-info-value">Yönetici</strong>
+            </div>
+          </div>
+
           {onLogout && (
-            <Button
-              danger
-              type="primary"
-              icon={<LogoutOutlined />}
-              onClick={onLogout}
-              loading={isLoggingOut}
-              disabled={isLoggingOut}
-              
-            >
-              Hesaptan Çık
-            </Button>
+            <div className="ct-settings-actions">
+              <Button
+                danger
+                type="primary"
+                icon={<LogoutOutlined />}
+                onClick={onLogout}
+                loading={isLoggingOut}
+                disabled={isLoggingOut}
+              >
+                Hesaptan Çık
+              </Button>
+            </div>
           )}
         </div>
       </div>

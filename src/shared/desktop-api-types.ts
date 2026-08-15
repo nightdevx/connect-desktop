@@ -149,6 +149,20 @@ export interface ChatAttachmentUpload {
   dataBase64: string;
 }
 
+// One GIF, already normalised in the main process. This is the entire surface
+// the renderer sees of the GIF provider: no raw API payload, no host, and above
+// all no API key -- KLIPY carries the key in the URL path, so the renderer is
+// never given anything it could reconstruct it from.
+export interface GifItem {
+  id: string;
+  // Small variant for the picker grid.
+  previewUrl: string;
+  // Larger variant; this is the string that becomes the message body.
+  sendUrl: string;
+  // Alt text and tooltip.
+  description: string;
+}
+
 export type LobbyStreamEvent =
   | {
       type: "lobbies-snapshot";
@@ -358,6 +372,12 @@ export interface DesktopApi {
     DesktopResult<{ saved: boolean; path?: string }>
   >;
   getSession: () => Promise<DesktopResult<SessionSnapshot>>;
+  // Fires when main has established that the session is over and cannot be
+  // recovered — the refresh token was rejected, the account was banned, or it
+  // was deactivated. `reason` is the backend error code.
+  onSessionExpired: (
+    listener: (payload: { reason: string }) => void,
+  ) => () => void;
   getAuthProfile: () => Promise<
     DesktopResult<{ profile: UserSettingsProfile }>
   >;
@@ -585,6 +605,15 @@ export interface DesktopApi {
   sendDirectTyping: (payload: {
     peerUserId: string;
   }) => Promise<DesktopResult<{ sent: boolean }>>;
+  // Answers whether a KLIPY key is configured, so the renderer can decide
+  // whether to render the GIF button at all. It deliberately cannot read the
+  // key itself -- only whether one exists.
+  isGifPickerEnabled: () => Promise<DesktopResult<{ enabled: boolean }>>;
+  // An empty query returns what is trending. The fetch happens in main; the
+  // renderer never talks to the GIF provider directly.
+  searchGifs: (payload: {
+    query: string;
+  }) => Promise<DesktopResult<{ items: GifItem[] }>>;
   notify: (
     payload: DesktopNotificationRequest,
   ) => Promise<DesktopResult<{ shown: boolean }>>;

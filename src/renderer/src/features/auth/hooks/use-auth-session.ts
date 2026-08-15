@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { message } from "antd";
 import type { SessionSnapshot } from "../../../../../shared/desktop-api-types";
 import { authService } from "../services/service";
 import { useUiStore } from "../../../store/ui-store";
@@ -17,8 +18,54 @@ const emptySession: SessionSnapshot = {
   user: null,
 };
 
+// Why the session ended, in the user's terms. Main sends the backend's error
+// code; "refresh token is invalid or already used" is not something to show
+// anyone.
+const sessionEndedMessage = (reason: string): string => {
+  switch (reason) {
+    case "USER_BANNED":
+      return "Hesabınız yasaklandı. Sunucu yöneticisine ulaşın.";
+    case "ACCOUNT_DEACTIVATED":
+      return "Hesabınız kapatıldı. Giriş yaparak geri açabilirsiniz.";
+    default:
+      return "Oturumunuz sona erdi. Lütfen tekrar giriş yapın.";
+  }
+};
+
 export const useAuthSession = () => {
   const setStatus = useUiStore((state) => state.setStatus);
+  const queryClient = useQueryClient();
+
+  // Main tells us when the session is over for good. Nothing else can: the
+  // session query below runs on mount and then only re-runs while the backend
+  // looks unreachable, so an expiry discovered by some unrelated IPC call used
+  // to leave the workspace mounted and every request failing.
+  useEffect(() => {
+    return window.desktopApi.onSessionExpired(({ reason }) => {
+      // Main has already cleared the tokens and stopped the sockets, so this is
+      // an announcement, not a request — write the answer straight into the
+      // query instead of refetching it.
+      queryClient.setQueryData(["auth-session"], {
+        ok: true,
+        data: emptySession,
+      });
+
+      // Everything still cached belongs to the session that just ended; leaving
+      // it would show the previous user's lobbies and messages to whoever signs
+      // in next within the cache's lifetime.
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== "auth-session",
+      });
+
+      // Keyed: this hook is mounted more than once (App and the admin users
+      // page), so an unkeyed toast would stack one copy per mount.
+      void message.open({
+        type: "warning",
+        key: "session-expired",
+        content: sessionEndedMessage(reason),
+      });
+    });
+  }, [queryClient]);
 
   const appVersionQuery = useQuery({
     queryKey: ["app-version"],

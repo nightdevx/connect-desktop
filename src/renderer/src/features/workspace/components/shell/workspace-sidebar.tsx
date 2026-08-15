@@ -42,6 +42,8 @@ interface WorkspaceSidebarProps {
   usersProps: {
     conversations: OpenConversation[];
     onCloseConversation: (userId: string) => void;
+    /** Clears the selection without closing anything. */
+    onOpenHome: () => void;
     /** Friends + self: presence and status labels only, never names. */
     directoryUsers: UserDirectoryEntry[];
     selectedUserId: string | null;
@@ -385,6 +387,7 @@ export function WorkspaceSidebar({
           <UsersSidebarPanel
             conversations={usersProps.conversations}
             onCloseConversation={usersProps.onCloseConversation}
+            onOpenHome={usersProps.onOpenHome}
             directoryUsers={usersProps.directoryUsers}
             selectedUserId={usersProps.selectedUserId}
             onUserSelect={usersProps.onUserSelect}

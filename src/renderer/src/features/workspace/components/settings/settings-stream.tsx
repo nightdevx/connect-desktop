@@ -184,105 +184,124 @@ export function SettingsStream({
       </div>
 
       <div className="ct-settings-content">
-        <div className="ct-settings-form-group">
-          <div>
-            <label className="ct-field-label" htmlFor="settings-stream-fps">
-              Yayın Kare Hızı
-            </label>
-            <Select
-              id="settings-stream-fps"
-              value={draftStreamPreferences.frameRate}
-              onChange={(value) =>
-                handlePreferenceChange("frameRate", value)
-              }
-              options={[
-                { value: 15, label: "15 FPS" },
-                { value: 30, label: "30 FPS" },
-                { value: 60, label: "60 FPS" },
-              ]}
-              className="ct-block-control"
-            />
-          </div>
+        <div className="ct-settings-subsection">
+          <h5>Yayın Kalitesi</h5>
 
-          <div>
-            <label className="ct-field-label" htmlFor="settings-stream-codec">
-              Video Codec
-            </label>
-            <Select
-              id="settings-stream-codec"
-              value={draftStreamPreferences.videoCodec}
-              onChange={(value) => handlePreferenceChange("videoCodec", value)}
-              options={[
-                { value: "auto", label: "Otomatik (önerilen)" },
-                { value: "h264", label: "H.264 — en geniş donanım desteği" },
-                { value: "vp8", label: "VP8 — yazılım, en uyumlu" },
-                { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
-                { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
-              ]}
-              className="ct-block-control"
-            />
-            <span className="ct-field-hint">
-              Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8.
-              Değişiklik bir sonraki yayında geçerli olur.
-            </span>
-          </div>
-
-          <div className="ct-settings-switch-item">
-            <div className="ct-settings-switch-item-content">
-              <strong>Ekran paylaşımında sistem sesini dahil et</strong>
-              <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
+          <div className="ct-settings-form-group">
+            <div>
+              <label className="ct-field-label" htmlFor="settings-stream-fps">
+                Yayın Kare Hızı
+              </label>
+              <Select
+                id="settings-stream-fps"
+                value={draftStreamPreferences.frameRate}
+                onChange={(value) => handlePreferenceChange("frameRate", value)}
+                options={[
+                  { value: 15, label: "15 FPS" },
+                  { value: 30, label: "30 FPS" },
+                  { value: 60, label: "60 FPS" },
+                ]}
+                className="ct-block-control"
+              />
             </div>
-            <Switch
-              checked={draftStreamPreferences.captureSystemAudio}
-              onChange={(checked) =>
-                handlePreferenceChange("captureSystemAudio", checked)
-              }
-            />
+
+            <div>
+              <label className="ct-field-label" htmlFor="settings-stream-codec">
+                Video Codec
+              </label>
+              <Select
+                id="settings-stream-codec"
+                value={draftStreamPreferences.videoCodec}
+                onChange={(value) => handlePreferenceChange("videoCodec", value)}
+                options={[
+                  { value: "auto", label: "Otomatik (önerilen)" },
+                  { value: "h264", label: "H.264 — en geniş donanım desteği" },
+                  { value: "vp8", label: "VP8 — yazılım, en uyumlu" },
+                  { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
+                  { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
+                ]}
+                className="ct-block-control"
+              />
+              {/* The hardware-acceleration switch lives on another tab, so
+                  say where: the hint used to name it with no way to find it. */}
+              <span className="ct-field-hint">
+                Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8. Bu
+                anahtar Uygulama {">"} Genel {">"} Performans altındadır.
+                Değişiklik bir sonraki yayında geçerli olur.
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="ct-settings-actions">
-          <Button
-            type="text"
-            icon={streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => {
-              if (streamTestStream) {
-                stopStreamTest();
-                messageApi.info("Yayın testi durduruldu.");
-                return;
-              }
+        <div className="ct-settings-subsection">
+          <h5>Yayın Sesi</h5>
 
-              void handleStartStreamTest();
-            }}
-            loading={isStartingStreamTest}
-            disabled={isStartingStreamTest}
-            danger={Boolean(streamTestStream)}
-          >
-            {streamTestStream ? "Yayın Testini Durdur" : "Yayın Testini Başlat"}
-          </Button>
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Ekran paylaşımında sistem sesini dahil et</strong>
+                <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
+              </div>
+              <Switch
+                checked={draftStreamPreferences.captureSystemAudio}
+                onChange={(checked) =>
+                  handlePreferenceChange("captureSystemAudio", checked)
+                }
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="ct-media-preview">
-          {process.env.NODE_ENV === "development" && devStats && (
-            <div className="ct-media-preview-badge">
-              Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
-            </div>
-          )}
+        <div className="ct-settings-subsection">
+          <h5>Yayın Testi</h5>
 
-          {streamTestStream ? (
-            <video
-              ref={streamPreviewRef}
-              className="ct-settings-preview-video"
-              autoPlay
-              muted
-              playsInline
-              
-            />
-          ) : (
-            <p className="ct-media-preview-placeholder">
-              Yayın önizlemesi bu alanda görünecek.
-            </p>
-          )}
+          <div className="ct-settings-actions">
+            <Button
+              type="text"
+              icon={
+                streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
+              }
+              onClick={() => {
+                if (streamTestStream) {
+                  stopStreamTest();
+                  messageApi.info("Yayın testi durduruldu.");
+                  return;
+                }
+
+                void handleStartStreamTest();
+              }}
+              loading={isStartingStreamTest}
+              disabled={isStartingStreamTest}
+              danger={Boolean(streamTestStream)}
+            >
+              {streamTestStream
+                ? "Yayın Testini Durdur"
+                : "Yayın Testini Başlat"}
+            </Button>
+          </div>
+
+          <div className="ct-media-preview">
+            {process.env.NODE_ENV === "development" && devStats && (
+              <div className="ct-media-preview-badge">
+                Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps}{" "}
+                FPS
+              </div>
+            )}
+
+            {streamTestStream ? (
+              <video
+                ref={streamPreviewRef}
+                className="ct-settings-preview-video"
+                autoPlay
+                muted
+                playsInline
+              />
+            ) : (
+              <p className="ct-media-preview-placeholder">
+                Yayın önizlemesi bu alanda görünecek.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

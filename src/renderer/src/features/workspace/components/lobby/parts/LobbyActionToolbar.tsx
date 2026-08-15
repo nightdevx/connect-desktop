@@ -2,6 +2,7 @@ import { Button, Tooltip } from "antd";
 import {
   AudioOutlined,
   AudioMutedOutlined,
+  CloseOutlined,
   CustomerServiceOutlined,
   DesktopOutlined,
   VideoCameraOutlined,
@@ -9,6 +10,7 @@ import {
 } from "@ant-design/icons";
 
 import { AudioDeviceDropdown } from "../../common/AudioDeviceDropdown";
+import { StreamControlMenu } from "./StreamControlMenu";
 
 interface LobbyActionToolbarProps {
   micEnabled: boolean;
@@ -81,14 +83,31 @@ export function LobbyActionToolbar({
         </Tooltip>
       </AudioDeviceDropdown>
 
-      <Tooltip title={screenEnabled ? "Ekran Paylaşımını Durdur" : "Ekranı Paylaş"}>
-        <Button
-          size="large"
-          className={`ct-lobby-action-btn ${screenEnabled ? "active" : ""}`}
-          icon={<DesktopOutlined />}
-          onClick={onToggleScreen}
-        />
-      </Tooltip>
+      {/* While a share is live the single toggle splits in two: stopping it and
+          adjusting it were the same click, so there was no way to change
+          quality or screen without dropping the stream first. */}
+      {screenEnabled ? (
+        <div className="ct-stream-control-group">
+          <Tooltip title="Ekran Paylaşımını Durdur">
+            <Button
+              size="large"
+              className="ct-lobby-action-btn active ct-stream-stop-btn"
+              icon={<CloseOutlined />}
+              onClick={onToggleScreen}
+            />
+          </Tooltip>
+          <StreamControlMenu />
+        </div>
+      ) : (
+        <Tooltip title="Ekranı Paylaş">
+          <Button
+            size="large"
+            className="ct-lobby-action-btn"
+            icon={<DesktopOutlined />}
+            onClick={onToggleScreen}
+          />
+        </Tooltip>
+      )}
 
       <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
         <Button

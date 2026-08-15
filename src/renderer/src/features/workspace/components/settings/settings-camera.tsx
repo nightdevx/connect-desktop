@@ -290,94 +290,105 @@ export function SettingsCamera({
       </div>
 
       <div className="ct-settings-content">
-        <div className="ct-settings-two-col">
-          <div>
-            <label className="ct-field-label" htmlFor="settings-camera-resolution">
-              Kamera Çözünürlüğü
-            </label>
-            <Select
-              id="settings-camera-resolution"
-              value={draftCameraPreferences.resolution}
-              onChange={(value) =>
-                handlePreferenceChange("resolution", value)
-              }
-              options={[
-                { value: "720p", label: "1280 x 720 (HD)" },
-                ...(capabilities
-                  ? (capabilities.resolutions.includes("1080p")
-                      ? [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]
-                      : [])
-                  : [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]),
-              ]}
-              className="ct-block-control"
-            />
-          </div>
+        <div className="ct-settings-subsection">
+          <h5>Görüntü Kalitesi</h5>
 
-          <div>
-            <label className="ct-field-label" htmlFor="settings-camera-fps">
-              Kamera Kare Hızı
-            </label>
-            <Select
-              id="settings-camera-fps"
-              value={draftCameraPreferences.frameRate}
-              onChange={(value) =>
-                handlePreferenceChange("frameRate", value)
-              }
-              options={[
-                { value: 24, label: "24 FPS" },
-                ...(capabilities
-                  ? (capabilities.fpsOptions.includes(30)
-                      ? [{ value: 30, label: "30 FPS" }]
-                      : [])
-                  : [{ value: 30, label: "30 FPS" }]),
-              ]}
-              className="ct-block-control"
-            />
-          </div>
-        </div>
-
-        <div className="ct-settings-actions">
-          <Button
-            type="text"
-            icon={cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => {
-              if (cameraTestStream) {
-                stopCameraTest();
-                messageApi.info("Kamera testi durduruldu.");
-                return;
-              }
-
-              void handleStartCameraTest();
-            }}
-            loading={isStartingCameraTest}
-            disabled={isStartingCameraTest}
-            danger={Boolean(cameraTestStream)}
-          >
-            {cameraTestStream ? "Kamera Testini Durdur" : "Kamera Testini Başlat"}
-          </Button>
-        </div>
-
-        <div className="ct-media-preview">
-          {process.env.NODE_ENV === "development" && devStats && (
-            <div className="ct-media-preview-badge">
-              Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps} FPS
+          <div className="ct-settings-two-col">
+            <div>
+              <label
+                className="ct-field-label"
+                htmlFor="settings-camera-resolution"
+              >
+                Kamera Çözünürlüğü
+              </label>
+              <Select
+                id="settings-camera-resolution"
+                value={draftCameraPreferences.resolution}
+                onChange={(value) => handlePreferenceChange("resolution", value)}
+                options={[
+                  { value: "720p", label: "1280 x 720 (HD)" },
+                  ...(capabilities
+                    ? (capabilities.resolutions.includes("1080p")
+                        ? [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]
+                        : [])
+                    : [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]),
+                ]}
+                className="ct-block-control"
+              />
             </div>
-          )}
 
-          {cameraTestStream ? (
-            <video
-              ref={cameraPreviewRef}
-              className="ct-settings-preview-video"
-              autoPlay
-              muted
-              playsInline
-              
-            />
-          ) : (
-            <p className="ct-media-preview-placeholder">
-              Önizleme bu alanda görünecek.
-            </p>
-          )}
+            <div>
+              <label className="ct-field-label" htmlFor="settings-camera-fps">
+                Kamera Kare Hızı
+              </label>
+              <Select
+                id="settings-camera-fps"
+                value={draftCameraPreferences.frameRate}
+                onChange={(value) => handlePreferenceChange("frameRate", value)}
+                options={[
+                  { value: 24, label: "24 FPS" },
+                  ...(capabilities
+                    ? (capabilities.fpsOptions.includes(30)
+                        ? [{ value: 30, label: "30 FPS" }]
+                        : [])
+                    : [{ value: 30, label: "30 FPS" }]),
+                ]}
+                className="ct-block-control"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="ct-settings-subsection">
+          <h5>Kamera Testi</h5>
+
+          <div className="ct-settings-actions">
+            <Button
+              type="text"
+              icon={
+                cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
+              }
+              onClick={() => {
+                if (cameraTestStream) {
+                  stopCameraTest();
+                  messageApi.info("Kamera testi durduruldu.");
+                  return;
+                }
+
+                void handleStartCameraTest();
+              }}
+              loading={isStartingCameraTest}
+              disabled={isStartingCameraTest}
+              danger={Boolean(cameraTestStream)}
+            >
+              {cameraTestStream
+                ? "Kamera Testini Durdur"
+                : "Kamera Testini Başlat"}
+            </Button>
+          </div>
+
+          <div className="ct-media-preview">
+            {process.env.NODE_ENV === "development" && devStats && (
+              <div className="ct-media-preview-badge">
+                Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps}{" "}
+                FPS
+              </div>
+            )}
+
+            {cameraTestStream ? (
+              <video
+                ref={cameraPreviewRef}
+                className="ct-settings-preview-video"
+                autoPlay
+                muted
+                playsInline
+              />
+            ) : (
+              <p className="ct-media-preview-placeholder">
+                Önizleme bu alanda görünecek.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

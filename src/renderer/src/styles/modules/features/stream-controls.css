@@ -1,0 +1,44 @@
+/* Stop + settings pair for a live screen share. The two read as one control:
+   a shared outline, no gap between them, and only the seam separating them —
+   otherwise a toolbar of evenly spaced round buttons suddenly grows a stray
+   sixth one and it is not obvious the chevron belongs to the share. */
+.ct-stream-control-group {
+  @apply inline-flex items-stretch;
+}
+
+.ct-stream-control-group .ct-stream-stop-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ct-stream-menu-btn {
+  @apply inline-flex h-control-lg cursor-pointer items-center justify-center border border-l-0 p-0;
+  width: 22px;
+  border-color: var(--ct-accent);
+  border-top-right-radius: var(--ct-radius-md);
+  border-bottom-right-radius: var(--ct-radius-md);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  font-size: var(--ct-icon-sm);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-stream-menu-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.ct-stream-menu-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.ct-stream-menu-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Placeholder in antd's per-item icon slot, so unchecked rows line up with the
+   checked one instead of shifting left. */
+.ct-stream-menu-check {
+  @apply inline-block;
+  width: 1em;
+}

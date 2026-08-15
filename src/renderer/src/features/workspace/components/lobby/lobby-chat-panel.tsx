@@ -1,5 +1,6 @@
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useMemo, useState, useRef, useEffect } from "react";
 import { Input, Button, Tooltip, Spin, Alert } from "antd";
+import type { InputRef } from "antd";
 import {
   SendOutlined,
   DeleteOutlined,
@@ -10,19 +11,26 @@ import {
 } from "@ant-design/icons";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage } from "@shared/auth-contracts";
-import type { DesktopResult } from "@shared/desktop-api-types";
+import type {
+  DesktopResult,
+  LobbyStateMember,
+} from "@shared/desktop-api-types";
 import { ConfirmActionModal } from "../common";
 import {
   ChatAttachButton,
   ChatComposerEmojiButton,
   ChatAttachmentView,
+  ChatMessageBody,
   ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
   formatAttachmentSize,
 } from "../common/chat-message-parts";
+import { ChatGifButton } from "../common/gif-picker";
 import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import { formatTimeLabel, getApiErrorMessage } from "../../workspace-utils";
+import { renderWithMentions, type MentionCandidate } from "../../mentions";
+import { MentionPicker, useMentionPicker } from "../common/mention-picker";
 
 interface LobbyChatMessageRowProps {
   message: ChatMessage;
@@ -30,6 +38,8 @@ interface LobbyChatMessageRowProps {
   isDeleting: boolean;
   deleteDisabled: boolean;
   currentUserId: string;
+  // Decides which @name in the body is highlighted as aimed at you.
+  currentUsername: string;
   onRequestDelete: (messageId: string) => void;
   onReply: (message: ChatMessage) => void;
   onEdit: (messageId: string, body: string) => void;
@@ -48,6 +58,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
   isDeleting,
   deleteDisabled,
   currentUserId,
+  currentUsername,
   onRequestDelete,
   onReply,
   onEdit,
@@ -93,7 +104,9 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
           />
         ) : (
           message.body && (
-            <p >{message.body}</p>
+            <ChatMessageBody body={message.body}>
+              {renderWithMentions(message.body, currentUsername)}
+            </ChatMessageBody>
           )
         )}
 
@@ -177,6 +190,11 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
 
 interface LobbyChatPanelProps {
   currentUserId: string;
+  currentUsername: string;
+  // Voice roster. Unioned with the authors of the loaded messages, because a
+  // text-only room has no roster at all -- nobody is "connected" to one -- and
+  // in a voice lobby someone can be listening without having said anything.
+  lobbyMembers?: LobbyStateMember[];
   lobbyMessagesQuery: UseQueryResult<
     DesktopResult<{ messages: ChatMessage[] }>,
     Error
@@ -184,7 +202,9 @@ interface LobbyChatPanelProps {
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
   setLobbyMessageDraft: (value: string) => void;
-  onSendLobbyMessage: () => void;
+  // Sends the draft. With a body it sends that instead and leaves the draft
+  // alone -- see the GIF button below for why that override has to exist.
+  onSendLobbyMessage: (bodyOverride?: string) => void;
   onDeleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
@@ -203,6 +223,8 @@ interface LobbyChatPanelProps {
 
 export function LobbyChatPanel({
   currentUserId,
+  currentUsername,
+  lobbyMembers = [],
   lobbyMessagesQuery,
   lobbyMessages,
   lobbyMessageDraft,
@@ -226,8 +248,45 @@ export function LobbyChatPanel({
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<
     string | null
   >(null);
-  
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<InputRef>(null);
+
+  // Who can be named here: the voice roster plus everyone who has posted. The
+  // roster alone is wrong for a text-only room, which nobody connects to, and
+  // the authors alone miss the people sitting in voice saying nothing.
+  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
+    const byUserId = new Map<string, MentionCandidate>();
+
+    for (const member of lobbyMembers) {
+      if (member.userId !== currentUserId && member.username) {
+        byUserId.set(member.userId, {
+          userId: member.userId,
+          username: member.username,
+        });
+      }
+    }
+
+    for (const message of lobbyMessages) {
+      if (message.userId !== currentUserId && message.username) {
+        byUserId.set(message.userId, {
+          userId: message.userId,
+          username: message.username,
+        });
+      }
+    }
+
+    return [...byUserId.values()].sort((a, b) =>
+      a.username.localeCompare(b.username, "tr"),
+    );
+  }, [currentUserId, lobbyMembers, lobbyMessages]);
+
+  const mentionPicker = useMentionPicker({
+    draft: lobbyMessageDraft,
+    onDraftChange: setLobbyMessageDraft,
+    candidates: mentionCandidates,
+    inputRef: composerInputRef,
+  });
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -340,6 +399,7 @@ export function LobbyChatPanel({
                   isDeleting={false}
                   deleteDisabled
                   currentUserId={currentUserId}
+                  currentUsername={currentUsername}
                   onRequestDelete={setPendingDeleteMessageId}
                   onReply={(message) => onSetReplyTo?.(message)}
                   onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
@@ -361,6 +421,7 @@ export function LobbyChatPanel({
                   isDeleting={deletingLobbyMessageId === message.id}
                   deleteDisabled={Boolean(deletingLobbyMessageId)}
                   currentUserId={currentUserId}
+                  currentUsername={currentUsername}
                   onRequestDelete={setPendingDeleteMessageId}
                   onReply={(message) => onSetReplyTo?.(message)}
                   onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
@@ -382,7 +443,14 @@ export function LobbyChatPanel({
           </button>
         </div>
 
-        <div className="ct-chat-composer" >
+        <div className="ct-chat-composer ct-mention-anchor">
+          <MentionPicker
+            isOpen={mentionPicker.isOpen}
+            matches={mentionPicker.matches}
+            activeIndex={mentionPicker.activeIndex}
+            onHover={mentionPicker.setActiveIndex}
+            onChoose={mentionPicker.choose}
+          />
           {replyTo && (
             <div
               className="ct-composer-chip"
@@ -431,6 +499,14 @@ export function LobbyChatPanel({
               disabled={isSendingLobbyMessage}
               onPick={(emoji) => setLobbyMessageDraft(lobbyMessageDraft + emoji)}
             />
+            {/* The GIF goes out as its own message. It used to be written into
+                the draft and sent a render later, which silently destroyed
+                whatever the user had typed: "şuna bak" + pick a GIF = "şuna
+                bak" gone, with no undo. */}
+            <ChatGifButton
+              disabled={isSendingLobbyMessage}
+              onPick={(url) => onSendLobbyMessage(url)}
+            />
             <ChatAttachButton
               disabled={isSendingLobbyMessage}
               onSelect={(upload, file) =>
@@ -442,14 +518,27 @@ export function LobbyChatPanel({
               }
             />
             <Input
+              ref={composerInputRef}
               placeholder={
                 pendingAttachment
                   ? "Açıklama (isteğe bağlı)…"
                   : "Lobiye mesaj yaz..."
               }
               value={lobbyMessageDraft}
-              onChange={(event) => setLobbyMessageDraft(event.target.value)}
+              onChange={(event) => {
+                setLobbyMessageDraft(event.target.value);
+                mentionPicker.syncCaret();
+              }}
+              onSelect={mentionPicker.syncCaret}
+              onBlur={mentionPicker.close}
+              onKeyDown={(event) => {
+                mentionPicker.handleKeyDown(event);
+              }}
               onPressEnter={(event) => {
+                // The list is open: Enter is picking a name, not sending.
+                if (mentionPicker.isOpen) {
+                  return;
+                }
                 if (
                   !event.shiftKey &&
                   (lobbyMessageDraft.trim() || pendingAttachment)
@@ -463,7 +552,10 @@ export function LobbyChatPanel({
                 <Button
                   type="text"
                   icon={<SendOutlined  />}
-                  onClick={onSendLobbyMessage}
+                  // Wrapped, not passed directly: onClick hands the handler a
+                  // MouseEvent, which would arrive as the body override and be
+                  // sent as the message.
+                  onClick={() => onSendLobbyMessage()}
                   loading={isSendingLobbyMessage}
                   disabled={
                     isSendingLobbyMessage ||

@@ -254,6 +254,14 @@ export const appPreferencesSchema = z.object({
   pushToTalkKey: z.string().max(24).optional(),
 });
 
+// The query is user input that ends up in a URL the main process builds, so it
+// is bounded here at the trust boundary. Empty is legal and means "trending".
+// 100 characters is far past any real GIF search and short enough that the
+// request line stays sane.
+export const gifSearchSchema = z.object({
+  query: z.string().max(100).optional(),
+}).optional().default({});
+
 export const notifySchema = z.object({
   kind: z.enum(["direct-message", "incoming-call"]),
   // Rendered straight into an OS toast, so keep it to a sane length.

@@ -86,3 +86,25 @@ export const backendConfig = {
 };
 
 export const backendBaseUrl = backendConfig.url;
+
+// The KLIPY key for the composer's GIF button. Read here, in main, and never
+// exported past this process: KLIPY carries the key as a URL PATH SEGMENT, so
+// any renderer-side fetch would hand it to @sentry/electron's Breadcrumbs
+// integration, which records fetch URLs verbatim and attaches them to
+// unrelated error reports.
+//
+// Optional by design. No key means klipyApiKey is null, the GIF button is
+// never rendered, and the composer looks exactly as it did before GIFs
+// existed -- no half-working panel, no error toast.
+//
+// The charset is enforced rather than trusted because the key is interpolated
+// into a URL path: a value containing "/" or "?" from a stray .env would
+// otherwise rewrite the endpoint being called.
+const sanitizeKlipyApiKey = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  return /^[A-Za-z0-9_-]{8,128}$/.test(trimmed) ? trimmed : null;
+};
+
+export const klipyApiKey = sanitizeKlipyApiKey(process.env.CT_KLIPY_API_KEY ?? "");
+
+export const isKlipyConfigured = klipyApiKey !== null;

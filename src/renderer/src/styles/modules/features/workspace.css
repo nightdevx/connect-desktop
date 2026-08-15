@@ -381,3 +381,52 @@
 .ct-list-item-actions {
   @apply flex shrink-0 items-center gap-0.5;
 }
+
+/* --------------------------------------------------------------------------
+   Conversation row: close on hover, and the way back to the friends home
+   -------------------------------------------------------------------------- */
+
+/* Hidden rather than removed, so the row's width does not jump on hover and
+   push the unread badge sideways. Kept reachable by keyboard: :focus-visible
+   brings it back for someone who never hovers anything. */
+.ct-list-item-close {
+  @apply grid h-5 w-5 shrink-0 place-items-center rounded border-0 bg-transparent p-0;
+  color: var(--ct-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.ct-list-item:hover .ct-list-item-close,
+.ct-list-item-close:focus-visible {
+  opacity: 1;
+}
+
+.ct-list-item-close:hover {
+  background: var(--ct-surface-raised);
+  color: var(--ct-text-primary);
+}
+
+.ct-list-home {
+  @apply mb-1 flex w-full items-center gap-2 rounded-lg border-0 text-left text-sm font-semibold;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--ct-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.ct-list-home:hover {
+  background: var(--ct-surface-raised);
+  color: var(--ct-text-primary);
+}
+
+.ct-list-home.active {
+  background: var(--ct-surface-raised);
+  color: var(--ct-text-primary);
+}

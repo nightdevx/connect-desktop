@@ -41,6 +41,7 @@ import {
   buildVideoPublishPlan,
   resolveVideoCodec,
   type VideoContentMode,
+  type VideoPublishPlan,
   type VideoPublishPreferences,
   type VideoPublishTarget,
 } from "./video-profiles";
@@ -534,7 +535,20 @@ export class LiveKitStreamManager {
     this.desiredCameraEnabled = enabled;
     this.desiredCameraStream = stream;
     if (quality) this.desiredCameraQuality = quality;
-    await this.applyCameraState();
+    try {
+      await this.applyCameraState();
+    } catch (error) {
+      // Same trap as replaceScreenStreamInternal, one level up: these fields
+      // have to be written before applyCameraState because they are its input,
+      // so a publish that rejects leaves them describing a capture the caller
+      // is about to stop. restorePublishingState would then republish an ended
+      // track. Only roll back if nothing newer has claimed the slot.
+      if (enabled && this.desiredCameraStream === stream) {
+        this.desiredCameraEnabled = false;
+        this.desiredCameraStream = null;
+      }
+      throw error;
+    }
   }
 
   public async setScreenEnabled(
@@ -547,7 +561,18 @@ export class LiveKitStreamManager {
     this.desiredScreenStream = stream;
     this.desiredScreenMode = mode;
     if (quality) this.desiredScreenQuality = quality;
-    await this.applyScreenState();
+    try {
+      await this.applyScreenState();
+    } catch (error) {
+      // A failed publish is not a share: the caller stops the capture in its
+      // catch, and leaving desiredScreenEnabled true with a stream whose tracks
+      // are ended made the next reconnect republish a dead track.
+      if (enabled && this.desiredScreenStream === stream) {
+        this.desiredScreenEnabled = false;
+        this.desiredScreenStream = null;
+      }
+      throw error;
+    }
   }
 
   public async setMicrophoneEnabled(enabled: boolean): Promise<void> {
@@ -899,6 +924,122 @@ export class LiveKitStreamManager {
 
   private applyScreenState(): Promise<void> {
     return this.enqueueVideo(() => this.applyScreenStateInternal());
+  }
+
+  /**
+   * Re-applies an encoding ladder to a sender that is already live.
+   *
+   * Publish options are read once, when the track is published, so changing the
+   * quality of a running share used to mean republishing it — which every
+   * viewer sees as the stream going black while the SFU hands out a new track.
+   * The plan's layers are ordered lowest-first with the primary encoding last
+   * (the convention `describeEncodingMismatch` reads), so they line up with the
+   * sender's encodings from the end, whatever subset the browser kept.
+   */
+  private async applyLiveVideoEncodings(
+    publication: LocalTrackPublication,
+    plan: VideoPublishPlan,
+    label: string,
+  ): Promise<void> {
+    const sender = publication.track?.sender;
+    if (!sender) {
+      return;
+    }
+
+    const ladder = [
+      ...(plan.screenShareSimulcastLayers ?? []).map((preset) => preset.encoding),
+      plan.screenShareEncoding ?? plan.videoEncoding,
+    ];
+
+    try {
+      const parameters = sender.getParameters();
+      const encodings = parameters.encodings ?? [];
+      const offset = ladder.length - encodings.length;
+
+      encodings.forEach((encoding, index) => {
+        const spec = ladder[offset + index];
+        if (!spec) {
+          return;
+        }
+        encoding.maxBitrate = spec.maxBitrate;
+        encoding.maxFramerate = spec.maxFramerate;
+      });
+
+      await sender.setParameters(parameters);
+    } catch (error) {
+      console.warn(
+        `[LiveKitStreamManager] ${label} live encoding update failed:`,
+        error,
+      );
+    }
+  }
+
+  private async replaceScreenStreamInternal(
+    stream: MediaStream,
+    mode: ScreenShareMode,
+    quality: VideoPublishQuality | null,
+  ): Promise<boolean> {
+    const participant = this.room?.localParticipant;
+    const publication = participant?.getTrackPublication(
+      Track.Source.ScreenShare,
+    );
+    const publishedTrack = publication?.track;
+    const nextTrack = stream.getVideoTracks()[0];
+
+    // desiredScreenEnabled is cleared synchronously by unpublishScreen, while
+    // the unpublish itself is queued behind us on the video queue. Without this
+    // check a swap that was already running when the user hit stop would happily
+    // replace the track on a sender that is about to be torn down, and report
+    // success for a share nobody is meant to be broadcasting any more.
+    if (!this.desiredScreenEnabled || !publication || !publishedTrack || !nextTrack) {
+      return false;
+    }
+
+    const contentMode: VideoContentMode = mode === "motion" ? "motion" : "detail";
+    try {
+      nextTrack.contentHint = contentMode;
+    } catch {
+      // no-op
+    }
+
+    // userProvidedTrack: the capture is owned by the caller, which stops the
+    // outgoing track itself once the swap has landed.
+    await publishedTrack.replaceTrack(nextTrack, true);
+
+    // The desired* fields are what restorePublishingState republishes from, so
+    // they have to describe the new capture — otherwise a reconnect a second
+    // later silently puts the old screen back.
+    //
+    // Written only after the replace resolved: when it rejects (sender torn
+    // down mid-reconnect) the caller stops the new capture and keeps sharing
+    // the old one, and these fields used to already point at the stream whose
+    // only video track was just stopped. The next blip republished that ended
+    // track and viewers got a permanently black tile.
+    this.desiredScreenStream = stream;
+    this.desiredScreenMode = mode;
+    if (quality) this.desiredScreenQuality = quality;
+
+    const target = this.resolveScreenTarget(nextTrack);
+    const plan = buildVideoPublishPlan({
+      target,
+      codec: this.resolvedVideoCodec,
+      contentMode,
+      isScreenShare: true,
+    });
+
+    await this.applyLiveVideoEncodings(publication, plan, "screen");
+
+    logLiveKitDebug("stream-manager", "replace-screen", {
+      mode,
+      contentHint: nextTrack.contentHint,
+      ...target,
+      codec: plan.videoCodec,
+      layers: plan.screenShareSimulcastLayers?.length ?? 0,
+    });
+
+    this.verifyPublishedEncodings("screen-replace", publication, target);
+
+    return true;
   }
 
   private async applyCameraStateInternal(): Promise<void> {
@@ -1268,6 +1409,27 @@ export class LiveKitStreamManager {
     quality: VideoPublishQuality | null = null,
   ): Promise<void> {
     await this.setScreenEnabled(true, stream, mode, quality);
+  }
+
+  /**
+   * Swaps the live screen share's video track in place — a different monitor, a
+   * different resolution, a different framerate — without unpublishing.
+   * The sender and the track SID survive, so viewers see no gap.
+   *
+   * Returns false when there is nothing to replace — no publication, or the
+   * share has already been stopped. Callers must treat that as "abandon the
+   * swap and stop the capture you just took", NOT as "publish it instead":
+   * falling back to a publish here is how a share the user had stopped ended up
+   * live on the SFU again with the UI insisting it was off.
+   */
+  public replaceScreenStream(
+    stream: MediaStream,
+    mode: ScreenShareMode = "slides",
+    quality: VideoPublishQuality | null = null,
+  ): Promise<boolean> {
+    return this.enqueueVideo(() =>
+      this.replaceScreenStreamInternal(stream, mode, quality),
+    );
   }
 
   public async refreshMicrophoneProcessing(): Promise<void> {

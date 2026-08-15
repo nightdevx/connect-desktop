@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Popover, Tooltip, message as antdMessage } from "antd";
 import {
   DownloadOutlined,
@@ -6,18 +6,21 @@ import {
   PaperClipOutlined,
   SmileOutlined,
 } from "@ant-design/icons";
+import EmojiPicker, {
+  Categories,
+  EmojiStyle,
+  SuggestionMode,
+  Theme,
+  type CategoryConfig,
+} from "emoji-picker-react";
 import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
+import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
 import chatService from "../../services/chat-service";
 
 // Shared message furniture for both conversation surfaces (direct messages and
 // lobby chat). They render the same message shape, so the reply quote,
 // attachment and reaction bar live here rather than being written twice.
-
-// The picker offers a small fixed set instead of a full emoji keyboard: a
-// picker is a component with its own search, virtualised grid and skin-tone
-// state, and nobody has asked for one.
-export const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "😮", "😢"] as const;
 
 // Matches the backend's maxAttachmentBytes. Checked here too so a 40 MB video
 // fails instantly instead of after a 60-second upload.
@@ -68,6 +71,68 @@ export function ChatReplyQuote({ replyTo }: ChatReplyQuoteProps): JSX.Element {
       )}
     </div>
   );
+}
+
+// A message whose entire body is an image URL renders as the image. That is how
+// a GIF arrives: the send endpoint takes a body string and nothing else, so the
+// picker posts the URL and the bubble turns it back into a picture here.
+//
+// Anchored at both ends on purpose. Only http/https ever matches, so a body of
+// "data:image/svg+xml,<script>…" or a file:// path stays inert text, and a URL
+// with words around it is a link the user typed, not a GIF they sent.
+const BARE_IMAGE_URL_PATTERN =
+  /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?\S*)?$/i;
+
+export const bareImageUrl = (body: string): string | null => {
+  const trimmed = body.trim();
+  return BARE_IMAGE_URL_PATTERN.test(trimmed) ? trimmed : null;
+};
+
+// Looking like an image is not enough to be FETCHED like one.
+//
+// Rendering any bare image URL as an <img> made every message an IP harvester:
+// the renderer issues an unattended GET to an attacker-chosen host the moment
+// the message scrolls into view, so a stranger posting "https://attacker.tld/
+// t.png" into a lobby collects every viewer's public IP, User-Agent and exact
+// read time with no interaction at all -- and can answer with 50 MB to burn
+// their bandwidth. Only the GIF provider's own CDN is auto-loaded now; see
+// GIF_CDN_DOMAIN in src/shared/gif-hosts.ts and the CSP that backs it.
+//
+// This also fixes the auth-protected case: an intranet image URL used to render
+// as an empty broken-image box with the address readable only in alt/title.
+// As text it is selectable and copyable again, exactly as before GIFs existed.
+const autoLoadableImageUrl = (body: string): string | null => {
+  const candidate = bareImageUrl(body);
+  return candidate && isAutoLoadableImageUrl(candidate) ? candidate : null;
+};
+
+interface ChatMessageBodyProps {
+  body: string;
+  // The direct-message surface highlights @mentions in the same text; it hands
+  // the decorated nodes in, and they are used for everything that is not an
+  // image URL.
+  children?: ReactNode;
+}
+
+export function ChatMessageBody({
+  body,
+  children,
+}: ChatMessageBodyProps): JSX.Element {
+  const imageUrl = autoLoadableImageUrl(body);
+
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={body}
+        title={body}
+        loading="lazy"
+        className="ct-chat-inline-image"
+      />
+    );
+  }
+
+  return <p>{children ?? body}</p>;
 }
 
 interface ChatAttachmentViewProps {
@@ -225,27 +290,48 @@ export function ChatReactionBar({
   );
 }
 
-interface EmojiGridProps {
-  emojis: readonly string[];
+// The library ships English category labels and every other string in this app
+// is Turkish, so the list is spelled out rather than defaulted.
+const EMOJI_CATEGORIES: CategoryConfig[] = [
+  { category: Categories.SUGGESTED, name: "Son kullanılanlar" },
+  { category: Categories.SMILEYS_PEOPLE, name: "İfadeler ve insanlar" },
+  { category: Categories.ANIMALS_NATURE, name: "Hayvanlar ve doğa" },
+  { category: Categories.FOOD_DRINK, name: "Yiyecek ve içecek" },
+  { category: Categories.TRAVEL_PLACES, name: "Seyahat ve mekanlar" },
+  { category: Categories.ACTIVITIES, name: "Etkinlikler" },
+  { category: Categories.OBJECTS, name: "Nesneler" },
+  { category: Categories.SYMBOLS, name: "Semboller" },
+  { category: Categories.FLAGS, name: "Bayraklar" },
+];
+
+interface EmojiKeyboardProps {
   onPick: (emoji: string) => void;
-  labelFor: (emoji: string) => string;
 }
 
-function EmojiGrid({ emojis, onPick, labelFor }: EmojiGridProps): JSX.Element {
+// One keyboard behind both buttons -- reactions and the composer pick from the
+// same set, the same search and the same recents list.
+//
+// EmojiStyle.NATIVE draws with the platform emoji font rather than pulling a
+// sprite sheet off a CDN: nothing to download when the popover opens, it works
+// offline, and the grid matches exactly what a sent message renders as.
+// The size is fixed and the grid scrolls inside it, so the popover cannot grow
+// to the ~1900 emoji it now offers.
+function EmojiKeyboard({ onPick }: EmojiKeyboardProps): JSX.Element {
   return (
-    <div className="ct-emoji-grid">
-      {emojis.map((emoji) => (
-        <button
-          key={emoji}
-          type="button"
-          className="ct-emoji-cell"
-          onClick={() => onPick(emoji)}
-          aria-label={labelFor(emoji)}
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
+    <EmojiPicker
+      className="ct-emoji-picker"
+      onEmojiClick={(data) => onPick(data.emoji)}
+      theme={Theme.DARK}
+      emojiStyle={EmojiStyle.NATIVE}
+      categories={EMOJI_CATEGORIES}
+      suggestedEmojisMode={SuggestionMode.RECENT}
+      searchPlaceHolder="Emoji ara…"
+      searchClearButtonLabel="Temizle"
+      previewConfig={{ showPreview: false }}
+      lazyLoadEmojis
+      width={320}
+      height={380}
+    />
   );
 }
 
@@ -269,9 +355,7 @@ export function ChatReactionButton({
       placement="top"
       rootClassName="ct-emoji-popover"
       content={
-        <EmojiGrid
-          emojis={QUICK_REACTIONS}
-          labelFor={(e) => `${e} tepkisi ekle`}
+        <EmojiKeyboard
           onPick={(emoji) => {
             onPick(emoji);
             setOpen(false);
@@ -293,15 +377,6 @@ export function ChatReactionButton({
   );
 }
 
-// A wider set for writing, still a fixed list. A real picker means search, a
-// virtualised grid and skin-tone state; nobody has asked for one.
-export const COMPOSER_EMOJIS = [
-  "😀", "😁", "😂", "🤣", "😊", "😉", "😍", "😘",
-  "🤔", "😐", "😴", "😢", "😭", "😡", "🥳", "😎",
-  "👍", "👎", "👌", "🙏", "👏", "💪", "🤝", "🫡",
-  "❤️", "🔥", "✨", "🎉", "💯", "👀", "🚀", "☕",
-] as const;
-
 interface ChatComposerEmojiButtonProps {
   onPick: (emoji: string) => void;
   disabled?: boolean;
@@ -321,9 +396,7 @@ export function ChatComposerEmojiButton({
       placement="topLeft"
       rootClassName="ct-emoji-popover"
       content={
-        <EmojiGrid
-          emojis={COMPOSER_EMOJIS}
-          labelFor={(e) => `${e} ekle`}
+        <EmojiKeyboard
           onPick={(emoji) => {
             onPick(emoji);
             setOpen(false);

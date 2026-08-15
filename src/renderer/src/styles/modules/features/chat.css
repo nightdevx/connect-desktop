@@ -395,35 +395,114 @@
     cursor: not-allowed;
   }
 
-  /* Emoji sets, shared by the reaction button and the composer. */
+  /* --- Emoji rendering ---------------------------------------------------
+     Reported as "emojiler düzgün gözükmüyor". Not a size or a clipping bug:
+     --ct-font-sans (base.css) ends in "Segoe UI", sans-serif and names no emoji
+     font. Windows keeps its colour emoji in Segoe UI Emoji, a separate file,
+     while plain Segoe UI carries MONOCHROME outlines for a handful of the same
+     codepoints -- ❤ ✨ ☕ ⚡ ▶ among them. Chromium takes the first font in the
+     stack that has the glyph, so those emoji were drawn as flat black shapes
+     while 😀 (in no text font) fell back to colour and looked fine.
+     Naming the emoji fonts BEFORE "Segoe UI" is the whole fix; appended after
+     it, Segoe UI still wins and nothing changes.
+
+     Applied to the surfaces that carry emoji rather than to :root, because
+     base.css owns the token. See the NEEDS note: the same insert belongs in
+     --ct-font-sans so it also covers usernames and lobby names. */
+  .ct-chat-bubble p,
+  .ct-chat-reply-quote,
+  .ct-chat-reaction,
+  .ct-emoji-picker,
+  .ct-chat-input .ant-input,
+  .ct-chat-system-call-label {
+    font-family:
+      "Space Grotesk", "IBM Plex Sans", "Segoe UI Emoji", "Apple Color Emoji",
+      "Noto Color Emoji", "Segoe UI", sans-serif;
+  }
+
+  /* Emoji and GIF popovers. No padding of its own: both panels bring their own
+     chrome and a border around a border reads as a double frame. */
   .ct-emoji-popover .ant-popover-inner {
-    padding: 6px;
+    padding: 0;
     border: 1px solid var(--ct-border);
     border-radius: var(--ct-radius-md);
     background: var(--ct-surface-2);
     box-shadow: var(--ct-shadow-md);
+    overflow: hidden;
   }
 
-  /* The reaction set is six, so it stays one row; the composer's wider set
-     wraps to eight per row. */
-  .ct-emoji-grid {
-    @apply grid gap-0.5;
-    grid-template-columns: repeat(6, max-content);
+  /* emoji-picker-react sizes itself through its own custom properties; these
+     line it up with the app's surfaces so it does not arrive as a light-grey
+     rectangle in a black UI. Height/width are set on the component, and the
+     grid scrolls inside them -- ~1900 emoji must never grow the popover. */
+  .ct-emoji-picker.EmojiPickerReact {
+    --epr-bg-color: var(--ct-surface-2);
+    --epr-text-color: var(--ct-text-primary);
+    --epr-hover-bg-color: var(--ct-alpha-12);
+    --epr-focus-bg-color: var(--ct-alpha-12);
+    --epr-highlight-color: var(--ct-accent);
+    --epr-search-input-bg-color: var(--ct-alpha-04);
+    --epr-search-input-bg-color-active: var(--ct-alpha-08);
+    --epr-search-input-text-color: var(--ct-text-primary);
+    --epr-search-input-placeholder-color: var(--ct-text-muted);
+    --epr-search-border-color: var(--ct-border);
+    --epr-picker-border-color: transparent;
+    --epr-category-label-bg-color: var(--ct-surface-2);
+    --epr-category-label-text-color: var(--ct-text-muted);
+    --epr-category-icon-active-color: var(--ct-text-primary);
+    --epr-emoji-variation-picker-bg-color: var(--ct-surface-3);
+    --epr-picker-border-radius: 0;
+    /* The default 24px box clips the taller glyphs (🇹🇷, ❤️) at this font size. */
+    --epr-emoji-size: 26px;
+    --epr-emoji-fullsize: 30px;
+    border: 0;
   }
 
-  .ct-emoji-grid:has(> :nth-child(9)) {
-    grid-template-columns: repeat(8, max-content);
+  /* --- GIF picker (KLIPY) ------------------------------------------------
+     Same footprint as the emoji keyboard so the composer's two popovers do not
+     resize the corner they open from. The grid is the only scroller. */
+  .ct-gif-panel {
+    @apply flex flex-col gap-2 p-2;
+    width: 320px;
   }
 
-  .ct-emoji-cell {
-    @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-sm border-0 bg-transparent;
-    font-size: 17px;
-    line-height: 1;
-    transition: background var(--ct-duration-fast) ease;
+  .ct-gif-grid {
+    @apply grid gap-1 overflow-y-auto;
+    grid-template-columns: repeat(2, 1fr);
+    height: 340px;
   }
 
-  .ct-emoji-cell:hover {
-    background: var(--ct-alpha-12);
+  .ct-gif-cell {
+    @apply block cursor-pointer overflow-hidden rounded-sm border-0 p-0;
+    background: var(--ct-alpha-04);
+  }
+
+  /* Fixed tile height with object-fit, so a wall of mixed aspect ratios lines
+     up in rows instead of stair-stepping down the panel. */
+  .ct-gif-cell img {
+    @apply block w-full;
+    height: 96px;
+    object-fit: cover;
+  }
+
+  .ct-gif-cell:hover {
+    outline: 1px solid var(--ct-border-strong);
+  }
+
+  .ct-gif-state {
+    @apply flex items-center justify-center gap-2 text-2xs;
+    height: 340px;
+    color: var(--ct-text-muted);
+  }
+
+  /* A message whose whole body is an image URL -- how a picked GIF arrives.
+     Capped so a 1200px wide GIF cannot stretch the bubble, and lazy so a
+     backlog full of them does not fetch every one on open. */
+  .ct-chat-inline-image {
+    @apply block rounded-sm;
+    max-width: 320px;
+    max-height: 240px;
+    background: var(--ct-alpha-04);
   }
 
   /* --- Reply quote, attachment, reactions --------------------------------
@@ -501,7 +580,7 @@
     cursor: default;
   }
 
-  /* Reaction picker is now .ct-emoji-grid inside a popover. */
+  /* Reaction picker is now the full emoji keyboard inside a popover. */
 
   /* A 20px hit target was below the point where a pointer reliably lands on
      it; control-xs is the smallest size on the scale and still comfortable. */
@@ -717,4 +796,59 @@
 
 .ct-friends-home-body .ct-list + .ct-list-group-title {
   @apply mt-3;
+}
+
+/* --------------------------------------------------------------------------
+   @mention picker
+
+   Anchored to the composer and drawn ABOVE it: the composer already sits at the
+   bottom of the window, so a popup below it would open off-screen.
+   -------------------------------------------------------------------------- */
+
+.ct-mention-anchor {
+  position: relative;
+}
+
+.ct-mention-popup {
+  @apply absolute z-30 m-0 flex list-none flex-col gap-0.5 overflow-y-auto rounded-lg border p-1;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 6px);
+  max-height: 220px;
+  background: var(--ct-surface-overlay, #16161a);
+  border-color: var(--ct-border-subtle, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.ct-mention-option {
+  @apply flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm;
+  color: var(--ct-text-secondary);
+}
+
+/* Hover and keyboard selection are the same state on purpose: arrowing down and
+   moving the mouse must not leave two rows looking chosen at once. */
+.ct-mention-option.active {
+  background: var(--ct-surface-raised);
+  color: var(--ct-text-primary);
+}
+
+.ct-mention-avatar {
+  @apply grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full text-micro font-bold;
+  background: var(--ct-surface-raised);
+  color: var(--ct-text-secondary);
+}
+
+.ct-mention-avatar img {
+  @apply h-full w-full object-cover;
+}
+
+.ct-mention-name {
+  @apply truncate font-medium;
+}
+
+/* Pushed to the right and quiet: the handle is what gets inserted, but the
+   display name is what the user is scanning for. */
+.ct-mention-handle {
+  @apply ml-auto shrink-0 text-micro;
+  color: var(--ct-text-muted);
 }

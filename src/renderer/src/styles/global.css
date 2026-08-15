@@ -12,6 +12,7 @@
 @import "./modules/features/workspace.css";
 @import "./modules/features/admin.css";
 @import "./modules/features/lobby.css";
+@import "./modules/features/stream-controls.css";
 @import "./modules/features/chat.css";
 @import "./modules/features/settings.css";
 @import "./modules/theme.css";

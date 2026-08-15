@@ -4,6 +4,7 @@ import { Button, Dropdown, Input, Segmented, Tooltip } from "antd";
 import {
   CheckOutlined,
   CloseOutlined,
+  PhoneOutlined,
   SearchOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
@@ -26,6 +27,9 @@ export interface FriendsHomePanelProps {
   // Opens the Arkadaş Ekle modal the shell owns. With a friends-only directory
   // this is the only route to someone you are not already friends with.
   onAddFriend: () => void;
+  // This list is exactly the set of people you may call, so the phone belongs
+  // on the row: reaching it used to mean opening the DM thread first.
+  onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
 }
 
 type FriendsTab = "friends" | "requests" | "online" | "offline";
@@ -66,6 +70,12 @@ function PersonRow({
   onActivate?: () => void;
 }) {
   const activateOnKey = (event: KeyboardEvent<HTMLLIElement>): void => {
+    // Only the row itself: Enter on one of the action buttons bubbles up here,
+    // and unfriending someone must not also open their conversation.
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
     if (!onActivate || (event.key !== "Enter" && event.key !== " ")) {
       return;
     }
@@ -124,6 +134,7 @@ export function FriendsHomePanel({
   directoryUsers,
   onOpenConversation,
   onAddFriend,
+  onInitiateCall,
 }: FriendsHomePanelProps) {
   const [tab, setTab] = useState<FriendsTab>("friends");
   // Deliberately local. Feeding this back into use-workspace-users' userSearch
@@ -229,6 +240,7 @@ export function FriendsHomePanel({
 
     return visibleFriends.map((user) => {
       const name = user.displayName || user.username;
+      const isPending = friends.pendingUserIds.includes(user.userId);
       const row = (
         <PersonRow
           name={name}
@@ -236,6 +248,47 @@ export function FriendsHomePanel({
           avatarUrl={user.avatarUrl}
           presenceDot={getPresenceColor(user.appOnline, user.presence)}
           onActivate={() => onOpenConversation(toPeer(user))}
+          actions={
+            <>
+              {/* Offline gets no button rather than a dead one: the call would
+                  ring into nothing. */}
+              {onInitiateCall && user.appOnline && (
+                <Tooltip title="Ara">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<PhoneOutlined className="ct-icon-success" />}
+                    aria-label={`${name} kişisini ara`}
+                    onClick={(event) => {
+                      // The row itself opens the conversation.
+                      event.stopPropagation();
+                      onInitiateCall(user);
+                    }}
+                  />
+                </Tooltip>
+              )}
+
+              <Tooltip title="Arkadaşlıktan Çıkar">
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<UserDeleteOutlined />}
+                  loading={isPending}
+                  aria-label={`${name} ile arkadaşlığı bitir`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPendingUnfriend({
+                      userId: user.userId,
+                      username: user.username,
+                      displayName: user.displayName,
+                      name,
+                    });
+                  }}
+                />
+              </Tooltip>
+            </>
+          }
         />
       );
 
@@ -252,7 +305,7 @@ export function FriendsHomePanel({
                 label: "Arkadaşlıktan Çıkar",
                 icon: <UserDeleteOutlined />,
                 danger: true,
-                disabled: friends.pendingUserIds.includes(user.userId),
+                disabled: isPending,
                 onClick: () =>
                   setPendingUnfriend({
                     userId: user.userId,

@@ -11,6 +11,7 @@ import {
   getSessionSnapshot,
   persistAuthResult,
   ensureFreshSession,
+  endSession,
   withAccessToken,
 } from "../context";
 import {
@@ -199,7 +200,10 @@ export function registerAuthHandlers(): void {
           error.code === "USER_BANNED" ||
           error.code === "ACCOUNT_DEACTIVATED")
       ) {
-        getSessionStore().clear();
+        // endSession rather than a bare clear(): the websocket managers have to
+        // stop retrying with the dead token, and every window has to hear about
+        // it, not just the one that happened to ask.
+        endSession(error.code);
         return ok(getSessionSnapshot());
       }
 

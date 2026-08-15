@@ -187,12 +187,26 @@ const startElectronDesktopCapture = async (
     );
   }
 
+  const requestedSource = options.sourceId
+    ? sourcesResult.data.sources.find(
+        (source: any) => source.id === options.sourceId,
+      )
+    : undefined;
+
+  // An explicitly requested source that is gone is an error, never a reason to
+  // pick another one. Source lists go stale by design — "Ekran Değiştir" shows
+  // what existed when the menu opened — and the old fallback answered a closed
+  // window by capturing the entire primary monitor, so a user sharing one
+  // window silently started broadcasting their whole desktop to the lobby and
+  // was told the swap succeeded.
+  if (options.sourceId && !requestedSource) {
+    throw new Error(
+      "Seçilen kaynak artık kullanılamıyor. Kaynak listesini yenileyip tekrar dene.",
+    );
+  }
+
   const preferredSource =
-    (options.sourceId
-      ? sourcesResult.data.sources.find(
-          (source: any) => source.id === options.sourceId,
-        )
-      : undefined) ??
+    requestedSource ??
     sourcesResult.data.sources.find((source: any) => source.kind === "screen") ??
     sourcesResult.data.sources[0];
 

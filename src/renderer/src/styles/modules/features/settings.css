@@ -1,4 +1,22 @@
+/* shrink-0 because .ct-sidebar-body is a flex column scroller: without it the
+   grouped list gets squeezed instead of scrolled and the bottom group is
+   unreachable at short window heights. The gap here is the space between
+   groups; the space between tabs lives on .ct-settings-tab-group. */
 .ct-settings-tabs {
+  @apply flex shrink-0 flex-col gap-1.5;
+}
+
+/* Group headings reuse .ct-list-group-title, whose 12px inset already matches
+   .ct-settings-tab's px-3, so heading and tab label share one vertical line. */
+.ct-settings-tabs > .ct-list-group-title {
+  @apply mt-3.5;
+}
+
+.ct-settings-tabs > .ct-list-group-title:first-child {
+  @apply mt-0;
+}
+
+.ct-settings-tab-group {
   @apply flex flex-col gap-0.5;
 }
 
@@ -285,14 +303,33 @@
 }
 
 /* A subsection separated by a rule rather than by a gap, so related settings
-   stay visually grouped. */
+   stay visually grouped. Every panel is built out of these now, so the old
+   mt-8 is gone: stacked five deep it doubled up with .ct-settings-content's
+   own gap-6 and pushed the last group off the fold. */
 .ct-settings-subsection {
-  @apply mt-8 flex flex-col gap-4 border-t pt-6;
+  @apply flex flex-col gap-4 border-t pt-6;
   border-color: var(--ct-border);
+}
+
+/* The first subsection opens the panel, so it has nothing to be separated
+   from and the rule would read as a second header underline. */
+.ct-settings-content > .ct-settings-subsection:first-child {
+  @apply border-t-0 pt-0;
 }
 
 .ct-settings-subsection.danger {
   border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Tailwind's preflight strips heading size and weight, so without this a
+   subsection title rendered identically to the hint sitting under it. */
+.ct-settings-subsection h5 {
+  @apply m-0 text-xs font-bold uppercase tracking-wider;
+  color: var(--ct-text-secondary);
+}
+
+.ct-settings-subsection.danger h5 {
+  color: #ff7875;
 }
 
 .ct-settings-subsection p {

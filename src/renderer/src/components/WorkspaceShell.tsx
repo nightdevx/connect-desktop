@@ -45,6 +45,7 @@ import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
 import workspaceService from "../features/workspace/services";
 import { useUiStore } from "../store/ui-store";
+import type { WorkspaceSection } from "../store/ui-store";
 import type { AudioPreferences } from "../features/workspace/components/settings/settings-main-panel-types";
 
 const toConversationPeer = (user: UserDirectoryEntry): OpenConversation => ({
@@ -340,6 +341,27 @@ function WorkspaceShell({
     [closeConversation, selectedUserId, setSelectedUserId],
   );
 
+  // The sidebar's "Ana Sayfa" button. Deliberately NOT closeSelectedConversation:
+  // going home must leave every open conversation exactly where it was.
+  const openFriendsHome = useCallback((): void => {
+    setSelectedUserId(null);
+  }, [setSelectedUserId]);
+
+  // Arkadaşlar always lands on the friends home. The selection lives in
+  // component state that nothing else clears, so coming back to the section
+  // used to resurrect whatever thread was open last time. Clicking a row still
+  // selects it: those routes go through selectConversation, not through the
+  // rail.
+  const handleSectionChange = useCallback(
+    (section: WorkspaceSection): void => {
+      if (section === "users") {
+        setSelectedUserId(null);
+      }
+      setWorkspaceSection(section);
+    },
+    [setSelectedUserId, setWorkspaceSection],
+  );
+
   // selectedUser resolves through the friends-only directory, so it is null for
   // every conversation with a non-friend — and a null one would put the friends
   // home on screen instead of the thread, mid-call included. The row's own
@@ -436,6 +458,8 @@ function WorkspaceShell({
     activeLobbyId: openTextRoomId ?? activeLobbyId,
     workspaceSection: workspaceSection === "admin" ? "lobbies" : workspaceSection,
     setStatus,
+    currentUserId,
+    currentUsername,
   });
 
   // ----- MEDIA CONTROLS -----
@@ -493,6 +517,10 @@ function WorkspaceShell({
     liveKitSessionRef,
     cameraPreferences,
     streamPreferences,
+    // One source of truth for the framerate: the toolbar's stream menu and
+    // Ayarlar → Yayın now write through the same setter, so neither can show or
+    // re-save a value the other has already replaced.
+    onSaveStreamPreferences: saveStreamPreferences,
     setStatus,
     patchLobbyMemberState,
   });
@@ -865,6 +893,7 @@ function WorkspaceShell({
     clearSearch: clearDirectSearch,
   } = useDirectMessages({
     currentUserId,
+    currentUsername,
     peerUserIds: directoryPeerUserIds,
     selectedUserId,
     workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection,
@@ -1181,7 +1210,7 @@ function WorkspaceShell({
     <section className="ct-workspace-shell">
       <WorkspaceRail
         workspaceSection={workspaceSection}
-        onSectionChange={setWorkspaceSection}
+        onSectionChange={handleSectionChange}
         totalUnreadDirectMessages={totalUnreadDirectMessages}
         currentUserRole={currentUserRole}
         currentUsername={currentUsername}
@@ -1200,6 +1229,7 @@ function WorkspaceShell({
             usersProps={{
               conversations,
               onCloseConversation: closeSelectedConversation,
+              onOpenHome: openFriendsHome,
               directoryUsers,
               selectedUserId,
               onUserSelect: selectConversationById,
@@ -1339,6 +1369,7 @@ function WorkspaceShell({
               directoryUsers,
               onOpenConversation: selectConversation,
               onAddFriend: () => setIsAddFriendOpen(true),
+              onInitiateCall: handleInitiateCall,
             }}
             onCopyUsername={handleCopyUsername}
             isWatchingScreen={isWatchingScreen}

@@ -9,6 +9,8 @@ import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth/permissions";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
+import { ConfirmActionModal } from "../common";
+import type { FriendsController } from "../../hooks/user/use-friends";
 import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import { useLobbyStageLayout } from "./lobby-stage-layout";
 import { type LobbyParticipantView } from "./lobby-participant-tile";
@@ -52,7 +54,10 @@ interface LobbiesMainPanelProps {
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
   setLobbyMessageDraft: (value: string) => void;
-  onSendLobbyMessage: () => void;
+  // Optional body override, forwarded verbatim to LobbyChatPanel's GIF button.
+  // `() => void` is assignable to this, so a stale signature here compiles and
+  // silently drops the URL at runtime.
+  onSendLobbyMessage: (bodyOverride?: string) => void;
   onDeleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
@@ -87,6 +92,9 @@ interface LobbiesMainPanelProps {
   isWatchingScreen: (userId: string) => boolean;
   onWatchScreen: (userId: string) => void;
   onStopWatchingScreen: (userId: string) => void;
+  // A voice room is full of people you may not be friends with yet, and the
+  // participant menu is the only surface that names them here.
+  friends: FriendsController;
 }
 
 const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
@@ -155,6 +163,7 @@ export function LobbiesMainPanel({
   isWatchingScreen,
   onWatchScreen,
   onStopWatchingScreen,
+  friends,
 }: LobbiesMainPanelProps) {
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
@@ -162,6 +171,12 @@ export function LobbiesMainPanel({
   const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
+  // use-friends deliberately keeps no pending marker for sendRequest — it is
+  // keyed by username and there is no user id to hang one on until the server
+  // answers — so the caller owns it, and here it is what stops a second click
+  // from sending the same request twice.
+  const [sendingFriendRequestIds, setSendingFriendRequestIds] = useState<string[]>([]);
+  const [pendingUnfriend, setPendingUnfriend] = useState<{ userId: string; name: string } | null>(null);
 
   // 1. Participant Logic Hook
   const { lobbyParticipants } = useLobbyParticipants({
@@ -269,6 +284,59 @@ export function LobbiesMainPanel({
       } else {
         message.error(getApiErrorMessage(result.error));
       }
+    });
+  };
+
+  const contextMenuParticipant = useMemo(
+    () => lobbyParticipants.find((p) => p.userId === contextMenuParticipantId) ?? null,
+    [contextMenuParticipantId, lobbyParticipants],
+  );
+
+  const contextMenuFriendState = useMemo<
+    "friend" | "requested" | "none" | undefined
+  >(() => {
+    if (!contextMenuParticipant) return undefined;
+    if (friends.friendIds.includes(contextMenuParticipant.userId)) return "friend";
+    // The send-request route is keyed by username, not by id (auth-client.ts),
+    // so a roster row that carries no handle has nothing to send and gets no
+    // item at all rather than a button that cannot work.
+    if (!contextMenuParticipant.username) return undefined;
+    if (friends.outgoingRequests.some((entry) => entry.userId === contextMenuParticipant.userId)) {
+      return "requested";
+    }
+    // An incoming request deliberately still reads "Arkadaş Ekle": sending back
+    // collapses the two into the single edge that was already there, and the
+    // server answers with accepted.
+    return "none";
+  }, [contextMenuParticipant, friends.friendIds, friends.outgoingRequests]);
+
+  const handleAddParticipantFriend = (): void => {
+    const participant = contextMenuParticipant;
+    if (!participant?.username) return;
+
+    const { userId, username } = participant;
+    setSendingFriendRequestIds((previous) => [...previous, userId]);
+    void friends
+      .sendRequest(username)
+      .then((result) => {
+        // Already Turkish: use-friends maps the server's codes before it
+        // returns, so there is nothing to translate here.
+        if (result.ok) {
+          message.success(result.message);
+        } else {
+          message.error(result.message);
+        }
+      })
+      .finally(() => {
+        setSendingFriendRequestIds((previous) => previous.filter((id) => id !== userId));
+      });
+  };
+
+  const handleRemoveParticipantFriend = (): void => {
+    if (!contextMenuParticipant) return;
+    setPendingUnfriend({
+      userId: contextMenuParticipant.userId,
+      name: contextMenuParticipant.username || "Bu kullanıcı",
     });
   };
 
@@ -433,6 +501,8 @@ export function LobbiesMainPanel({
           <aside className={`ct-lobby-chat-slot ${isTextOnly || isLobbyChatOpen ? "open" : ""}`}>
             <LobbyChatPanel
               currentUserId={currentUserId}
+              currentUsername={currentUsername}
+              lobbyMembers={lobbyStateQuery.data?.data?.members}
               lobbyMessagesQuery={lobbyMessagesQuery}
               lobbyMessages={lobbyMessages}
               lobbyMessageDraft={lobbyMessageDraft}
@@ -488,8 +558,36 @@ export function LobbiesMainPanel({
           canModerate={canModerate}
           onServerMute={handleServerMuteParticipant}
           onKick={handleKickParticipant}
+          friendState={contextMenuFriendState}
+          isFriendActionPending={
+            contextMenuParticipantId !== null &&
+            (friends.pendingUserIds.includes(contextMenuParticipantId) ||
+              sendingFriendRequestIds.includes(contextMenuParticipantId))
+          }
+          onAddFriend={handleAddParticipantFriend}
+          onRemoveFriend={handleRemoveParticipantFriend}
         />
       )}
+
+      {/* Same confirmation the sidebar and the friends home put on it: the
+          person doing it cannot undo it on their own. */}
+      <ConfirmActionModal
+        isOpen={pendingUnfriend !== null}
+        title="Arkadaşlıktan Çıkar"
+        message={`${pendingUnfriend?.name ?? ""} arkadaş listenizden kaldırılacak. Geri almak için karşı tarafın yeni isteğinizi kabul etmesi gerekir.`}
+        confirmLabel="Arkadaşlıktan Çıkar"
+        isProcessing={
+          pendingUnfriend !== null &&
+          friends.pendingUserIds.includes(pendingUnfriend.userId)
+        }
+        onConfirm={() => {
+          if (!pendingUnfriend) return;
+          void friends.removeFriend(pendingUnfriend.userId).then(() => {
+            setPendingUnfriend(null);
+          });
+        }}
+        onCancel={() => setPendingUnfriend(null)}
+      />
     </div>
   );
 }

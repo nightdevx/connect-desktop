@@ -115,7 +115,10 @@ interface WorkspaceMainPanelProps {
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
   setLobbyMessageDraft: (value: string) => void;
-  onSendLobbyMessage: () => void;
+  // Optional body override, all the way down to the hook. `() => void` is
+  // assignable to this, so a stale signature anywhere on this chain compiles
+  // fine and drops the GIF URL at runtime -- keep it honest at every hop.
+  onSendLobbyMessage: (bodyOverride?: string) => void;
   onDeleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
@@ -153,7 +156,9 @@ interface WorkspaceMainPanelProps {
     messageDraft: string;
     setMessageDraft: (value: string) => void;
     isSendingMessage: boolean;
-    sendDirectMessage: () => void;
+    // Same override as onSendLobbyMessage above, and the same reason it has to
+    // be written out here rather than left as `() => void`.
+    sendDirectMessage: (bodyOverride?: string) => void;
     deleteDirectMessage: (messageId: string) => void;
     deletingDirectMessageId: string | null;
     onTyping: () => void;
@@ -427,6 +432,10 @@ export function WorkspaceMainPanel({
             selectedAudioOutputDeviceId={audioPreferences.selectedAudioOutputDeviceId}
             onSelectAudioInputDevice={onSelectAudioInputDevice}
             onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+            // The same controller the friends home runs on — the lobby's
+            // participant menu needs it to say whether "Arkadaş Ekle" is even
+            // the right label for the person under the cursor.
+            friends={friendsHome.friends}
           />
         )}
 

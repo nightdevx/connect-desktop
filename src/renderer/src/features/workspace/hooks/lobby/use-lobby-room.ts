@@ -9,12 +9,18 @@ import type {
 } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
+import { mentionsUser } from "../../mentions";
 import type { PendingAttachment } from "../chat/use-direct-messages";
 
 interface UseLobbyRoomParams {
   activeLobbyId: string | null;
   workspaceSection: "users" | "lobbies" | "settings";
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
+  // Lobby chat raises no toast for ordinary traffic — a busy room would be
+  // unusable. Being named by @username is the exception, and it is deliberately
+  // the only one, which is also why "Rahatsız etmeyin" does not silence it.
+  currentUserId: string;
+  currentUsername: string;
 }
 
 type LobbyMemberStatePatch = Partial<
@@ -60,7 +66,9 @@ export interface UseLobbyRoomResult {
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
   setLobbyMessageDraft: (value: string) => void;
-  sendLobbyMessage: () => void;
+  // Sends the draft. With a body it sends that instead and leaves the composer
+  // untouched -- that is the GIF picker's path.
+  sendLobbyMessage: (bodyOverride?: string) => void;
   deleteLobbyMessage: (messageId: string) => void;
   isSendingLobbyMessage: boolean;
   deletingLobbyMessageId: string | null;
@@ -86,6 +94,8 @@ export const useLobbyRoom = ({
   activeLobbyId,
   workspaceSection,
   setStatus,
+  currentUserId,
+  currentUsername,
 }: UseLobbyRoomParams): UseLobbyRoomResult => {
   const [lobbyMessageDraft, setLobbyMessageDraft] = useState("");
   const [lobbyReplyTo, setLobbyReplyTo] = useState<ChatMessage | null>(null);
@@ -227,6 +237,21 @@ export const useLobbyRoom = ({
           };
         },
       );
+
+      // Only when you were named, and never for your own message — writing
+      // "@ayse" as ayse would otherwise toast yourself. The main process still
+      // drops the toast while the window is focused.
+      if (
+        event.message.userId !== currentUserId &&
+        mentionsUser(event.message.body, currentUsername)
+      ) {
+        void workspaceService.notify({
+          kind: "direct-message",
+          title: `${event.message.username || "Biri"} lobide sizden bahsetti`,
+          body: event.message.body.slice(0, 240),
+          peerUserId: event.message.userId,
+        });
+      }
     });
   }, [activeLobbyId, queryClient]);
 
@@ -263,10 +288,18 @@ export const useLobbyRoom = ({
       body: string;
       replyToId?: string;
       attachment?: ChatAttachmentUpload;
+      // Local flag, not part of the request. Field-by-field below rather than
+      // passing `payload` through so it can never reach the IPC validator.
+      keepComposer?: boolean;
     }) => {
-      return workspaceService.sendLobbyMessage(payload);
+      return workspaceService.sendLobbyMessage({
+        lobbyId: payload.lobbyId,
+        body: payload.body,
+        replyToId: payload.replyToId,
+        attachment: payload.attachment,
+      });
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       if (!result.ok) {
         setStatus(
           `Lobi mesajı gönderilemedi: ${getApiErrorMessage(result.error)}`,
@@ -283,6 +316,13 @@ export const useLobbyRoom = ({
       setLobbyMessagesCache((currentMessages) =>
         upsertMessage(currentMessages, sentMessage),
       );
+
+      // A GIF send did not come out of the composer, so it must not empty it.
+      // Clearing here unconditionally is what destroyed the user's half-typed
+      // message the moment they picked a GIF.
+      if (variables.keepComposer) {
+        return;
+      }
 
       setLobbyMessageDraft("");
       setLobbyReplyTo(null);
@@ -351,19 +391,35 @@ export const useLobbyRoom = ({
     },
   });
 
-  const sendLobbyMessage = (): void => {
-    const body = lobbyMessageDraft.trim();
-    // Attachment-only messages are allowed, so an empty body is fine when a
-    // file is staged.
-    if (!activeLobbyId || (!body && !lobbyPendingAttachment)) {
+  // bodyOverride is the GIF picker: the URL goes out as its own message and the
+  // composer is left exactly as it was. Writing it into the draft instead is
+  // what silently ate whatever the user had typed ("şuna bak" + a GIF sent
+  // "şuna bak" and threw the GIF away).
+  const sendLobbyMessage = (bodyOverride?: string): void => {
+    const isOverride = typeof bodyOverride === "string";
+    const body = (isOverride ? bodyOverride : lobbyMessageDraft).trim();
+
+    if (!activeLobbyId) {
+      return;
+    }
+
+    // An override is a body on its own, so the "empty unless a file is staged"
+    // rule does not apply to it -- it must send with an empty draft and no
+    // attachment. It still may not send an empty string.
+    if (isOverride ? !body : !body && !lobbyPendingAttachment) {
       return;
     }
 
     sendLobbyMessageMutation.mutate({
       lobbyId: activeLobbyId,
       body,
+      // The reply target is honoured (a GIF is a fine reply) but not consumed:
+      // keepComposer leaves the chip up for the draft that is still sitting
+      // there.
       replyToId: lobbyReplyTo?.id,
-      attachment: lobbyPendingAttachment?.upload,
+      // A staged file belongs to the draft, not to the GIF.
+      attachment: isOverride ? undefined : lobbyPendingAttachment?.upload,
+      keepComposer: isOverride,
     });
   };
 

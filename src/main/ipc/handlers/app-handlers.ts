@@ -2,9 +2,12 @@ import { app, ipcMain, desktopCapturer, BrowserWindow } from "electron";
 import { ok, fail, getWindowFromSender } from "../context";
 import {
   appPreferencesSchema,
+  gifSearchSchema,
   notifySchema,
   windowAttentionSchema,
 } from "../validators";
+import { isKlipyConfigured, klipyApiKey } from "../../config";
+import { searchKlipyGifs } from "../../clients/klipy-client";
 import { showDesktopNotification } from "../../notifications";
 import {
   getDesktopAppPreferences,
@@ -36,6 +39,38 @@ export function registerAppHandlers(): void {
       const parsed = appPreferencesSchema.parse(payload);
       const preferences = updateDesktopAppPreferences(parsed);
       return ok({ preferences });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Whether the button exists at all. A boolean, never the key: the renderer
+  // has no legitimate use for the key and every way it could hold one ends with
+  // Sentry recording it.
+  ipcMain.handle("desktop:gif-enabled", async () => {
+    try {
+      return ok({ enabled: isKlipyConfigured });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // The GIF search runs here rather than in the renderer because KLIPY carries
+  // the API key as a URL PATH SEGMENT. The renderer runs @sentry/electron with
+  // default integrations, and its Breadcrumbs integration records fetch URLs
+  // verbatim -- so a renderer-side search would have attached the key to every
+  // unrelated error report the app ever sent.
+  ipcMain.handle("desktop:gif-search", async (_event, payload: unknown) => {
+    try {
+      const parsed = gifSearchSchema.parse(payload);
+      if (!klipyApiKey) {
+        // No key configured: answer empty rather than error. The button is not
+        // rendered in this state, so this is only reachable by a stale panel.
+        return ok({ items: [] });
+      }
+
+      const items = await searchKlipyGifs(klipyApiKey, (parsed.query ?? "").trim());
+      return ok({ items });
     } catch (error) {
       return fail(error);
     }

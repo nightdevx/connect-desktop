@@ -9,6 +9,7 @@ import {
   type MouseEvent,
 } from "react";
 import { Drawer, Input, Button, Tag, Divider, Descriptions, Avatar, Tooltip } from "antd";
+import type { InputRef } from "antd";
 import {
   SendOutlined,
   CopyOutlined,
@@ -38,17 +39,24 @@ import {
   getApiErrorMessage,
   getUserStatusLabel,
 } from "../../workspace-utils";
+import { renderWithMentions, type MentionCandidate } from "../../mentions";
+import {
+  MentionPicker,
+  useMentionPicker,
+} from "../common/mention-picker";
 import { ConfirmActionModal } from "../common";
 import { FriendsHomePanel, type FriendsHomePanelProps } from "./friends-home-panel";
 import {
   ChatAttachButton,
   ChatAttachmentView,
   ChatComposerEmojiButton,
+  ChatMessageBody,
   ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
   formatAttachmentSize,
 } from "../common/chat-message-parts";
+import { ChatGifButton } from "../common/gif-picker";
 
 interface DirectChatMessageRowProps {
   message: ChatMessage;
@@ -66,45 +74,10 @@ interface DirectChatMessageRowProps {
 
 // Turkish usernames can contain letters outside \w, so the class is explicit
 // rather than \w+.
-const MENTION_PATTERN = /(@[A-Za-z0-9_çğıöşüÇĞİÖŞÜ.-]{2,64})/g;
-
-// Renders @name runs as highlighted spans, and marks the ones aimed at you.
-// A mention used to be indistinguishable from any other word in the message.
-const renderWithMentions = (
-  body: string,
-  currentUsername: string,
-): React.ReactNode[] => {
-  const normalizedSelf = `@${currentUsername.toLocaleLowerCase("tr-TR")}`;
-
-  return body.split(MENTION_PATTERN).map((part, index) => {
-    if (!part.startsWith("@")) {
-      return part;
-    }
-
-    const isSelf = part.toLocaleLowerCase("tr-TR") === normalizedSelf;
-    return (
-      <span
-        key={`${index}-${part}`}
-        className={`ct-chat-mention ${isSelf ? "self" : ""}`}
-      >
-        {part}
-      </span>
-    );
-  });
-};
-
-// mentionsUser answers "was I named in this message", used to decide whether a
-// lobby/DM message deserves a notification even when it is not addressed to a
-// conversation the user is looking at.
-export const mentionsUser = (body: string, username: string): boolean => {
-  if (!username) {
-    return false;
-  }
-  const needle = `@${username.toLocaleLowerCase("tr-TR")}`;
-  const matches: string[] =
-    body.toLocaleLowerCase("tr-TR").match(MENTION_PATTERN) ?? [];
-  return matches.includes(needle);
-};
+// Mention matching, highlighting and "was I named" moved to ../../mentions so
+// the lobby composer and message list can use the same rules. Re-exported
+// because callers already import mentionsUser from here.
+export { mentionsUser } from "../../mentions";
 
 // One rendered message, memoized on primitives. The composer draft and the
 // call/typing state all live in this panel, so without this every keystroke
@@ -182,7 +155,9 @@ const DirectChatMessageRow = memo(function DirectChatMessageRow({
           />
         ) : (
           message.body && (
-            <p>{renderWithMentions(message.body, currentUsername)}</p>
+            <ChatMessageBody body={message.body}>
+              {renderWithMentions(message.body, currentUsername)}
+            </ChatMessageBody>
           )
         )}
 
@@ -304,7 +279,9 @@ interface UsersDirectMessagesPanelProps {
   onLoadOlderMessages?: () => void;
   isLoadingOlderMessages?: boolean;
   hasMoreMessages?: boolean;
-  onSendMessage: () => void;
+  // Sends the draft. With a body it sends that instead and leaves the draft
+  // alone -- see the GIF button below for why that override has to exist.
+  onSendMessage: (bodyOverride?: string) => void;
   onDeleteMessage: (messageId: string) => void;
   deletingMessageId: string | null;
   isSendingMessage: boolean;
@@ -442,9 +419,35 @@ export function UsersDirectMessagesPanel({
   onStopWatchingScreen = () => undefined,
 }: UsersDirectMessagesPanelProps) {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<InputRef>(null);
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+
+  // A direct message has exactly one person to name. The picker still earns its
+  // place here: it completes the username, which is what the notification and
+  // the highlight match on — "@Ayşe" typed by hand matches no account.
+  const mentionCandidates = useMemo<MentionCandidate[]>(
+    () =>
+      selectedUser
+        ? [
+            {
+              userId: selectedUser.userId,
+              username: selectedUser.username,
+              displayName: selectedUser.displayName,
+              avatarUrl: selectedUser.avatarUrl,
+            },
+          ]
+        : [],
+    [selectedUser],
+  );
+
+  const mentionPicker = useMentionPicker({
+    draft: messageDraft,
+    onDraftChange: onMessageDraftChange,
+    candidates: mentionCandidates,
+    inputRef: composerInputRef,
+  });
 
   // Mute toggle list management
   useEffect(() => {
@@ -887,7 +890,14 @@ export function UsersDirectMessagesPanel({
           </div>
         )}
 
-        <div className="ct-chat-composer">
+        <div className="ct-chat-composer ct-mention-anchor">
+          <MentionPicker
+            isOpen={mentionPicker.isOpen}
+            matches={mentionPicker.matches}
+            activeIndex={mentionPicker.activeIndex}
+            onHover={mentionPicker.setActiveIndex}
+            onChoose={mentionPicker.choose}
+          />
           {replyTo && (
             <div className="ct-composer-chip">
               <div className="ct-composer-chip-text">
@@ -930,6 +940,14 @@ export function UsersDirectMessagesPanel({
               disabled={isSendingMessage}
               onPick={(emoji) => onMessageDraftChange(messageDraft + emoji)}
             />
+            {/* The GIF goes out as its own message. It used to be written into
+                the draft and sent a render later, which silently destroyed
+                whatever the user had typed: "şuna bak" + pick a GIF = "şuna
+                bak" gone, with no undo. */}
+            <ChatGifButton
+              disabled={isSendingMessage}
+              onPick={(url) => onSendMessage(url)}
+            />
             <ChatAttachButton
               disabled={isSendingMessage}
               onSelect={(upload, file) =>
@@ -941,17 +959,31 @@ export function UsersDirectMessagesPanel({
               }
             />
             <Input
+              ref={composerInputRef}
               placeholder={
                 pendingAttachment ? "Açıklama (isteğe bağlı)…" : "Mesaj yaz..."
               }
               value={messageDraft}
               onChange={(event) => {
                 onMessageDraftChange(event.target.value);
+                mentionPicker.syncCaret();
                 if (event.target.value.trim()) {
                   onTyping?.();
                 }
               }}
+              // Clicking or arrowing into the middle of an @token has to open
+              // the picker too, not just typing at the end.
+              onSelect={mentionPicker.syncCaret}
+              onBlur={mentionPicker.close}
+              onKeyDown={(event) => {
+                // Consumes Enter/Tab/arrows while the list is open, so picking
+                // a name does not also send the message.
+                mentionPicker.handleKeyDown(event);
+              }}
               onPressEnter={(event) => {
+                if (mentionPicker.isOpen) {
+                  return;
+                }
                 if (
                   !event.shiftKey &&
                   (messageDraft.trim() || pendingAttachment)
@@ -968,7 +1000,10 @@ export function UsersDirectMessagesPanel({
                   size="small"
                   className="ct-chat-send-btn"
                   icon={<SendOutlined />}
-                  onClick={onSendMessage}
+                  // Wrapped, not passed directly: onClick hands the handler a
+                  // MouseEvent, which would arrive as the body override and be
+                  // sent as the message.
+                  onClick={() => onSendMessage()}
                   loading={isSendingMessage}
                   disabled={
                     isSendingMessage ||

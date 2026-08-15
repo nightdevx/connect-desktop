@@ -1,4 +1,4 @@
-import { useState, useEffect, type MouseEvent } from "react";
+import { type MouseEvent } from "react";
 import { UpOutlined, DownOutlined } from "@ant-design/icons";
 import {
   LobbyParticipantTile,
@@ -128,7 +128,7 @@ export function LobbyStageView({
           )}
 
           {nonFocusedParticipantSlots.length > 0 && isRailVisible && (
-            <div className="ct-lobby-participant-rail ct-lobby-stage-row-3" role="list">
+            <div className="ct-lobby-participant-rail" role="list">
               {nonFocusedParticipantSlots.map((slot) => (
                 <LobbyParticipantTile
                   key={slot.slotId}

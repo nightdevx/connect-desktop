@@ -19,6 +19,10 @@ interface UseWorkspaceMediaControlsParams {
   liveKitSessionRef: MutableRefObject<LiveKitMediaSession | null>;
   cameraPreferences: CameraPreferences;
   streamPreferences: StreamPreferences;
+  // Not optional: while it was, the one caller never passed it, the toolbar's
+  // stream menu wrote localStorage behind the shell's back, and Ayarlar → Yayın
+  // went on showing — and re-saving — the framerate from before the change.
+  onSaveStreamPreferences: (next: StreamPreferences) => void;
   setStatus: (message: string, tone: StatusTone) => void;
   patchLobbyMemberState: (
     userId: string,
@@ -95,6 +99,7 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
     liveKitSessionRef,
     cameraPreferences,
     streamPreferences,
+    onSaveStreamPreferences,
     setStatus,
     patchLobbyMemberState,
   } = params;
@@ -124,6 +129,7 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
     activeLobbyRef,
     liveKitSessionRef,
     streamPreferences,
+    onSaveStreamPreferences,
     setStatus,
     patchLobbyMemberState,
   });

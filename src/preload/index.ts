@@ -7,6 +7,7 @@ const LOBBY_STREAM_EVENT_CHANNEL = "desktop:lobbies-stream-event";
 const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const UPDATE_EVENT_CHANNEL = "desktop:update-event";
+const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
 
 
 
@@ -60,6 +61,22 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:auth-delete-account", payload),
   exportAccountData: async () => ipcRenderer.invoke("desktop:auth-export-data"),
   getSession: async () => ipcRenderer.invoke("desktop:auth-session"),
+  // Push, not poll. The renderer re-reads the session only on mount, so without
+  // main announcing it the workspace stayed mounted after the session died.
+  onSessionExpired: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ) => {
+      listener(payload as Parameters<typeof listener>[0]);
+    };
+
+    ipcRenderer.on(SESSION_EXPIRED_CHANNEL, wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener(SESSION_EXPIRED_CHANNEL, wrappedListener);
+    };
+  },
   getAuthProfile: async () => ipcRenderer.invoke("desktop:auth-profile"),
   updateAuthProfile: async (payload) =>
     ipcRenderer.invoke("desktop:auth-profile-update", payload),
@@ -230,6 +247,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:direct-unread", payload),
   sendDirectTyping: async (payload) =>
     ipcRenderer.invoke("desktop:direct-typing", payload),
+  isGifPickerEnabled: async () => ipcRenderer.invoke("desktop:gif-enabled"),
+  searchGifs: async (payload) => ipcRenderer.invoke("desktop:gif-search", payload),
   notify: async (payload) => ipcRenderer.invoke("desktop:notify", payload),
   onNotificationActivated: (listener) => {
     const wrappedListener = (

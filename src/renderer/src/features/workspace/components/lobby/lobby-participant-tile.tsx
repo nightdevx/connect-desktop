@@ -8,6 +8,7 @@ import {
   DesktopOutlined,
   FullscreenOutlined,
   FullscreenExitOutlined,
+  PicRightOutlined,
 } from "@ant-design/icons";
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
@@ -119,18 +120,31 @@ function LobbyParticipantTileImpl({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPictureInPicture, setIsPictureInPicture] = useState(false);
+  // videoWidth stays 0 until a frame's worth of metadata has decoded, and a PiP
+  // window opened on a stream that never produces one is an empty grey box.
+  const [hasVideoTrack, setHasVideoTrack] = useState(false);
+
+  const canUsePictureInPicture = hasVideoTrack && document.pictureInPictureEnabled;
 
   // Your own preview, while you are working in another app, is a video nobody
   // is looking at. The capture and the encode still run — viewers need them —
-  // but the local decode/composite does not have to. Fullscreen is exempt: the
-  // window can lose focus with the preview still on screen.
+  // but the local decode/composite does not have to. Fullscreen and
+  // picture-in-picture are both exempt: each keeps the preview on screen after
+  // the app window has stopped being the focused one, so suspending it there is
+  // the same bug wearing a different surface.
   const previewSuspended =
-    participant.isLocalUser && !windowActive && !isFullscreen;
+    participant.isLocalUser &&
+    !windowActive &&
+    !isFullscreen &&
+    !isPictureInPicture;
 
   const handleVideoLoadedMetadata = () => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    setHasVideoTrack(videoElement.videoWidth > 0);
+    videoElement.play().catch(() => {});
   };
 
   const handleToggleFullscreen = (event: MouseEvent) => {
@@ -140,11 +154,42 @@ function LobbyParticipantTileImpl({
 
     if (document.fullscreenElement === containerElement) {
       document.exitFullscreen().catch(() => {});
-    } else {
-      containerElement.requestFullscreen().catch((err) => {
-        console.error("Fullscreen request failed:", err);
-      });
+      return;
     }
+
+    // One surface at a time. Leaving the stream in a PiP window while it also
+    // fills the screen is two decodes of one track and two sets of controls
+    // arguing over it.
+    if (document.pictureInPictureElement) {
+      document.exitPictureInPicture().catch(() => {});
+    }
+
+    containerElement.requestFullscreen().catch((err) => {
+      console.error("Fullscreen request failed:", err);
+    });
+  };
+
+  const handleTogglePictureInPicture = (event: MouseEvent) => {
+    event.stopPropagation();
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    if (document.pictureInPictureElement === videoElement) {
+      document.exitPictureInPicture().catch(() => {});
+      return;
+    }
+
+    // Deliberately not awaited: the fullscreen transition takes long enough
+    // that awaiting it would spend the click's transient activation, and
+    // requestPictureInPicture is refused without a live user gesture.
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    videoElement.requestPictureInPicture().catch(() => {
+      // Refused when the track has no frames yet; the sync effect below keeps
+      // the button honest either way.
+    });
   };
 
   const handleDoubleClick = (event: MouseEvent<HTMLElement>) => {
@@ -152,18 +197,53 @@ function LobbyParticipantTileImpl({
     handleToggleFullscreen(event);
   };
 
+  // Both presentation flags are read back off the DOM, never assumed.
+  //
+  // The old fullscreenchange listener bailed out on `if (containerRef.current)`,
+  // which is exactly the case that breaks it: when the container unmounts while
+  // it still owns fullscreen — the local screen-share stream drops for a frame,
+  // or focusing someone re-parents this tile — React nulls the ref before the
+  // event lands, so isFullscreen stayed stuck at true. The tile then kept
+  // rendering the exit button, whose click took the "not fullscreen" branch and
+  // *re-entered* fullscreen instead of leaving, and previewSuspended never came
+  // back on for the local user.
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      if (containerRef.current) {
-        setIsFullscreen(document.fullscreenElement === containerRef.current);
-      }
+    const containerElement = containerRef.current;
+    const videoElement = videoRef.current;
+
+    const syncPresentation = (): void => {
+      setIsFullscreen(
+        containerElement !== null &&
+          document.fullscreenElement === containerElement,
+      );
+      setIsPictureInPicture(
+        videoElement !== null &&
+          document.pictureInPictureElement === videoElement,
+      );
     };
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    syncPresentation();
+
+    document.addEventListener("fullscreenchange", syncPresentation);
+    videoElement?.addEventListener("enterpictureinpicture", syncPresentation);
+    videoElement?.addEventListener("leavepictureinpicture", syncPresentation);
+
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("fullscreenchange", syncPresentation);
+      videoElement?.removeEventListener(
+        "enterpictureinpicture",
+        syncPresentation,
+      );
+      videoElement?.removeEventListener(
+        "leavepictureinpicture",
+        syncPresentation,
+      );
+      // These elements are on their way out, so whatever they were presenting
+      // is already gone. The next run re-derives from the replacements.
+      setIsFullscreen(false);
+      setIsPictureInPicture(false);
     };
-  }, []);
+  }, [previewStream]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -237,7 +317,16 @@ function LobbyParticipantTileImpl({
       return;
     }
 
-    if (previewSuspended) {
+    // The live DOM, not previewSuspended alone: Windows blurs the window during
+    // the fullscreen transition, so the blur lands a render before
+    // fullscreenchange does and we would pause the very video we are promoting
+    // to the whole screen — fullscreen opening on a frozen frame.
+    const presenting =
+      (containerRef.current !== null &&
+        document.fullscreenElement === containerRef.current) ||
+      document.pictureInPictureElement === videoElement;
+
+    if (previewSuspended && !presenting) {
       videoElement.pause();
       return;
     }
@@ -321,7 +410,19 @@ function LobbyParticipantTileImpl({
             playsInline
             muted
             onLoadedMetadata={handleVideoLoadedMetadata}
+            onEmptied={() => setHasVideoTrack(false)}
           />
+          {canUsePictureInPicture && (
+            <button
+              onClick={handleTogglePictureInPicture}
+              className={`ct-lobby-tile-pip-btn ${isPictureInPicture ? "active" : ""}`}
+              title={
+                isPictureInPicture ? "Küçük Ekranı Kapat" : "Küçük Ekranda Aç"
+              }
+            >
+              <PicRightOutlined />
+            </button>
+          )}
           {isFullscreen ? (
             <button
               onClick={handleToggleFullscreen}

@@ -230,11 +230,27 @@ export class AuthClient {
     });
   }
 
+  // Refresh gets its own, much longer deadline than the 8s shared by the other
+  // control-plane calls, because it is the one request where giving up early is
+  // worse than waiting.
+  //
+  // Rotation is single-use: by the time the response is on its way back, the
+  // server has already consumed this token and issued the replacement. Aborting
+  // then does not cancel any of that — it just throws the new pair away while
+  // the client keeps a token the server considers spent. The next call presents
+  // it again, the server reads that as a stolen token being replayed, and every
+  // session on the account is revoked. That is exactly what a desktop client
+  // produces when it wakes from a long sleep and its first refresh crawls over
+  // a network stack that is still coming up.
   public async refresh(refreshToken: string): Promise<AuthResponse> {
-    return this.baseClient.request<AuthResponse>("/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-    });
+    return this.baseClient.request<AuthResponse>(
+      "/auth/refresh",
+      {
+        method: "POST",
+        body: JSON.stringify({ refreshToken }),
+      },
+      30_000,
+    );
   }
 
   public async changePassword(

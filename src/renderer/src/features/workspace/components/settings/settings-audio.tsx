@@ -8,6 +8,10 @@ import {
 } from "@ant-design/icons";
 import type { AudioPreferences } from "./settings-main-panel-types";
 import { NOISE_SUPPRESSION_PRESET_OPTIONS } from "../../workspace-media-utils";
+import {
+  HotkeyCaptureField,
+  useDesktopAppPreferences,
+} from "./settings-app-preferences";
 
 interface SettingsAudioProps {
   audioPreferences: AudioPreferences;
@@ -55,6 +59,14 @@ export function SettingsAudio({
   );
   const [isStartingAudioTest, setIsStartingAudioTest] = useState(false);
   const [micLevelPercent, setMicLevelPercent] = useState(0);
+  // Push-to-talk and the mute/deafen accelerators are stored with the desktop
+  // app preferences, not with AudioPreferences, but they are microphone
+  // controls and this is where people look for them.
+  const {
+    preferences: appPreferences,
+    isSaving: isSavingAppPreference,
+    savePreference,
+  } = useDesktopAppPreferences(messageApi);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -343,239 +355,143 @@ export function SettingsAudio({
           <div>
             <h4>Ses Ayarları</h4>
             <p className="ct-settings-section-description">
-            Ses için varsayılan başlangıç davranışını belirleyebilirsin.
+            Cihazlarını, seviyelerini, mikrofon kısayollarını ve lobiye giriş
+            varsayılanlarını buradan ayarlayabilirsin.
             </p>
           </div>
         </div>
       </div>
 
       <div className="ct-settings-content">
-        <audio ref={audioPreviewRef} hidden playsInline />
+        <div className="ct-settings-subsection">
+          <h5>Cihazlar ve Seviyeler</h5>
 
-        <div className="ct-settings-two-col">
-          <div>
-            <label
-              className="ct-field-label"
-              htmlFor="settings-audio-input"
-            >
-              Mikrofon giriş cihazı
-            </label>
-            <Select
-              id="settings-audio-input"
-              value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
-              onChange={(value) => {
-                const nextValue = value.trim();
-                handlePreferenceChange(
-                  "selectedAudioInputDeviceId",
-                  nextValue.length > 0 ? nextValue : null,
-                );
-              }}
-              options={inputOptions}
-              className="ct-block-control"
-            />
+          <div className="ct-settings-two-col">
+            <div>
+              <label className="ct-field-label" htmlFor="settings-audio-input">
+                Mikrofon giriş cihazı
+              </label>
+              <Select
+                id="settings-audio-input"
+                value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
+                onChange={(value) => {
+                  const nextValue = value.trim();
+                  handlePreferenceChange(
+                    "selectedAudioInputDeviceId",
+                    nextValue.length > 0 ? nextValue : null,
+                  );
+                }}
+                options={inputOptions}
+                className="ct-block-control"
+              />
+            </div>
+
+            <div>
+              <label className="ct-field-label" htmlFor="settings-audio-output">
+                Ses çıkış cihazı
+              </label>
+              <Select
+                id="settings-audio-output"
+                value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
+                onChange={(value) => {
+                  const nextValue = value.trim();
+                  handlePreferenceChange(
+                    "selectedAudioOutputDeviceId",
+                    nextValue.length > 0 ? nextValue : null,
+                  );
+                }}
+                options={outputOptions}
+                className="ct-block-control"
+              />
+            </div>
           </div>
 
-          <div>
-            <label
-              className="ct-field-label"
-              htmlFor="settings-audio-output"
-            >
-              Ses çıkış cihazı
-            </label>
-            <Select
-              id="settings-audio-output"
-              value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
-              onChange={(value) => {
-                const nextValue = value.trim();
-                handlePreferenceChange(
-                  "selectedAudioOutputDeviceId",
-                  nextValue.length > 0 ? nextValue : null,
-                );
-              }}
-              options={outputOptions}
-              className="ct-block-control"
-            />
+          <div className="ct-settings-volume-grid">
+            <div className="ct-settings-volume-card">
+              <div className="ct-settings-volume-header">
+                <label
+                  className="ct-settings-volume-label"
+                  htmlFor="settings-audio-master-volume"
+                >
+                  Ses Seviyesi
+                </label>
+                <span
+                  className={`ct-settings-volume-value${draftAudioPreferences.masterVolume > 100 ? " boost" : ""}`}
+                >
+                  {draftAudioPreferences.masterVolume}%
+                </span>
+              </div>
+              <Slider
+                id="settings-audio-master-volume"
+                min={0}
+                max={200}
+                value={draftAudioPreferences.masterVolume}
+                onChange={(value) => {
+                  const nextValue = Array.isArray(value) ? value[0] : value;
+                  handlePreferenceChange("masterVolume", nextValue);
+                }}
+                tooltip={{ formatter: (value) => `${value ?? 0}%` }}
+              />
+            </div>
+
+            <div className="ct-settings-volume-card">
+              <div className="ct-settings-volume-header">
+                <label
+                  className="ct-settings-volume-label"
+                  htmlFor="settings-audio-mic-volume"
+                >
+                  Mikrofon Seviyesi
+                </label>
+                <span
+                  className={`ct-settings-volume-value${draftAudioPreferences.microphoneVolume > 100 ? " boost" : ""}`}
+                >
+                  {draftAudioPreferences.microphoneVolume}%
+                </span>
+              </div>
+              <Slider
+                id="settings-audio-mic-volume"
+                min={0}
+                max={200}
+                value={draftAudioPreferences.microphoneVolume}
+                onChange={(value) => {
+                  const nextValue = Array.isArray(value) ? value[0] : value;
+                  handlePreferenceChange("microphoneVolume", nextValue);
+                }}
+                tooltip={{ formatter: (value) => `${value ?? 0}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="ct-settings-volume-grid">
-          <div className="ct-settings-volume-card">
-            <div className="ct-settings-volume-header">
-              <label
-                className="ct-settings-volume-label"
-                htmlFor="settings-audio-master-volume"
-              >
-                Ses Seviyesi
-              </label>
-              <span
-                className={`ct-settings-volume-value${draftAudioPreferences.masterVolume > 100 ? " boost" : ""}`}
-              >
-                {draftAudioPreferences.masterVolume}%
-              </span>
+        <div className="ct-settings-subsection">
+          <h5>Ses İşleme</h5>
+
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
+                <span>
+                  Mikrofon açıkken arka plan seslerini azaltmak için RNNoise
+                  işleme katmanı kullanılır.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange(
+                    "enhancedNoiseSuppressionEnabled",
+                    checked,
+                  )
+                }
+              />
             </div>
-            <Slider
-              id="settings-audio-master-volume"
-              min={0}
-              max={200}
-              value={draftAudioPreferences.masterVolume}
-              onChange={(value) => {
-                const nextValue = Array.isArray(value) ? value[0] : value;
-                handlePreferenceChange("masterVolume", nextValue);
-              }}
-              tooltip={{ formatter: (value) => `${value ?? 0}%` }}
-            />
           </div>
 
-          <div className="ct-settings-volume-card">
-            <div className="ct-settings-volume-header">
-              <label
-                className="ct-settings-volume-label"
-                htmlFor="settings-audio-mic-volume"
-              >
-                Mikrofon Seviyesi
-              </label>
-              <span
-                className={`ct-settings-volume-value${draftAudioPreferences.microphoneVolume > 100 ? " boost" : ""}`}
-              >
-                {draftAudioPreferences.microphoneVolume}%
-              </span>
-            </div>
-            <Slider
-              id="settings-audio-mic-volume"
-              min={0}
-              max={200}
-              value={draftAudioPreferences.microphoneVolume}
-              onChange={(value) => {
-                const nextValue = Array.isArray(value) ? value[0] : value;
-                handlePreferenceChange("microphoneVolume", nextValue);
-              }}
-              tooltip={{ formatter: (value) => `${value ?? 0}%` }}
-            />
-          </div>
-        </div>
-
-        <div
-          className="ct-settings-switch-list"
-          
-        >
-          <div
-            className="ct-settings-switch-item"
-            
-          >
-            <div
-              className="ct-settings-switch-item-content"
-             
-            >
-              <strong
-                
-              >
-                Mikrofon varsayılan olarak açık olsun
-              </strong>
-              <span
-               
-              >
-                Lobiye girişte mikrofon durumu bu ayara göre uygulanır.
-              </span>
-            </div>
-            <Switch
-              checked={draftAudioPreferences.defaultMicEnabled}
-              onChange={(checked) =>
-                handlePreferenceChange("defaultMicEnabled", checked)
-              }
-            />
-          </div>
-
-          <div
-            className="ct-settings-switch-item"
-            
-          >
-            <div
-              className="ct-settings-switch-item-content"
-             
-            >
-              <strong
-                
-              >
-                Kulaklık varsayılan olarak açık olsun
-              </strong>
-              <span
-               
-              >
-                Lobiye girişte duyma durumu bu ayara göre uygulanır.
-              </span>
-            </div>
-            <Switch
-              checked={draftAudioPreferences.defaultHeadphoneEnabled}
-              onChange={(checked) =>
-                handlePreferenceChange("defaultHeadphoneEnabled", checked)
-              }
-            />
-          </div>
-
-          <div
-            className="ct-settings-switch-item"
-            
-          >
-            <div
-              className="ct-settings-switch-item-content"
-             
-            >
-              <strong
-                
-              >
-                Lobi bildirim sesleri açık olsun
-              </strong>
-              <span
-               
-              >
-                Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses
-                bildirimi çalar.
-              </span>
-            </div>
-            <Switch
-              checked={draftAudioPreferences.notificationSoundsEnabled}
-              onChange={(checked) =>
-                handlePreferenceChange("notificationSoundsEnabled", checked)
-              }
-            />
-          </div>
-
-          <div
-            className="ct-settings-switch-item"
-            
-          >
-            <div
-              className="ct-settings-switch-item-content"
-             
-            >
-              <strong
-                
-              >
-                Gelişmiş gürültü bastırma (RNNoise) kullan
-              </strong>
-              <span
-               
-              >
-                Mikrofon açıkken arka plan seslerini azaltmak için RNNoise
-                işleme katmanı kullanılır.
-              </span>
-            </div>
-            <Switch
-              checked={draftAudioPreferences.enhancedNoiseSuppressionEnabled}
-              onChange={(checked) =>
-                handlePreferenceChange("enhancedNoiseSuppressionEnabled", checked)
-              }
-            />
-          </div>
-
+          {/* Out of the switch card it used to sit inside: nesting a bordered
+              block in the row list gave it a double hairline. */}
           {draftAudioPreferences.enhancedNoiseSuppressionEnabled && (
-            <div
-              className="ct-settings-subsection"
-            >
-              <label
-                className="ct-field-label"
-                htmlFor="settings-audio-preset"
-              >
+            <div>
+              <label className="ct-field-label" htmlFor="settings-audio-preset">
                 RNNoise kalite profili
               </label>
               <Select
@@ -594,56 +510,165 @@ export function SettingsAudio({
           )}
         </div>
 
-        <div className="ct-settings-actions">
-          <Button
-            type="text"
-            icon={audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => {
-              if (audioTestStream) {
-                void stopAudioTest().then(() => {
-                  messageApi.info("Mikrofon testi durduruldu.");
-                });
-                return;
-              }
+        <div className="ct-settings-subsection">
+          <h5>Mikrofon Kısayolları</h5>
 
-              void handleStartAudioTest();
-            }}
-            loading={isStartingAudioTest}
-            disabled={isStartingAudioTest}
-            danger={Boolean(audioTestStream)}
-          >
-            {audioTestStream
-              ? "Mikrofon Testini Durdur"
-              : "Mikrofon Testini Başlat"}
-          </Button>
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Bas-konuş</strong>
+                <span>
+                  Mikrofon normalde kapalı kalır, tuşu basılı tuttuğunuz sürece
+                  açılır. Yalnızca uygulama penceresi öndeyken çalışır.
+                </span>
+              </div>
+              <Switch
+                checked={appPreferences.pushToTalk}
+                onChange={(checked) => {
+                  void savePreference("pushToTalk", checked);
+                }}
+                disabled={isSavingAppPreference}
+              />
+            </div>
 
-          <Button
-            type="text"
-            icon={<PlayCircleOutlined />}
-            onClick={handlePlayTestTone}
-            
-          >
-            Test Sesi Çal
-          </Button>
+            {appPreferences.pushToTalk && (
+              <HotkeyCaptureField
+                label="Bas-konuş tuşu"
+                hint="Alana tıklayıp istediğiniz tuşa basın."
+                value={appPreferences.pushToTalkKey}
+                mode="key"
+                disabled={isSavingAppPreference}
+                onChange={(next) => {
+                  void savePreference("pushToTalkKey", next);
+                }}
+              />
+            )}
+
+            <HotkeyCaptureField
+              label="Mikrofonu aç/kapat kısayolu"
+              hint="Genel kısayol: uygulama arka plandayken de çalışır. Temizlemek için Backspace."
+              value={appPreferences.hotkeyToggleMute}
+              mode="accelerator"
+              disabled={isSavingAppPreference}
+              onChange={(next) => {
+                void savePreference("hotkeyToggleMute", next);
+              }}
+            />
+
+            <HotkeyCaptureField
+              label="Sesi aç/kapat kısayolu"
+              hint="Genel kısayol: uygulama arka plandayken de çalışır. Temizlemek için Backspace."
+              value={appPreferences.hotkeyToggleDeafen}
+              mode="accelerator"
+              disabled={isSavingAppPreference}
+              onChange={(next) => {
+                void savePreference("hotkeyToggleDeafen", next);
+              }}
+            />
+          </div>
         </div>
 
-        <div className="ct-settings-audio-meter-wrap">
-          <span
-            className="ct-field-label"
-          >
-            Mikrofon Seviyesi
-          </span>
-          <Progress
-            percent={micLevelPercent}
-            showInfo={false}
-            strokeColor="#ffffff"
-            trailColor="rgba(255,255,255,0.08)"
-          />
-          <strong
-            className="ct-metric-value"
-          >
-            %{micLevelPercent}
-          </strong>
+        <div className="ct-settings-subsection">
+          <h5>Lobi Varsayılanları</h5>
+
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Mikrofon varsayılan olarak açık olsun</strong>
+                <span>
+                  Lobiye girişte mikrofon durumu bu ayara göre uygulanır.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.defaultMicEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange("defaultMicEnabled", checked)
+                }
+              />
+            </div>
+
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Kulaklık varsayılan olarak açık olsun</strong>
+                <span>
+                  Lobiye girişte duyma durumu bu ayara göre uygulanır.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.defaultHeadphoneEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange("defaultHeadphoneEnabled", checked)
+                }
+              />
+            </div>
+
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Lobi bildirim sesleri açık olsun</strong>
+                <span>
+                  Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses
+                  bildirimi çalar.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.notificationSoundsEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange("notificationSoundsEnabled", checked)
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="ct-settings-subsection">
+          <h5>Mikrofon Testi</h5>
+
+          {/* The sink the test stream plays back through, so it lives with the
+              test rather than at the top of the panel. */}
+          <audio ref={audioPreviewRef} hidden playsInline />
+
+          <div className="ct-settings-actions">
+            <Button
+              type="text"
+              icon={audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+              onClick={() => {
+                if (audioTestStream) {
+                  void stopAudioTest().then(() => {
+                    messageApi.info("Mikrofon testi durduruldu.");
+                  });
+                  return;
+                }
+
+                void handleStartAudioTest();
+              }}
+              loading={isStartingAudioTest}
+              disabled={isStartingAudioTest}
+              danger={Boolean(audioTestStream)}
+            >
+              {audioTestStream
+                ? "Mikrofon Testini Durdur"
+                : "Mikrofon Testini Başlat"}
+            </Button>
+
+            <Button
+              type="text"
+              icon={<PlayCircleOutlined />}
+              onClick={handlePlayTestTone}
+            >
+              Test Sesi Çal
+            </Button>
+          </div>
+
+          <div className="ct-settings-audio-meter-wrap">
+            <span className="ct-field-label">Mikrofon Seviyesi</span>
+            <Progress
+              percent={micLevelPercent}
+              showInfo={false}
+              strokeColor="#ffffff"
+              trailColor="rgba(255,255,255,0.08)"
+            />
+            <strong className="ct-metric-value">%{micLevelPercent}</strong>
+          </div>
         </div>
       </div>
     </div>

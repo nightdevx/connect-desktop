@@ -2,12 +2,15 @@ import { Dropdown, Slider, type MenuProps } from "antd";
 import {
   AudioOutlined,
   AudioMutedOutlined,
+  ClockCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   SoundOutlined,
   DesktopOutlined,
   MutedOutlined,
   LogoutOutlined,
+  UserAddOutlined,
+  UserDeleteOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 
@@ -32,6 +35,14 @@ interface ParticipantContextMenuProps {
   // stops the video at the SFU rather than just hiding it locally.
   isWatchingScreen?: boolean;
   onSetScreenWatching?: (watch: boolean) => void;
+  // Friendship, from the caller's own lists — the label has to say what will
+  // actually happen, and an already-sent request must not be sendable twice.
+  // Left undefined (and the item unrendered) when the caller cannot act on it:
+  // the local user, or a participant whose username the roster never carried.
+  friendState?: "friend" | "requested" | "none";
+  isFriendActionPending?: boolean;
+  onAddFriend?: () => void;
+  onRemoveFriend?: () => void;
 }
 
 export function ParticipantContextMenu({
@@ -51,6 +62,10 @@ export function ParticipantContextMenu({
   onKick,
   isWatchingScreen = false,
   onSetScreenWatching,
+  friendState,
+  isFriendActionPending = false,
+  onAddFriend,
+  onRemoveFriend,
 }: ParticipantContextMenuProps) {
   const menuItems: MenuProps['items'] = [
     {
@@ -62,6 +77,35 @@ export function ParticipantContextMenu({
       ),
       disabled: true,
     },
+    ...(friendState ? [
+      {
+        key: 'friendship',
+        label:
+          friendState === 'friend'
+            ? 'Arkadaşlıktan Çıkar'
+            : friendState === 'requested'
+              ? 'İstek Gönderildi'
+              : 'Arkadaş Ekle',
+        icon:
+          friendState === 'friend'
+            ? <UserDeleteOutlined />
+            : friendState === 'requested'
+              ? <ClockCircleOutlined />
+              : <UserAddOutlined />,
+        danger: friendState === 'friend',
+        disabled: friendState === 'requested' || isFriendActionPending,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          if (friendState === 'friend') {
+            onRemoveFriend?.();
+          } else {
+            onAddFriend?.();
+          }
+          onClose();
+        },
+      },
+      { type: 'divider' as const },
+    ] : []),
     {
       key: 'mute',
       label: preference.muted ? 'Sesi Aç' : 'Sustur',

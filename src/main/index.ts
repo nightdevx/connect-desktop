@@ -17,11 +17,24 @@ import {
 } from "./app-preferences";
 import { applyMediaEngineSwitches } from "./media-engine-flags";
 import { backendConfig } from "./config";
+import { KLIPY_API_HOSTNAME } from "./clients/klipy-client";
 
 // Initialize Sentry for main process after env files are resolved by config
 if (process.env.SENTRY_DSN && !isDev) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
+    // The GIF provider takes its API key as a URL PATH SEGMENT, and Sentry's
+    // HTTP/fetch integrations record request URLs verbatim as breadcrumbs --
+    // which then ride along on every unrelated error report. Dropping the
+    // provider's breadcrumbs is what keeps the key out of Sentry; the fetch
+    // living in main only keeps it out of the renderer.
+    beforeBreadcrumb: (breadcrumb) => {
+      const url = breadcrumb.data?.url;
+      if (typeof url === "string" && url.includes(KLIPY_API_HOSTNAME)) {
+        return null;
+      }
+      return breadcrumb;
+    },
   });
 }
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";

@@ -139,75 +139,82 @@ export function SettingsPrivacy() {
       </div>
 
       <div className="ct-settings-content">
-        <div className="ct-settings-two-col">
+        <div className="ct-settings-subsection">
+          <h5>Sana Kimler Ulaşabilir</h5>
+
+          <div className="ct-settings-two-col">
+            <div>
+              <label className="ct-field-label" htmlFor="settings-allow-dm-from">
+                Bana kim mesaj gönderebilir?
+              </label>
+              <Select
+                id="settings-allow-dm-from"
+                value={draft.allowDirectMessagesFrom}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    allowDirectMessagesFrom: value,
+                  }))
+                }
+                options={AUDIENCE_OPTIONS}
+                disabled={isLoading}
+                className="ct-block-control"
+              />
+            </div>
+
+            <div>
+              <label
+                className="ct-field-label"
+                htmlFor="settings-allow-calls-from"
+              >
+                Beni kim arayabilir?
+              </label>
+              <Select
+                id="settings-allow-calls-from"
+                value={draft.allowCallsFrom}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, allowCallsFrom: value }))
+                }
+                options={AUDIENCE_OPTIONS}
+                disabled={isLoading}
+                className="ct-block-control"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="ct-field-label" htmlFor="settings-allow-dm-from">
-              Bana kim mesaj gönderebilir?
+            <label
+              className="ct-field-label"
+              htmlFor="settings-allow-friend-requests"
+            >
+              Arkadaşlık isteği alayım
             </label>
-            <Select
-              id="settings-allow-dm-from"
-              value={draft.allowDirectMessagesFrom}
-              onChange={(value) =>
+            <Switch
+              id="settings-allow-friend-requests"
+              checked={draft.allowFriendRequests}
+              onChange={(checked) =>
                 setDraft((current) => ({
                   ...current,
-                  allowDirectMessagesFrom: value,
+                  allowFriendRequests: checked,
                 }))
               }
-              options={AUDIENCE_OPTIONS}
               disabled={isLoading}
-              className="ct-block-control"
             />
           </div>
 
-          <div>
-            <label className="ct-field-label" htmlFor="settings-allow-calls-from">
-              Beni kim arayabilir?
-            </label>
-            <Select
-              id="settings-allow-calls-from"
-              value={draft.allowCallsFrom}
-              onChange={(value) =>
-                setDraft((current) => ({ ...current, allowCallsFrom: value }))
-              }
-              options={AUDIENCE_OPTIONS}
-              disabled={isLoading}
-              className="ct-block-control"
-            />
+          <div className="ct-settings-actions">
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={() => {
+                void handleSavePrivacy();
+              }}
+              loading={isSaving}
+              disabled={isLoading || isSaving}
+            >
+              Gizlilik Ayarlarını Kaydet
+            </Button>
           </div>
-        </div>
-
-        <div>
-          <label
-            className="ct-field-label"
-            htmlFor="settings-allow-friend-requests"
-          >
-            Arkadaşlık isteği alayım
-          </label>
-          <Switch
-            id="settings-allow-friend-requests"
-            checked={draft.allowFriendRequests}
-            onChange={(checked) =>
-              setDraft((current) => ({
-                ...current,
-                allowFriendRequests: checked,
-              }))
-            }
-            disabled={isLoading}
-          />
-        </div>
-
-        <div className="ct-settings-actions">
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={() => {
-              void handleSavePrivacy();
-            }}
-            loading={isSaving}
-            disabled={isLoading || isSaving}
-          >
-            Gizlilik Ayarlarını Kaydet
-          </Button>
         </div>
 
         {/* The only other way back is a toggle inside an open conversation, and

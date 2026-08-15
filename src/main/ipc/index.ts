@@ -19,6 +19,8 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:app-preferences-get",
   "desktop:app-preferences-set",
   "desktop:notify",
+  "desktop:gif-enabled",
+  "desktop:gif-search",
   "desktop:update-check",
   "desktop:update-install",
   "desktop:update-state",

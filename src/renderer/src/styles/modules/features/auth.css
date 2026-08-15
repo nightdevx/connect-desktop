@@ -68,3 +68,35 @@
   color: var(--ct-text-muted);
   max-width: 320px;
 }
+
+/* --------------------------------------------------------------------------
+   Sign-in / sign-up failures
+
+   These used to land in the window-edge status bar as
+   "Giriş başarısız: invalid credentials" -- one line, in English, far from the
+   form. The explanation now sits directly above the fields it talks about.
+   -------------------------------------------------------------------------- */
+
+.ct-auth-error {
+  @apply mb-5;
+  animation: ctFadeSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ct-auth-error-body p {
+  @apply m-0 text-sm leading-relaxed;
+}
+
+.ct-auth-error-body p + p {
+  @apply mt-2;
+}
+
+/* The actionable half, so it does not read as more of the diagnosis. */
+.ct-auth-error-hint {
+  color: var(--ct-text-secondary);
+}
+
+/* Present for reporting, not for reading: quiet, monospaced, last. */
+.ct-auth-error-code {
+  @apply font-mono text-micro;
+  color: var(--ct-text-muted);
+}

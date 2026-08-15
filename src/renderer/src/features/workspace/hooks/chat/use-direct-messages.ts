@@ -17,6 +17,7 @@ export interface PendingAttachment {
 }
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
+import { mentionsUser } from "../../mentions";
 
 const DIRECT_STREAM_RECONNECT_BASE_MS = 1_000;
 const DIRECT_STREAM_RECONNECT_MAX_MS = 10_000;
@@ -38,14 +39,18 @@ const getDirectStreamReconnectDelayMs = (attempt: number): number => {
 
 interface UseDirectMessagesParams {
   currentUserId: string;
+  // Needed to spot @mentions of you, which are the one thing allowed past
+  // "Rahatsız etmeyin".
+  currentUsername: string;
   // Every peer in the directory. Used once, to seed the unread badges from the
   // server; the live socket keeps them current after that.
   peerUserIds?: string[];
   selectedUserId: string | null;
   workspaceSection: "users" | "lobbies" | "settings";
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
-  // Do-not-disturb suppresses the OS toast. Unread badges still update — the
-  // point of DND is not being interrupted, not losing messages.
+  // Do-not-disturb suppresses the OS toast, EXCEPT when the message names you.
+  // Unread badges always update — the point of DND is not being interrupted,
+  // not losing messages.
   suppressNotifications?: boolean;
 }
 
@@ -58,7 +63,9 @@ export interface UseDirectMessagesResult {
   messageDraft: string;
   setMessageDraft: (value: string) => void;
   isSendingMessage: boolean;
-  handleSendMessage: () => void;
+  // Sends the draft. With a body it sends that instead and leaves the composer
+  // untouched -- that is the GIF picker's path.
+  handleSendMessage: (bodyOverride?: string) => void;
   handleDeleteMessage: (messageId: string) => void;
   deletingMessageId: string | null;
   unreadByPeerId: Record<string, number>;
@@ -118,6 +125,7 @@ const upsertMessage = (
 
 export const useDirectMessages = ({
   currentUserId,
+  currentUsername,
   peerUserIds,
   selectedUserId,
   workspaceSection,
@@ -399,10 +407,17 @@ export const useDirectMessages = ({
       // Taskbar attention is all this used to do, and Windows drops that flash
       // after a few seconds. The main process suppresses the toast when the
       // window is focused, so this does not need to re-check.
-      if (!suppressNotifications) {
+      //
+      // Being named by @username overrides "Rahatsız etmeyin". That setting is
+      // for the ambient stream of messages; someone addressing you directly is
+      // the case it is not meant to swallow.
+      const named = mentionsUser(streamEvent.message.body, currentUsername);
+      if (!suppressNotifications || named) {
         void workspaceService.notify({
           kind: "direct-message",
-          title: streamEvent.message.username || "Yeni mesaj",
+          title: named
+            ? `${streamEvent.message.username || "Biri"} sizden bahsetti`
+            : streamEvent.message.username || "Yeni mesaj",
           body: streamEvent.message.body.slice(0, 240),
           peerUserId,
         });
@@ -447,10 +462,18 @@ export const useDirectMessages = ({
       body: string;
       replyToId?: string;
       attachment?: ChatAttachmentUpload;
+      // Local flag, not part of the request. Field-by-field below rather than
+      // passing `payload` through so it can never reach the IPC validator.
+      keepComposer?: boolean;
     }) => {
-      return workspaceService.sendDirectMessage(payload);
+      return workspaceService.sendDirectMessage({
+        peerUserId: payload.peerUserId,
+        body: payload.body,
+        replyToId: payload.replyToId,
+        attachment: payload.attachment,
+      });
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       if (!result.ok) {
         setStatus(
           `Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`,
@@ -466,6 +489,13 @@ export const useDirectMessages = ({
         );
       }
 
+      // A GIF send did not come out of the composer, so it must not empty it.
+      // Clearing here unconditionally is what destroyed the user's half-typed
+      // message the moment they picked a GIF.
+      if (variables.keepComposer) {
+        return;
+      }
+
       setMessageDraft("");
       setReplyTo(null);
       setPendingAttachment(null);
@@ -478,19 +508,35 @@ export const useDirectMessages = ({
     },
   });
 
-  const handleSendMessage = (): void => {
-    const body = messageDraft.trim();
-    // A message may be attachment-only, so an empty body is fine when a file is
-    // attached.
-    if (!selectedUserId || (!body && !pendingAttachment)) {
+  // bodyOverride is the GIF picker: the URL goes out as its own message and the
+  // composer is left exactly as it was. Writing it into the draft instead is
+  // what silently ate whatever the user had typed ("şuna bak" + a GIF sent
+  // "şuna bak" and threw the GIF away).
+  const handleSendMessage = (bodyOverride?: string): void => {
+    const isOverride = typeof bodyOverride === "string";
+    const body = (isOverride ? bodyOverride : messageDraft).trim();
+
+    if (!selectedUserId) {
+      return;
+    }
+
+    // An override is a body on its own, so the "empty unless a file is
+    // attached" rule does not apply to it -- it must send with an empty draft
+    // and no attachment. It still may not send an empty string.
+    if (isOverride ? !body : !body && !pendingAttachment) {
       return;
     }
 
     sendDirectMessageMutation.mutate({
       peerUserId: selectedUserId,
       body,
+      // The reply target is honoured (a GIF is a fine reply) but not consumed:
+      // keepComposer leaves the chip up for the draft that is still sitting
+      // there.
       replyToId: replyTo?.id,
-      attachment: pendingAttachment?.upload,
+      // A staged file belongs to the draft, not to the GIF.
+      attachment: isOverride ? undefined : pendingAttachment?.upload,
+      keepComposer: isOverride,
     });
   };
 

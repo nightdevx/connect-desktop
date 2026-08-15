@@ -140,117 +140,117 @@ export function SettingsSecurity() {
           <div>
             <h4>Güvenlik Ayarları</h4>
             <p className="ct-settings-section-description">
-            Hesap güvenliği için sadece şifreni bu ekrandan değiştirebilirsin.
+            Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını
+            silebilirsin.
             </p>
           </div>
         </div>
       </div>
 
       <div className="ct-settings-content">
-        <div className="ct-settings-form-group">
-          <div>
-            <label className="ct-field-label" htmlFor="settings-current-password">
-              Mevcut Şifre
-            </label>
-            <Input.Password
-              id="settings-current-password"
-              prefix={<LockOutlined  />}
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              autoComplete="current-password"
-              placeholder="Mevcut şifrenizi girin"
-            />
+        <div className="ct-settings-subsection">
+          <h5>Şifre</h5>
+
+          <div className="ct-settings-form-group">
+            <div>
+              <label
+                className="ct-field-label"
+                htmlFor="settings-current-password"
+              >
+                Mevcut Şifre
+              </label>
+              <Input.Password
+                id="settings-current-password"
+                prefix={<LockOutlined />}
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="Mevcut şifrenizi girin"
+              />
+            </div>
+
+            <div>
+              <label className="ct-field-label" htmlFor="settings-new-password">
+                Yeni Şifre
+              </label>
+              <Input.Password
+                id="settings-new-password"
+                prefix={<LockOutlined />}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                autoComplete="new-password"
+                placeholder="Yeni şifrenizi girin"
+              />
+            </div>
+
+            <div>
+              <label
+                className="ct-field-label"
+                htmlFor="settings-confirm-password"
+              >
+                Yeni Şifre (Tekrar)
+              </label>
+              <Input.Password
+                id="settings-confirm-password"
+                prefix={<LockOutlined />}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                placeholder="Yeni şifrenizi tekrar girin"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="ct-field-label" htmlFor="settings-new-password">
-              Yeni Şifre
-            </label>
-            <Input.Password
-              id="settings-new-password"
-              prefix={<LockOutlined  />}
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              autoComplete="new-password"
-              placeholder="Yeni şifrenizi girin"
-            />
-          </div>
-
-          <div>
-            <label className="ct-field-label" htmlFor="settings-confirm-password">
-              Yeni Şifre (Tekrar)
-            </label>
-            <Input.Password
-              id="settings-confirm-password"
-              prefix={<LockOutlined  />}
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              autoComplete="new-password"
-              placeholder="Yeni şifrenizi tekrar girin"
-            />
+          <div className="ct-settings-actions">
+            <Button
+              type="primary"
+              icon={<SafetyOutlined />}
+              onClick={() => {
+                void handleChangePassword();
+              }}
+              loading={isChangingPassword}
+              disabled={isChangingPassword}
+            >
+              Şifreyi Değiştir
+            </Button>
           </div>
         </div>
 
-        <div className="ct-settings-actions">
-          <Button
-            type="primary"
-            icon={<SafetyOutlined />}
-            onClick={() => {
-              void handleChangePassword();
-            }}
-            loading={isChangingPassword}
-            disabled={isChangingPassword}
-            
-          >
-            Şifreyi Değiştir
-          </Button>
-        </div>
-
-        <div
-          className="ct-settings-subsection"
-        >
-          <h5 >
-            Hesap Verileri
-          </h5>
-          <p
-            className="ct-field-hint"
-          >
+        <div className="ct-settings-subsection">
+          <h5>Hesap Verileri</h5>
+          <p className="ct-field-hint">
             Profil bilgilerinizi ve engel listenizi JSON olarak indirin. Sohbet
             geçmişi dahil değildir: mesajlar karşı tarafla ortak veridir.
           </p>
-          <Button
-            icon={<DownloadOutlined />}
-            loading={isExporting}
-            onClick={() => {
-              void handleExportData();
-            }}
-            
-          >
-            Verilerimi İndir
-          </Button>
+          <div className="ct-settings-actions">
+            <Button
+              icon={<DownloadOutlined />}
+              loading={isExporting}
+              onClick={() => {
+                void handleExportData();
+              }}
+            >
+              Verilerimi İndir
+            </Button>
+          </div>
         </div>
 
-        <div
-          className="ct-settings-subsection danger"
-        >
-          <h5 >
-            Hesabı Sil
-          </h5>
-          <p
-            className="ct-field-hint"
-          >
+        <div className="ct-settings-subsection danger">
+          <h5>Hesabı Sil</h5>
+          <p className="ct-field-hint">
             Hesabınız hemen devre dışı bırakılır ve {DELETION_GRACE_DAYS} gün
             sonra kalıcı olarak silinir. Bu süre içinde giriş yaparsanız hesabınız
             geri gelir.
           </p>
-          <Button
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => setIsDeleteModalOpen(true)}
-            
-          >
-            Hesabımı Sil
-          </Button>
+          <div className="ct-settings-actions">
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => setIsDeleteModalOpen(true)}
+            >
+              Hesabımı Sil
+            </Button>
+          </div>
         </div>
       </div>
 

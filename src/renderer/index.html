@@ -3,9 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- img-src used to be a blanket `https:`, which let a chat message pull an
+         image from any host on earth. Combined with rendering a bare image URL
+         as an <img>, that made every message an unattended GET to an
+         attacker-chosen server: a stranger in a lobby harvested every viewer's
+         IP, User-Agent and exact read time by posting one link. The renderer
+         now auto-loads only the GIF provider's CDN, and this is the browser-level
+         backstop for that rule. Keep it in step with GIF_CDN_DOMAIN in
+         src/shared/gif-hosts.ts. A live call returns media on
+         static.klipy.com; the whole registrable domain is allowed anyway so
+         that KLIPY adding static2/media/cdn does not silently blank the grid.
+         The apex is listed alongside the wildcard because `*.klipy.com` does
+         not match bare klipy.com: without it, gif-hosts.ts would accept an
+         apex-hosted URL, main's "every row dropped" warning would stay quiet,
+         and the user would get a grid of broken cells with nothing logged
+         anywhere. Avatars and attachments are data: URLs. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws://localhost:5173 http://localhost:5173 https: wss:"
+      content="default-src 'self'; img-src 'self' data: https://klipy.com https://*.klipy.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws://localhost:5173 http://localhost:5173 ws://127.0.0.1:7880 http://127.0.0.1:7880 https: wss:"
     />
     <title>Connect</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
