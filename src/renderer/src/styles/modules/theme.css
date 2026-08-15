@@ -184,60 +184,74 @@
 /* ------------------------------------------------------------------ *
  * Context menus
  *
- * Every right-click menu in the app is an antd Dropdown, and antd sizes
- * its items from the global controlHeight token — which this project sets
- * to 40px because that is the right height for a button. A two-item menu
- * was therefore taller than the row it belonged to.
+ * Every right-click menu in the app is an antd Dropdown, and antd sizes its
+ * items from the global controlHeight token — 40px here, which is the right
+ * height for a button and far too tall for a menu row. A two-item menu came
+ * out taller than the row it belonged to.
  *
- * Written as CSS rather than component tokens because it has to reach the
- * one menu that is not antd at all (the audio-device popover below) and
- * the hand-rolled blocks inside the participant menu. Tokens would style
- * only some of them, and the two would visibly diverge.
+ * SPECIFICITY MATTERS. antd 6 emits its own rules as
+ * `.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item` (three classes,
+ * only the hash part wrapped in :where). A single-class override loses to that
+ * silently — the rules apply, the browser just picks antd's. Everything here is
+ * written at matching or higher specificity for that reason.
+ *
+ * Written as CSS rather than component tokens because it also has to reach the
+ * one menu that is not antd at all (the audio-device popover in common.css) and
+ * the hand-rolled blocks inside the participant menu. Tokens would style only
+ * some of them and the two would visibly diverge.
  * ------------------------------------------------------------------ */
 
-.ant-dropdown-menu {
-  padding: 4px;
+.ant-dropdown .ant-dropdown-menu {
+  padding: 3px;
   border-radius: var(--ct-radius-md);
 }
 
-.ant-dropdown-menu-item,
-.ant-dropdown-menu-submenu-title {
-  /* The height now comes from the line box plus this padding, not from a
-     40px control. Bumping the radius down keeps the highlight from looking
-     like a button inside the menu. */
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  /* Height comes from the line box plus this padding — 18 + 6 = 24px — not from
+     a 40px control. The smaller radius stops the hover highlight reading as a
+     button sitting inside the menu. */
   min-height: 0;
-  padding: 5px 10px;
+  height: auto;
+  padding: 3px 9px;
   border-radius: var(--ct-radius-sm);
   font-size: 13px;
   line-height: 18px;
-  /* Window titles in the screen-change submenu are arbitrarily long: they
-     must not wrap a menu row to two lines. */
+  /* Window titles in the screen-change submenu are arbitrarily long; they must
+     not wrap a row onto two lines. */
   white-space: nowrap;
 }
 
-.ant-dropdown-menu-item .anticon,
-.ant-dropdown-menu-submenu-title .anticon {
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item .anticon,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title .anticon {
   font-size: 13px;
+  min-width: 13px;
 }
 
-.ant-dropdown-menu-title-content {
+/* antd spaces the icon from the label with a margin sized for the tall row. */
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-icon {
+  margin-inline-end: 7px;
+}
+
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-title-content {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 260px;
 }
 
-/* antd reserves room for the expand arrow from the horizontal padding it no
+/* antd reserves room for the expand arrow out of horizontal padding this no
    longer has; give it back explicitly or the arrow sits on the label. */
-.ant-dropdown-menu-submenu-title {
-  padding-inline-end: 26px;
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  padding-inline-end: 24px;
 }
 
-.ant-dropdown-menu-item-divider {
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-divider {
   margin: 3px 0;
 }
 
-/* Disabled items are used as section headings in the participant menu, so
-   they carry no hover and should read as labels rather than dead options. */
-.ant-dropdown-menu-item-disabled {
-  padding-block: 3px;
+/* Disabled items are section headings in the participant menu — no hover, and
+   they should read as labels rather than dead options. */
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-disabled {
+  padding-block: 2px;
+  cursor: default;
 }

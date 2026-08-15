@@ -535,6 +535,11 @@ export interface DesktopApi {
     attachmentId: string;
     fileName: string;
   }) => Promise<DesktopResult<{ saved: boolean; path?: string }>>;
+  // Saves an image that lives at a remote URL (a posted GIF). Main re-checks
+  // the host against the auto-load allowlist before fetching anything.
+  saveChatImage: (payload: {
+    url: string;
+  }) => Promise<DesktopResult<{ saved: boolean; path?: string }>>;
   // Peers with any direct-message history; the sidebar seeds its open list here.
   // conversations carries the names — a non-friend peer is absent from the
   // directory, so this is the only place the sidebar can learn what to call

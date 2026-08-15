@@ -288,6 +288,30 @@ export function LobbyChatPanel({
     inputRef: composerInputRef,
   });
 
+  // How far from the bottom the button appears.
+  //
+  // It used to be revealed by `@container scroll-state(scrollable: bottom)`,
+  // which is true whenever there is ANY content below the fold — one pixel of
+  // scrolling was enough, so reading the message above the last one covered the
+  // thread with a jump-to-newest button. A distance is the thing being asked
+  // about, and CSS scroll-state cannot express one.
+  const SCROLL_BUTTON_THRESHOLD_PX = 220;
+
+  const [isAwayFromBottom, setIsAwayFromBottom] = useState(false);
+
+  const handleMessagesScroll = (): void => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distance =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const away = distance > SCROLL_BUTTON_THRESHOLD_PX;
+    // Only on a real change: this runs on every scroll frame.
+    setIsAwayFromBottom((previous) => (previous === away ? previous : away));
+  };
+
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -303,6 +327,8 @@ export function LobbyChatPanel({
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
       if (isNearBottom || lobbyMessages.length <= 1) {
         container.scrollTop = container.scrollHeight;
+        // Jumped to the end without a scroll event necessarily firing.
+        setIsAwayFromBottom(false);
       }
     }
   }, [lobbyMessages.length]);
@@ -338,8 +364,8 @@ export function LobbyChatPanel({
         )}
         <div
           ref={messagesContainerRef}
-          className="ct-chat-messages" 
-          
+          className="ct-chat-messages"
+          onScroll={handleMessagesScroll}
         >
           <div className="ct-scroll-indicator top" />
 
@@ -436,7 +462,9 @@ export function LobbyChatPanel({
           <div className="ct-scroll-indicator bottom" />
           <button
             type="button"
-            className="ct-scroll-to-bottom-btn"
+            className={`ct-scroll-to-bottom-btn ${isAwayFromBottom ? "visible" : ""}`}
+            aria-hidden={!isAwayFromBottom}
+            tabIndex={isAwayFromBottom ? 0 : -1}
             onClick={scrollToBottom}
           >
             En Yeni Mesajlara Git

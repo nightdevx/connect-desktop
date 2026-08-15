@@ -139,12 +139,17 @@
     box-shadow: 0 6px 20px var(--ct-accent-glow);
   }
 
-  @container scroll-state(scrollable: bottom) {
-    .ct-scroll-to-bottom-btn {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateX(-50%) translateY(0);
-    }
+  /* Revealed by the panel, not by scroll-state.
+     
+     `scroll-state(scrollable: bottom)` asks "is there anything below the
+     fold", which is true one pixel off the end — so glancing at the previous
+     message put a jump-to-newest button over the thread. The question that
+     matters is HOW FAR from the bottom, and a container query cannot ask it;
+     the panel measures the distance and adds .visible past its threshold. */
+  .ct-scroll-to-bottom-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
   }
 
   .ct-chat-thread-box {
@@ -466,22 +471,40 @@
     width: 320px;
   }
 
+  /* The row height is declared here, not inherited from the images.
+     
+     It used to come from the img's own `height: 96px`, which made the whole
+     grid depend on the picture: rows are auto-sized, so anything that stopped
+     that height applying — a reset, a lazy image that had not loaded, a stretch
+     from align-content — collapsed the row, and a collapsed row keeps its
+     images out of the viewport so `loading="lazy"` never fetches them. That is
+     self-sustaining: the tiles stay flat lines with nothing in them.
+     
+     grid-auto-rows fixes the row from CSS alone, and align-content: start stops
+     a short result set from stretching rows to fill the panel. */
   .ct-gif-grid {
     @apply grid gap-1 overflow-y-auto;
     grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 112px;
+    align-content: start;
     height: 340px;
   }
 
   .ct-gif-cell {
     @apply block cursor-pointer overflow-hidden rounded-sm border-0 p-0;
     background: var(--ct-alpha-04);
+    /* Fill the row the grid already sized, whatever is inside. */
+    height: 100%;
+    min-height: 0;
   }
 
-  /* Fixed tile height with object-fit, so a wall of mixed aspect ratios lines
-     up in rows instead of stair-stepping down the panel. */
+  /* object-fit crops a wall of mixed aspect ratios into even rows. min-height
+     is the floor: if anything ever beats the height declaration, the image
+     still fills its tile instead of collapsing to a line. */
   .ct-gif-cell img {
     @apply block w-full;
-    height: 96px;
+    height: 100%;
+    min-height: 100%;
     object-fit: cover;
   }
 
@@ -499,10 +522,29 @@
      Capped so a 1200px wide GIF cannot stretch the bubble, and lazy so a
      backlog full of them does not fetch every one on open. */
   .ct-chat-inline-image {
-    @apply block rounded-sm;
+    @apply block cursor-zoom-in rounded-sm;
     max-width: 320px;
     max-height: 240px;
     background: var(--ct-alpha-04);
+  }
+
+  /* The right-click wrapper, plus antd's own Image root inside it. Both need to
+     shrink-wrap: left as blocks they stretch the bubble to the full row width
+     with the picture sitting in the corner of it. */
+  .ct-chat-image-root,
+  .ct-chat-image-root .ant-image {
+    @apply inline-block max-w-full leading-none;
+  }
+
+  /* The hover mask is antd's own; it only needs to match the app rather than
+     read "Preview" in English at antd's default size. */
+  .ct-chat-image-root .ant-image-mask {
+    @apply rounded-sm text-2xs font-medium;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .ct-chat-image-mask {
+    @apply flex items-center gap-1;
   }
 
   /* --- Reply quote, attachment, reactions --------------------------------
@@ -527,7 +569,7 @@
   }
 
   .ct-chat-attachment-image {
-    @apply block max-w-full cursor-pointer rounded-sm;
+    @apply block max-w-full cursor-zoom-in rounded-sm;
     max-height: 280px;
   }
 

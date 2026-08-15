@@ -56,11 +56,12 @@ export function useLivekitSession(
       onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
         setLiveKitConnectionState(state);
 
-        // Ended by the server. Say so once and stop — the reconnect chain would
-        // either fail repeatedly or, for a duplicate identity, evict the very
-        // session it just created and loop.
+        // Ended by the server. Stop here — the reconnect chain would either
+        // fail repeatedly or, for a duplicate identity, evict the very session
+        // it just created and loop. The manager has already explained which
+        // decision it was through onWarning; do not overwrite that with a
+        // vaguer message.
         if (state === "closed") {
-          setStatus("Ses bağlantısı sonlandırıldı.", "warn");
           return;
         }
 

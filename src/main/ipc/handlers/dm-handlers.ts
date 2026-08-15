@@ -1,5 +1,21 @@
 import { BrowserWindow, dialog, ipcMain } from "electron";
 import { writeFile } from "node:fs/promises";
+import { isAutoLoadableImageUrl } from "../../../shared/gif-hosts";
+import { DesktopApiError } from "../../backend-client";
+
+const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
+
+// A sensible default for the save dialog, from the URL's own last path segment.
+// Never used as a path: showSaveDialog is where the user picks the real one.
+const remoteImageFileName = (url: string): string => {
+  try {
+    const last = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+    const safe = last.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 80);
+    return /.(?:gif|png|jpe?g|webp)$/i.test(safe) ? safe : "gorsel.gif";
+  } catch {
+    return "gorsel.gif";
+  }
+};
 import {
   backendClient,
   directMessagesStreamManager,
@@ -16,6 +32,7 @@ import {
   messageEditSchema,
   messageReactionSchema,
   saveAttachmentSchema,
+  saveImageUrlSchema,
   sendDirectMessageSchema,
   unreadCountsSchema,
 } from "../validators";
@@ -98,6 +115,80 @@ export function registerDMHandlers(): void {
       const dialogOptions = {
         title: "Dosyayı kaydet",
         defaultPath: parsed.fileName,
+      };
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const target = window
+        ? await dialog.showSaveDialog(window, dialogOptions)
+        : await dialog.showSaveDialog(dialogOptions);
+
+      if (target.canceled || !target.filePath) {
+        return ok({ saved: false });
+      }
+
+      await writeFile(target.filePath, bytes);
+      return ok({ saved: true, path: target.filePath });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Save an image that lives at a remote URL — a GIF someone posted — rather
+  // than one uploaded as an attachment.
+  //
+  // The URL comes out of a message body, i.e. it is attacker-controlled text,
+  // so it is re-validated here against the same allowlist that decides whether
+  // a body renders as an <img> at all. Without that this handler is an
+  // arbitrary-URL fetcher running in the main process with no CSP over it:
+  // anyone could post a link and have every reader's machine GET it, and a
+  // file:// or http://localhost URL would reach things the renderer cannot.
+  ipcMain.handle("desktop:chat-image-save", async (event, payload: unknown) => {
+    try {
+      const parsed = saveImageUrlSchema.parse(payload);
+      if (!isAutoLoadableImageUrl(parsed.url)) {
+        return fail(
+          new DesktopApiError(
+            "IMAGE_HOST_NOT_ALLOWED",
+            400,
+            "Bu adresten görsel indirilemez.",
+          ),
+        );
+      }
+
+      // Bounded: a hung CDN must not leave the handler awaiting forever, and a
+      // "gif" that is actually 500 MB must not be buffered into memory.
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+      let bytes: Buffer;
+      try {
+        const response = await fetch(parsed.url, { signal: controller.signal });
+        if (!response.ok) {
+          return fail(
+            new DesktopApiError(
+              "IMAGE_DOWNLOAD_FAILED",
+              response.status,
+              "Görsel indirilemedi.",
+            ),
+          );
+        }
+
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+          return fail(
+            new DesktopApiError(
+              "IMAGE_TOO_LARGE",
+              413,
+              "Görsel çok büyük.",
+            ),
+          );
+        }
+        bytes = buffer;
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      const dialogOptions = {
+        title: "Görseli kaydet",
+        defaultPath: remoteImageFileName(parsed.url),
       };
       const window = BrowserWindow.fromWebContents(event.sender);
       const target = window

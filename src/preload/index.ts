@@ -175,6 +175,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:chat-attachment-get", payload),
   saveChatAttachment: async (payload) =>
     ipcRenderer.invoke("desktop:chat-attachment-save", payload),
+  saveChatImage: async (payload) =>
+    ipcRenderer.invoke("desktop:chat-image-save", payload),
   listConversations: async () =>
     ipcRenderer.invoke("desktop:chat-conversations"),
   listDirectMessages: async (payload) =>

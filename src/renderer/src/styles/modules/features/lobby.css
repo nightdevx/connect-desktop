@@ -914,9 +914,16 @@
   @apply rounded-none;
 }
 
+/* This class lands on the overlay ROOT, not on the menu itself. Padding here
+   drew a square-cornered frame around the rounded menu inside it, and `gap`
+   did nothing at all — the root is not a flex container. The surface belongs on
+   the menu element; the root only carries the width. */
 .ct-participant-context-menu {
-  @apply min-w-[300px] gap-2 p-2;
-  border-color: rgba(255, 255, 255, 0.25);
+  @apply min-w-[228px] p-0;
+}
+
+.ct-participant-context-menu .ant-dropdown-menu {
+  border: 1px solid rgba(255, 255, 255, 0.25);
   background:
     radial-gradient(
       circle at 100% 0%,
@@ -929,24 +936,33 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Half this menu's height was non-interactive chrome: four heading rows and two
+   slider blocks, each paying full item padding on top of its own margins. */
 .ct-participant-context-menu-title {
-  @apply m-0 truncate px-1 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.08em];
+  @apply m-0 truncate px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.08em];
   color: var(--ct-text-secondary);
 }
 
 .ct-participant-context-menu-hint .anticon {
-  margin-inline-end: 8px;
+  margin-inline-end: 7px;
 }
 
 .ct-participant-context-menu-hint {
-  @apply py-1 text-micro font-medium uppercase tracking-[0.08em];
+  @apply py-0 text-micro font-medium uppercase tracking-[0.08em];
   color: var(--ct-alpha-50);
 }
 
 .ct-participant-context-menu-volume {
-  @apply mt-1 flex flex-col gap-1.5 rounded-lg border px-2 py-2;
+  @apply mt-0.5 flex flex-col gap-1 rounded-md border px-2 py-1;
   border-color: var(--ct-border);
   background: rgba(18, 18, 18, 0.4);
+}
+
+/* The slider needs room for its 14px handle, so this one row opts out of the
+   tighter block padding rather than clipping it. */
+.ct-participant-context-menu
+  .ant-dropdown-menu-item:has(.ct-participant-context-menu-volume) {
+  padding-block: 2px;
 }
 
 .ct-participant-context-menu-volume input[type="range"] {

@@ -10,6 +10,10 @@ import type { DesktopResult } from "@shared/desktop-api-types";
 import type { LiveKitMediaSession } from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
 import workspaceService from "../../services";
+import {
+  isLobbyTransitionBusy,
+  type LobbyTransitionState,
+} from "./lobby-transition";
 
 type StatusTone = "ok" | "warn" | "error";
 
@@ -31,6 +35,9 @@ interface UseWorkspaceLobbyActionsParams {
   resetLocalMediaCapture: () => void;
   liveKitSessionRef: MutableRefObject<LiveKitMediaSession | null>;
   kickedLobbyIdRef: MutableRefObject<string | null>;
+  // Claimed synchronously by joinLobby/leaveActiveLobby so the background
+  // reconnect scheduler stands down for the duration. See lobby-transition.ts.
+  lobbyTransitionRef: MutableRefObject<LobbyTransitionState>;
 }
 
 export interface WorkspaceLobbyActionsState {
@@ -74,6 +81,7 @@ export const useWorkspaceLobbyActions = ({
   resetLocalMediaCapture,
   liveKitSessionRef,
   kickedLobbyIdRef,
+  lobbyTransitionRef,
 }: UseWorkspaceLobbyActionsParams): WorkspaceLobbyActionsState => {
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [renamingLobbyId, setRenamingLobbyId] = useState<string | null>(null);
@@ -222,12 +230,18 @@ export const useWorkspaceLobbyActions = ({
   };
 
   const joinLobby = async (lobbyId: string, password?: string): Promise<void> => {
-    if (joiningLobbyId || isLeavingLobby || activeLobbyId === lobbyId) {
+    // The ref, not the state, decides. State lands a commit later, and a
+    // reconnect timer firing inside that window would see "idle" and race this.
+    if (
+      isLobbyTransitionBusy(lobbyTransitionRef.current) ||
+      activeLobbyId === lobbyId
+    ) {
       return;
     }
 
     soundEffectManager.prime();
 
+    lobbyTransitionRef.current.joiningLobbyId = lobbyId;
     setJoiningLobbyId(lobbyId);
     try {
       const result = await workspaceService.joinLobby({ lobbyId, password });
@@ -269,17 +283,19 @@ export const useWorkspaceLobbyActions = ({
       setStatus(`${joinedLobby?.name ?? lobbyId} lobisine katıldın`, "ok");
       void lobbiesQuery.refetch();
     } finally {
+      lobbyTransitionRef.current.joiningLobbyId = null;
       setJoiningLobbyId(null);
     }
   };
 
   const leaveActiveLobby = async (reason: "user" | "kicked" = "user"): Promise<void> => {
-    if (!activeLobbyId || isLeavingLobby) {
+    if (!activeLobbyId || lobbyTransitionRef.current.isLeaving) {
       return;
     }
 
     soundEffectManager.prime();
 
+    lobbyTransitionRef.current.isLeaving = true;
     setIsLeavingLobby(true);
     clearActiveLobbyReconnectTimer();
     activeLobbyReconnectAttemptRef.current = 0;
@@ -311,6 +327,7 @@ export const useWorkspaceLobbyActions = ({
       }
       void lobbiesQuery.refetch();
     } finally {
+      lobbyTransitionRef.current.isLeaving = false;
       setIsLeavingLobby(false);
     }
   };

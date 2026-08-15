@@ -43,6 +43,10 @@ import {
 import type { OpenConversation } from "../features/workspace/hooks";
 import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
+import {
+  createLobbyTransitionState,
+  type LobbyTransitionState,
+} from "../features/workspace/hooks/lobby/lobby-transition";
 import workspaceService from "../features/workspace/services";
 import { useUiStore } from "../store/ui-store";
 import type { WorkspaceSection } from "../store/ui-store";
@@ -775,6 +779,16 @@ function WorkspaceShell({
     staleTime: 15_000,
   });
 
+  // One lock, claimed by the manual join/leave paths and respected by the
+  // background reconnect. Declared here because the two hooks that share it are
+  // instantiated in a fixed order — which is exactly why this used to be passed
+  // to the first of them as two literals, leaving the interlock permanently
+  // open. A ref has a stable identity from the first render, so the ordering no
+  // longer matters.
+  const lobbyTransitionRef = useRef<LobbyTransitionState>(
+    createLobbyTransitionState(),
+  );
+
   const activeLobbyReconnectInFlightRef = useRef(false);
   const activeLobbyReconnectAttemptRef = useRef(0);
   const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
@@ -806,8 +820,7 @@ function WorkspaceShell({
     shouldEmitReconnectStatus,
     setStatus,
     activeLobbyId,
-    joiningLobbyId: null,
-    isLeavingLobby: false,
+    lobbyTransitionRef,
     activeLobbyReconnectInFlightRef,
     activeLobbyReconnectAttemptRef,
     performPostJoinSynchronization,
@@ -966,6 +979,7 @@ function WorkspaceShell({
     resetLocalMediaCapture,
     liveKitSessionRef,
     kickedLobbyIdRef,
+    lobbyTransitionRef,
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----

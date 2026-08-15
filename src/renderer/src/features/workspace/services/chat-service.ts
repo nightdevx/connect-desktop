@@ -105,6 +105,20 @@ export const chatService = {
 
     return window.desktopApi.saveChatAttachment(payload);
   },
+  // A posted GIF lives at a remote URL rather than in an attachment row, so it
+  // has its own save path. Main re-checks the host before fetching.
+  saveChatImage: (payload: { url: string }) => {
+    if (typeof window.desktopApi.saveChatImage !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          saved: boolean;
+          path?: string;
+        }>,
+      );
+    }
+
+    return window.desktopApi.saveChatImage(payload);
+  },
   deleteLobbyMessage: (payload: { messageId: string }) => {
     if (typeof window.desktopApi.deleteLobbyMessage !== "function") {
       return Promise.resolve(

@@ -3,14 +3,19 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember, DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
+import {
+  isLobbyTransitionBusy,
+  type LobbyTransitionState,
+} from "./lobby-transition";
 
 interface UseWorkspaceLobbiesProps {
   isOnline: boolean;
   shouldEmitReconnectStatus: (key: any, delay: number) => boolean;
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
   activeLobbyId: string | null;
-  joiningLobbyId: string | null;
-  isLeavingLobby: boolean;
+  // Shared with the manual join/leave paths. See lobby-transition.ts: this
+  // used to arrive as two literals, which left the interlock below open.
+  lobbyTransitionRef: React.MutableRefObject<LobbyTransitionState>;
   activeLobbyReconnectInFlightRef: React.MutableRefObject<boolean>;
   activeLobbyReconnectAttemptRef: React.MutableRefObject<number>;
   performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
@@ -59,8 +64,7 @@ export function useWorkspaceLobbies({
   shouldEmitReconnectStatus,
   setStatus,
   activeLobbyId,
-  joiningLobbyId,
-  isLeavingLobby,
+  lobbyTransitionRef,
   activeLobbyReconnectInFlightRef,
   activeLobbyReconnectAttemptRef,
   performPostJoinSynchronization,
@@ -71,8 +75,6 @@ export function useWorkspaceLobbies({
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
   
   const activeLobbyRef = useRef(activeLobbyId);
-  const joiningLobbyRef = useRef(joiningLobbyId);
-  const leavingLobbyRef = useRef(isLeavingLobby);
   const onlineRef = useRef(isOnline);
 
   const lobbyStreamReconnectTimerRef = useRef<number | null>(null);
@@ -88,8 +90,6 @@ export function useWorkspaceLobbies({
   const hasLiveSnapshotRef = useRef(false);
 
   useEffect(() => { activeLobbyRef.current = activeLobbyId; }, [activeLobbyId]);
-  useEffect(() => { joiningLobbyRef.current = joiningLobbyId; }, [joiningLobbyId]);
-  useEffect(() => { leavingLobbyRef.current = isLeavingLobby; }, [isLeavingLobby]);
 
   // Latest-value refs for the reconnect scheduler.
   //
@@ -218,6 +218,13 @@ export function useWorkspaceLobbies({
     // would silently undo the kick. A deliberate manual join clears this.
     if (kickedLobbyIdRef.current === activeLobbyRef.current) return;
 
+    // The room this attempt is FOR. Checked again when the timer fires: a
+    // reconnect armed for the room the user was in must not fire against the
+    // one they moved to. Every server-side join is exclusive, so re-joining the
+    // wrong room does not just waste a round trip, it pulls the user out of the
+    // room they are standing in.
+    const scheduledFor = activeLobbyRef.current;
+
     if (activeLobbyReconnectTimerRef.current !== null) {
       // An urgent trigger (LiveKit dropped, network came back) must not be
       // swallowed by a backoff timer that is already counting down.
@@ -240,7 +247,19 @@ export function useWorkspaceLobbies({
       activeLobbyReconnectTimerRef.current = null;
       const targetLobbyID = activeLobbyRef.current;
       if (!targetLobbyID) return;
-      if (joiningLobbyRef.current || leavingLobbyRef.current || !onlineRef.current || activeLobbyReconnectInFlightRef.current) {
+
+      // Moved rooms while this was counting down. Drop it: whatever the user is
+      // in now has its own lifecycle and does not need this attempt.
+      if (targetLobbyID !== scheduledFor) return;
+
+      // A manual join or leave is under way. Stand down and try later rather
+      // than racing it — this is the interlock that used to be permanently open
+      // because the two flags arrived as literals.
+      if (
+        isLobbyTransitionBusy(lobbyTransitionRef.current) ||
+        !onlineRef.current ||
+        activeLobbyReconnectInFlightRef.current
+      ) {
         scheduleActiveLobbyReconnect(reason);
         return;
       }

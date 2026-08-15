@@ -1256,6 +1256,25 @@ export class LiveKitStreamManager {
       reason === DisconnectReason.ROOM_DELETED ||
       reason === DisconnectReason.CLIENT_INITIATED;
 
+    // Say WHICH decision. "the connection ended" with no reason is the kind of
+    // message that gets reported as a random drop — which is how this whole
+    // class of bug reached the user in the first place. CLIENT_INITIATED is
+    // deliberately silent: we asked for it.
+    if (isFinal) {
+      const explanation =
+        reason === DisconnectReason.DUPLICATE_IDENTITY
+          ? "Bu hesap başka bir cihazda sese katıldı, bu bağlantı kapatıldı."
+          : reason === DisconnectReason.PARTICIPANT_REMOVED
+            ? "Sesli odadan çıkarıldınız."
+            : reason === DisconnectReason.ROOM_DELETED
+              ? "Sesli oda kapatıldı."
+              : null;
+
+      if (explanation) {
+        this.callbacks.onWarning?.(explanation);
+      }
+    }
+
     // Unexpected drop: discard the dead room/handlers so the app-level reconnect
     // (performPostJoinSynchronization -> connect with a fresh token) can rebuild.
     this.teardownRoomState();

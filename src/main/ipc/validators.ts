@@ -89,6 +89,12 @@ export const attachmentFetchSchema = z.object({
   attachmentId: messageId,
 });
 
+// A remote image URL out of a message body. The handler re-checks it against
+// the GIF provider allowlist before fetching — this only bounds the length.
+export const saveImageUrlSchema = z.object({
+  url: z.string().url().max(2048),
+});
+
 export const saveAttachmentSchema = z.object({
   attachmentId: messageId,
   // Only a default for the save dialog; the real name was already sanitized

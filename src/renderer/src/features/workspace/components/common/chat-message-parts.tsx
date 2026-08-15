@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Popover, Tooltip, message as antdMessage } from "antd";
+import {
+  Button,
+  Dropdown,
+  Image,
+  Popover,
+  Tooltip,
+  message as antdMessage,
+} from "antd";
 import {
   DownloadOutlined,
+  ExpandOutlined,
   FileOutlined,
   PaperClipOutlined,
   SmileOutlined,
@@ -106,6 +114,86 @@ const autoLoadableImageUrl = (body: string): string | null => {
   return candidate && isAutoLoadableImageUrl(candidate) ? candidate : null;
 };
 
+interface ChatImageProps {
+  src: string;
+  alt: string;
+  className: string;
+  // Runs on "İndir". Async so the caller can await its own IPC round trip.
+  onDownload: () => Promise<void>;
+}
+
+// One image renderer for both chat surfaces: a posted GIF and an uploaded
+// attachment. Click enlarges, right-click offers a download.
+//
+// antd's Image carries the enlarge behaviour — a mask, a full-screen preview,
+// Esc and click-outside to close, and zoom. Hand-rolling a lightbox would mean
+// re-implementing focus trapping and scroll locking for no gain, and antd is
+// already the app's component library.
+//
+// The download is its own action rather than a click on the picture, which is
+// what the attachment used to do: clicking a picture to open a save dialog is
+// nobody's expectation, and it made looking at an image impossible.
+function ChatImage({
+  src,
+  alt,
+  className,
+  onDownload,
+}: ChatImageProps): JSX.Element {
+  const [saving, setSaving] = useState(false);
+
+  const handleDownload = useCallback(() => {
+    if (saving) {
+      return;
+    }
+    setSaving(true);
+    void onDownload().finally(() => {
+      setSaving(false);
+    });
+  }, [onDownload, saving]);
+
+  return (
+    <Dropdown
+      trigger={["contextMenu"]}
+      menu={{
+        items: [
+          {
+            key: "download",
+            label: saving ? "İndiriliyor…" : "İndir",
+            icon: <DownloadOutlined />,
+            disabled: saving,
+            onClick: ({ domEvent }) => {
+              // The bubble underneath selects the message.
+              domEvent.stopPropagation();
+              handleDownload();
+            },
+          },
+        ],
+      }}
+    >
+      {/* The span is not decoration. Dropdown attaches its contextmenu handler
+          to the child through a ref, and antd's Image does not forward one to a
+          DOM node — so right-click would silently do nothing. A plain element
+          always takes the ref. */}
+      <span className="ct-chat-image-root">
+        <Image
+          src={src}
+          alt={alt}
+          title={alt}
+          loading="lazy"
+          className={className}
+          preview={{
+            mask: (
+              <span className="ct-chat-image-mask">
+                <ExpandOutlined /> Büyüt
+              </span>
+            ),
+          }}
+        />
+      </span>
+    </Dropdown>
+  );
+}
+
 interface ChatMessageBodyProps {
   body: string;
   // The direct-message surface highlights @mentions in the same text; it hands
@@ -122,12 +210,18 @@ export function ChatMessageBody({
 
   if (imageUrl) {
     return (
-      <img
+      <ChatImage
         src={imageUrl}
         alt={body}
-        title={body}
-        loading="lazy"
         className="ct-chat-inline-image"
+        onDownload={async () => {
+          const result = await chatService.saveChatImage({ url: imageUrl });
+          if (!result.ok) {
+            antdMessage.error(result.error?.message ?? "Görsel indirilemedi");
+          } else if (result.data?.saved) {
+            antdMessage.success("Görsel kaydedildi");
+          }
+        }}
       />
     );
   }
@@ -211,12 +305,11 @@ export function ChatAttachmentView({
       {attachment.isImage && !failed ? (
         <div>
           {dataUrl ? (
-            <img
+            <ChatImage
               src={dataUrl}
               alt={attachment.name}
               className="ct-chat-attachment-image"
-              onClick={() => void handleSave()}
-              title="Kaydetmek için tıklayın"
+              onDownload={handleSave}
             />
           ) : (
             <div className="ct-chat-attachment-loading">
