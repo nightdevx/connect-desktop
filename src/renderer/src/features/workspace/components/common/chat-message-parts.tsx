@@ -489,12 +489,11 @@ export function ChatComposerEmojiButton({
       placement="topLeft"
       rootClassName="ct-emoji-popover"
       content={
-        <EmojiKeyboard
-          onPick={(emoji) => {
-            onPick(emoji);
-            setOpen(false);
-          }}
-        />
+        // Deliberately stays open. A reaction is one choice, but a message is
+        // written with several -- closing after the first meant reopening the
+        // picker (and losing the recents scroll position) for every emoji after
+        // it. Click outside or the button itself to dismiss.
+        <EmojiKeyboard onPick={onPick} />
       }
     >
       <Tooltip title="Emoji ekle">

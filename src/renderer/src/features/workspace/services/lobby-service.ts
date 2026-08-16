@@ -1,5 +1,6 @@
 import type {
   DesktopResult,
+  LobbySoundEmote,
   LobbyStreamEvent,
 } from "../../../../../shared/desktop-api-types";
 import type {
@@ -181,6 +182,15 @@ export const lobbyService = {
     }
 
     return window.desktopApi.setLobbyScreenSharing(payload);
+  },
+  sendLobbyEmote: (payload: { lobbyId: string; emote: LobbySoundEmote }) => {
+    if (typeof window.desktopApi.sendLobbyEmote !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ accepted: boolean }>,
+      );
+    }
+
+    return window.desktopApi.sendLobbyEmote(payload);
   },
   createLiveKitToken: (payload?: { room?: string }) => {
     if (typeof window.desktopApi.createLiveKitToken !== "function") {

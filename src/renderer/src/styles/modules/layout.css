@@ -17,7 +17,7 @@
 .ct-titlebar {
   @apply flex h-titlebar shrink-0 items-center justify-between gap-3 border-b pl-3 pr-2;
   border-color: var(--ct-border);
-  background: rgba(4, 4, 4, 0.72);
+  background: var(--ct-panel);
   backdrop-filter: blur(20px);
   -webkit-app-region: drag;
   user-select: none;
@@ -75,7 +75,7 @@
 
 .ct-update-install {
   @apply inline-flex h-7 shrink-0 items-center rounded-full px-3 text-2xs font-bold;
-  color: #ffffff;
+  color: var(--ct-text-primary);
   background: var(--ct-success);
   transition: filter var(--ct-duration-fast) ease;
   -webkit-app-region: no-drag;
@@ -103,7 +103,7 @@
 }
 
 .ct-window-control.danger:hover {
-  color: #ffffff;
+  color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
 
@@ -125,7 +125,7 @@
 
 .ct-main-panel {
   @apply grid min-h-0 grid-rows-[auto_1fr];
-  background: rgba(12, 12, 12, 0.66);
+  background: var(--ct-panel);
 }
 
 .ct-main-panel.no-header {
@@ -219,7 +219,7 @@
   @apply flex w-full max-w-md flex-col items-center justify-center gap-1 rounded-2xl border p-8 text-center;
   min-height: 360px;
   border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.45);
+  background: var(--ct-panel-soft);
   backdrop-filter: blur(16px);
   box-shadow: var(--ct-shadow-lg);
 }

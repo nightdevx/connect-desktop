@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
   useMemo,
+  type Dispatch,
   type MouseEvent,
+  type SetStateAction,
 } from "react";
 import { Drawer, Input, Button, Tag, Divider, Descriptions, Avatar, Tooltip } from "antd";
 import type { InputRef } from "antd";
@@ -252,7 +254,10 @@ import { useLobbyStageLayout } from "../lobby/lobby-stage-layout";
 import { type LobbyParticipantView } from "../lobby/lobby-participant-tile";
 import { type StageParticipantSlot } from "../lobby/lobby-view-utils";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
-import type { LobbyStateMember } from "@shared/desktop-api-types";
+import type {
+  LobbySoundEmote,
+  LobbyStateMember,
+} from "@shared/desktop-api-types";
 import type { CallSessionState } from "../../hooks";
 import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import workspaceService from "../../services";
@@ -268,7 +273,7 @@ interface UsersDirectMessagesPanelProps {
   directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
   directMessages: UseDirectMessagesResult["directMessages"];
   messageDraft: string;
-  onMessageDraftChange: (value: string) => void;
+  onMessageDraftChange: Dispatch<SetStateAction<string>>;
   // Throttled inside the hook; safe to call on every keystroke.
   onTyping?: () => void;
   isPeerTyping?: boolean;
@@ -676,6 +681,13 @@ export function UsersDirectMessagesPanel({
     }
   };
 
+  // Nothing is played locally: the sound comes back over the lobby stream, the
+  // same frame the peer gets, so hearing it is the confirmation it went out.
+  const handleSendEmote = (emote: LobbySoundEmote): void => {
+    if (!activeLobbyId) return;
+    void workspaceService.sendLobbyEmote({ lobbyId: activeLobbyId, emote });
+  };
+
   const showEmptyState =
     !directMessagesQuery.isPending &&
     !directMessagesQuery.isError &&
@@ -938,7 +950,12 @@ export function UsersDirectMessagesPanel({
           <div className="ct-chat-composer-row">
             <ChatComposerEmojiButton
               disabled={isSendingMessage}
-              onPick={(emoji) => onMessageDraftChange(messageDraft + emoji)}
+              // Updater, not `messageDraft + emoji`: the picker stays open, so a
+              // burst of picks shares one render and every closure would read
+              // the same stale draft — each emoji overwriting the previous one.
+              onPick={(emoji) =>
+                onMessageDraftChange((previous) => previous + emoji)
+              }
             />
             {/* The GIF goes out as its own message. It used to be written into
                 the draft and sent a render later, which silently destroyed
@@ -1095,6 +1112,10 @@ export function UsersDirectMessagesPanel({
                   selectedAudioOutputDeviceId={selectedAudioOutputDeviceId || null}
                   onSelectAudioInputDevice={onSelectAudioInputDevice || (() => {})}
                   onSelectAudioOutputDevice={onSelectAudioOutputDevice || (() => {})}
+                  // A call runs in a room named call_<id> through the same
+                  // manager as a lobby, so the same membership check and the
+                  // same broadcast apply here without a second path.
+                  onSendEmote={handleSendEmote}
                 />
               </section>
 

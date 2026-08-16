@@ -14,7 +14,7 @@
   padding: 3px;
   border: 1px solid var(--ct-alpha-04);
   border-radius: var(--ct-radius-md);
-  background: rgba(10, 10, 10, 0.8);
+  background: var(--ct-panel-strong);
 }
 
 .ct-segmented-premium .ant-segmented-item,
@@ -42,7 +42,7 @@
 .ct-double-bezel-inner {
   @apply rounded-lg border;
   border-color: var(--ct-alpha-08);
-  background: rgba(10, 10, 10, 0.7);
+  background: var(--ct-panel);
   box-shadow: inset 0 1px 1px var(--ct-alpha-04);
 }
 
@@ -50,7 +50,7 @@
 .ct-chat-user-header-premium {
   @apply flex h-14 shrink-0 cursor-pointer select-none items-center justify-between gap-3 border-b px-4;
   border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--ct-panel-soft);
   transition: background var(--ct-duration-fast) ease;
 }
 
@@ -113,20 +113,20 @@
 .ct-input-premium.ant-input-password {
   @apply h-control-lg rounded-lg border;
   border-color: var(--ct-alpha-08);
-  background: rgba(13, 13, 13, 0.4);
+  background: var(--ct-panel-soft);
   color: var(--ct-text-primary);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-input-premium:hover {
   border-color: var(--ct-alpha-20);
-  background: rgba(13, 13, 13, 0.6);
+  background: var(--ct-panel);
 }
 
 .ct-input-premium:focus,
 .ct-input-premium:focus-within {
   border-color: var(--ct-alpha-32);
-  background: rgba(13, 13, 13, 0.8);
+  background: var(--ct-panel-strong);
   box-shadow: 0 0 20px var(--ct-alpha-04);
 }
 

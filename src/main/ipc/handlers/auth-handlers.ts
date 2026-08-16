@@ -281,6 +281,20 @@ export function registerAuthHandlers(): void {
     }
   });
 
+  // Same {userId} shape as a block, so the block schema is reused rather than
+  // cloned — two copies of "what is a user id" is how they drift apart.
+  ipcMain.handle("desktop:auth-user-card", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.getUserCard(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:auth-presence", async (_event, payload: unknown) => {
     try {
       const parsed = setPresenceSchema.parse(payload);

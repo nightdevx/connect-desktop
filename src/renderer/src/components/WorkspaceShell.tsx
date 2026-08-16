@@ -38,19 +38,40 @@ import {
   useCallSession,
   useRemoteParticipantAudio,
   useRoomTransitions,
+  useUserCards,
   useOpenConversations,
 } from "../features/workspace/hooks";
-import type { OpenConversation } from "../features/workspace/hooks";
+import type {
+  OpenConversation,
+  ScheduleActiveLobbyReconnect,
+} from "../features/workspace/hooks";
 import { useLivekitSession } from "../features/livekit";
 import { soundEffectManager } from "../features/sound-effects";
 import {
   createLobbyTransitionState,
+  isLobbyTransitionBusy,
   type LobbyTransitionState,
 } from "../features/workspace/hooks/lobby/lobby-transition";
 import workspaceService from "../features/workspace/services";
 import { useUiStore } from "../store/ui-store";
 import type { WorkspaceSection } from "../store/ui-store";
 import type { AudioPreferences } from "../features/workspace/components/settings/settings-main-panel-types";
+
+// Join refusals that mean "you are genuinely not in this room any more".
+//
+// Anything not listed here — a network failure, a 5xx, LOBBY_FULL, an access
+// token that expired mid-refresh — is a failed probe, not a verdict, and must
+// leave the user exactly where they are.
+const DEPARTURE_MESSAGE_FOR_CODE: Record<string, string> = {
+  LOBBY_KICKED: "Odadan atıldınız.",
+  LOBBY_BANNED: "Bu odadan yasaklandınız.",
+  LOBBY_NOT_FOUND: "Oda kapatıldı.",
+  LOBBY_LOCKED: "Odaya erişim izniniz kaldırıldı.",
+  LOBBY_PASSWORD_REQUIRED: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
+  LOBBY_PASSWORD_INCORRECT: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
+  LOBBY_TEXT_ONLY: "Oda mesajlaşma odasına dönüştürüldü.",
+  FORBIDDEN: "Odaya erişim izniniz kaldırıldı.",
+};
 
 const toConversationPeer = (user: UserDirectoryEntry): OpenConversation => ({
   userId: user.userId,
@@ -181,15 +202,20 @@ function WorkspaceShell({
   ]);
 
   // ----- LIVEKIT SESSION -----
-  const scheduleActiveLobbyReconnectProxy = useCallback(
-    (reason: any, immediate: boolean) => {
-      if (activeLobbyReconnectProxyRef.current) {
-        activeLobbyReconnectProxyRef.current(reason, immediate);
-      }
+  //
+  // The media session is created before the lobby hooks that own the reconnect
+  // scheduler, and it needs to call into that scheduler when the transport
+  // drops. A ref bridges the ordering; typing it is what stops the two sides
+  // from drifting apart silently.
+  const activeLobbyReconnectProxyRef = useRef<ScheduleActiveLobbyReconnect | null>(
+    null,
+  );
+  const scheduleActiveLobbyReconnectProxy = useCallback<ScheduleActiveLobbyReconnect>(
+    (reason, immediate) => {
+      activeLobbyReconnectProxyRef.current?.(reason, immediate);
     },
     [],
   );
-  const activeLobbyReconnectProxyRef = useRef<any>(null);
 
   const {
     liveKitSessionRef,
@@ -419,7 +445,10 @@ function WorkspaceShell({
     return [...peerIds];
   }, [conversations, currentUserId, usersQuery.data]);
 
-  const avatarByUserId = useMemo(() => {
+  // Avatars for FRIENDS and self. The directory is friends-only, so this map
+  // has nothing for the strangers sitting in a voice room with you — see
+  // avatarByUserId below, which fills those in from their public cards.
+  const directoryAvatarByUserId = useMemo(() => {
     if (!usersQuery.data?.ok || !usersQuery.data.data) return {};
     return usersQuery.data.data.users.reduce<
       Record<string, string | null | undefined>
@@ -429,7 +458,7 @@ function WorkspaceShell({
     }, {});
   }, [usersQuery.data]);
 
-  const currentUserAvatarUrl = avatarByUserId[currentUserId] ?? null;
+  const currentUserAvatarUrl = directoryAvatarByUserId[currentUserId] ?? null;
 
   // ----- LOBBY ROOM / CHAT -----
   const {
@@ -793,15 +822,26 @@ function WorkspaceShell({
   const activeLobbyReconnectAttemptRef = useRef(0);
   const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
   const hasSeenCurrentUserInLobbyRef = useRef(false);
-  // When the roster first stopped listing us. Absence has to PERSIST before it
-  // is believed — see the kick-detection effect.
-  const absentFromLobbySinceRef = useRef<number | null>(null);
+  // How many CONSECUTIVE roster observations have failed to list us. Counted in
+  // observations, not milliseconds — see the membership-recovery effect.
+  const absentRosterObservationsRef = useRef(0);
+  // The roster object this effect has already judged. `lobbyMembersById` gets a
+  // new identity per push, so comparing references is what makes the effect
+  // snapshot-driven instead of render-driven.
+  const judgedRosterRef = useRef<unknown>(null);
+  const membershipRecoveryInFlightRef = useRef(false);
+  // The password the user actually entered for the room they are in, so an
+  // automatic re-join can present it. Without it every unattended recovery into
+  // a password-protected room failed with LOBBY_PASSWORD_REQUIRED forever.
+  // Never persisted: it lives as long as the membership does.
+  const activeLobbyPasswordRef = useRef<string | null>(null);
 
   // Reset hasSeenActiveLobbyStateRef and hasSeenCurrentUserInLobbyRef for non-active lobbies
   useEffect(() => {
     const activeId = activeLobbyId;
     hasSeenCurrentUserInLobbyRef.current = false;
-    absentFromLobbySinceRef.current = null;
+    absentRosterObservationsRef.current = 0;
+    judgedRosterRef.current = null;
     for (const key of Object.keys(hasSeenActiveLobbyStateRef.current)) {
       if (key !== activeId) {
         delete hasSeenActiveLobbyStateRef.current[key];
@@ -826,11 +866,39 @@ function WorkspaceShell({
     performPostJoinSynchronization,
     lobbiesQuery,
     kickedLobbyIdRef,
+    activeLobbyPasswordRef,
   });
 
   useEffect(() => {
     activeLobbyReconnectProxyRef.current = scheduleActiveLobbyReconnect;
   }, [scheduleActiveLobbyReconnect]);
+
+  // Everyone with a roster row on screen, across every lobby the sidebar lists.
+  // Their cards are what supply an avatar for a non-friend: without this a
+  // voice room was a wall of grey initials until you added each person, because
+  // the only avatar source was the friends-only directory.
+  const rosterUserIds = useMemo(() => {
+    const userIds = new Set<string>();
+    for (const members of Object.values(lobbyMembersById)) {
+      for (const member of members) {
+        userIds.add(member.userId);
+      }
+    }
+    return [...userIds];
+  }, [lobbyMembersById]);
+
+  const rosterCardByUserId = useUserCards(rosterUserIds);
+
+  // Cards first, directory over the top: for a friend the directory entry is
+  // the live one (the users-WS pushes profile edits into it), while the card is
+  // a 5-minute cache. For everyone else the card is all there is.
+  const avatarByUserId = useMemo(() => {
+    const merged: Record<string, string | null | undefined> = {};
+    for (const [userId, card] of Object.entries(rosterCardByUserId)) {
+      merged[userId] = card.avatarUrl;
+    }
+    return { ...merged, ...directoryAvatarByUserId };
+  }, [directoryAvatarByUserId, rosterCardByUserId]);
 
   // Active-lobby roster prefers the WS snapshot (lobbyMembersById, ~1s push) and
   // falls back to the REST lobbyStateQuery only when the stream hasn't delivered
@@ -980,6 +1048,7 @@ function WorkspaceShell({
     liveKitSessionRef,
     kickedLobbyIdRef,
     lobbyTransitionRef,
+    activeLobbyPasswordRef,
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
@@ -1016,52 +1085,191 @@ function WorkspaceShell({
     });
   }, [activeLobbyId]);
 
-  // ----- CLIENT KICK DETECTION -----
+  // ----- LEAVING A ROOM WITHOUT ASKING TO -----
   //
-  // Leaving the room is destructive and the evidence is a single websocket
-  // frame, so absence has to PERSIST before it is believed. It used to eject on
-  // the first snapshot that did not list us, which turned every upstream hiccup
-  // into a real departure: a reconciler tick taken while the client was
-  // mid-reconnect, a heartbeat gap, one dropped frame. That is the "people
-  // randomly fall out of the lobby" report.
+  // There are exactly two ways to learn that we are no longer in a room, and
+  // they answer different questions.
   //
-  // No timer drives this. A snapshot arrives about once a second while the
-  // stream is healthy, and if the stream is NOT healthy we have no evidence at
-  // all — which is exactly when we must not act. Silence is not a kick.
+  //   1. The server tells us, with a reason (`lobby-removed`). Authoritative and
+  //      immediate — but only deliverable while the socket is alive, which is
+  //      precisely not the case for a heartbeat timeout.
+  //   2. We notice we are missing from the roster. Always available, never
+  //      self-explanatory: a kick and a hiccup look identical.
+  //
+  // The old code had only (2) and treated it as (1) — after a few seconds of
+  // absence it left the room for real and marked the lobby un-rejoinable, so
+  // every transient became a permanent departure. That is the "people fall out
+  // of the lobby for no reason" report, and tuning the delay cannot fix it.
+  //
+  // Now (1) decides, and (2) recovers: on unexplained absence we re-join rather
+  // than leave. Re-joining is a no-op for someone who is still a member and is
+  // refused, with a specific code, exactly when the departure was real.
+  const leaveActiveLobbyRef = useRef(leaveActiveLobby);
+  useEffect(() => {
+    leaveActiveLobbyRef.current = leaveActiveLobby;
+  });
+
+  const departFromLobby = useCallback(
+    (lobbyId: string, reason: string): void => {
+      // Reset synchronously rather than waiting for the activeLobbyId -> null
+      // commit, so a push landing before leaveActiveLobby's REST call resolves
+      // cannot re-enter this path.
+      hasSeenCurrentUserInLobbyRef.current = false;
+      absentRosterObservationsRef.current = 0;
+      delete hasSeenActiveLobbyStateRef.current[lobbyId];
+      kickedLobbyIdRef.current = lobbyId;
+      activeLobbyPasswordRef.current = null;
+      message.warning(reason);
+      void leaveActiveLobbyRef.current("kicked");
+    },
+    [],
+  );
+
+  const recoverMembership = useCallback(
+    (lobbyId: string, why: string): void => {
+      if (membershipRecoveryInFlightRef.current) return;
+      // A deliberate join/leave is already changing rooms; it owns the outcome.
+      if (isLobbyTransitionBusy(lobbyTransitionRef.current)) return;
+      membershipRecoveryInFlightRef.current = true;
+      console.log(`[WorkspaceShell] ${why} — re-joining ${lobbyId} to find out why`);
+
+      void workspaceService
+        .joinLobby({
+          lobbyId,
+          password: activeLobbyPasswordRef.current ?? undefined,
+        })
+        .then(async (result) => {
+          // Moved on while the probe was in flight; its answer is about a room
+          // the user is no longer standing in.
+          if (activeLobbyRef.current !== lobbyId) return;
+
+          if (result.ok) {
+            // Back on the roster. Re-declare mic/camera/screen and make sure the
+            // media room is up, then say nothing: the user saw no interruption.
+            absentRosterObservationsRef.current = 0;
+            await performPostJoinSyncRef.current(lobbyId).catch(() => undefined);
+            return;
+          }
+
+          const departure = DEPARTURE_MESSAGE_FOR_CODE[result.error?.code ?? ""];
+          if (departure) {
+            departFromLobby(lobbyId, departure);
+            return;
+          }
+
+          // Inconclusive. Keep the user where they are and try again on the
+          // next absent observation.
+          absentRosterObservationsRef.current = 0;
+        })
+        .catch(() => {
+          absentRosterObservationsRef.current = 0;
+        })
+        .finally(() => {
+          membershipRecoveryInFlightRef.current = false;
+        });
+    },
+    [departFromLobby],
+  );
+
+  // (1) The server said so. No waiting, no counting, no inference.
+  useEffect(() => {
+    return workspaceService.onLobbyStreamEvent((event) => {
+      if (event.type !== "lobby-removed") return;
+
+      const lobbyId = activeLobbyRef.current;
+      // Only frames about the room we are actually standing in matter. A frame
+      // for any other room is either stale or about a session we already left.
+      if (!lobbyId || lobbyId !== event.lobbyId) return;
+
+      switch (event.reason) {
+        case "kicked":
+          departFromLobby(lobbyId, "Odadan atıldınız.");
+          return;
+        case "banned":
+          departFromLobby(lobbyId, "Bu odadan yasaklandınız.");
+          return;
+        case "lobby-deleted":
+          departFromLobby(lobbyId, "Oda kapatıldı.");
+          return;
+        case "moved": {
+          // Joins are exclusive, so OUR OWN room change produces one of these.
+          // movedTo is what separates the two cases: if the destination is the
+          // room we are switching to (or already in), this frame is describing
+          // something we did on purpose. Without the check, two devices signed
+          // into one account push each other back and forth forever, each
+          // recovery probe undoing the other's join.
+          const destination = event.movedTo ?? "";
+          if (
+            !destination ||
+            destination === lobbyId ||
+            destination === lobbyTransitionRef.current.joiningLobbyId
+          ) {
+            return;
+          }
+          departFromLobby(
+            lobbyId,
+            "Hesabınız başka bir cihazdan farklı bir odaya katıldı.",
+          );
+          return;
+        }
+        case "media-timeout":
+        case "heartbeat-timeout":
+          // Not a decision — the server lost sight of us. Re-join at once
+          // instead of waiting for four absent snapshots to prove it.
+          recoverMembership(lobbyId, `server reported ${event.reason}`);
+          return;
+        default:
+          return;
+      }
+    });
+  }, [departFromLobby, recoverMembership]);
+
+  // Sound emotes. Mounted once for the session rather than inside the lobby
+  // panel, which unmounts whenever the user looks at Arkadaşlar or Ayarlar —
+  // the room is still there and so is the noise.
+  //
+  // The sender's own emote is played from here too. It arrives on the same
+  // frame as everyone else's, which is what makes hearing it a real
+  // confirmation that the room heard it.
+  useEffect(() => {
+    return workspaceService.onLobbyStreamEvent((event) => {
+      if (event.type !== "lobby-emote") return;
+      if (!activeLobbyRef.current || activeLobbyRef.current !== event.lobbyId) {
+        return;
+      }
+      soundEffectManager.playEmote(event.emote);
+    });
+  }, []);
+
+  // (2) We noticed. Recovery only — this path can no longer decide to leave.
+  //
+  // Two rules, both learned the hard way:
+  //   * Count OBSERVATIONS, not milliseconds. The old version compared wall
+  //     clock inside an effect that re-runs on every render (leaveActiveLobby is
+  //     a fresh closure each time, and media stats re-render the shell at ≥1Hz),
+  //     so the render loop was the timer. One bad frame plus six seconds of
+  //     unrelated renders was enough to eject, even if the stream had gone
+  //     silent right after. Silence must not be a kick.
+  //   * Only judge a roster once. `judgedRosterRef` is what makes that true.
   useEffect(() => {
     if (!activeLobbyId || activeLobbyId.startsWith("call_")) return;
+    if (judgedRosterRef.current === lobbyMembersById) return;
+    judgedRosterRef.current = lobbyMembersById;
 
-    const ejectSelf = (why: string): void => {
-      console.log(`[WorkspaceShell] ${why} (${activeLobbyId})`);
-      message.warning("Odadan atıldınız veya oda kapatıldı.");
-      // Reset synchronously (not just on the eventual activeLobbyId->null
-      // transition) so a second push landing before leaveActiveLobby's async
-      // REST call resolves can't re-fire this branch.
-      hasSeenCurrentUserInLobbyRef.current = false;
-      absentFromLobbySinceRef.current = null;
-      delete hasSeenActiveLobbyStateRef.current[activeLobbyId];
-      kickedLobbyIdRef.current = activeLobbyId;
-      void leaveActiveLobby("kicked");
-    };
+    // Consecutive absent observations before we challenge the server. Snapshots
+    // arrive about once a second while the stream is healthy, so this is ~4s of
+    // real evidence — and zero seconds of evidence when the stream is down,
+    // which is the point.
+    const ABSENT_OBSERVATIONS_BEFORE_CHALLENGE = 4;
 
-    // Absence must hold for this long across consecutive snapshots. The server
-    // gives a genuinely absent member 30s before dropping them from the roster,
-    // so anything shorter here is the client second-guessing a roster that has
-    // not made up its mind. Long enough to ride out a blip, short enough that a
-    // real kick still feels immediate — the audio is already gone by then,
-    // LiveKit removes the participant on the spot.
-    const KICK_CONFIRM_MS = 6_000;
-
-    const confirmAbsence = (why: string): void => {
-      const now = Date.now();
-      if (absentFromLobbySinceRef.current === null) {
-        absentFromLobbySinceRef.current = now;
+    const noteAbsent = (lobbyId: string, why: string): void => {
+      absentRosterObservationsRef.current += 1;
+      if (
+        absentRosterObservationsRef.current < ABSENT_OBSERVATIONS_BEFORE_CHALLENGE
+      ) {
         return;
       }
-      if (now - absentFromLobbySinceRef.current < KICK_CONFIRM_MS) {
-        return;
-      }
-      ejectSelf(why);
+      recoverMembership(lobbyId, why);
     };
 
     const members = lobbyMembersById[activeLobbyId];
@@ -1070,7 +1278,7 @@ function WorkspaceShell({
 
       if (members.some((m) => m.userId === currentUserId)) {
         hasSeenCurrentUserInLobbyRef.current = true;
-        absentFromLobbySinceRef.current = null;
+        absentRosterObservationsRef.current = 0;
         return;
       }
 
@@ -1083,7 +1291,7 @@ function WorkspaceShell({
 
       // Only meaningful once we have actually been seen in this lobby.
       if (hasSeenCurrentUserInLobbyRef.current) {
-        confirmAbsence("Current user missing from the active lobby roster");
+        noteAbsent(activeLobbyId, "Current user missing from the active lobby roster");
       }
       return;
     }
@@ -1091,9 +1299,9 @@ function WorkspaceShell({
     // The lobby is absent from the snapshot entirely. Same treatment: only
     // after we have seen its state, and only if it stays gone.
     if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
-      confirmAbsence("Active lobby missing from the snapshot");
+      noteAbsent(activeLobbyId, "Active lobby missing from the snapshot");
     }
-  }, [activeLobbyId, lobbyMembersById, currentUserId, leaveActiveLobby]);
+  }, [activeLobbyId, lobbyMembersById, currentUserId, recoverMembership]);
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
   const {

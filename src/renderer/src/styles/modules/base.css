@@ -26,9 +26,35 @@
   --ct-surface-3: #181818;
   --ct-surface-4: #202020;
 
-  /* ---- White alpha ladder ---------------------------------------------
+  /* ---- Panels -----------------------------------------------------------
+     Translucent chrome: rails, sidebars, cards, floating pills. Five steps
+     replacing ~55 ad-hoc rgba(4..35, ·, ·) values that differed by a couple of
+     units of lightness and nothing else. Every one of those was a place the
+     light theme could not reach, which is why they are tokens now.
+
+     Translucent rather than solid on purpose -- panels sit over the body's
+     gradient and pick up its tint. */
+  --ct-panel-solid: rgba(10, 10, 10, 0.96);
+  --ct-panel-strong: rgba(14, 14, 14, 0.85);
+  --ct-panel: rgba(16, 16, 16, 0.72);
+  --ct-panel-soft: rgba(20, 20, 20, 0.45);
+  --ct-panel-raised: rgba(30, 30, 30, 0.88);
+
+  /* A hover/selected wash that reads on whatever it sits on. It was referenced
+     by three stylesheets and defined by none, so those rules silently painted
+     nothing at all. */
+  --ct-surface-raised: var(--ct-alpha-08);
+
+  /* Behind a modal or a full-screen preview. Darkens in both themes: it exists
+     to push the page back, and a light scrim would not. */
+  --ct-scrim: rgba(0, 0, 0, 0.6);
+
+  /* ---- Contrast alpha ladder -------------------------------------------
      Eight steps replacing the 26 ad-hoc rgba(255,255,255,x) values that were
-     scattered across the stylesheets and JSX. Pick the nearest step. */
+     scattered across the stylesheets and JSX. Pick the nearest step.
+
+     It is CONTRAST, not white: the light theme swaps the whole ladder to black
+     so borders and hover washes keep their meaning instead of vanishing. */
   --ct-alpha-02: rgba(255, 255, 255, 0.02);
   --ct-alpha-04: rgba(255, 255, 255, 0.04);
   --ct-alpha-08: rgba(255, 255, 255, 0.08);
@@ -51,8 +77,12 @@
   --ct-text-muted: #8f8f8f;
   --ct-text-inverse: #0b0b0b;
 
-  /* ---- Accent (monochrome: white on black) ----------------------------- */
+  /* ---- Accent (monochrome: white on black) -----------------------------
+     --ct-accent-dim is the far end of the accent gradients on primary buttons;
+     it has to move with the accent or a light theme gets a white-on-white
+     button. */
   --ct-accent: #ffffff;
+  --ct-accent-dim: #d1d1d1;
   --ct-accent-soft: var(--ct-alpha-08);
   --ct-accent-strong: var(--ct-alpha-32);
   --ct-accent-glow: rgba(255, 255, 255, 0.15);
@@ -116,8 +146,82 @@
      Still referenced by feature stylesheets; kept until those are migrated. */
   --ct-neon-emerald: var(--ct-success);
   --ct-neon-emerald-glow: rgba(16, 185, 129, 0.25);
-  --ct-glass-bg: rgba(10, 10, 10, 0.6);
+  --ct-glass-bg: var(--ct-panel);
   --ct-glass-border: var(--ct-alpha-08);
+
+  /* The page itself, behind every translucent panel. A token because the light
+     theme has to move it too, and because `body` is the one element whose
+     background nothing else can override. */
+  --ct-body-tint: rgba(16, 185, 129, 0.03);
+  --ct-body-from: #050505;
+  --ct-body-to: #020202;
+}
+
+/* ==========================================================================
+   LIGHT THEME
+
+   Only tokens are redefined; not one component rule is repeated. Anything that
+   still hardcodes a colour is a bug in that rule, not something to patch here.
+
+   Two things are deliberately NOT mirror images:
+     - --ct-scrim stays dark. It exists to push the page back behind a modal.
+     - The semantic colours keep their hues; only the tints built from them
+       (which are alpha, not opaque) come along for free.
+   ========================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ct-surface-0: #ffffff;
+  --ct-surface-1: #fafafa;
+  --ct-surface-2: #f4f4f5;
+  --ct-surface-3: #e9e9ec;
+  --ct-surface-4: #dededf;
+
+  --ct-panel-solid: rgba(255, 255, 255, 0.97);
+  --ct-panel-strong: rgba(252, 252, 253, 0.92);
+  --ct-panel: rgba(250, 250, 251, 0.84);
+  --ct-panel-soft: rgba(244, 244, 245, 0.6);
+  --ct-panel-raised: rgba(236, 236, 238, 0.94);
+
+  /* Black, at slightly lower alphas than the dark theme's white. The same
+     numeric alpha reads much heavier over a light ground, and a 0.2 black
+     hairline is a hard line where a 0.2 white one was a hint. */
+  --ct-alpha-02: rgba(0, 0, 0, 0.02);
+  --ct-alpha-04: rgba(0, 0, 0, 0.035);
+  --ct-alpha-08: rgba(0, 0, 0, 0.07);
+  --ct-alpha-12: rgba(0, 0, 0, 0.1);
+  --ct-alpha-20: rgba(0, 0, 0, 0.16);
+  --ct-alpha-32: rgba(0, 0, 0, 0.26);
+  --ct-alpha-50: rgba(0, 0, 0, 0.45);
+  --ct-alpha-70: rgba(0, 0, 0, 0.66);
+
+  --ct-text-primary: #0b0b0c;
+  --ct-text-secondary: #3f3f46;
+  /* 4.6:1 on --ct-surface-2, the lightest ground muted text ever sits on. */
+  --ct-text-muted: #6b6b73;
+  --ct-text-inverse: #ffffff;
+
+  --ct-accent: #111113;
+  --ct-accent-dim: #3a3a40;
+  --ct-accent-glow: rgba(0, 0, 0, 0.16);
+
+  /* Green and red are darkened: the dark theme's values are tuned to glow on
+     black and drop to ~2.5:1 as text on white. */
+  --ct-success: #0f8a63;
+  --ct-warning: #b45309;
+  --ct-danger: #cc2b2b;
+  --ct-info: #2563eb;
+
+  /* Shadows over a light ground read as dirt at the dark theme's opacity. */
+  --ct-shadow-sm: 0 2px 8px rgba(15, 15, 20, 0.08);
+  --ct-shadow-md: 0 8px 24px rgba(15, 15, 20, 0.1);
+  --ct-shadow-lg: 0 20px 44px rgba(15, 15, 20, 0.16);
+
+  --ct-neon-emerald-glow: rgba(15, 138, 99, 0.2);
+
+  --ct-body-tint: rgba(15, 138, 99, 0.05);
+  --ct-body-from: #f7f7f8;
+  --ct-body-to: #ededf0;
 }
 
 * {
@@ -137,11 +241,11 @@ body {
   background:
     radial-gradient(
       circle at 5% 5%,
-      rgba(16, 185, 129, 0.03),
+      var(--ct-body-tint),
       transparent 35%
     ),
     radial-gradient(circle at 95% 5%, var(--ct-alpha-02), transparent 30%),
-    linear-gradient(180deg, #050505 0%, #020202 100%);
+    linear-gradient(180deg, var(--ct-body-from) 0%, var(--ct-body-to) 100%);
   color: var(--ct-text-primary);
 }
 

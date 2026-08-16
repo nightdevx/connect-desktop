@@ -1,7 +1,7 @@
 .ct-workspace-shell {
   @apply grid h-full w-full min-h-0 overflow-hidden;
   grid-template-columns: var(--ct-rail-width) var(--ct-sidebar-width) minmax(0, 1fr);
-  background: rgba(12, 12, 12, 0.92);
+  background: var(--ct-panel-solid);
 }
 
 /* ==========================================================================
@@ -14,7 +14,7 @@
 .ct-rail {
   @apply flex flex-col items-stretch gap-1 border-r px-2 py-3;
   border-color: var(--ct-border);
-  background: rgba(6, 6, 6, 0.98);
+  background: var(--ct-panel-solid);
 }
 
 .ct-rail-items {
@@ -90,7 +90,7 @@
 
 .ct-rail-button.danger:hover:not(:disabled) {
   border-color: rgba(239, 68, 68, 0.3);
-  color: #ffffff;
+  color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
 
@@ -101,7 +101,7 @@
 .ct-sidebar {
   @apply grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
   border-color: var(--ct-border);
-  background: rgba(12, 12, 12, 0.9);
+  background: var(--ct-panel-solid);
 }
 
 /* --------------------------------------------------------------------------
@@ -292,7 +292,7 @@
   padding-inline: var(--ct-gutter);
   border-color: var(--ct-border);
   backdrop-filter: blur(16px);
-  background: rgba(10, 10, 10, 0.82);
+  background: var(--ct-panel-strong);
 }
 
 .ct-quick-idle-left {
@@ -353,7 +353,7 @@
 
 .ct-quick-icon-button.danger:hover:not(:disabled) {
   border-color: rgba(239, 68, 68, 0.3);
-  color: #ffffff;
+  color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
 
@@ -429,4 +429,73 @@
 .ct-list-home.active {
   background: var(--ct-surface-raised);
   color: var(--ct-text-primary);
+}
+
+/* ==========================================================================
+   PROFILE CARD
+   Opened from a lobby roster row or a chat author name. Sized to the content
+   it always has -- avatar, two lines of identity, two tags, one date row and
+   at most one button -- so it never reflows while the query lands.
+   ========================================================================== */
+
+.ct-profile-card {
+  @apply flex flex-col gap-3;
+  width: 244px;
+}
+
+.ct-profile-card.loading {
+  @apply flex-row items-center gap-2;
+  color: var(--ct-text-muted);
+  font-size: 13px;
+}
+
+.ct-profile-card-identity {
+  @apply flex items-center gap-3;
+}
+
+.ct-profile-card-avatar.ant-avatar {
+  @apply shrink-0;
+  border: 1px solid var(--ct-border-strong);
+}
+
+.ct-profile-card-names {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-profile-card-names strong {
+  @apply truncate text-base font-bold leading-tight;
+  color: var(--ct-text-primary);
+}
+
+.ct-profile-card-names span {
+  @apply truncate text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-profile-card-tags {
+  @apply flex flex-wrap items-center gap-1;
+}
+
+.ct-profile-card-meta {
+  @apply flex items-center justify-between rounded-lg px-3 py-2 text-xs;
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-muted);
+}
+
+.ct-profile-card-meta strong {
+  color: var(--ct-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The row that opens the card has to read as pressable; it sits inside a list
+   whose rows already do something else on click. */
+.ct-profile-trigger {
+  @apply min-w-0 cursor-pointer border-0 bg-transparent p-0 text-left;
+  color: inherit;
+  font: inherit;
+}
+
+.ct-profile-trigger:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

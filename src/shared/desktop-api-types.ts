@@ -163,6 +163,31 @@ export interface GifItem {
   description: string;
 }
 
+// Mirrors lobby.RemovalReason in the Go backend. "kicked", "banned" and
+// "lobby-deleted" are decisions and end the membership; the two timeouts are
+// failures, which the client recovers from by re-joining rather than leaving.
+export type LobbyRemovalReason =
+  | "kicked"
+  | "banned"
+  | "lobby-deleted"
+  | "media-timeout"
+  | "heartbeat-timeout"
+  | "moved";
+
+// Mirrors the soundEmotes set in the Go backend (internal/lobby/emote.go).
+// Closed on both sides: the server refuses anything outside it, and the client
+// has a synthesised sound for each. Adding one means touching both files.
+export const LOBBY_SOUND_EMOTES = [
+  "clap",
+  "laugh",
+  "drum",
+  "airhorn",
+  "wow",
+  "sad",
+] as const;
+
+export type LobbySoundEmote = (typeof LOBBY_SOUND_EMOTES)[number];
+
 export type LobbyStreamEvent =
   | {
       type: "lobbies-snapshot";
@@ -182,6 +207,33 @@ export type LobbyStreamEvent =
       type: "lobby-message-deleted";
       lobbyId: string;
       message: ChatMessage;
+      at?: string;
+    }
+  | {
+      // "You are no longer in that room, and here is why."
+      //
+      // A snapshot is a set, so a removed member is simply absent from it — and
+      // the client used to have to infer a kick from that absence, which was
+      // wrong every time the absence was transient. This frame carries the
+      // answer instead of leaving it to be guessed.
+      type: "lobby-removed";
+      lobbyId: string;
+      reason: LobbyRemovalReason;
+      // Only for "moved": which room the account went to. Lets a client tell its
+      // own room change from the same account moving on another device.
+      movedTo?: string;
+      at?: string;
+    }
+  | {
+      // A sound emote: everyone in the room plays the same short noise. The id
+      // names one of a fixed server-side set; no audio crosses the wire, so this
+      // never touches the media path and reaches members whose microphone is
+      // muted just the same.
+      type: "lobby-emote";
+      lobbyId: string;
+      userId: string;
+      username: string;
+      emote: LobbySoundEmote;
       at?: string;
     }
   | {
@@ -392,6 +444,12 @@ export interface DesktopApi {
   lookupUserByUsername: (payload: {
     username: string;
   }) => Promise<DesktopResult<{ user: FriendEntry }>>;
+  // The public card for an id you already hold: a lobby roster row, a message
+  // author, a caller. Carries the avatar and the real username, neither of
+  // which the friends-only directory has for a stranger.
+  getUserCard: (payload: {
+    userId: string;
+  }) => Promise<DesktopResult<{ user: UserProfile }>>;
   startUserDirectoryStream: () => Promise<DesktopResult<{ started: boolean }>>;
   stopUserDirectoryStream: () => Promise<DesktopResult<{ stopped: boolean }>>;
   onUserDirectoryEvent: (
@@ -463,6 +521,13 @@ export interface DesktopApi {
     lobbyId: string;
     enabled: boolean;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
+  // Fans a short synthesised noise out to the room. The reply only confirms the
+  // broadcast; the sound itself arrives back over the lobby stream, like it does
+  // for everyone else.
+  sendLobbyEmote: (payload: {
+    lobbyId: string;
+    emote: LobbySoundEmote;
+  }) => Promise<DesktopResult<{ accepted: boolean }>>;
   createLiveKitToken: (payload?: {
     room?: string;
   }) => Promise<DesktopResult<LiveKitTokenPayload>>;

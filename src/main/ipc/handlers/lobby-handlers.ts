@@ -17,6 +17,7 @@ import {
   lobbyMuteSchema,
   lobbyDeafenSchema,
   lobbyEnabledSchema,
+  lobbyEmoteSchema,
   lobbyStateSchema,
   lobbyMessagesListSchema,
   lobbyMessageSendSchema,
@@ -211,6 +212,22 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.lobbyId,
           parsed.enabled,
+        );
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-emote", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyEmoteSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.sendLobbyEmote(
+          accessToken,
+          parsed.lobbyId,
+          parsed.emote,
         );
       });
       return ok(result);

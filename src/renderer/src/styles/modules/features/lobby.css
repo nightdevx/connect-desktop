@@ -64,6 +64,11 @@
   @apply flex min-w-0 items-center gap-2;
 }
 
+/* Avatar + name, as one press target for the profile card. */
+.ct-lobby-member-identity {
+  @apply flex min-w-0 items-center gap-2;
+}
+
 .ct-lobby-member-name {
   @apply m-0 truncate text-2xs font-medium;
   color: var(--ct-text-secondary);
@@ -80,7 +85,7 @@
 
 .ct-list-item.clickable.active .ct-lobby-member-avatar.ant-avatar {
   border-color: rgba(0, 0, 0, 0.12);
-  background: #ffffff;
+  background: var(--ct-accent);
   color: var(--ct-text-inverse);
 }
 
@@ -211,7 +216,7 @@
   @apply inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-alpha-70);
-  background: rgba(18, 18, 18, 0.72);
+  background: var(--ct-panel);
   backdrop-filter: blur(12px);
   transition: all var(--ct-duration-fast) ease;
 }
@@ -219,7 +224,7 @@
 .ct-lobby-stage-hint:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: rgba(24, 24, 24, 0.85);
+  background: var(--ct-panel-strong);
 }
 
 .ct-lobby-room-card {
@@ -234,7 +239,7 @@
   @apply inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-alpha-70);
-  background: rgba(18, 18, 18, 0.72);
+  background: var(--ct-panel);
   backdrop-filter: blur(12px);
   transition: all var(--ct-duration-fast) ease;
 }
@@ -246,7 +251,7 @@
 .ct-lobby-chat-toggle:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: rgba(24, 24, 24, 0.85);
+  background: var(--ct-panel-strong);
 }
 
 .ct-lobby-room-grid-v2 {
@@ -260,15 +265,15 @@
   background:
     radial-gradient(
       circle at 10% 10%,
-      rgba(255, 255, 255, 0.02),
+      var(--ct-alpha-02),
       transparent 42%
     ),
     radial-gradient(
       circle at 100% 0%,
-      rgba(255, 255, 255, 0.03),
+      var(--ct-alpha-04),
       transparent 36%
     ),
-    linear-gradient(160deg, rgba(12, 12, 12, 0.72), rgba(5, 5, 5, 0.82));
+    linear-gradient(160deg, var(--ct-panel), var(--ct-panel-strong));
 }
 
 .ct-lobby-room-grid-v2.chat-closed {
@@ -424,11 +429,11 @@
   border-color: rgba(148, 163, 184, 0.2);
   background: linear-gradient(
     150deg,
-    rgba(18, 18, 18, 0.58),
-    rgba(8, 8, 8, 0.76)
+    var(--ct-panel-soft),
+    var(--ct-panel-strong)
   );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 var(--ct-alpha-04),
     0 12px 28px rgba(0, 0, 0, 0.28);
   width: 100%;
   max-width: 100%;
@@ -471,7 +476,7 @@
 }
 
 .ct-lobby-participant-tile:not(.local-user):hover {
-  border-color: rgba(255, 255, 255, 0.32);
+  border-color: var(--ct-alpha-32);
   transform: translateY(-1px);
 }
 
@@ -511,7 +516,7 @@
 }
 
 .ct-lobby-participant-tile.local-user {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--ct-alpha-32);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.16),
     0 12px 28px rgba(0, 0, 0, 0.3);
@@ -520,9 +525,9 @@
 /* Screen-share tiles get a distinct accent so they read as "content", not a face. */
 .ct-lobby-participant-tile.screen-share {
   border-color: rgba(59, 130, 246, 0.45);
-  background: linear-gradient(150deg, rgba(15, 23, 30, 0.6), rgba(6, 10, 14, 0.78));
+  background: linear-gradient(150deg, var(--ct-panel), var(--ct-panel));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 var(--ct-alpha-04),
     0 12px 28px rgba(0, 0, 0, 0.32),
     0 0 0 1px rgba(59, 130, 246, 0.12);
 }
@@ -542,7 +547,7 @@
   padding: 4px 9px;
   border-radius: 999px;
   background: rgba(37, 99, 235, 0.85);
-  color: #ffffff;
+  color: var(--ct-text-primary);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -559,7 +564,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0a0a0a;
+  background: var(--ct-surface-1);
   border-radius: inherit;
 }
 
@@ -597,7 +602,7 @@
    shows this instead of subscribing to the track on its own. */
 .ct-lobby-tile-watch-prompt {
   @apply absolute inset-0 z-20 flex flex-col items-center justify-center gap-2;
-  background: rgba(10, 10, 10, 0.55);
+  background: var(--ct-panel-soft);
   backdrop-filter: blur(2px);
 }
 
@@ -613,7 +618,7 @@
 
 .ct-lobby-tile-watch-hint {
   @apply text-micro;
-  color: var(--ct-alpha-32);
+  color: var(--ct-text-muted);
 }
 
 .ct-lobby-tile-watch-btn {
@@ -633,7 +638,7 @@
   @apply absolute top-3 z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
   border-color: var(--ct-alpha-20);
   color: var(--ct-text-primary);
-  background: rgba(15, 15, 15, 0.7);
+  background: var(--ct-panel);
   font-size: var(--ct-icon-sm);
   opacity: 0;
   transform: scale(0.9);
@@ -658,9 +663,9 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(15, 15, 15, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-alpha-20);
+  color: var(--ct-text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -682,7 +687,7 @@
 
 .ct-lobby-tile-video {
   @apply absolute inset-0 h-full w-full object-cover;
-  background: #0a0a0a;
+  background: var(--ct-surface-1);
 }
 
 /* A camera fills its tile: cropping a face is fine. A shared screen must not
@@ -753,7 +758,7 @@
   translate: -50% 0;
   z-index: 50;
   border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.88);
+  background: var(--ct-panel-solid);
   backdrop-filter: blur(12px);
   box-shadow: var(--ct-shadow-lg);
   /* Always visible so primary controls (mic/camera/screen/leave) stay
@@ -789,7 +794,7 @@
   @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
   border-color: var(--ct-border);
   color: var(--ct-text-muted);
-  background: rgba(14, 14, 14, 0.78);
+  background: var(--ct-panel-strong);
   font-size: var(--ct-icon-xs);
 }
 
@@ -853,7 +858,7 @@
 
 .ct-lobby-action-btn.danger {
   border-color: rgba(239, 68, 68, 0.2);
-  color: #ffffff;
+  color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
 
@@ -907,7 +912,7 @@
 .ct-lobby-chat-panel .ct-chat-thread-box {
   @apply h-full rounded-none min-h-0;
   border: 0;
-  background: rgba(15, 15, 15, 0.34);
+  background: var(--ct-panel-soft);
 }
 
 .ct-lobby-chat-panel .ct-chat-composer {
@@ -923,17 +928,17 @@
 }
 
 .ct-participant-context-menu .ant-dropdown-menu {
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--ct-alpha-20);
   background:
     radial-gradient(
       circle at 100% 0%,
-      rgba(255, 255, 255, 0.08),
+      var(--ct-alpha-08),
       transparent 45%
     ),
-    rgba(10, 10, 10, 0.98);
+    var(--ct-panel-solid);
   box-shadow:
     0 18px 38px rgba(0, 0, 0, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 var(--ct-alpha-04);
 }
 
 /* Half this menu's height was non-interactive chrome: four heading rows and two
@@ -955,7 +960,7 @@
 .ct-participant-context-menu-volume {
   @apply mt-0.5 flex flex-col gap-1 rounded-md border px-2 py-1;
   border-color: var(--ct-border);
-  background: rgba(18, 18, 18, 0.4);
+  background: var(--ct-panel-soft);
 }
 
 /* The slider needs room for its 14px handle, so this one row opts out of the
@@ -1000,8 +1005,8 @@
   border-color: var(--ct-alpha-12);
   background: linear-gradient(
     150deg,
-    rgba(18, 18, 18, 0.35),
-    rgba(8, 8, 8, 0.45)
+    var(--ct-panel-soft),
+    var(--ct-panel-soft)
   );
   pointer-events: none;
   box-shadow: none;
@@ -1026,3 +1031,33 @@
   font-style: italic;
 }
 
+
+/* ==========================================================================
+   SOUND EMOTES
+   A short synthesised noise every member of the room hears. The grid is fixed
+   at two columns so the popover's width does not change as the set grows.
+   ========================================================================== */
+
+.ct-sound-emote-grid {
+  @apply grid gap-1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 232px;
+}
+
+.ct-sound-emote-item {
+  @apply flex cursor-pointer items-center gap-2 rounded-lg border-0 px-2 py-2 text-left text-xs font-medium;
+  background: transparent;
+  color: var(--ct-text-secondary);
+  transition: background-color var(--ct-duration-fast) ease,
+    color var(--ct-duration-fast) ease;
+}
+
+.ct-sound-emote-item:hover {
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-primary);
+}
+
+.ct-sound-emote-item > span:first-child {
+  font-size: 18px;
+  line-height: 1;
+}

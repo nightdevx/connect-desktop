@@ -189,6 +189,13 @@ export const lobbyEnabledSchema = z.object({
   enabled: z.boolean(),
 });
 
+// The emote set is enforced by the backend, which is the only authority that
+// matters; this bound just keeps an unbounded string out of the request body.
+export const lobbyEmoteSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  emote: z.string().min(1).max(32),
+});
+
 export const liveKitTokenSchema = z.object({
   room: z.string().min(2).max(128).optional(),
 }).optional().default({});

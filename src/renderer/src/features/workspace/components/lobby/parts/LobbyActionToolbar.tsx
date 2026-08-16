@@ -9,8 +9,10 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 
+import type { LobbySoundEmote } from "@shared/desktop-api-types";
 import { AudioDeviceDropdown } from "../../common/AudioDeviceDropdown";
 import { StreamControlMenu } from "./StreamControlMenu";
+import { SoundEmoteMenu } from "./SoundEmoteMenu";
 
 interface LobbyActionToolbarProps {
   micEnabled: boolean;
@@ -29,6 +31,7 @@ interface LobbyActionToolbarProps {
   selectedAudioOutputDeviceId: string | null;
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
+  onSendEmote: (emote: LobbySoundEmote) => void;
 }
 
 export function LobbyActionToolbar({
@@ -48,6 +51,7 @@ export function LobbyActionToolbar({
   selectedAudioOutputDeviceId,
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
+  onSendEmote,
 }: LobbyActionToolbarProps) {
   return (
     <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
@@ -117,6 +121,8 @@ export function LobbyActionToolbar({
           onClick={onToggleCamera}
         />
       </Tooltip>
+
+      <SoundEmoteMenu onSend={onSendEmote} disabled={isLeavingLobby} />
 
       <Tooltip title="Lobiden Ayrıl">
         <Button

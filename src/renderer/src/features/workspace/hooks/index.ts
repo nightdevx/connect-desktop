@@ -11,6 +11,7 @@ export * from "./user/use-presence-status";
 export * from "./user/use-blocked-users";
 export * from "./user/use-friends";
 export * from "./user/use-open-conversations";
+export * from "./user/use-user-cards";
 export * from "./media/use-media-devices";
 export * from "./media/use-screen-subscriptions";
 export * from "./media/use-workspace-media-controls";

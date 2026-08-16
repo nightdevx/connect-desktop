@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react";
 import type {
   ChatMessage,
   LobbyDescriptor,
@@ -114,7 +115,7 @@ interface WorkspaceMainPanelProps {
   lobbyMembers: LobbyStateMember[];
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
-  setLobbyMessageDraft: (value: string) => void;
+  setLobbyMessageDraft: Dispatch<SetStateAction<string>>;
   // Optional body override, all the way down to the hook. `() => void` is
   // assignable to this, so a stale signature anywhere on this chain compiles
   // fine and drops the GIF URL at runtime -- keep it honest at every hop.
@@ -154,7 +155,7 @@ interface WorkspaceMainPanelProps {
     directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
     directMessages: UseDirectMessagesResult["directMessages"];
     messageDraft: string;
-    setMessageDraft: (value: string) => void;
+    setMessageDraft: Dispatch<SetStateAction<string>>;
     isSendingMessage: boolean;
     // Same override as onSendLobbyMessage above, and the same reason it has to
     // be written out here rather than left as `() => void`.

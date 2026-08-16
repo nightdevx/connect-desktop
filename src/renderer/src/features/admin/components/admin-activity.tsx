@@ -4,6 +4,14 @@ import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
 
+const EVENT_TAGS: Record<string, { color: string; text: string }> = {
+  join: { color: "green", text: "GİRİŞ" },
+  leave: { color: "red", text: "ÇIKIŞ" },
+  create: { color: "purple", text: "YENİ ODA" },
+  delete: { color: "orange", text: "ODA SİLİNDİ" },
+  edit: { color: "blue", text: "GÜNCELLEME" },
+};
+
 export default function AdminActivity() {
   const [events, setEvents] = useState<AdminLobbyEvent[]>([]);
   const [total, setTotal] = useState(0);
@@ -61,16 +69,22 @@ export default function AdminActivity() {
   };
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchEvents(1);
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
+    setCurrentPage(1);
   }, [lobbyFilter, userFilter, eventTypeFilter, searchText]);
 
+  // One debounced fetch for filters and paging alike — see admin-users for why
+  // splitting them fired two requests per keystroke.
   useEffect(() => {
-    fetchEvents(currentPage, pageSize);
-  }, [currentPage, pageSize]);
+    const timer = setTimeout(() => fetchEvents(currentPage, pageSize), 300);
+    return () => clearTimeout(timer);
+  }, [
+    currentPage,
+    pageSize,
+    lobbyFilter,
+    userFilter,
+    eventTypeFilter,
+    searchText,
+  ]);
 
   const handleTableChange = (pagination: any) => {
     setCurrentPage(pagination.current);
@@ -82,29 +96,16 @@ export default function AdminActivity() {
       title: "Olay Tipi",
       dataIndex: "eventType",
       key: "eventType",
+      // antd's preset names, not literal hex. A hex Tag is a solid block of one
+      // fixed colour with white text on it — the same five blocks whether the
+      // page is dark or light, and the only reason a log row could be brighter
+      // than the heading above it.
       render: (type: string) => {
-        let color = "default";
-        let text = type.toUpperCase();
-        if (type === "join") {
-          color = "#10b981";
-          text = "GİRİŞ";
-        } else if (type === "leave") {
-          color = "#ef4444";
-          text = "ÇIKIŞ";
-        } else if (type === "create") {
-          color = "#a855f7";
-          text = "YENİ ODA";
-        } else if (type === "delete") {
-          color = "#f59e0b";
-          text = "ODA SİLİNDİ";
-        } else if (type === "edit") {
-          color = "#3b82f6";
-          text = "GÜNCELLEME";
-        }
-        return (
-          <Tag color={color} >
-            {text}
-          </Tag>
+        const preset = EVENT_TAGS[type];
+        return preset ? (
+          <Tag color={preset.color}>{preset.text}</Tag>
+        ) : (
+          <Tag>{type.toUpperCase()}</Tag>
         );
       },
     },
@@ -112,10 +113,10 @@ export default function AdminActivity() {
       title: "Oda",
       key: "lobby",
       render: (_: any, record: AdminLobbyEvent) => (
-        <div>
-          <div >{record.lobbyName}</div>
-          <div className="ct-admin-muted">
-            ID: {record.lobbyId}
+        <div className="ct-admin-table-user">
+          <div>
+            <strong>{record.lobbyName}</strong>
+            <span>ID: {record.lobbyId}</span>
           </div>
         </div>
       ),
@@ -124,10 +125,10 @@ export default function AdminActivity() {
       title: "Kullanıcı",
       key: "user",
       render: (_: any, record: AdminLobbyEvent) => (
-        <div>
-          <div >@{record.username}</div>
-          <div className="ct-admin-muted">
-            ID: {record.userId}
+        <div className="ct-admin-table-user">
+          <div>
+            <strong>@{record.username}</strong>
+            <span>ID: {record.userId}</span>
           </div>
         </div>
       ),
@@ -142,23 +143,18 @@ export default function AdminActivity() {
 
   return (
     <div className="ct-admin-page">
-      <div >
+      <header className="ct-admin-page-header">
         <div>
-          <h1 >
-            Aktivite Logları
-          </h1>
-          <p >
-            Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı geçmişi
+          <h1>Aktivite Logları</h1>
+          <p>
+            Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı
+            geçmişi
           </p>
         </div>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => fetchEvents()}
-          
-        >
+        <Button icon={<ReloadOutlined />} onClick={() => fetchEvents()}>
           Yenile
         </Button>
-      </div>
+      </header>
 
       {/* Filters */}
       <div
@@ -173,11 +169,9 @@ export default function AdminActivity() {
         />
 
         <Select
-          defaultValue="all"
           value={eventTypeFilter}
           onChange={setEventTypeFilter}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Olay Tipleri" },
             { value: "join", label: "Giriş (Join)" },
@@ -199,7 +193,6 @@ export default function AdminActivity() {
           }
           options={lobbiesList.map(l => ({ value: l.id, label: `${l.name} (${l.id.substring(0, 8)})` }))}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
         />
 
         <Select
@@ -213,7 +206,6 @@ export default function AdminActivity() {
           }
           options={usersList.map(u => ({ value: u.id, label: `@${u.username}${u.displayName ? ` (${u.displayName})` : ""}` }))}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
         />
       </div>
 
@@ -231,7 +223,10 @@ export default function AdminActivity() {
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
-        scroll={{ y: "calc(100vh - 260px)" }}
+        // See admin-users: the viewport-height body cut the last row and hid
+        // the pagination. This page defaults to 50 rows, so it was the worst
+        // affected.
+        scroll={{ x: "max-content" }}
         className="ct-admin-table-wrap"
       />
     </div>

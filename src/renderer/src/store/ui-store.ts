@@ -1,4 +1,10 @@
 import { create } from "zustand";
+import {
+  applyThemeMode,
+  readThemeMode,
+  saveThemeMode,
+  type ThemeMode,
+} from "../styles/theme-mode";
 
 type AuthPage = "login" | "register";
 type StatusTone = "ok" | "warn" | "error";
@@ -22,6 +28,9 @@ interface UiState {
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
   adminSection: AdminSection;
+  /** Drives the data-theme attribute on <html> and antd's algorithm. */
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   setActivePage: (page: AuthPage) => void;
   setStatus: (message: string, tone: StatusTone) => void;
   setWorkspaceSection: (section: WorkspaceSection) => void;
@@ -37,6 +46,15 @@ export const useUiStore = create<UiState>((set) => ({
   workspaceSection: "lobbies",
   settingsSection: "profile",
   adminSection: "dashboard",
+  themeMode: readThemeMode(),
+  setThemeMode: (mode) => {
+    // The attribute is written here rather than in an effect: the stylesheet
+    // has to change in the same frame as the state, or antd's freshly rebuilt
+    // token set is briefly painted over the old palette's CSS.
+    applyThemeMode(mode);
+    saveThemeMode(mode);
+    set({ themeMode: mode });
+  },
   setActivePage: (page) => {
     if (document.startViewTransition) {
       document.startViewTransition(() => set({ activePage: page }));

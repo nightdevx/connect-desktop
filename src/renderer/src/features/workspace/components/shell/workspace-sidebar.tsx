@@ -416,6 +416,10 @@ export function WorkspaceSidebar({
             currentUserId={lobbiesProps.currentUserId}
             currentUserRole={lobbiesProps.currentUserRole}
             allUsers={lobbiesProps.allUsers}
+            // Same controller the Arkadaşlar section runs on, so a request sent
+            // from a roster row and one sent from the friends home cannot
+            // disagree about what state the friendship is in.
+            friends={usersProps.friends}
           />
         )}
 

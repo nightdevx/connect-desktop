@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Switch, Button, message, Alert } from "antd";
+import { Switch, Button, message, Alert, Segmented } from "antd";
 import { SettingOutlined, ReloadOutlined, BugOutlined } from "@ant-design/icons";
 import type {
   AppUpdateEvent,
   AppUpdateSnapshot,
 } from "../../../../../../shared/update-contracts";
+import type { ThemeMode } from "@/styles/theme-mode";
+import { useUiStore } from "@/store/ui-store";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
 
 const getUpdateCheckBlockedReason = (reason?: string): string => {
@@ -78,6 +80,8 @@ const getUpdatePhaseLabel = (
 };
 
 export function SettingsApplication() {
+  const themeMode = useUiStore((state) => state.themeMode);
+  const setThemeMode = useUiStore((state) => state.setThemeMode);
   const [messageApi, contextHolder] = message.useMessage();
   const [appVersion, setAppVersion] = useState("-");
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(
@@ -239,6 +243,34 @@ export function SettingsApplication() {
       </div>
 
       <div className="ct-settings-content">
+        <div className="ct-settings-subsection">
+          <h5>Görünüm</h5>
+
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Tema</strong>
+                <span>
+                  Açık tema aydınlık ortamlarda, koyu tema düşük ışıkta daha
+                  rahat okunur. Değişiklik anında uygulanır.
+                </span>
+              </div>
+              {/* Local, not a server preference: it is a property of this
+                  screen, and a person who uses the app on a laptop and a
+                  desktop rarely wants the same answer on both. */}
+              <Segmented
+                value={themeMode}
+                onChange={(value) => setThemeMode(value as ThemeMode)}
+                options={[
+                  { label: "Koyu", value: "dark" },
+                  { label: "Açık", value: "light" },
+                ]}
+                className="ct-segmented-premium"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="ct-settings-subsection">
           <h5>Başlangıç ve Pencere</h5>
 

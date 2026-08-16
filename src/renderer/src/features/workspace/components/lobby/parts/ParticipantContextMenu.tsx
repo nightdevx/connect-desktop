@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 
@@ -43,6 +44,9 @@ interface ParticipantContextMenuProps {
   isFriendActionPending?: boolean;
   onAddFriend?: () => void;
   onRemoveFriend?: () => void;
+  // Opens the profile card. The roster carries a display name and nothing else,
+  // so this is the only way to see who someone actually is from the stage.
+  onShowProfile?: () => void;
 }
 
 export function ParticipantContextMenu({
@@ -66,6 +70,7 @@ export function ParticipantContextMenu({
   isFriendActionPending = false,
   onAddFriend,
   onRemoveFriend,
+  onShowProfile,
 }: ParticipantContextMenuProps) {
   const menuItems: MenuProps['items'] = [
     {
@@ -77,6 +82,18 @@ export function ParticipantContextMenu({
       ),
       disabled: true,
     },
+    ...(onShowProfile ? [
+      {
+        key: 'profile',
+        label: 'Profili Gör',
+        icon: <IdcardOutlined />,
+        className: 'ct-participant-context-menu-button',
+        onClick: () => {
+          onShowProfile();
+          onClose();
+        },
+      },
+    ] : []),
     ...(friendState ? [
       {
         key: 'friendship',

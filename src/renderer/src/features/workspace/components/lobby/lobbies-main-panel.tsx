@@ -1,16 +1,29 @@
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type MouseEvent,
+  type SetStateAction,
+} from "react";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { message } from "antd";
-import type { UseQueryResult } from "@tanstack/react-query";
+import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
-import type { DesktopResult, LobbyStateMember } from "@shared/desktop-api-types";
+import type {
+  DesktopResult,
+  LobbySoundEmote,
+  LobbyStateMember,
+} from "@shared/desktop-api-types";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth/permissions";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
 import { ConfirmActionModal } from "../common";
+import { UserProfileCardAnchor } from "../user/user-profile-card";
 import type { FriendsController } from "../../hooks/user/use-friends";
+import { fetchUserCard } from "../../hooks/user/use-user-cards";
 import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import { useLobbyStageLayout } from "./lobby-stage-layout";
 import { type LobbyParticipantView } from "./lobby-participant-tile";
@@ -53,7 +66,7 @@ interface LobbiesMainPanelProps {
   lobbyMembers: LobbyStateMember[];
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
-  setLobbyMessageDraft: (value: string) => void;
+  setLobbyMessageDraft: Dispatch<SetStateAction<string>>;
   // Optional body override, forwarded verbatim to LobbyChatPanel's GIF button.
   // `() => void` is assignable to this, so a stale signature here compiles and
   // silently drops the URL at runtime.
@@ -165,6 +178,7 @@ export function LobbiesMainPanel({
   onStopWatchingScreen,
   friends,
 }: LobbiesMainPanelProps) {
+  const queryClient = useQueryClient();
   const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
   const [isRailVisible, setIsRailVisible] = useState(true);
@@ -177,6 +191,12 @@ export function LobbiesMainPanel({
   // from sending the same request twice.
   const [sendingFriendRequestIds, setSendingFriendRequestIds] = useState<string[]>([]);
   const [pendingUnfriend, setPendingUnfriend] = useState<{ userId: string; name: string } | null>(null);
+  // The profile card opened from the stage. Position is kept with it so the
+  // card appears where the right-click was, not where the tile happens to be
+  // after the grid reflows.
+  const [profileCardTarget, setProfileCardTarget] = useState<
+    { userId: string; name: string; x: number; y: number } | null
+  >(null);
 
   // 1. Participant Logic Hook
   const { lobbyParticipants } = useLobbyParticipants({
@@ -217,6 +237,7 @@ export function LobbiesMainPanel({
     setFocusedParticipantId(null);
     setContextMenuParticipantId(null);
     setContextMenuPosition(null);
+    setProfileCardTarget(null);
     setIsRailVisible(true);
   }, [activeLobbyId]);
 
@@ -297,10 +318,6 @@ export function LobbiesMainPanel({
   >(() => {
     if (!contextMenuParticipant) return undefined;
     if (friends.friendIds.includes(contextMenuParticipant.userId)) return "friend";
-    // The send-request route is keyed by username, not by id (auth-client.ts),
-    // so a roster row that carries no handle has nothing to send and gets no
-    // item at all rather than a button that cannot work.
-    if (!contextMenuParticipant.username) return undefined;
     if (friends.outgoingRequests.some((entry) => entry.userId === contextMenuParticipant.userId)) {
       return "requested";
     }
@@ -312,12 +329,26 @@ export function LobbiesMainPanel({
 
   const handleAddParticipantFriend = (): void => {
     const participant = contextMenuParticipant;
-    if (!participant?.username) return;
+    if (!participant) return;
 
-    const { userId, username } = participant;
+    const { userId } = participant;
     setSendingFriendRequestIds((previous) => [...previous, userId]);
-    void friends
-      .sendRequest(username)
+
+    // The handle is resolved from the public card, NOT from participant.username.
+    //
+    // The lobby roster carries auth.DisplayNameOf(user) in its `username` field
+    // — the display name, falling back to the handle only when there is none —
+    // while the send-request route is keyed by the real username. So for every
+    // member who had ever set a display name this menu answered "Kullanıcı
+    // bulunamadı", and for everyone who had not it happened to work. Served
+    // from the card cache the roster already primed, so it is normally free.
+    void fetchUserCard(queryClient, userId)
+      .then((card) => {
+        if (!card?.username) {
+          return { ok: false, message: "Kullanıcı profili alınamadı." };
+        }
+        return friends.sendRequest(card.username);
+      })
       .then((result) => {
         // Already Turkish: use-friends maps the server's codes before it
         // returns, so there is nothing to translate here.
@@ -375,6 +406,21 @@ export function LobbiesMainPanel({
     event.stopPropagation();
     setContextMenuParticipantId(participant.userId);
     setContextMenuPosition({ x: event.clientX, y: event.clientY });
+  };
+
+  // Nothing is played here. The sound comes back over the lobby stream like it
+  // does for everyone else, so the sender hears exactly what the room heard —
+  // and hears nothing when the server refused (rate limit, no longer a member),
+  // which is precisely when a local preview would have lied.
+  const handleSendEmote = (emote: LobbySoundEmote): void => {
+    if (!activeLobbyId) return;
+    void workspaceService
+      .sendLobbyEmote({ lobbyId: activeLobbyId, emote })
+      .then((result) => {
+        if (!result.ok) {
+          message.error(getApiErrorMessage(result.error));
+        }
+      });
   };
 
   const handleMute = (muted: boolean): void => {
@@ -494,6 +540,7 @@ export function LobbiesMainPanel({
               selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
               onSelectAudioInputDevice={onSelectAudioInputDevice}
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+              onSendEmote={handleSendEmote}
             />
           </section>
           )}
@@ -566,6 +613,28 @@ export function LobbiesMainPanel({
           }
           onAddFriend={handleAddParticipantFriend}
           onRemoveFriend={handleRemoveParticipantFriend}
+          onShowProfile={() => {
+            if (!contextMenuParticipant || !contextMenuPosition) return;
+            setProfileCardTarget({
+              userId: contextMenuParticipant.userId,
+              name: contextMenuParticipant.username,
+              x: contextMenuPosition.x,
+              y: contextMenuPosition.y,
+            });
+          }}
+        />
+      )}
+
+      {profileCardTarget && (
+        <UserProfileCardAnchor
+          key={`profile-card-${profileCardTarget.userId}`}
+          x={profileCardTarget.x}
+          y={profileCardTarget.y}
+          userId={profileCardTarget.userId}
+          fallbackName={profileCardTarget.name}
+          currentUserId={currentUserId}
+          friends={friends}
+          onClose={() => setProfileCardTarget(null)}
         />
       )}
 

@@ -359,7 +359,7 @@
 
 .ct-media-preview-placeholder {
   @apply m-0 text-xs;
-  color: var(--ct-alpha-32);
+  color: var(--ct-text-muted);
 }
 
 .ct-media-preview-badge {

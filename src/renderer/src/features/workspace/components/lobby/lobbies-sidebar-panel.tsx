@@ -22,6 +22,8 @@ import type {
 } from "@shared/desktop-api-types";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ConfirmActionModal } from "../common";
+import { UserProfileCardPopover } from "../user/user-profile-card";
+import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth/permissions";
 import workspaceService from "../../services";
@@ -53,6 +55,9 @@ interface LobbiesSidebarPanelProps {
   currentUserId: string;
   currentUserRole: string;
   allUsers: Array<{ id: string; username: string; displayName: string }>;
+  // A roster row is the one place a stranger's name appears with nothing behind
+  // it; the profile card is what turns it into a person you can add.
+  friends: FriendsController;
 }
 
 export function LobbiesSidebarPanel({
@@ -71,6 +76,7 @@ export function LobbiesSidebarPanel({
   currentUserId,
   currentUserRole,
   allUsers,
+  friends,
 }: LobbiesSidebarPanelProps) {
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
     null,
@@ -365,17 +371,33 @@ export function LobbiesSidebarPanel({
                           onContextMenu={(e) => e.stopPropagation()}
                         >
                           <div className="ct-lobby-member-main">
-                            <Avatar
-                              size={20}
-                              src={avatarByUserId[member.userId]}
-                              className="ct-lobby-member-avatar"
+                            {/* The whole identity is the trigger, avatar
+                                included — the row's own click joins the lobby,
+                                so this stops the propagation itself. */}
+                            <UserProfileCardPopover
+                              userId={member.userId}
+                              fallbackName={member.username}
+                              currentUserId={currentUserId}
+                              friends={friends}
                             >
-                              {getDisplayInitials(member.username)}
-                            </Avatar>
+                              <button
+                                type="button"
+                                className="ct-profile-trigger ct-lobby-member-identity"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Avatar
+                                  size={20}
+                                  src={avatarByUserId[member.userId]}
+                                  className="ct-lobby-member-avatar"
+                                >
+                                  {getDisplayInitials(member.username)}
+                                </Avatar>
 
-                            <p className="ct-lobby-member-name">
-                              {member.username}
-                            </p>
+                                <span className="ct-lobby-member-name">
+                                  {member.username}
+                                </span>
+                              </button>
+                            </UserProfileCardPopover>
 
                             {member.userId === lobby.createdBy && (
                               <CrownOutlined

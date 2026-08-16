@@ -2,8 +2,6 @@ import type { WebContents } from "electron";
 import WebSocket from "ws";
 import type { LobbyStreamEvent } from "../../shared/desktop-api-types";
 import { awaitSocketOpen } from "./await-socket-open";
-import { appendFileSync } from "node:fs";
-import { join } from "node:path";
 
 export const LOBBY_STREAM_EVENT_CHANNEL = "desktop:lobbies-stream-event";
 
@@ -59,7 +57,16 @@ export class LobbyStreamManager {
     this.stop(sender.id);
 
     const wsUrl = this.buildWebSocketUrl(accessToken);
-    const socket = new WebSocket(wsUrl);
+    // handshakeTimeout is not optional here.
+    //
+    // Without it a stalled TCP connect or a proxy that accepts the socket and
+    // never answers the upgrade fires no `open`, no `error` and no `close`:
+    // awaitSocketOpen never settles, so this promise never settles, so the
+    // renderer's reconnect scheduler — which cleared its timer before calling
+    // us — has nothing left to re-arm. The lobby socket stays dead for the rest
+    // of the session, which used to mean the server stopped seeing a heartbeat
+    // and dropped the user out of the voice room.
+    const socket = new WebSocket(wsUrl, { handshakeTimeout: 10_000 });
     const streamState: LobbyStreamState = {
       socket,
       closing: false,
@@ -197,7 +204,30 @@ export class LobbyStreamManager {
       });
     });
 
-    await opened;
+    try {
+      await opened;
+    } catch (error) {
+      // A socket that never opened must not announce a closure.
+      //
+      // The failed attempt used to stay in streamsBySender until its own `close`
+      // fired, and that close reached the renderer as `stream-status: closed` —
+      // which schedules another reconnect AND runs the two-request REST
+      // fallback. So one failed dial produced a second one, plus traffic, for a
+      // connection that had never existed. Worse, the caller (withAccessToken)
+      // retries on a 401, so the retry and the ghost raced each other.
+      streamState.closing = true;
+      if (this.streamsBySender.get(sender.id) === streamState) {
+        this.streamsBySender.delete(sender.id);
+      }
+      cleanup();
+      try {
+        socket.terminate();
+      } catch {
+        // Already gone.
+      }
+      throw error;
+    }
+
     return { started: true };
   }
 

@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage } from "@shared/auth-contracts";
@@ -65,7 +70,7 @@ export interface UseLobbyRoomResult {
   lobbyMembers: LobbyStateMember[];
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
-  setLobbyMessageDraft: (value: string) => void;
+  setLobbyMessageDraft: Dispatch<SetStateAction<string>>;
   // Sends the draft. With a body it sends that instead and leaves the composer
   // untouched -- that is the GIF picker's path.
   sendLobbyMessage: (bodyOverride?: string) => void;
@@ -110,6 +115,11 @@ export const useLobbyRoom = ({
     useState(false);
   const queryClient = useQueryClient();
 
+  // Whether the websocket has recently delivered a roster. While it has, this
+  // REST poll is pure duplication — the snapshot arrives every second and is
+  // written straight into the same query cache below.
+  const [isRosterStreamLive, setIsRosterStreamLive] = useState(false);
+
   const lobbyStateQuery = useQuery({
     queryKey: ["lobby-state", activeLobbyId],
     queryFn: () =>
@@ -119,10 +129,14 @@ export const useLobbyRoom = ({
     // Not gated on the visible tab: the roster is also needed for the call
     // overlay and the quick controls, which live outside the Lobbies section.
     enabled: activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
-    // Roster comes primarily from the lobby WS snapshot (~1s) and liveness is
-    // now driven by that same socket, so this REST poll is purely a fallback
-    // for when the stream is down and can run slowly.
-    refetchInterval: 8_000,
+    // The stream is the roster; this is the backstop for when it is not.
+    //
+    // Slowed rather than switched off. `false` would stop the timer entirely,
+    // and react-query would not re-evaluate it until something else fired — so a
+    // stream that died without announcing itself would leave the roster frozen
+    // with nothing left to notice. 30s costs almost nothing and guarantees the
+    // roster cannot be stuck for longer than that under any failure.
+    refetchInterval: isRosterStreamLive ? 30_000 : 8_000,
     refetchIntervalInBackground: true,
     staleTime: 4_000,
   });
@@ -155,7 +169,17 @@ export const useLobbyRoom = ({
       // The websocket already pushes a full snapshot about once a second;
       // feeding it into the same query cache makes it the single source and
       // removes the lag.
+      // The stream announcing itself, in either direction. A snapshot proves it
+      // is delivering; a close proves it is not, and the REST backstop has to
+      // speed back up before the roster goes stale.
+      if (event.type === "stream-status") {
+        setIsRosterStreamLive(event.status === "connected");
+        return;
+      }
+
       if (event.type === "lobbies-snapshot") {
+        setIsRosterStreamLive(true);
+
         const snapshot = event.lobbies.find(
           (lobby) => lobby.id === activeLobbyId,
         );

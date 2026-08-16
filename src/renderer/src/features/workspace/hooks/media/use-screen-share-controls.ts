@@ -9,6 +9,7 @@ import {
 } from "@/features/livekit";
 import {
   startScreenCapture,
+  startSystemLoopbackAudioTrack,
   stopActiveSystemLoopback,
   type ScreenShareContentMode,
   type ScreenShareQualityPreset,
@@ -605,6 +606,75 @@ export const useScreenShareControls = ({
     ],
   );
 
+  /**
+   * Turns system audio on or off on a share that is already running.
+   *
+   * Audio used to be decided once, in the start dialog: forgetting to tick
+   * "Sistem sesini yakala" meant stopping the share and starting it again,
+   * which drops the picture for everyone watching. Only the audio publication
+   * is touched here — the video track and its SID survive untouched.
+   *
+   * The choice is also written back to the saved preference, so the next share
+   * starts the way this one ended.
+   */
+  const applyLiveSystemAudio = useCallback(
+    async (enabled: boolean): Promise<void> => {
+      const session = liveKitSessionRef.current;
+      if (!liveShareRef.current || !session) return;
+
+      const persist = (value: boolean): void => {
+        setCaptureSystemAudio(value);
+        onSaveStreamPreferences({
+          ...streamPreferencesRef.current,
+          captureSystemAudio: value,
+        });
+      };
+
+      if (!enabled) {
+        const applied = await session.setScreenAudioTrack(null);
+        // stop() does not dispatch "ended", so the track's own listener never
+        // fires — the native capture has to be stopped by hand or WASAPI keeps
+        // running for the life of the process.
+        await stopActiveSystemLoopback();
+        if (applied) {
+          persist(false);
+          setStatus("Yayın sesi kapatıldı", "ok");
+        }
+        return;
+      }
+
+      // Same cancellation token every other await in this hook uses: capturing
+      // takes a moment and stop is one click away the whole time.
+      const generation = shareGenerationRef.current;
+
+      const track = await startSystemLoopbackAudioTrack();
+      if (!track) {
+        setStatus(
+          "Sistem sesi bu cihazda yakalanamadı (yankısız ses modülü yüklenemedi)",
+          "warn",
+        );
+        return;
+      }
+
+      if (shareGenerationRef.current !== generation) {
+        track.stop();
+        await stopActiveSystemLoopback();
+        return;
+      }
+
+      const applied = await session.setScreenAudioTrack(track);
+      if (!applied) {
+        track.stop();
+        await stopActiveSystemLoopback();
+        return;
+      }
+
+      persist(true);
+      setStatus("Yayın sesi açıldı", "ok");
+    },
+    [liveKitSessionRef, onSaveStreamPreferences, setStatus],
+  );
+
   // Not every teardown runs the track's onended handler — stopMediaStreamTracks
   // clears it first, and leaving a lobby goes through resetLocalMediaCapture —
   // but all of them clear screenEnabled, so that is the honest single place to
@@ -623,13 +693,19 @@ export const useScreenShareControls = ({
       getQuality: () => liveShareRef.current?.quality ?? selectedScreenShareQuality,
       getFrameRate: () => liveShareRef.current?.frameRate ?? streamPreferences.frameRate,
       getSourceId: () => liveShareRef.current?.sourceId ?? null,
+      // Read off the live capture, so the menu shows what is actually being
+      // broadcast rather than what the last start dialog was set to.
+      isSystemAudioOn: () =>
+        (liveShareRef.current?.stream.getAudioTracks().length ?? 0) > 0,
       listSources: async () => (await fetchScreenShareSources()).sources,
       changeQuality: (quality) => applyLiveScreenShareChange({ quality }),
       changeFrameRate: (frameRate) => applyLiveScreenShareChange({ frameRate }),
       changeSource: (sourceId) => applyLiveScreenShareChange({ sourceId }),
+      setSystemAudio: applyLiveSystemAudio,
     });
   }, [
     applyLiveScreenShareChange,
+    applyLiveSystemAudio,
     fetchScreenShareSources,
     selectedScreenShareQuality,
     streamPreferences.frameRate,

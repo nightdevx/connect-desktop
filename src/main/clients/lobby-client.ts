@@ -210,6 +210,25 @@ export class LobbyClient {
     );
   }
 
+  // The emote id is validated server-side against a closed set; nothing here
+  // needs to know what the sounds are.
+  public async sendLobbyEmote(
+    accessToken: string,
+    lobbyId: string,
+    emote: string,
+  ): Promise<{ accepted: boolean }> {
+    return this.baseClient.request<{ accepted: boolean }>(
+      `/lobby/rooms/${encodeURIComponent(lobbyId)}/emote`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ emote }),
+      },
+    );
+  }
+
   public async getLobbyState(
     accessToken: string,
     lobbyId: string,

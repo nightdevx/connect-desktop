@@ -1,6 +1,12 @@
 import { useCallback, useState } from "react";
 import { Dropdown, Tooltip, type MenuProps } from "antd";
-import { CheckOutlined, DownOutlined, LoadingOutlined } from "@ant-design/icons";
+import {
+  AudioMutedOutlined,
+  CheckOutlined,
+  DownOutlined,
+  LoadingOutlined,
+  SoundOutlined,
+} from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { SCREEN_SHARE_QUALITY_OPTIONS } from "@/features/screen-share";
 import {
@@ -69,6 +75,7 @@ export function StreamControlMenu() {
   const currentFrameRate = controls.getFrameRate();
   const currentQuality = controls.getQuality();
   const currentSourceId = controls.getSourceId();
+  const isSystemAudioOn = controls.isSystemAudioOn();
 
   const sourceItems: MenuProps["items"] = sources.length
     ? sources.map((source) => ({
@@ -80,6 +87,16 @@ export function StreamControlMenu() {
     : [{ key: "source-empty", label: "Kaynaklar yükleniyor...", disabled: true }];
 
   const items: MenuProps["items"] = [
+    {
+      // A toggle, not a submenu: there are two states and the row already says
+      // which one it is in. Sits first because it is the only setting here that
+      // changes what viewers HEAR rather than how the picture looks.
+      key: "system-audio",
+      icon: isSystemAudioOn ? <SoundOutlined /> : <AudioMutedOutlined />,
+      label: isSystemAudioOn ? "Yayın Sesini Kapat" : "Yayın Sesini Aç",
+      onClick: () => runChange((live) => live.setSystemAudio(!isSystemAudioOn)),
+    },
+    { type: "divider" },
     {
       key: "quality",
       label: "Kalite",

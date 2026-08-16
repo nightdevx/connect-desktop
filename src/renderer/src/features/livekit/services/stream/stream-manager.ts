@@ -1479,6 +1479,71 @@ export class LiveKitStreamManager {
     );
   }
 
+  /**
+   * Adds or removes the screen share's audio track while the video keeps
+   * running. Pass null to go silent.
+   *
+   * Audio used to be fixed at capture time: the only way to add it to a running
+   * share was to stop and restart the whole thing, which drops the video for
+   * everyone watching. The video publication is untouched here.
+   *
+   * Goes through the video queue because it mutates desiredScreenStream, which
+   * a source/quality swap reads and rebuilds — the two racing would either
+   * publish a stopped track or lose the audio the swap was carrying over.
+   *
+   * Returns false when there is no live share to attach anything to.
+   */
+  public setScreenAudioTrack(track: MediaStreamTrack | null): Promise<boolean> {
+    return this.enqueueVideo(() => this.setScreenAudioTrackInternal(track));
+  }
+
+  private async setScreenAudioTrackInternal(
+    track: MediaStreamTrack | null,
+  ): Promise<boolean> {
+    const participant = this.room?.localParticipant;
+    const stream = this.desiredScreenStream;
+    if (!participant || !stream || !this.desiredScreenEnabled) {
+      return false;
+    }
+
+    const published = Array.from(participant.trackPublications.values()).filter(
+      (publication) => publication.source === Track.Source.ScreenShareAudio,
+    );
+    for (const publication of published) {
+      if (publication.track) {
+        await participant.unpublishTrack(publication.track);
+      }
+    }
+
+    // The desired stream is the reconnect's source of truth, so the old track
+    // has to leave it too — otherwise a reconnect republishes audio the user
+    // just switched off. Stopped as well: for the loopback path the track's
+    // "ended" listener is what shuts the native WASAPI capture down.
+    for (const existing of stream.getAudioTracks()) {
+      stream.removeTrack(existing);
+      existing.stop();
+    }
+
+    if (!track) {
+      logLiveKitDebug("stream-manager", "screen-audio-removed", {});
+      return true;
+    }
+
+    stream.addTrack(track);
+    await participant.publishTrack(track, {
+      name: "screen_audio",
+      source: Track.Source.ScreenShareAudio,
+      dtx: false,
+      red: true,
+      forceStereo: true,
+      audioPreset: AudioPresets.musicHighQualityStereo,
+    });
+    logLiveKitDebug("stream-manager", "screen-audio-added", {
+      trackId: track.id,
+    });
+    return true;
+  }
+
   public async refreshMicrophoneProcessing(): Promise<void> {
     if (!this.room) return;
     await this.microphoneController.refreshMicrophoneProcessing({

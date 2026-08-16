@@ -20,8 +20,6 @@ import {
   LockOutlined,
   DeleteOutlined,
   StopOutlined,
-  CheckCircleOutlined,
-  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminUserDetail } from "@shared/auth-contracts";
@@ -69,18 +67,22 @@ export default function AdminUsers() {
     }
   };
 
+  // A narrowed result set has fewer pages; staying on page 4 of a one-page
+  // result showed an empty table.
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchUsers(1);
-      setCurrentPage(1);
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
+    setCurrentPage(1);
   }, [searchText, roleFilter, statusFilter]);
 
+  // One debounced fetch for every input, page included.
+  //
+  // It used to be two effects — one for the filters, one for the page — and a
+  // filter change while past page 1 ran both: page 1 was fetched, the page
+  // reset fired, and page 1 was fetched again. Two spinners for one keystroke.
+  // The shared timer collapses that into a single request.
   useEffect(() => {
-    fetchUsers(currentPage, pageSize);
-  }, [currentPage, pageSize]);
+    const timer = setTimeout(() => fetchUsers(currentPage, pageSize), 300);
+    return () => clearTimeout(timer);
+  }, [currentPage, pageSize, searchText, roleFilter, statusFilter]);
 
   const handleTableChange = (pagination: any) => {
     setCurrentPage(pagination.current);
@@ -277,14 +279,15 @@ export default function AdminUsers() {
 
   return (
     <div className="ct-admin-page">
-      <div>
-        <h1 >
-          Kullanıcı Yönetimi
-        </h1>
-        <p >
-          Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini sıfırlayın veya yasaklayın
-        </p>
-      </div>
+      <header className="ct-admin-page-header">
+        <div>
+          <h1>Kullanıcı Yönetimi</h1>
+          <p>
+            Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini
+            sıfırlayın veya yasaklayın
+          </p>
+        </div>
+      </header>
 
       {/* Filters Bar */}
       <div
@@ -298,12 +301,14 @@ export default function AdminUsers() {
           className="ct-admin-toolbar-search"
         />
 
+        {/* No dropdownStyle here or anywhere else on this screen: it hardcoded
+            #1f1f1f, which is the one colour the theme cannot reach — every
+            filter menu stayed dark on a light page. The ConfigProvider already
+            paints these. */}
         <Select
-          defaultValue="all"
           value={roleFilter}
           onChange={setRoleFilter}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Roller" },
             { value: "admin", label: "Yöneticiler" },
@@ -312,11 +317,9 @@ export default function AdminUsers() {
         />
 
         <Select
-          defaultValue="all"
           value={statusFilter}
           onChange={setStatusFilter}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Durumlar" },
             { value: "active", label: "Aktif Kullanıcılar" },
@@ -324,11 +327,7 @@ export default function AdminUsers() {
           ]}
         />
 
-        <Button
-          type="primary"
-          onClick={() => fetchUsers()}
-          
-        >
+        <Button type="primary" onClick={() => fetchUsers()}>
           Yenile
         </Button>
       </div>
@@ -347,27 +346,32 @@ export default function AdminUsers() {
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
-        scroll={{ y: "calc(100vh - 260px)" }}
+        // No scroll.y. It was calc(100vh - 260px) — a VIEWPORT height for a
+        // table that lives inside the admin panel, below the titlebar, the page
+        // padding, a header and a toolbar. The body was therefore always taller
+        // than the space it had, which cut the last row in half and pushed the
+        // pagination off the bottom.
+        //
+        // ponytail: the page scrolls instead of the table body. That costs a
+        // sticky header; give the table one by passing antd's `sticky` a
+        // getContainer pointing at .ct-admin-panel-content if the loss is felt.
+        // scroll.x keeps the six columns from crushing on a narrow window.
+        scroll={{ x: "max-content" }}
         className="ct-admin-table-wrap"
       />
 
       {/* Edit Drawer */}
       <Drawer
-        title={<span >Profil Düzenle</span>}
+        rootClassName="ct-admin-drawer"
+        title="Profil Düzenle"
         placement="right"
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
         width={400}
-        headerStyle={{ background: "#141414", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
-        bodyStyle={{ background: "#141414" }}
         extra={
           <Space>
-            <Button onClick={() => setIsEditOpen(false)} >Kapat</Button>
-            <Button
-              type="primary"
-              onClick={() => editForm.submit()}
-              
-            >
+            <Button onClick={() => setIsEditOpen(false)}>Kapat</Button>
+            <Button type="primary" onClick={() => editForm.submit()}>
               Kaydet
             </Button>
           </Space>
@@ -376,34 +380,26 @@ export default function AdminUsers() {
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
             name="displayName"
-            label={<span >Görünen Ad</span>}
+            label="Görünen Ad"
             rules={[{ required: true, message: "Görünen ad girilmelidir" }]}
           >
-            <Input  />
+            <Input />
           </Form.Item>
 
           <Form.Item
             name="email"
-            label={<span >E-posta Adresi</span>}
+            label="E-posta Adresi"
             rules={[{ type: "email", message: "Geçerli bir e-posta girin" }]}
           >
-            <Input  />
+            <Input />
           </Form.Item>
 
-          <Form.Item
-            name="bio"
-            label={<span >Biyografi</span>}
-          >
-            <Input.TextArea rows={4}  />
+          <Form.Item name="bio" label="Biyografi">
+            <Input.TextArea rows={4} />
           </Form.Item>
 
-          <Form.Item
-            name="role"
-            label={<span >Sistem Rolü</span>}
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="role" label="Sistem Rolü" rules={[{ required: true }]}>
             <Select
-              dropdownStyle={{ background: "#1f1f1f" }}
               options={[
                 { value: "admin", label: "Yönetici (Admin)" },
                 { value: "member", label: "Üye (Member)" },
@@ -416,30 +412,26 @@ export default function AdminUsers() {
       {/* Reset Password Modal */}
       <Modal
         rootClassName="ct-modal"
-        title={<span >Şifre Sıfırla</span>}
+        title="Şifre Sıfırla"
         open={isResetOpen}
         onCancel={() => setIsResetOpen(false)}
         footer={[
-          <Button key="cancel" onClick={() => setIsResetOpen(false)} >
+          <Button key="cancel" onClick={() => setIsResetOpen(false)}>
             İptal
           </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            onClick={() => resetForm.submit()}
-            
-          >
+          <Button key="submit" type="primary" onClick={() => resetForm.submit()}>
             Şifreyi Güncelle
           </Button>,
         ]}
       >
-        <div >
-          <strong>@{resettingUser?.username}</strong> kullanıcısı için yeni bir şifre tanımlayın.
-        </div>
+        <p className="ct-admin-muted">
+          <strong>@{resettingUser?.username}</strong> kullanıcısı için yeni bir
+          şifre tanımlayın.
+        </p>
         <Form form={resetForm} layout="vertical" onFinish={handleResetPasswordSubmit}>
           <Form.Item
             name="password"
-            label={<span >Yeni Şifre</span>}
+            label="Yeni Şifre"
             rules={[
               { required: true, message: "Yeni şifre girilmelidir" },
               { min: 8, message: "Şifre en az 8 karakter olmalıdır" },

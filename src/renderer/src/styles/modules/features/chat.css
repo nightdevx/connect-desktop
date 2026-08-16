@@ -18,14 +18,14 @@
 
   .ct-call-stage {
     @apply relative flex h-full min-w-0 flex-1 flex-col overflow-hidden;
-    background: #0a0a0a;
+    background: var(--ct-surface-1);
   }
 
   .ct-call-chat-drawer {
     @apply flex h-full flex-col overflow-hidden;
     width: 350px;
     border-left: 1px solid var(--ct-border);
-    background: rgba(10, 10, 10, 0.98);
+    background: var(--ct-panel-solid);
     backdrop-filter: blur(12px);
     transition: all var(--ct-duration-slow) var(--ct-ease-spring);
   }
@@ -66,49 +66,15 @@
     color: var(--ct-text-muted);
   }
 
+  /* No scroll-state container here anymore: the two sticky gradient bands it
+     powered (.ct-scroll-indicator top/bottom) read as shadows falling across
+     the first and last message rather than as an affordance, and the thread
+     already announces more content through the scrollbar and the
+     jump-to-newest button below. */
   .ct-chat-messages {
     @apply relative min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border p-4;
     border-color: var(--ct-border);
-    background: rgba(15, 15, 15, 0.45);
-    container-type: scroll-state;
-  }
-
-  /* Scrollability Indicators using Scroll-State Queries */
-  .ct-scroll-indicator {
-    position: sticky;
-    left: 0;
-    right: 0;
-    height: 30px;
-    opacity: 0;
-    transition: opacity 0.22s ease-in-out;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .ct-scroll-indicator.top {
-    top: 0;
-    margin-top: -16px;
-    margin-bottom: -14px;
-    background: linear-gradient(to bottom, rgba(12, 12, 12, 0.95) 0%, transparent 100%);
-  }
-
-  .ct-scroll-indicator.bottom {
-    bottom: 0;
-    margin-bottom: -16px;
-    margin-top: -14px;
-    background: linear-gradient(to top, rgba(12, 12, 12, 0.95) 0%, transparent 100%);
-  }
-
-  @container scroll-state(scrollable: top) {
-    .ct-scroll-indicator.top {
-      opacity: 1;
-    }
-  }
-
-  @container scroll-state(scrollable: bottom) {
-    .ct-scroll-indicator.bottom {
-      opacity: 1;
-    }
+    background: var(--ct-panel-soft);
   }
 
   /* Scroll to Bottom Button */
@@ -155,7 +121,7 @@
   .ct-chat-thread-box {
     @apply flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border;
     border-color: var(--ct-border);
-    background: rgba(15, 15, 15, 0.38);
+    background: var(--ct-panel-soft);
   }
 
   /* --- Thread furniture ------------------------------------------------- */
@@ -296,7 +262,7 @@
 
   .ct-chat-system-call-time {
     @apply text-micro font-medium;
-    color: var(--ct-alpha-32);
+    color: var(--ct-text-muted);
   }
 
   .ct-chat-row {
@@ -316,7 +282,7 @@
     width: min(78%, 620px);
     max-width: 100%;
     border-color: var(--ct-border);
-    background: rgba(18, 18, 18, 0.85);
+    background: var(--ct-panel-strong);
   }
 
   .ct-chat-bubble.own {
@@ -391,7 +357,7 @@
   }
 
   .ct-chat-action.danger:hover:not(:disabled) {
-    color: #ffffff;
+    color: var(--ct-text-primary);
     background: var(--ct-danger);
   }
 
@@ -649,7 +615,7 @@
   .ct-chat-composer {
     @apply flex items-center gap-2 border-t p-3;
     border-color: var(--ct-border);
-    background: rgba(8, 8, 8, 0.42);
+    background: var(--ct-panel-soft);
   }
 
   .ct-chat-composer .ct-input {
@@ -668,7 +634,7 @@
 
   .ct-chat-send-icon:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 8px 22px rgba(242, 242, 242, 0.26);
+    box-shadow: 0 8px 22px var(--ct-accent-glow);
   }
 
   .ct-chat-send-icon:disabled {
@@ -771,19 +737,19 @@
 .ct-banner-accept-btn {
   background: rgba(34, 197, 94, 0.15) !important;
   border: 1px solid rgba(34, 197, 94, 0.3) !important;
-  color: #22c55e !important;
+  color: var(--ct-success) !important;
   box-shadow: 0 4px 10px rgba(34, 197, 94, 0.05) !important;
   animation: ctaPulseAccept 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1) !important;
 }
 .ct-banner-accept-btn:hover {
-  background: #22c55e !important;
-  color: #ffffff !important;
+  background: var(--ct-success) !important;
+  color: var(--ct-text-primary) !important;
   box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25) !important;
 }
 .ct-banner-reject-btn {
   background: transparent !important;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
-  color: #ef4444 !important;
+  color: var(--ct-danger) !important;
 }
 .ct-banner-reject-btn:hover {
   background: rgba(239, 68, 68, 0.1) !important;
@@ -792,7 +758,7 @@
 .ct-banner-rejoin-btn {
   background: rgba(16, 185, 129, 0.1) !important;
   border: 1px solid rgba(16, 185, 129, 0.3) !important;
-  color: #10b981 !important;
+  color: var(--ct-success) !important;
 }
 .ct-banner-rejoin-btn:hover {
   background: rgba(16, 185, 129, 0.2) !important;
@@ -858,7 +824,7 @@
   bottom: calc(100% + 6px);
   max-height: 220px;
   background: var(--ct-surface-overlay, #16161a);
-  border-color: var(--ct-border-subtle, rgba(255, 255, 255, 0.08));
+  border-color: var(--ct-border-subtle, var(--ct-alpha-08));
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 

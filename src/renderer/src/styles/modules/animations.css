@@ -85,12 +85,12 @@
   100% {
     transform: scale(1);
     opacity: 0.65;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 10px var(--ct-alpha-12);
   }
   50% {
     transform: scale(1.02);
     opacity: 0.95;
-    box-shadow: 0 0 25px rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 25px var(--ct-alpha-20);
   }
 }
 

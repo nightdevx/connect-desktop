@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage } from "@shared/auth-contracts";
@@ -61,7 +69,7 @@ export interface UseDirectMessagesResult {
   >;
   directMessages: ChatMessage[];
   messageDraft: string;
-  setMessageDraft: (value: string) => void;
+  setMessageDraft: Dispatch<SetStateAction<string>>;
   isSendingMessage: boolean;
   // Sends the draft. With a body it sends that instead and leaves the composer
   // untouched -- that is the GIF picker's path.

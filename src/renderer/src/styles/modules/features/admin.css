@@ -2,7 +2,7 @@
   @apply flex h-full w-full min-h-0 overflow-hidden;
   grid-column: span 2;
   color: var(--ct-text-primary);
-  background: rgba(10, 10, 10, 0.45);
+  background: var(--ct-panel-soft);
   backdrop-filter: blur(16px);
 }
 
@@ -14,7 +14,7 @@
   @apply flex min-h-0 shrink-0 flex-col border-r py-4;
   width: 220px;
   border-color: var(--ct-border);
-  background: rgba(20, 20, 20, 0.6);
+  background: var(--ct-panel);
 }
 
 .ct-admin-sidebar-header {
@@ -22,9 +22,24 @@
   border-color: var(--ct-border);
 }
 
+/* The one hue that is only ever used here. It was written out as #c084fc /
+   #a855f7 in eight places across the stylesheet and the JSX, none of which the
+   light theme could reach — and #c084fc on white is about 2:1, unreadable. */
+.ct-admin-panel-shell {
+  --ct-admin-accent: #c084fc;
+  --ct-admin-accent-strong: #a855f7;
+  --ct-admin-accent-soft: rgba(168, 85, 247, 0.15);
+}
+
+:root[data-theme="light"] .ct-admin-panel-shell {
+  --ct-admin-accent: #7028b8;
+  --ct-admin-accent-strong: #8b3fd4;
+  --ct-admin-accent-soft: rgba(112, 40, 184, 0.1);
+}
+
 .ct-admin-sidebar-header h2 {
   @apply m-0 text-lg font-bold;
-  color: #c084fc;
+  color: var(--ct-admin-accent);
 }
 
 .ct-admin-sidebar-header span {
@@ -52,8 +67,8 @@
 }
 
 .ct-admin-nav-item.active {
-  color: #c084fc;
-  background: rgba(168, 85, 247, 0.15);
+  color: var(--ct-admin-accent);
+  background: var(--ct-admin-accent-soft);
   font-weight: 600;
 }
 
@@ -61,8 +76,16 @@
    PAGE SCAFFOLD
    ========================================================================== */
 
+/* Grows with its content; the panel around it is what scrolls.
+   It used to be h-full, which pinned every page to exactly the visible height
+   while its content was taller — so the page and the table each had their own
+   scrollbar and neither showed the whole thing. */
 .ct-admin-page {
-  @apply flex h-full flex-col gap-6 pb-6;
+  @apply flex min-h-full flex-col gap-6 pb-6;
+}
+
+.ct-admin-page-header {
+  @apply flex flex-wrap items-start justify-between gap-3;
 }
 
 .ct-admin-page-header h1 {
@@ -95,14 +118,42 @@
   @apply min-w-[200px] flex-1;
 }
 
+/* A floor, not a fixed width: "Kullanıcı Seçin..." and the event-type labels
+   were both clipped at 160px, and a fixed width cannot grow into the row's
+   spare space when there are only two filters. */
 .ct-admin-toolbar-filter {
-  width: 160px;
+  @apply flex-1;
+  min-width: 180px;
+  max-width: 260px;
 }
 
 .ct-admin-table-wrap {
   @apply overflow-hidden rounded-md border;
   border-color: var(--ct-border);
-  background: rgba(20, 20, 20, 0.4);
+  background: var(--ct-panel-soft);
+}
+
+/* The participant list inside an expanded lobby row. It used to reuse
+   .ct-admin-empty — the "nobody is in here" message — so a live member table
+   was rendered in muted text at that message's padding. */
+.ct-admin-subtable {
+  @apply p-2;
+}
+
+.ct-admin-subtable .ant-table-thead > tr > th {
+  background: var(--ct-alpha-04);
+}
+
+/* antd paints the Drawer from its own tokens, which the ConfigProvider already
+   supplies; the panels used to override them with a literal #141414 and stayed
+   dark on a light page. */
+.ct-admin-drawer .ant-drawer-header,
+.ct-admin-drawer .ant-drawer-body {
+  background: var(--ct-surface-2);
+}
+
+.ct-admin-drawer .ant-drawer-header {
+  border-color: var(--ct-border);
 }
 
 .ct-admin-table-user {
@@ -111,7 +162,7 @@
 
 .ct-admin-avatar.ant-avatar {
   @apply shrink-0;
-  background: #a855f7;
+  background: var(--ct-admin-accent-strong);
   color: #ffffff;
   font-weight: 600;
 }
@@ -160,7 +211,7 @@
 }
 
 .ct-stat-card.violet {
-  --tone: #a855f7;
+  --tone: var(--ct-admin-accent-strong);
 }
 .ct-stat-card.emerald {
   --tone: var(--ct-success);
@@ -198,7 +249,7 @@
 
 .ct-stat-hint {
   @apply flex items-center gap-1 text-2xs;
-  color: var(--ct-alpha-32);
+  color: var(--ct-text-muted);
 }
 
 .ct-stat-pulse-dot {
@@ -214,7 +265,7 @@
 .ct-admin-card.ant-card {
   border-radius: var(--ct-radius-md);
   border-color: var(--ct-border);
-  background: rgba(20, 20, 20, 0.4);
+  background: var(--ct-panel-soft);
   color: var(--ct-text-primary);
   min-height: 260px;
 }
@@ -244,7 +295,7 @@
 
 .ct-chart-axis {
   @apply flex justify-between px-2.5 text-2xs tabular-nums;
-  color: var(--ct-alpha-32);
+  color: var(--ct-text-muted);
 }
 
 .ct-donut-row {
@@ -315,7 +366,7 @@
 
 .ct-activity-time {
   @apply shrink-0 text-2xs tabular-nums;
-  color: var(--ct-alpha-32);
+  color: var(--ct-text-muted);
 }
 
 .ct-admin-kv-grid {
@@ -346,4 +397,53 @@
 .ct-admin-kv.plain > strong {
   @apply text-sm font-medium;
   word-break: break-all;
+}
+
+/* ==========================================================================
+   CHART PAINT
+   The dashboard's SVGs used to carry their colours as inline attributes —
+   stroke="rgba(255,255,255,0.1)", fill="#141414", stroke="#a855f7" — which is
+   the one place a var() cannot reach from. As classes they follow the theme
+   like everything else.
+   ========================================================================== */
+
+.ct-chart-grid {
+  stroke: var(--ct-alpha-12);
+}
+
+.ct-chart-grid.faint {
+  stroke: var(--ct-alpha-04);
+}
+
+.ct-chart-line {
+  stroke: var(--ct-admin-accent-strong);
+}
+
+.ct-chart-dot {
+  fill: var(--ct-surface-2);
+  stroke: var(--ct-admin-accent-strong);
+}
+
+.ct-chart-area-stop {
+  stop-color: var(--ct-admin-accent-strong);
+}
+
+.ct-donut-track {
+  stroke: var(--ct-alpha-08);
+}
+
+.ct-donut-arc.admins {
+  stroke: var(--ct-admin-accent-strong);
+}
+
+.ct-donut-arc.members {
+  stroke: var(--ct-info);
+}
+
+.ct-legend-dot.admins {
+  background: var(--ct-admin-accent-strong);
+}
+
+.ct-legend-dot.members {
+  background: var(--ct-info);
 }

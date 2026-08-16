@@ -1,5 +1,49 @@
 import { type OscillatorTone, type SoundEffectOptions } from "./types";
 
+// One pattern per emote id. Keys mirror the closed set the backend enforces
+// (internal/lobby/emote.go); an id missing from here plays nothing rather than
+// falling back to some other sound.
+const EMOTE_PATTERNS: Record<string, OscillatorTone[]> = {
+  // Three dry, bright bursts. Short and heavily filtered upward so they read as
+  // percussive rather than tonal.
+  clap: [
+    { frequency: 1650, durationMs: 34, gain: 0.05, type: "square", filterFrequency: 5200, pauseAfterMs: 46 },
+    { frequency: 1520, durationMs: 32, gain: 0.045, type: "square", filterFrequency: 5000, pauseAfterMs: 52 },
+    { frequency: 1740, durationMs: 38, gain: 0.048, type: "square", filterFrequency: 5400 },
+  ],
+  // Four falling blips: the cadence is what makes it read as laughter, not the
+  // timbre.
+  laugh: [
+    { frequency: 720, glideToFrequency: 620, durationMs: 62, gain: 0.042, type: "triangle", filterFrequency: 2400, pauseAfterMs: 30 },
+    { frequency: 660, glideToFrequency: 560, durationMs: 58, gain: 0.04, type: "triangle", filterFrequency: 2300, pauseAfterMs: 30 },
+    { frequency: 600, glideToFrequency: 500, durationMs: 56, gain: 0.038, type: "triangle", filterFrequency: 2200, pauseAfterMs: 30 },
+    { frequency: 540, glideToFrequency: 440, durationMs: 70, gain: 0.036, type: "triangle", filterFrequency: 2100 },
+  ],
+  // Rimshot: two low thumps and a bright snap.
+  drum: [
+    { frequency: 180, glideToFrequency: 96, durationMs: 92, gain: 0.06, type: "sine", filterFrequency: 700, pauseAfterMs: 60 },
+    { frequency: 180, glideToFrequency: 96, durationMs: 92, gain: 0.055, type: "sine", filterFrequency: 700, pauseAfterMs: 44 },
+    { frequency: 1400, durationMs: 46, gain: 0.05, type: "square", filterFrequency: 4800 },
+  ],
+  // Two sustained sawtooth blasts a fifth apart, each bending up at the start.
+  airhorn: [
+    { frequency: 340, glideToFrequency: 420, glideMs: 90, durationMs: 300, gain: 0.055, type: "sawtooth", filterFrequency: 2600, overtoneGainRatio: 0.3, pauseAfterMs: 70 },
+    { frequency: 340, glideToFrequency: 440, glideMs: 90, durationMs: 420, gain: 0.058, type: "sawtooth", filterFrequency: 2800, overtoneGainRatio: 0.3 },
+  ],
+  // Up, then a longer settle down.
+  wow: [
+    { frequency: 420, glideToFrequency: 880, durationMs: 180, gain: 0.045, type: "triangle", filterFrequency: 2600, pauseAfterMs: 10 },
+    { frequency: 880, glideToFrequency: 620, durationMs: 260, gain: 0.04, type: "sine", filterFrequency: 2200 },
+  ],
+  // The four-note descent, each step bending down into the next.
+  sad: [
+    { frequency: 392, glideToFrequency: 370, durationMs: 190, gain: 0.045, type: "sawtooth", filterFrequency: 1300, pauseAfterMs: 20 },
+    { frequency: 349, glideToFrequency: 330, durationMs: 190, gain: 0.044, type: "sawtooth", filterFrequency: 1250, pauseAfterMs: 20 },
+    { frequency: 311, glideToFrequency: 294, durationMs: 200, gain: 0.043, type: "sawtooth", filterFrequency: 1200, pauseAfterMs: 20 },
+    { frequency: 262, glideToFrequency: 180, durationMs: 420, gain: 0.046, type: "sawtooth", filterFrequency: 1100 },
+  ],
+};
+
 class SoundEffectManager {
   private audioContext: AudioContext | null = null;
   private outputNode: AudioNode | null = null;
@@ -269,6 +313,29 @@ class SoundEffectManager {
         filterFrequency: 1240,
       },
     ]);
+  }
+
+  /**
+   * Sound emotes.
+   *
+   * Synthesised here rather than shipped as audio files: the wire only carries
+   * an id, so there is nothing to download, nothing to cache, no CSP hole for a
+   * media host, and no way for a sender to make the room play arbitrary audio.
+   * The trade is fidelity — these are stylised, not sampled — which for a
+   * reaction noise is the right side of the trade.
+   *
+   * Louder than the join/leave cues (which are ambient and must not interrupt):
+   * an emote is the point of the moment, so it sits above the conversation
+   * without clipping it. Everything still runs through the shared compressor.
+   */
+  public playEmote(emote: string): void {
+    const pattern = EMOTE_PATTERNS[emote];
+    if (!pattern) {
+      // An id this build does not know: a newer client sent it, or the set grew
+      // server-side. Silence beats a wrong noise.
+      return;
+    }
+    this.playPattern(pattern);
   }
 
   public playHeadphoneToggle(enabled: boolean): void {

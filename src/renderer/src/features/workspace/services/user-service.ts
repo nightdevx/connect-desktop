@@ -10,6 +10,7 @@ import type {
   SelectablePresenceStatus,
   UpdatePrivacyRequest,
   UserDirectoryEntry,
+  UserProfile,
 } from "../../../../../shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
@@ -43,6 +44,15 @@ export const userService = {
     }
 
     return window.desktopApi.lookupUserByUsername(payload);
+  },
+  getUserCard: (payload: { userId: string }) => {
+    if (typeof window.desktopApi.getUserCard !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ user: UserProfile }>,
+      );
+    }
+
+    return window.desktopApi.getUserCard(payload);
   },
   startUserDirectoryStream: () => {
     if (typeof window.desktopApi.startUserDirectoryStream !== "function") {

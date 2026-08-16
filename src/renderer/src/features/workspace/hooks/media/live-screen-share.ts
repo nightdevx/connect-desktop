@@ -15,10 +15,15 @@ export interface LiveScreenShareControls {
   getQuality: () => ScreenShareQualityPreset;
   getFrameRate: () => ScreenShareFrameRate;
   getSourceId: () => string | null;
+  // Whether the running share currently carries system audio. Read from the
+  // live capture, not from the saved preference: the preference is what the
+  // NEXT share starts with, and the two diverge the moment this is toggled.
+  isSystemAudioOn: () => boolean;
   listSources: () => Promise<ScreenCaptureSourceDescriptor[]>;
   changeQuality: (quality: ScreenShareQualityPreset) => Promise<void>;
   changeFrameRate: (frameRate: ScreenShareFrameRate) => Promise<void>;
   changeSource: (sourceId: string) => Promise<void>;
+  setSystemAudio: (enabled: boolean) => Promise<void>;
 }
 
 // ponytail: a module-level slot rather than a React context. There is one

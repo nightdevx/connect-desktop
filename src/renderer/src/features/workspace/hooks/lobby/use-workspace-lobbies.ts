@@ -3,6 +3,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember, DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
+import type { ReconnectStatusKey } from "../core/use-network-reconnect";
 import {
   isLobbyTransitionBusy,
   type LobbyTransitionState,
@@ -10,7 +11,10 @@ import {
 
 interface UseWorkspaceLobbiesProps {
   isOnline: boolean;
-  shouldEmitReconnectStatus: (key: any, delay: number) => boolean;
+  shouldEmitReconnectStatus: (
+    key: ReconnectStatusKey,
+    cooldownMs: number,
+  ) => boolean;
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
   activeLobbyId: string | null;
   // Shared with the manual join/leave paths. See lobby-transition.ts: this
@@ -21,7 +25,23 @@ interface UseWorkspaceLobbiesProps {
   performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
   lobbiesQuery: UseQueryResult<DesktopResult<{ lobbies: LobbyDescriptor[] }>, Error>;
   kickedLobbyIdRef: React.MutableRefObject<string | null>;
+  // Set by the manual join. An automatic re-join has nobody to prompt for a
+  // password, so without this every recovery into a protected room failed with
+  // LOBBY_PASSWORD_REQUIRED and retried forever.
+  activeLobbyPasswordRef: React.MutableRefObject<string | null>;
 }
+
+// The two events that mean the media membership itself may be gone. Exported so
+// the LiveKit session — which is created before this hook and calls back into it
+// through a ref — is typed against the same set rather than `any`.
+export type ActiveLobbyReconnectReason =
+  | "network-online"
+  | "livekit-disconnected";
+
+export type ScheduleActiveLobbyReconnect = (
+  reason: ActiveLobbyReconnectReason,
+  immediate?: boolean,
+) => void;
 
 const LOBBY_STREAM_RECONNECT_BASE_MS = 1_000;
 const LOBBY_STREAM_RECONNECT_MAX_MS = 10_000;
@@ -70,6 +90,7 @@ export function useWorkspaceLobbies({
   performPostJoinSynchronization,
   lobbiesQuery,
   kickedLobbyIdRef,
+  activeLobbyPasswordRef,
 }: UseWorkspaceLobbiesProps) {
   const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
@@ -113,24 +134,52 @@ export function useWorkspaceLobbies({
     lobbiesQueryRef.current = lobbiesQuery;
     shouldEmitReconnectStatusRef.current = shouldEmitReconnectStatus;
     setStatusRef.current = setStatus;
+    reconnectHandlesRef.current = {
+      clearLobbyReconnectTimer,
+      scheduleLobbyStreamReconnect,
+      clearActiveLobbyReconnectTimer,
+      scheduleActiveLobbyReconnect,
+    };
   });
 
-  // Online ref tracking for internal loops
+  // Network came back: redial the stream, and rebuild the room membership if
+  // the user is in one.
+  //
+  // Everything is read through a ref. The dependency list is [isOnline] alone —
+  // it has to be, or the effect re-runs on identity churn and re-fires the
+  // reconnect — which meant every function it called was frozen at first render.
+  // `setStatus` and `shouldEmitReconnectStatus` were the visible casualties: the
+  // toast cooldown was tracked against a stale closure, so the "internet is
+  // back" message could repeat past its own rate limit.
+  const reconnectHandlesRef = useRef({
+    clearLobbyReconnectTimer: () => {},
+    scheduleLobbyStreamReconnect: (_immediate?: boolean) => {},
+    clearActiveLobbyReconnectTimer: () => {},
+    scheduleActiveLobbyReconnect: (
+      _reason: "network-online" | "livekit-disconnected",
+      _immediate?: boolean,
+    ) => {},
+  });
+
   useEffect(() => {
-    if (!onlineRef.current && isOnline) {
-      onlineRef.current = true;
-      clearLobbyReconnectTimer();
-      scheduleLobbyStreamReconnect(true);
-      if (activeLobbyRef.current) {
-        if (shouldEmitReconnectStatus("network", 4_000)) {
-          setStatus("İnternet geri geldi, lobi bağlantısı yeniden kuruluyor...", "warn");
-        }
-        clearActiveLobbyReconnectTimer();
-        scheduleActiveLobbyReconnect("network-online", true);
-      }
-    } else {
-      onlineRef.current = isOnline;
+    if (onlineRef.current === isOnline) return;
+    onlineRef.current = isOnline;
+    if (!isOnline) return;
+
+    const handles = reconnectHandlesRef.current;
+    handles.clearLobbyReconnectTimer();
+    handles.scheduleLobbyStreamReconnect(true);
+
+    if (!activeLobbyRef.current) return;
+
+    if (shouldEmitReconnectStatusRef.current("network", 4_000)) {
+      setStatusRef.current(
+        "İnternet geri geldi, lobi bağlantısı yeniden kuruluyor...",
+        "warn",
+      );
     }
+    handles.clearActiveLobbyReconnectTimer();
+    handles.scheduleActiveLobbyReconnect("network-online", true);
   }, [isOnline]);
 
   const clearLobbyReconnectTimer = useCallback((): void => {
@@ -209,8 +258,15 @@ export function useWorkspaceLobbies({
     }, delay);
   }, [syncLobbiesFromFallback]);
 
+  // Two reasons, both meaning "the media membership itself may be gone".
+  //
+  // "lobby-stream-closed" and "lobby-state-probe" used to be in here as well.
+  // The first was removed when the roster socket dropping stopped forcing a
+  // re-join; the second was never sent by any caller at all — and one of the
+  // suppression checks compared against it, so that comparison was permanently
+  // true and a successful reconnect announced itself on every single attempt.
   const scheduleActiveLobbyReconnect = useCallback((
-    reason: "network-online" | "lobby-stream-closed" | "lobby-state-probe" | "livekit-disconnected",
+    reason: "network-online" | "livekit-disconnected",
     immediate = false,
   ): void => {
     if (!activeLobbyRef.current) return;
@@ -295,7 +351,13 @@ export function useWorkspaceLobbies({
         return;
       }
 
-      void workspaceService.joinLobby({ lobbyId: targetLobbyID })
+      void workspaceService
+        .joinLobby({
+          lobbyId: targetLobbyID,
+          // Nobody is at the keyboard for a background reconnect, so the
+          // password the user typed on the way in is the only one available.
+          password: activeLobbyPasswordRef.current ?? undefined,
+        })
         .then(async (result) => {
           if (!result.ok) {
             activeLobbyReconnectAttemptRef.current = attempt + 1;
@@ -426,9 +488,17 @@ export function useWorkspaceLobbies({
         hasLiveSnapshotRef.current = false;
         void syncLobbiesFromFallback();
         scheduleLobbyStreamReconnect();
-        if (activeLobbyRef.current) {
-          scheduleActiveLobbyReconnect("lobby-stream-closed", true);
-        }
+        // Deliberately NOT a lobby re-join.
+        //
+        // The roster socket and the media transport are different connections;
+        // this one dropping says nothing about whether the user is still in the
+        // voice room, and the server keeps their seat alive from the LiveKit
+        // side now. Forcing a POST /lobby/join here meant every flap minted a
+        // fresh LiveKit token, re-declared mic/camera/screen and wrote a "join"
+        // audit row — a request storm on exactly the network that was already
+        // struggling. Membership is repaired by the two signals that actually
+        // mean something: LiveKit reporting disconnected, and the roster saying
+        // we are not in it (see WorkspaceShell's membership recovery).
       }
     });
 

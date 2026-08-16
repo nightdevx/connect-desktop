@@ -83,6 +83,8 @@ const desktopApi: DesktopApi = {
   getRegisteredUsers: async () => ipcRenderer.invoke("desktop:auth-users"),
   lookupUserByUsername: async (payload) =>
     ipcRenderer.invoke("desktop:auth-user-lookup", payload),
+  getUserCard: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-user-card", payload),
   startUserDirectoryStream: async () =>
     ipcRenderer.invoke("desktop:user-directory-stream-start"),
   stopUserDirectoryStream: async () =>
@@ -143,6 +145,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-camera", payload),
   setLobbyScreenSharing: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-screen", payload),
+  sendLobbyEmote: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-emote", payload),
   createLiveKitToken: async (payload) =>
     ipcRenderer.invoke("desktop:livekit-token", payload),
   initiateCall: async (payload) =>

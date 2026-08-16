@@ -127,7 +127,7 @@
     z-index: 40;
     width: min(94vw, 360px);
     border-left: 1px solid var(--ct-border);
-    background: rgba(12, 12, 12, 0.96);
+    background: var(--ct-panel-solid);
     backdrop-filter: blur(16px);
     box-shadow: var(--ct-shadow-lg);
     transform: translateX(100%);

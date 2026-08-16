@@ -60,6 +60,19 @@ export class AuthClient {
     );
   }
 
+  // By id, for someone already on screen — a lobby roster row, a message
+  // author. The directory is friends-only, so this is what supplies their
+  // avatar and their real username.
+  public async getUserCard(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ user: UserProfile }> {
+    return this.baseClient.request<{ user: UserProfile }>(
+      `/auth/users/${encodeURIComponent(userId)}/card`,
+      { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
+
   public async blockUser(
     accessToken: string,
     userId: string,

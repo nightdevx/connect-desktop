@@ -3,7 +3,7 @@
   padding: 3px;
   border: 1px solid var(--ct-border);
   border-radius: var(--ct-radius-md);
-  background: rgba(12, 12, 12, 0.97) !important;
+  background: var(--ct-panel-solid) !important;
   backdrop-filter: blur(16px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
   color: var(--ct-text-primary);
@@ -39,8 +39,8 @@
 }
 
 .ct-device-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-primary);
 }
 
 .ct-device-menu-item.active {
@@ -70,7 +70,7 @@
 .ct-screen-share-column {
   @apply rounded-xl border p-3;
   border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.42);
+  background: var(--ct-panel-soft);
 }
 
 .ct-screen-share-column h5 {
@@ -86,7 +86,7 @@
   @apply inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.8);
+  background: var(--ct-panel-strong);
   transition: all 0.16s ease;
 }
 
@@ -114,14 +114,14 @@
 .ct-screen-share-source {
   @apply flex items-start gap-3 rounded-lg border px-3 py-2;
   border-color: var(--ct-border);
-  background: rgba(14, 14, 14, 0.68);
+  background: var(--ct-panel);
   transition: all 0.16s ease;
 }
 
 .ct-screen-share-quality {
   @apply flex items-start gap-3 rounded-lg border px-3 py-2;
   border-color: var(--ct-border);
-  background: rgba(14, 14, 14, 0.68);
+  background: var(--ct-panel);
   transition: all 0.16s ease;
 }
 
@@ -139,8 +139,8 @@
 
 .ct-screen-share-source-preview {
   @apply mt-0.5 h-14 w-24 shrink-0 overflow-hidden rounded-md border;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(10, 10, 10, 0.82);
+  border-color: var(--ct-alpha-20);
+  background: var(--ct-panel-strong);
 }
 
 .ct-screen-share-source-preview img {
@@ -217,7 +217,7 @@
 .ct-camera-preview-box {
   @apply mt-2 grid min-h-[220px] place-items-center overflow-hidden rounded-xl border;
   border-color: var(--ct-border);
-  background: rgba(5, 5, 5, 0.72);
+  background: var(--ct-panel);
 }
 
 .ct-camera-preview-video {
@@ -266,7 +266,7 @@
   max-width: calc(100vw - 32px);
   z-index: 900;
   border-color: var(--ct-border-strong);
-  background: rgba(20, 20, 20, 0.92);
+  background: var(--ct-panel-solid);
   backdrop-filter: blur(16px);
   box-shadow: var(--ct-shadow-lg);
   animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) both;
@@ -283,7 +283,7 @@
 .ct-call-dock-avatar {
   @apply grid h-avatar-md w-avatar-md place-items-center rounded-full object-cover text-sm font-bold;
   border: 2px solid var(--ct-alpha-12);
-  color: #ffffff;
+  color: var(--ct-text-primary);
 }
 
 .ct-call-dock-avatar.fallback {
@@ -318,7 +318,7 @@
 
 .ct-call-dock-btn {
   @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-full border-0;
-  color: #ffffff;
+  color: var(--ct-text-primary);
   font-size: var(--ct-icon-sm);
   box-shadow: var(--ct-shadow-md);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
@@ -333,7 +333,7 @@
 }
 
 .ct-call-dock-btn.accept {
-  background: #22c55e;
+  background: var(--ct-success);
   animation: buttonBreathe 2s infinite ease-in-out;
 }
 
@@ -360,7 +360,7 @@
 
 .ct-modal .ant-modal-mask {
   backdrop-filter: blur(6px);
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--ct-scrim);
 }
 
 .ct-modal .ant-modal-header {
@@ -390,7 +390,7 @@
   right: 0;
   bottom: calc(100% + 10px);
   border-color: var(--ct-border);
-  background: rgba(10, 10, 10, 0.92);
+  background: var(--ct-panel-solid);
   backdrop-filter: blur(24px);
   box-shadow: var(--ct-shadow-lg);
 }

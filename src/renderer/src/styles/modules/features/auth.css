@@ -3,8 +3,8 @@
   border-color: var(--ct-border);
   background: linear-gradient(
     135deg,
-    rgba(18, 18, 18, 0.8) 0%,
-    rgba(10, 10, 10, 0.9) 100%
+    var(--ct-panel-strong) 0%,
+    var(--ct-panel-solid) 100%
   );
   backdrop-filter: blur(24px) saturate(180%);
   box-shadow:
@@ -23,7 +23,7 @@
   height: 200%;
   background: radial-gradient(
     circle at center,
-    rgba(255, 255, 255, 0.03) 0%,
+    var(--ct-alpha-04) 0%,
     transparent 50%
   );
   pointer-events: none;
@@ -34,18 +34,18 @@
   @apply h-11 rounded-xl border text-sm font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
-  background: rgba(20, 20, 20, 0.72);
+  background: var(--ct-panel);
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ct-auth-tab:hover {
   border-color: var(--ct-border-strong);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ct-alpha-08);
 }
 
 .ct-auth-tab.active {
   border-color: transparent;
-  color: #0b0b0b;
+  color: var(--ct-text-inverse);
   background: var(--ct-accent);
   box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
@@ -58,7 +58,7 @@
 .ct-auth-title {
   @apply m-0 text-2xl font-bold tracking-tight;
   color: var(--ct-text-primary);
-  background: linear-gradient(to bottom, #ffffff 0%, #a1a1a1 100%);
+  background: linear-gradient(to bottom, var(--ct-accent) 0%, var(--ct-accent-dim) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

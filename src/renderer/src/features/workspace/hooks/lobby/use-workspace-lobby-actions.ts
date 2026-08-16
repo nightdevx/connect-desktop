@@ -38,6 +38,10 @@ interface UseWorkspaceLobbyActionsParams {
   // Claimed synchronously by joinLobby/leaveActiveLobby so the background
   // reconnect scheduler stands down for the duration. See lobby-transition.ts.
   lobbyTransitionRef: MutableRefObject<LobbyTransitionState>;
+  // The password that got the user into the room they are in. Every unattended
+  // re-join — the reconnect chain and the membership-recovery probe — has to
+  // present it, or a password-protected room can never be recovered into.
+  activeLobbyPasswordRef: MutableRefObject<string | null>;
 }
 
 export interface WorkspaceLobbyActionsState {
@@ -82,6 +86,7 @@ export const useWorkspaceLobbyActions = ({
   liveKitSessionRef,
   kickedLobbyIdRef,
   lobbyTransitionRef,
+  activeLobbyPasswordRef,
 }: UseWorkspaceLobbyActionsParams): WorkspaceLobbyActionsState => {
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [renamingLobbyId, setRenamingLobbyId] = useState<string | null>(null);
@@ -264,6 +269,10 @@ export const useWorkspaceLobbyActions = ({
 
       setPendingPasswordLobby(null);
 
+      // Remembered for the life of the membership: an automatic re-join has
+      // nobody to prompt, so this is the only place the password can come from.
+      activeLobbyPasswordRef.current = password ?? null;
+
       // A deliberate (re)join means any prior kick from this lobby no longer
       // applies — clear the marker so the reconnect guard doesn't block us.
       kickedLobbyIdRef.current = null;
@@ -314,6 +323,7 @@ export const useWorkspaceLobbyActions = ({
       }
 
       setActiveLobbyId(null);
+      activeLobbyPasswordRef.current = null;
       resetLocalMediaCapture();
       // Awaited: ensureCleanRoomTransition awaits this function before joining
       // the next room, and a teardown still in flight when the next connect()

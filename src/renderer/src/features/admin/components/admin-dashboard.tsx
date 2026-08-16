@@ -118,8 +118,13 @@ export default function AdminDashboard() {
 
   if (loading && !stats) {
     return (
+      // `tip` only renders in antd's nested or fullscreen pattern, so on a bare
+      // Spin it was dropped and the typo in it never showed up either.
       <div className="ct-admin-center-state">
-        <Spin size="large" tip="İstastistikler Yükleniyor..." />
+        <Space direction="vertical" align="center">
+          <Spin size="large" />
+          <span>İstatistikler yükleniyor…</span>
+        </Space>
       </div>
     );
   }
@@ -209,28 +214,32 @@ export default function AdminDashboard() {
                   width="100%"
                   height="100%"
                 >
+                  {/* Colours come from classes, not from stroke/fill
+                      attributes — an inline attribute is the one place a
+                      var() cannot reach, so the whole chart used to stay on the
+                      dark palette's white grid lines. */}
                   <defs>
                     <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a855f7" stopOpacity="0.45" />
-                      <stop offset="100%" stopColor="#a855f7" stopOpacity="0.0" />
+                      <stop className="ct-chart-area-stop" offset="0%" stopOpacity="0.45" />
+                      <stop className="ct-chart-area-stop" offset="100%" stopOpacity="0" />
                     </linearGradient>
                   </defs>
 
                   {/* Grid lines */}
-                  <line x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-                  <line x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3,3" />
-                  <line x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3,3" />
+                  <line className="ct-chart-grid" x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} strokeWidth="1" />
+                  <line className="ct-chart-grid faint" x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} strokeWidth="1" strokeDasharray="3,3" />
+                  <line className="ct-chart-grid faint" x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} strokeWidth="1" strokeDasharray="3,3" />
 
                   {/* Area path */}
                   <path d={areaPath} fill="url(#area-gradient)" />
 
                   {/* Line path */}
-                  <path d={linePath} fill="none" stroke="#a855f7" strokeWidth="2.5" />
+                  <path className="ct-chart-line" d={linePath} fill="none" strokeWidth="2.5" />
 
                   {/* Data Point Circles */}
                   {points.map((p: { x: number; y: number; val: number }, idx: number) => (
                     <g key={idx}>
-                      <circle cx={p.x} cy={p.y} r="4.5" fill="#141414" stroke="#a855f7" strokeWidth="2" />
+                      <circle className="ct-chart-dot" cx={p.x} cy={p.y} r="4.5" strokeWidth="2" />
                       <Tooltip title={`${idx + 1} saat önce: ${p.val} olay`}>
                         <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
                       </Tooltip>
@@ -255,15 +264,15 @@ export default function AdminDashboard() {
               <div className="ct-donut">
                 <svg viewBox="0 0 100 100" width="100%" height="100%">
                   {/* Outer circle background */}
-                  <circle cx="50" cy="50" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
+                  <circle className="ct-donut-track" cx="50" cy="50" r={radius} fill="transparent" strokeWidth="10" />
 
                   {/* Members arc */}
                   <circle
+                    className="ct-donut-arc members"
                     cx="50"
                     cy="50"
                     r={radius}
                     fill="transparent"
-                    stroke="#3b82f6"
                     strokeWidth="10"
                     strokeDasharray={`${memberStrokeLength} ${circumference}`}
                     strokeLinecap="round"
@@ -271,11 +280,11 @@ export default function AdminDashboard() {
 
                   {/* Admins arc */}
                   <circle
+                    className="ct-donut-arc admins"
                     cx="50"
                     cy="50"
                     r={radius}
                     fill="transparent"
-                    stroke="#a855f7"
                     strokeWidth="10"
                     strokeDasharray={`${adminStrokeLength} ${circumference}`}
                     strokeDashoffset={-memberStrokeLength}
@@ -290,20 +299,14 @@ export default function AdminDashboard() {
 
               <div className="ct-legend">
                 <div className="ct-legend-item">
-                  <span
-                    className="ct-legend-dot"
-                    style={{ background: "#a855f7" }}
-                  />
+                  <span className="ct-legend-dot admins" />
                   <div>
                     <strong>Yöneticiler ({adminCount})</strong>
                     <span>%{adminPercentage} Pay</span>
                   </div>
                 </div>
                 <div className="ct-legend-item">
-                  <span
-                    className="ct-legend-dot"
-                    style={{ background: "#3b82f6" }}
-                  />
+                  <span className="ct-legend-dot members" />
                   <div>
                     <strong>Üyeler ({memberCount})</strong>
                     <span>%{memberPercentage} Pay</span>

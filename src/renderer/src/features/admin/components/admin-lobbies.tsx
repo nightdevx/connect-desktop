@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, message, Tag, Avatar, Modal, Form, Input, Popconfirm, Select, ConfigProvider, theme, Switch } from "antd";
+import { Table, Button, Space, message, Tag, Avatar, Modal, Form, Input, Popconfirm, Select, Switch } from "antd";
 import {
   HomeOutlined,
   EditOutlined,
@@ -35,7 +35,10 @@ export default function AdminLobbies() {
       setLoading(true);
       const offset = (page - 1) * size;
       const res = await adminService.listLobbies({
-        search: searchText || undefined,
+        // The debounced value, not the live one: the effect that calls this is
+        // keyed on the debounced value, so reading the raw box made the two
+        // disagree for one render on every keystroke.
+        search: debouncedSearchText || undefined,
         locked: lockedFilter !== "all" ? lockedFilter : undefined,
         limit: size,
         offset,
@@ -65,12 +68,19 @@ export default function AdminLobbies() {
     return () => clearTimeout(handler);
   }, [searchText]);
 
+  // Only the edit dialog's allow-list needs the user directory, and it does not
+  // change with a filter. It used to be refetched on every keystroke.
   useEffect(() => {
-    fetchLobbies(1);
-    setCurrentPage(1);
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [debouncedSearchText, lockedFilter]);
 
+  // One effect owns the fetching. The filter effect used to fetch page 1 and
+  // this one fetched again a render later, so every filter change issued two
+  // requests and flashed the table's loading state twice.
   useEffect(() => {
     fetchLobbies(currentPage, pageSize);
     const interval = setInterval(() => fetchLobbies(currentPage, pageSize), 4000);
@@ -143,12 +153,13 @@ export default function AdminLobbies() {
       key: "lobby",
       render: (_: any, record: AdminLobbySnapshot) => (
         <div className="ct-admin-table-user">
-          <HomeOutlined  />
+          <HomeOutlined className="ct-admin-muted" />
           <div>
-            <div >{record.lobby.name}</div>
-            <div className="ct-admin-muted">
-              ID: {record.lobby.id}
-            </div>
+            {/* strong/span, not bare divs: .ct-admin-table-user styles those two
+                and nothing else, so the name used to render at the table's
+                default weight with the id at the same size beneath it. */}
+            <strong>{record.lobby.name}</strong>
+            <span>ID: {record.lobby.id}</span>
           </div>
         </div>
       ),
@@ -220,7 +231,7 @@ export default function AdminLobbies() {
             <Avatar size="small" className="ct-admin-avatar">
               {username[0]?.toUpperCase()}
             </Avatar>
-            <span >@{username}</span>
+            <strong>@{username}</strong>
           </div>
         ),
       },
@@ -280,7 +291,7 @@ export default function AdminLobbies() {
             okText="Evet"
             cancelText="Hayır"
           >
-            <Button type="link" danger size="small" >
+            <Button type="link" danger size="small">
               Odadan At
             </Button>
           </Popconfirm>
@@ -288,51 +299,39 @@ export default function AdminLobbies() {
       },
     ];
 
+    // No nested ConfigProvider. It pinned theme.darkAlgorithm and a literal
+    // header background, so the participant list stayed dark inside a light
+    // page — and the wrapper was .ct-admin-empty, the "nobody is here" message,
+    // which rendered a live table in muted text at that message's padding.
     return (
-      <ConfigProvider
-        theme={{
-          algorithm: theme.darkAlgorithm,
-          components: {
-            Table: {
-              colorBgContainer: "transparent",
-              headerBg: "rgba(255, 255, 255, 0.04)",
-            }
-          }
-        }}
-      >
-        <div className="ct-admin-empty">
-          <Table
-            columns={memberColumns}
-            dataSource={record.members}
-            rowKey="userId"
-            pagination={false}
-            size="small"
-            className="ct-admin-table-wrap"
-          />
-        </div>
-      </ConfigProvider>
+      <div className="ct-admin-subtable">
+        <Table
+          columns={memberColumns}
+          dataSource={record.members}
+          rowKey="userId"
+          pagination={false}
+          size="small"
+          scroll={{ x: "max-content" }}
+          className="ct-admin-table-wrap"
+        />
+      </div>
     );
   };
 
   return (
     <div className="ct-admin-page">
-      <div >
+      <header className="ct-admin-page-header">
         <div>
-          <h1 >
-            Aktif Odalar
-          </h1>
-          <p >
-            Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık izleyin
+          <h1>Aktif Odalar</h1>
+          <p>
+            Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık
+            izleyin
           </p>
         </div>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => fetchLobbies()}
-          
-        >
+        <Button icon={<ReloadOutlined />} onClick={() => fetchLobbies()}>
           Yenile
         </Button>
-      </div>
+      </header>
 
       {/* Filters Bar */}
       <div
@@ -347,11 +346,9 @@ export default function AdminLobbies() {
         />
 
         <Select
-          defaultValue="all"
           value={lockedFilter}
           onChange={setLockedFilter}
           className="ct-admin-toolbar-filter"
-          dropdownStyle={{ background: "#1f1f1f" }}
           options={[
             { value: "all", label: "Tüm Odalar" },
             { value: "true", label: "Kilitli Odalar" },
@@ -374,26 +371,24 @@ export default function AdminLobbies() {
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
         }}
-        scroll={{ y: "calc(100vh - 260px)" }}
+        // See admin-users: a viewport height for a table that is not the
+        // viewport clipped the last row and hid the pagination. The page
+        // scrolls instead.
+        scroll={{ x: "max-content" }}
         className="ct-admin-table-wrap"
       />
 
       {/* Edit Name Modal */}
       <Modal
         rootClassName="ct-modal"
-        title={<span >Oda Yetkilerini Düzenle</span>}
+        title="Oda Yetkilerini Düzenle"
         open={isEditOpen}
         onCancel={() => setIsEditOpen(false)}
         footer={[
-          <Button key="cancel" onClick={() => setIsEditOpen(false)} >
+          <Button key="cancel" onClick={() => setIsEditOpen(false)}>
             İptal
           </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            onClick={() => editForm.submit()}
-            
-          >
+          <Button key="submit" type="primary" onClick={() => editForm.submit()}>
             Güncelle
           </Button>,
         ]}
@@ -401,20 +396,16 @@ export default function AdminLobbies() {
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
             name="name"
-            label={<span >Oda Adı</span>}
+            label="Oda Adı"
             rules={[
               { required: true, message: "Oda adı girilmelidir" },
               { min: 2, message: "En az 2 karakter olmalıdır" },
             ]}
           >
-            <Input  />
+            <Input />
           </Form.Item>
 
-          <Form.Item
-            name="isLocked"
-            valuePropName="checked"
-            label={<span >Kilitli Oda</span>}
-          >
+          <Form.Item name="isLocked" valuePropName="checked" label="Kilitli Oda">
             <Switch />
           </Form.Item>
 
@@ -422,21 +413,16 @@ export default function AdminLobbies() {
             {({ getFieldValue }) => {
               const isLocked = getFieldValue("isLocked");
               return isLocked ? (
-                <Form.Item
-                  name="allowedUsers"
-                  label={<span >İzin Verilen Kullanıcılar</span>}
-                >
+                <Form.Item name="allowedUsers" label="İzin Verilen Kullanıcılar">
                   <Select
                     mode="multiple"
                     placeholder="Kullanıcıları seçin..."
-                    
                     options={allUsers
                       .filter((u) => u.id !== editingLobby?.lobby.createdBy)
                       .map((u) => ({
                         label: `@${u.username} (${u.displayName})`,
                         value: u.id,
                       }))}
-                    dropdownStyle={{ background: "#1f1f1f" }}
                   />
                 </Form.Item>
               ) : null;

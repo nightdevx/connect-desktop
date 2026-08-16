@@ -2,7 +2,7 @@
 // the document, so this import stays first.
 import "./styles/global.css";
 
-import React from "react";
+import React, { useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -10,7 +10,14 @@ import { ConfigProvider, theme } from "antd";
 import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { queryClient } from "./services/query-client";
-import { tokens } from "./styles/design-tokens";
+import { readTokens } from "./styles/design-tokens";
+import { applyThemeMode, readThemeMode } from "./styles/theme-mode";
+import { useUiStore } from "./store/ui-store";
+
+// Before the first paint, not in an effect: React's first frame would otherwise
+// render the default (dark) palette and swap a frame later, which on a light
+// theme is a full-screen black flash on every launch.
+applyThemeMode(readThemeMode());
 
 // Initialize Sentry for renderer process. It automatically tunnels events to main process.
 if (process.env.NODE_ENV !== "development") {
@@ -28,83 +35,98 @@ window.addEventListener("error", (event) => {
 });
 
 // Every value here comes from the design tokens, so Ant Design components and
-// the hand-written .ct-* classes cannot drift apart.
-const antdTheme = {
-  algorithm: theme.darkAlgorithm,
-  token: {
-    colorPrimary: tokens.accent,
-    colorBgBase: tokens.surface0,
-    colorBgContainer: tokens.surface1,
-    colorBgElevated: tokens.surface3,
-    colorBorder: tokens.alpha08,
-    colorBorderSecondary: tokens.alpha08,
-    colorTextBase: tokens.textPrimary,
-    colorSuccess: tokens.success,
-    colorWarning: tokens.warning,
-    colorError: tokens.danger,
-    colorInfo: tokens.info,
-    borderRadius: tokens.radiusMd,
-    borderRadiusSM: tokens.radiusSm,
-    borderRadiusLG: tokens.radiusLg,
-    controlHeight: tokens.controlMd,
-    controlHeightSM: tokens.controlSm,
-    controlHeightLG: tokens.controlLg,
-    fontFamily: tokens.fontSans,
-    fontSize: 13,
-  },
-  components: {
-    Button: {
-      colorTextLightSolid: tokens.textInverse,
-      primaryShadow: "none",
-    },
-    Input: {
-      colorBgContainer: tokens.surface1,
-      activeBorderColor: tokens.accent,
-      hoverBorderColor: tokens.alpha20,
-      activeShadow: "none",
-    },
-    Select: {
-      optionSelectedBg: tokens.alpha08,
-    },
-    Tabs: {
-      itemColor: tokens.textSecondary,
-      itemSelectedColor: tokens.textPrimary,
-      itemHoverColor: tokens.textPrimary,
-      inkBarColor: tokens.accent,
-    },
-    Segmented: {
-      itemSelectedBg: tokens.accent,
-      itemSelectedColor: tokens.textInverse,
-      itemColor: tokens.textMuted,
-      itemHoverColor: tokens.textPrimary,
-    },
-    Modal: {
-      contentBg: tokens.surface2,
-      headerBg: tokens.surface2,
-      titleColor: tokens.textPrimary,
-    },
-    Switch: {
-      colorPrimary: tokens.accent,
-      colorPrimaryHover: tokens.accent,
-    },
-    Tooltip: {
-      colorBgSpotlight: tokens.surface3,
-      colorTextLightSolid: tokens.textPrimary,
-    },
-    Card: {
-      colorBgContainer: tokens.surface2,
-    },
-  },
-};
+// the hand-written .ct-* classes cannot drift apart. Rebuilt whenever the theme
+// changes: the CSS custom properties have already been swapped by then, so
+// reading them back is what keeps the two halves of the palette in step.
+function ThemedApp() {
+  const themeMode = useUiStore((state) => state.themeMode);
+
+  const antdTheme = useMemo(() => {
+    const tokens = readTokens();
+
+    return {
+      algorithm:
+        themeMode === "light" ? theme.defaultAlgorithm : theme.darkAlgorithm,
+      token: {
+        colorPrimary: tokens.accent,
+        colorBgBase: tokens.surface0,
+        colorBgContainer: tokens.surface1,
+        colorBgElevated: tokens.surface3,
+        colorBorder: tokens.alpha08,
+        colorBorderSecondary: tokens.alpha08,
+        colorTextBase: tokens.textPrimary,
+        colorSuccess: tokens.success,
+        colorWarning: tokens.warning,
+        colorError: tokens.danger,
+        colorInfo: tokens.info,
+        borderRadius: tokens.radiusMd,
+        borderRadiusSM: tokens.radiusSm,
+        borderRadiusLG: tokens.radiusLg,
+        controlHeight: tokens.controlMd,
+        controlHeightSM: tokens.controlSm,
+        controlHeightLG: tokens.controlLg,
+        fontFamily: tokens.fontSans,
+        fontSize: 13,
+      },
+      components: {
+        Button: {
+          colorTextLightSolid: tokens.textInverse,
+          primaryShadow: "none",
+        },
+        Input: {
+          colorBgContainer: tokens.surface1,
+          activeBorderColor: tokens.accent,
+          hoverBorderColor: tokens.alpha20,
+          activeShadow: "none",
+        },
+        Select: {
+          optionSelectedBg: tokens.alpha08,
+        },
+        Tabs: {
+          itemColor: tokens.textSecondary,
+          itemSelectedColor: tokens.textPrimary,
+          itemHoverColor: tokens.textPrimary,
+          inkBarColor: tokens.accent,
+        },
+        Segmented: {
+          itemSelectedBg: tokens.accent,
+          itemSelectedColor: tokens.textInverse,
+          itemColor: tokens.textMuted,
+          itemHoverColor: tokens.textPrimary,
+        },
+        Modal: {
+          contentBg: tokens.surface2,
+          headerBg: tokens.surface2,
+          titleColor: tokens.textPrimary,
+        },
+        Switch: {
+          colorPrimary: tokens.accent,
+          colorPrimaryHover: tokens.accent,
+        },
+        Tooltip: {
+          colorBgSpotlight: tokens.surface3,
+          colorTextLightSolid: tokens.textPrimary,
+        },
+        Card: {
+          colorBgContainer: tokens.surface2,
+        },
+      },
+    };
+  }, [themeMode]);
+
+  return (
+    <ConfigProvider theme={antdTheme}>
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
+    </ConfigProvider>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider theme={antdTheme}>
-        <AppErrorBoundary>
-          <App />
-        </AppErrorBoundary>
-      </ConfigProvider>
+      <ThemedApp />
     </QueryClientProvider>
   </React.StrictMode>,
 );

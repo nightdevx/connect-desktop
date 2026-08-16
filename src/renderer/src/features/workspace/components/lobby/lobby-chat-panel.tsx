@@ -1,4 +1,12 @@
-import { memo, useMemo, useState, useRef, useEffect } from "react";
+import {
+  memo,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Input, Button, Tooltip, Spin, Alert } from "antd";
 import type { InputRef } from "antd";
 import {
@@ -201,7 +209,7 @@ interface LobbyChatPanelProps {
   >;
   lobbyMessages: ChatMessage[];
   lobbyMessageDraft: string;
-  setLobbyMessageDraft: (value: string) => void;
+  setLobbyMessageDraft: Dispatch<SetStateAction<string>>;
   // Sends the draft. With a body it sends that instead and leaves the draft
   // alone -- see the GIF button below for why that override has to exist.
   onSendLobbyMessage: (bodyOverride?: string) => void;
@@ -321,15 +329,35 @@ export function LobbyChatPanel({
     }
   };
 
+  // Whether this panel has already been placed at the newest message once.
+  //
+  // Switching to Arkadaşlar or Ayarlar UNMOUNTS this panel (WorkspaceMainPanel
+  // renders one section at a time), so coming back mounts it fresh with
+  // scrollTop 0 — which the "am I near the bottom" test below reads as "the
+  // reader has scrolled up to the top", and the thread stayed pinned to the
+  // oldest loaded message. A first mount has no reading position to preserve;
+  // it must always land on the newest message.
+  const hasLandedAtNewestRef = useRef(false);
+
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-      if (isNearBottom || lobbyMessages.length <= 1) {
-        container.scrollTop = container.scrollHeight;
-        // Jumped to the end without a scroll event necessarily firing.
-        setIsAwayFromBottom(false);
-      }
+    const container = messagesContainerRef.current;
+    if (!container || lobbyMessages.length === 0) {
+      return;
+    }
+
+    if (!hasLandedAtNewestRef.current) {
+      hasLandedAtNewestRef.current = true;
+      container.scrollTop = container.scrollHeight;
+      setIsAwayFromBottom(false);
+      return;
+    }
+
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    if (isNearBottom || lobbyMessages.length <= 1) {
+      container.scrollTop = container.scrollHeight;
+      // Jumped to the end without a scroll event necessarily firing.
+      setIsAwayFromBottom(false);
     }
   }, [lobbyMessages.length]);
 
@@ -367,8 +395,6 @@ export function LobbyChatPanel({
           className="ct-chat-messages"
           onScroll={handleMessagesScroll}
         >
-          <div className="ct-scroll-indicator top" />
-
           {lobbyMessagesQuery.isPending && (
             <div className="ct-list-state">
               <Spin size="small" />
@@ -459,7 +485,6 @@ export function LobbyChatPanel({
             </div>
           )}
 
-          <div className="ct-scroll-indicator bottom" />
           <button
             type="button"
             className={`ct-scroll-to-bottom-btn ${isAwayFromBottom ? "visible" : ""}`}
@@ -525,7 +550,14 @@ export function LobbyChatPanel({
           <div className="ct-chat-composer-row">
             <ChatComposerEmojiButton
               disabled={isSendingLobbyMessage}
-              onPick={(emoji) => setLobbyMessageDraft(lobbyMessageDraft + emoji)}
+              // Appended through the updater, not by reading the draft above.
+              // The picker stays open, so a run of quick picks lands inside one
+              // render — every closure would read the same stale draft and each
+              // emoji would overwrite the last, which is what made a second
+              // emoji look like it did nothing.
+              onPick={(emoji) =>
+                setLobbyMessageDraft((previous) => previous + emoji)
+              }
             />
             {/* The GIF goes out as its own message. It used to be written into
                 the draft and sent a render later, which silently destroyed
