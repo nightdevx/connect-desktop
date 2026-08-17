@@ -28,7 +28,7 @@ export function CameraShareModal({
     <Modal
       title={
         <div>
-          <span className="text-base font-bold text-[#f5f5f5]">Kamera Önizleme</span>
+          <span className="text-base font-bold text-ct-text-primary">Kamera Önizleme</span>
           <p className="ct-modal-subtitle">
             Kamerayı lobiye göndermeden önce burada kontrol et.
           </p>

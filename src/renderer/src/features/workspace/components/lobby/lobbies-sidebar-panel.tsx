@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dropdown, Modal, Input, Avatar, Switch, Select, message } from "antd";
 import {
   EditOutlined,
@@ -11,7 +12,6 @@ import {
   DesktopOutlined,
   TeamOutlined,
   LockOutlined,
-  LogoutOutlined,
   CrownOutlined,
   MessageOutlined,
 } from "@ant-design/icons";
@@ -22,7 +22,14 @@ import type {
 } from "@shared/desktop-api-types";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ConfirmActionModal } from "../common";
-import { UserProfileCardPopover } from "../user/user-profile-card";
+import {
+  UserProfileCardAnchor,
+  UserProfileCardPopover,
+} from "../user/user-profile-card";
+import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
+import { fetchUserCard } from "../../hooks/user/use-user-cards";
+import { DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE } from "../../hooks/media/use-remote-participant-audio";
+import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth/permissions";
@@ -58,6 +65,14 @@ interface LobbiesSidebarPanelProps {
   // A roster row is the one place a stranger's name appears with nothing behind
   // it; the profile card is what turns it into a person you can add.
   friends: FriendsController;
+  /** Opens the DM thread with this person. Undefined disables the menu item. */
+  onOpenConversation?: (userId: string) => void;
+  /** Per-participant playback, for members of the room this client is in. */
+  participantAudio?: {
+    preferences: Record<string, RemoteParticipantAudioPreference>;
+    setMuted: (userId: string, muted: boolean) => void;
+    setVolume: (userId: string, volumePercent: number) => void;
+  };
 }
 
 export function LobbiesSidebarPanel({
@@ -77,7 +92,53 @@ export function LobbiesSidebarPanel({
   currentUserRole,
   allUsers,
   friends,
+  onOpenConversation,
+  participantAudio,
 }: LobbiesSidebarPanelProps) {
+  const queryClient = useQueryClient();
+  // Where the last right-click landed, so "Profili Gör" opens the card there.
+  const lastContextPointRef = useRef({ x: 0, y: 0 });
+  const [profileCardTarget, setProfileCardTarget] = useState<{
+    userId: string;
+    name: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const friendStateOf = (userId: string): "friend" | "requested" | "none" => {
+    if (friends.friendIds.includes(userId)) {
+      return "friend";
+    }
+    if (friends.outgoingRequests.some((entry) => entry.userId === userId)) {
+      return "requested";
+    }
+    return "none";
+  };
+
+  // The roster carries a DISPLAY name, and sendRequest is keyed by handle, so
+  // the handle is read from the profile card first — usually a cache hit,
+  // because the same card feeds this row's avatar.
+  const handleAddFriend = async (userId: string): Promise<void> => {
+    const card = await fetchUserCard(queryClient, userId);
+    if (!card?.username) {
+      message.error("Kullanıcı bulunamadı");
+      return;
+    }
+
+    const result = await friends.sendRequest(card.username);
+    if (result.ok) {
+      message.success(result.message);
+    } else {
+      message.error(result.message);
+    }
+  };
+
+  const handleRemoveFriend = async (userId: string): Promise<void> => {
+    const removed = await friends.removeFriend(userId);
+    if (removed) {
+      message.success("Arkadaşlıktan çıkarıldı");
+    }
+  };
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
     null,
   );
@@ -368,7 +429,17 @@ export function LobbiesSidebarPanel({
                         <li
                           key={member.userId}
                           className="ct-lobby-member-item"
-                          onContextMenu={(e) => e.stopPropagation()}
+                          // The lobby row underneath opens a context menu of its
+                          // own (rename/delete); a right-click on a member has to
+                          // be about the member. The position is kept because
+                          // "Profili Gör" opens the card at the cursor.
+                          onContextMenu={(event) => {
+                            event.stopPropagation();
+                            lastContextPointRef.current = {
+                              x: event.clientX,
+                              y: event.clientY,
+                            };
+                          }}
                         >
                           <div className="ct-lobby-member-main">
                             {/* The whole identity is the trigger, avatar
@@ -386,7 +457,7 @@ export function LobbiesSidebarPanel({
                                 onClick={(event) => event.stopPropagation()}
                               >
                                 <Avatar
-                                  size={20}
+                                  size={24}
                                   src={avatarByUserId[member.userId]}
                                   className="ct-lobby-member-avatar"
                                 >
@@ -453,50 +524,67 @@ export function LobbiesSidebarPanel({
                         </li>
                       );
 
-                      if (!canModerate) {
-                        return memberRow;
-                      }
+                      const isSelf = member.userId === currentUserId;
+                      // Playback preferences only mean something for people in
+                      // the room this client is actually connected to.
+                      const audio =
+                        !isSelf && participantAudio && lobby.id === activeLobbyId
+                          ? {
+                              preference:
+                                participantAudio.preferences[member.userId] ??
+                                DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE,
+                              onMute: (muted: boolean) =>
+                                participantAudio.setMuted(member.userId, muted),
+                              onVolume: (volumePercent: number) =>
+                                participantAudio.setVolume(
+                                  member.userId,
+                                  volumePercent,
+                                ),
+                            }
+                          : undefined;
 
                       return (
-                        <Dropdown
+                        <LobbyMemberContextMenu
                           key={member.userId}
-                          trigger={["contextMenu"]}
-                          menu={{
-                            // This overlay is portalled into document.body, but a
-                            // portal only moves the DOM node — React synthetic
-                            // events still bubble along the React tree, and that
-                            // tree runs Dropdown -> ul.ct-lobby-member-list ->
-                            // li.ct-list-item, whose onClick is handleLobbyClick.
-                            // So moderating a member of a lobby you are not in
-                            // used to join you to it (mic on, leaving whatever
-                            // room you were in) right before the kick landed.
-                            // Neither rc-menu nor antd stops the click, so the
-                            // guard has to live here. Menu-level rather than
-                            // per-item so a future item cannot forget it, and it
-                            // covers the keyboard path too: Enter on the item
-                            // would otherwise reach the row's own onKeyDown.
-                            onClick: ({ domEvent }) => domEvent.stopPropagation(),
-                            items: [
-                              {
-                                key: "mute",
-                                label: member.serverMuted ? "Susturmayı Kaldır" : "Sustur",
-                                icon: member.serverMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
-                                onClick: () =>
-                                  void handleMuteMember(lobby.id, member.userId, member.username, !member.serverMuted),
-                              },
-                              {
-                                key: "kick",
-                                label: "Odadan At",
-                                icon: <LogoutOutlined />,
-                                danger: true,
-                                onClick: () =>
-                                  void handleKickMember(lobby.id, member.userId, member.username),
-                              },
-                            ],
-                          }}
+                          username={member.username}
+                          isSelf={isSelf}
+                          onShowProfile={() =>
+                            setProfileCardTarget({
+                              userId: member.userId,
+                              name: member.username,
+                              ...lastContextPointRef.current,
+                            })
+                          }
+                          onSendMessage={() => onOpenConversation?.(member.userId)}
+                          friendState={friendStateOf(member.userId)}
+                          isFriendActionPending={friends.pendingUserIds.includes(
+                            member.userId,
+                          )}
+                          onAddFriend={() => void handleAddFriend(member.userId)}
+                          onRemoveFriend={() =>
+                            void handleRemoveFriend(member.userId)
+                          }
+                          audio={audio}
+                          canModerate={canModerate}
+                          isServerMuted={Boolean(member.serverMuted)}
+                          onServerMute={(muted) =>
+                            void handleMuteMember(
+                              lobby.id,
+                              member.userId,
+                              member.username,
+                              muted,
+                            )
+                          }
+                          onKick={() =>
+                            void handleKickMember(
+                              lobby.id,
+                              member.userId,
+                              member.username,
+                            )
+                          }
                         >
                           {memberRow}
-                        </Dropdown>
+                        </LobbyMemberContextMenu>
                       );
                     })}
                   </ul>
@@ -654,6 +742,21 @@ export function LobbiesSidebarPanel({
         onCancel={() => setPendingDeleteLobby(null)}
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Anchored at the cursor rather than at the row: the sidebar scrolls and
+          the row is 24px tall, so a popover hung off it lands half off-screen
+          for anyone near the bottom of a long list. */}
+      {profileCardTarget && (
+        <UserProfileCardAnchor
+          x={profileCardTarget.x}
+          y={profileCardTarget.y}
+          userId={profileCardTarget.userId}
+          fallbackName={profileCardTarget.name}
+          currentUserId={currentUserId}
+          friends={friends}
+          onClose={() => setProfileCardTarget(null)}
+        />
+      )}
     </>
   );
 }

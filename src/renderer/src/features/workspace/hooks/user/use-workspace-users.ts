@@ -6,6 +6,12 @@ import type { DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 import type { UserFilter } from "../../workspace-utils";
 
+// Stable identity for "no directory yet"; see where it is used below.
+const EMPTY_DIRECTORY: UserDirectoryEntry[] = [];
+
+// Turkish collation, built once rather than per comparison.
+const TURKISH_COLLATOR = new Intl.Collator("tr", { sensitivity: "base" });
+
 const USER_DIRECTORY_RECONNECT_BASE_MS = 1_000;
 const USER_DIRECTORY_RECONNECT_MAX_MS = 10_000;
 const USER_DIRECTORY_RECONNECT_MAX_EXPONENT = 5;
@@ -333,30 +339,42 @@ export const useWorkspaceUsers = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A literal [] here was a new array on every render, so directoryUsers — and
+  // everything memoised on it — recomputed on every render while the query was
+  // still pending or errored.
   const users =
     usersQuery.data?.ok && usersQuery.data.data
       ? usersQuery.data.data.users
-      : [];
+      : EMPTY_DIRECTORY;
 
   const directoryUsers = useMemo(() => {
     return users.filter((user) => user.username !== currentUsername);
   }, [currentUsername, users]);
 
-  const filteredUsers = useMemo(() => {
-    const normalizedSearch = userSearch.trim().toLocaleLowerCase("tr-TR");
-    const sorted = [...directoryUsers].sort((a, b) => {
+  // Sorting is the expensive half and it does not depend on the search box, so
+  // it is its own memo: typing now re-filters an already-sorted list instead of
+  // re-sorting the whole directory on every keystroke.
+  const sortedUsers = useMemo(() => {
+    return [...directoryUsers].sort((a, b) => {
       const onlineDiff =
         Number(Boolean(b.appOnline)) - Number(Boolean(a.appOnline));
       if (onlineDiff !== 0) {
         return onlineDiff;
       }
 
-      const left = (a.displayName || a.username).toLocaleLowerCase("tr-TR");
-      const right = (b.displayName || b.username).toLocaleLowerCase("tr-TR");
-      return left.localeCompare(right, "tr");
+      // One collator, built once. localeCompare(x, "tr") builds a fresh one per
+      // comparison, which is O(n log n) collators for a single sort.
+      return TURKISH_COLLATOR.compare(
+        a.displayName || a.username,
+        b.displayName || b.username,
+      );
     });
+  }, [directoryUsers]);
 
-    return sorted.filter((user) => {
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = userSearch.trim().toLocaleLowerCase("tr-TR");
+
+    return sortedUsers.filter((user) => {
       if (userFilter === "online" && !user.appOnline) {
         return false;
       }
@@ -373,7 +391,7 @@ export const useWorkspaceUsers = ({
         `${user.displayName} ${user.username}`.toLocaleLowerCase("tr-TR");
       return searchSpace.includes(normalizedSearch);
     });
-  }, [directoryUsers, userFilter, userSearch]);
+  }, [sortedUsers, userFilter, userSearch]);
 
   const onlineCount = useMemo(() => {
     return directoryUsers.filter((user) => user.appOnline).length;

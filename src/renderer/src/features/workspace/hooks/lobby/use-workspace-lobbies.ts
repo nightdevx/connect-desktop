@@ -29,6 +29,9 @@ interface UseWorkspaceLobbiesProps {
   // password, so without this every recovery into a protected room failed with
   // LOBBY_PASSWORD_REQUIRED and retried forever.
   activeLobbyPasswordRef: React.MutableRefObject<string | null>;
+  // Mirrors hasLiveSnapshotRef out to the shell, which owns lobbiesQuery and
+  // uses it to stop that query running while the stream is authoritative.
+  onLobbyStreamLiveChange: (live: boolean) => void;
 }
 
 // The two events that mean the media membership itself may be gone. Exported so
@@ -91,6 +94,7 @@ export function useWorkspaceLobbies({
   lobbiesQuery,
   kickedLobbyIdRef,
   activeLobbyPasswordRef,
+  onLobbyStreamLiveChange,
 }: UseWorkspaceLobbiesProps) {
   const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
@@ -110,6 +114,14 @@ export function useWorkspaceLobbies({
   // created appeared for one frame and vanished.
   const hasLiveSnapshotRef = useRef(false);
 
+  // The ref is what the snapshot handler reads (it runs between renders); the
+  // callback is what lets the shell's REST query stand down. Kept in one place
+  // so the two can never disagree.
+  const setLobbyStreamLive = (live: boolean): void => {
+    hasLiveSnapshotRef.current = live;
+    onLobbyStreamLiveChangeRef.current(live);
+  };
+
   useEffect(() => { activeLobbyRef.current = activeLobbyId; }, [activeLobbyId]);
 
   // Latest-value refs for the reconnect scheduler.
@@ -128,9 +140,13 @@ export function useWorkspaceLobbies({
   const lobbiesQueryRef = useRef(lobbiesQuery);
   const shouldEmitReconnectStatusRef = useRef(shouldEmitReconnectStatus);
   const setStatusRef = useRef(setStatus);
+  // Same reason as the others: the stream-subscription effect must not re-run
+  // because the shell handed down a new function identity.
+  const onLobbyStreamLiveChangeRef = useRef(onLobbyStreamLiveChange);
 
   useEffect(() => {
     performPostJoinSyncRef.current = performPostJoinSynchronization;
+    onLobbyStreamLiveChangeRef.current = onLobbyStreamLiveChange;
     lobbiesQueryRef.current = lobbiesQuery;
     shouldEmitReconnectStatusRef.current = shouldEmitReconnectStatus;
     setStatusRef.current = setStatus;
@@ -431,7 +447,7 @@ export function useWorkspaceLobbies({
       if (event.type === "lobbies-snapshot") {
         clearLobbyReconnectTimer();
         lobbyStreamReconnectAttemptRef.current = 0;
-        hasLiveSnapshotRef.current = true;
+        setLobbyStreamLive(true);
 
         const nextMembersById: Record<string, LobbyStateMember[]> = {};
         const nextLobbies: LobbyDescriptor[] = event.lobbies.map((snapshot) => {
@@ -485,7 +501,7 @@ export function useWorkspaceLobbies({
         }
         // The stream is no longer authoritative, so let REST drive the list
         // again until the next snapshot arrives.
-        hasLiveSnapshotRef.current = false;
+        setLobbyStreamLive(false);
         void syncLobbiesFromFallback();
         scheduleLobbyStreamReconnect();
         // Deliberately NOT a lobby re-join.
@@ -543,6 +559,10 @@ export function useWorkspaceLobbies({
     lobbyMembersById,
     clearActiveLobbyReconnectTimer,
     scheduleActiveLobbyReconnect,
+    // Whether the websocket is currently the source of truth for the list.
+    // Everything that mutates a lobby reads this to decide whether a REST
+    // refetch would tell it anything the next snapshot will not.
+    hasLiveSnapshotRef,
   };
 }
 

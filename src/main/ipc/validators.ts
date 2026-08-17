@@ -193,7 +193,30 @@ export const lobbyEnabledSchema = z.object({
 // matters; this bound just keeps an unbounded string out of the request body.
 export const lobbyEmoteSchema = z.object({
   lobbyId: z.string().min(2).max(128),
-  emote: z.string().min(1).max(32),
+  // Long enough for "custom:<nanosecond-timestamp>-<counter>"; the server is
+  // what decides whether the id resolves.
+  emote: z.string().min(1).max(96),
+});
+
+// The upload. Every bound here is also enforced server-side — this only stops
+// an obviously bad request from becoming a round trip.
+export const emoteUploadSchema = z.object({
+  name: z.string().min(1).max(24),
+  // 400 KB of base64, matching maxEmoteDataURLLength in the backend.
+  dataUrl: z
+    .string()
+    .min(16)
+    .max(400_000)
+    .regex(/^data:audio\/[a-z0-9.+-]+;base64,/i, "audio data URL required"),
+});
+
+export const emoteIdSchema = z.object({
+  emoteId: z.string().min(1).max(96),
+});
+
+export const adminEmoteQuotaSchema = z.object({
+  userId: z.string().min(1).max(128).optional(),
+  quota: z.number().int().min(0).max(50).nullable(),
 });
 
 export const liveKitTokenSchema = z.object({

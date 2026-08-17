@@ -65,8 +65,8 @@ export class AppErrorBoundary extends Component<
           justifyContent: "center",
           gap: "16px",
           padding: "32px",
-          background: "#050505",
-          color: "#f5f5f5",
+          background: "var(--ct-surface-0, #050505)",
+          color: "var(--ct-text-primary, #f5f5f5)",
           fontFamily: "'Space Grotesk', 'IBM Plex Sans', sans-serif",
           // The frameless window has no OS title bar, so leave room for the
           // custom drag region rather than covering it.
@@ -82,7 +82,7 @@ export class AppErrorBoundary extends Component<
             margin: 0,
             maxWidth: "560px",
             textAlign: "center",
-            color: "rgba(255,255,255,0.6)",
+            color: "var(--ct-text-muted, rgba(255,255,255,0.6))",
             fontSize: "13px",
           }}
         >
@@ -98,8 +98,8 @@ export class AppErrorBoundary extends Component<
               padding: "10px 20px",
               borderRadius: "12px",
               border: "none",
-              background: "#ffffff",
-              color: "#050505",
+              background: "var(--ct-accent, #ffffff)",
+              color: "var(--ct-text-inverse, #050505)",
               fontWeight: 700,
               fontSize: "13px",
               cursor: "pointer",
@@ -113,9 +113,9 @@ export class AppErrorBoundary extends Component<
             style={{
               padding: "10px 20px",
               borderRadius: "12px",
-              border: "1px solid rgba(255,255,255,0.12)",
+              border: "1px solid var(--ct-border, rgba(255,255,255,0.12))",
               background: "transparent",
-              color: "#f5f5f5",
+              color: "var(--ct-text-primary, #f5f5f5)",
               fontSize: "13px",
               cursor: "pointer",
             }}
@@ -129,7 +129,7 @@ export class AppErrorBoundary extends Component<
             width: "100%",
             maxWidth: "720px",
             marginTop: "8px",
-            color: "rgba(255,255,255,0.45)",
+            color: "var(--ct-text-muted, rgba(255,255,255,0.45))",
             fontSize: "11px",
           }}
         >
@@ -141,8 +141,8 @@ export class AppErrorBoundary extends Component<
               maxHeight: "240px",
               overflow: "auto",
               borderRadius: "10px",
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              background: "var(--ct-alpha-02, rgba(255,255,255,0.03))",
+              border: "1px solid var(--ct-border, rgba(255,255,255,0.06))",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
             }}

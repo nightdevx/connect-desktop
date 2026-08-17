@@ -154,7 +154,17 @@ export function useLivekitSession(
         setRemoteParticipantStreams(nextStreams);
       },
       onActiveSpeakersChanged: (speakerIds: string[]) => {
-        setActiveSpeakerIds(speakerIds);
+        // A new array only when the set of speakers actually changed. LiveKit
+        // re-emits this on the server's speaker update — repeatedly, for the
+        // whole time one person keeps talking — and each emission used to hand
+        // React a fresh array identity, re-rendering the entire workspace shell
+        // and every panel under it for a list that had not changed.
+        setActiveSpeakerIds((previous) =>
+          previous.length === speakerIds.length &&
+          previous.every((id, index) => id === speakerIds[index])
+            ? previous
+            : speakerIds,
+        );
       },
       onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
         setLiveKitConnectionState(state);

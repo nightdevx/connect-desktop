@@ -296,6 +296,7 @@ export function WorkspaceMainPanel({
         {workspaceSection === "users" && (
           <UsersDirectMessagesPanel
             currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
             selectedUser={selectedUser}
             friendsHome={friendsHome}
             onCopyUsername={onCopyUsername}

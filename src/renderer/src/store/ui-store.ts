@@ -9,7 +9,12 @@ import {
 type AuthPage = "login" | "register";
 type StatusTone = "ok" | "warn" | "error";
 export type WorkspaceSection = "users" | "lobbies" | "settings" | "admin";
-export type AdminSection = "dashboard" | "users" | "lobbies" | "activity";
+export type AdminSection =
+  | "dashboard"
+  | "users"
+  | "lobbies"
+  | "activity"
+  | "sounds";
 export type SettingsSection =
   | "profile"
   | "security"

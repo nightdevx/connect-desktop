@@ -71,7 +71,7 @@ export function ScreenShareModal({
     <Modal
       title={
         <div>
-          <span className="text-base font-bold text-[#f5f5f5]">Yayın Başlat</span>
+          <span className="text-base font-bold text-ct-text-primary">Yayın Başlat</span>
           <p className="ct-modal-subtitle">
             Monitör veya pencere seçip kalite profilini belirle.
           </p>

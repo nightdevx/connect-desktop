@@ -170,6 +170,9 @@ export const useDirectMessages = ({
   const streamWantedRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
+  // Whether the socket has dropped since the last successful connect. The first
+  // connect of a session has nothing to backfill.
+  const streamDroppedRef = useRef(false);
   const reconnectInFlightRef = useRef(false);
   const selectedPeerWarnAtRef = useRef(0);
 
@@ -315,7 +318,11 @@ export const useDirectMessages = ({
         limit: 120,
       }),
     enabled: workspaceSection === "users" && Boolean(selectedUserId),
-    staleTime: 3_000,
+    // The websocket keeps every open thread current and a reconnect re-reads
+    // them, so a cached conversation is correct for as long as the socket has
+    // been up. At 3 seconds, clicking between two people — or leaving the tab
+    // and coming back — re-downloaded 120 messages each time.
+    staleTime: 60_000,
   });
 
   const directMessages =
@@ -439,6 +446,18 @@ export const useDirectMessages = ({
     ) {
       reconnectAttemptRef.current = 0;
       clearReconnectTimer();
+
+      // Everything sent while the socket was down was missed: the stream
+      // carries no backlog, and nothing else re-reads a conversation that is
+      // already on screen. That gap used to be covered by a 3-second staleTime
+      // — the cache expiring often enough that reopening the thread refetched —
+      // which is polling by accident, and still lost messages for anyone who
+      // stayed in the conversation the whole time. Re-read on reconnect
+      // instead, the same way the directory and the friend lists do.
+      if (streamDroppedRef.current) {
+        streamDroppedRef.current = false;
+        void queryClient.invalidateQueries({ queryKey: ["direct-messages"] });
+      }
       return;
     }
 
@@ -454,6 +473,7 @@ export const useDirectMessages = ({
       streamEvent.type === "stream-status" &&
       streamEvent.status === "closed"
     ) {
+      streamDroppedRef.current = true;
       if (shouldEmitWarnStatus(selectedPeerWarnAtRef, 6_000)) {
         setStatus(
           `Mesaj akışı kapandı${streamEvent.detail ? `: ${streamEvent.detail}` : ""}`,

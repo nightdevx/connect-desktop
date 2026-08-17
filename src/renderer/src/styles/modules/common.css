@@ -5,7 +5,7 @@
   border-radius: var(--ct-radius-md);
   background: var(--ct-panel-solid) !important;
   backdrop-filter: blur(16px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 16px 36px var(--ct-shadow-color);
   color: var(--ct-text-primary);
   font-size: 12px;
   min-width: 160px;
@@ -32,7 +32,7 @@
   line-height: 18px;
   cursor: pointer;
   border-radius: var(--ct-radius-sm);
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--ct-alpha-70);
   transition: all 0.15s ease;
   font-size: 13px;
   user-select: none;
@@ -273,7 +273,7 @@
 }
 
 .ct-call-dock.incoming {
-  border-color: rgba(34, 197, 94, 0.45);
+  border-color: color-mix(in srgb, var(--ct-success) 45%, transparent);
 }
 
 .ct-call-dock-avatar-wrap {
@@ -475,11 +475,11 @@
 }
 
 .ct-video-quality.warn .ct-video-quality-problem {
-  border-color: rgba(245, 158, 11, 0.35);
+  border-color: color-mix(in srgb, var(--ct-warning) 35%, transparent);
 }
 
 .ct-video-quality.error .ct-video-quality-problem {
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
   color: var(--ct-danger);
 }
 

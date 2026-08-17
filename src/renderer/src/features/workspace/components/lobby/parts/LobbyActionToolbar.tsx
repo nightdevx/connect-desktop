@@ -9,7 +9,6 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 
-import type { LobbySoundEmote } from "@shared/desktop-api-types";
 import { AudioDeviceDropdown } from "../../common/AudioDeviceDropdown";
 import { StreamControlMenu } from "./StreamControlMenu";
 import { SoundEmoteMenu } from "./SoundEmoteMenu";
@@ -31,7 +30,10 @@ interface LobbyActionToolbarProps {
   selectedAudioOutputDeviceId: string | null;
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
-  onSendEmote: (emote: LobbySoundEmote) => void;
+  // A built-in id, or "custom:<id>" for an upload.
+  onSendEmote: (emote: string) => void;
+  currentUserId: string;
+  currentUserRole: string;
 }
 
 export function LobbyActionToolbar({
@@ -52,6 +54,8 @@ export function LobbyActionToolbar({
   onSelectAudioInputDevice,
   onSelectAudioOutputDevice,
   onSendEmote,
+  currentUserId,
+  currentUserRole,
 }: LobbyActionToolbarProps) {
   return (
     <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
@@ -122,7 +126,12 @@ export function LobbyActionToolbar({
         />
       </Tooltip>
 
-      <SoundEmoteMenu onSend={onSendEmote} disabled={isLeavingLobby} />
+      <SoundEmoteMenu
+        onSend={onSendEmote}
+        currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
+        disabled={isLeavingLobby}
+      />
 
       <Tooltip title="Lobiden Ayrıl">
         <Button

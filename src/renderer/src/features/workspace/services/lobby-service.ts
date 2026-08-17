@@ -1,4 +1,5 @@
 import type {
+  CustomEmoteSummary,
   DesktopResult,
   LobbySoundEmote,
   LobbyStreamEvent,
@@ -183,7 +184,10 @@ export const lobbyService = {
 
     return window.desktopApi.setLobbyScreenSharing(payload);
   },
-  sendLobbyEmote: (payload: { lobbyId: string; emote: LobbySoundEmote }) => {
+  sendLobbyEmote: (payload: {
+    lobbyId: string;
+    emote: LobbySoundEmote | string;
+  }) => {
     if (typeof window.desktopApi.sendLobbyEmote !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ accepted: boolean }>,
@@ -191,6 +195,55 @@ export const lobbyService = {
     }
 
     return window.desktopApi.sendLobbyEmote(payload);
+  },
+  listEmotes: () => {
+    if (typeof window.desktopApi.listEmotes !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          emotes: CustomEmoteSummary[];
+          quota: number;
+          used: number;
+        }>,
+      );
+    }
+
+    return window.desktopApi.listEmotes();
+  },
+  getEmoteSample: (payload: { emoteId: string }) => {
+    if (typeof window.desktopApi.getEmoteSample !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          id: string;
+          name: string;
+          mimeType: string;
+          dataUrl: string;
+        }>,
+      );
+    }
+
+    return window.desktopApi.getEmoteSample(payload);
+  },
+  uploadEmote: (payload: { name: string; dataUrl: string }) => {
+    if (typeof window.desktopApi.uploadEmote !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          emote: CustomEmoteSummary;
+          quota: number;
+          used: number;
+        }>,
+      );
+    }
+
+    return window.desktopApi.uploadEmote(payload);
+  },
+  deleteEmote: (payload: { emoteId: string }) => {
+    if (typeof window.desktopApi.deleteEmote !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ deleted: boolean }>,
+      );
+    }
+
+    return window.desktopApi.deleteEmote(payload);
   },
   createLiveKitToken: (payload?: { room?: string }) => {
     if (typeof window.desktopApi.createLiveKitToken !== "function") {

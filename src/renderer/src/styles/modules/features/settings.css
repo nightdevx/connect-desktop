@@ -284,9 +284,9 @@
 }
 
 .ct-settings-volume-value.boost {
-  border-color: rgba(245, 158, 11, 0.35);
+  border-color: color-mix(in srgb, var(--ct-warning) 35%, transparent);
   color: var(--ct-warning);
-  background: rgba(245, 158, 11, 0.12);
+  background: color-mix(in srgb, var(--ct-warning) 12%, transparent);
 }
 
 .ct-settings-actions {
@@ -318,7 +318,7 @@
 }
 
 .ct-settings-subsection.danger {
-  border-color: rgba(239, 68, 68, 0.2);
+  border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
 }
 
 /* Tailwind's preflight strips heading size and weight, so without this a
@@ -388,18 +388,18 @@
 }
 
 .ct-alert.ant-alert-success {
-  border-color: rgba(16, 185, 129, 0.2);
-  background: rgba(16, 185, 129, 0.06);
+  border-color: color-mix(in srgb, var(--ct-success) 20%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 6%, transparent);
 }
 
 .ct-alert.ant-alert-warning {
-  border-color: rgba(245, 158, 11, 0.2);
-  background: rgba(245, 158, 11, 0.06);
+  border-color: color-mix(in srgb, var(--ct-warning) 20%, transparent);
+  background: color-mix(in srgb, var(--ct-warning) 6%, transparent);
 }
 
 .ct-alert.ant-alert-error {
-  border-color: rgba(239, 68, 68, 0.2);
-  background: rgba(239, 68, 68, 0.06);
+  border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 6%, transparent);
 }
 
 .ct-metric-value {

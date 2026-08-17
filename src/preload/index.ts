@@ -147,6 +147,13 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-screen", payload),
   sendLobbyEmote: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-emote", payload),
+  listEmotes: async () => ipcRenderer.invoke("desktop:emotes-list"),
+  getEmoteSample: async (payload) =>
+    ipcRenderer.invoke("desktop:emotes-sample", payload),
+  uploadEmote: async (payload) =>
+    ipcRenderer.invoke("desktop:emotes-upload", payload),
+  deleteEmote: async (payload) =>
+    ipcRenderer.invoke("desktop:emotes-delete", payload),
   createLiveKitToken: async (payload) =>
     ipcRenderer.invoke("desktop:livekit-token", payload),
   initiateCall: async (payload) =>
@@ -298,6 +305,10 @@ const desktopApi: DesktopApi = {
   adminListLobbyEvents: async (payload) => ipcRenderer.invoke("desktop:admin-list-lobby-events", payload),
   adminGetStats: async () => ipcRenderer.invoke("desktop:admin-get-stats"),
   adminKickUser: async (lobbyId, userId) => ipcRenderer.invoke("desktop:admin-kick-user", { lobbyId, userId }),
+  adminForceLogout: async (userId) => ipcRenderer.invoke("desktop:admin-force-logout", { userId }),
+  adminListEmotes: async () => ipcRenderer.invoke("desktop:admin-list-emotes"),
+  adminDeleteEmote: async (emoteId) => ipcRenderer.invoke("desktop:admin-delete-emote", { emoteId }),
+  adminSetEmoteQuota: async (payload) => ipcRenderer.invoke("desktop:admin-set-emote-quota", payload),
 };
 
 const streamingApi: StreamingApi = {

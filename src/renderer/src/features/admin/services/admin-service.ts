@@ -5,6 +5,7 @@ import {
   AdminLobbyEvent,
   AdminStats,
 } from "@shared/auth-contracts";
+import { AdminEmoteLibrary } from "@shared/desktop-api-types";
 
 class AdminService {
   public async listUsers(params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }): Promise<{ users: AdminUserDetail[]; total: number }> {
@@ -71,6 +72,35 @@ class AdminService {
   public async getStats(): Promise<{ stats: AdminStats }> {
     const res = await window.desktopApi.adminGetStats();
     if (!res.ok || !res.data) throw new Error(res.error?.message || "İstatistikler yüklenemedi");
+    return res.data;
+  }
+
+  public async forceLogout(userId: string): Promise<{ loggedOut: boolean }> {
+    const res = await window.desktopApi.adminForceLogout(userId);
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "Oturumlar sonlandırılamadı");
+    return res.data;
+  }
+
+  public async listEmotes(): Promise<AdminEmoteLibrary> {
+    const res = await window.desktopApi.adminListEmotes();
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "Sesler yüklenemedi");
+    return res.data;
+  }
+
+  public async deleteEmote(emoteId: string): Promise<{ deleted: boolean }> {
+    const res = await window.desktopApi.adminDeleteEmote(emoteId);
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "Ses silinemedi");
+    return res.data;
+  }
+
+  // userId absent => the global default. quota null with a userId clears that
+  // user's override, which is not the same as setting it to zero.
+  public async setEmoteQuota(payload: { userId?: string; quota: number | null }): Promise<{
+    globalQuota: number;
+    userQuotas: Record<string, number>;
+  }> {
+    const res = await window.desktopApi.adminSetEmoteQuota(payload);
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "Limit güncellenemedi");
     return res.data;
   }
 

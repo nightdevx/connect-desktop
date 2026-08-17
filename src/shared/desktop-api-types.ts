@@ -188,6 +188,33 @@ export const LOBBY_SOUND_EMOTES = [
 
 export type LobbySoundEmote = (typeof LOBBY_SOUND_EMOTES)[number];
 
+/** Marks an emote id as an upload rather than one of the synthesised set. */
+export const CUSTOM_EMOTE_PREFIX = "custom:";
+
+/**
+ * An uploaded sound, without the sound. The sample is fetched per id and cached
+ * — a list of them would otherwise carry every clip on the server.
+ */
+export interface CustomEmoteSummary {
+  id: string;
+  name: string;
+  ownerId: string;
+  ownerUsername: string;
+  mimeType: string;
+  byteLength: number;
+  createdAt: string;
+}
+
+/** The admin view: the whole library plus the quotas that bound it. */
+export interface AdminEmoteLibrary {
+  emotes: CustomEmoteSummary[];
+  globalQuota: number;
+  /** Only users with an explicit override appear here. */
+  userQuotas: Record<string, number>;
+  usageByOwner: Record<string, number>;
+  maxQuota: number;
+}
+
 export type LobbyStreamEvent =
   | {
       type: "lobbies-snapshot";
@@ -524,10 +551,25 @@ export interface DesktopApi {
   // Fans a short synthesised noise out to the room. The reply only confirms the
   // broadcast; the sound itself arrives back over the lobby stream, like it does
   // for everyone else.
+  // An uploaded emote travels as "custom:<id>"; a built-in as its own name.
   sendLobbyEmote: (payload: {
     lobbyId: string;
-    emote: LobbySoundEmote;
+    emote: LobbySoundEmote | string;
   }) => Promise<DesktopResult<{ accepted: boolean }>>;
+  // The uploaded soundboard. The list carries no audio; getEmoteSample is the
+  // one call that does, and a client reads each id once and caches it.
+  listEmotes: () => Promise<
+    DesktopResult<{ emotes: CustomEmoteSummary[]; quota: number; used: number }>
+  >;
+  getEmoteSample: (payload: { emoteId: string }) => Promise<
+    DesktopResult<{ id: string; name: string; mimeType: string; dataUrl: string }>
+  >;
+  uploadEmote: (payload: { name: string; dataUrl: string }) => Promise<
+    DesktopResult<{ emote: CustomEmoteSummary; quota: number; used: number }>
+  >;
+  deleteEmote: (payload: { emoteId: string }) => Promise<
+    DesktopResult<{ deleted: boolean }>
+  >;
   createLiveKitToken: (payload?: {
     room?: string;
   }) => Promise<DesktopResult<LiveKitTokenPayload>>;
@@ -709,4 +751,10 @@ export interface DesktopApi {
   adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;
   adminGetStats: (payload?: any) => Promise<DesktopResult<{ stats: AdminStats }>>;
   adminKickUser: (lobbyId: string, userId: string) => Promise<DesktopResult<{ kicked: boolean }>>;
+  adminForceLogout: (userId: string) => Promise<DesktopResult<{ loggedOut: boolean }>>;
+  adminListEmotes: () => Promise<DesktopResult<AdminEmoteLibrary>>;
+  adminDeleteEmote: (emoteId: string) => Promise<DesktopResult<{ deleted: boolean }>>;
+  adminSetEmoteQuota: (payload: { userId?: string; quota: number | null }) => Promise<
+    DesktopResult<{ globalQuota: number; userQuotas: Record<string, number> }>
+  >;
 }

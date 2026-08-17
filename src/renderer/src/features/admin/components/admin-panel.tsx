@@ -4,6 +4,7 @@ import AdminDashboard from "@/features/admin/components/admin-dashboard";
 import AdminUsers from "@/features/admin/components/admin-users";
 import AdminLobbies from "@/features/admin/components/admin-lobbies";
 import AdminActivity from "@/features/admin/components/admin-activity";
+import AdminSounds from "@/features/admin/components/admin-sounds";
 
 export default function AdminPanel() {
   const adminSection = useUiStore((state) => state.adminSection);
@@ -18,6 +19,8 @@ export default function AdminPanel() {
         return <AdminLobbies />;
       case "activity":
         return <AdminActivity />;
+      case "sounds":
+        return <AdminSounds />;
       default:
         return <AdminDashboard />;
     }

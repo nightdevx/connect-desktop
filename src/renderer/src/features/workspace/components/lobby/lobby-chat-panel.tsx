@@ -430,7 +430,7 @@ export function LobbyChatPanel({
 
           {searchResults === null && showEmptyState && (
             <div className="ct-list-state ct-chat-empty-state" >
-              <p className="text-xs text-[#5f5f5f]">Bu lobide henüz mesaj yok. İlk mesajı sen gönder!</p>
+              <p className="text-xs text-ct-text-muted">Bu lobide henüz mesaj yok. İlk mesajı sen gönder!</p>
             </div>
           )}
 

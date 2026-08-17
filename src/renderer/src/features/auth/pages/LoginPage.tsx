@@ -6,7 +6,7 @@ import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { describeAuthError } from "../auth-error-messages";
 import { AuthErrorAlert } from "../components/AuthErrorAlert";
 
-const mutedIconStyle = { color: "#6b6b6b" };
+const mutedIconStyle = { color: "var(--ct-text-muted)" };
 
 interface LoginPageProps {
   loading: boolean;

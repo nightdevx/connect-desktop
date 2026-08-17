@@ -1,4 +1,5 @@
 import type { LobbyDescriptor } from "../../shared/auth-contracts";
+import type { CustomEmoteSummary } from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
 export class LobbyClient {
@@ -225,6 +226,61 @@ export class LobbyClient {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ emote }),
+      },
+    );
+  }
+
+  // The uploaded soundboard. Listing carries no audio — see the sample call
+  // below, which is the one that moves bytes and is read once per id.
+  public async listEmotes(
+    accessToken: string,
+  ): Promise<{ emotes: CustomEmoteSummary[]; quota: number; used: number }> {
+    return this.baseClient.request(`/lobby/emotes`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async getEmoteSample(
+    accessToken: string,
+    emoteId: string,
+  ): Promise<{ id: string; name: string; mimeType: string; dataUrl: string }> {
+    return this.baseClient.request(
+      `/lobby/emotes/${encodeURIComponent(emoteId)}/sample`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+  }
+
+  public async uploadEmote(
+    accessToken: string,
+    name: string,
+    dataUrl: string,
+  ): Promise<{ emote: CustomEmoteSummary; quota: number; used: number }> {
+    return this.baseClient.request(
+      `/lobby/emotes`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ name, dataUrl }),
+      },
+      // A 400 KB body on a slow uplink is not a hung request; the default 8s
+      // budget is sized for control-plane calls.
+      30_000,
+    );
+  }
+
+  public async deleteEmote(
+    accessToken: string,
+    emoteId: string,
+  ): Promise<{ deleted: boolean }> {
+    return this.baseClient.request(
+      `/lobby/emotes/${encodeURIComponent(emoteId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
   }

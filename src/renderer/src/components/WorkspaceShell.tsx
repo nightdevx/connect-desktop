@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { message } from "antd";
 import type {
   UserRole,
   UserDirectoryEntry,
 } from "../../../shared/auth-contracts";
 import type { DesktopAppPreferences } from "../../../shared/desktop-api-types";
+import { CUSTOM_EMOTE_PREFIX } from "../../../shared/desktop-api-types";
+import { playCustomEmote } from "../features/workspace/hooks/lobby/use-emote-library";
 import {
   CameraShareModal,
   WorkspaceMainPanel,
@@ -97,6 +99,8 @@ function WorkspaceShell({
   onLogout,
   isLoggingOut,
 }: WorkspaceShellProps) {
+  const queryClient = useQueryClient();
+
   // ----- UI STORE -----
   const workspaceSection = useUiStore((state) => state.workspaceSection);
   const settingsSection = useUiStore((state) => state.settingsSection);
@@ -356,6 +360,19 @@ function WorkspaceShell({
       selectConversation(conversationPeer(userId));
     },
     [conversationPeer, selectConversation],
+  );
+
+  // "Mesaj Gönder" from a lobby roster row: switch sections, then select.
+  //
+  // Deliberately setWorkspaceSection rather than handleSectionChange — that one
+  // clears the selection whenever it lands on "users", which is right for the
+  // rail button and exactly wrong here: it would drop the person we just picked.
+  const openConversationFromRoster = useCallback(
+    (userId: string): void => {
+      setWorkspaceSection("users");
+      selectConversationById(userId);
+    },
+    [selectConversationById, setWorkspaceSection],
   );
 
   // Closing the row you are reading drops you back to the friends home. Leaving
@@ -801,10 +818,21 @@ function WorkspaceShell({
   );
 
   // ----- WORKSPACE LOBBIES STATE -----
+  // Whether the lobby websocket is currently delivering snapshots. Owned here
+  // rather than inside useWorkspaceLobbies because the query below is created
+  // first and that hook takes it as a parameter.
+  const [isLobbyStreamLive, setIsLobbyStreamLive] = useState(false);
+
+  // REST seeds the list and covers the stream being down. It does not run while
+  // the stream is up: use-workspace-lobbies discards any REST answer that lands
+  // after the first snapshot, so with `enabled` keyed only on the tab, leaving
+  // Lobbies and coming back re-read the whole list for the sole purpose of
+  // throwing it away. The stream dropping flips this back and the query
+  // refetches on its own, because its data is stale by then.
   const lobbiesQuery = useQuery({
     queryKey: ["workspace-lobbies"],
     queryFn: () => workspaceService.listLobbies(),
-    enabled: workspaceSection === "lobbies",
+    enabled: workspaceSection === "lobbies" && !isLobbyStreamLive,
     staleTime: 15_000,
   });
 
@@ -855,6 +883,7 @@ function WorkspaceShell({
     lobbyMembersById,
     clearActiveLobbyReconnectTimer,
     scheduleActiveLobbyReconnect,
+    hasLiveSnapshotRef,
   } = useWorkspaceLobbies({
     isOnline,
     shouldEmitReconnectStatus,
@@ -867,6 +896,7 @@ function WorkspaceShell({
     lobbiesQuery,
     kickedLobbyIdRef,
     activeLobbyPasswordRef,
+    onLobbyStreamLiveChange: setIsLobbyStreamLive,
   });
 
   useEffect(() => {
@@ -1049,6 +1079,7 @@ function WorkspaceShell({
     kickedLobbyIdRef,
     lobbyTransitionRef,
     activeLobbyPasswordRef,
+    hasLiveSnapshotRef,
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
@@ -1237,9 +1268,16 @@ function WorkspaceShell({
       if (!activeLobbyRef.current || activeLobbyRef.current !== event.lobbyId) {
         return;
       }
+      // A built-in id is synthesised; an upload is fetched once and cached, by
+      // the query client and again as a decoded buffer.
+      if (event.emote.startsWith(CUSTOM_EMOTE_PREFIX)) {
+        void playCustomEmote(queryClient, event.emote);
+        return;
+      }
+
       soundEffectManager.playEmote(event.emote);
     });
-  }, []);
+  }, [queryClient]);
 
   // (2) We noticed. Recovery only — this path can no longer decide to leave.
   //
@@ -1530,6 +1568,12 @@ function WorkspaceShell({
                 username: u.username,
                 displayName: u.displayName,
               })),
+              onOpenConversation: openConversationFromRoster,
+              participantAudio: {
+                preferences: remoteParticipantAudioPreferences,
+                setMuted: handleSetRemoteParticipantMuted,
+                setVolume: handleSetRemoteParticipantVolume,
+              },
             }}
             settingsProps={{
               settingsSection,

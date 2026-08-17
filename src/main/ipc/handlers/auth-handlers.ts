@@ -31,6 +31,8 @@ import {
   deleteAccountSchema,
   friendRequestSendSchema,
   updatePrivacySchema,
+  emoteIdSchema,
+  adminEmoteQuotaSchema,
 } from "../validators";
 import { DesktopApiError } from "../../backend-client";
 
@@ -553,6 +555,53 @@ export function registerAuthHandlers(): void {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminGetStats(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-force-logout", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.adminForceLogout(accessToken, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-list-emotes", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.adminListEmotes(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-delete-emote", async (_event, payload: unknown) => {
+    try {
+      const parsed = emoteIdSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.adminDeleteEmote(accessToken, parsed.emoteId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-set-emote-quota", async (_event, payload: unknown) => {
+    try {
+      const parsed = adminEmoteQuotaSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.adminSetEmoteQuota(accessToken, parsed);
       });
       return ok(result);
     } catch (error) {

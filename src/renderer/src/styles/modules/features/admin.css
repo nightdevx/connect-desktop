@@ -127,8 +127,22 @@
   max-width: 260px;
 }
 
+/* flex:none is load-bearing, not tidiness.
+
+   This is a flex item in .ct-admin-page's column, and `overflow: hidden` (here
+   for the rounded corners) sets a flex item's automatic minimum size to zero.
+   So instead of growing and making .ct-admin-panel-content scroll, the box
+   shrank to whatever space was left and clipped its own contents — including
+   the pagination, which antd renders inside the table root. On a short window
+   the last rows and the pager were simply gone, and no scrollbar existed to
+   reach them: the only fix available to the user was to make the window taller.
+
+   Measured against the compiled stylesheet at 1280x700: the scroll container
+   reported scrollHeight 587 === clientHeight (nothing to scroll) before, and
+   858 vs 587 after. */
 .ct-admin-table-wrap {
   @apply overflow-hidden rounded-md border;
+  flex: none;
   border-color: var(--ct-border);
   background: var(--ct-panel-soft);
 }
@@ -446,4 +460,18 @@
 
 .ct-legend-dot.members {
   background: var(--ct-info);
+}
+
+/* Quota editors: a row of controls that must wrap rather than overflow their
+   card on a narrow window. */
+.ct-admin-quota-row {
+  @apply mt-3 flex flex-wrap items-center gap-2;
+}
+
+.ct-admin-quota-list {
+  @apply mt-3 flex flex-wrap gap-1;
+}
+
+.ct-admin-quota-list .ant-tag {
+  @apply cursor-pointer;
 }

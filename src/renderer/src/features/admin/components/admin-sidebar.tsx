@@ -4,6 +4,7 @@ import {
   UserOutlined,
   HomeOutlined,
   HistoryOutlined,
+  SoundOutlined,
 } from "@ant-design/icons";
 
 export default function AdminSidebar() {
@@ -14,6 +15,7 @@ export default function AdminSidebar() {
     { key: "users", label: "Kullanıcılar", icon: <UserOutlined /> },
     { key: "lobbies", label: "Aktif Odalar", icon: <HomeOutlined /> },
     { key: "activity", label: "Aktivite Logları", icon: <HistoryOutlined /> },
+    { key: "sounds", label: "Sesler", icon: <SoundOutlined /> },
   ] as const;
 
   return (

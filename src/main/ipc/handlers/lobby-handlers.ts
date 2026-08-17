@@ -18,6 +18,8 @@ import {
   lobbyDeafenSchema,
   lobbyEnabledSchema,
   lobbyEmoteSchema,
+  emoteUploadSchema,
+  emoteIdSchema,
   lobbyStateSchema,
   lobbyMessagesListSchema,
   lobbyMessageSendSchema,
@@ -213,6 +215,57 @@ export function registerLobbyHandlers(): void {
           parsed.lobbyId,
           parsed.enabled,
         );
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:emotes-list", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.listEmotes(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:emotes-sample", async (_event, payload: unknown) => {
+    try {
+      const parsed = emoteIdSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.getEmoteSample(accessToken, parsed.emoteId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:emotes-upload", async (_event, payload: unknown) => {
+    try {
+      const parsed = emoteUploadSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.uploadEmote(
+          accessToken,
+          parsed.name,
+          parsed.dataUrl,
+        );
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:emotes-delete", async (_event, payload: unknown) => {
+    try {
+      const parsed = emoteIdSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.deleteEmote(accessToken, parsed.emoteId);
       });
       return ok(result);
     } catch (error) {

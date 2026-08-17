@@ -42,6 +42,9 @@ interface UseWorkspaceLobbyActionsParams {
   // re-join — the reconnect chain and the membership-recovery probe — has to
   // present it, or a password-protected room can never be recovered into.
   activeLobbyPasswordRef: MutableRefObject<string | null>;
+  // True while the lobby websocket is delivering snapshots. See
+  // refreshLobbiesIfUnstreamed below.
+  hasLiveSnapshotRef: MutableRefObject<boolean>;
 }
 
 export interface WorkspaceLobbyActionsState {
@@ -87,6 +90,7 @@ export const useWorkspaceLobbyActions = ({
   kickedLobbyIdRef,
   lobbyTransitionRef,
   activeLobbyPasswordRef,
+  hasLiveSnapshotRef,
 }: UseWorkspaceLobbyActionsParams): WorkspaceLobbyActionsState => {
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [renamingLobbyId, setRenamingLobbyId] = useState<string | null>(null);
@@ -97,6 +101,23 @@ export const useWorkspaceLobbyActions = ({
     lobbyId: string;
     wrong: boolean;
   } | null>(null);
+
+  // Every one of these mutations already writes the server's own answer into
+  // knownLobbies, and while the websocket is up the next snapshot — under a
+  // second away — is authoritative for the whole list anyway. So the refetch
+  // that used to follow each of them re-read a list nobody was waiting on, and
+  // in create/update/delete it was awaited, holding the dialog's spinner open
+  // for an extra round trip after the work was done.
+  //
+  // It still runs when the stream is not delivering: then REST is the only
+  // thing that can correct the list.
+  const refreshLobbiesIfUnstreamed = (): void => {
+    if (hasLiveSnapshotRef.current) {
+      return;
+    }
+
+    void lobbiesQuery.refetch();
+  };
 
   const createLobby = async (
     name: string,
@@ -147,7 +168,7 @@ export const useWorkspaceLobbyActions = ({
       }
 
       setStatus(`"${trimmed}" lobisi oluşturuldu`, "ok");
-      await lobbiesQuery.refetch();
+      refreshLobbiesIfUnstreamed();
       return true;
     } finally {
       setIsCreatingLobby(false);
@@ -199,7 +220,7 @@ export const useWorkspaceLobbyActions = ({
       }
 
       setStatus("Lobi güncellendi", "ok");
-      await lobbiesQuery.refetch();
+      refreshLobbiesIfUnstreamed();
       return true;
     } finally {
       setRenamingLobbyId(null);
@@ -227,7 +248,7 @@ export const useWorkspaceLobbyActions = ({
       }
 
       setStatus("Lobi silindi", "ok");
-      await lobbiesQuery.refetch();
+      refreshLobbiesIfUnstreamed();
       return true;
     } finally {
       setDeletingLobbyId(null);
@@ -290,7 +311,7 @@ export const useWorkspaceLobbyActions = ({
 
       const joinedLobby = lobbies.find((item) => item.id === lobbyId);
       setStatus(`${joinedLobby?.name ?? lobbyId} lobisine katıldın`, "ok");
-      void lobbiesQuery.refetch();
+      refreshLobbiesIfUnstreamed();
     } finally {
       lobbyTransitionRef.current.joiningLobbyId = null;
       setJoiningLobbyId(null);
@@ -335,7 +356,7 @@ export const useWorkspaceLobbyActions = ({
       if (reason !== "kicked") {
         setStatus("Lobiden ayrıldın", "ok");
       }
-      void lobbiesQuery.refetch();
+      refreshLobbiesIfUnstreamed();
     } finally {
       lobbyTransitionRef.current.isLeaving = false;
       setIsLeavingLobby(false);

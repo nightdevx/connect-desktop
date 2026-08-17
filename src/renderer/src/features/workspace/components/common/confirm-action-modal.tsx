@@ -23,7 +23,7 @@ export function ConfirmActionModal({
 }: ConfirmActionModalProps) {
   return (
     <Modal
-      title={<span className="text-base font-bold text-[#f5f5f5]">{title}</span>}
+      title={<span className="text-base font-bold text-ct-text-primary">{title}</span>}
       open={isOpen}
       onCancel={onCancel}
       footer={[

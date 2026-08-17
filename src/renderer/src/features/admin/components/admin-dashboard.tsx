@@ -15,7 +15,7 @@ import {
   CloseCircleOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
-import { AdminStats, AdminLobbyEvent, AdminUserDetail } from "@shared/auth-contracts";
+import { AdminStats, AdminLobbyEvent } from "@shared/auth-contracts";
 
 interface StatCard {
   tone: "violet" | "emerald" | "blue" | "amber" | "red";
@@ -84,7 +84,6 @@ const EVENT_LABELS: Record<string, { badge: string; text: string }> = {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentEvents, setRecentEvents] = useState<AdminLobbyEvent[]>([]);
-  const [users, setUsers] = useState<AdminUserDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,16 +91,20 @@ export default function AdminDashboard() {
   const activityTrendData = stats?.activityTrend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   const maxTrendVal = Math.max(...activityTrendData) || 1;
 
+  // Two requests, not three. The third was adminService.listUsers() — the whole
+  // user table, with every avatar as a base64 data URL — pulled every 10
+  // seconds so this component could count admins, members, verified and banned
+  // rows in the browser. The counts come from /admin/stats now, which had the
+  // list in hand anyway, and the polled payload went from megabytes to a few
+  // hundred bytes.
   const fetchDashboardData = async () => {
     try {
-      const [statsRes, eventsRes, usersRes] = await Promise.all([
+      const [statsRes, eventsRes] = await Promise.all([
         adminService.getStats(),
         adminService.listLobbyEvents({ limit: 5 }),
-        adminService.listUsers(),
       ]);
       setStats(statsRes.stats);
       setRecentEvents(eventsRes.events || []);
-      setUsers(usersRes.users || []);
       setError(null);
     } catch (err: any) {
       setError(err.message || "Gösterge paneli verileri alınamadı");
@@ -141,13 +144,13 @@ export default function AdminDashboard() {
     );
   }
 
-  // Calculate statistics from user details
-  const adminCount = users.filter((u) => u.role === "admin").length;
-  const memberCount = users.filter((u) => u.role === "member").length;
-  const verifiedCount = users.filter((u) => u.emailVerified).length;
-  const bannedCount = users.filter((u) => u.bannedAt).length;
+  const adminCount = stats?.adminUsers ?? 0;
+  const memberCount = stats?.memberUsers ?? 0;
+  const verifiedCount = stats?.verifiedUsers ?? 0;
+  const bannedCount = stats?.bannedUsers ?? 0;
 
-  const totalUsers = users.length || stats?.totalUsers || 1;
+  // Never zero: the donut divides by it.
+  const totalUsers = stats?.totalUsers || 1;
   const adminPercentage = Math.round((adminCount / totalUsers) * 100);
   const memberPercentage = Math.round((memberCount / totalUsers) * 100);
   const verifiedPercentage = Math.round((verifiedCount / totalUsers) * 100);

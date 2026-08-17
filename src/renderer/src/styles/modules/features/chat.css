@@ -656,7 +656,7 @@
   border-radius: 12px;
   margin-top: 4px;
   margin-bottom: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px var(--ct-shadow-color-soft);
 }
 
 .ct-muted-call-banner {
@@ -667,8 +667,8 @@
 }
 
 .ct-rejoin-banner {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, rgba(52, 211, 153, 0.03) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ct-success) 8%, transparent) 0%, rgba(52, 211, 153, 0.03) 100%);
+  border: 1px solid color-mix(in srgb, var(--ct-success) 18%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -735,34 +735,34 @@
 }
 
 .ct-banner-accept-btn {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  background: color-mix(in srgb, var(--ct-success) 15%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--ct-success) 30%, transparent) !important;
   color: var(--ct-success) !important;
-  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.05) !important;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--ct-success) 5%, transparent) !important;
   animation: ctaPulseAccept 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1) !important;
 }
 .ct-banner-accept-btn:hover {
   background: var(--ct-success) !important;
   color: var(--ct-text-primary) !important;
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ct-success) 25%, transparent) !important;
 }
 .ct-banner-reject-btn {
   background: transparent !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid color-mix(in srgb, var(--ct-danger) 25%, transparent) !important;
   color: var(--ct-danger) !important;
 }
 .ct-banner-reject-btn:hover {
-  background: rgba(239, 68, 68, 0.1) !important;
-  border-color: rgba(239, 68, 68, 0.5) !important;
+  background: color-mix(in srgb, var(--ct-danger) 10%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ct-danger) 50%, transparent) !important;
 }
 .ct-banner-rejoin-btn {
-  background: rgba(16, 185, 129, 0.1) !important;
-  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  background: color-mix(in srgb, var(--ct-success) 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--ct-success) 30%, transparent) !important;
   color: var(--ct-success) !important;
 }
 .ct-banner-rejoin-btn:hover {
-  background: rgba(16, 185, 129, 0.2) !important;
-  border-color: rgba(16, 185, 129, 0.5) !important;
+  background: color-mix(in srgb, var(--ct-success) 20%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ct-success) 50%, transparent) !important;
 }
 
 .ct-banner-actions {
@@ -825,7 +825,7 @@
   max-height: 220px;
   background: var(--ct-surface-overlay, #16161a);
   border-color: var(--ct-border-subtle, var(--ct-alpha-08));
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 32px var(--ct-shadow-color);
 }
 
 .ct-mention-option {

@@ -1,8 +1,40 @@
+import { net } from "electron";
+
 export interface ErrorResponse {
   code?: string;
   error?: string;
   message?: string;
 }
+
+// Every request goes through Chromium's network stack, not Node's.
+//
+// Node's global fetch is undici, whose default agent drops an idle connection
+// after 4 seconds. This app's control-plane calls are spaced further apart than
+// that almost by definition — the roster backstop is 8s, lobby messages 30s, a
+// click is whenever the user clicks — so nearly every request was paying for a
+// fresh TCP connect and TLS handshake to a remote HTTPS backend.
+//
+// Measured against the production backend from inside Electron:
+//
+//   undici     cold 259ms | 9s idle 100ms | 20s idle  95ms
+//   net.fetch  cold 363ms | 9s idle  39ms | 20s idle  32ms | 35s idle 38ms
+//
+// Chromium keeps the (HTTP/2) session alive across those gaps, so the steady
+// state is one round trip instead of a handshake plus a round trip: ~60ms off
+// every call the user waits on. It also brings the system proxy, the OS
+// certificate store and Chromium's DNS cache along with it.
+//
+// no-store because these are API responses: react-query owns caching, and the
+// disk cache has no business holding a roster or a message list.
+const requestInit = (init: RequestInit): RequestInit & {
+  bypassCustomProtocolHandlers?: boolean;
+} => ({
+  ...init,
+  cache: "no-store",
+  // The backend is plain https. Nothing here should ever be answerable by a
+  // protocol handler this app registered.
+  bypassCustomProtocolHandlers: true,
+});
 
 export class DesktopApiError extends Error {
   public constructor(
@@ -56,14 +88,17 @@ export class BaseClient {
     }
 
     try {
-      const response = await fetch(targetUrl, {
-        ...init,
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(init.headers ?? {}),
-        },
-      });
+      const response = await net.fetch(
+        targetUrl,
+        requestInit({
+          ...init,
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            ...(init.headers ?? {}),
+          },
+        }),
+      );
 
       if (!response.ok) {
         const payload = (await this.tryParseJson(
@@ -119,11 +154,14 @@ export class BaseClient {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(targetUrl, {
-        ...init,
-        signal: controller.signal,
-        headers: { ...(init.headers ?? {}) },
-      });
+      const response = await net.fetch(
+        targetUrl,
+        requestInit({
+          ...init,
+          signal: controller.signal,
+          headers: { ...(init.headers ?? {}) },
+        }),
+      );
 
       if (!response.ok) {
         const payload = (await this.tryParseJson(

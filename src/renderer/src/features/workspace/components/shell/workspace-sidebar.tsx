@@ -25,6 +25,7 @@ import type {
   SettingsSection,
   WorkspaceSection,
 } from "@/store/ui-store";
+import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
@@ -92,6 +93,14 @@ interface WorkspaceSidebarProps {
     currentUserId: string;
     currentUserRole: string;
     allUsers: Array<{ id: string; username: string; displayName: string }>;
+    /** Right-click -> Mesaj Gönder on a member row. */
+    onOpenConversation: (userId: string) => void;
+    /** Right-click -> local mute/volume, for the room this client is in. */
+    participantAudio: {
+      preferences: Record<string, RemoteParticipantAudioPreference>;
+      setMuted: (userId: string, muted: boolean) => void;
+      setVolume: (userId: string, volumePercent: number) => void;
+    };
   };
   settingsProps: {
     settingsSection: SettingsSection;
@@ -420,6 +429,8 @@ export function WorkspaceSidebar({
             // from a roster row and one sent from the friends home cannot
             // disagree about what state the friendship is in.
             friends={usersProps.friends}
+            onOpenConversation={lobbiesProps.onOpenConversation}
+            participantAudio={lobbiesProps.participantAudio}
           />
         )}
 

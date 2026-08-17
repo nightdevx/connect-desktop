@@ -412,7 +412,7 @@ export function LobbiesMainPanel({
   // does for everyone else, so the sender hears exactly what the room heard —
   // and hears nothing when the server refused (rate limit, no longer a member),
   // which is precisely when a local preview would have lied.
-  const handleSendEmote = (emote: LobbySoundEmote): void => {
+  const handleSendEmote = (emote: string): void => {
     if (!activeLobbyId) return;
     void workspaceService
       .sendLobbyEmote({ lobbyId: activeLobbyId, emote })
@@ -541,6 +541,8 @@ export function LobbiesMainPanel({
               onSelectAudioInputDevice={onSelectAudioInputDevice}
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
               onSendEmote={handleSendEmote}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
             />
           </section>
           )}

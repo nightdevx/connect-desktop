@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -119,6 +120,9 @@ export const useLobbyRoom = ({
   // REST poll is pure duplication — the snapshot arrives every second and is
   // written straight into the same query cache below.
   const [isRosterStreamLive, setIsRosterStreamLive] = useState(false);
+  // Whether the socket has dropped since the last connect. The first connect of
+  // a session has nothing to backfill — the query is loading anyway.
+  const lobbyStreamDroppedRef = useRef(false);
 
   const lobbyStateQuery = useQuery({
     queryKey: ["lobby-state", activeLobbyId],
@@ -151,7 +155,13 @@ export const useLobbyRoom = ({
     enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
     // Messages arrive over the lobby websocket now; this only backfills after a
     // stream drop, so it no longer needs to run every 3 seconds.
-    refetchInterval: 30_000,
+    //
+    // And it rides the same socket the roster does, so it takes the same cue:
+    // while snapshots are arriving, this poll re-reads 150 messages that were
+    // pushed here as they happened. Slowed rather than stopped, for the same
+    // reason as the roster — a stream that dies without saying so must still be
+    // noticed by something.
+    refetchInterval: isRosterStreamLive ? 120_000 : 30_000,
     staleTime: 10_000,
   });
 
@@ -174,6 +184,21 @@ export const useLobbyRoom = ({
       // speed back up before the roster goes stale.
       if (event.type === "stream-status") {
         setIsRosterStreamLive(event.status === "connected");
+
+        // Messages sent while the socket was down are not replayed when it
+        // comes back, and the roster arrives whole in the next snapshot but the
+        // chat does not. Re-read it once on reconnect; that is what lets the
+        // backstop poll above stay slow while the stream is healthy.
+        if (event.status === "connected") {
+          if (lobbyStreamDroppedRef.current) {
+            lobbyStreamDroppedRef.current = false;
+            void queryClient.invalidateQueries({
+              queryKey: ["lobby-messages", activeLobbyId],
+            });
+          }
+        } else {
+          lobbyStreamDroppedRef.current = true;
+        }
         return;
       }
 

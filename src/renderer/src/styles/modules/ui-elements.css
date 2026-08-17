@@ -65,21 +65,21 @@ background: var(--ct-alpha-04);
 }
 
 .ct-status-chip.ok {
-border-color: rgba(16, 185, 129, 0.24);
+border-color: color-mix(in srgb, var(--ct-success) 24%, transparent);
 color: var(--ct-success);
-background: rgba(16, 185, 129, 0.1);
+background: color-mix(in srgb, var(--ct-success) 10%, transparent);
 }
 
 .ct-status-chip.warn {
-border-color: rgba(245, 158, 11, 0.24);
+border-color: color-mix(in srgb, var(--ct-warning) 24%, transparent);
 color: var(--ct-warning);
-background: rgba(245, 158, 11, 0.1);
+background: color-mix(in srgb, var(--ct-warning) 10%, transparent);
 }
 
 .ct-status-chip.danger {
-border-color: rgba(239, 68, 68, 0.24);
+border-color: color-mix(in srgb, var(--ct-danger) 24%, transparent);
 color: var(--ct-danger);
-background: rgba(239, 68, 68, 0.1);
+background: color-mix(in srgb, var(--ct-danger) 10%, transparent);
 }
 
 .ct-icon-success {
@@ -250,7 +250,7 @@ box-shadow: 0 4px 12px var(--ct-accent-glow);
 /* An inset shadow rather than a border-left: a real border would shift the
    row's content by 3px, so unread rows would no longer line up with read ones. */
 .ct-list-item.unread:not(.active) {
-background: rgba(59, 130, 246, 0.08);
+background: color-mix(in srgb, var(--ct-info) 8%, transparent);
 box-shadow: inset 3px 0 0 var(--ct-info);
 }
 
@@ -274,8 +274,8 @@ box-shadow: inset 3px 0 0 var(--ct-info);
 
 .ct-list-state.error {
   @apply rounded-md border py-6;
-  border-color: rgba(239, 68, 68, 0.16);
-  background: rgba(239, 68, 68, 0.06);
+  border-color: color-mix(in srgb, var(--ct-danger) 16%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 6%, transparent);
   color: var(--ct-danger);
 }
 

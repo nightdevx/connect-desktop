@@ -20,6 +20,7 @@ import {
   LockOutlined,
   DeleteOutlined,
   StopOutlined,
+  DisconnectOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminUserDetail } from "@shared/auth-contracts";
@@ -144,6 +145,18 @@ export default function AdminUsers() {
     }
   };
 
+  // Ends every session and pulls them out of every voice room, without the
+  // ban that used to be the only way to do it. For a shared password or a
+  // machine left signed in, a ban is both too visible and too blunt.
+  const handleForceLogout = async (user: AdminUserDetail) => {
+    try {
+      await adminService.forceLogout(user.id);
+      message.success(`@${user.username} oturumları sonlandırıldı`);
+    } catch (err: any) {
+      message.error(err.message || "Oturumlar sonlandırılamadı");
+    }
+  };
+
   const handleToggleBan = async (user: AdminUserDetail) => {
     try {
       if (user.bannedAt) {
@@ -241,6 +254,25 @@ export default function AdminUsers() {
               title={isSelf ? "Kendi şifrenizi buradan sıfırlayamazsınız" : "Şifre Sıfırla"}
               disabled={isSelf}
             />
+            <Popconfirm
+              title={`@${record.username} kullanıcısının tüm oturumlarını kapatmak istediğinize emin misiniz?`}
+              onConfirm={() => handleForceLogout(record)}
+              okText="Evet"
+              cancelText="Hayır"
+              disabled={isSelf}
+            >
+              <Button
+                type="text"
+                icon={<DisconnectOutlined />}
+                className="ct-icon-warning"
+                title={
+                  isSelf
+                    ? "Kendi oturumunuzu buradan kapatamazsınız"
+                    : "Oturumları Kapat"
+                }
+                disabled={isSelf}
+              />
+            </Popconfirm>
             <Popconfirm
               title={`Kullanıcıyı ${record.bannedAt ? "aktif etmek" : "yasaklamak"} istediğinize emin misiniz?`}
               onConfirm={() => handleToggleBan(record)}

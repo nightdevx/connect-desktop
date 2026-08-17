@@ -46,6 +46,8 @@ const EMOTE_PATTERNS: Record<string, OscillatorTone[]> = {
 
 class SoundEffectManager {
   private audioContext: AudioContext | null = null;
+  // Decoded uploads, by emote id. An emote is pressed repeatedly by design.
+  private readonly sampleCache = new Map<string, AudioBuffer>();
   private outputNode: AudioNode | null = null;
   private enabled = true;
 
@@ -338,6 +340,61 @@ class SoundEffectManager {
     this.playPattern(pattern);
   }
 
+  /**
+   * An uploaded emote, decoded from its data URL.
+   *
+   * Through the same compressor and master gain as the synthesised set, which
+   * is the whole reason this does not just call `new Audio(dataUrl).play()`:
+   * an uploaded clip is whatever loudness its uploader exported at, and an
+   * element-based path bypasses the limiter that keeps every other cue from
+   * clipping the conversation. Decoded buffers are cached, so the second press
+   * of the same emote costs nothing.
+   */
+  public async playSample(emoteId: string, dataUrl: string): Promise<void> {
+    const context = this.getAudioContext();
+    if (!this.enabled || !context) {
+      return;
+    }
+
+    try {
+      let buffer = this.sampleCache.get(emoteId);
+      if (!buffer) {
+        // Decoded off the base64 payload directly. fetch() on a data: URL works
+        // but goes through the network stack for bytes already in memory.
+        const bytes = decodeBase64DataURL(dataUrl);
+        if (!bytes) {
+          return;
+        }
+        buffer = await context.decodeAudioData(bytes);
+        this.sampleCache.set(emoteId, buffer);
+      }
+
+      if (context.state === "suspended") {
+        void context.resume();
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0.85, context.currentTime);
+
+      source.connect(gain);
+      gain.connect(this.getOutputNode(context));
+      source.start();
+    } catch {
+      // A clip this build cannot decode is silence, not an error dialog. The
+      // server already refused anything that is not one of the audio types
+      // Chromium ships with, so this is the "corrupt file" case.
+    }
+  }
+
+  /** Dropped when an emote is deleted, so a re-uploaded id cannot play the old
+   *  sound out of the cache. */
+  public forgetSample(emoteId: string): void {
+    this.sampleCache.delete(emoteId);
+  }
+
   public playHeadphoneToggle(enabled: boolean): void {
     if (enabled) {
       this.playPattern([
@@ -368,3 +425,24 @@ class SoundEffectManager {
 }
 
 export const soundEffectManager = new SoundEffectManager();
+
+/** base64 payload of a data: URL as raw bytes. Returns null for anything that
+ *  is not one — the server validates the shape, this is the client-side guard
+ *  for a payload that arrived from an older or newer build. */
+const decodeBase64DataURL = (dataUrl: string): ArrayBuffer | null => {
+  const comma = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:") || comma < 0) {
+    return null;
+  }
+
+  try {
+    const binary = atob(dataUrl.slice(comma + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes.buffer;
+  } catch {
+    return null;
+  }
+};

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Table, Button, Input, Tag, message, Select } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
@@ -27,21 +27,34 @@ export default function AdminActivity() {
   const [usersList, setUsersList] = useState<{ id: string; username: string; displayName?: string }[]>([]);
   const [lobbiesList, setLobbiesList] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        const [usersRes, lobbiesRes] = await Promise.all([
-          adminService.listUsers(),
-          adminService.listLobbies()
-        ]);
-        setUsersList(usersRes.users || []);
-        setLobbiesList((lobbiesRes.lobbies || []).map(l => ({ id: l.lobby.id, name: l.lobby.name })));
-      } catch (err: any) {
-        console.error("Filtre seçenekleri yüklenemedi:", err);
-      }
-    };
-    fetchFilterOptions();
-  }, []);
+  // Loaded when a filter dropdown is first opened, not on mount.
+  //
+  // These two calls are the whole user table (every avatar is a base64 data
+  // URL) and the whole lobby list, fetched so two dropdowns could offer
+  // options. Reading the log is what people come here for; filtering it by a
+  // specific room or person is the rare case, and it now pays for itself.
+  const filterOptionsRequestedRef = useRef(false);
+
+  const loadFilterOptions = async (): Promise<void> => {
+    if (filterOptionsRequestedRef.current) {
+      return;
+    }
+    filterOptionsRequestedRef.current = true;
+
+    try {
+      const [usersRes, lobbiesRes] = await Promise.all([
+        adminService.listUsers(),
+        adminService.listLobbies()
+      ]);
+      setUsersList(usersRes.users || []);
+      setLobbiesList((lobbiesRes.lobbies || []).map(l => ({ id: l.lobby.id, name: l.lobby.name })));
+    } catch (err: any) {
+      // Let the next open try again rather than leaving both filters empty for
+      // the rest of the session.
+      filterOptionsRequestedRef.current = false;
+      console.error("Filtre seçenekleri yüklenemedi:", err);
+    }
+  };
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -187,6 +200,7 @@ export default function AdminActivity() {
           allowClear
           placeholder="Oda Seçin..."
           value={lobbyFilter || undefined}
+          onOpenChange={(open) => open && void loadFilterOptions()}
           onChange={(val) => setLobbyFilter(val || "")}
           filterOption={(input, option) =>
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
@@ -200,6 +214,7 @@ export default function AdminActivity() {
           allowClear
           placeholder="Kullanıcı Seçin..."
           value={userFilter || undefined}
+          onOpenChange={(open) => open && void loadFilterOptions()}
           onChange={(val) => setUserFilter(val || "")}
           filterOption={(input, option) =>
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())

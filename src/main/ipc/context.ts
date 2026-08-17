@@ -6,6 +6,7 @@ import { LobbyStreamManager } from "./lobby-stream-manager";
 import { UserDirectoryStreamManager } from "./user-directory-stream-manager";
 import { SessionStore } from "../session-store";
 import { isSessionFatal } from "../auth-failure";
+import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
 
@@ -197,8 +198,29 @@ export const withAccessToken = async <T>(
     throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
   }
 
+  // Refresh before the request rather than after the 401.
+  //
+  // The token's own `exp` is right there, so waiting to be told is a round trip
+  // spent to learn something already known — and the renderer runs several
+  // queries in parallel, so an expiry meant a burst of 401s all queueing behind
+  // one refresh before any of them could retry. Every 15 minutes, that landed on
+  // whatever the user was doing at the time.
+  if (isAccessTokenExpiring(current.accessToken, Date.now())) {
+    try {
+      await refreshSession();
+    } catch (error) {
+      // A refresh that failed on the network is not a reason to abandon a token
+      // that still has seconds left; let the request try, and let the 401 path
+      // below be the backstop it always was. Only a genuinely dead token is
+      // fatal here.
+      if (isAccessTokenExpired(current.accessToken, Date.now())) {
+        throw error;
+      }
+    }
+  }
+
   try {
-    return await operation(current.accessToken);
+    return await operation(currentAccessToken());
   } catch (error) {
     if (!(error instanceof DesktopApiError) || error.statusCode !== 401) {
       throw error;

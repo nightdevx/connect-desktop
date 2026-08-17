@@ -89,7 +89,7 @@
 }
 
 .ct-rail-button.danger:hover:not(:disabled) {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--ct-danger) 30%, transparent);
   color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
@@ -205,7 +205,7 @@
 }
 
 .ct-list-item.unread .ct-list-user-meta span {
-  color: #93c5fd;
+  color: var(--ct-info);
 }
 
 /* The active row inverts to a white background. Rather than passing an
@@ -258,21 +258,21 @@
 }
 
 .ct-audio-connection-card.ok {
-  border-color: rgba(16, 185, 129, 0.24);
+  border-color: color-mix(in srgb, var(--ct-success) 24%, transparent);
   color: var(--ct-success);
-  background: rgba(16, 185, 129, 0.08);
+  background: color-mix(in srgb, var(--ct-success) 8%, transparent);
 }
 
 .ct-audio-connection-card.warn {
-  border-color: rgba(245, 158, 11, 0.24);
+  border-color: color-mix(in srgb, var(--ct-warning) 24%, transparent);
   color: var(--ct-warning);
-  background: rgba(245, 158, 11, 0.08);
+  background: color-mix(in srgb, var(--ct-warning) 8%, transparent);
 }
 
 .ct-audio-connection-card.error {
-  border-color: rgba(239, 68, 68, 0.24);
+  border-color: color-mix(in srgb, var(--ct-danger) 24%, transparent);
   color: var(--ct-danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: color-mix(in srgb, var(--ct-danger) 8%, transparent);
 }
 
 .ct-audio-connection-icon {
@@ -352,7 +352,7 @@
 }
 
 .ct-quick-icon-button.danger:hover:not(:disabled) {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--ct-danger) 30%, transparent);
   color: var(--ct-text-primary);
   background: var(--ct-danger);
 }
@@ -439,8 +439,41 @@
    ========================================================================== */
 
 .ct-profile-card {
-  @apply flex flex-col gap-3;
-  width: 244px;
+  @apply relative flex flex-col gap-3;
+  width: 320px;
+}
+
+/* The band the avatar sits on. Sized so the avatar overlaps it by about half,
+   which is what makes the picture the first thing read. */
+.ct-profile-card-banner {
+  @apply -mx-3 -mt-3 h-16 rounded-t-lg;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ct-accent) 55%, transparent),
+    color-mix(in srgb, var(--ct-accent) 18%, transparent)
+  );
+}
+
+.ct-profile-card-identity {
+  @apply -mt-11 flex flex-col items-start gap-2;
+}
+
+.ct-profile-card-photo-root {
+  @apply block shrink-0 overflow-hidden rounded-xl;
+  width: 88px;
+  height: 88px;
+  border: 3px solid var(--ct-surface-2);
+  background: var(--ct-surface-2);
+}
+
+.ct-profile-card-photo.ant-image-img {
+  @apply h-full w-full object-cover;
+}
+
+/* antd puts the mask on hover only; without a cursor it does not read as
+   clickable at all. */
+.ct-profile-card-photo-root .ant-image-mask {
+  @apply cursor-zoom-in text-2xs font-semibold;
 }
 
 .ct-profile-card.loading {
@@ -449,13 +482,10 @@
   font-size: 13px;
 }
 
-.ct-profile-card-identity {
-  @apply flex items-center gap-3;
-}
-
 .ct-profile-card-avatar.ant-avatar {
   @apply shrink-0;
-  border: 1px solid var(--ct-border-strong);
+  border: 3px solid var(--ct-surface-2);
+  font-size: 30px;
 }
 
 .ct-profile-card-names {
@@ -463,7 +493,7 @@
 }
 
 .ct-profile-card-names strong {
-  @apply truncate text-base font-bold leading-tight;
+  @apply truncate text-lg font-bold leading-tight;
   color: var(--ct-text-primary);
 }
 
@@ -485,6 +515,15 @@
 .ct-profile-card-meta strong {
   color: var(--ct-text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.ct-profile-card-composer {
+  @apply flex items-center gap-2 border-t pt-3;
+  border-color: var(--ct-border);
+}
+
+.ct-profile-card-composer .ant-input {
+  @apply min-w-0 flex-1;
 }
 
 /* The row that opens the card has to read as pressable; it sits inside a list

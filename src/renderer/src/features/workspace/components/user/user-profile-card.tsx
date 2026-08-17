@@ -1,9 +1,19 @@
 import { useCallback, useState, type ReactElement } from "react";
-import { Avatar, Button, Popover, Spin, Tag, message } from "antd";
-import { ClockCircleOutlined, UserAddOutlined } from "@ant-design/icons";
+import { Avatar, Button, Image, Input, Popover, Spin, Tag, message } from "antd";
+import {
+  ClockCircleOutlined,
+  SendOutlined,
+  UserAddOutlined,
+} from "@ant-design/icons";
 import { useUserCard } from "../../hooks/user/use-user-cards";
 import type { FriendsController } from "../../hooks/user/use-friends";
+import workspaceService from "../../services";
+import { getApiErrorMessage } from "../../workspace-utils";
 import { formatDateLabel, getDisplayInitials } from "../../workspace-utils";
+
+// Same ceiling the composer uses. Enforced again server-side; this only stops
+// the request being made at all.
+const MAX_QUICK_MESSAGE_LENGTH = 2_000;
 
 // The profile card: who is this person, and can I add them.
 //
@@ -96,14 +106,28 @@ export function UserProfileCard({
 
   return (
     <div className="ct-profile-card">
+      {/* A colour band behind the avatar, the way every profile card since
+          Discord has done it: it is what makes the avatar read as the subject
+          of the card rather than as an icon next to a name. */}
+      <div className="ct-profile-card-banner" aria-hidden="true" />
+
       <div className="ct-profile-card-identity">
-        <Avatar
-          size={64}
-          src={card.avatarUrl ?? undefined}
-          className="ct-profile-card-avatar"
-        >
-          {getDisplayInitials(displayName)}
-        </Avatar>
+        {card.avatarUrl ? (
+          // antd's Image, not Avatar, so the picture opens full size on click.
+          // A profile picture is the one thing on this card people want to see
+          // bigger, and 88px is not it.
+          <Image
+            src={card.avatarUrl}
+            alt={displayName}
+            className="ct-profile-card-photo"
+            rootClassName="ct-profile-card-photo-root"
+            preview={{ mask: "Büyüt" }}
+          />
+        ) : (
+          <Avatar size={88} className="ct-profile-card-avatar">
+            {getDisplayInitials(displayName)}
+          </Avatar>
+        )}
 
         <div className="ct-profile-card-names">
           <strong>{displayName}</strong>
@@ -136,6 +160,79 @@ export function UserProfileCard({
           {hasOutgoingRequest ? "İstek Gönderildi" : "Arkadaş Ekle"}
         </Button>
       )}
+
+      {!isSelf && (
+        <QuickMessageBar peerUserId={userId} peerName={card.username} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Send one message without leaving the card.
+ *
+ * The card is opened from a roster row, a chat mention or a video tile — every
+ * one of them a place where the thing you want is to say something to this
+ * person, and where the route to it was: close the card, switch to Kişiler,
+ * find the row, click it, then type. It sends straight through the DM endpoint
+ * and does not open the thread: this is a reply, not a context switch.
+ */
+function QuickMessageBar({
+  peerUserId,
+  peerName,
+}: {
+  peerUserId: string;
+  peerName: string;
+}): ReactElement {
+  const [draft, setDraft] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const send = useCallback((): void => {
+    const body = draft.trim();
+    if (!body || isSending) {
+      return;
+    }
+
+    setIsSending(true);
+    void workspaceService
+      .sendDirectMessage({ peerUserId, body })
+      .then((result) => {
+        if (!result.ok) {
+          message.error(`Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`);
+          return;
+        }
+
+        // Cleared only on success, so a rejected message is still in the box to
+        // retry or copy out of.
+        setDraft("");
+        message.success(`@${peerName} kişisine mesaj gönderildi`);
+      })
+      .finally(() => setIsSending(false));
+  }, [draft, isSending, peerName, peerUserId]);
+
+  return (
+    <div
+      className="ct-profile-card-composer"
+      // The card lives inside popovers and context menus whose parents treat a
+      // click as "join this lobby" or "close me".
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onPressEnter={send}
+        maxLength={MAX_QUICK_MESSAGE_LENGTH}
+        placeholder={`@${peerName} kişisine yaz`}
+        disabled={isSending}
+      />
+      <Button
+        type="primary"
+        icon={<SendOutlined />}
+        loading={isSending}
+        disabled={draft.trim().length === 0}
+        onClick={send}
+        aria-label="Gönder"
+      />
     </div>
   );
 }

@@ -51,18 +51,25 @@ export function LobbyPasswordPromptModal({
       okButtonProps={{
         disabled: password.trim().length === 0,
         loading: isJoining,
-        style: { background: "#ffffff", color: "#000000", fontWeight: "600" },
+        // Tokens, not literals: white-on-black is the dark theme's primary
+        // button, and on a light page it was a white button with black text
+        // sitting on a white panel.
+        style: {
+          background: "var(--ct-accent)",
+          color: "var(--ct-text-inverse)",
+          fontWeight: "600",
+        },
       }}
       cancelButtonProps={{
         style: {
           background: "transparent",
-          borderColor: "rgba(255,255,255,0.15)",
-          color: "#ffffff",
+          borderColor: "var(--ct-border-strong)",
+          color: "var(--ct-text-primary)",
         },
       }}
       styles={{
-        mask: { backdropFilter: "blur(6px)", background: "rgba(0, 0, 0, 0.6)" },
-        body: { background: "transparent", color: "#f5f5f5" },
+        mask: { backdropFilter: "blur(6px)", background: "var(--ct-scrim)" },
+        body: { background: "transparent", color: "var(--ct-text-primary)" },
       }}
     >
       <div >

@@ -664,8 +664,8 @@ export function SettingsAudio({
             <Progress
               percent={micLevelPercent}
               showInfo={false}
-              strokeColor="#ffffff"
-              trailColor="rgba(255,255,255,0.08)"
+              strokeColor="var(--ct-accent)"
+              trailColor="var(--ct-alpha-08)"
             />
             <strong className="ct-metric-value">%{micLevelPercent}</strong>
           </div>

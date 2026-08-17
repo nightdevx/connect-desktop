@@ -52,7 +52,14 @@ export default function AdminLobbies() {
     }
   };
 
-  const fetchUsers = async () => {
+  // The allow-list picker's options. This is the whole user table — avatars
+  // included — so it is fetched when the edit dialog first opens, not when the
+  // page loads: most visits to this screen never open it at all.
+  const loadAllowListOptions = async () => {
+    if (allUsers.length > 0) {
+      return;
+    }
+
     try {
       const res = await adminService.listUsers();
       setAllUsers(res.users);
@@ -67,12 +74,6 @@ export default function AdminLobbies() {
     }, 300);
     return () => clearTimeout(handler);
   }, [searchText]);
-
-  // Only the edit dialog's allow-list needs the user directory, and it does not
-  // change with a filter. It used to be refetched on every keystroke.
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -93,6 +94,7 @@ export default function AdminLobbies() {
   };
 
   const handleEditClick = (record: AdminLobbySnapshot) => {
+    void loadAllowListOptions();
     setEditingLobby(record);
     editForm.setFieldsValue({
       name: record.lobby.name,

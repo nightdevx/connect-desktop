@@ -264,6 +264,7 @@ import workspaceService from "../../services";
 
 interface UsersDirectMessagesPanelProps {
   currentUserId: string;
+  currentUserRole: string;
   selectedUser: UserDirectoryEntry | null;
   // The friends home stands in for a selected conversation, so everything it
   // needs arrives as one object the shell hands over in a single line. Optional
@@ -349,6 +350,7 @@ interface UsersDirectMessagesPanelProps {
 
 export function UsersDirectMessagesPanel({
   currentUserId,
+  currentUserRole,
   selectedUser,
   friendsHome,
   onCopyUsername,
@@ -683,7 +685,7 @@ export function UsersDirectMessagesPanel({
 
   // Nothing is played locally: the sound comes back over the lobby stream, the
   // same frame the peer gets, so hearing it is the confirmation it went out.
-  const handleSendEmote = (emote: LobbySoundEmote): void => {
+  const handleSendEmote = (emote: string): void => {
     if (!activeLobbyId) return;
     void workspaceService.sendLobbyEmote({ lobbyId: activeLobbyId, emote });
   };
@@ -1116,6 +1118,8 @@ export function UsersDirectMessagesPanel({
                   // manager as a lobby, so the same membership check and the
                   // same broadcast apply here without a second path.
                   onSendEmote={handleSendEmote}
+                  currentUserId={currentUserId}
+                  currentUserRole={currentUserRole}
                 />
               </section>
 
@@ -1181,7 +1185,7 @@ export function UsersDirectMessagesPanel({
                       className="ct-chat-user-header-avatar"
                     />
                     <span
-                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-[#0d0d0d] ${
+                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-ct-surface-1 ${
                         selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
                       }`}
                     />
@@ -1332,7 +1336,7 @@ export function UsersDirectMessagesPanel({
               content: {
                 background: "rgba(10, 10, 10, 0.98)",
                 borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
-                color: "#f5f5f5",
+                color: "var(--ct-text-primary)",
               },
               header: {
                 borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
@@ -1353,7 +1357,7 @@ export function UsersDirectMessagesPanel({
                   className="ct-chat-user-header-avatar"
                 />
                 <span
-                  className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-[#0a0a0a] ${
+                  className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-ct-surface-1 ${
                     selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
                   }`}
                 />
@@ -1364,7 +1368,7 @@ export function UsersDirectMessagesPanel({
                   {selectedUser.displayName || selectedUser.username}
                 </h3>
                 {selectedUser.username && (
-                  <p className="text-[13px] text-[#8f8f8f] mt-0.5">@{selectedUser.username}</p>
+                  <p className="text-[13px] text-ct-text-muted mt-0.5">@{selectedUser.username}</p>
                 )}
               </div>
 
@@ -1378,7 +1382,7 @@ export function UsersDirectMessagesPanel({
             <Descriptions title={null} column={1} layout="horizontal" size="small">
               <Descriptions.Item
                 label={
-                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
                     <SafetyOutlined /> Rol
                   </span>
                 }
@@ -1390,7 +1394,7 @@ export function UsersDirectMessagesPanel({
 
               <Descriptions.Item
                 label={
-                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
                     <CalendarOutlined /> Katılım Tarihi
                   </span>
                 }
@@ -1402,7 +1406,7 @@ export function UsersDirectMessagesPanel({
 
               <Descriptions.Item
                 label={
-                  <span className="text-[#8f8f8f] text-[12px] flex items-center gap-2">
+                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
                     <GlobalOutlined /> Durum
                   </span>
                 }

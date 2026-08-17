@@ -22,6 +22,7 @@ import type {
   PrivacySettings,
   UpdatePrivacyRequest,
 } from "../../shared/auth-contracts";
+import type { AdminEmoteLibrary } from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
 export class AuthClient {
@@ -477,5 +478,45 @@ export class AuthClient {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  }
+
+  public async adminForceLogout(accessToken: string, userId: string): Promise<{ loggedOut: boolean }> {
+    return this.baseClient.request<{ loggedOut: boolean }>(`/admin/users/${userId}/force-logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async adminListEmotes(accessToken: string): Promise<AdminEmoteLibrary> {
+    return this.baseClient.request<AdminEmoteLibrary>("/admin/emotes", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async adminDeleteEmote(accessToken: string, emoteId: string): Promise<{ deleted: boolean }> {
+    return this.baseClient.request<{ deleted: boolean }>(
+      `/admin/emotes/${encodeURIComponent(emoteId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+  }
+
+  // userId absent => the global default. quota null with a userId => clear that
+  // user's override, which is not the same as setting it to zero.
+  public async adminSetEmoteQuota(
+    accessToken: string,
+    payload: { userId?: string; quota: number | null },
+  ): Promise<{ globalQuota: number; userQuotas: Record<string, number> }> {
+    return this.baseClient.request<{ globalQuota: number; userQuotas: Record<string, number> }>(
+      "/admin/emote-quota",
+      {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+      },
+    );
   }
 }

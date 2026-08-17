@@ -122,6 +122,13 @@
   --ct-avatar-xl: 96px;
 
   /* ---- Elevation ------------------------------------------------------- */
+  /* The colour on its own, for the shadows whose geometry is specific enough
+     that the three presets below do not fit. Everything that casts a shadow
+     onto a THEMED surface takes its colour from here; a shadow over video or
+     over a photo stays black in both themes, because what it separates from is
+     the picture, not the page. */
+  --ct-shadow-color: rgba(0, 0, 0, 0.45);
+  --ct-shadow-color-soft: rgba(0, 0, 0, 0.25);
   --ct-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
   --ct-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
   --ct-shadow-lg: 0 20px 44px rgba(0, 0, 0, 0.6);
@@ -207,12 +214,16 @@
 
   /* Green and red are darkened: the dark theme's values are tuned to glow on
      black and drop to ~2.5:1 as text on white. */
-  --ct-success: #0f8a63;
+  /* Measured, not picked: #0f8a63 came out at 3.95-4.34 against the panel
+     scale, i.e. under AA for body text everywhere it is actually used. */
+  --ct-success: #0b7350;
   --ct-warning: #b45309;
   --ct-danger: #cc2b2b;
   --ct-info: #2563eb;
 
   /* Shadows over a light ground read as dirt at the dark theme's opacity. */
+  --ct-shadow-color: rgba(15, 15, 20, 0.12);
+  --ct-shadow-color-soft: rgba(15, 15, 20, 0.07);
   --ct-shadow-sm: 0 2px 8px rgba(15, 15, 20, 0.08);
   --ct-shadow-md: 0 8px 24px rgba(15, 15, 20, 0.1);
   --ct-shadow-lg: 0 20px 44px rgba(15, 15, 20, 0.16);

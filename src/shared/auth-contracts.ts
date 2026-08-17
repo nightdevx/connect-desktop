@@ -236,6 +236,12 @@ export interface AdminLobbyEvent {
 
 export interface AdminStats {
   totalUsers: number;
+  // Counted server-side, where the user table already is. The dashboard used to
+  // fetch every user (avatars included) every 10 seconds to count these itself.
+  adminUsers?: number;
+  memberUsers?: number;
+  verifiedUsers?: number;
+  bannedUsers?: number;
   onlineUsers: number;
   totalLobbies: number;
   activeMembers: number;

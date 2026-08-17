@@ -56,21 +56,21 @@
 }
 
 .ct-update-chip.ready {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
   color: var(--ct-success);
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--ct-success) 12%, transparent);
 }
 
 .ct-update-chip.busy {
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: color-mix(in srgb, var(--ct-info) 30%, transparent);
   color: var(--ct-info);
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--ct-info) 12%, transparent);
 }
 
 .ct-update-chip.found {
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: color-mix(in srgb, var(--ct-warning) 30%, transparent);
   color: var(--ct-warning);
-  background: rgba(245, 158, 11, 0.12);
+  background: color-mix(in srgb, var(--ct-warning) 12%, transparent);
 }
 
 .ct-update-install {
@@ -226,10 +226,10 @@
 
 .ct-offline-icon {
   @apply mb-6 grid h-16 w-16 place-items-center rounded-full border;
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: color-mix(in srgb, var(--ct-info) 30%, transparent);
   color: var(--ct-info);
   background: rgba(30, 58, 138, 0.2);
-  box-shadow: 0 0 40px rgba(59, 130, 246, 0.18);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--ct-info) 18%, transparent);
   font-size: 28px;
 }
 
