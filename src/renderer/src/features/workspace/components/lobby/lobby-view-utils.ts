@@ -1,4 +1,4 @@
-import { LocalParticipant, Track } from "livekit-client";
+import type { Track } from "livekit-client";
 import type { ParticipantMediaMap } from "@/features/livekit";
 import type { LobbyParticipantView } from "./lobby-participant-tile";
 
@@ -12,37 +12,40 @@ export interface StageParticipantSlot {
   kind: StageTileKind;
 }
 
+// The media map is keyed by LiveKit identity, and the identity IS the account id:
+// the token is minted with SetIdentity(user.ID) in the backend's media handler,
+// and the lobby roster is keyed the same way. So an exact lookup is the whole
+// mapping.
+//
+// This used to fall back to case-insensitive SUBSTRING matching in both
+// directions — `id.includes(userId) || userId.includes(id)` — over every entry in
+// the map. That is not a lax version of the right answer, it is a different
+// answer: it can attach one participant's tracks, speaking state and audio level
+// to a different person's tile, and the loop's first match wins, so which person
+// depends on insertion order. Nothing produced the keys it was meant to rescue.
 export function resolveMappedTracks(
   participant: LobbyParticipantView,
   remoteParticipantStreams: ParticipantMediaMap,
 ) {
-  let mappedTracks = remoteParticipantStreams[participant.userId];
-
-  if (!mappedTracks) {
-    mappedTracks = remoteParticipantStreams[participant.username];
+  const mapped = remoteParticipantStreams[participant.userId];
+  if (mapped) {
+    return mapped;
   }
 
-  if (!mappedTracks) {
-    const entry = Object.entries(remoteParticipantStreams).find(([id, state]) => {
-      if (participant.isLocalUser && state.participant instanceof LocalParticipant) {
-        return true;
-      }
-      const lowerId = id.toLowerCase();
-      const lowerUserId = participant.userId.toLowerCase();
-      const lowerUsername = participant.username.toLowerCase();
-      return (
-        lowerId === lowerUserId ||
-        lowerId === lowerUsername ||
-        lowerId.includes(lowerUserId) ||
-        lowerUserId.includes(lowerId)
-      );
-    });
-    if (entry) {
-      mappedTracks = entry[1];
-    }
+  // The one genuine exception: the local roster entry can be a client-side
+  // placeholder built before the server confirmed the join, so the local
+  // participant is worth finding by flag rather than by key.
+  //
+  // `isLocal`, not `instanceof LocalParticipant`: an instanceof check compares
+  // against one module instance, and two copies of livekit-client in a bundle make
+  // it answer false for a genuine LocalParticipant with nothing to show for it.
+  if (participant.isLocalUser) {
+    return Object.values(remoteParticipantStreams).find(
+      (state) => state.participant.isLocal,
+    );
   }
 
-  return mappedTracks;
+  return undefined;
 }
 
 export function resolveSourceStream(

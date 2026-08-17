@@ -154,16 +154,23 @@ export function useLivekitSession(
         setRemoteParticipantStreams(nextStreams);
       },
       onActiveSpeakersChanged: (speakerIds: string[]) => {
-        // A new array only when the set of speakers actually changed. LiveKit
+        // A new array only when the SET of speakers actually changed. LiveKit
         // re-emits this on the server's speaker update — repeatedly, for the
         // whole time one person keeps talking — and each emission used to hand
         // React a fresh array identity, re-rendering the entire workspace shell
         // and every panel under it for a list that had not changed.
+        //
+        // Sorted first, because LiveKit orders that list by audio level: with two
+        // people talking the same two ids arrive in a different order every few
+        // hundred milliseconds, which an index-by-index comparison reads as a
+        // change. Nothing downstream cares about the order — every consumer asks
+        // whether one id is present.
+        const sorted = [...speakerIds].sort();
         setActiveSpeakerIds((previous) =>
-          previous.length === speakerIds.length &&
-          previous.every((id, index) => id === speakerIds[index])
+          previous.length === sorted.length &&
+          previous.every((id, index) => id === sorted[index])
             ? previous
-            : speakerIds,
+            : sorted,
         );
       },
       onConnectionStateChanged: (state: LiveKitConnectionStatus) => {

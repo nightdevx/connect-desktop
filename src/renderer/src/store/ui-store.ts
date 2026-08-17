@@ -5,6 +5,11 @@ import {
   saveThemeMode,
   type ThemeMode,
 } from "../styles/theme-mode";
+import {
+  readGifPlayback,
+  saveGifPlayback,
+  type GifPlayback,
+} from "../styles/gif-playback";
 
 type AuthPage = "login" | "register";
 type StatusTone = "ok" | "warn" | "error";
@@ -36,6 +41,9 @@ interface UiState {
   /** Drives the data-theme attribute on <html> and antd's algorithm. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** Whether GIFs in a conversation animate always, or only under the cursor. */
+  gifPlayback: GifPlayback;
+  setGifPlayback: (mode: GifPlayback) => void;
   setActivePage: (page: AuthPage) => void;
   setStatus: (message: string, tone: StatusTone) => void;
   setWorkspaceSection: (section: WorkspaceSection) => void;
@@ -59,6 +67,11 @@ export const useUiStore = create<UiState>((set) => ({
     applyThemeMode(mode);
     saveThemeMode(mode);
     set({ themeMode: mode });
+  },
+  gifPlayback: readGifPlayback(),
+  setGifPlayback: (mode) => {
+    saveGifPlayback(mode);
+    set({ gifPlayback: mode });
   },
   setActivePage: (page) => {
     if (document.startViewTransition) {

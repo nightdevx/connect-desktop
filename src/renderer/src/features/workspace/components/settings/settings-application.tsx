@@ -6,6 +6,7 @@ import type {
   AppUpdateSnapshot,
 } from "../../../../../../shared/update-contracts";
 import type { ThemeMode } from "@/styles/theme-mode";
+import type { GifPlayback } from "@/styles/gif-playback";
 import { useUiStore } from "@/store/ui-store";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
 
@@ -82,6 +83,8 @@ const getUpdatePhaseLabel = (
 export function SettingsApplication() {
   const themeMode = useUiStore((state) => state.themeMode);
   const setThemeMode = useUiStore((state) => state.setThemeMode);
+  const gifPlayback = useUiStore((state) => state.gifPlayback);
+  const setGifPlayback = useUiStore((state) => state.setGifPlayback);
   const [messageApi, contextHolder] = message.useMessage();
   const [appVersion, setAppVersion] = useState("-");
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(
@@ -264,6 +267,26 @@ export function SettingsApplication() {
                 options={[
                   { label: "Koyu", value: "dark" },
                   { label: "Açık", value: "light" },
+                ]}
+                className="ct-segmented-premium"
+              />
+            </div>
+
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Hareketli görseller</strong>
+                <span>
+                  Sohbetteki GIF'ler sürekli oynayabilir ya da yalnızca fare
+                  üzerine geldiğinde oynayabilir. Sürekli oynatma kapalıyken
+                  görseller ilk karesinde durur.
+                </span>
+              </div>
+              <Segmented
+                value={gifPlayback}
+                onChange={(value) => setGifPlayback(value as GifPlayback)}
+                options={[
+                  { label: "Sürekli oynat", value: "always" },
+                  { label: "Üstüne gelince", value: "hover" },
                 ]}
                 className="ct-segmented-premium"
               />

@@ -35,7 +35,14 @@ export interface ParticipantMediaState {
   screenEnabled: boolean;
   screenAvailable: boolean;
   isSpeaking: boolean;
-  audioLevel: number;
+  // No audioLevel here on purpose.
+  //
+  // It was published at 10Hz and read by nobody but a `> 0.01` test that was
+  // wrong anyway (see use-lobby-participants). Carrying a continuously changing
+  // number through this map meant every tick rebuilt it and re-rendered every
+  // participant tile, competing with the encoder during a screen share. A volume
+  // meter would want it back — as its own subscription, not as part of the state
+  // every tile depends on.
   camera: Track | MediaStream | null;
   screen: Track | MediaStream | null;
   cameraStream: MediaStream | null;

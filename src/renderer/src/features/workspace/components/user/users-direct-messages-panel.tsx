@@ -262,6 +262,10 @@ import type { CallSessionState } from "../../hooks";
 import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import workspaceService from "../../services";
 
+// Stable fallbacks for the optional media props below.
+const EMPTY_SPEAKER_IDS: string[] = [];
+const EMPTY_MEDIA_MAP: ParticipantMediaMap = {};
+
 interface UsersDirectMessagesPanelProps {
   currentUserId: string;
   currentUserRole: string;
@@ -494,8 +498,11 @@ export function UsersDirectMessagesPanel({
     currentUserId,
     currentUsername: "",
     activeLobbyId: activeLobbyId || null,
-    activeSpeakerIds: activeSpeakerIds || [],
-    remoteParticipantStreams: remoteParticipantStreams || {},
+    // Shared constants, not fresh literals: these are effect and memo inputs
+    // downstream, and `|| []` on an absent prop hands them a new identity on every
+    // render of this panel.
+    activeSpeakerIds: activeSpeakerIds ?? EMPTY_SPEAKER_IDS,
+    remoteParticipantStreams: remoteParticipantStreams ?? EMPTY_MEDIA_MAP,
     micEnabled: micEnabled || false,
     headphoneEnabled: headphoneEnabled || false,
     cameraEnabled: cameraEnabled || false,

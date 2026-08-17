@@ -502,6 +502,28 @@
     @apply inline-block max-w-full leading-none;
   }
 
+  /* The frozen first frame, for "play on hover". Positioned over the picture
+     rather than replacing it so the click-to-enlarge and right-click-to-download
+     affordances underneath keep working untouched -- hence pointer-events: none.
+
+     Hidden until the frame has actually been drawn: an empty canvas is a
+     transparent rectangle, and showing it before the capture would let the GIF
+     play for the moment it takes to load. */
+  .ct-chat-image-root {
+    @apply relative;
+  }
+
+  .ct-chat-image-freeze {
+    @apply pointer-events-none absolute inset-0 rounded-sm opacity-0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .ct-chat-image-freeze.ready {
+    @apply opacity-100;
+  }
+
   /* The hover mask is antd's own; it only needs to match the app rather than
      read "Preview" in English at antd's default size. */
   .ct-chat-image-root .ant-image-mask {

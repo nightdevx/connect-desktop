@@ -48,15 +48,12 @@ import {
 
 const AUDIO_LEVEL_SAMPLE_INTERVAL_MS = 100;
 const LOCAL_SPEAKING_THRESHOLD = 0.015;
-const AUDIO_LEVEL_EMIT_DELTA = 0.05;
 // 500ms of hangover at a 100ms tick.
 const LOCAL_SILENCE_HOLD_TICKS = 5;
 // Stats tick once a second; only warn after the limitation has persisted, so a
 // momentary spike while a share starts up does not fire a scary message.
 const QUALITY_LIMITATION_TICKS = 8;
 
-// Audio level is compared with a tolerance: it wobbles continuously, and
-// treating every micro-change as "changed" would defeat the whole point.
 const isSameParticipantMediaState = (
   left: ParticipantMediaState,
   right: ParticipantMediaState,
@@ -77,8 +74,7 @@ const isSameParticipantMediaState = (
     left.camera === right.camera &&
     left.screen === right.screen &&
     left.cameraStream === right.cameraStream &&
-    left.screenStream === right.screenStream &&
-    Math.abs(left.audioLevel - right.audioLevel) <= AUDIO_LEVEL_EMIT_DELTA
+    left.screenStream === right.screenStream
   );
 };
 
@@ -134,7 +130,6 @@ export class LiveKitStreamManager {
   private localAnalyser: AnalyserNode | null = null;
   private localAudioSource: MediaStreamAudioSourceNode | null = null;
   private micGainNode: GainNode | null = null;
-  private localAudioLevel = 0;
   private isSpeakingLocal = false;
   private silenceTicks = 0;
   private lastCapturedStreamId: string | null = null;
@@ -178,7 +173,6 @@ export class LiveKitStreamManager {
     }
     this.silenceTicks = 0;
     this.isSpeakingLocal = false;
-    this.localAudioLevel = 0;
   }
 
   private readLocalAudioLevel(): number | null {
@@ -202,6 +196,12 @@ export class LiveKitStreamManager {
     return sum / dataArray.length / 128;
   }
 
+  // Publishes a media-map update only on a speaking TRANSITION.
+  //
+  // It used to also publish whenever any level moved by more than the emit delta,
+  // which for anyone actually talking is most of the ten ticks a second — each one
+  // rebuilding the map and re-rendering every participant tile, to carry a number
+  // no consumer read. The transitions are what the UI is derived from.
   private sampleAudioLevels(): void {
     let needsUpdate = false;
 
@@ -213,35 +213,23 @@ export class LiveKitStreamManager {
           this.isSpeakingLocal = true;
           needsUpdate = true;
         }
-        if (Math.abs(level - this.localAudioLevel) > AUDIO_LEVEL_EMIT_DELTA) {
-          this.localAudioLevel = level;
-          needsUpdate = true;
-        }
       } else if (this.isSpeakingLocal) {
         // Hangover so a pause between words does not flicker the indicator.
         this.silenceTicks += 1;
         if (this.silenceTicks >= LOCAL_SILENCE_HOLD_TICKS) {
           this.isSpeakingLocal = false;
-          this.localAudioLevel = 0;
           this.silenceTicks = 0;
           needsUpdate = true;
         }
       }
     }
 
-    // Remote speaking flips also arrive via ActiveSpeakersChanged; this catches
-    // level drift for the volume bars in between those events.
+    // Remote flips arrive via ActiveSpeakersChanged too; this is the backstop for
+    // a flag that changed without the room emitting that event.
     if (!needsUpdate && this.room) {
       for (const participant of this.room.remoteParticipants.values()) {
         const current = this.mediaMap[participant.identity];
-        if (!current) {
-          continue;
-        }
-        if (
-          current.isSpeaking !== participant.isSpeaking ||
-          Math.abs(current.audioLevel - participant.audioLevel) >
-            AUDIO_LEVEL_EMIT_DELTA
-        ) {
+        if (current && current.isSpeaking !== participant.isSpeaking) {
           needsUpdate = true;
           break;
         }
@@ -1376,8 +1364,9 @@ export class LiveKitStreamManager {
       cameraEnabled: !!(cameraPub?.isSubscribed && !cameraPub?.isMuted) || (p instanceof LocalParticipant && p.isCameraEnabled),
       screenEnabled: !!(screenPub?.isSubscribed && !screenPub?.isMuted) || (p instanceof LocalParticipant && p.isScreenShareEnabled),
       screenAvailable,
+      // The local analyser is ORed in so your own ring lights up as you speak
+      // rather than after the server's next speaker update comes back.
       isSpeaking: p.isSpeaking || (p instanceof LocalParticipant && this.isSpeakingLocal),
-      audioLevel: p instanceof LocalParticipant ? Math.max(p.audioLevel, this.localAudioLevel) : p.audioLevel,
       camera: cameraTrack || cameraStream,
       screen: screenTrack || screenStream,
       cameraStream,

@@ -580,6 +580,13 @@ function WorkspaceShell({
     useScreenSubscriptions({ liveKitSessionRef, activeLobbyId });
 
   // ----- 1-TO-1 CALL MEMBERS -----
+  //
+  // `speaking` is deliberately false on both rows and activeSpeakerIds is not a
+  // dependency. This list is a ROSTER; useLobbyParticipants owns the speaking
+  // state and overwrites whatever is set here, so computing it twice only meant
+  // rebuilding every member object — and re-rendering every tile in the call —
+  // each time the speaker list changed, which is several times a second while
+  // anyone talks.
   const callMembers = useMemo(() => {
     if (!activeLobbyId?.startsWith("call_") || !callState.peerUser) return [];
 
@@ -590,7 +597,7 @@ function WorkspaceShell({
       muted: !micEnabled,
       serverMuted: false,
       deafened: !headphoneEnabled,
-      speaking: activeSpeakerIds.includes(currentUserId),
+      speaking: false,
       cameraEnabled,
       screenSharing: screenEnabled,
     };
@@ -612,7 +619,7 @@ function WorkspaceShell({
         muted: false,
         serverMuted: false,
         deafened: false,
-        speaking: activeSpeakerIds.includes(callState.peerUser.userId),
+        speaking: false,
         cameraEnabled: remoteParticipantStreams[callState.peerUser.userId]?.cameraEnabled ?? false,
         // screenAvailable (published), not screenEnabled (subscribed).
         //
@@ -637,7 +644,6 @@ function WorkspaceShell({
     cameraEnabled,
     screenEnabled,
     remoteParticipantStreams,
-    activeSpeakerIds,
   ]);
 
 

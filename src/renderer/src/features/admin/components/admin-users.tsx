@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthSession } from "../../auth/hooks/use-auth-session";
 import {
   Table,
@@ -80,7 +80,19 @@ export default function AdminUsers() {
   // filter change while past page 1 ran both: page 1 was fetched, the page
   // reset fired, and page 1 was fetched again. Two spinners for one keystroke.
   // The shared timer collapses that into a single request.
+  //
+  // The FIRST run is not debounced. Debouncing it charged the empty screen 300ms
+  // before the request even left, on every visit to this page, for a keystroke
+  // that had not happened.
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      void fetchUsers(currentPage, pageSize);
+      return;
+    }
+
     const timer = setTimeout(() => fetchUsers(currentPage, pageSize), 300);
     return () => clearTimeout(timer);
   }, [currentPage, pageSize, searchText, roleFilter, statusFilter]);

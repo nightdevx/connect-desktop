@@ -24,6 +24,7 @@ import EmojiPicker, {
 import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
 import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
+import { useUiStore } from "@/store/ui-store";
 import chatService from "../../services/chat-service";
 
 // Shared message furniture for both conversation surfaces (direct messages and
@@ -122,6 +123,84 @@ interface ChatImageProps {
   onDownload: () => Promise<void>;
 }
 
+// Whether this source can animate at all, and so whether the "play on hover"
+// preference has anything to say about it. Matched on the URL extension for a
+// posted GIF and on the media type for an uploaded attachment, which arrives as a
+// data URL.
+const isAnimatedSource = (src: string): boolean =>
+  /^data:image\/(gif|webp|apng)\b/i.test(src) ||
+  /\.(gif|webp|apng)(\?|#|$)/i.test(src);
+
+/**
+ * Holds an animated image on its first frame until the cursor is over it.
+ *
+ * The frame is captured by drawing the loaded <img> to a canvas and laying that
+ * canvas over the picture. Drawing a cross-origin image is allowed — only READING
+ * the pixels back is not — so this needs no CORS cooperation from the GIF CDN,
+ * which is the reason it is a canvas element rather than a captured data URL.
+ *
+ * ponytail: the GIF underneath keeps animating while covered, so hovering resumes
+ * mid-loop rather than restarting, and the decode cost is only hidden, not saved.
+ * Dropping the img from the render tree while frozen would fix both; it also means
+ * re-mounting it on every hover, and this preference is about a wall of moving
+ * pictures, not about CPU.
+ */
+function FrozenFrameOverlay({
+  src,
+  hidden,
+}: {
+  src: string;
+  hidden: boolean;
+}): JSX.Element | null {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [captured, setCaptured] = useState(false);
+
+  useEffect(() => {
+    setCaptured(false);
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    // createElement, not `new Image()`: antd's Image component shadows the DOM
+    // constructor in this module.
+    const image = document.createElement("img");
+    let cancelled = false;
+
+    image.onload = () => {
+      if (cancelled) {
+        return;
+      }
+      // A GIF that has only just loaded is showing frame one, which is the frame
+      // worth freezing on.
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext("2d")?.drawImage(image, 0, 0);
+      setCaptured(true);
+    };
+
+    // No onerror handling: a source that cannot load has no frame to freeze, and
+    // the <img> underneath already shows the browser's broken-image state.
+    image.src = src;
+
+    return () => {
+      cancelled = true;
+      image.onload = null;
+    };
+  }, [src]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      // Hidden rather than unmounted while hovered, so the frame is captured once
+      // per source instead of on every pointer exit.
+      className={`ct-chat-image-freeze ${captured && !hidden ? "ready" : ""}`}
+    />
+  );
+}
+
 // One image renderer for both chat surfaces: a posted GIF and an uploaded
 // attachment. Click enlarges, right-click offers a download.
 //
@@ -140,6 +219,9 @@ function ChatImage({
   onDownload,
 }: ChatImageProps): JSX.Element {
   const [saving, setSaving] = useState(false);
+  const gifPlayback = useUiStore((state) => state.gifPlayback);
+  const [hovered, setHovered] = useState(false);
+  const canFreeze = gifPlayback === "hover" && isAnimatedSource(src);
 
   const handleDownload = useCallback(() => {
     if (saving) {
@@ -174,7 +256,13 @@ function ChatImage({
           to the child through a ref, and antd's Image does not forward one to a
           DOM node — so right-click would silently do nothing. A plain element
           always takes the ref. */}
-      <span className="ct-chat-image-root">
+      <span
+        className="ct-chat-image-root"
+        // Only bound when the preference is in play, so the common case does not
+        // re-render a message row on every pointer crossing.
+        onMouseEnter={canFreeze ? () => setHovered(true) : undefined}
+        onMouseLeave={canFreeze ? () => setHovered(false) : undefined}
+      >
         <Image
           src={src}
           alt={alt}
@@ -189,6 +277,7 @@ function ChatImage({
             ),
           }}
         />
+        {canFreeze && <FrozenFrameOverlay src={src} hidden={hovered} />}
       </span>
     </Dropdown>
   );

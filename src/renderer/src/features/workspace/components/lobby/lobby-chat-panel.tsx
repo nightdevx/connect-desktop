@@ -1,5 +1,6 @@
 import {
   memo,
+  useCallback,
   useMemo,
   useState,
   useRef,
@@ -305,7 +306,16 @@ export function LobbyChatPanel({
   // about, and CSS scroll-state cannot express one.
   const SCROLL_BUTTON_THRESHOLD_PX = 220;
 
+  // How close to the bottom still counts as "following the conversation".
+  // Tighter than the button's threshold: the button is about whether there is
+  // enough below to be worth a shortcut, this is about whether the reader has
+  // deliberately scrolled away.
+  const PINNED_THRESHOLD_PX = 150;
+
   const [isAwayFromBottom, setIsAwayFromBottom] = useState(false);
+  // A ref, not state: the observer below reads it during layout, before a state
+  // update from the same frame would be visible.
+  const isPinnedToBottomRef = useRef(true);
 
   const handleMessagesScroll = (): void => {
     const container = messagesContainerRef.current;
@@ -315,6 +325,7 @@ export function LobbyChatPanel({
 
     const distance =
       container.scrollHeight - container.scrollTop - container.clientHeight;
+    isPinnedToBottomRef.current = distance <= PINNED_THRESHOLD_PX;
     const away = distance > SCROLL_BUTTON_THRESHOLD_PX;
     // Only on a real change: this runs on every scroll frame.
     setIsAwayFromBottom((previous) => (previous === away ? previous : away));
@@ -322,6 +333,10 @@ export function LobbyChatPanel({
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
+      // Set before the animation starts: a smooth scroll takes a few hundred
+      // milliseconds, and asking to follow the conversation again should survive
+      // an image finishing in the middle of it.
+      isPinnedToBottomRef.current = true;
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
         behavior: "smooth",
@@ -347,19 +362,63 @@ export function LobbyChatPanel({
 
     if (!hasLandedAtNewestRef.current) {
       hasLandedAtNewestRef.current = true;
+      isPinnedToBottomRef.current = true;
       container.scrollTop = container.scrollHeight;
       setIsAwayFromBottom(false);
       return;
     }
 
     const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      PINNED_THRESHOLD_PX;
     if (isNearBottom || lobbyMessages.length <= 1) {
+      isPinnedToBottomRef.current = true;
       container.scrollTop = container.scrollHeight;
       // Jumped to the end without a scroll event necessarily firing.
       setIsAwayFromBottom(false);
     }
   }, [lobbyMessages.length]);
+
+  // Re-pin while the thread is still growing.
+  //
+  // This is what made "switch to another screen and come back" land in the
+  // middle of the history. The effect above sets scrollTop to the scrollHeight it
+  // can see, and on a remount with a warm cache every message renders at once —
+  // images, GIFs and attachments included, none of which has any height until its
+  // bytes arrive. So the target was computed against a short document, and each
+  // picture that finished loading pushed the thread further down past the
+  // viewport. Staying pinned until the layout settles is the only way to land on
+  // the newest message; a one-shot scroll cannot know how tall the content will
+  // end up being.
+  //
+  // Only while pinned: a reader who has scrolled up must not be yanked back by an
+  // image loading below them.
+  //
+  // Bound through a callback ref rather than an effect, because the list element
+  // is a different node depending on whether search results have taken over the
+  // thread — a dependency list would have to predict that, and React already
+  // calls this on every attach and detach.
+  const listResizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  const attachMessageList = useCallback((node: HTMLDivElement | null): void => {
+    listResizeObserverRef.current?.disconnect();
+    listResizeObserverRef.current = null;
+
+    if (!node) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      const container = messagesContainerRef.current;
+      if (!container || !isPinnedToBottomRef.current) {
+        return;
+      }
+      container.scrollTop = container.scrollHeight;
+    });
+
+    observer.observe(node);
+    listResizeObserverRef.current = observer;
+  }, []);
 
   const showEmptyState =
     !lobbyMessagesQuery.isPending &&
@@ -435,7 +494,7 @@ export function LobbyChatPanel({
           )}
 
           {searchResults !== null && (
-            <div className="ct-chat-message-list">
+            <div className="ct-chat-message-list" ref={attachMessageList}>
               <div
                 className="ct-chat-search-summary"
               >
@@ -464,7 +523,7 @@ export function LobbyChatPanel({
           )}
 
           {searchResults === null && !showEmptyState && (
-            <div className="ct-chat-message-list">
+            <div className="ct-chat-message-list" ref={attachMessageList}>
               {lobbyMessages.map((message) => (
                 <LobbyChatMessageRow
                   key={message.id}
