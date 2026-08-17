@@ -1,4 +1,4 @@
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
 
 export class AudioContextManager {
   private liveKitAudioContext: AudioContext | null = null;
@@ -15,13 +15,7 @@ export class AudioContextManager {
       return null;
     }
 
-    const Ctx =
-      window.AudioContext ||
-      (
-        window as typeof window & {
-          webkitAudioContext?: typeof AudioContext;
-        }
-      ).webkitAudioContext;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
 
     if (!Ctx) {
       return null;

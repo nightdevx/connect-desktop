@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef, type MutableRefObjec
 import {
   type LobbyStateMember,
   type ScreenCaptureSourceDescriptor,
-} from "../../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import {
   resolveScreenContentMode,
   type LiveKitMediaSession,
@@ -165,16 +165,27 @@ export const useScreenShareControls = ({
       };
     }
 
-    const sources = result.data.sources.map((rawSource: any) => {
-      const sourceId = String(rawSource.id ?? "");
-      const inferredKind: ScreenShareSourceKind = sourceId.startsWith("screen:") ? "screen" : "window";
+    // The kind fallback stays even though the contract makes the field
+    // required: it is derived from the id prefix, which is Electron's own
+    // guarantee, so it costs nothing and covers a source arriving from a main
+    // process that has not been restarted after an update.
+    //
+    // The `thumbnailDataUri` fallback that used to sit beside it is gone —
+    // nothing in the app has ever produced that field, and reaching for it
+    // needed an `any` that switched the type checker off for the whole mapper.
+    const sources = result.data.sources.map((rawSource) => {
+      const inferredKind: ScreenShareSourceKind = rawSource.id.startsWith(
+        "screen:",
+      )
+        ? "screen"
+        : "window";
 
       return {
-        id: sourceId,
-        name: String(rawSource.name ?? "Bilinmeyen Kaynak"),
-        kind: (rawSource.kind === "screen" || rawSource.kind === "window") ? rawSource.kind : inferredKind,
-        displayId: (typeof rawSource.displayId === "string" && rawSource.displayId.length > 0) ? rawSource.displayId : null,
-        previewDataUrl: rawSource.previewDataUrl ?? (rawSource as any).thumbnailDataUri ?? null,
+        id: rawSource.id,
+        name: rawSource.name || "Bilinmeyen Kaynak",
+        kind: rawSource.kind ?? inferredKind,
+        displayId: rawSource.displayId || null,
+        previewDataUrl: rawSource.previewDataUrl ?? null,
       };
     });
 
@@ -197,13 +208,13 @@ export const useScreenShareControls = ({
     setScreenShareSources(sources);
 
     setSelectedScreenShareSourceId((previous) => {
-      if (previous && sources.some((source: any) => source.id === previous)) return previous;
-      const preferred = sources.find((source: any) => source.kind === "screen") ?? sources[0];
+      if (previous && sources.some((source) => source.id === previous)) return previous;
+      const preferred = sources.find((source) => source.kind === "screen") ?? sources[0];
       return preferred?.id ?? null;
     });
 
     setSelectedScreenShareSourceKind(() => {
-      const hasScreens = sources.some((source: any) => source.kind === "screen");
+      const hasScreens = sources.some((source) => source.kind === "screen");
       return hasScreens ? "screen" : "window";
     });
 
@@ -277,7 +288,13 @@ export const useScreenShareControls = ({
         handleSourceEnded();
       }
     },
-    [activeLobbyRef, currentUserId, liveKitSessionRef, patchLobbyMemberState],
+    [
+      activeLobbyRef,
+      currentUserId,
+      liveKitSessionRef,
+      patchLobbyMemberState,
+      setScreenEnabled,
+    ],
   );
 
   const startScreenShareFromModal = useCallback(async (): Promise<void> => {
@@ -411,6 +428,7 @@ export const useScreenShareControls = ({
     currentUserId,
     liveKitSessionRef,
     patchLobbyMemberState,
+    setScreenEnabled,
     setStatus,
     captureSystemAudio,
     selectedScreenShareSourceId,
@@ -744,6 +762,11 @@ export const useScreenShareControls = ({
     }
 
     openScreenShareModal();
+    // currentUserId and setScreenEnabled are both stable for the life of the
+    // session — the id comes from the authenticated user and the setter is a
+    // []-dependency useCallback — so listing them would only add noise to a list
+    // whose job is to say what actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeLobbyRef,
     screenEnabled,

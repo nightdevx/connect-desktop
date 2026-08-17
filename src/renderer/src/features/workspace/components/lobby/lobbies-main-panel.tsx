@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -12,12 +13,12 @@ import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
 import type {
   DesktopResult,
-  LobbySoundEmote,
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
-import { canManageLobby } from "@/features/auth/permissions";
+import { canManageLobby } from "@/features/auth";
+import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
 import { ConfirmActionModal } from "../common";
@@ -40,7 +41,6 @@ interface LobbiesMainPanelProps {
   lobbiesCount: number;
   lobbies: LobbyDescriptor[];
   activeLobbyId: string | null;
-  activeLobbyName: string | null;
   currentUserId: string;
   currentUsername: string;
   currentUserRole: UserRole;
@@ -119,7 +119,6 @@ export function LobbiesMainPanel({
   lobbiesCount,
   lobbies,
   activeLobbyId,
-  activeLobbyName,
   currentUserId,
   currentUsername,
   currentUserRole,
@@ -179,9 +178,21 @@ export function LobbiesMainPanel({
   friends,
 }: LobbiesMainPanelProps) {
   const queryClient = useQueryClient();
-  const [isLobbyChatOpen, setIsLobbyChatOpen] = useState(true);
+  // Both of these are persisted choices rather than panel state: this component
+  // is unmounted whenever the workspace switches section, so closing the chat and
+  // stepping into Ayarlar used to bring it straight back.
+  const isLobbyChatOpen = useUiStore(
+    (state) => state.viewPreferences.lobbyChatOpen,
+  );
+  const isRailVisible = useUiStore(
+    (state) => state.viewPreferences.participantRailVisible,
+  );
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
+  const setIsRailVisible = useCallback(
+    (visible: boolean) => setViewPreference("participantRailVisible", visible),
+    [setViewPreference],
+  );
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
-  const [isRailVisible, setIsRailVisible] = useState(true);
   const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
@@ -232,18 +243,18 @@ export function LobbiesMainPanel({
   );
 
   // Sync Effects
+  //
+  // The chat and the rail are deliberately NOT reset here. Changing lobby clears
+  // what is about the old room — the focus, an open menu, a profile card — but
+  // "I closed the chat" is about how this person wants the screen laid out, and
+  // forcing it back open on every lobby change was the other half of why the
+  // choice never seemed to stick.
   useEffect(() => {
-    setIsLobbyChatOpen(true);
     setFocusedParticipantId(null);
     setContextMenuParticipantId(null);
     setContextMenuPosition(null);
     setProfileCardTarget(null);
-    setIsRailVisible(true);
   }, [activeLobbyId]);
-
-  useEffect(() => {
-    setIsRailVisible(true);
-  }, [focusedParticipantId]);
 
   useEffect(() => {
     if (!activeLobbyId) return;
@@ -471,7 +482,9 @@ export function LobbiesMainPanel({
             <button
               type="button"
               className="ct-lobby-chat-toggle in-stage"
-              onClick={() => setIsLobbyChatOpen((prev) => !prev)}
+              onClick={() =>
+                setViewPreference("lobbyChatOpen", !isLobbyChatOpen)
+              }
             >
               {isLobbyChatOpen ? (
                 <>

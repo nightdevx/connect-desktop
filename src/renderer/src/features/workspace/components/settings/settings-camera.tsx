@@ -154,6 +154,10 @@ export function SettingsCamera({
         handlePreferenceChange("frameRate", 24);
       }
     }
+    // Runs when the HARDWARE answer arrives, not when the draft changes: the body
+    // writes to the draft, so depending on it would correct a value, notice the
+    // correction, and correct it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capabilities]);
 
   useEffect(() => {
@@ -184,7 +188,7 @@ export function SettingsCamera({
     const videoEl = cameraPreviewRef.current;
     let lastTime = performance.now();
     let lastFrames = 0;
-    let timerId: any;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     const checkStats = () => {
       const now = performance.now();
@@ -270,6 +274,10 @@ export function SettingsCamera({
     if (cameraTestStream) {
       void handleStartCameraTest();
     }
+    // Only a resolution or framerate change restarts the preview. cameraTestStream
+    // is what the body checks and what the restart replaces — depending on it
+    // would restart the capture in response to its own result, forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftCameraPreferences.resolution, draftCameraPreferences.frameRate]);
 
   return (

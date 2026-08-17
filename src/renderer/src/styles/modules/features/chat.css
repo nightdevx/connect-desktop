@@ -228,16 +228,19 @@
 
   /* --- Mentions and system rows ----------------------------------------- */
 
+  /* #93c5fd is a blue picked to glow on black; it measures 1.8:1 on the light
+     theme's message ground, which is a mention nobody can read. --ct-info is
+     the same idea with a value per theme. */
   .ct-chat-mention {
     @apply rounded-sm px-0.5 font-semibold;
-    color: #93c5fd;
-    background: rgba(147, 197, 253, 0.12);
+    color: var(--ct-info);
+    background: color-mix(in srgb, var(--ct-info) 14%, transparent);
   }
 
   /* A mention of you is the one thing worth interrupting the palette for. */
   .ct-chat-mention.self {
-    color: var(--ct-text-inverse);
-    background: #fbbf24;
+    color: var(--ct-on-highlight);
+    background: var(--ct-highlight);
   }
 
   .ct-chat-row-system {
@@ -429,6 +432,15 @@
     border: 0;
   }
 
+  /* Stands in for the grid while its chunk loads. Same box as the component's
+     own width/height props, so the popover opens at its final size instead of
+     snapping a frame later. */
+  .ct-emoji-picker-loading {
+    width: 320px;
+    height: 380px;
+    background: var(--ct-surface-2);
+  }
+
   /* --- GIF picker (KLIPY) ------------------------------------------------
      Same footprint as the emoji keyboard so the composer's two popovers do not
      resize the corner they open from. The grid is the only scroller. */
@@ -498,30 +510,27 @@
      shrink-wrap: left as blocks they stretch the bubble to the full row width
      with the picture sitting in the corner of it. */
   .ct-chat-image-root,
+  .ct-chat-image-live,
   .ct-chat-image-root .ant-image {
     @apply inline-block max-w-full leading-none;
   }
 
-  /* The frozen first frame, for "play on hover". Positioned over the picture
-     rather than replacing it so the click-to-enlarge and right-click-to-download
-     affordances underneath keep working untouched -- hence pointer-events: none.
+  /* "Play on hover": the poster REPLACES the picture rather than covering it.
 
-     Hidden until the frame has actually been drawn: an empty canvas is a
-     transparent rectangle, and showing it before the capture would let the GIF
-     play for the moment it takes to load. */
-  .ct-chat-image-root {
-    @apply relative;
+     An overlay left the GIF animating underneath, which showed at the edges
+     wherever the two boxes did not agree to the pixel, and cost the decode the
+     preference exists to avoid. display:none takes the image out of the render
+     tree, and Chromium does not advance an animation it is not painting.
+
+     The poster carries the image's own class as well, so both boxes are sized by
+     the same rules and swapping between them moves nothing. */
+  .ct-chat-image-poster {
+    @apply rounded-sm;
   }
 
-  .ct-chat-image-freeze {
-    @apply pointer-events-none absolute inset-0 rounded-sm opacity-0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  .ct-chat-image-freeze.ready {
-    @apply opacity-100;
+  .ct-chat-image-live.is-hidden,
+  .ct-chat-image-poster.is-hidden {
+    @apply hidden;
   }
 
   /* The hover mask is antd's own; it only needs to match the app rather than
@@ -540,7 +549,7 @@
 
   .ct-chat-reply-quote {
     @apply mb-1.5 pl-2 text-xs leading-snug;
-    border-left: 2px solid rgba(147, 197, 253, 0.6);
+    border-left: 2px solid color-mix(in srgb, var(--ct-info) 55%, transparent);
     opacity: 0.75;
   }
 
@@ -602,8 +611,8 @@
   /* Your own reaction reads as "pressed", so a count you contributed to is
      distinguishable from one you only watched. */
   .ct-chat-reaction.mine {
-    border-color: rgba(147, 197, 253, 0.8);
-    background: rgba(147, 197, 253, 0.18);
+    border-color: color-mix(in srgb, var(--ct-info) 70%, transparent);
+    background: color-mix(in srgb, var(--ct-info) 16%, transparent);
   }
 
   .ct-chat-reaction:disabled {
@@ -682,14 +691,22 @@
 }
 
 .ct-muted-call-banner {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(79, 70, 229, 0.03) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ct-info) 9%, transparent) 0%,
+    color-mix(in srgb, var(--ct-info) 3%, transparent) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--ct-info) 22%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
 .ct-rejoin-banner {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--ct-success) 8%, transparent) 0%, rgba(52, 211, 153, 0.03) 100%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ct-success) 8%, transparent) 0%,
+    color-mix(in srgb, var(--ct-success) 3%, transparent) 100%
+  );
   border: 1px solid color-mix(in srgb, var(--ct-success) 18%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -845,8 +862,12 @@
   right: 12px;
   bottom: calc(100% + 6px);
   max-height: 220px;
-  background: var(--ct-surface-overlay, #16161a);
-  border-color: var(--ct-border-subtle, var(--ct-alpha-08));
+  /* --ct-surface-overlay and --ct-border-subtle are defined nowhere, so this
+     was painting its literal fallback — a hardcoded #16161a — in both themes,
+     under --ct-text-secondary text that turns near-black in the light one. The
+     @ picker in a lobby's composer came out black on charcoal. */
+  background: var(--ct-panel-solid);
+  border-color: var(--ct-border);
   box-shadow: 0 12px 32px var(--ct-shadow-color);
 }
 

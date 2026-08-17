@@ -93,6 +93,48 @@
   --ct-danger: #ef4444;
   --ct-info: #3b82f6;
 
+  /* Text on a saturated semantic ground. --ct-text-primary is the wrong answer
+     for these: it flips to near-black in the light theme, which put black
+     lettering on a dark red "leave the room" button and on a blue badge. Red is
+     red in both themes, so what reads on it is white in both themes. */
+  --ct-on-danger: #ffffff;
+  --ct-on-info: #ffffff;
+
+  /* ---- Presence ---------------------------------------------------------
+     A status dot means the same thing in both themes. These are hues rather
+     than contrast steps — but the values below are tuned to sit on black, and
+     go pale and washed out on white, so the light theme darkens them exactly
+     the way it darkens the semantic colours. */
+  --ct-presence-online: #22c55e;
+  --ct-presence-idle: #eab308;
+  --ct-presence-dnd: #ef4444;
+  --ct-presence-offline: #6b7280;
+
+  /* ---- On media ---------------------------------------------------------
+     Chrome that sits on top of a video, a screen share or a photo: a tile's
+     name and mic icons, the fullscreen button, the scrim behind them.
+
+     What this has to contrast with is the PICTURE, not the page, and a picture
+     does not change when the theme does — so unlike everything else here, these
+     are deliberately IDENTICAL in both themes. The light theme is not given a
+     turn at them. (Same principle as --ct-shadow-color's note above.)
+
+     Reaching for --ct-text-primary instead is what turned a participant tile's
+     name and status icons black-on-black the moment the light theme was on. */
+  --ct-on-media: #ffffff;
+  --ct-on-media-muted: rgba(255, 255, 255, 0.74);
+  --ct-on-media-surface: rgba(0, 0, 0, 0.45);
+  --ct-on-media-surface-strong: rgba(0, 0, 0, 0.62);
+  --ct-on-media-border: rgba(255, 255, 255, 0.24);
+
+  /* A highlighter pen, for the one mention that is of YOU. Same argument as the
+     on-media pair: the point of a highlighter is that it is the same colour
+     wherever it lands, so it does not follow the theme and what reads on it is
+     fixed too. --ct-text-inverse used to play this part and turned white the
+     moment the light theme did, i.e. white on amber. */
+  --ct-highlight: #fbbf24;
+  --ct-on-highlight: #2a1c00;
+
   /* ---- Radius (5 steps, replacing 11 ad-hoc values) -------------------- */
   --ct-radius-sm: 6px;
   --ct-radius-md: 10px;
@@ -220,6 +262,17 @@
   --ct-warning: #b45309;
   --ct-danger: #cc2b2b;
   --ct-info: #2563eb;
+
+  /* Same reasoning as the semantic colours: the dark theme's dots are picked to
+     glow on black and drop to 2.3:1 (green) and 1.7:1 (amber) on white, where a
+     6px dot beside a name stops registering as a status at all. */
+  --ct-presence-online: #15803d;
+  --ct-presence-idle: #a16207;
+  --ct-presence-dnd: #cc2b2b;
+  --ct-presence-offline: #71717a;
+
+  /* --ct-on-* are NOT redefined here. They belong to the picture underneath,
+     which has no theme. See their definition above. */
 
   /* Shadows over a light ground read as dirt at the dark theme's opacity. */
   --ct-shadow-color: rgba(15, 15, 20, 0.12);

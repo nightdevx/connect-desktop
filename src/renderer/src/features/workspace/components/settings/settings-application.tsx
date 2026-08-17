@@ -4,7 +4,7 @@ import { SettingOutlined, ReloadOutlined, BugOutlined } from "@ant-design/icons"
 import type {
   AppUpdateEvent,
   AppUpdateSnapshot,
-} from "../../../../../../shared/update-contracts";
+} from "@shared/update-contracts";
 import type { ThemeMode } from "@/styles/theme-mode";
 import type { GifPlayback } from "@/styles/gif-playback";
 import { useUiStore } from "@/store/ui-store";
@@ -161,7 +161,8 @@ export function SettingsApplication() {
       active = false;
       unsubscribe();
     };
-  }, []);
+    // Stable: antd memoises the message.useMessage() handle.
+  }, [messageApi]);
 
   const handleManualUpdateCheck = async (): Promise<void> => {
     setIsCheckingForUpdates(true);

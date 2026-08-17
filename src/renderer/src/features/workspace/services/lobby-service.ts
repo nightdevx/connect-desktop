@@ -3,10 +3,10 @@ import type {
   DesktopResult,
   LobbySoundEmote,
   LobbyStreamEvent,
-} from "../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import type {
   LobbyDescriptor,
-} from "../../../../../shared/auth-contracts";
+} from "@shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
   ok: false,

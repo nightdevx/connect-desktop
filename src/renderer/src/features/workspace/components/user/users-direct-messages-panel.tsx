@@ -1,8 +1,6 @@
 import {
-  memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   useMemo,
@@ -15,7 +13,6 @@ import type { InputRef } from "antd";
 import {
   SendOutlined,
   CopyOutlined,
-  DeleteOutlined,
   CalendarOutlined,
   SafetyOutlined,
   GlobalOutlined,
@@ -28,8 +25,6 @@ import {
   RightOutlined,
   MessageOutlined,
   CloseOutlined,
-  EditOutlined,
-  EnterOutlined,
   SearchOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
@@ -37,11 +32,10 @@ import type { UserDirectoryEntry, ChatMessage } from "@shared/auth-contracts";
 import type { UseDirectMessagesResult } from "../../hooks/chat/use-direct-messages";
 import {
   formatDateLabel,
-  formatTimeLabel,
   getApiErrorMessage,
   getUserStatusLabel,
 } from "../../workspace-utils";
-import { renderWithMentions, type MentionCandidate } from "../../mentions";
+import type { MentionCandidate } from "../../mentions";
 import {
   MentionPicker,
   useMentionPicker,
@@ -50,201 +44,11 @@ import { ConfirmActionModal } from "../common";
 import { FriendsHomePanel, type FriendsHomePanelProps } from "./friends-home-panel";
 import {
   ChatAttachButton,
-  ChatAttachmentView,
   ChatComposerEmojiButton,
-  ChatMessageBody,
-  ChatReactionButton,
-  ChatReactionBar,
   ChatReplyQuote,
   formatAttachmentSize,
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
-
-interface DirectChatMessageRowProps {
-  message: ChatMessage;
-  isOwnMessage: boolean;
-  isDeleting: boolean;
-  deleteDisabled: boolean;
-  peerLabel: string;
-  currentUsername: string;
-  currentUserId: string;
-  onRequestDelete: (messageId: string) => void;
-  onReply: (message: ChatMessage) => void;
-  onEdit: (messageId: string, body: string) => void;
-  onToggleReaction: (messageId: string, emoji: string, add: boolean) => void;
-}
-
-// Turkish usernames can contain letters outside \w, so the class is explicit
-// rather than \w+.
-// Mention matching, highlighting and "was I named" moved to ../../mentions so
-// the lobby composer and message list can use the same rules. Re-exported
-// because callers already import mentionsUser from here.
-export { mentionsUser } from "../../mentions";
-
-// One rendered message, memoized on primitives. The composer draft and the
-// call/typing state all live in this panel, so without this every keystroke
-// re-rendered the whole conversation backlog.
-const DirectChatMessageRow = memo(function DirectChatMessageRow({
-  message,
-  isOwnMessage,
-  isDeleting,
-  deleteDisabled,
-  peerLabel,
-  currentUsername,
-  currentUserId,
-  onRequestDelete,
-  onReply,
-  onEdit,
-  onToggleReaction,
-}: DirectChatMessageRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editDraft, setEditDraft] = useState(message.body);
-  const isCallStart = message.body === "📞 Arama başladı";
-  const isCallEnd = message.body === "📞 Arama bitti";
-
-  if (isCallStart || isCallEnd) {
-    return (
-      <div className="ct-chat-row-system">
-        <div className="ct-chat-system-call-pill">
-          <span
-            className={`ct-chat-system-call-label ${isCallEnd ? "ended" : ""}`}
-          >
-            <PhoneOutlined />
-            {message.body}
-          </span>
-          <span className="ct-chat-system-call-time">
-            • {formatTimeLabel(message.createdAt)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  const commitEdit = (): void => {
-    const trimmed = editDraft.trim();
-    setIsEditing(false);
-    if (trimmed && trimmed !== message.body) {
-      onEdit(message.id, trimmed);
-    }
-  };
-
-  return (
-    <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
-      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
-        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
-
-        {isEditing ? (
-          <Input.TextArea
-            autoFocus
-            value={editDraft}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            onChange={(event) => setEditDraft(event.target.value)}
-            onBlur={commitEdit}
-            onPressEnter={(event) => {
-              if (event.shiftKey) {
-                return;
-              }
-              event.preventDefault();
-              commitEdit();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setEditDraft(message.body);
-                setIsEditing(false);
-              }
-            }}
-           
-          />
-        ) : (
-          message.body && (
-            <ChatMessageBody body={message.body}>
-              {renderWithMentions(message.body, currentUsername)}
-            </ChatMessageBody>
-          )
-        )}
-
-        {message.attachment && (
-          <ChatAttachmentView attachment={message.attachment} />
-        )}
-
-        <ChatReactionBar
-          reactions={message.reactions ?? []}
-          currentUserId={currentUserId}
-          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
-        />
-
-        <div className="ct-chat-bubble-meta">
-          <span>
-            {isOwnMessage ? "Sen" : peerLabel} •{" "}
-            {formatTimeLabel(message.createdAt)}
-            {message.editedAt ? " • düzenlendi" : ""}
-          </span>
-
-          <span className="ct-chat-message-actions">
-            <ChatReactionButton
-              onPick={(emoji) => {
-                const existing = (message.reactions ?? []).find(
-                  (reaction) => reaction.emoji === emoji,
-                );
-                // Picking an emoji you already used removes it, so the picker
-                // doubles as a toggle rather than being a one-way action.
-                const mine = existing?.userIds.includes(currentUserId) ?? false;
-                onToggleReaction(message.id, emoji, !mine);
-              }}
-            />
-
-            <Tooltip title="Yanıtla">
-              <button
-                type="button"
-                className="ct-chat-action"
-                onClick={() => onReply(message)}
-                aria-label="Yanıtla"
-              >
-                <EnterOutlined />
-              </button>
-            </Tooltip>
-
-            {isOwnMessage && message.body && (
-              <Tooltip title="Düzenle">
-                <button
-                  type="button"
-                  className="ct-chat-action"
-                  onClick={() => {
-                    setEditDraft(message.body);
-                    setIsEditing(true);
-                  }}
-                  aria-label="Mesajı düzenle"
-                >
-                  <EditOutlined />
-                </button>
-              </Tooltip>
-            )}
-
-            {isOwnMessage && (
-              <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
-                <button
-                  type="button"
-                  className="ct-chat-action danger"
-                  onClick={() => onRequestDelete(message.id)}
-                  disabled={deleteDisabled}
-                  aria-label="Mesajı sil"
-                >
-                  {isDeleting ? (
-                    <div className="ct-spinner-small" />
-                  ) : (
-                    <DeleteOutlined />
-                  )}
-                </button>
-              </Tooltip>
-            )}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-// Calling and Stage Imports
 import { useLobbyParticipants } from "../lobby/hooks/use-lobby-participants";
 import { useLobbyStageSlots } from "../lobby/hooks/use-lobby-stage-slots";
 import { LobbyStageView } from "../lobby/parts/LobbyStageView";
@@ -255,12 +59,20 @@ import { type LobbyParticipantView } from "../lobby/lobby-participant-tile";
 import { type StageParticipantSlot } from "../lobby/lobby-view-utils";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import type {
-  LobbySoundEmote,
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import type { CallSessionState } from "../../hooks";
 import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import workspaceService from "../../services";
+import { useUiStore } from "@/store/ui-store";
+import { DirectChatMessageRow } from "./direct-chat-message-row";
+import { useThreadScroll } from "./use-thread-scroll";
+
+// Mention matching, highlighting and "was I named" live in ../../mentions so the
+// lobby composer and this message list share one set of rules. Re-exported
+// because callers already import mentionsUser from here.
+export { mentionsUser } from "../../mentions";
+
 
 // Stable fallbacks for the optional media props below.
 const EMPTY_SPEAKER_IDS: string[] = [];
@@ -467,7 +279,7 @@ export function UsersDirectMessagesPanel({
       const mutedUsersStr = localStorage.getItem("connect_muted_call_users") || "[]";
       const mutedIds = JSON.parse(mutedUsersStr);
       setIsMuted(Array.isArray(mutedIds) && mutedIds.includes(selectedUser.userId));
-    } catch (e) {
+    } catch {
       setIsMuted(false);
     }
   }, [selectedUser]);
@@ -573,11 +385,24 @@ export function UsersDirectMessagesPanel({
       }
     }
     return stageParticipantSlots;
+    // callState.status is what decides whether a placeholder tile belongs here;
+    // callerId only names who is ringing and changes on the same transition, so
+    // listing it would rebuild the stage a second time for one event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageParticipantSlots, lobbyParticipants, selectedUser, activeLobbyId, callState?.status, currentUserId, micEnabled, headphoneEnabled, cameraEnabled, screenEnabled]);
 
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  // Persisted, for the same reason as the lobby's: this panel is unmounted on
+  // every workspace section change, so a closed thread came back open.
+  const isChatOpen = useUiStore((state) => state.viewPreferences.callChatOpen);
+  const isRailVisible = useUiStore(
+    (state) => state.viewPreferences.participantRailVisible,
+  );
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
+  const setIsRailVisible = useCallback(
+    (visible: boolean) => setViewPreference("participantRailVisible", visible),
+    [setViewPreference],
+  );
   const [focusedParticipantId, setFocusedParticipantId] = useState<string | null>(null);
-  const [isRailVisible, setIsRailVisible] = useState(true);
   const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -593,16 +418,12 @@ export function UsersDirectMessagesPanel({
     isChatOpen,
   );
 
+  // The thread and the rail are deliberately not reset here; they are layout
+  // choices, not state belonging to the call that just ended.
   useEffect(() => {
-    setIsRailVisible(true);
-  }, [focusedParticipantId]);
-
-  useEffect(() => {
-    setIsChatOpen(true);
     setFocusedParticipantId(null);
     setContextMenuParticipantId(null);
     setContextMenuPosition(null);
-    setIsRailVisible(true);
   }, [activeLobbyId]);
 
   useEffect(() => {
@@ -703,82 +524,14 @@ export function UsersDirectMessagesPanel({
     Boolean(directMessagesQuery.data?.ok) &&
     directMessages.length === 0;
 
-  // --- Thread scrolling ----------------------------------------------------
-  // Three behaviours share one scroll container: jump to the newest message
-  // when a conversation opens, follow new messages only while the reader is
-  // already at the bottom, and pull the previous page in when they reach the
-  // top. The old effect forced scrollTop to the bottom on every length change,
-  // which is why older messages needed a button -- prepending a page would
-  // otherwise have thrown the reader straight back to the newest message.
-  const atBottomRef = useRef(true);
-  // Distance from the bottom, captured before a prepend so the same message
-  // can be put back under the cursor once the page lands.
-  const prependAnchorRef = useRef<number | null>(null);
-  const lastPeerIdRef = useRef<string | null>(null);
-
-  const handleChatScroll = useCallback(() => {
-    const container = chatScrollRef.current;
-    if (!container) {
-      return;
-    }
-
-    atBottomRef.current =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-
-    if (
-      container.scrollTop < 120 &&
-      hasMoreMessages &&
-      !isLoadingOlderMessages &&
-      prependAnchorRef.current === null &&
-      directMessages.length > 0
-    ) {
-      prependAnchorRef.current = container.scrollHeight - container.scrollTop;
-      onLoadOlderMessages?.();
-    }
-  }, [
+  const { handleChatScroll } = useThreadScroll({
+    containerRef: chatScrollRef,
+    peerUserId: selectedUser?.userId ?? null,
+    messageCount: directMessages.length,
     hasMoreMessages,
     isLoadingOlderMessages,
     onLoadOlderMessages,
-    directMessages.length,
-  ]);
-
-  // Layout effect, not effect: the correction has to land in the same frame as
-  // the prepend, or the thread visibly jumps before snapping back.
-  useLayoutEffect(() => {
-    const container = chatScrollRef.current;
-    if (!selectedUser || !container) {
-      return;
-    }
-
-    if (lastPeerIdRef.current !== selectedUser.userId) {
-      lastPeerIdRef.current = selectedUser.userId;
-      prependAnchorRef.current = null;
-      atBottomRef.current = true;
-      container.scrollTop = container.scrollHeight;
-      return;
-    }
-
-    const anchor = prependAnchorRef.current;
-    if (anchor !== null) {
-      prependAnchorRef.current = null;
-      container.scrollTop = container.scrollHeight - anchor;
-      return;
-    }
-
-    if (atBottomRef.current) {
-      container.scrollTop = container.scrollHeight;
-    }
-    // Keyed on the id, not the object: an unstable `selectedUser` identity
-    // would re-run this every render and pin the thread to the bottom.
-  }, [directMessages.length, selectedUser?.userId]);
-
-  // A request that came back empty (or failed) leaves the anchor set, which
-  // would freeze the next attempt. Clear it once the load settles.
-  useEffect(() => {
-    if (!isLoadingOlderMessages) {
-      prependAnchorRef.current = null;
-    }
-  }, [isLoadingOlderMessages]);
+  });
 
   const renderChatBox = () => {
     return (
@@ -1064,7 +817,7 @@ export function UsersDirectMessagesPanel({
                 <button
                   type="button"
                   className="ct-lobby-chat-toggle in-stage"
-                  onClick={() => setIsChatOpen((prev) => !prev)}
+                  onClick={() => setViewPreference("callChatOpen", !isChatOpen)}
                 >
                   {isChatOpen ? (
                     <>
@@ -1144,7 +897,7 @@ export function UsersDirectMessagesPanel({
                     type="text"
                     size="small"
                     icon={<RightOutlined />}
-                    onClick={() => setIsChatOpen(false)}
+                    onClick={() => setViewPreference("callChatOpen", false)}
                     aria-label="Sohbeti kapat"
                   />
                 </div>

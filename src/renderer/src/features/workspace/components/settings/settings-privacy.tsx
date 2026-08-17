@@ -5,7 +5,7 @@ import type {
   PrivacySettings,
   UpdatePrivacyRequest,
 } from "@shared/auth-contracts";
-import { authService } from "../../../auth";
+import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
 

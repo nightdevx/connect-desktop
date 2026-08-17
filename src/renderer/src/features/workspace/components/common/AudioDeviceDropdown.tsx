@@ -1,4 +1,14 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode, type CSSProperties } from "react";
+
+// CSS anchor positioning (anchor-name / position-anchor) shipped in Chromium 125
+// and is not in React's CSSProperties yet. Declared once, so the widening names
+// exactly the two properties it is for instead of switching off checking on the
+// whole style object.
+type AnchorPositionedStyle = CSSProperties & {
+  anchorName?: string;
+  positionAnchor?: string;
+};
+
 
 interface AudioDeviceDropdownProps {
   children: ReactNode;
@@ -24,7 +34,7 @@ export function AudioDeviceDropdown({
     if (popoverRef.current) {
       try {
         popoverRef.current.hidePopover();
-      } catch (err) {
+      } catch {
         // Fallback if already closed or not supported
       }
     }
@@ -67,7 +77,7 @@ export function AudioDeviceDropdown({
 
   return (
     <div
-      style={{ anchorName, display: "inline-block" } as any}
+      style={{ anchorName, display: "inline-block" } as AnchorPositionedStyle}
       onContextMenu={handleContextMenu}
     >
       {children}
@@ -76,10 +86,12 @@ export function AudioDeviceDropdown({
           {...{ popover: "auto" }}
           ref={popoverRef}
           className="ct-audio-device-popover"
-          style={{
-            positionAnchor: anchorName,
-            position: "absolute",
-          } as any}
+          style={
+            {
+              positionAnchor: anchorName,
+              position: "absolute",
+            } as AnchorPositionedStyle
+          }
         >
           <div className="ct-device-menu-inner">
             <div

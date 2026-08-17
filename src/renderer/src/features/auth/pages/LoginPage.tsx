@@ -1,10 +1,30 @@
 import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
 import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
-import type { LoginRequest } from "../../../../../shared/auth-contracts";
+import type { LoginRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { describeAuthError } from "../auth-error-messages";
 import { AuthErrorAlert } from "../components/AuthErrorAlert";
+import { toErrorMessage } from "@shared/error-message";
+
+// antd Form hands its callback an untyped object; naming the fields here is
+// what makes a renamed <Form.Item name> a compile error rather than an
+// undefined that reaches the server.
+interface LoginFormValues {
+  username: string;
+  password: string;
+}
+
+interface ForgotPasswordFormValues {
+  email: string;
+}
+
+interface ResetPasswordFormValues {
+  email?: string;
+  code: string;
+  newPassword: string;
+}
+
 
 const mutedIconStyle = { color: "var(--ct-text-muted)" };
 
@@ -22,7 +42,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
   const [actionLoading, setActionLoading] = useState(false);
   const [submitError, setSubmitError] = useState<ApiErrorPayload | null>(null);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: LoginFormValues): Promise<void> => {
     setSubmitError(null);
     const failure = await onSubmit({
       username: values.username,
@@ -42,7 +62,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     }
   };
 
-  const handleForgotPassword = async (values: any) => {
+  const handleForgotPassword = async (values: ForgotPasswordFormValues): Promise<void> => {
     setActionLoading(true);
     try {
       const result = await window.desktopApi.forgotPassword({ email: values.email });
@@ -52,20 +72,20 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         setMode("reset");
         form.resetFields();
       } else {
-        message.error(result.error?.message || "Kod gönderilemedi!");
+        message.error(toErrorMessage(result.error, "Kod gönderilemedi!"));
       }
-    } catch (err) {
+    } catch {
       message.error("Bir hata oluştu!");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleResetPassword = async (values: any) => {
+  const handleResetPassword = async (values: ResetPasswordFormValues): Promise<void> => {
     setActionLoading(true);
     try {
       const result = await window.desktopApi.resetPassword({
-        email: resetEmail || values.email,
+        email: resetEmail || values.email || "",
         code: values.code,
         newPassword: values.newPassword,
       });
@@ -74,9 +94,9 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         setMode("login");
         form.resetFields();
       } else {
-        message.error(result.error?.message || "Şifre sıfırlanamadı!");
+        message.error(toErrorMessage(result.error, "Şifre sıfırlanamadı!"));
       }
-    } catch (err) {
+    } catch {
       message.error("Bir hata oluştu!");
     } finally {
       setActionLoading(false);

@@ -1,4 +1,4 @@
-import { logLiveKitDebug } from "../livekit";
+import { logLiveKitDebug } from "@/services/debug-log";
 import {
   MicrophoneTrackProcessorFactory,
   type MicrophoneProcessor,
@@ -14,6 +14,7 @@ export class ProcessorManager {
   private activeMicrophoneProcessor: MicrophoneProcessor | null = null;
   private activeKey: ActiveProcessorKey | null = null;
   private gainPercent = 100;
+  private noiseSuppressionReady = false;
   private readonly processorFactory: MicrophoneTrackProcessorFactory;
 
   public constructor(private readonly onWarning?: (message: string) => void) {
@@ -30,10 +31,45 @@ export class ProcessorManager {
     this.activeMicrophoneProcessor?.setGainPercent(percent);
   }
 
+  /**
+   * Loads the worklets and the WASM up front, and reports whether RNNoise will
+   * really run. Both answers matter to the caller: the loading has to finish
+   * before the microphone is published, and a `false` means the browser's own
+   * noise suppression must be left switched on, because nothing else will be
+   * denoising.
+   */
+  public async prewarm(
+    audioContext: AudioContext,
+    noiseSuppressionEnabled: boolean,
+  ): Promise<boolean> {
+    this.noiseSuppressionReady = await this.processorFactory.prewarm(
+      audioContext,
+      noiseSuppressionEnabled,
+    );
+    return this.noiseSuppressionReady;
+  }
+
+  /**
+   * Whether RNNoise is loaded and will run, as opposed to
+   * isNoiseSuppressionActive, which reports whether a built graph currently has
+   * it wired in. This is the one the capture constraints need, because they are
+   * decided before any graph exists.
+   */
+  public isNoiseSuppressionReady(): boolean {
+    return this.noiseSuppressionReady;
+  }
+
   public async getOrCreateProcessor(
     preset: NoiseSuppressionPreset,
-    noiseSuppressionEnabled: boolean,
+    wantsNoiseSuppression: boolean,
   ): Promise<MicrophoneProcessor | null> {
+    // One decision, made in prewarm, used in both places: the capture
+    // constraints and the graph. If they disagree — RNNoise wired in while the
+    // browser's suppressor was left on, or both switched off — the microphone is
+    // either double-processed or not processed at all.
+    const noiseSuppressionEnabled =
+      wantsNoiseSuppression && this.noiseSuppressionReady;
+
     const matchesActive =
       this.activeKey?.preset === preset &&
       this.activeKey?.noiseSuppressionEnabled === noiseSuppressionEnabled;

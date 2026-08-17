@@ -12,7 +12,7 @@ import {
   type TrackPublishOptions,
   type VideoCodec,
 } from "livekit-client";
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
 import {
@@ -28,6 +28,12 @@ import {
   DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   isScreenSource as isScreenSourceKind,
 } from "./constants";
+import {
+  NOT_SPEAKING,
+  advanceSpeaking,
+  readRmsLevel,
+  type SpeakingTrack,
+} from "./speaking";
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
@@ -47,12 +53,17 @@ import {
 } from "./video-profiles";
 
 const AUDIO_LEVEL_SAMPLE_INTERVAL_MS = 100;
-const LOCAL_SPEAKING_THRESHOLD = 0.015;
-// 500ms of hangover at a 100ms tick.
-const LOCAL_SILENCE_HOLD_TICKS = 5;
 // Stats tick once a second; only warn after the limitation has persisted, so a
 // momentary spike while a share starts up does not fire a scary message.
 const QUALITY_LIMITATION_TICKS = 8;
+
+// A publication that exists and is not muted. Covers a self-mute and a
+// moderator's force-mute identically, which is what we want: either way nothing
+// is on the wire, so nobody can be speaking.
+const isMicrophoneLive = (participant: Participant): boolean => {
+  const publication = participant.getTrackPublication(Track.Source.Microphone);
+  return !!publication && !publication.isMuted;
+};
 
 const isSameParticipantMediaState = (
   left: ParticipantMediaState,
@@ -130,8 +141,11 @@ export class LiveKitStreamManager {
   private localAnalyser: AnalyserNode | null = null;
   private localAudioSource: MediaStreamAudioSourceNode | null = null;
   private micGainNode: GainNode | null = null;
-  private isSpeakingLocal = false;
-  private silenceTicks = 0;
+  // Resolved speaking state per LiveKit identity — everyone in the room,
+  // including the local participant. Owned here rather than derived in React so
+  // there is exactly one answer to "is this person talking", arrived at the same
+  // way for everybody. See ./speaking.ts for why that matters.
+  private readonly speakingByIdentity = new Map<string, SpeakingTrack>();
   private lastCapturedStreamId: string | null = null;
   private readonly streamCache = new Map<string, MediaStream>();
 
@@ -162,7 +176,7 @@ export class LiveKitStreamManager {
   private startAudioMonitoring() {
     if (this.monitorTimer !== null) return;
     this.monitorTimer = window.setInterval(() => {
-      this.sampleAudioLevels();
+      this.sampleSpeakingState();
     }, AUDIO_LEVEL_SAMPLE_INTERVAL_MS);
   }
 
@@ -171,8 +185,7 @@ export class LiveKitStreamManager {
       window.clearInterval(this.monitorTimer);
       this.monitorTimer = null;
     }
-    this.silenceTicks = 0;
-    this.isSpeakingLocal = false;
+    this.speakingByIdentity.clear();
   }
 
   private readLocalAudioLevel(): number | null {
@@ -180,63 +193,82 @@ export class LiveKitStreamManager {
       return null;
     }
 
-    const binCount = this.localAnalyser.frequencyBinCount;
-    if (!this.analyserBuffer || this.analyserBuffer.length !== binCount) {
-      this.analyserBuffer = new Uint8Array(new ArrayBuffer(binCount));
+    const sampleCount = this.localAnalyser.fftSize;
+    if (!this.analyserBuffer || this.analyserBuffer.length !== sampleCount) {
+      this.analyserBuffer = new Uint8Array(new ArrayBuffer(sampleCount));
     }
 
-    const dataArray = this.analyserBuffer;
-    this.localAnalyser.getByteFrequencyData(dataArray);
-
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i += 1) {
-      sum += dataArray[i];
-    }
-
-    return sum / dataArray.length / 128;
+    return readRmsLevel(this.localAnalyser, this.analyserBuffer);
   }
 
-  // Publishes a media-map update only on a speaking TRANSITION.
+  /**
+   * This person's voice level, or null when we are not receiving it.
+   *
+   * The local participant is measured off the capture graph; everyone else off
+   * the playback bus they are already being decoded into. Both are the real
+   * waveform, so both answer the same question with the same accuracy — which is
+   * the point, and used not to be true.
+   */
+  private readSpeechLevel(participant: Participant): number | null {
+    if (participant === this.room?.localParticipant) {
+      return this.readLocalAudioLevel();
+    }
+    return this.remoteMediaHandler?.readMicLevel(participant.identity) ?? null;
+  }
+
+  // One tick of the speaking state machine for every participant, and a media-map
+  // update only when somebody's answer actually flipped.
   //
-  // It used to also publish whenever any level moved by more than the emit delta,
-  // which for anyone actually talking is most of the ten ticks a second — each one
-  // rebuilding the map and re-rendering every participant tile, to carry a number
-  // no consumer read. The transitions are what the UI is derived from.
-  private sampleAudioLevels(): void {
-    let needsUpdate = false;
+  // This is the only writer of isSpeaking. It used to be split: the local ring
+  // came from an analyser here, and remote rings were derived in React from the
+  // server's active-speaker list, with a second hold timer of their own. Two
+  // signals, two smoothing constants, two sets of edge cases — and the remote one
+  // was the coarse estimate, which is why other people's rings were the ones that
+  // came and went.
+  private sampleSpeakingState(): void {
+    const room = this.room;
+    if (!room) return;
 
-    const level = this.readLocalAudioLevel();
-    if (level !== null) {
-      if (level > LOCAL_SPEAKING_THRESHOLD) {
-        this.silenceTicks = 0;
-        if (!this.isSpeakingLocal) {
-          this.isSpeakingLocal = true;
-          needsUpdate = true;
-        }
-      } else if (this.isSpeakingLocal) {
-        // Hangover so a pause between words does not flicker the indicator.
-        this.silenceTicks += 1;
-        if (this.silenceTicks >= LOCAL_SILENCE_HOLD_TICKS) {
-          this.isSpeakingLocal = false;
-          this.silenceTicks = 0;
-          needsUpdate = true;
-        }
+    let changed = false;
+    const present = new Set<string>();
+
+    const participants: Participant[] = [
+      room.localParticipant,
+      ...Array.from(room.remoteParticipants.values()),
+    ];
+
+    for (const participant of participants) {
+      const identity = participant.identity;
+      present.add(identity);
+
+      const previous = this.speakingByIdentity.get(identity) ?? NOT_SPEAKING;
+      const next = advanceSpeaking(previous, {
+        level: this.readSpeechLevel(participant),
+        serverSpeaking: participant.isSpeaking,
+        micLive: isMicrophoneLive(participant),
+      });
+
+      if (next.speaking !== previous.speaking) {
+        changed = true;
+      }
+
+      if (next.speaking) {
+        this.speakingByIdentity.set(identity, next);
+      } else {
+        this.speakingByIdentity.delete(identity);
       }
     }
 
-    // Remote flips arrive via ActiveSpeakersChanged too; this is the backstop for
-    // a flag that changed without the room emitting that event.
-    if (!needsUpdate && this.room) {
-      for (const participant of this.room.remoteParticipants.values()) {
-        const current = this.mediaMap[participant.identity];
-        if (current && current.isSpeaking !== participant.isSpeaking) {
-          needsUpdate = true;
-          break;
-        }
+    // Somebody who left mid-word would otherwise keep their entry forever, and
+    // an identity that reconnects inherits it.
+    for (const identity of Array.from(this.speakingByIdentity.keys())) {
+      if (!present.has(identity)) {
+        this.speakingByIdentity.delete(identity);
+        changed = true;
       }
     }
 
-    if (needsUpdate) {
+    if (changed) {
       this.updateMediaMap();
     }
   }
@@ -256,7 +288,7 @@ export class LiveKitStreamManager {
 
     try {
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext!)();
       }
       
       if (this.audioContext.state === 'suspended') {
@@ -1364,9 +1396,11 @@ export class LiveKitStreamManager {
       cameraEnabled: !!(cameraPub?.isSubscribed && !cameraPub?.isMuted) || (p instanceof LocalParticipant && p.isCameraEnabled),
       screenEnabled: !!(screenPub?.isSubscribed && !screenPub?.isMuted) || (p instanceof LocalParticipant && p.isScreenShareEnabled),
       screenAvailable,
-      // The local analyser is ORed in so your own ring lights up as you speak
-      // rather than after the server's next speaker update comes back.
-      isSpeaking: p.isSpeaking || (p instanceof LocalParticipant && this.isSpeakingLocal),
+      // Already resolved by the sampler: measured from this person's own audio
+      // when we have it, the server's flag when we do not, mute-gated and held
+      // either way. Reading p.isSpeaking here instead would put the coarse remote
+      // estimate back in the one place the UI actually reads.
+      isSpeaking: this.speakingByIdentity.get(p.identity)?.speaking ?? false,
       camera: cameraTrack || cameraStream,
       screen: screenTrack || screenStream,
       cameraStream,

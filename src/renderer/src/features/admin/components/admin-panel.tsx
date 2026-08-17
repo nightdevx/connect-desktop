@@ -1,12 +1,16 @@
-import { useUiStore } from "../../../store/ui-store";
-import AdminSidebar from "@/features/admin/components/admin-sidebar";
-import AdminDashboard from "@/features/admin/components/admin-dashboard";
-import AdminUsers from "@/features/admin/components/admin-users";
-import AdminLobbies from "@/features/admin/components/admin-lobbies";
-import AdminActivity from "@/features/admin/components/admin-activity";
-import AdminSounds from "@/features/admin/components/admin-sounds";
+import { useUiStore } from "@/store/ui-store";
+import AdminSidebar from "./admin-sidebar";
+import AdminDashboard from "./admin-dashboard";
+import AdminUsers from "./admin-users";
+import AdminLobbies from "./admin-lobbies";
+import AdminActivity from "./admin-activity";
+import AdminSounds from "./admin-sounds";
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  currentUserId: string;
+}
+
+export default function AdminPanel({ currentUserId }: AdminPanelProps) {
   const adminSection = useUiStore((state) => state.adminSection);
 
   const renderContent = () => {
@@ -14,7 +18,7 @@ export default function AdminPanel() {
       case "dashboard":
         return <AdminDashboard />;
       case "users":
-        return <AdminUsers />;
+        return <AdminUsers currentUserId={currentUserId} />;
       case "lobbies":
         return <AdminLobbies />;
       case "activity":

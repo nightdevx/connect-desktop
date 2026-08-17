@@ -24,3 +24,5 @@ export * from "./core/use-workspace-preferences";
 export * from "./core/use-network-reconnect";
 export * from "./core/use-workspace-audio-cues";
 
+export * from "./lobby/use-emote-library";
+export * from "./lobby/lobby-transition";

@@ -12,7 +12,7 @@ import {
 } from "@ant-design/icons";
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
-import { logLiveKitDebug } from "@/features/livekit";
+import { logLiveKitDebug } from "@/services/debug-log";
 import { getDisplayInitials } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 

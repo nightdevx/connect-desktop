@@ -1,10 +1,11 @@
 import { Modal, Button, Segmented, Switch } from "antd";
 import { SoundOutlined } from "@ant-design/icons";
-import type { ScreenCaptureSourceDescriptor } from "../../../../../shared/desktop-api-types";
+import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { estimateScreenShareUplinkBps } from "../constants";
 import type {
   ScreenShareContentMode,
   ScreenShareQualityOption,
+  ScreenShareQualityPreset,
   ScreenShareSourceKind,
 } from "../types";
 
@@ -35,7 +36,7 @@ interface ScreenShareModalProps {
   onStart: () => void;
   onSelectSource: (sourceId: string) => void;
   onChangeKind: (kind: ScreenShareSourceKind) => void;
-  onChangeQuality: (quality: any) => void;
+  onChangeQuality: (quality: ScreenShareQualityPreset) => void;
   onToggleCaptureSystemAudio: (enabled: boolean) => void;
 }
 

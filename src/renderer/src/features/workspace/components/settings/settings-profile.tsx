@@ -6,10 +6,9 @@ import {
   UploadOutlined,
   DeleteOutlined,
   SaveOutlined,
-  ReloadOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
-import { authService } from "../../../auth";
+import { authService } from "@/features/auth";
 
 interface ProfileSettings {
   displayName: string;
@@ -67,6 +66,63 @@ const readFileAsDataURL = (file: File): Promise<string> => {
 
     reader.readAsDataURL(file);
   });
+};
+
+// The largest an avatar is ever drawn is the profile card and its enlarged
+// preview. Matches the server's own bound, which re-encodes anything above it.
+const AVATAR_MAX_DIMENSION = 256;
+
+/**
+ * Downscales the chosen picture before it is sent.
+ *
+ * The file used to go up exactly as it came off disk, so a photo from a phone was
+ * stored at full camera resolution inside the user row — and that row is read by
+ * the friends directory, by every lobby roster, and by the admin user table,
+ * which renders it as a 32-pixel circle. A page of ten users was tens of
+ * megabytes of JSON.
+ *
+ * The server normalises anything that gets past this anyway; doing it here as
+ * well is what keeps the several megabytes off the wire in the first place.
+ */
+const downscaleImageDataURL = async (dataUrl: string): Promise<string> => {
+  const image = document.createElement("img");
+  const loaded = new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("Görsel çözümlenemedi"));
+  });
+  image.src = dataUrl;
+  await loaded;
+
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) {
+    return dataUrl;
+  }
+  if (width <= AVATAR_MAX_DIMENSION && height <= AVATAR_MAX_DIMENSION) {
+    return dataUrl;
+  }
+
+  const scale = AVATAR_MAX_DIMENSION / Math.max(width, height);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return dataUrl;
+  }
+
+  // JPEG has no alpha, so a transparent PNG would encode its transparent pixels
+  // as black. Every surface clips the avatar to a circle, which hides white
+  // corners and would not hide black ones.
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const encoded = canvas.toDataURL("image/jpeg", 0.82);
+  // An already-efficient picture can come out larger; keeping the original is
+  // then both smaller and lossless.
+  return encoded.length < dataUrl.length ? encoded : dataUrl;
 };
 
 export function SettingsProfile({
@@ -165,7 +221,9 @@ export function SettingsProfile({
     return () => {
       cancelled = true;
     };
-  }, [currentUsername]);
+    // messageApi is stable (antd memoises it); currentUsername is what this
+    // actually reacts to.
+  }, [currentUsername, messageApi]);
 
   const handleSaveProfile = async (): Promise<void> => {
     const normalizedDisplayName = profileSettings.displayName.trim();
@@ -274,43 +332,6 @@ export function SettingsProfile({
     }
   };
 
-  const handleResetProfile = async (): Promise<void> => {
-    setIsSavingProfile(true);
-    try {
-      const result = await authService.updateProfile({
-        displayName: currentUsername,
-        email: null,
-        bio: null,
-        avatarUrl: null,
-      });
-
-      if (!result.ok || !result.data?.profile) {
-        messageApi.error(
-          `Profil sıfırlanamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
-        );
-        return;
-      }
-
-      const profile = result.data.profile;
-      setProfileSettings({
-        displayName: profile.displayName,
-        email: profile.email ?? "",
-        emailVerified: !!profile.emailVerified,
-        bio: profile.bio ?? "",
-        avatarUrl: profile.avatarUrl ?? null,
-      });
-      setSavedEmail(profile.email ?? "");
-      await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      messageApi.success("Profil ayarları varsayılana döndürüldü.");
-    } catch (error) {
-      messageApi.error(
-        `Profil sıfırlanamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-      );
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
   const handleAvatarSelect = async (
     event: ChangeEvent<HTMLInputElement>,
   ): Promise<void> => {
@@ -332,7 +353,7 @@ export function SettingsProfile({
     }
 
     try {
-      const dataURL = await readFileAsDataURL(file);
+      const dataURL = await downscaleImageDataURL(await readFileAsDataURL(file));
       setProfileSettings((previous) => ({
         ...previous,
         avatarUrl: dataURL,

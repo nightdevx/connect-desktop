@@ -63,12 +63,49 @@
 }
 
 .ct-lobby-member-main {
-  @apply flex min-w-0 items-center gap-2;
+  @apply flex min-w-0 flex-1 items-center gap-2;
 }
 
-/* Avatar + name, as one press target for the profile card. */
+/* Avatar, name and everything up to the status icons, as ONE press target for
+   the profile card. flex-1 is the whole point: hugging the text left the
+   trigger about 60px wide in a 240px row, and every click that landed in the
+   gap after a short name fell through to the lobby row and joined the room. */
 .ct-lobby-member-identity {
-  @apply flex min-w-0 items-center gap-2;
+  @apply flex min-w-0 flex-1 items-center gap-2;
+}
+
+/* The row washes on hover instead of underlining, because the trigger now
+   covers the row and an underline running under an avatar reads as a mistake.
+   Only the name carries the link affordance. */
+.ct-lobby-member-item:has(.ct-lobby-member-identity:hover) {
+  border-color: var(--ct-alpha-08);
+  background: var(--ct-alpha-08);
+}
+
+.ct-lobby-member-item .ct-lobby-member-identity:hover {
+  text-decoration: none;
+}
+
+.ct-lobby-member-identity:hover .ct-lobby-member-name {
+  color: var(--ct-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The active lobby is the one whose members get hovered most, and its own rules
+   below are a class deeper than the two above — so without these the room the
+   user is actually in was the one place the row gave no feedback at all. Its
+   ground is --ct-accent, so the wash contrasts with the ACCENT, not the page. */
+.ct-list-item.clickable.active
+  .ct-lobby-member-item:has(.ct-lobby-member-identity:hover) {
+  border-color: color-mix(in srgb, var(--ct-text-inverse) 20%, transparent);
+  background: color-mix(in srgb, var(--ct-text-inverse) 14%, transparent);
+}
+
+.ct-list-item.clickable.active
+  .ct-lobby-member-identity:hover
+  .ct-lobby-member-name {
+  opacity: 1;
 }
 
 .ct-lobby-member-name {
@@ -548,8 +585,11 @@
   gap: 5px;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.85);
-  color: var(--ct-text-primary);
+  /* A saturated blue chip in both themes, so what reads on it is white in both
+     themes — --ct-text-primary is near-black under the light theme and put dark
+     lettering on a mid-blue pill. */
+  background: color-mix(in srgb, var(--ct-info) 88%, transparent);
+  color: var(--ct-on-info);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -705,7 +745,10 @@
   color: var(--ct-text-primary);
   letter-spacing: 0.08em;
   opacity: 0.88;
-  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  /* Only ever visible when there is NO video (.media-on takes it to 0), so this
+     lands on the tile's own panel — a fixed black blur under it was a smudge on
+     a near-white card. */
+  text-shadow: 0 10px 28px var(--ct-shadow-color);
   transition: opacity 0.2s ease;
 }
 
@@ -731,8 +774,29 @@
     0 0 0 3px var(--ct-alpha-08);
 }
 
+/* The footer has two completely different grounds under it, and it used to
+   assume the first one always.
+     - Over a camera or a screen share the ground is a picture, so the scrim is
+       black and its contents are white — in BOTH themes, because the picture
+       has no theme.
+     - With no stream the ground is the tile itself, which is a dark panel in
+       the dark theme and a near-white one in the light theme. A black gradient
+       there was a black bar across the bottom of a white card, and the name and
+       icons on it are themed, so in the light theme they came out black on
+       black: a participant tile whose name simply could not be read.
+   :has() is what tells them apart — .ct-lobby-video-container is rendered only
+   when there is something to play. */
 .ct-lobby-tile-footer {
   @apply absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 py-3;
+  background: linear-gradient(
+    0deg,
+    var(--ct-panel-solid) 15%,
+    transparent 100%
+  );
+}
+
+.ct-lobby-participant-tile:has(.ct-lobby-video-container)
+  .ct-lobby-tile-footer {
   background: linear-gradient(
     0deg,
     rgba(0, 0, 0, 0.88) 15%,
@@ -741,10 +805,10 @@
 }
 
 .ct-lobby-participant-tile.focused {
-  border-color: rgba(255, 255, 255, 0.76);
+  border-color: var(--ct-accent);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.22),
-    0 20px 42px rgba(0, 0, 0, 0.5);
+    0 0 0 2px var(--ct-accent-strong),
+    0 20px 42px var(--ct-shadow-color);
 }
 
 .ct-lobby-participant-tile.compact {
@@ -800,34 +864,59 @@
   font-size: var(--ct-icon-xs);
 }
 
+/* The name and its subtitle are bare text with nothing behind them but the
+   scrim, so they are the two things that have to switch grounds with it. See the
+   footer above.
+
+   The status chips below do NOT need this: each one carries its own opaque
+   ground, so it reads on a picture and on a panel alike. */
+.ct-lobby-participant-tile:has(.ct-lobby-video-container)
+  .ct-lobby-tile-userline
+  p {
+  color: var(--ct-on-media);
+}
+
+.ct-lobby-participant-tile:has(.ct-lobby-video-container)
+  .ct-lobby-tile-userline
+  span {
+  color: var(--ct-on-media-muted);
+}
+
 /* The variant drives the icon colour, so the JSX stops passing a hex per
    glyph. "muted" is the viewer's own choice, "inactive" is the participant's. */
 .ct-lobby-flag .anticon {
   color: inherit;
 }
 
+/* Every variant's wash is mixed into --ct-panel-strong rather than into
+   `transparent`, which is what keeps a chip opaque.
+   A transparent 10% wash means the ground shows through, and the ground here is
+   either a video frame or the tile — so in the light theme a dark-green "mic
+   open" icon ended up sitting on whatever black frame happened to be playing
+   behind it. Opaque, the chip carries its own contrast onto any ground and
+   needs no second set of rules for the media case. */
 .ct-lobby-flag.active {
-  border-color: color-mix(in srgb, var(--ct-success) 24%, transparent);
+  border-color: color-mix(in srgb, var(--ct-success) 32%, transparent);
   color: var(--ct-success);
-  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 12%, var(--ct-panel-strong));
 }
 
 .ct-lobby-flag.inactive {
   border-color: var(--ct-border);
   color: var(--ct-text-muted);
-  background: var(--ct-alpha-04);
+  background: var(--ct-panel-strong);
 }
 
 .ct-lobby-flag.muted {
-  border-color: color-mix(in srgb, var(--ct-danger) 24%, transparent);
+  border-color: color-mix(in srgb, var(--ct-danger) 32%, transparent);
   color: var(--ct-danger);
-  background: color-mix(in srgb, var(--ct-danger) 10%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 12%, var(--ct-panel-strong));
 }
 
 .ct-lobby-flag.signal {
   border-color: var(--ct-accent-strong);
   color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  background: color-mix(in srgb, var(--ct-accent) 10%, var(--ct-panel-strong));
 }
 
 /* The primary in-call controls: control-lg with its paired icon-lg. */
@@ -858,15 +947,19 @@
   box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
 
+/* "Leave the room" is a red button in both themes, so its label is white in
+   both. --ct-text-primary flips to near-black under the light theme, which put
+   black on #cc2b2b — 2.9:1, and the one control in the toolbar that must never
+   be misread. */
 .ct-lobby-action-btn.danger {
   border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
-  color: var(--ct-text-primary);
+  color: var(--ct-on-danger);
   background: var(--ct-danger);
 }
 
 .ct-lobby-action-btn.danger:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
-  background: #f87171;
+  background: color-mix(in srgb, var(--ct-danger) 82%, white);
 }
 
 .ct-lobby-action-btn:disabled {

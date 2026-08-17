@@ -55,12 +55,33 @@ interface LobbyChatMessageRowProps {
   onToggleReaction: (messageId: string, emoji: string, add: boolean) => void;
 }
 
+// Every prop except the four callbacks. `message` is compared by reference
+// because it comes straight out of the react-query cache, which replaces the
+// object rather than mutating it — an edit or a new reaction is therefore a new
+// identity and does re-render the row.
+const areRowPropsEqual = (
+  previous: LobbyChatMessageRowProps,
+  next: LobbyChatMessageRowProps,
+): boolean =>
+  previous.message === next.message &&
+  previous.isOwnMessage === next.isOwnMessage &&
+  previous.isDeleting === next.isDeleting &&
+  previous.deleteDisabled === next.deleteDisabled &&
+  previous.currentUserId === next.currentUserId &&
+  previous.currentUsername === next.currentUsername;
+
 // One rendered message, memoized on primitives.
 //
 // The composer's draft lives in this panel's own state, so every keystroke
 // re-rendered the entire backlog — up to 200 bubbles with an antd Button and
-// Tooltip each. onRequestDelete is a setState updater, so its identity is
-// stable and the default shallow compare is enough.
+// Tooltip each.
+//
+// The comparator is explicit because three of the four callbacks are built as
+// inline arrows at the call site: under the default shallow compare they are new
+// on every render, so this memo never hit once and the keystroke cost it was
+// added to remove was still being paid. Ignoring them is safe — they close over
+// nothing but `message`, which IS compared, and only forward to the panel's own
+// handlers. Same reasoning, same shape as LobbyParticipantTile.
 const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
   message,
   isOwnMessage,
@@ -195,7 +216,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
       </div>
     </div>
   );
-});
+}, areRowPropsEqual);
 
 interface LobbyChatPanelProps {
   currentUserId: string;

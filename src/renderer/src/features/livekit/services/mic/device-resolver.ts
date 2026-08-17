@@ -1,4 +1,4 @@
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
 
 export class DeviceResolver {
   public constructor(private readonly onWarning?: (message: string) => void) {}

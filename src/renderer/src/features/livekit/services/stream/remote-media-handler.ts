@@ -6,11 +6,13 @@ import {
   RemoteTrack,
   RemoteParticipant,
 } from "livekit-client";
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
+import { readRmsLevel } from "./speaking";
 
 // Remote playback runs through a single WebAudio bus:
 //
 //   per-track source -> per-track gain -> master gain -> limiter -> sink element
+//                    \-> analyser (mic only, speaking indicator)
 //
 // The previous implementation gave every participant a bare HTMLAudioElement
 // and set `el.volume`. That caps at 1.0, so the 0-200% master and per-user
@@ -27,6 +29,15 @@ interface BusInput {
   // also attached to a media element. This one is muted and exists purely to
   // keep the WebAudio graph fed.
   pumpElement: HTMLAudioElement;
+  // Voice only — a screen share's audio is not its owner talking, and counting
+  // it would light somebody's ring for the whole length of a video.
+  //
+  // Tapped off sourceNode, BEFORE gainNode, on purpose: turning one person down
+  // to 20% or muting them locally must not change whether they are shown as
+  // speaking. They are still talking; the roster says so, and a separate icon
+  // says you muted them.
+  analyserNode: AnalyserNode | null;
+  levelBuffer: Uint8Array<ArrayBuffer> | null;
 }
 
 const inputKey = (identity: string, kind: InputKind): string => {
@@ -188,7 +199,24 @@ export class RemoteMediaHandler {
       sourceNode.connect(gainNode);
       gainNode.connect(bus.masterGain);
 
-      this.inputs.set(key, { sourceNode, gainNode, pumpElement });
+      let analyserNode: AnalyserNode | null = null;
+      let levelBuffer: Uint8Array<ArrayBuffer> | null = null;
+      if (kind === "mic") {
+        analyserNode = bus.context.createAnalyser();
+        // Same window as the local meter. 256 samples is ~5ms at 48kHz, short
+        // enough that the RMS follows syllables rather than averaging them away.
+        analyserNode.fftSize = 256;
+        sourceNode.connect(analyserNode);
+        levelBuffer = new Uint8Array(new ArrayBuffer(analyserNode.fftSize));
+      }
+
+      this.inputs.set(key, {
+        sourceNode,
+        gainNode,
+        pumpElement,
+        analyserNode,
+        levelBuffer,
+      });
 
       logLiveKitDebug("remote-media", "audio-attached", {
         identity: participant.identity,
@@ -215,12 +243,29 @@ export class RemoteMediaHandler {
     try {
       input.sourceNode.disconnect();
       input.gainNode.disconnect();
+      input.analyserNode?.disconnect();
     } catch {
       // no-op
     }
     input.pumpElement.pause();
     input.pumpElement.srcObject = null;
     input.pumpElement.remove();
+  }
+
+  // ---- Speaking level ----
+
+  /**
+   * How loud this person's voice is right now, or null when this client is not
+   * receiving it — deafened, or not subscribed yet. null means "no opinion", and
+   * the caller falls back to the server's active-speaker flag; it must NOT be
+   * read as silence, or deafening yourself would put out everybody's ring.
+   */
+  public readMicLevel(identity: string): number | null {
+    const input = this.inputs.get(inputKey(identity, "mic"));
+    if (!input?.analyserNode || !input.levelBuffer) {
+      return null;
+    }
+    return readRmsLevel(input.analyserNode, input.levelBuffer);
   }
 
   // ---- Volume ----

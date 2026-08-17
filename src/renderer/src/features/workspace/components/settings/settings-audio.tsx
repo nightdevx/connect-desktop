@@ -85,10 +85,15 @@ export function SettingsAudio({
   }, [audioPreferences]);
 
   useEffect(() => {
+    // Captured now, not inside the cleanup: React detaches refs around unmount,
+    // so reading audioPreviewRef.current from in there can find null and leave
+    // the preview playing over the rest of the app. The <audio> element is
+    // rendered unconditionally, so this is the same node for the whole lifetime.
+    const previewElement = audioPreviewRef.current;
+
     return () => {
       stopMediaStreamTracks(audioTestStreamRef.current);
 
-      const previewElement = audioPreviewRef.current;
       if (previewElement) {
         previewElement.pause();
         previewElement.srcObject = null;

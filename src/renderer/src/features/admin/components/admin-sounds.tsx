@@ -13,6 +13,7 @@ import { DeleteOutlined, ReloadOutlined, SoundOutlined } from "@ant-design/icons
 import type { AdminEmoteLibrary, CustomEmoteSummary } from "@shared/desktop-api-types";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import adminService from "../services/admin-service";
+import { toErrorMessage } from "@shared/error-message";
 
 // The soundboard is the one member-level feature that writes to shared storage
 // and plays on everyone else's speakers, so it needs both halves of an operator
@@ -32,8 +33,8 @@ export default function AdminSounds() {
       const result = await adminService.listEmotes();
       setLibrary(result);
       setGlobalDraft(result.globalQuota);
-    } catch (error: any) {
-      message.error(error?.message || "Sesler alınamadı");
+    } catch (error) {
+      message.error(toErrorMessage(error, "Sesler alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -76,8 +77,8 @@ export default function AdminSounds() {
         );
         setGlobalDraft(result.globalQuota);
         message.success("Limit güncellendi");
-      } catch (error: any) {
-        message.error(error?.message || "Limit güncellenemedi");
+      } catch (error) {
+        message.error(toErrorMessage(error, "Limit güncellenemedi"));
       } finally {
         setSavingQuota(false);
       }
@@ -91,8 +92,8 @@ export default function AdminSounds() {
         await adminService.deleteEmote(emoteId);
         message.success("Ses silindi");
         void fetchLibrary();
-      } catch (error: any) {
-        message.error(error?.message || "Ses silinemedi");
+      } catch (error) {
+        message.error(toErrorMessage(error, "Ses silinemedi"));
       }
     },
     [fetchLibrary],

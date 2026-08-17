@@ -749,7 +749,7 @@ export interface DesktopApi {
   adminUnbanUser: (userId: string) => Promise<DesktopResult<{ unbanned: boolean }>>;
   adminListLobbies: (params?: { search?: string; locked?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[]; total: number }>>;
   adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;
-  adminGetStats: (payload?: any) => Promise<DesktopResult<{ stats: AdminStats }>>;
+  adminGetStats: () => Promise<DesktopResult<{ stats: AdminStats }>>;
   adminKickUser: (lobbyId: string, userId: string) => Promise<DesktopResult<{ kicked: boolean }>>;
   adminForceLogout: (userId: string) => Promise<DesktopResult<{ loggedOut: boolean }>>;
   adminListEmotes: () => Promise<DesktopResult<AdminEmoteLibrary>>;

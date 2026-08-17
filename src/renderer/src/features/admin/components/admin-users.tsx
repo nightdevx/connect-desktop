@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useAuthSession } from "../../auth/hooks/use-auth-session";
+import { toErrorMessage } from "@shared/error-message";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Table,
   Input,
@@ -23,12 +23,39 @@ import {
   DisconnectOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
-import { AdminUserDetail } from "@shared/auth-contracts";
+import type { AdminUserDetail, UserRole } from "@shared/auth-contracts";
+import type { TablePaginationConfig } from "antd";
 
-export default function AdminUsers() {
-  const { session } = useAuthSession();
-  const currentUserId = session.user?.id;
+interface EditUserFormValues {
+  displayName: string;
+  email?: string | null;
+  bio?: string | null;
+  role: UserRole;
+  banned?: boolean;
+}
 
+interface ResetPasswordFormValues {
+  password: string;
+}
+
+
+// antd hands the pagination object back with every field optional; this is what
+// a page-size reset falls back to.
+const DEFAULT_PAGE_SIZE = 10;
+
+interface AdminUsersProps {
+  // Passed down rather than read from useAuthSession.
+  //
+  // This screen mounted that whole hook to learn one id, and the hook is not a
+  // getter: it registers a second session-expired IPC listener, and its
+  // ["auth-session"] query carries no staleTime, so opening this page fired a
+  // fresh GET /auth/session — which is where the "Kimlik doğrulandı" that flashed
+  // in the status bar on the way in came from. Every other admin screen opens
+  // without it.
+  currentUserId?: string;
+}
+
+export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const [users, setUsers] = useState<AdminUserDetail[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -36,7 +63,7 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // Edit Drawer State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -48,7 +75,8 @@ export default function AdminUsers() {
   const [resettingUser, setResettingUser] = useState<AdminUserDetail | null>(null);
   const [resetForm] = Form.useForm();
 
-  const fetchUsers = async (page = currentPage, size = pageSize) => {
+  const fetchUsers = useCallback(
+    async (page = currentPage, size = pageSize): Promise<void> => {
     try {
       setLoading(true);
       const offset = (page - 1) * size;
@@ -61,12 +89,14 @@ export default function AdminUsers() {
       });
       setUsers(res.users);
       setTotal(res.total || 0);
-    } catch (err: any) {
-      message.error(err.message || "Kullanıcılar alınamadı");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Kullanıcılar alınamadı"));
     } finally {
       setLoading(false);
     }
-  };
+    },
+    [currentPage, pageSize, searchText, roleFilter, statusFilter],
+  );
 
   // A narrowed result set has fewer pages; staying on page 4 of a one-page
   // result showed an empty table.
@@ -95,11 +125,14 @@ export default function AdminUsers() {
 
     const timer = setTimeout(() => fetchUsers(currentPage, pageSize), 300);
     return () => clearTimeout(timer);
-  }, [currentPage, pageSize, searchText, roleFilter, statusFilter]);
+    // fetchUsers is memoised on exactly the filters and the page, so depending on
+    // it re-runs this on precisely the same changes the old literal list named —
+    // and it can no longer close over a filter value a render out of date.
+  }, [currentPage, pageSize, fetchUsers]);
 
-  const handleTableChange = (pagination: any) => {
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
+  const handleTableChange = (pagination: TablePaginationConfig): void => {
+    setCurrentPage(pagination.current ?? 1);
+    setPageSize(pagination.pageSize ?? DEFAULT_PAGE_SIZE);
   };
 
   const handleEditClick = (user: AdminUserDetail) => {
@@ -113,7 +146,7 @@ export default function AdminUsers() {
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = async (values: any) => {
+  const handleEditSubmit = async (values: EditUserFormValues): Promise<void> => {
     if (!editingUser) return;
     try {
       await adminService.updateUser(editingUser.id, {
@@ -125,8 +158,8 @@ export default function AdminUsers() {
       message.success("Kullanıcı başarıyla güncellendi");
       setIsEditOpen(false);
       fetchUsers();
-    } catch (err: any) {
-      message.error(err.message || "Güncelleme başarısız");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Güncelleme başarısız"));
     }
   };
 
@@ -136,14 +169,14 @@ export default function AdminUsers() {
     setIsResetOpen(true);
   };
 
-  const handleResetPasswordSubmit = async (values: any) => {
+  const handleResetPasswordSubmit = async (values: ResetPasswordFormValues): Promise<void> => {
     if (!resettingUser) return;
     try {
       await adminService.resetPassword(resettingUser.id, values.password);
       message.success("Şifre başarıyla sıfırlandı");
       setIsResetOpen(false);
-    } catch (err: any) {
-      message.error(err.message || "Şifre sıfırlama başarısız");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Şifre sıfırlama başarısız"));
     }
   };
 
@@ -152,8 +185,8 @@ export default function AdminUsers() {
       await adminService.deleteUser(userId);
       message.success("Kullanıcı başarıyla silindi");
       fetchUsers();
-    } catch (err: any) {
-      message.error(err.message || "Kullanıcı silinemedi");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Kullanıcı silinemedi"));
     }
   };
 
@@ -164,8 +197,8 @@ export default function AdminUsers() {
     try {
       await adminService.forceLogout(user.id);
       message.success(`@${user.username} oturumları sonlandırıldı`);
-    } catch (err: any) {
-      message.error(err.message || "Oturumlar sonlandırılamadı");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Oturumlar sonlandırılamadı"));
     }
   };
 
@@ -179,8 +212,8 @@ export default function AdminUsers() {
         message.success("Kullanıcı yasaklandı");
       }
       fetchUsers();
-    } catch (err: any) {
-      message.error(err.message || "İşlem başarısız");
+    } catch (err) {
+      message.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
@@ -190,7 +223,7 @@ export default function AdminUsers() {
     {
       title: "Kullanıcı",
       key: "user",
-      render: (_: any, record: AdminUserDetail) => (
+      render: (_value: unknown, record: AdminUserDetail) => (
         <div className="ct-admin-table-user">
           <Avatar src={record.avatarUrl} className="ct-admin-avatar">
             {record.displayName[0]?.toUpperCase()}
@@ -207,7 +240,7 @@ export default function AdminUsers() {
     {
       title: "E-posta",
       key: "email",
-      render: (_: any, record: AdminUserDetail) => (
+      render: (_value: unknown, record: AdminUserDetail) => (
         <div>
           <div>{record.email || "-"}</div>
           {record.email && (
@@ -231,7 +264,7 @@ export default function AdminUsers() {
     {
       title: "Durum",
       key: "status",
-      render: (_: any, record: AdminUserDetail) => (
+      render: (_value: unknown, record: AdminUserDetail) => (
         <Tag color={record.bannedAt ? "red" : "green"}>
           {record.bannedAt ? "Yasaklı" : "Aktif"}
         </Tag>
@@ -246,7 +279,7 @@ export default function AdminUsers() {
     {
       title: "İşlemler",
       key: "actions",
-      render: (_: any, record: AdminUserDetail) => {
+      render: (_value: unknown, record: AdminUserDetail) => {
         const isSelf = record.id === currentUserId;
         return (
           <Space size="middle">

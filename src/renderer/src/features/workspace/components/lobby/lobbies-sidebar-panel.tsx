@@ -32,7 +32,7 @@ import { DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE } from "../../hooks/media/u
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
-import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth/permissions";
+import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
 
 interface LobbiesSidebarPanelProps {
@@ -429,10 +429,15 @@ export function LobbiesSidebarPanel({
                         <li
                           key={member.userId}
                           className="ct-lobby-member-item"
-                          // The lobby row underneath opens a context menu of its
-                          // own (rename/delete); a right-click on a member has to
-                          // be about the member. The position is kept because
-                          // "Profili Gör" opens the card at the cursor.
+                          // Clicking a person is about that person, never about
+                          // the room they happen to be standing in. The lobby row
+                          // underneath joins the lobby on click, so without this a
+                          // click aimed at somebody's name dragged the user into a
+                          // voice room, microphone live.
+                          onClick={(event) => event.stopPropagation()}
+                          // Same for the right-click: the lobby row has a context
+                          // menu of its own (rename/delete). The position is kept
+                          // because "Profili Gör" opens the card at the cursor.
                           onContextMenu={(event) => {
                             event.stopPropagation();
                             lastContextPointRef.current = {
@@ -442,9 +447,11 @@ export function LobbiesSidebarPanel({
                           }}
                         >
                           <div className="ct-lobby-member-main">
-                            {/* The whole identity is the trigger, avatar
-                                included — the row's own click joins the lobby,
-                                so this stops the propagation itself. */}
+                            {/* The trigger stretches across the row — avatar,
+                                name and the empty space after it — rather than
+                                hugging the text. A 60px-wide target inside a
+                                240px row meant most clicks aimed at a person
+                                missed and hit the lobby underneath. */}
                             <UserProfileCardPopover
                               userId={member.userId}
                               fallbackName={member.username}
@@ -454,7 +461,7 @@ export function LobbiesSidebarPanel({
                               <button
                                 type="button"
                                 className="ct-profile-trigger ct-lobby-member-identity"
-                                onClick={(event) => event.stopPropagation()}
+                                aria-label={`${member.username} profilini aç`}
                               >
                                 <Avatar
                                   size={24}

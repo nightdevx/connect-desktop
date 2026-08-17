@@ -34,7 +34,7 @@ import { QuickControls } from "../common";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
 import { getApiErrorMessage } from "../../workspace-utils";
-import { SEED_ADMIN_ID } from "@/features/auth/permissions";
+import { SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
 
 interface WorkspaceSidebarProps {

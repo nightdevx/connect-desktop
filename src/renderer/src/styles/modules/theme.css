@@ -155,6 +155,12 @@
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
+/* The glow is INSET, not an outer shadow.
+   .ct-lobby-participant-tile is `overflow: hidden` (it has to be — the video
+   fills the tile and has to be clipped to its radius), and overflow clips a
+   child's outward box-shadow along with everything else. The old outer
+   `0 0 18px` was drawn entirely outside inset:0 and therefore never rendered at
+   all: what shipped was a flat 2px border with no glow on it. */
 .ct-lobby-participant-tile.speaking::after {
   content: "";
   position: absolute;
@@ -162,8 +168,8 @@
   border-radius: inherit;
   border: 2px solid var(--ct-success);
   box-shadow:
-    0 0 18px color-mix(in srgb, var(--ct-success) 35%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--ct-success) 15%, transparent);
+    inset 0 0 20px color-mix(in srgb, var(--ct-success) 28%, transparent),
+    inset 0 0 4px color-mix(in srgb, var(--ct-success) 40%, transparent);
   pointer-events: none;
   z-index: 10;
   transition: box-shadow var(--ct-duration-base) ease;

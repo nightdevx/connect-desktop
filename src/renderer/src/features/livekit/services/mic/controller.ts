@@ -5,14 +5,15 @@ import {
   type LocalParticipant,
   type TrackPublishOptions,
 } from "livekit-client";
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
 import {
   LiveKitNoiseSuppressionRuntime,
   ProcessorManager,
+  resolveCaptureFilters,
   type ActiveNoiseSuppressionMode,
   type MicrophoneProcessor,
   type NoiseSuppressionPreset,
-} from "../../../rnnoise";
+} from "@/features/rnnoise";
 import { AudioContextManager } from "./audio-context-manager";
 import { DeviceResolver } from "./device-resolver";
 import {
@@ -140,7 +141,7 @@ export class LiveKitMicrophoneController {
       if (desiredProcessor) {
         appliedProcessor = await this.attachProcessorToMicrophoneTrack(
           participant,
-          publication as any,
+          publication,
           desiredProcessor,
         );
       }
@@ -253,15 +254,22 @@ export class LiveKitMicrophoneController {
       contextState: context?.state ?? "unavailable",
     });
 
+    // Resolved BEFORE the microphone is published, and now genuinely ready by
+    // the time it returns: resolveDesiredProcessor loads the worklets and the
+    // RNNoise WASM rather than leaving that to the first setProcessor call.
     const desiredProcessor = await this.resolveDesiredProcessor(
       participant,
       preferences,
     );
-    const wantsProcessor = Boolean(desiredProcessor);
 
     const captureOptions = await this.buildCaptureOptions(
       preferences,
-      wantsProcessor,
+      // Whether RNNoise will actually run, not merely whether a processor object
+      // exists. The chain is also used with noise suppression off, for its gain
+      // and limiter, and in that case the browser's suppressor is the only
+      // denoiser there is — switching it off for a processor that is not going to
+      // denoise leaves the microphone completely unfiltered.
+      this.processorManager.isNoiseSuppressionReady(),
     );
 
     const attempts = this.buildAttempts(captureOptions);
@@ -387,12 +395,21 @@ export class LiveKitMicrophoneController {
 
   private async buildCaptureOptions(
     preferences: MicrophoneProcessingPreferences,
-    wantsProcessor: boolean,
+    rnnoiseReady: boolean,
   ): Promise<AudioCaptureOptions> {
+    // One decision, shared with the graph that gets built afterwards, so the two
+    // cannot disagree about which denoiser is running. echoCancellation is not
+    // part of it: it is always on and nothing in the chain replaces it.
+    const filters = resolveCaptureFilters(
+      preferences.enhancedNoiseSuppressionEnabled,
+      rnnoiseReady,
+      preferences.noiseSuppressionPreset,
+    );
+
     const options: AudioCaptureOptions = {
       echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
+      noiseSuppression: filters.browserNoiseSuppression,
+      autoGainControl: filters.browserAutoGainControl,
       channelCount: 1,
     };
 
@@ -404,55 +421,18 @@ export class LiveKitMicrophoneController {
       options.deviceId = preferredInputDeviceId;
     }
 
-    logLiveKitDebug("mic-controller", "capture-options-base", {
+    logLiveKitDebug("mic-controller", "capture-options", {
       selectedAudioInputDeviceId: preferences.selectedAudioInputDeviceId,
       resolvedAudioInputDeviceId: preferredInputDeviceId ?? "default",
       enhancedNoiseSuppressionEnabled:
         preferences.enhancedNoiseSuppressionEnabled,
       noiseSuppressionPreset: preferences.noiseSuppressionPreset,
-    });
-
-    // Our processor is now also used with noise suppression off (gain +
-    // limiter only). In that case the browser's own suppressor should stay on —
-    // it is the only denoiser left in the chain.
-    if (!preferences.enhancedNoiseSuppressionEnabled || !wantsProcessor) {
-      return options;
-    }
-
-    const browserProfile = this.resolveBrowserSuppressionProfile(
-      preferences.noiseSuppressionPreset,
-    );
-    options.noiseSuppression = browserProfile.noiseSuppression;
-    options.autoGainControl = browserProfile.autoGainControl;
-    logLiveKitDebug("mic-controller", "capture-options-processor-target", {
-      resolvedAudioInputDeviceId: preferredInputDeviceId ?? "default",
-      noiseSuppressionPreset: preferences.noiseSuppressionPreset,
+      rnnoiseReady,
       noiseSuppression: options.noiseSuppression,
       autoGainControl: options.autoGainControl,
     });
+
     return options;
-  }
-
-  private resolveBrowserSuppressionProfile(
-    preset: NoiseSuppressionPreset,
-  ): Pick<AudioCaptureOptions, "noiseSuppression" | "autoGainControl"> {
-    // This profile is only used when the RNNoise processor is active. Running the
-    // browser's noise suppressor in front of RNNoise double-processes the signal
-    // (pumping/artefacts), so disable it and let RNNoise own denoising.
-    // echoCancellation stays enabled (set in the base capture options).
-    // "natural" keeps browser AGC for a gentler level; stronger presets leave
-    // gain to RNNoise's gate to avoid the two fighting.
-    if (preset === "natural") {
-      return {
-        noiseSuppression: false,
-        autoGainControl: true,
-      };
-    }
-
-    return {
-      noiseSuppression: false,
-      autoGainControl: false,
-    };
   }
 
   private buildAttempts(
@@ -525,6 +505,17 @@ export class LiveKitMicrophoneController {
 
     this.processorManager.setGainPercent(preferences.microphoneVolume);
 
+    // The expensive half of the processor — two AudioWorklet modules and the
+    // RNNoise WASM — is loaded here, while the microphone is still off the air.
+    // It used to be loaded inside the processor's init(), which LiveKit calls
+    // from setProcessor, which this code runs only after the track is already
+    // published: on a cold first join the room heard an unprocessed microphone
+    // for as long as that took, and then heard it change character.
+    await this.processorManager.prewarm(
+      context,
+      preferences.enhancedNoiseSuppressionEnabled,
+    );
+
     return this.processorManager.getOrCreateProcessor(
       preferences.noiseSuppressionPreset,
       preferences.enhancedNoiseSuppressionEnabled,
@@ -534,7 +525,7 @@ export class LiveKitMicrophoneController {
   private async attachProcessorToMicrophoneTrack(
     participant: LocalParticipant,
     publication: Awaited<ReturnType<LocalParticipant["setMicrophoneEnabled"]>>,
-    processor: any,
+    processor: MicrophoneProcessor,
   ): Promise<boolean> {
     const currentPublication =
       publication ?? participant.getTrackPublication(Track.Source.Microphone);
@@ -554,7 +545,7 @@ export class LiveKitMicrophoneController {
     track.setAudioContext(context);
 
     for (let attempt = 0; attempt < 3; attempt++) {
-      let timeoutId: any;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
         const timeoutPromise = new Promise((_, reject) => {
           timeoutId = setTimeout(() => reject(new Error("RNNoise initialization timeout")), 5000);

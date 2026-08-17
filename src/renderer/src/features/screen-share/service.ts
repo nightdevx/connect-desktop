@@ -3,9 +3,34 @@ import {
   type StartScreenCaptureResult,
   type ScreenShareResolution
 } from "./types";
-import { type DesktopResult } from "../../../../shared/desktop-api-types";
+import { type DesktopResult } from "@shared/desktop-api-types";
 import { startSystemLoopbackAudioTrack } from "./loopback-audio";
-import { logLiveKitDebug } from "../livekit";
+import { logLiveKitDebug } from "@/services/debug-log";
+
+// Chromium's desktop-capture constraints. They are not in lib.dom because they
+// are not standard — getUserMedia is being asked for a desktopCapturer source id
+// rather than a camera — so the shape is declared once here instead of being
+// waved through with `as any` at each of the two call sites.
+interface DesktopCaptureConstraints {
+  audio: false;
+  video: {
+    mandatory: {
+      chromeMediaSource: "desktop";
+      chromeMediaSourceId: string;
+      maxFrameRate?: number;
+      maxWidth?: number;
+      maxHeight?: number;
+    };
+  };
+}
+
+// getUserMedia's parameter type does not admit the above, and widening through
+// unknown is the narrowest way to say so: it keeps the object literal fully
+// checked against DesktopCaptureConstraints and only loosens the final handoff.
+const asMediaStreamConstraints = (
+  constraints: DesktopCaptureConstraints,
+): MediaStreamConstraints => constraints as unknown as MediaStreamConstraints;
+
 
 const desktopBridgeOutdatedError = {
   ok: false,
@@ -189,7 +214,7 @@ const startElectronDesktopCapture = async (
 
   const requestedSource = options.sourceId
     ? sourcesResult.data.sources.find(
-        (source: any) => source.id === options.sourceId,
+        (source) => source.id === options.sourceId,
       )
     : undefined;
 
@@ -207,7 +232,7 @@ const startElectronDesktopCapture = async (
 
   const preferredSource =
     requestedSource ??
-    sourcesResult.data.sources.find((source: any) => source.kind === "screen") ??
+    sourcesResult.data.sources.find((source) => source.kind === "screen") ??
     sourcesResult.data.sources[0];
 
   if (!preferredSource) {
@@ -231,7 +256,7 @@ const startElectronDesktopCapture = async (
     // sources that cannot hit the target, and forced Chromium to duplicate
     // frames to keep a static screen at the requested rate — wasted encoding
     // that Windows Graphics Capture's zero-Hz mode exists to avoid.
-    const constraints: any = {
+    const constraints: DesktopCaptureConstraints = {
       audio: false,
       video: {
         mandatory: {
@@ -244,7 +269,9 @@ const startElectronDesktopCapture = async (
       },
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(
+      asMediaStreamConstraints(constraints),
+    );
 
     logLiveKitDebug("screen-capture", "getUserMedia success", {
       videoTracks: stream.getVideoTracks().length,
@@ -271,18 +298,20 @@ const startElectronDesktopCapture = async (
     
     if (options.captureSystemAudio) {
       logLiveKitDebug("screen-capture", "Retrying getUserMedia without audio...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: "desktop",
-            chromeMediaSourceId: preferredSource.id,
-            maxFrameRate: options.frameRate,
-            maxWidth: dimensions?.width,
-            maxHeight: dimensions?.height,
+      const stream = await navigator.mediaDevices.getUserMedia(
+        asMediaStreamConstraints({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: "desktop",
+              chromeMediaSourceId: preferredSource.id,
+              maxFrameRate: options.frameRate,
+              maxWidth: dimensions?.width,
+              maxHeight: dimensions?.height,
+            },
           },
-        },
-      } as any);
+        }),
+      );
 
       return {
         stream,

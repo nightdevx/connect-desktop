@@ -1,5 +1,5 @@
 import loopbackWorkletUrl from "./loopback-worklet.js?url";
-import { logLiveKitDebug } from "../livekit";
+import { logLiveKitDebug } from "@/services/debug-log";
 
 // Builds a MediaStreamTrack from the main-process process-exclude loopback PCM
 // stream. Because the native capture excludes Connect's own process tree, this

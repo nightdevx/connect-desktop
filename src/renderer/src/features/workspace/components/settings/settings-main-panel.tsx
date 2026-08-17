@@ -1,4 +1,3 @@
-import type { UserRole } from "@shared/auth-contracts";
 import type { SettingsSection } from "@/store/ui-store";
 import { SettingsApplication } from "./settings-application";
 import { SettingsProfile } from "./settings-profile";
@@ -16,8 +15,6 @@ import type {
 interface SettingsMainPanelProps {
   settingsSection: SettingsSection;
   currentUsername: string;
-  currentUserRole: UserRole;
-  currentUserCreatedAt: string;
   onLogout: () => void;
   isLoggingOut: boolean;
   cameraPreferences: CameraPreferences;
@@ -33,8 +30,6 @@ interface SettingsMainPanelProps {
 export function SettingsMainPanel({
   settingsSection,
   currentUsername,
-  currentUserRole,
-  currentUserCreatedAt,
   onLogout,
   isLoggingOut,
   cameraPreferences,

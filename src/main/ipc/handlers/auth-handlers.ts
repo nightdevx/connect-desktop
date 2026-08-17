@@ -26,6 +26,8 @@ import {
   adminUpdateUserSchema,
   adminResetPasswordSchema,
   adminListLobbyEventsSchema,
+  adminListUsersSchema,
+  adminListLobbiesSchema,
   blockUserSchema,
   setPresenceSchema,
   deleteAccountSchema,
@@ -449,10 +451,11 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-users", async (_event, params?: any) => {
+  ipcMain.handle("desktop:admin-list-users", async (_event, params?: unknown) => {
     try {
+      const parsed = adminListUsersSchema.parse(params);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.auth.adminListUsers(accessToken, params);
+        return backendClient.auth.adminListUsers(accessToken, parsed);
       });
       return ok(result);
     } catch (error) {
@@ -471,7 +474,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-update-user", async (_event, arg: { userId: string; payload: any }) => {
+  ipcMain.handle("desktop:admin-update-user", async (_event, arg: unknown) => {
     try {
       const { userId, payload } = adminUpdateUserSchema.parse(arg);
       const result = await withAccessToken((accessToken) => {
@@ -483,7 +486,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-reset-password", async (_event, arg: { userId: string; newPassword: any }) => {
+  ipcMain.handle("desktop:admin-reset-password", async (_event, arg: unknown) => {
     try {
       const { userId, newPassword } = adminResetPasswordSchema.parse(arg);
       const result = await withAccessToken((accessToken) => {
@@ -528,10 +531,11 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-lobbies", async (_event, params?: any) => {
+  ipcMain.handle("desktop:admin-list-lobbies", async (_event, params?: unknown) => {
     try {
+      const parsed = adminListLobbiesSchema.parse(params);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.auth.adminListLobbies(accessToken, params);
+        return backendClient.auth.adminListLobbies(accessToken, parsed);
       });
       return ok(result);
     } catch (error) {

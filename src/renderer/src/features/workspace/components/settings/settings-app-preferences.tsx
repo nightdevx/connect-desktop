@@ -63,7 +63,9 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
     return () => {
       active = false;
     };
-  }, []);
+    // messageApi comes from antd message.useMessage(), which memoises it — listing
+    // it costs nothing and stops the rule hiding a real omission behind this one.
+  }, [messageApi]);
 
   const savePreference = async (
     key: keyof DesktopAppPreferences,

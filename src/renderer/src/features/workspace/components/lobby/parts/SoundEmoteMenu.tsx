@@ -60,10 +60,7 @@ const readEmoteFile = async (file: File): Promise<PendingUpload> => {
 
   // decodeAudioData both validates and measures. A file that fails here would
   // have been silence on everyone else's machine too.
-  const AudioCtx =
-    window.AudioContext ||
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let seconds = 0;
   if (AudioCtx) {
     const context = new AudioCtx();

@@ -8,7 +8,7 @@ import {
 } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import type { WorkspaceSection } from "@/store/ui-store";
-import { isAdminRole } from "@/features/auth/permissions";
+import { isAdminRole } from "@/features/auth";
 
 interface WorkspaceRailProps {
   workspaceSection: WorkspaceSection;

@@ -6,7 +6,7 @@ import {
   DeleteOutlined,
   DownloadOutlined,
 } from "@ant-design/icons";
-import { authService } from "../../../auth";
+import { authService } from "@/features/auth";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
 // keep the two in step: telling someone "14 days" and purging after 7 is worse

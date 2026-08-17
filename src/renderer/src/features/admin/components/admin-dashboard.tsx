@@ -1,5 +1,7 @@
+import { toErrorMessage } from "@shared/error-message";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import type { BadgeProps } from "antd";
 import { Card, Col, Row, Spin, Alert, List, Tag, Badge, Tooltip, Space } from "antd";
 import {
   UserOutlined,
@@ -73,10 +75,16 @@ const buildStatCards = (stats: AdminStats | null): StatCard[] => [
   },
 ];
 
-const EVENT_LABELS: Record<string, { badge: string; text: string }> = {
+// antd Badge status is a fixed union — "purple" is a Tag preset colour, not a
+// status, so `as any` was hiding a value antd silently ignores. Typed, so the
+// next label that wants a new colour fails to compile instead of rendering grey.
+const EVENT_LABELS: Record<
+  string,
+  { badge: BadgeProps["status"]; text: string }
+> = {
   join: { badge: "success", text: "giriş yaptı" },
   leave: { badge: "error", text: "çıkış yaptı" },
-  create: { badge: "purple", text: "oda oluşturdu" },
+  create: { badge: "default", text: "oda oluşturdu" },
   delete: { badge: "warning", text: "odayı sildi" },
   edit: { badge: "processing", text: "odayı güncelledi" },
 };
@@ -106,8 +114,8 @@ export default function AdminDashboard() {
       setStats(statsRes.stats);
       setRecentEvents(eventsRes.events || []);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Gösterge paneli verileri alınamadı");
+    } catch (err) {
+      setError(toErrorMessage(err, "Gösterge paneli verileri alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -360,7 +368,7 @@ export default function AdminDashboard() {
                     <List.Item>
                       <div className="ct-activity-row">
                         <Space>
-                          <Badge status={label.badge as any} />
+                          <Badge status={label.badge} />
                           <strong>@{item.username}</strong>
                           <span>{label.text}</span>
                           <Tag>{item.lobbyName}</Tag>

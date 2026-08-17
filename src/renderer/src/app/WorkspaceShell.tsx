@@ -1,92 +1,65 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { message } from "antd";
-import type {
-  UserRole,
-  UserDirectoryEntry,
-} from "../../../shared/auth-contracts";
-import type { DesktopAppPreferences } from "../../../shared/desktop-api-types";
-import { CUSTOM_EMOTE_PREFIX } from "../../../shared/desktop-api-types";
-import { playCustomEmote } from "../features/workspace/hooks/lobby/use-emote-library";
+import type { UserRole } from "@shared/auth-contracts";
+// One import per feature, through its front door. This file is the composition
+// root — it is the only place allowed to know about every feature at once, and
+// the price of that privilege is that it touches each one only where that
+// feature says it may. scripts/check-architecture.cjs enforces it.
+import { AdminPanel } from "@/features/admin";
+import { isAdminRole } from "@/features/auth";
+import { useLivekitSession } from "@/features/livekit";
 import {
+  ScreenShareModal,
+  SCREEN_SHARE_QUALITY_OPTIONS,
+} from "@/features/screen-share";
+import { soundEffectManager } from "@/features/sound-effects";
+import {
+  CallDock,
   CameraShareModal,
+  LobbyPasswordPromptModal,
   WorkspaceMainPanel,
   WorkspaceRail,
   WorkspaceSidebar,
-  CallDock,
-} from "../features/workspace/components";
-import AdminPanel from "../features/admin/components/admin-panel";
-import { isAdminRole } from "../features/auth/permissions";
-import { LobbyPasswordPromptModal } from "../features/workspace/components/lobby/lobby-password-prompt-modal";
-import { ScreenShareModal, SCREEN_SHARE_QUALITY_OPTIONS } from "../features/screen-share";
-import {
+  createLobbyTransitionState,
   useBlockedUsers,
+  useCallSession,
   useDirectMessages,
   useFriends,
-  usePresenceStatus,
-  useVoiceHotkeys,
-  useWorkspaceAudioConnection,
-  useVideoQuality,
-  useWorkspaceLobbyActions,
   useLobbyRoom,
-  useWorkspaceMediaControls,
-  useScreenSubscriptions,
-  useWorkspaceUsers,
   useMediaDevices,
-  useWorkspacePreferences,
-  useWorkspaceAudioCues,
-  useWorkspaceLobbies,
   useNetworkReconnect,
-  useCallSession,
+  useOpenConversations,
+  usePresenceStatus,
   useRemoteParticipantAudio,
   useRoomTransitions,
+  useScreenSubscriptions,
   useUserCards,
-  useOpenConversations,
-} from "../features/workspace/hooks";
-import type {
-  OpenConversation,
-  ScheduleActiveLobbyReconnect,
-} from "../features/workspace/hooks";
-import { useLivekitSession } from "../features/livekit";
-import { soundEffectManager } from "../features/sound-effects";
-import {
-  createLobbyTransitionState,
-  isLobbyTransitionBusy,
+  useVideoQuality,
+  useVoiceHotkeys,
+  useWorkspaceAudioConnection,
+  useWorkspaceAudioCues,
+  useWorkspaceLobbies,
+  useWorkspaceLobbyActions,
+  useWorkspaceMediaControls,
+  useWorkspacePreferences,
+  useWorkspaceUsers,
+  workspaceService,
+  type AudioPreferences,
   type LobbyTransitionState,
-} from "../features/workspace/hooks/lobby/lobby-transition";
-import workspaceService from "../features/workspace/services";
-import { useUiStore } from "../store/ui-store";
-import type { WorkspaceSection } from "../store/ui-store";
-import type { AudioPreferences } from "../features/workspace/components/settings/settings-main-panel-types";
-
-// Join refusals that mean "you are genuinely not in this room any more".
-//
-// Anything not listed here — a network failure, a 5xx, LOBBY_FULL, an access
-// token that expired mid-refresh — is a failed probe, not a verdict, and must
-// leave the user exactly where they are.
-const DEPARTURE_MESSAGE_FOR_CODE: Record<string, string> = {
-  LOBBY_KICKED: "Odadan atıldınız.",
-  LOBBY_BANNED: "Bu odadan yasaklandınız.",
-  LOBBY_NOT_FOUND: "Oda kapatıldı.",
-  LOBBY_LOCKED: "Odaya erişim izniniz kaldırıldı.",
-  LOBBY_PASSWORD_REQUIRED: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
-  LOBBY_PASSWORD_INCORRECT: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
-  LOBBY_TEXT_ONLY: "Oda mesajlaşma odasına dönüştürüldü.",
-  FORBIDDEN: "Odaya erişim izniniz kaldırıldı.",
-};
-
-const toConversationPeer = (user: UserDirectoryEntry): OpenConversation => ({
-  userId: user.userId,
-  username: user.username,
-  displayName: user.displayName,
-  avatarUrl: user.avatarUrl ?? null,
-});
+  type ScheduleActiveLobbyReconnect,
+} from "@/features/workspace";
+import { useUiStore } from "@/store/ui-store";
+import { useConversationRouting } from "./workspace-shell/use-conversation-routing";
+import { useLobbyMembershipWatchdog } from "./workspace-shell/use-lobby-membership-watchdog";
+import { useCallRoomSync } from "./workspace-shell/use-call-room-sync";
+import { useAudioPreferenceSync } from "./workspace-shell/use-audio-preference-sync";
+import { useDesktopPreferences } from "./workspace-shell/use-desktop-preferences";
+import { useLobbyEmotePlayback } from "./workspace-shell/use-lobby-emote-playback";
 
 interface WorkspaceShellProps {
   currentUserId: string;
   currentUsername: string;
   currentUserRole: UserRole;
-  currentUserCreatedAt: string;
   onLogout: () => void;
   isLoggingOut: boolean;
 }
@@ -95,7 +68,6 @@ function WorkspaceShell({
   currentUserId,
   currentUsername,
   currentUserRole,
-  currentUserCreatedAt,
   onLogout,
   isLoggingOut,
 }: WorkspaceShellProps) {
@@ -259,6 +231,7 @@ function WorkspaceShell({
     selectedUserId,
     setSelectedUserId,
     directoryUsers,
+    directoryUsersWithSelf,
     selectedUser,
     // No workspaceSection: the directory and its stream now run for the whole
     // session rather than only while a particular tab is open.
@@ -282,7 +255,6 @@ function WorkspaceShell({
   const {
     callState,
     ongoingCall,
-    setOngoingCall,
     initiateCall,
     acceptCall,
     rejectCall,
@@ -296,186 +268,35 @@ function WorkspaceShell({
     setStatus,
   });
 
-  // Filled from useDirectMessages further down: names learned from the messages
-  // strangers send. A ref because conversationPeer is defined above that call.
-  const peerNamesRef = useRef<Record<string, string>>({});
-
-  // Names a peer from whatever knows them, best source first: the directory has
-  // the freshest profile but only for friends, the call signal names a stranger
-  // who is ringing, the stored conversation is the snapshot taken the last time
-  // either of those did, and a live message names whoever just wrote. A row that
-  // is all four empty renders as "Bilinmeyen kullanıcı" rather than blocking the
-  // selection.
-  const conversationPeer = useCallback(
-    (userId: string): OpenConversation => {
-      const directoryUser = directoryUsers.find(
-        (user) => user.userId === userId,
-      );
-      if (directoryUser) {
-        return toConversationPeer(directoryUser);
-      }
-
-      if (callState.peerUser?.userId === userId) {
-        return toConversationPeer(callState.peerUser);
-      }
-
-      const stored = conversations.find((entry) => entry.userId === userId);
-      if (stored) {
-        return stored;
-      }
-
-      // Last resort before the row reads "Bilinmeyen kullanıcı": a stranger who
-      // messages while the app is open is in none of the sources above — the
-      // directory holds friends only and the conversation seed was fetched at
-      // launch — but their own message named them. Read through a ref because
-      // useDirectMessages is called further down this component.
-      const learned = peerNamesRef.current[userId];
-      return {
-        userId,
-        username: learned ?? "",
-        displayName: learned ?? "",
-      };
-    },
-    [callState.peerUser, conversations, directoryUsers],
-  );
-
-  // The single door into a conversation. Selecting a peer with no row would
-  // leave the sidebar with nothing highlighted and no way back to the thread,
-  // so the row is created here rather than at each of the call, notification
-  // and click sites. Already-open rows are left alone: open() moves a peer to
-  // the front, and a plain click must not reshuffle the list under the cursor.
-  const selectConversation = useCallback(
-    (peer: OpenConversation): void => {
-      if (!isConversationOpen(peer.userId)) {
-        openConversation(peer);
-      }
-      setWorkspaceSection("users");
-      setSelectedUserId(peer.userId);
-    },
-    [isConversationOpen, openConversation, setSelectedUserId, setWorkspaceSection],
-  );
-
-  const selectConversationById = useCallback(
-    (userId: string): void => {
-      selectConversation(conversationPeer(userId));
-    },
-    [conversationPeer, selectConversation],
-  );
-
-  // "Mesaj Gönder" from a lobby roster row: switch sections, then select.
-  //
-  // Deliberately setWorkspaceSection rather than handleSectionChange — that one
-  // clears the selection whenever it lands on "users", which is right for the
-  // rail button and exactly wrong here: it would drop the person we just picked.
-  const openConversationFromRoster = useCallback(
-    (userId: string): void => {
-      setWorkspaceSection("users");
-      selectConversationById(userId);
-    },
-    [selectConversationById, setWorkspaceSection],
-  );
-
-  // Closing the row you are reading drops you back to the friends home. Leaving
-  // the selection alone would keep the thread on screen with nothing in the
-  // sidebar pointing at it, and no unread to bring the row back.
-  const closeSelectedConversation = useCallback(
-    (userId: string): void => {
-      closeConversation(userId);
-      if (selectedUserId === userId) {
-        setSelectedUserId(null);
-      }
-    },
-    [closeConversation, selectedUserId, setSelectedUserId],
-  );
-
-  // The sidebar's "Ana Sayfa" button. Deliberately NOT closeSelectedConversation:
-  // going home must leave every open conversation exactly where it was.
-  const openFriendsHome = useCallback((): void => {
-    setSelectedUserId(null);
-  }, [setSelectedUserId]);
-
-  // Arkadaşlar always lands on the friends home. The selection lives in
-  // component state that nothing else clears, so coming back to the section
-  // used to resurrect whatever thread was open last time. Clicking a row still
-  // selects it: those routes go through selectConversation, not through the
-  // rail.
-  const handleSectionChange = useCallback(
-    (section: WorkspaceSection): void => {
-      if (section === "users") {
-        setSelectedUserId(null);
-      }
-      setWorkspaceSection(section);
-    },
-    [setSelectedUserId, setWorkspaceSection],
-  );
-
-  // selectedUser resolves through the friends-only directory, so it is null for
-  // every conversation with a non-friend — and a null one would put the friends
-  // home on screen instead of the thread, mid-call included. The row's own
-  // snapshot names them; role and join date exist only in the directory, so the
-  // profile drawer degrades to "Üye" and "Bilinmiyor".
-  const resolvedSelectedUser = useMemo<UserDirectoryEntry | null>(() => {
-    if (selectedUser || !selectedUserId) {
-      return selectedUser;
-    }
-
-    const peer = conversationPeer(selectedUserId);
-    return {
-      userId: peer.userId,
-      username: peer.username,
-      displayName: peer.displayName || peer.username || "Bilinmeyen kullanıcı",
-      avatarUrl: peer.avatarUrl ?? null,
-      role: "member",
-      createdAt: "",
-    };
-  }, [conversationPeer, selectedUser, selectedUserId]);
-
-  // Both selectors change identity whenever the conversation list does, and the
-  // effects below must not re-run for that: one would drag the user back to the
-  // call peer every time an unrelated message arrived, the other would tear
-  // down and re-register the notification listener.
-  const selectConversationRef = useRef(selectConversation);
-  const selectConversationByIdRef = useRef(selectConversationById);
-  useEffect(() => {
-    selectConversationRef.current = selectConversation;
-    selectConversationByIdRef.current = selectConversationById;
+  const {
+    peerNamesRef,
+    conversationPeer,
+    selectConversation,
+    selectConversationById,
+    selectConversationByIdRef,
+    openConversationFromRoster,
+    closeSelectedConversation,
+    openFriendsHome,
+    handleSectionChange,
+    resolvedSelectedUser,
+    directoryPeerUserIds,
+    directoryAvatarByUserId,
+    currentUserAvatarUrl,
+  } = useConversationRouting({
+    currentUserId,
+    directoryUsers,
+    directoryUsersWithSelf,
+    callPeerUser: callState.peerUser ?? null,
+    callStatus: callState.status,
+    conversations,
+    isConversationOpen,
+    openConversation,
+    closeConversation,
+    selectedUserId,
+    setSelectedUserId,
+    selectedUser,
+    setWorkspaceSection,
   });
-
-  useEffect(() => {
-    if (callState.status === "active" && callState.peerUser) {
-      selectConversationRef.current(toConversationPeer(callState.peerUser));
-    }
-  }, [callState.status, callState.peerUser]);
-
-  // Peer ids only, so the unread seed does not re-run every time an avatar or
-  // presence flag changes in the directory. The open conversations are unioned
-  // in because the directory is friends-only now: seeding from it alone lost
-  // the badge for every non-friend you have history with.
-  const directoryPeerUserIds = useMemo(() => {
-    const users =
-      usersQuery.data?.ok && usersQuery.data.data ? usersQuery.data.data.users : [];
-    const peerIds = new Set([
-      ...users.map((user) => user.userId),
-      ...conversations.map((entry) => entry.userId),
-    ]);
-    peerIds.delete(currentUserId);
-    return [...peerIds];
-  }, [conversations, currentUserId, usersQuery.data]);
-
-  // Avatars for FRIENDS and self. The directory is friends-only, so this map
-  // has nothing for the strangers sitting in a voice room with you — see
-  // avatarByUserId below, which fills those in from their public cards.
-  const directoryAvatarByUserId = useMemo(() => {
-    if (!usersQuery.data?.ok || !usersQuery.data.data) return {};
-    return usersQuery.data.data.users.reduce<
-      Record<string, string | null | undefined>
-    >((accumulator: any, user: any) => {
-      accumulator[user.userId] = user.avatarUrl;
-      return accumulator;
-    }, {});
-  }, [usersQuery.data]);
-
-  const currentUserAvatarUrl = directoryAvatarByUserId[currentUserId] ?? null;
 
   // ----- LOBBY ROOM / CHAT -----
   const {
@@ -515,9 +336,7 @@ function WorkspaceShell({
   // ----- MEDIA CONTROLS -----
   const {
     micEnabled,
-    setMicEnabled,
     headphoneEnabled,
-    setHeadphoneEnabled,
     cameraEnabled,
     screenEnabled,
     localCameraStream,
@@ -526,7 +345,6 @@ function WorkspaceShell({
     isLoadingScreenShareSources,
     isStartingScreenShare,
     screenShareModalError,
-    screenShareSources,
     selectedScreenShareSourceId,
     setSelectedScreenShareSourceId,
     selectedScreenShareSourceKind,
@@ -647,78 +465,16 @@ function WorkspaceShell({
   ]);
 
 
-  // ----- PREFERENCE SYNC EFFECT -----
-  const prevAudioPreferencesRef = useRef(audioPreferences);
-  useEffect(() => {
-    const previous = prevAudioPreferencesRef.current;
-    const next = audioPreferences;
-
-    if (next !== previous) {
-      const shouldRefreshMicProcessing =
-        Boolean(activeLobbyId) &&
-        micEnabled &&
-        (next.enhancedNoiseSuppressionEnabled !==
-          previous.enhancedNoiseSuppressionEnabled ||
-          next.noiseSuppressionPreset !== previous.noiseSuppressionPreset ||
-          next.selectedAudioInputDeviceId !==
-            previous.selectedAudioInputDeviceId);
-
-      if (activeLobbyId && liveKitSessionRef.current) {
-        liveKitSessionRef.current.setAudioProcessingPreferences({
-          enhancedNoiseSuppressionEnabled: next.enhancedNoiseSuppressionEnabled,
-          noiseSuppressionPreset: next.noiseSuppressionPreset,
-          selectedAudioInputDeviceId: next.selectedAudioInputDeviceId,
-          selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,
-          masterVolume: next.masterVolume,
-          microphoneVolume: next.microphoneVolume,
-        });
-
-        if (shouldRefreshMicProcessing) {
-          liveKitSessionRef.current
-            .refreshMicrophoneProcessing()
-            .catch((error: unknown) => {
-              setStatus(
-                `Mikrofon yenileme hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-                "warn",
-              );
-            });
-        }
-      }
-      prevAudioPreferencesRef.current = next;
-    }
-  }, [
+  useAudioPreferenceSync({
     audioPreferences,
     activeLobbyId,
     micEnabled,
     liveKitSessionRef,
     setStatus,
-  ]);
+  });
 
   // ----- HOTKEYS + PUSH-TO-TALK -----
-  const [desktopPreferences, setDesktopPreferences] =
-    useState<DesktopAppPreferences | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    const load = (): void => {
-      void window.desktopApi.getAppPreferences().then((result) => {
-        if (active && result.ok && result.data?.preferences) {
-          setDesktopPreferences(result.data.preferences);
-        }
-      });
-    };
-
-    load();
-    // The settings panel writes preferences through its own IPC call, and there
-    // is no change event for them; refocusing the window is the cheapest point
-    // to notice an edit made in another section.
-    window.addEventListener("focus", load);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", load);
-    };
-  }, []);
+  const desktopPreferences = useDesktopPreferences();
 
   const {
     isBlocked,
@@ -780,7 +536,7 @@ function WorkspaceShell({
       }
       selectConversationByIdRef.current(payload.peerUserId);
     });
-  }, []);
+  }, [selectConversationByIdRef]);
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
@@ -854,34 +610,11 @@ function WorkspaceShell({
 
   const activeLobbyReconnectInFlightRef = useRef(false);
   const activeLobbyReconnectAttemptRef = useRef(0);
-  const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
-  const hasSeenCurrentUserInLobbyRef = useRef(false);
-  // How many CONSECUTIVE roster observations have failed to list us. Counted in
-  // observations, not milliseconds — see the membership-recovery effect.
-  const absentRosterObservationsRef = useRef(0);
-  // The roster object this effect has already judged. `lobbyMembersById` gets a
-  // new identity per push, so comparing references is what makes the effect
-  // snapshot-driven instead of render-driven.
-  const judgedRosterRef = useRef<unknown>(null);
-  const membershipRecoveryInFlightRef = useRef(false);
   // The password the user actually entered for the room they are in, so an
   // automatic re-join can present it. Without it every unattended recovery into
   // a password-protected room failed with LOBBY_PASSWORD_REQUIRED forever.
   // Never persisted: it lives as long as the membership does.
   const activeLobbyPasswordRef = useRef<string | null>(null);
-
-  // Reset hasSeenActiveLobbyStateRef and hasSeenCurrentUserInLobbyRef for non-active lobbies
-  useEffect(() => {
-    const activeId = activeLobbyId;
-    hasSeenCurrentUserInLobbyRef.current = false;
-    absentRosterObservationsRef.current = 0;
-    judgedRosterRef.current = null;
-    for (const key of Object.keys(hasSeenActiveLobbyStateRef.current)) {
-      if (key !== activeId) {
-        delete hasSeenActiveLobbyStateRef.current[key];
-      }
-    }
-  }, [activeLobbyId]);
 
   const {
     knownLobbies: lobbies,
@@ -963,11 +696,6 @@ function WorkspaceShell({
 
     reconcileDeclaredAudioState(self.muted, self.deafened);
   }, [activeLobbyRosterMembers, currentUserId, reconcileDeclaredAudioState]);
-
-  const activeLobby = useMemo(() => {
-    if (!activeLobbyId) return null;
-    return lobbies.find((lobby) => lobby.id === activeLobbyId) ?? null;
-  }, [activeLobbyId, lobbies]);
 
   // Resolved against the live list rather than trusted as stored: a text room
   // deleted while it was open would otherwise stay on screen as a room that no
@@ -1089,263 +817,25 @@ function WorkspaceShell({
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
-  //
-  // Fires once per call room. performPostJoinSynchronization is read through a
-  // ref rather than listed as a dependency: it changes identity on every render
-  // (see use-workspace-media-controls), so this effect used to re-run on every
-  // render — at least 1 Hz from the media-stats tick and up to 10 Hz while
-  // anyone was speaking — minting a fresh LiveKit token each time. While the
-  // room was still `connecting` the idempotency check in connect() did not
-  // short-circuit either, so the second call tore the half-built room down and
-  // rebuilt it: a join loop that never settled on a slow network.
-  const performPostJoinSyncRef = useRef(performPostJoinSynchronization);
-  useEffect(() => {
-    performPostJoinSyncRef.current = performPostJoinSynchronization;
+  const performPostJoinSyncRef = useCallRoomSync({
+    activeLobbyId,
+    performPostJoinSynchronization,
   });
 
-  const syncedCallLobbyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!activeLobbyId || !activeLobbyId.startsWith("call_")) {
-      syncedCallLobbyRef.current = null;
-      return;
-    }
-
-    if (syncedCallLobbyRef.current === activeLobbyId) {
-      return;
-    }
-    syncedCallLobbyRef.current = activeLobbyId;
-
-    performPostJoinSyncRef.current(activeLobbyId).catch((error) => {
-      // Let a failed connect be retried on the next entry into this room.
-      syncedCallLobbyRef.current = null;
-      console.error("[WorkspaceShell] Automatic call LiveKit synchronization failed:", error);
-    });
-  }, [activeLobbyId]);
-
-  // ----- LEAVING A ROOM WITHOUT ASKING TO -----
-  //
-  // There are exactly two ways to learn that we are no longer in a room, and
-  // they answer different questions.
-  //
-  //   1. The server tells us, with a reason (`lobby-removed`). Authoritative and
-  //      immediate — but only deliverable while the socket is alive, which is
-  //      precisely not the case for a heartbeat timeout.
-  //   2. We notice we are missing from the roster. Always available, never
-  //      self-explanatory: a kick and a hiccup look identical.
-  //
-  // The old code had only (2) and treated it as (1) — after a few seconds of
-  // absence it left the room for real and marked the lobby un-rejoinable, so
-  // every transient became a permanent departure. That is the "people fall out
-  // of the lobby for no reason" report, and tuning the delay cannot fix it.
-  //
-  // Now (1) decides, and (2) recovers: on unexplained absence we re-join rather
-  // than leave. Re-joining is a no-op for someone who is still a member and is
-  // refused, with a specific code, exactly when the departure was real.
-  const leaveActiveLobbyRef = useRef(leaveActiveLobby);
-  useEffect(() => {
-    leaveActiveLobbyRef.current = leaveActiveLobby;
+  // ----- STAYING IN A ROOM YOU DID NOT LEAVE -----
+  useLobbyMembershipWatchdog({
+    activeLobbyId,
+    currentUserId,
+    lobbyMembersById,
+    activeLobbyRef,
+    kickedLobbyIdRef,
+    activeLobbyPasswordRef,
+    lobbyTransitionRef,
+    performPostJoinSyncRef,
+    leaveActiveLobby,
   });
 
-  const departFromLobby = useCallback(
-    (lobbyId: string, reason: string): void => {
-      // Reset synchronously rather than waiting for the activeLobbyId -> null
-      // commit, so a push landing before leaveActiveLobby's REST call resolves
-      // cannot re-enter this path.
-      hasSeenCurrentUserInLobbyRef.current = false;
-      absentRosterObservationsRef.current = 0;
-      delete hasSeenActiveLobbyStateRef.current[lobbyId];
-      kickedLobbyIdRef.current = lobbyId;
-      activeLobbyPasswordRef.current = null;
-      message.warning(reason);
-      void leaveActiveLobbyRef.current("kicked");
-    },
-    [],
-  );
-
-  const recoverMembership = useCallback(
-    (lobbyId: string, why: string): void => {
-      if (membershipRecoveryInFlightRef.current) return;
-      // A deliberate join/leave is already changing rooms; it owns the outcome.
-      if (isLobbyTransitionBusy(lobbyTransitionRef.current)) return;
-      membershipRecoveryInFlightRef.current = true;
-      console.log(`[WorkspaceShell] ${why} — re-joining ${lobbyId} to find out why`);
-
-      void workspaceService
-        .joinLobby({
-          lobbyId,
-          password: activeLobbyPasswordRef.current ?? undefined,
-        })
-        .then(async (result) => {
-          // Moved on while the probe was in flight; its answer is about a room
-          // the user is no longer standing in.
-          if (activeLobbyRef.current !== lobbyId) return;
-
-          if (result.ok) {
-            // Back on the roster. Re-declare mic/camera/screen and make sure the
-            // media room is up, then say nothing: the user saw no interruption.
-            absentRosterObservationsRef.current = 0;
-            await performPostJoinSyncRef.current(lobbyId).catch(() => undefined);
-            return;
-          }
-
-          const departure = DEPARTURE_MESSAGE_FOR_CODE[result.error?.code ?? ""];
-          if (departure) {
-            departFromLobby(lobbyId, departure);
-            return;
-          }
-
-          // Inconclusive. Keep the user where they are and try again on the
-          // next absent observation.
-          absentRosterObservationsRef.current = 0;
-        })
-        .catch(() => {
-          absentRosterObservationsRef.current = 0;
-        })
-        .finally(() => {
-          membershipRecoveryInFlightRef.current = false;
-        });
-    },
-    [departFromLobby],
-  );
-
-  // (1) The server said so. No waiting, no counting, no inference.
-  useEffect(() => {
-    return workspaceService.onLobbyStreamEvent((event) => {
-      if (event.type !== "lobby-removed") return;
-
-      const lobbyId = activeLobbyRef.current;
-      // Only frames about the room we are actually standing in matter. A frame
-      // for any other room is either stale or about a session we already left.
-      if (!lobbyId || lobbyId !== event.lobbyId) return;
-
-      switch (event.reason) {
-        case "kicked":
-          departFromLobby(lobbyId, "Odadan atıldınız.");
-          return;
-        case "banned":
-          departFromLobby(lobbyId, "Bu odadan yasaklandınız.");
-          return;
-        case "lobby-deleted":
-          departFromLobby(lobbyId, "Oda kapatıldı.");
-          return;
-        case "moved": {
-          // Joins are exclusive, so OUR OWN room change produces one of these.
-          // movedTo is what separates the two cases: if the destination is the
-          // room we are switching to (or already in), this frame is describing
-          // something we did on purpose. Without the check, two devices signed
-          // into one account push each other back and forth forever, each
-          // recovery probe undoing the other's join.
-          const destination = event.movedTo ?? "";
-          if (
-            !destination ||
-            destination === lobbyId ||
-            destination === lobbyTransitionRef.current.joiningLobbyId
-          ) {
-            return;
-          }
-          departFromLobby(
-            lobbyId,
-            "Hesabınız başka bir cihazdan farklı bir odaya katıldı.",
-          );
-          return;
-        }
-        case "media-timeout":
-        case "heartbeat-timeout":
-          // Not a decision — the server lost sight of us. Re-join at once
-          // instead of waiting for four absent snapshots to prove it.
-          recoverMembership(lobbyId, `server reported ${event.reason}`);
-          return;
-        default:
-          return;
-      }
-    });
-  }, [departFromLobby, recoverMembership]);
-
-  // Sound emotes. Mounted once for the session rather than inside the lobby
-  // panel, which unmounts whenever the user looks at Arkadaşlar or Ayarlar —
-  // the room is still there and so is the noise.
-  //
-  // The sender's own emote is played from here too. It arrives on the same
-  // frame as everyone else's, which is what makes hearing it a real
-  // confirmation that the room heard it.
-  useEffect(() => {
-    return workspaceService.onLobbyStreamEvent((event) => {
-      if (event.type !== "lobby-emote") return;
-      if (!activeLobbyRef.current || activeLobbyRef.current !== event.lobbyId) {
-        return;
-      }
-      // A built-in id is synthesised; an upload is fetched once and cached, by
-      // the query client and again as a decoded buffer.
-      if (event.emote.startsWith(CUSTOM_EMOTE_PREFIX)) {
-        void playCustomEmote(queryClient, event.emote);
-        return;
-      }
-
-      soundEffectManager.playEmote(event.emote);
-    });
-  }, [queryClient]);
-
-  // (2) We noticed. Recovery only — this path can no longer decide to leave.
-  //
-  // Two rules, both learned the hard way:
-  //   * Count OBSERVATIONS, not milliseconds. The old version compared wall
-  //     clock inside an effect that re-runs on every render (leaveActiveLobby is
-  //     a fresh closure each time, and media stats re-render the shell at ≥1Hz),
-  //     so the render loop was the timer. One bad frame plus six seconds of
-  //     unrelated renders was enough to eject, even if the stream had gone
-  //     silent right after. Silence must not be a kick.
-  //   * Only judge a roster once. `judgedRosterRef` is what makes that true.
-  useEffect(() => {
-    if (!activeLobbyId || activeLobbyId.startsWith("call_")) return;
-    if (judgedRosterRef.current === lobbyMembersById) return;
-    judgedRosterRef.current = lobbyMembersById;
-
-    // Consecutive absent observations before we challenge the server. Snapshots
-    // arrive about once a second while the stream is healthy, so this is ~4s of
-    // real evidence — and zero seconds of evidence when the stream is down,
-    // which is the point.
-    const ABSENT_OBSERVATIONS_BEFORE_CHALLENGE = 4;
-
-    const noteAbsent = (lobbyId: string, why: string): void => {
-      absentRosterObservationsRef.current += 1;
-      if (
-        absentRosterObservationsRef.current < ABSENT_OBSERVATIONS_BEFORE_CHALLENGE
-      ) {
-        return;
-      }
-      recoverMembership(lobbyId, why);
-    };
-
-    const members = lobbyMembersById[activeLobbyId];
-    if (members) {
-      hasSeenActiveLobbyStateRef.current[activeLobbyId] = true;
-
-      if (members.some((m) => m.userId === currentUserId)) {
-        hasSeenCurrentUserInLobbyRef.current = true;
-        absentRosterObservationsRef.current = 0;
-        return;
-      }
-
-      // An empty roster for a lobby we believe we are sitting in contradicts
-      // itself: if everyone else had left we would still be listed. Treat it as
-      // a bad frame, not as a removal.
-      if (members.length === 0) {
-        return;
-      }
-
-      // Only meaningful once we have actually been seen in this lobby.
-      if (hasSeenCurrentUserInLobbyRef.current) {
-        noteAbsent(activeLobbyId, "Current user missing from the active lobby roster");
-      }
-      return;
-    }
-
-    // The lobby is absent from the snapshot entirely. Same treatment: only
-    // after we have seen its state, and only if it stays gone.
-    if (hasSeenActiveLobbyStateRef.current[activeLobbyId]) {
-      noteAbsent(activeLobbyId, "Active lobby missing from the snapshot");
-    }
-  }, [activeLobbyId, lobbyMembersById, currentUserId, recoverMembership]);
+  useLobbyEmotePlayback(activeLobbyRef, queryClient);
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
   const {
@@ -1531,7 +1021,7 @@ function WorkspaceShell({
       />
 
       {workspaceSection === "admin" ? (
-        <AdminPanel />
+        <AdminPanel currentUserId={currentUserId} />
       ) : (
         <>
           <WorkspaceSidebar
@@ -1638,7 +1128,6 @@ function WorkspaceShell({
             avatarByUserId={avatarByUserId}
             settingsSection={settingsSection}
             currentUserRole={currentUserRole}
-            currentUserCreatedAt={currentUserCreatedAt}
             onLogout={onLogout}
             isLoggingOut={isLoggingOut}
             cameraPreferences={cameraPreferences}
@@ -1652,11 +1141,6 @@ function WorkspaceShell({
             lobbies={lobbies}
             activeLobbyId={activeLobbyId}
             lobbyRoomId={lobbyRoomId}
-            activeLobbyName={
-              isInCallRoom
-                ? (callState.peerUser?.displayName || "Arama")
-                : (openTextRoom?.name ?? activeLobby?.name ?? null)
-            }
             joiningLobbyId={joiningLobbyId}
             onJoinLobby={handleSelectLobby}
             onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}

@@ -77,13 +77,7 @@ class SoundEffectManager {
       return this.audioContext;
     }
 
-    const Ctx =
-      window.AudioContext ||
-      (
-        window as typeof window & {
-          webkitAudioContext?: typeof AudioContext;
-        }
-      ).webkitAudioContext;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
 
     if (!Ctx) {
       return null;

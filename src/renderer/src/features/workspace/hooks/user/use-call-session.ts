@@ -37,12 +37,12 @@ class CallAudioSynthesizer {
   private osc1: OscillatorNode | null = null;
   private osc2: OscillatorNode | null = null;
   private gainNode: GainNode | null = null;
-  private intervalId: any = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
 
   public startRingtone() {
     this.stop();
     try {
-      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
       const playTone = () => {
         if (!this.audioCtx) return;
         
@@ -80,7 +80,7 @@ class CallAudioSynthesizer {
             o1.disconnect();
             o2.disconnect();
             g.disconnect();
-          } catch (e) {}
+          } catch {}
         }, 1800);
       };
 
@@ -94,7 +94,7 @@ class CallAudioSynthesizer {
   public startDialTone() {
     this.stop();
     try {
-      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
       const playTone = () => {
         if (!this.audioCtx) return;
         
@@ -140,7 +140,7 @@ class CallAudioSynthesizer {
             o1.disconnect();
             o2.disconnect();
             g.disconnect();
-          } catch (e) {}
+          } catch {}
         }, 1300);
       };
 
@@ -177,7 +177,7 @@ class CallAudioSynthesizer {
         }
         this.audioCtx = null;
       }
-    } catch (e) {
+    } catch {
       // Ignored
     }
   }
@@ -201,7 +201,7 @@ export const useCallSession = ({
   const synthRef = useRef<CallAudioSynthesizer | null>(null);
   const callStateRef = useRef<CallSessionState>(initialCallState);
   const ongoingCallRef = useRef<OngoingCallInfo | null>(null);
-  const outgoingTimeoutRef = useRef<any>(null);
+  const outgoingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     callStateRef.current = callState;
@@ -273,7 +273,7 @@ export const useCallSession = ({
   }, [currentUserId, currentUsername, getSynth, setActiveLobbyId, setStatus]);
 
   const acceptCall = useCallback(async () => {
-    const { callId, callerId, peerUser } = callStateRef.current;
+    const { callId, callerId } = callStateRef.current;
     if (!callId || !callerId) return;
 
     try {
@@ -304,7 +304,7 @@ export const useCallSession = ({
     try {
       getSynth().stop();
       await workspaceService.rejectCall({ callId, callerId });
-    } catch (e) {
+    } catch {
       // Ignored
     } finally {
       setCallState(initialCallState);
@@ -324,7 +324,7 @@ export const useCallSession = ({
     try {
       getSynth().stop();
       await workspaceService.cancelCall({ callId, targetUserId });
-    } catch (e) {
+    } catch {
       // Ignored
     } finally {
       setCallState(initialCallState);
@@ -373,7 +373,7 @@ export const useCallSession = ({
           await workspaceService.rejectCall({ callId: resolvedCallId, callerId: resolvedCallerId });
           void workspaceService.sendDirectMessage({ peerUserId: resolvedCallerId, body: "📞 Arama bitti" });
         }
-      } catch (e) {
+      } catch {
         // Ignored
       }
       // Clear ongoingCall — call is truly over
@@ -419,7 +419,7 @@ export const useCallSession = ({
           if (callStateRef.current.status !== "idle") {
             try {
               await workspaceService.rejectCall({ callId, callerId });
-            } catch (e) {}
+            } catch {}
             return;
           }
 
@@ -430,7 +430,7 @@ export const useCallSession = ({
             if (result.ok && result.data) {
               peerUser = result.data.users.find((u) => u.userId === callerId) || null;
             }
-          } catch (e) {}
+          } catch {}
 
           // The directory is friends + self, so a call from someone you are not
           // friends with resolves to nothing there. Everything downstream keys
@@ -459,7 +459,7 @@ export const useCallSession = ({
             if (Array.isArray(mutedIds) && mutedIds.includes(callerId)) {
               isMuted = true;
             }
-          } catch (e) {}
+          } catch {}
 
           setCallState({
             status: "incoming",

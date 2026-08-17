@@ -66,7 +66,7 @@ export function SettingsStream({
     const videoEl = streamPreviewRef.current;
     let lastTime = performance.now();
     let lastFrames = 0;
-    let timerId: any;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     const checkStats = () => {
       const now = performance.now();
@@ -164,6 +164,9 @@ export function SettingsStream({
     if (streamTestStream) {
       void handleStartStreamTest();
     }
+    // Same shape as the camera preview: streamTestStream is the thing the restart
+    // replaces, so depending on it would make the restart trigger itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftStreamPreferences.frameRate, draftStreamPreferences.captureSystemAudio]);
 
   return (

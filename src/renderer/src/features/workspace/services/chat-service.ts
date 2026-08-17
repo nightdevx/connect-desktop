@@ -2,11 +2,11 @@ import type {
   ChatAttachmentUpload,
   DesktopResult,
   DirectMessagesStreamEvent,
-} from "../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import type {
   ChatMessage,
   FriendEntry,
-} from "../../../../../shared/auth-contracts";
+} from "@shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
   ok: false,

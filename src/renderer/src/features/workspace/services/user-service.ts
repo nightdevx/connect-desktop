@@ -2,7 +2,7 @@ import type {
   DesktopNotificationRequest,
   DesktopResult,
   UserDirectoryStreamEvent,
-} from "../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import type {
   FriendEntry,
   FriendRequestLists,
@@ -11,7 +11,7 @@ import type {
   UpdatePrivacyRequest,
   UserDirectoryEntry,
   UserProfile,
-} from "../../../../../shared/auth-contracts";
+} from "@shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
   ok: false,

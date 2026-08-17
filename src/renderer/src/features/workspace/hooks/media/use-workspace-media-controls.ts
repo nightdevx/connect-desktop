@@ -3,7 +3,7 @@ import type { LobbyStateMember, ScreenCaptureSourceDescriptor } from "@shared/de
 import type { LiveKitMediaSession } from "@/features/livekit";
 import { stopMediaStreamTracks, type ScreenShareQualityPreset, type ScreenShareSourceKind } from "../../workspace-media-utils";
 import type { ScreenShareContentMode } from "@/features/screen-share";
-import { stopActiveSystemLoopback } from "@/features/screen-share/loopback-audio";
+import { stopActiveSystemLoopback } from "@/features/screen-share";
 import type { CameraPreferences, StreamPreferences } from "../../components/settings/settings-main-panel-types";
 
 // Sub-hooks
@@ -169,6 +169,12 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
         screen.syncLobbyMediaState(lobbyId),
       ]);
     },
+    // The two METHODS, never the camera/screen objects they hang off. Those hooks
+    // return a fresh object every render, so depending on them gave this callback
+    // — and performPostJoinSynchronization, which wraps it — a new identity every
+    // time, and the call-room auto-connect effect minted a LiveKit token 1-10
+    // times a second for the whole duration of every call. See the note above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [camera.syncLobbyMediaState, screen.syncLobbyMediaState]
   );
 
@@ -192,6 +198,9 @@ export const useWorkspaceMediaControls = (params: UseWorkspaceMediaControlsParam
     camera.setCameraPreviewStream(null);
     camera.setCameraEnabled(false);
     screen.setScreenEnabled(false);
+    // Same rule as syncLobbyMediaState above: individual setters, not the parent
+    // objects, or this callback changes identity on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     camera.setLocalCameraStream,
     camera.setCameraPreviewStream,

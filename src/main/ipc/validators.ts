@@ -349,3 +349,29 @@ export const adminListLobbyEventsSchema = z.object({
   search: z.string().max(256).optional().or(z.literal("")),
 }).optional().default({});
 
+
+// The two admin list endpoints used to take `params?: any` and hand it straight
+// to the backend. The backend validates too, but "the other side checks it" is
+// not a reason for this side to accept anything — these are the shapes the
+// renderer actually sends, and a value outside them is a bug worth failing on
+// here rather than a query string the backend has to guess at.
+export const adminListUsersSchema = z
+  .object({
+    search: z.string().max(256).optional(),
+    role: z.enum(["all", "admin", "member"]).optional(),
+    status: z.enum(["all", "active", "banned", "unverified"]).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+    offset: z.number().int().min(0).optional(),
+  })
+  .optional()
+  .default({});
+
+export const adminListLobbiesSchema = z
+  .object({
+    search: z.string().max(256).optional(),
+    locked: z.enum(["all", "locked", "open"]).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+    offset: z.number().int().min(0).optional(),
+  })
+  .optional()
+  .default({});

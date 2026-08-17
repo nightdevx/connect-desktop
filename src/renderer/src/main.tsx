@@ -8,7 +8,7 @@ import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme } from "antd";
 import App from "./App";
-import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { AppErrorBoundary } from "./app/AppErrorBoundary";
 import { queryClient } from "./services/query-client";
 import { readTokens } from "./styles/design-tokens";
 import { applyThemeMode, readThemeMode } from "./styles/theme-mode";

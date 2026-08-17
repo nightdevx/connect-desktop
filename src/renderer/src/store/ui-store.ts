@@ -10,9 +10,14 @@ import {
   saveGifPlayback,
   type GifPlayback,
 } from "../styles/gif-playback";
+import {
+  readViewPreferences,
+  saveViewPreferences,
+  type ViewPreferences,
+} from "./view-preferences";
 
 type AuthPage = "login" | "register";
-type StatusTone = "ok" | "warn" | "error";
+export type StatusTone = "ok" | "warn" | "error";
 export type WorkspaceSection = "users" | "lobbies" | "settings" | "admin";
 export type AdminSection =
   | "dashboard"
@@ -44,6 +49,12 @@ interface UiState {
   /** Whether GIFs in a conversation animate always, or only under the cursor. */
   gifPlayback: GifPlayback;
   setGifPlayback: (mode: GifPlayback) => void;
+  /** Panel show/hide choices that outlive the panel that draws them. */
+  viewPreferences: ViewPreferences;
+  setViewPreference: <K extends keyof ViewPreferences>(
+    key: K,
+    value: ViewPreferences[K],
+  ) => void;
   setActivePage: (page: AuthPage) => void;
   setStatus: (message: string, tone: StatusTone) => void;
   setWorkspaceSection: (section: WorkspaceSection) => void;
@@ -73,6 +84,16 @@ export const useUiStore = create<UiState>((set) => ({
     saveGifPlayback(mode);
     set({ gifPlayback: mode });
   },
+  viewPreferences: readViewPreferences(),
+  setViewPreference: (key, value) =>
+    set((state) => {
+      if (state.viewPreferences[key] === value) {
+        return state;
+      }
+      const next = { ...state.viewPreferences, [key]: value };
+      saveViewPreferences(next);
+      return { viewPreferences: next };
+    }),
   setActivePage: (page) => {
     if (document.startViewTransition) {
       document.startViewTransition(() => set({ activePage: page }));

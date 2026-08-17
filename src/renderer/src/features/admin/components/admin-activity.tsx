@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { toErrorMessage } from "@shared/error-message";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Table, Button, Input, Tag, message, Select } from "antd";
+import type { TablePaginationConfig } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
+
+// antd hands the pagination object back with every field optional; this is what
+// a page-size reset falls back to.
+const DEFAULT_PAGE_SIZE = 50;
 
 const EVENT_TAGS: Record<string, { color: string; text: string }> = {
   join: { color: "green", text: "GİRİŞ" },
@@ -48,7 +54,7 @@ export default function AdminActivity() {
       ]);
       setUsersList(usersRes.users || []);
       setLobbiesList((lobbiesRes.lobbies || []).map(l => ({ id: l.lobby.id, name: l.lobby.name })));
-    } catch (err: any) {
+    } catch (err) {
       // Let the next open try again rather than leaving both filters empty for
       // the rest of the session.
       filterOptionsRequestedRef.current = false;
@@ -58,9 +64,10 @@ export default function AdminActivity() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const fetchEvents = async (page = currentPage, size = pageSize) => {
+  const fetchEvents = useCallback(
+    async (page = currentPage, size = pageSize): Promise<void> => {
     try {
       setLoading(true);
       const offset = (page - 1) * size;
@@ -74,12 +81,14 @@ export default function AdminActivity() {
       });
       setEvents(res.events || []);
       setTotal(res.total || 0);
-    } catch (err: any) {
-      message.error(err.message || "Aktivite logları alınamadı");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Aktivite logları alınamadı"));
     } finally {
       setLoading(false);
     }
-  };
+    },
+    [currentPage, pageSize, lobbyFilter, userFilter, eventTypeFilter, searchText],
+  );
 
   useEffect(() => {
     setCurrentPage(1);
@@ -93,15 +102,15 @@ export default function AdminActivity() {
   }, [
     currentPage,
     pageSize,
-    lobbyFilter,
-    userFilter,
-    eventTypeFilter,
-    searchText,
+    // fetchEvents is memoised on the four filters this list used to name, so
+    // depending on it re-runs the fetch on the same changes — and the debounced
+    // timer can no longer fire a closure built from a filter that has moved on.
+    fetchEvents,
   ]);
 
-  const handleTableChange = (pagination: any) => {
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
+  const handleTableChange = (pagination: TablePaginationConfig): void => {
+    setCurrentPage(pagination.current ?? 1);
+    setPageSize(pagination.pageSize ?? DEFAULT_PAGE_SIZE);
   };
 
   const columns = [
@@ -125,7 +134,7 @@ export default function AdminActivity() {
     {
       title: "Oda",
       key: "lobby",
-      render: (_: any, record: AdminLobbyEvent) => (
+      render: (_value: unknown, record: AdminLobbyEvent) => (
         <div className="ct-admin-table-user">
           <div>
             <strong>{record.lobbyName}</strong>
@@ -137,7 +146,7 @@ export default function AdminActivity() {
     {
       title: "Kullanıcı",
       key: "user",
-      render: (_: any, record: AdminLobbyEvent) => (
+      render: (_value: unknown, record: AdminLobbyEvent) => (
         <div className="ct-admin-table-user">
           <div>
             <strong>@{record.username}</strong>

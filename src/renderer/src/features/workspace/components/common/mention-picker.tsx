@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
 import type { InputRef } from "antd";
 import {
@@ -8,6 +8,10 @@ import {
   type MentionCandidate,
 } from "../../mentions";
 import { getDisplayInitials } from "../../workspace-utils";
+
+// A stable empty result, so "no active mention" does not mint a new array — and
+// therefore a new memo identity — on every keystroke.
+const EMPTY_MATCHES: MentionCandidate[] = [];
 
 interface UseMentionPickerParams {
   draft: string;
@@ -53,14 +57,25 @@ export const useMentionPicker = ({
     setDismissed(false);
   }, [draft.length, inputRef]);
 
-  const active = dismissed ? null : findActiveMention(draft, caret);
-  const matches = active ? filterMentionCandidates(candidates, active.query) : [];
+  // Memoised, both of them. A fresh array literal per render is a fresh
+  // identity, so anything depending on `matches` re-ran every render — and
+  // depending on `matches.length` instead only hid that from the linter rather
+  // than fixing it.
+  const active = useMemo(
+    () => (dismissed ? null : findActiveMention(draft, caret)),
+    [caret, dismissed, draft],
+  );
+  const matches = useMemo(
+    () =>
+      active ? filterMentionCandidates(candidates, active.query) : EMPTY_MATCHES,
+    [active, candidates],
+  );
   const isOpen = active !== null && matches.length > 0;
 
   // A shrinking result list must not leave the highlight past the end.
   useEffect(() => {
     setActiveIndex((current) => (current < matches.length ? current : 0));
-  }, [matches.length]);
+  }, [matches]);
 
   const close = useCallback((): void => {
     setDismissed(true);

@@ -328,17 +328,30 @@ color: var(--ct-text-primary);
 letter-spacing: 0.04em;
 }
 
+/* Presence is a status, not a piece of chrome, so it reads from the presence
+   tokens rather than from the accent — which is white in the dark theme and
+   near-BLACK in the light one, i.e. an "online" dot that went black the moment
+   the theme flipped. Most call sites pass a colour inline from PRESENCE_COLORS;
+   these classes cover the ones that do not. */
 .ct-presence-dot {
 @apply inline-block h-2.5 w-2.5 rounded-full;
-background: var(--ct-text-muted);
+background: var(--ct-presence-offline);
 }
 
 .ct-presence-dot.online {
-background: var(--ct-accent);
+background: var(--ct-presence-online);
+}
+
+.ct-presence-dot.idle {
+background: var(--ct-presence-idle);
+}
+
+.ct-presence-dot.dnd {
+background: var(--ct-presence-dnd);
 }
 
 .ct-presence-dot.offline {
-background: #6b6b6b;
+background: var(--ct-presence-offline);
 }
 
 .ct-content-card {
@@ -364,5 +377,5 @@ text-underline-offset: 3px;
 }
 
 .ct-link:hover {
-color: #f5f5f5;
+color: var(--ct-text-primary);
 }

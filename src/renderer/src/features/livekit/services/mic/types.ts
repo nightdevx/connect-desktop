@@ -3,7 +3,7 @@ import type {
   LocalParticipant,
   TrackPublishOptions,
 } from "livekit-client";
-import type { NoiseSuppressionPreset, ActiveNoiseSuppressionMode } from "../../../rnnoise";
+import type { NoiseSuppressionPreset, ActiveNoiseSuppressionMode } from "@/features/rnnoise";
 
 export type { ActiveNoiseSuppressionMode };
 

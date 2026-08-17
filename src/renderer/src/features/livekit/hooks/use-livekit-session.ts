@@ -4,13 +4,21 @@ import {
   LiveKitMediaSession,
   type LiveKitConnectionStatus,
   type MediaStatsSnapshot,
+  type LiveKitAudioProcessingPreferences,
   type ParticipantMediaMap,
   type RemoteParticipantAudioPreference,
   type VideoPublishPreferences,
 } from "../services/stream";
 import type { ActiveNoiseSuppressionMode } from "../services/mic";
-import type { ReconnectStatusKey } from "../../workspace/hooks/core/use-network-reconnect";
-import { useUiStore } from "../../../store/ui-store";
+import { useUiStore } from "@/store/ui-store";
+
+// Deliberately NOT imported from the workspace feature's reconnect hook, which
+// is where the full key union lives. The workspace composes livekit, so an
+// import the other way is a layer inversion — and a cycle waiting to happen the
+// moment either side grows a value import. This hook only ever reports one key,
+// so it declares that one. A caller whose function accepts the wider union is
+// still assignable here; contravariance works in our favour.
+type LiveKitReconnectStatusKey = "livekit";
 
 // Only one reason originates here: the media transport itself dropped. Named
 // rather than `string` so the scheduler's accepted set and this call site cannot
@@ -110,9 +118,13 @@ const saveStoredParticipantAudio = (
 
 export function useLivekitSession(
   _currentUserId: string,
-  audioPreferences: any,
+  // The livekit-owned subset, not the workspace's AudioPreferences: this feature
+  // must not import the one that composes it. The caller passes a superset,
+  // which is assignable, and the six fields this actually reads are named here
+  // rather than left as `any` for the reader to reverse-engineer.
+  audioPreferences: LiveKitAudioProcessingPreferences,
   shouldEmitReconnectStatus: (
-    key: ReconnectStatusKey,
+    key: LiveKitReconnectStatusKey,
     cooldownMs: number,
   ) => boolean,
   activeLobbyRef: React.MutableRefObject<string | null>,
@@ -265,6 +277,10 @@ export function useLivekitSession(
   // safely run without recreating the session.
   useEffect(() => {
     liveKitSessionRef.current?.setVideoPublishPreferences(videoPreferences);
+    // The two fields, not the object: the caller builds it with useMemo but the
+    // whole point is that only a codec or hardware change matters here, and a
+    // fresh object identity must not push preferences the SFU already has.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoPreferences.codec, videoPreferences.hardwareAcceleration]);
 
   // Sync preferences without recreating the session

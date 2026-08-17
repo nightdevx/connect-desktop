@@ -2,14 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   LoginRequest,
   RegisterRequest,
-} from "../../../../../shared/auth-contracts";
+} from "@shared/auth-contracts";
 import type {
   ApiErrorPayload,
   DesktopResult,
   SessionSnapshot,
-} from "../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import { authService } from "../services/service";
-import { useUiStore } from "../../../store/ui-store";
+import { useUiStore } from "@/store/ui-store";
 import { summarizeAuthError } from "../auth-error-messages";
 
 // The backend's own message is English and written for developers. It is no

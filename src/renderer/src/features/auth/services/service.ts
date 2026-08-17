@@ -1,7 +1,7 @@
 import type {
   DesktopResult,
   SessionSnapshot,
-} from "../../../../../shared/desktop-api-types";
+} from "@shared/desktop-api-types";
 import type {
   ChangePasswordRequest,
   LoginRequest,
@@ -12,7 +12,7 @@ import type {
   ResetPasswordRequest,
   SendVerificationOTPRequest,
   VerifyEmailRequest,
-} from "../../../../../shared/auth-contracts";
+} from "@shared/auth-contracts";
 
 export const authService = {
   login: (payload: LoginRequest): Promise<DesktopResult<SessionSnapshot>> => {

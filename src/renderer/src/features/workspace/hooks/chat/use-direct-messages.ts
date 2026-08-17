@@ -726,6 +726,10 @@ export const useDirectMessages = ({
     );
 
     return unsubscribe;
+    // The handler is redefined every render; the four values listed are the ones
+    // whose change has to re-subscribe. Depending on the handler itself would
+    // drop and re-open the socket on every keystroke in the composer.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, selectedUserId, setStatus, workspaceSection]);
 
   useEffect(() => {
@@ -887,6 +891,10 @@ export const useDirectMessages = ({
       .finally(() => {
         setIsLoadingOlderMessages(false);
       });
+    // setDirectMessagesCache is a stable local writer over queryClient, which IS
+    // listed; naming it as well would only re-create this callback whenever an
+    // unrelated part of the hook re-rendered.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId, isLoadingOlderMessages, exhaustedPeerIds, queryClient]);
 
   // Seed the badges once the directory is known. Unread state used to live only

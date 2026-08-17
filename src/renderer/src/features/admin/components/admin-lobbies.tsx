@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { toErrorMessage } from "@shared/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { Table, Button, Space, message, Tag, Avatar, Modal, Form, Input, Popconfirm, Select, Switch } from "antd";
+import type { TablePaginationConfig } from "antd";
 import {
   HomeOutlined,
   EditOutlined,
@@ -12,7 +14,22 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
-import { AdminLobbySnapshot } from "@shared/auth-contracts";
+import type {
+  AdminLobbyMember,
+  AdminLobbySnapshot,
+  AdminUserDetail,
+} from "@shared/auth-contracts";
+
+interface EditLobbyFormValues {
+  name: string;
+  isLocked?: boolean;
+  allowedUsers?: string[];
+}
+
+
+// antd hands the pagination object back with every field optional; this is what
+// a page-size reset falls back to.
+const DEFAULT_PAGE_SIZE = 10;
 
 export default function AdminLobbies() {
   const [lobbies, setLobbies] = useState<AdminLobbySnapshot[]>([]);
@@ -22,15 +39,16 @@ export default function AdminLobbies() {
   const [lockedFilter, setLockedFilter] = useState("all");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingLobby, setEditingLobby] = useState<AdminLobbySnapshot | null>(null);
   const [editForm] = Form.useForm();
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<AdminUserDetail[]>([]);
 
-  const fetchLobbies = async (page = currentPage, size = pageSize) => {
+  const fetchLobbies = useCallback(
+    async (page = currentPage, size = pageSize): Promise<void> => {
     try {
       setLoading(true);
       const offset = (page - 1) * size;
@@ -45,12 +63,14 @@ export default function AdminLobbies() {
       });
       setLobbies(res.lobbies);
       setTotal(res.total || 0);
-    } catch (err: any) {
-      message.error(err.message || "Lobiler alınamadı");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Lobiler alınamadı"));
     } finally {
       setLoading(false);
     }
-  };
+    },
+    [currentPage, pageSize, debouncedSearchText, lockedFilter],
+  );
 
   // The allow-list picker's options. This is the whole user table — avatars
   // included — so it is fetched when the edit dialog first opens, not when the
@@ -86,11 +106,14 @@ export default function AdminLobbies() {
     fetchLobbies(currentPage, pageSize);
     const interval = setInterval(() => fetchLobbies(currentPage, pageSize), 4000);
     return () => clearInterval(interval);
-  }, [currentPage, pageSize, debouncedSearchText, lockedFilter]);
+    // fetchLobbies is memoised on the debounced search and the lock filter, so
+    // this re-runs on the same changes as before — and the 4s poll can no longer
+    // keep firing a closure built from filters the user has already changed.
+  }, [currentPage, pageSize, fetchLobbies]);
 
-  const handleTableChange = (pagination: any) => {
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
+  const handleTableChange = (pagination: TablePaginationConfig): void => {
+    setCurrentPage(pagination.current ?? 1);
+    setPageSize(pagination.pageSize ?? DEFAULT_PAGE_SIZE);
   };
 
   const handleEditClick = (record: AdminLobbySnapshot) => {
@@ -104,7 +127,7 @@ export default function AdminLobbies() {
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = async (values: any) => {
+  const handleEditSubmit = async (values: EditLobbyFormValues): Promise<void> => {
     if (!editingLobby) return;
     try {
       const res = await window.desktopApi.updateLobby({
@@ -118,10 +141,10 @@ export default function AdminLobbies() {
         setIsEditOpen(false);
         fetchLobbies();
       } else {
-        throw new Error(res.error?.message || "Güncelleme başarısız");
+        throw new Error(toErrorMessage(res.error, "Güncelleme başarısız"));
       }
-    } catch (err: any) {
-      message.error(err.message);
+    } catch (err) {
+      message.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
@@ -132,10 +155,10 @@ export default function AdminLobbies() {
         message.success("Oda silindi");
         fetchLobbies();
       } else {
-        throw new Error(res.error?.message || "Silme işlemi başarısız");
+        throw new Error(toErrorMessage(res.error, "Silme işlemi başarısız"));
       }
-    } catch (err: any) {
-      message.error(err.message);
+    } catch (err) {
+      message.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
@@ -144,8 +167,8 @@ export default function AdminLobbies() {
       await adminService.kickUser(lobbyId, userId);
       message.success("Kullanıcı odadan atıldı");
       fetchLobbies();
-    } catch (err: any) {
-      message.error(err.message || "Kullanıcı odadan atılamadı");
+    } catch (err) {
+      message.error(toErrorMessage(err, "Kullanıcı odadan atılamadı"));
     }
   };
 
@@ -153,7 +176,7 @@ export default function AdminLobbies() {
     {
       title: "Oda Bilgisi",
       key: "lobby",
-      render: (_: any, record: AdminLobbySnapshot) => (
+      render: (_value: unknown, record: AdminLobbySnapshot) => (
         <div className="ct-admin-table-user">
           <HomeOutlined className="ct-admin-muted" />
           <div>
@@ -169,7 +192,7 @@ export default function AdminLobbies() {
     {
       title: "Oluşturan",
       key: "createdBy",
-      render: (_: any, record: AdminLobbySnapshot) => {
+      render: (_value: unknown, record: AdminLobbySnapshot) => {
         const username = record.lobby.createdByUsername || record.lobby.createdBy;
         return <Tag color="blue">@{username}</Tag>;
       },
@@ -191,7 +214,7 @@ export default function AdminLobbies() {
     {
       title: "İşlemler",
       key: "actions",
-      render: (_: any, record: AdminLobbySnapshot) => (
+      render: (_value: unknown, record: AdminLobbySnapshot) => (
         <Space size="middle">
           <Button
             type="text"
@@ -246,7 +269,7 @@ export default function AdminLobbies() {
       {
         title: "Ses / Mikrofon Durumu",
         key: "audioStatus",
-        render: (_: any, member: any) => (
+        render: (_value: unknown, member: AdminLobbyMember) => (
           <Space>
             {member.muted ? (
               <Tag color="red" icon={<AudioMutedOutlined />}>
@@ -266,7 +289,7 @@ export default function AdminLobbies() {
       {
         title: "Kamera / Ekran Durumu",
         key: "mediaStatus",
-        render: (_: any, member: any) => (
+        render: (_value: unknown, member: AdminLobbyMember) => (
           <Space>
             {member.cameraEnabled ? (
               <Tag color="purple" icon={<VideoCameraOutlined />}>
@@ -286,7 +309,7 @@ export default function AdminLobbies() {
       {
         title: "İşlemler",
         key: "actions",
-        render: (_: any, member: any) => (
+        render: (_value: unknown, member: AdminLobbyMember) => (
           <Popconfirm
             title="Kullanıcıyı odadan atmak istediğinize emin misiniz?"
             onConfirm={() => handleKickUser(record.lobby.id, member.userId)}

@@ -54,7 +54,6 @@ interface WorkspaceMainPanelProps {
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
   currentUserRole: UserRole;
-  currentUserCreatedAt: string;
   onLogout: () => void;
   isLoggingOut: boolean;
   cameraPreferences: CameraPreferences;
@@ -76,7 +75,6 @@ interface WorkspaceMainPanelProps {
    * id, which meant being in a call replaced the lobby list with an empty room.
    */
   lobbyRoomId: string | null;
-  activeLobbyName: string | null;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
   onSetRemoteParticipantMuted: (
@@ -212,7 +210,6 @@ export function WorkspaceMainPanel({
   workspaceSection,
   settingsSection,
   currentUserRole,
-  currentUserCreatedAt,
   onLogout,
   isLoggingOut,
   cameraPreferences,
@@ -226,7 +223,6 @@ export function WorkspaceMainPanel({
   lobbies,
   activeLobbyId,
   lobbyRoomId,
-  activeLobbyName,
   joiningLobbyId,
   onJoinLobby,
   onSetRemoteParticipantMuted,
@@ -375,7 +371,6 @@ export function WorkspaceMainPanel({
             lobbiesCount={lobbies.length}
             lobbies={lobbies}
             activeLobbyId={lobbyRoomId}
-            activeLobbyName={activeLobbyName}
             currentUserId={currentUserId}
             currentUsername={currentUsername}
             currentUserRole={currentUserRole}
@@ -445,8 +440,6 @@ export function WorkspaceMainPanel({
           <SettingsMainPanel
             settingsSection={settingsSection}
             currentUsername={currentUsername}
-            currentUserRole={currentUserRole}
-            currentUserCreatedAt={currentUserCreatedAt}
             onLogout={onLogout}
             isLoggingOut={isLoggingOut}
             cameraPreferences={cameraPreferences}

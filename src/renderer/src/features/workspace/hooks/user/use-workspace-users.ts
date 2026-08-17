@@ -46,6 +46,16 @@ export interface UseWorkspaceUsersResult {
   selectedUserId: string | null;
   setSelectedUserId: (value: string | null) => void;
   directoryUsers: UserDirectoryEntry[];
+  /**
+   * The same directory WITH the signed-in user still in it.
+   *
+   * directoryUsers filters self out, which is right for every list that offers
+   * an action on a person — you do not message or unfriend yourself. It is
+   * wrong for anything keyed by id, most visibly the avatar map: derived from
+   * the filtered list, the rail shows grey initials for the one account whose
+   * picture the app definitely has.
+   */
+  directoryUsersWithSelf: UserDirectoryEntry[];
   filteredUsers: UserDirectoryEntry[];
   selectedUser: UserDirectoryEntry | null;
   onlineCount: number;
@@ -292,6 +302,10 @@ export const useWorkspaceUsers = ({
 
       unsubscribe();
     };
+    // scheduleStreamReconnect is deliberately absent: it changes identity on every
+    // backoff step, and depending on it would tear the directory socket down and
+    // rebuild it as part of recovering from the last drop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
   // The directory stream stays open for the whole session, like the lobby
@@ -435,6 +449,7 @@ export const useWorkspaceUsers = ({
     selectedUserId,
     setSelectedUserId,
     directoryUsers,
+    directoryUsersWithSelf: users,
     filteredUsers,
     selectedUser,
     onlineCount,

@@ -4,3 +4,4 @@ export * from "./lobby-chat-panel";
 export * from "./lobby-participant-tile";
 export * from "./lobby-stage-layout";
 
+export * from "./lobby-password-prompt-modal";

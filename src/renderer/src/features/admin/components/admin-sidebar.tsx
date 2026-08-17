@@ -1,4 +1,4 @@
-import { useUiStore } from "../../../store/ui-store";
+import { useUiStore } from "@/store/ui-store";
 import {
   DashboardOutlined,
   UserOutlined,

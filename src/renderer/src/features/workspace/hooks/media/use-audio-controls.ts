@@ -5,7 +5,7 @@ import {
   useRef,
   type MutableRefObject,
 } from "react";
-import { type LobbyStateMember } from "../../../../../../shared/desktop-api-types";
+import { type LobbyStateMember } from "@shared/desktop-api-types";
 import { type LiveKitMediaSession } from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
 import workspaceService from "../../services";

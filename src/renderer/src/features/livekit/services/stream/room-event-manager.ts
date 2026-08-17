@@ -8,7 +8,7 @@ import {
   DisconnectReason,
   Track,
 } from "livekit-client";
-import { logLiveKitDebug } from "../debug-log";
+import { logLiveKitDebug } from "@/services/debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
 import { isScreenSource } from "./constants";
 import { RemoteMediaHandler } from "./remote-media-handler";
@@ -80,6 +80,11 @@ export class RoomEventManager {
       pub.kind === Track.Kind.Audio &&
       this.remoteMediaHandler.isDeafenedNow()
     ) {
+      // Still refresh: a publication we deliberately do not subscribe to is
+      // still news. micEnabled is read straight off it, and leaving the map
+      // stale here is how a deafened viewer's roster showed a microphone icon
+      // that had not been true for minutes.
+      this.updateMediaMap();
       return;
     }
 
@@ -96,6 +101,10 @@ export class RoomEventManager {
     }
 
     void pub.setSubscribed(true);
+    // Subscription is asynchronous, so TrackSubscribed can be a round trip away.
+    // The publication's own state (source, muted) is already known now, and the
+    // roster reads it.
+    this.updateMediaMap();
   };
 
   private readonly handleTrackSubscribed = (

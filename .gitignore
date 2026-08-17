@@ -13,3 +13,7 @@ pnpm-debug.log*
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Pre-refactor copies of files that were split. Local safety net, not history —
+# git already has that.
+/backup/

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, type MutableRefObject } from "react";
-import { type LobbyStateMember } from "../../../../../../shared/desktop-api-types";
+import { type LobbyStateMember } from "@shared/desktop-api-types";
 import { type LiveKitMediaSession } from "@/features/livekit";
 import workspaceService from "../../services";
 import { type CameraPreferences } from "../../components/settings/settings-main-panel-types";
@@ -231,6 +231,7 @@ export const useCameraControls = ({
   }, [
     activeLobbyRef,
     cameraEnabled,
+    currentUserId,
     localCameraStream,
     liveKitSessionRef,
     patchLobbyMemberState,

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { message } from "antd";
-import type { SessionSnapshot } from "../../../../../shared/desktop-api-types";
+import type { SessionSnapshot } from "@shared/desktop-api-types";
 import { authService } from "../services/service";
-import { useUiStore } from "../../../store/ui-store";
+import { useUiStore } from "@/store/ui-store";
 
 const getErrorMessage = (error?: { message?: string }): string => {
   if (!error?.message?.trim()) {

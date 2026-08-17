@@ -3,7 +3,7 @@ import {
   type AudioProcessorOptions,
   type TrackProcessor,
 } from "livekit-client";
-import { logLiveKitDebug } from "../livekit";
+import { logLiveKitDebug } from "@/services/debug-log";
 import {
   NoiseGateWorkletNode,
   RnnoiseWorkletNode,
@@ -127,6 +127,64 @@ export class MicrophoneTrackProcessorFactory {
 
   public constructor(private readonly onWarning?: (message: string) => void) {}
 
+  /**
+   * Loads everything RNNoise needs, and reports whether it is actually usable.
+   *
+   * This exists because of WHEN the loading used to happen. createProcessor only
+   * builds an object; the two AudioWorklet modules and the RNNoise WASM were
+   * fetched and compiled inside init(), which LiveKit calls from setProcessor —
+   * and setProcessor ran AFTER the microphone was already published and live.
+   *
+   * The capture constraints make that gap audible rather than merely late: when
+   * enhanced suppression is on, the browser's own noise suppression and (on the
+   * stronger presets) its automatic gain control are deliberately switched off,
+   * because RNNoise is meant to own them. So for as long as the worklets and the
+   * WASM took to load — a cold first join, before anything is cached — the room
+   * heard a raw, ungated microphone at whatever level the hardware produced,
+   * ignoring the user's own volume setting, and then heard it abruptly change
+   * character when the processor finally attached. That is the "everyone sounds
+   * like they have an effect on them when I first join the lobby" report.
+   *
+   * Both halves are idempotent and cached, so paying for them here costs nothing
+   * later; it only moves the cost to before the first packet goes out.
+   */
+  public async prewarm(
+    audioContext: AudioContext,
+    noiseSuppressionEnabled: boolean,
+  ): Promise<boolean> {
+    if (!this.isSupported() || !noiseSuppressionEnabled) {
+      return false;
+    }
+
+    // RNNoise is a 48 kHz model. Feeding it a context running at anything else
+    // does not fail — it denoises the wrong frequencies and returns a voice with
+    // shifted formants, which is heard as an effect rather than as a bug. The
+    // context asks for 48 kHz and only falls back to the device default if that
+    // is refused, so this is the guard on that fallback.
+    if (audioContext.sampleRate !== 48000) {
+      logLiveKitDebug("mic-controller", "processor-prewarm-wrong-sample-rate", {
+        sampleRate: audioContext.sampleRate,
+      });
+      this.onWarning?.(
+        `Ses aygıtı ${audioContext.sampleRate} Hz çalışıyor; RNNoise 48 kHz gerektirdiği için tarayıcı gürültü filtresi kullanılıyor.`,
+      );
+      return false;
+    }
+
+    if (!(await this.isWasmCompilationAllowed())) {
+      return false;
+    }
+
+    try {
+      await this.ensureWorkletRegistered(audioContext);
+      await this.getRnnoiseWasmBinary();
+      return true;
+    } catch (error) {
+      logLiveKitDebug("mic-controller", "processor-prewarm-failed", { error });
+      return false;
+    }
+  }
+
   public async createProcessor(
     options: MicrophoneProcessorOptions,
   ): Promise<MicrophoneProcessor | null> {
@@ -137,6 +195,11 @@ export class MicrophoneTrackProcessorFactory {
     const { preset, noiseSuppressionEnabled } = options;
     let gainPercent = options.gainPercent;
 
+    // The caller has already established this through prewarm, and the capture
+    // constraints were chosen from the same answer. Re-deciding it here is how
+    // the graph and the constraints came to disagree; the WASM check stays as a
+    // cheap backstop for a processor built without a prewarm.
+    //
     // RNNoise needs WASM; the gain/limiter half of the chain does not, so a
     // CSP-blocked WASM only costs noise suppression, not the volume control.
     const canUseRnnoise =

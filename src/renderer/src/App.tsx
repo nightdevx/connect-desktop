@@ -9,9 +9,9 @@ import {
   WifiOutlined,
 } from "@ant-design/icons";
 import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
-import WorkspaceShell from "./components/WorkspaceShell";
+import WorkspaceShell from "./app/WorkspaceShell";
 import logo from "./assets/logo.png";
-import type { AppUpdateSnapshot } from "../../shared/update-contracts";
+import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
 function App() {
   const {
@@ -249,7 +249,6 @@ function App() {
               currentUserId={session.user.id}
               currentUsername={session.user.username}
               currentUserRole={session.user.role}
-              currentUserCreatedAt={session.user.createdAt}
               onLogout={logout}
               isLoggingOut={isLoggingOut}
             />

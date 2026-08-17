@@ -23,22 +23,43 @@ export default defineConfig({
 
     rollupOptions: {
       output: {
+        // Grouped by package name, not by substring of the whole path.
+        //
+        // `id.includes("react")` used to decide the react chunk, which also
+        // matched emoji-picker-react — ~300 kB of emoji table pinned into the
+        // chunk that loads before first paint, defeating the lazy boundary in
+        // components/common/emoji-keyboard.tsx. Anything not named here is left
+        // unassigned on purpose: rollup then puts a dynamically-imported package
+        // in its own async chunk instead of the startup bundle.
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("antd") || id.includes("@ant-design") || id.includes("rc-")) {
-              return "vendor-ui";
-            }
-            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
-              return "vendor-react";
-            }
-            if (id.includes("livekit") || id.includes("livekit-client")) {
-              return "vendor-livekit";
-            }
-            if (id.includes("lucide") || id.includes("icons")) {
-              return "vendor-icons";
-            }
-            return "vendor";
+          const afterModules = id.replace(/\\/g, "/").split("node_modules/").pop();
+          if (afterModules === undefined || afterModules === id) {
+            return;
           }
+
+          const segments = afterModules.split("/");
+          const pkg = segments[0].startsWith("@")
+            ? `${segments[0]}/${segments[1]}`
+            : segments[0];
+
+          if (pkg === "antd" || pkg.startsWith("@ant-design/") || pkg.startsWith("rc-")) {
+            return "vendor-ui";
+          }
+          if (
+            pkg === "react" ||
+            pkg === "react-dom" ||
+            pkg === "scheduler" ||
+            pkg.startsWith("@tanstack/")
+          ) {
+            return "vendor-react";
+          }
+          if (pkg === "livekit-client") {
+            return "vendor-livekit";
+          }
+          if (pkg === "emoji-picker-react") {
+            return;
+          }
+          return "vendor";
         },
       },
     },

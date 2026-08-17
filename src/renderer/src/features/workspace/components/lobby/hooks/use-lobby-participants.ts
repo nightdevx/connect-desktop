@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import type { ParticipantMediaMap } from "@/features/livekit";
 import type { LobbyParticipantView } from "../lobby-participant-tile";
@@ -18,89 +18,6 @@ interface UseLobbyParticipantsProps {
   localFallbackJoinedAt: string;
 }
 
-// How long a speaker stays lit after the last report that they are talking.
-//
-// The LiveKit server recomputes active speakers on an interval (~400ms) and drops
-// anyone below its threshold, so the raw signal goes quiet in the gap between two
-// words. Rendering it directly makes the ring strobe while somebody talks
-// normally, which reads as broken rather than as accurate.
-const SPEAKING_HOLD_MS = 700;
-
-const EMPTY_SPEAKERS: ReadonlySet<string> = new Set();
-
-/**
- * The speaker set with a hangover, so the indicator tracks "is talking" rather
- * than "was above the threshold in the last server tick".
- *
- * Turning ON is immediate — a delay there is the one thing a speaking indicator
- * cannot afford.
- */
-function useHeldSpeakers(speakerIds: string[]): ReadonlySet<string> {
-  const [held, setHeld] = useState<ReadonlySet<string>>(EMPTY_SPEAKERS);
-  // Mirrored so the effect below can read the current set without depending on
-  // it, which would re-run the effect on its own output.
-  const heldRef = useRef(held);
-  const timersRef = useRef(new Map<string, number>());
-
-  useEffect(() => {
-    heldRef.current = held;
-  }, [held]);
-
-  useEffect(() => {
-    const timers = timersRef.current;
-    const active = new Set(speakerIds);
-    const next = new Set(heldRef.current);
-
-    for (const id of active) {
-      const pendingRemoval = timers.get(id);
-      if (pendingRemoval !== undefined) {
-        window.clearTimeout(pendingRemoval);
-        timers.delete(id);
-      }
-      next.add(id);
-    }
-
-    for (const id of next) {
-      if (active.has(id) || timers.has(id)) {
-        continue;
-      }
-      timers.set(
-        id,
-        window.setTimeout(() => {
-          timers.delete(id);
-          setHeld((previous) => {
-            if (!previous.has(id)) {
-              return previous;
-            }
-            const reduced = new Set(previous);
-            reduced.delete(id);
-            return reduced;
-          });
-        }, SPEAKING_HOLD_MS),
-      );
-    }
-
-    // Only additions happen here; removals are the timeouts above. So a size
-    // change is exactly "somebody started talking".
-    if (next.size !== heldRef.current.size) {
-      heldRef.current = next;
-      setHeld(next);
-    }
-  }, [speakerIds]);
-
-  useEffect(
-    () => () => {
-      for (const timer of timersRef.current.values()) {
-        window.clearTimeout(timer);
-      }
-      timersRef.current.clear();
-    },
-    [],
-  );
-
-  return held;
-}
-
 export function useLobbyParticipants({
   lobbyMembers,
   currentUserId,
@@ -114,23 +31,22 @@ export function useLobbyParticipants({
   screenEnabled,
   localFallbackJoinedAt,
 }: UseLobbyParticipantsProps) {
-  const heldSpeakers = useHeldSpeakers(activeSpeakerIds);
-
   const lobbyParticipants = useMemo<LobbyParticipantView[]>(() => {
     // Whether this person is talking right now.
     //
-    // Two sources, and only two: the room's active-speaker list (held, above) and
-    // LiveKit's own isSpeaking flag on the participant, which is set from the same
-    // server updates and is the authority for anyone whose audio this client has
-    // not subscribed to.
+    // ONE source: the media map's isSpeaking, which the stream manager resolves
+    // for everybody the same way — measured off their own audio when this client
+    // is receiving it, the server's active-speaker flag when it is not, mute-gated
+    // and held against the gap between two words in both cases.
     //
-    // audioLevel is deliberately NOT one of them. It used to be, as
-    // `audioLevel > 0.01`, and that was the bug: LiveKit only writes a
-    // participant's level when the server mentions them in a speaker update, so
-    // the last value a speaker was reported with stays on the object after they go
-    // quiet. Any level above a hundredth then lit the ring permanently — and since
-    // the threshold is far below what the server itself calls speech, it lit for
-    // room noise too. A level is for a volume meter; it cannot answer a yes/no.
+    // Deriving it here as well is what made the ring unreliable. This hook used to
+    // hold its own copy of the server's speaker list with its own 700ms timers and
+    // OR it against the map, so the two disagreed constantly: the map could say
+    // "measured silent" while the stale server list still said "speaking", and the
+    // OR meant the wrong one always won. The mute gate lived here too, keyed off
+    // micEnabled, which LiveKit reports as false when it has no publication yet —
+    // so a remote who had just unmuted was silenced by the very check meant to
+    // catch a force-mute.
     const isSpeakingNow = (
       userId: string,
       locallyMuted: boolean,
@@ -142,15 +58,9 @@ export function useLobbyParticipants({
         return false;
       }
 
-      // A microphone that is off — by choice or by a moderator's force-mute —
-      // publishes nothing, so a speaking flag from the moment before it went off
-      // must not outlive it. Read from LiveKit's publication state rather than from
-      // the roster's `muted`, which is what a client last announced.
-      if (mapped && !mapped.micEnabled) {
-        return false;
-      }
-
-      return heldSpeakers.has(userId) || Boolean(mapped?.isSpeaking);
+      // No media-map entry means this roster member has not reached LiveKit yet,
+      // which is the one window the server's list can cover and the map cannot.
+      return mapped ? mapped.isSpeaking : activeSpeakerIds.includes(userId);
     };
 
     const merged = lobbyMembers.map((member) => {
@@ -224,11 +134,11 @@ export function useLobbyParticipants({
     });
   }, [
     activeLobbyId,
+    activeSpeakerIds,
     cameraEnabled,
     currentUserId,
     currentUsername,
     headphoneEnabled,
-    heldSpeakers,
     localFallbackJoinedAt,
     lobbyMembers,
     micEnabled,

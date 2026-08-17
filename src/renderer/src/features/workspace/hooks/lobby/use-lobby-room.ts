@@ -302,6 +302,10 @@ export const useLobbyRoom = ({
         });
       }
     });
+    // currentUserId/currentUsername identify the signed-in account and cannot
+    // change without a full remount, so re-subscribing the lobby message stream
+    // for them would only ever cost a dropped frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLobbyId, queryClient]);
 
   const lobbyMembers =
@@ -391,9 +395,7 @@ export const useLobbyRoom = ({
 
   const deleteLobbyMessageMutation = useMutation({
     mutationFn: (payload: { messageId: string }) => {
-      return workspaceService.deleteChatMessage(payload) as Promise<
-        DesktopResult<any>
-      >;
+      return workspaceService.deleteChatMessage(payload);
     },
     onMutate: (variables) => {
       setDeletingLobbyMessageId(variables.messageId);

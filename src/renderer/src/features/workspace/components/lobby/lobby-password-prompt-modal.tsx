@@ -21,12 +21,16 @@ export function LobbyPasswordPromptModal({
 }: LobbyPasswordPromptModalProps) {
   const [password, setPassword] = useState("");
 
-  // Reset the field whenever a new prompt opens.
+  // Reset the field whenever a NEW prompt opens — keyed on the lobby id, not on
+  // the pending object, whose identity changes for reasons that must not wipe
+  // what the user is halfway through typing. Reading only the id is what lets
+  // the dependency list say exactly that.
+  const pendingLobbyId = pending?.lobbyId ?? null;
   useEffect(() => {
-    if (pending) {
+    if (pendingLobbyId) {
       setPassword("");
     }
-  }, [pending?.lobbyId]);
+  }, [pendingLobbyId]);
 
   const handleOk = (): void => {
     if (!pending || password.trim().length === 0) {

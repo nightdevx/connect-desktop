@@ -3,7 +3,7 @@ import type {
   Track,
 } from "livekit-client";
 import { type ActiveNoiseSuppressionMode } from "../mic";
-import type { NoiseSuppressionPreset } from "../../../rnnoise";
+import type { NoiseSuppressionPreset } from "@/features/rnnoise";
 import type { MediaStatsSnapshot } from "./stats-collector";
 
 export type ScreenShareMode = "slides" | "motion";

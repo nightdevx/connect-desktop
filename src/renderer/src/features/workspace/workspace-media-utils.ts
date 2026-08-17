@@ -37,7 +37,7 @@ export type { NoiseSuppressionPreset };
 export const getDefaultScreenShareQuality = (
   frameRate: StreamPreferences["frameRate"],
 ): ScreenShareQualityPreset => {
-  return getBaseDefaultScreenShareQuality(frameRate as any);
+  return getBaseDefaultScreenShareQuality(frameRate);
 };
 
 export const buildCameraVideoConstraints = (

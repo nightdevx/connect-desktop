@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { Form, Input, Button } from "antd";
 import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
-import type { RegisterRequest } from "../../../../../shared/auth-contracts";
+import type { RegisterRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { describeAuthError } from "../auth-error-messages";
 import { AuthErrorAlert } from "../components/AuthErrorAlert";
+
+// See LoginPage: antd Form callbacks are untyped, so the field names are
+// declared once here instead of being trusted at each read.
+interface RegisterFormValues {
+  email: string;
+  username: string;
+  password: string;
+}
+
 
 const mutedIconStyle = { color: "var(--ct-text-muted)" };
 
@@ -19,7 +28,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
   const [form] = Form.useForm();
   const [submitError, setSubmitError] = useState<ApiErrorPayload | null>(null);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: RegisterFormValues): Promise<void> => {
     setSubmitError(null);
     const failure = await onSubmit({
       email: values.email,

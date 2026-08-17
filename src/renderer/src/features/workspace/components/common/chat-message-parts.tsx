@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Button,
   Dropdown,
@@ -14,13 +22,6 @@ import {
   PaperClipOutlined,
   SmileOutlined,
 } from "@ant-design/icons";
-import EmojiPicker, {
-  Categories,
-  EmojiStyle,
-  SuggestionMode,
-  Theme,
-  type CategoryConfig,
-} from "emoji-picker-react";
 import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
 import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
@@ -132,26 +133,20 @@ const isAnimatedSource = (src: string): boolean =>
   /\.(gif|webp|apng)(\?|#|$)/i.test(src);
 
 /**
- * Holds an animated image on its first frame until the cursor is over it.
+ * Captures an animated image's first frame onto a canvas.
  *
- * The frame is captured by drawing the loaded <img> to a canvas and laying that
- * canvas over the picture. Drawing a cross-origin image is allowed — only READING
- * the pixels back is not — so this needs no CORS cooperation from the GIF CDN,
- * which is the reason it is a canvas element rather than a captured data URL.
- *
- * ponytail: the GIF underneath keeps animating while covered, so hovering resumes
- * mid-loop rather than restarting, and the decode cost is only hidden, not saved.
- * Dropping the img from the render tree while frozen would fix both; it also means
- * re-mounting it on every hover, and this preference is about a wall of moving
- * pictures, not about CPU.
+ * The frame is taken by drawing the loaded image to the canvas. Drawing a
+ * cross-origin image is allowed — only READING the pixels back is not — so this
+ * needs no CORS cooperation from the GIF CDN, which is why the poster stays a
+ * canvas element instead of becoming a data URL.
  */
-function FrozenFrameOverlay({
-  src,
-  hidden,
-}: {
-  src: string;
-  hidden: boolean;
-}): JSX.Element | null {
+function useFirstFramePoster(
+  src: string,
+  enabled: boolean,
+): {
+  canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
+  captured: boolean;
+} {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [captured, setCaptured] = useState(false);
 
@@ -159,7 +154,7 @@ function FrozenFrameOverlay({
     setCaptured(false);
 
     const canvas = canvasRef.current;
-    if (!canvas) {
+    if (!enabled || !canvas) {
       return;
     }
 
@@ -172,8 +167,8 @@ function FrozenFrameOverlay({
       if (cancelled) {
         return;
       }
-      // A GIF that has only just loaded is showing frame one, which is the frame
-      // worth freezing on.
+      // An image that has only just loaded is showing frame one, which is the
+      // frame worth freezing on.
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
       canvas.getContext("2d")?.drawImage(image, 0, 0);
@@ -181,24 +176,16 @@ function FrozenFrameOverlay({
     };
 
     // No onerror handling: a source that cannot load has no frame to freeze, and
-    // the <img> underneath already shows the browser's broken-image state.
+    // the <img> already shows the browser's broken-image state.
     image.src = src;
 
     return () => {
       cancelled = true;
       image.onload = null;
     };
-  }, [src]);
+  }, [enabled, src]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden
-      // Hidden rather than unmounted while hovered, so the frame is captured once
-      // per source instead of on every pointer exit.
-      className={`ct-chat-image-freeze ${captured && !hidden ? "ready" : ""}`}
-    />
-  );
+  return { canvasRef, captured };
 }
 
 // One image renderer for both chat surfaces: a posted GIF and an uploaded
@@ -222,6 +209,17 @@ function ChatImage({
   const gifPlayback = useUiStore((state) => state.gifPlayback);
   const [hovered, setHovered] = useState(false);
   const canFreeze = gifPlayback === "hover" && isAnimatedSource(src);
+  const { canvasRef, captured } = useFirstFramePoster(src, canFreeze);
+
+  // The picture is REPLACED by its poster rather than covered by it.
+  //
+  // Covering it left the animation running underneath: with the canvas laid over
+  // the image, any difference between the two boxes — a rounded corner, a
+  // sub-pixel rounding in how each is scaled to the same max-width — showed a rim
+  // of moving picture around a still one, and the decode kept costing what the
+  // preference was meant to stop. An <img> that is not in the render tree is not
+  // painted, and an image that is not painted does not advance its animation.
+  const frozen = canFreeze && captured && !hovered;
 
   const handleDownload = useCallback(() => {
     if (saving) {
@@ -263,21 +261,39 @@ function ChatImage({
         onMouseEnter={canFreeze ? () => setHovered(true) : undefined}
         onMouseLeave={canFreeze ? () => setHovered(false) : undefined}
       >
-        <Image
-          src={src}
-          alt={alt}
-          title={alt}
-          loading="lazy"
-          className={className}
-          preview={{
-            mask: (
-              <span className="ct-chat-image-mask">
-                <ExpandOutlined /> Büyüt
-              </span>
-            ),
-          }}
-        />
-        {canFreeze && <FrozenFrameOverlay src={src} hidden={hovered} />}
+        {/* Own wrapper, so `display: none` can be applied without depending on
+            how antd names its internal one. */}
+        <span className={`ct-chat-image-live ${frozen ? "is-hidden" : ""}`}>
+          <Image
+            src={src}
+            alt={alt}
+            title={alt}
+            loading="lazy"
+            className={className}
+            preview={{
+              mask: (
+                <span className="ct-chat-image-mask">
+                  <ExpandOutlined /> Büyüt
+                </span>
+              ),
+            }}
+          />
+        </span>
+
+        {/* Same class as the image, so the poster occupies exactly the same box
+            and hovering does not shift the row. Kept mounted once the preference
+            is on: unmounting it would re-capture the frame on every pointer exit.
+
+            Click-to-enlarge is not lost by hiding the image: a click can only
+            arrive while the pointer is over the picture, and that is precisely
+            when the real image is the one on screen. */}
+        {canFreeze && (
+          <canvas
+            ref={canvasRef}
+            aria-hidden
+            className={`${className} ct-chat-image-poster ${frozen ? "" : "is-hidden"}`}
+          />
+        )}
       </span>
     </Dropdown>
   );
@@ -472,48 +488,25 @@ export function ChatReactionBar({
   );
 }
 
-// The library ships English category labels and every other string in this app
-// is Turkish, so the list is spelled out rather than defaulted.
-const EMOJI_CATEGORIES: CategoryConfig[] = [
-  { category: Categories.SUGGESTED, name: "Son kullanılanlar" },
-  { category: Categories.SMILEYS_PEOPLE, name: "İfadeler ve insanlar" },
-  { category: Categories.ANIMALS_NATURE, name: "Hayvanlar ve doğa" },
-  { category: Categories.FOOD_DRINK, name: "Yiyecek ve içecek" },
-  { category: Categories.TRAVEL_PLACES, name: "Seyahat ve mekanlar" },
-  { category: Categories.ACTIVITIES, name: "Etkinlikler" },
-  { category: Categories.OBJECTS, name: "Nesneler" },
-  { category: Categories.SYMBOLS, name: "Semboller" },
-  { category: Categories.FLAGS, name: "Bayraklar" },
-];
+// Loaded the first time somebody opens a picker, not at launch. See
+// ./emoji-keyboard for why that is worth a lazy boundary.
+const EmojiKeyboard = lazy(() => import("./emoji-keyboard"));
 
-interface EmojiKeyboardProps {
+// Placeholder sized exactly like the real grid, so the popover does not open
+// small and then jump to full height a frame later.
+function EmojiKeyboardFallback(): JSX.Element {
+  return <div className="ct-emoji-picker-loading" aria-busy="true" />;
+}
+
+interface LazyEmojiKeyboardProps {
   onPick: (emoji: string) => void;
 }
 
-// One keyboard behind both buttons -- reactions and the composer pick from the
-// same set, the same search and the same recents list.
-//
-// EmojiStyle.NATIVE draws with the platform emoji font rather than pulling a
-// sprite sheet off a CDN: nothing to download when the popover opens, it works
-// offline, and the grid matches exactly what a sent message renders as.
-// The size is fixed and the grid scrolls inside it, so the popover cannot grow
-// to the ~1900 emoji it now offers.
-function EmojiKeyboard({ onPick }: EmojiKeyboardProps): JSX.Element {
+function LazyEmojiKeyboard({ onPick }: LazyEmojiKeyboardProps): JSX.Element {
   return (
-    <EmojiPicker
-      className="ct-emoji-picker"
-      onEmojiClick={(data) => onPick(data.emoji)}
-      theme={Theme.DARK}
-      emojiStyle={EmojiStyle.NATIVE}
-      categories={EMOJI_CATEGORIES}
-      suggestedEmojisMode={SuggestionMode.RECENT}
-      searchPlaceHolder="Emoji ara…"
-      searchClearButtonLabel="Temizle"
-      previewConfig={{ showPreview: false }}
-      lazyLoadEmojis
-      width={320}
-      height={380}
-    />
+    <Suspense fallback={<EmojiKeyboardFallback />}>
+      <EmojiKeyboard onPick={onPick} />
+    </Suspense>
   );
 }
 
@@ -537,7 +530,7 @@ export function ChatReactionButton({
       placement="top"
       rootClassName="ct-emoji-popover"
       content={
-        <EmojiKeyboard
+        <LazyEmojiKeyboard
           onPick={(emoji) => {
             onPick(emoji);
             setOpen(false);
@@ -582,7 +575,7 @@ export function ChatComposerEmojiButton({
         // written with several -- closing after the first meant reopening the
         // picker (and losing the recents scroll position) for every emoji after
         // it. Click outside or the button itself to dismiss.
-        <EmojiKeyboard onPick={onPick} />
+        <LazyEmojiKeyboard onPick={onPick} />
       }
     >
       <Tooltip title="Emoji ekle">

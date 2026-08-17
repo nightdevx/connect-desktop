@@ -1,4 +1,4 @@
-import { app, ipcMain, desktopCapturer, BrowserWindow } from "electron";
+import { app, ipcMain, desktopCapturer } from "electron";
 import { ok, fail, getWindowFromSender } from "../context";
 import {
   appPreferencesSchema,
