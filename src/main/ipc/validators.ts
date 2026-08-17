@@ -45,10 +45,16 @@ export const updateProfileSchema = z.object({
   displayName: z.string().min(3).max(32),
   email: z.string().max(128).nullable().optional(),
   bio: z.string().max(240).nullable().optional(),
-  // 7,000,000 characters of base64 ≈ a 5 MB picture, matching the backend's
+  // 14,000,000 characters of base64 ≈ a 10 MB picture, matching the backend's
   // maxAvatarDataURLLength. Keep the two in step: a value that passes here and
   // fails there is a 400 the user cannot act on.
-  avatarUrl: z.string().max(7_000_000).nullable().optional(),
+  //
+  // bannerUrl is not optional decoration here. z.object STRIPS keys it does not
+  // declare, so leaving it out silently deleted the banner from every profile
+  // save — and the backend reads an absent banner as "clear it", which is
+  // exactly what a stripped key looks like from the other side.
+  avatarUrl: z.string().max(14_000_000).nullable().optional(),
+  bannerUrl: z.string().max(14_000_000).nullable().optional(),
 });
 
 export const deleteAccountSchema = z.object({
@@ -146,8 +152,55 @@ export const lobbyModerateSchema = z.object({
   userId: z.string().min(2).max(128),
 });
 
+// How long a restriction lasts. Omitted means indefinite — until a moderator
+// lifts it — which is what every caller got before this existed. The ceiling
+// matches maxRestrictionDuration on the server; a value past it is refused
+// there rather than silently overflowing into a timestamp in the past.
+const restrictionDurationSeconds = z
+  .number()
+  .int()
+  .min(0)
+  .max(365 * 24 * 60 * 60)
+  .optional();
+
+// A timeout keeps someone OUT of the lobby; a kick only removes them and lets
+// them back after the cooldown. Two different decisions, two different routes.
+export const lobbyTimeoutSchema = lobbyModerateSchema.extend({
+  durationSeconds: restrictionDurationSeconds,
+});
+
+// Admin moderation and settings. Bounds mirror the server so a value that
+// passes here and fails there is a 400 nobody can act on.
+export const adminVoiceMuteSchema = z.object({
+  userId: z.string().min(2).max(128),
+  muted: z.boolean(),
+  durationSeconds: restrictionDurationSeconds,
+});
+
+export const adminClearTimeoutSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  userId: z.string().min(2).max(128),
+});
+
+export const adminEmailVerifiedSchema = z.object({
+  userId: z.string().min(2).max(128),
+  verified: z.boolean(),
+});
+
+export const adminSettingsPatchSchema = z.object({
+  registrationOpen: z.boolean().optional(),
+  maxLobbies: z.number().int().min(1).max(1000).optional(),
+  maxLobbiesPerUser: z.number().int().min(1).max(200).optional(),
+  lobbyCapacity: z.number().int().min(2).max(100).optional(),
+});
+
+export const lobbyBansSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+});
+
 export const lobbyModerateMuteSchema = lobbyModerateSchema.extend({
   muted: z.boolean().optional().default(true),
+  durationSeconds: restrictionDurationSeconds,
 });
 
 export const lobbyStateSchema = z.object({

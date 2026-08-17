@@ -5,6 +5,8 @@ import AdminUsers from "./admin-users";
 import AdminLobbies from "./admin-lobbies";
 import AdminActivity from "./admin-activity";
 import AdminSounds from "./admin-sounds";
+import AdminModeration from "./admin-moderation";
+import AdminSettings from "./admin-settings";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -25,6 +27,10 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminActivity />;
       case "sounds":
         return <AdminSounds />;
+      case "moderation":
+        return <AdminModeration />;
+      case "settings":
+        return <AdminSettings />;
       default:
         return <AdminDashboard />;
     }

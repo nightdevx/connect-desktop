@@ -29,7 +29,9 @@ export type AdminSection =
   | "users"
   | "lobbies"
   | "activity"
-  | "sounds";
+  | "sounds"
+  | "moderation"
+  | "settings";
 export type SettingsSection =
   | "profile"
   | "security"

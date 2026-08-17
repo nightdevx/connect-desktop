@@ -6,6 +6,7 @@ import type {
 } from "@shared/desktop-api-types";
 import type {
   LobbyDescriptor,
+  LobbyTimeout,
 } from "@shared/auth-contracts";
 
 const desktopBridgeOutdatedError = {
@@ -140,7 +141,40 @@ export const lobbyService = {
     }
     return window.desktopApi.kickLobbyMember(payload);
   },
-  muteLobbyMember: (payload: { lobbyId: string; userId: string; muted: boolean }) => {
+  timeoutLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+    durationSeconds?: number;
+  }) => {
+    if (typeof window.desktopApi.timeoutLobbyMember !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ banned: boolean }>,
+      );
+    }
+    return window.desktopApi.timeoutLobbyMember(payload);
+  },
+  clearLobbyTimeout: (payload: { lobbyId: string; userId: string }) => {
+    if (typeof window.desktopApi.clearLobbyTimeout !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ unbanned: boolean }>,
+      );
+    }
+    return window.desktopApi.clearLobbyTimeout(payload);
+  },
+  listLobbyTimeouts: (payload: { lobbyId: string }) => {
+    if (typeof window.desktopApi.listLobbyTimeouts !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ bans: LobbyTimeout[] }>,
+      );
+    }
+    return window.desktopApi.listLobbyTimeouts(payload);
+  },
+  muteLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+    muted: boolean;
+    durationSeconds?: number;
+  }) => {
     if (typeof window.desktopApi.muteLobbyMember !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ muted: boolean }>,

@@ -12,6 +12,8 @@ import {
   deleteLobbySchema,
   lobbyJoinSchema,
   lobbyModerateSchema,
+  lobbyTimeoutSchema,
+  lobbyBansSchema,
   lobbyModerateMuteSchema,
   lobbyLeaveSchema,
   lobbyMuteSchema,
@@ -129,6 +131,47 @@ export function registerLobbyHandlers(): void {
     }
   });
 
+  ipcMain.handle("desktop:lobbies-timeout-member", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyTimeoutSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.timeoutLobbyMember(
+          accessToken,
+          parsed.lobbyId,
+          parsed.userId,
+          parsed.durationSeconds,
+        );
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-clear-timeout", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyModerateSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.clearLobbyTimeout(accessToken, parsed.lobbyId, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-list-timeouts", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyBansSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.listLobbyTimeouts(accessToken, parsed.lobbyId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:lobbies-mute-member", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyModerateMuteSchema.parse(payload);
@@ -138,6 +181,7 @@ export function registerLobbyHandlers(): void {
           parsed.lobbyId,
           parsed.userId,
           parsed.muted,
+          parsed.durationSeconds,
         );
       });
       return ok(result);

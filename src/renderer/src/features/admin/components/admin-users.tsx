@@ -21,6 +21,10 @@ import {
   DeleteOutlined,
   StopOutlined,
   DisconnectOutlined,
+  PictureOutlined,
+  MailOutlined,
+  UndoOutlined,
+  AudioMutedOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminUserDetail, UserRole } from "@shared/auth-contracts";
@@ -202,6 +206,52 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     }
   };
 
+  // The four things the panel could SHOW but not change. Each one existed as
+  // state on the row — a picture, a verified badge, a deletion countdown, a mute
+  // icon — with no way for an admin to act on it.
+  const handleClearMedia = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      await adminService.clearProfileMedia(user.id);
+      message.success("Profil görselleri kaldırıldı.");
+      await fetchUsers();
+    } catch (error) {
+      message.error(toErrorMessage(error, "Görseller kaldırılamadı"));
+    }
+  };
+
+  const handleToggleEmailVerified = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      await adminService.setEmailVerified(user.id, !user.emailVerified);
+      message.success(
+        user.emailVerified ? "Doğrulama geri alındı." : "E-posta doğrulandı.",
+      );
+      await fetchUsers();
+    } catch (error) {
+      message.error(toErrorMessage(error, "Doğrulama durumu değiştirilemedi"));
+    }
+  };
+
+  const handleCancelDeletion = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      await adminService.cancelDeletion(user.id);
+      message.success("Hesap silme talebi iptal edildi.");
+      await fetchUsers();
+    } catch (error) {
+      message.error(toErrorMessage(error, "Silme talebi iptal edilemedi"));
+    }
+  };
+
+  // Indefinite on purpose: a timed mute is a lobby decision made in the moment,
+  // and this reaches somebody who is not in a lobby at all.
+  const handleServerMute = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      await adminService.setVoiceMute(user.id, true);
+      message.success(`@${user.username} sunucuda susturuldu.`);
+    } catch (error) {
+      message.error(toErrorMessage(error, "Susturma uygulanamadı"));
+    }
+  };
+
   const handleToggleBan = async (user: AdminUserDetail) => {
     try {
       if (user.bannedAt) {
@@ -333,6 +383,61 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 disabled={isSelf}
               />
             </Popconfirm>
+            <Popconfirm
+              title="Bu kullanıcının profil resmi ve afişi kaldırılsın mı?"
+              onConfirm={() => handleClearMedia(record)}
+              okText="Evet"
+              cancelText="Hayır"
+              disabled={isSelf}
+            >
+              <Button
+                type="text"
+                icon={<PictureOutlined />}
+                disabled={isSelf}
+                title="Profil Görsellerini Kaldır"
+              />
+            </Popconfirm>
+            <Button
+              type="text"
+              icon={<MailOutlined />}
+              className={record.emailVerified ? "ct-icon-success" : undefined}
+              onClick={() => void handleToggleEmailVerified(record)}
+              disabled={isSelf || (!record.email && !record.emailVerified)}
+              title={
+                record.emailVerified
+                  ? "Doğrulamayı Geri Al"
+                  : "E-postayı Doğrulanmış İşaretle"
+              }
+            />
+            <Popconfirm
+              title={`@${record.username} sunucu genelinde susturulsun mu? Birebir aramalar dışında hiçbir lobide konuşamaz.`}
+              onConfirm={() => void handleServerMute(record)}
+              okText="Evet"
+              cancelText="Hayır"
+              disabled={isSelf}
+            >
+              <Button
+                type="text"
+                icon={<AudioMutedOutlined />}
+                disabled={isSelf}
+                title="Sunucuda Sustur"
+              />
+            </Popconfirm>
+            {record.deletionScheduledAt && (
+              <Popconfirm
+                title="Bu hesabın silinme talebi iptal edilsin mi?"
+                onConfirm={() => void handleCancelDeletion(record)}
+                okText="Evet"
+                cancelText="Hayır"
+              >
+                <Button
+                  type="text"
+                  icon={<UndoOutlined />}
+                  className="ct-icon-success"
+                  title="Silme Talebini İptal Et"
+                />
+              </Popconfirm>
+            )}
             <Popconfirm
               title="Kullanıcıyı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!"
               onConfirm={() => handleDeleteUser(record.id)}

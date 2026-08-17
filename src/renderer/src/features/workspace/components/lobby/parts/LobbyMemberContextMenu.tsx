@@ -10,10 +10,12 @@ import {
   MutedOutlined,
   NotificationOutlined,
   SoundOutlined,
+  StopOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { buildDurationMenuItems } from "./moderation-durations";
 
 /**
  * Right-click menu for a member row in the lobby sidebar.
@@ -52,8 +54,9 @@ interface LobbyMemberContextMenuProps {
   audio?: LobbyMemberMenuAudio;
   canModerate: boolean;
   isServerMuted: boolean;
-  onServerMute: (muted: boolean) => void;
+  onServerMute: (muted: boolean, durationSeconds?: number) => void;
   onKick: () => void;
+  onTimeout: (durationSeconds?: number) => void;
 }
 
 export function LobbyMemberContextMenu({
@@ -71,6 +74,7 @@ export function LobbyMemberContextMenu({
   isServerMuted,
   onServerMute,
   onKick,
+  onTimeout,
 }: LobbyMemberContextMenuProps): ReactElement {
   const items: MenuProps["items"] = [
     {
@@ -195,15 +199,27 @@ export function LobbyMemberContextMenu({
             ),
             disabled: true,
           },
-          {
-            key: "server-mute",
-            label: isServerMuted
-              ? "Sunucuda Susturmayı Kaldır"
-              : "Sunucuda Sustur",
-            icon: isServerMuted ? <AudioOutlined /> : <MutedOutlined />,
-            className: "ct-participant-context-menu-button",
-            onClick: () => onServerMute(!isServerMuted),
-          },
+          // Lifting a restriction is one click; applying one asks how long for.
+          // The asymmetry is the point: "undo this" has no parameters, and
+          // burying it in a submenu would put a step between a moderator and
+          // the correction of their own mistake.
+          isServerMuted
+            ? {
+                key: "server-unmute",
+                label: "Sunucuda Susturmayı Kaldır",
+                icon: <AudioOutlined />,
+                className: "ct-participant-context-menu-button",
+                onClick: () => onServerMute(false),
+              }
+            : {
+                key: "server-mute",
+                label: "Sunucuda Sustur",
+                icon: <MutedOutlined />,
+                className: "ct-participant-context-menu-button",
+                children: buildDurationMenuItems("member-mute", (durationSeconds) =>
+                  onServerMute(true, durationSeconds),
+                ),
+              },
           {
             key: "kick",
             label: "Odadan At",
@@ -211,6 +227,16 @@ export function LobbyMemberContextMenu({
             danger: true,
             className: "ct-participant-context-menu-button",
             onClick: onKick,
+          },
+          // A kick is undone by walking back in; a timeout is the one that keeps
+          // them out, so it is the one that asks how long for.
+          {
+            key: "timeout",
+            label: "Zaman Aşımı",
+            icon: <StopOutlined />,
+            danger: true,
+            className: "ct-participant-context-menu-button",
+            children: buildDurationMenuItems("member-timeout", onTimeout),
           },
         ]
       : []),

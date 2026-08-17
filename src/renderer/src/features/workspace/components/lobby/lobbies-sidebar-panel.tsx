@@ -33,6 +33,7 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
+import { describeDuration } from "./parts/moderation-durations";
 
 interface LobbiesSidebarPanelProps {
   lobbiesQuery: UseQueryResult<
@@ -188,15 +189,45 @@ export function LobbiesSidebarPanel({
     }
   };
 
+  const handleTimeoutMember = async (
+    lobbyId: string,
+    userId: string,
+    username: string,
+    durationSeconds?: number,
+  ): Promise<void> => {
+    const result = await workspaceService.timeoutLobbyMember({
+      lobbyId,
+      userId,
+      durationSeconds,
+    });
+    if (result.ok) {
+      message.success(
+        `${username} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
+      );
+    } else {
+      message.error(getApiErrorMessage(result.error));
+    }
+  };
+
   const handleMuteMember = async (
     lobbyId: string,
     userId: string,
     username: string,
     muted: boolean,
+    durationSeconds?: number,
   ): Promise<void> => {
-    const result = await workspaceService.muteLobbyMember({ lobbyId, userId, muted });
+    const result = await workspaceService.muteLobbyMember({
+      lobbyId,
+      userId,
+      muted,
+      durationSeconds,
+    });
     if (result.ok) {
-      message.success(muted ? `${username} susturuldu` : `${username} sesi açıldı`);
+      message.success(
+        muted
+          ? `${username} susturuldu (${describeDuration(durationSeconds)})`
+          : `${username} sesi açıldı`,
+      );
     } else {
       message.error(getApiErrorMessage(result.error));
     }
@@ -579,12 +610,13 @@ export function LobbiesSidebarPanel({
                           audio={audio}
                           canModerate={canModerate}
                           isServerMuted={Boolean(member.serverMuted)}
-                          onServerMute={(muted) =>
+                          onServerMute={(muted, durationSeconds) =>
                             void handleMuteMember(
                               lobby.id,
                               member.userId,
                               member.username,
                               muted,
+                              durationSeconds,
                             )
                           }
                           onKick={() =>
@@ -592,6 +624,14 @@ export function LobbiesSidebarPanel({
                               lobby.id,
                               member.userId,
                               member.username,
+                            )
+                          }
+                          onTimeout={(durationSeconds) =>
+                            void handleTimeoutMember(
+                              lobby.id,
+                              member.userId,
+                              member.username,
+                              durationSeconds,
                             )
                           }
                         >

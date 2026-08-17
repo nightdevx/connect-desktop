@@ -25,18 +25,15 @@ interface ProfileSettingsProps {
   isLoggingOut?: boolean;
 }
 
-// 5 MB. The image is stored and transmitted as a base64 data URL, so it costs
-// ~6.7 MB on the wire; the backend's own limit (maxAvatarDataURLLength) is set
-// to match, and the /auth/profile route carries a 10 MiB body cap for it.
-const MAX_AVATAR_FILE_BYTES = 5 * 1024 * 1024;
-
-// A GIF is the one format that can be animated, and there is no way to re-encode
-// one in a canvas without flattening it to a single frame. So a GIF skips the
-// downscale below and is sent exactly as it came off disk — which means what is
-// stored IS what every read of it moves, and it needs a much tighter ceiling
-// than a picture that gets shrunk to 256px on the way. Matches maxAnimatedBytes
-// on the server.
-const MAX_ANIMATED_FILE_BYTES = 1024 * 1024;
+// 10 MB. The image travels as a base64 data URL, so it costs ~13.3 MB on the
+// wire; the backend's own limit (maxAvatarDataURLLength) is set to match, the
+// IPC validator agrees with both, and the /auth/profile route carries the body
+// cap for it.
+//
+// This is a ceiling on what may be CHOSEN, not on what is kept. Every picture is
+// resized before it is stored — a GIF frame by frame, on the server — so what a
+// user row actually holds is one to two orders of magnitude smaller than this.
+const MAX_AVATAR_FILE_BYTES = 10 * 1024 * 1024;
 
 const SUPPORTED_AVATAR_MIME_TYPES = new Set([
   "image/png",
@@ -52,8 +49,10 @@ const isAnimatableType = (mimeType: string): boolean => mimeType === "image/gif"
  *
  * The GIF branch is the whole reason this exists as one function: an animated
  * GIF put through the canvas below comes back as a single still frame, with no
- * error anywhere to say the animation was thrown away. So a GIF is passed
- * through untouched and bounded by a tighter file size instead.
+ * error anywhere to say the animation was thrown away. There is no GIF encoder
+ * in a browser to put it back together with, so a GIF is sent as it came off
+ * disk and resized frame by frame on the server instead — which is the one
+ * upload here whose shrinking does NOT happen before the wire.
  */
 const prepareImageUpload = async (
   file: File,
@@ -63,18 +62,16 @@ const prepareImageUpload = async (
     throw new Error("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
   }
 
-  const animated = isAnimatableType(file.type);
-  const ceiling = animated ? MAX_ANIMATED_FILE_BYTES : MAX_AVATAR_FILE_BYTES;
-  if (file.size > ceiling) {
+  if (file.size > MAX_AVATAR_FILE_BYTES) {
     throw new Error(
-      animated
-        ? `Hareketli görsel en fazla ${MAX_ANIMATED_FILE_BYTES / (1024 * 1024)} MB olabilir.`
-        : `Görsel en fazla ${MAX_AVATAR_FILE_BYTES / (1024 * 1024)} MB olabilir.`,
+      `Görsel en fazla ${MAX_AVATAR_FILE_BYTES / (1024 * 1024)} MB olabilir.`,
     );
   }
 
   const dataUrl = await readFileAsDataURL(file);
-  return animated ? dataUrl : downscaleImageDataURL(dataUrl, maxDimension);
+  return isAnimatableType(file.type)
+    ? dataUrl
+    : downscaleImageDataURL(dataUrl, maxDimension);
 };
 
 const getInitials = (value: string): string => {
@@ -499,8 +496,8 @@ export function SettingsProfile({
               </div>
 
               <small>
-                Profil kartının üst şeridi · PNG/JPG/WEBP · Hareketli GIF en
-                fazla 1 MB
+                Profil kartının üst şeridi · PNG/JPG/WEBP/GIF · En fazla 10 MB ·
+                Yüklenen görsel otomatik küçültülür
               </small>
             </div>
           </div>
@@ -551,7 +548,8 @@ export function SettingsProfile({
               </div>
 
               <small>
-                PNG/JPG/WEBP en fazla 5 MB · Hareketli GIF en fazla 1 MB
+                PNG/JPG/WEBP/GIF · En fazla 10 MB · Yüklenen görsel otomatik
+                küçültülür
               </small>
             </div>
           </div>

@@ -132,11 +132,24 @@ export function UserProfileCard({
           // antd's Image, not Avatar, so the picture opens full size on click.
           // A profile picture is the one thing on this card people want to see
           // bigger, and 88px is not it.
+          //
+          // classNames.root, NOT rootClassName. antd hands rootClassName to
+          // rc-image, which puts it on the thumbnail's wrapper AND on the
+          // fullscreen preview's root:
+          //
+          //     className:     clsx(prefixCls, rootClassName, classNames.root)
+          //     rootClassName: clsx(previewRootClassName, rootClassName)
+          //
+          // antd needs that (its hashId and CSS-var classes have to reach the
+          // portalled preview too), but it meant the 88px box below — fixed
+          // size, overflow-hidden, rounded — also clamped the preview, so the
+          // full-size picture opened as an 88px square in the top-left corner.
+          // classNames.root lands on the thumbnail only.
           <Image
             src={card.avatarUrl}
             alt={displayName}
             className="ct-profile-card-photo"
-            rootClassName="ct-profile-card-photo-root"
+            classNames={{ root: "ct-profile-card-photo-root" }}
             preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
           />
         ) : (

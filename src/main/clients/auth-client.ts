@@ -1,4 +1,8 @@
 import type {
+  AdminLobbyTimeout,
+  AdminRuntimeSettings,
+  AdminRuntimeSettingsPatch,
+  AdminVoiceMute,
   AuthResponse,
   ChangePasswordRequest,
   LoginRequest,
@@ -426,6 +430,120 @@ export class AuthClient {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  }
+
+  // Moderation state that outlives the room it was applied in, and the settings
+  // that used to need a redeploy. See internal/admin/moderation_handler.go.
+  public async adminListVoiceMutes(accessToken: string): Promise<{ mutes: AdminVoiceMute[] }> {
+    return this.baseClient.request<{ mutes: AdminVoiceMute[] }>("/admin/moderation/voice-mutes", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async adminSetVoiceMute(
+    accessToken: string,
+    userId: string,
+    muted: boolean,
+    durationSeconds?: number,
+  ): Promise<{ muted: boolean }> {
+    return this.baseClient.request<{ muted: boolean }>(
+      `/admin/moderation/voice-mutes/${encodeURIComponent(userId)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ muted, durationSeconds }),
+      },
+    );
+  }
+
+  public async adminListTimeouts(accessToken: string): Promise<{ timeouts: AdminLobbyTimeout[] }> {
+    return this.baseClient.request<{ timeouts: AdminLobbyTimeout[] }>("/admin/moderation/timeouts", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async adminClearTimeout(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ cleared: boolean }> {
+    return this.baseClient.request<{ cleared: boolean }>(
+      `/admin/moderation/timeouts/${encodeURIComponent(lobbyId)}/${encodeURIComponent(userId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+  }
+
+  public async adminGetSettings(accessToken: string): Promise<{ settings: AdminRuntimeSettings }> {
+    return this.baseClient.request<{ settings: AdminRuntimeSettings }>("/admin/settings", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async adminUpdateSettings(
+    accessToken: string,
+    patch: AdminRuntimeSettingsPatch,
+  ): Promise<{ settings: AdminRuntimeSettings }> {
+    return this.baseClient.request<{ settings: AdminRuntimeSettings }>("/admin/settings", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(patch),
+    });
+  }
+
+  public async adminClearProfileMedia(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ user: AdminUserDetail }> {
+    return this.baseClient.request<{ user: AdminUserDetail }>(
+      `/admin/users/${userId}/clear-media`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+  }
+
+  public async adminSetEmailVerified(
+    accessToken: string,
+    userId: string,
+    verified: boolean,
+  ): Promise<{ user: AdminUserDetail }> {
+    return this.baseClient.request<{ user: AdminUserDetail }>(
+      `/admin/users/${userId}/email-verified`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ verified }),
+      },
+    );
+  }
+
+  public async adminCancelDeletion(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ cancelled: boolean }> {
+    return this.baseClient.request<{ cancelled: boolean }>(
+      `/admin/users/${userId}/cancel-deletion`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
   }
 
   public async adminListLobbies(

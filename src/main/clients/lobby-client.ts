@@ -1,4 +1,4 @@
-import type { LobbyDescriptor } from "../../shared/auth-contracts";
+import type { LobbyDescriptor, LobbyTimeout } from "../../shared/auth-contracts";
 import type { CustomEmoteSummary } from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
@@ -91,6 +91,9 @@ export class LobbyClient {
     });
   }
 
+  // A kick is only a removal. They are back in as soon as the 30-second
+  // cooldown lapses, which is the point of it — keeping somebody out is
+  // timeoutLobbyMember below, and it is a decision with a duration on it.
   public async kickLobbyMember(
     accessToken: string,
     lobbyId: string,
@@ -109,11 +112,69 @@ export class LobbyClient {
     );
   }
 
+  // durationSeconds omitted means the timeout stands until it is lifted by hand,
+  // from the admin panel.
+  public async timeoutLobbyMember(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+    durationSeconds?: number,
+  ): Promise<{ banned: boolean }> {
+    const room = encodeURIComponent(lobbyId);
+    const target = encodeURIComponent(userId);
+    return this.baseClient.request<{ banned: boolean }>(
+      `/lobby/rooms/${room}/bans/${target}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ durationSeconds }),
+      },
+    );
+  }
+
+  public async clearLobbyTimeout(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ unbanned: boolean }> {
+    const room = encodeURIComponent(lobbyId);
+    const target = encodeURIComponent(userId);
+    return this.baseClient.request<{ unbanned: boolean }>(
+      `/lobby/rooms/${room}/bans/${target}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  }
+
+  public async listLobbyTimeouts(
+    accessToken: string,
+    lobbyId: string,
+  ): Promise<{ bans: LobbyTimeout[] }> {
+    const room = encodeURIComponent(lobbyId);
+    return this.baseClient.request<{ bans: LobbyTimeout[] }>(
+      `/lobby/rooms/${room}/bans`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  }
+
   public async muteLobbyMember(
     accessToken: string,
     lobbyId: string,
     userId: string,
     muted: boolean,
+    durationSeconds?: number,
   ): Promise<{ muted: boolean }> {
     const room = encodeURIComponent(lobbyId);
     const target = encodeURIComponent(userId);
@@ -125,7 +186,7 @@ export class LobbyClient {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ muted }),
+        body: JSON.stringify({ muted, durationSeconds }),
       },
     );
   }

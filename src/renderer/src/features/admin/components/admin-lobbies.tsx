@@ -12,12 +12,14 @@ import {
   VideoCameraOutlined,
   DesktopOutlined,
   SearchOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
   AdminLobbyMember,
   AdminLobbySnapshot,
   AdminUserDetail,
+  LobbyTimeout,
 } from "@shared/auth-contracts";
 
 interface EditLobbyFormValues {
@@ -33,6 +35,13 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export default function AdminLobbies() {
   const [lobbies, setLobbies] = useState<AdminLobbySnapshot[]>([]);
+  // The lobby whose timeouts are open, and what they are. Held here rather than
+  // fetched with the table: a timeout list is read when somebody asks to be let
+  // back in, which is rare, and loading one per row on every refresh would be a
+  // request per lobby for a panel nobody had opened.
+  const [timeoutLobby, setTimeoutLobby] = useState<AdminLobbySnapshot | null>(null);
+  const [timeouts, setTimeouts] = useState<LobbyTimeout[]>([]);
+  const [timeoutsLoading, setTimeoutsLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
@@ -172,6 +181,34 @@ export default function AdminLobbies() {
     }
   };
 
+  const openTimeouts = async (record: AdminLobbySnapshot): Promise<void> => {
+    setTimeoutLobby(record);
+    setTimeoutsLoading(true);
+    try {
+      setTimeouts(await adminService.listLobbyTimeouts(record.lobby.id));
+    } catch (error) {
+      message.error(toErrorMessage(error, "Zaman aşımları yüklenemedi"));
+      setTimeouts([]);
+    } finally {
+      setTimeoutsLoading(false);
+    }
+  };
+
+  const handleClearTimeout = async (userId: string): Promise<void> => {
+    if (!timeoutLobby) {
+      return;
+    }
+    try {
+      await adminService.clearLobbyTimeout(timeoutLobby.lobby.id, userId);
+      // Refetched rather than filtered locally: the server also drops timeouts
+      // that lapsed on their own, and a local splice would leave those on screen.
+      setTimeouts(await adminService.listLobbyTimeouts(timeoutLobby.lobby.id));
+      message.success("Zaman aşımı kaldırıldı.");
+    } catch (error) {
+      message.error(toErrorMessage(error, "Zaman aşımı kaldırılamadı"));
+    }
+  };
+
   const columns = [
     {
       title: "Oda Bilgisi",
@@ -222,6 +259,12 @@ export default function AdminLobbies() {
             onClick={() => handleEditClick(record)}
             className="ct-icon-info"
             title="Adı Değiştir"
+          />
+          <Button
+            type="text"
+            icon={<StopOutlined />}
+            onClick={() => void openTimeouts(record)}
+            title="Zaman Aşımları"
           />
           <Popconfirm
             title="Odayı silmek istediğinize emin misiniz? Tüm katılımcıların bağlantısı kesilecektir."
@@ -402,6 +445,58 @@ export default function AdminLobbies() {
         scroll={{ x: "max-content" }}
         className="ct-admin-table-wrap"
       />
+
+      {/* The one place a timeout can be lifted. A moderator sets them from the
+          lobby, where the person is in front of them; by the time one needs
+          undoing they are not in the room to right-click. */}
+      <Modal
+        rootClassName="ct-modal"
+        title={timeoutLobby ? `Zaman Aşımları — ${timeoutLobby.lobby.name}` : "Zaman Aşımları"}
+        open={timeoutLobby !== null}
+        onCancel={() => setTimeoutLobby(null)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Table
+          dataSource={timeouts}
+          loading={timeoutsLoading}
+          rowKey={(row) => row.userId}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: "Bu odada zaman aşımı verilmiş kimse yok." }}
+          columns={[
+            {
+              title: "Kullanıcı",
+              dataIndex: "userId",
+              key: "userId",
+              render: (userId: string) => <strong>{userId}</strong>,
+            },
+            {
+              title: "Bitiş",
+              key: "expiresAt",
+              render: (_value: unknown, row: LobbyTimeout) =>
+                row.expiresAt ? (
+                  <Tag color="orange">{new Date(row.expiresAt).toLocaleString("tr-TR")}</Tag>
+                ) : (
+                  <Tag color="red">Süresiz</Tag>
+                ),
+            },
+            {
+              title: "İşlem",
+              key: "actions",
+              render: (_value: unknown, row: LobbyTimeout) => (
+                <Button
+                  type="text"
+                  onClick={() => void handleClearTimeout(row.userId)}
+                  className="ct-icon-info"
+                >
+                  Kaldır
+                </Button>
+              ),
+            },
+          ]}
+        />
+      </Modal>
 
       {/* Edit Name Modal */}
       <Modal

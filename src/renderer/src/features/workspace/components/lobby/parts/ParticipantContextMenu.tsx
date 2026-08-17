@@ -10,11 +10,13 @@ import {
   MutedOutlined,
   NotificationOutlined,
   LogoutOutlined,
+  StopOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
   IdcardOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { buildDurationMenuItems } from "./moderation-durations";
 
 interface ParticipantContextMenuProps {
   x: number;
@@ -37,8 +39,9 @@ interface ParticipantContextMenuProps {
   // playback preferences above, which only affect what the current user hears.
   canModerate?: boolean;
   isServerMuted?: boolean;
-  onServerMute?: (muted: boolean) => void;
+  onServerMute?: (muted: boolean, durationSeconds?: number) => void;
   onKick?: () => void;
+  onTimeout?: (durationSeconds?: number) => void;
   // Screen watching is opt-in, so it needs an explicit way out. Unsubscribing
   // stops the video at the SFU rather than just hiding it locally.
   isWatchingScreen?: boolean;
@@ -72,6 +75,7 @@ export function ParticipantContextMenu({
   isServerMuted,
   onServerMute,
   onKick,
+  onTimeout,
   isWatchingScreen = false,
   onSetScreenWatching,
   friendState,
@@ -266,16 +270,30 @@ export function ParticipantContextMenu({
         ),
         disabled: true,
       },
-      {
-        key: 'server-mute',
-        label: isServerMuted ? 'Sunucuda Susturmayı Kaldır' : 'Sunucuda Sustur',
-        icon: isServerMuted ? <AudioOutlined /> : <MutedOutlined />,
-        className: 'ct-participant-context-menu-button',
-        onClick: () => {
-          onServerMute?.(!isServerMuted);
-          onClose();
-        },
-      },
+      // Lifting a restriction is one click; applying one asks how long for. The
+      // same two rows are offered from the sidebar roster — see
+      // LobbyMemberContextMenu — and both read their durations from one list.
+      isServerMuted
+        ? {
+            key: 'server-unmute',
+            label: 'Sunucuda Susturmayı Kaldır',
+            icon: <AudioOutlined />,
+            className: 'ct-participant-context-menu-button',
+            onClick: () => {
+              onServerMute?.(false);
+              onClose();
+            },
+          }
+        : {
+            key: 'server-mute',
+            label: 'Sunucuda Sustur',
+            icon: <MutedOutlined />,
+            className: 'ct-participant-context-menu-button',
+            children: buildDurationMenuItems('tile-mute', (durationSeconds) => {
+              onServerMute?.(true, durationSeconds);
+              onClose();
+            }),
+          },
       {
         key: 'kick',
         label: 'Odadan At',
@@ -286,6 +304,19 @@ export function ParticipantContextMenu({
           onKick?.();
           onClose();
         },
+      },
+      // A kick is undone by walking back in; a timeout is the one that keeps them
+      // out, so it is the one that asks how long for.
+      {
+        key: 'timeout',
+        label: 'Zaman Aşımı',
+        icon: <StopOutlined />,
+        danger: true,
+        className: 'ct-participant-context-menu-button',
+        children: buildDurationMenuItems('tile-timeout', (durationSeconds) => {
+          onTimeout?.(durationSeconds);
+          onClose();
+        }),
       },
     ] : []),
   ];

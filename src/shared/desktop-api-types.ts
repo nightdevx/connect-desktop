@@ -2,6 +2,11 @@ import type {
   ChatMessage,
   ChangePasswordRequest,
   LobbyDescriptor,
+  LobbyTimeout,
+  AdminRuntimeSettings,
+  AdminRuntimeSettingsPatch,
+  AdminVoiceMute,
+  AdminLobbyTimeout,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -520,14 +525,30 @@ export interface DesktopApi {
     lobbyId: string;
     password?: string;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
+  // A kick only removes them; they are back after the cooldown. Keeping someone
+  // out is timeoutLobbyMember, where durationSeconds omitted means indefinite —
+  // until it is lifted by hand from the admin panel.
   kickLobbyMember: (payload: {
     lobbyId: string;
     userId: string;
   }) => Promise<DesktopResult<{ kicked: boolean }>>;
+  timeoutLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+    durationSeconds?: number;
+  }) => Promise<DesktopResult<{ banned: boolean }>>;
+  clearLobbyTimeout: (payload: {
+    lobbyId: string;
+    userId: string;
+  }) => Promise<DesktopResult<{ unbanned: boolean }>>;
+  listLobbyTimeouts: (payload: {
+    lobbyId: string;
+  }) => Promise<DesktopResult<{ bans: LobbyTimeout[] }>>;
   muteLobbyMember: (payload: {
     lobbyId: string;
     userId: string;
     muted: boolean;
+    durationSeconds?: number;
   }) => Promise<DesktopResult<{ muted: boolean }>>;
   leaveLobby: (payload?: {
     lobbyId?: string;
@@ -746,6 +767,27 @@ export interface DesktopApi {
   adminResetPassword: (userId: string, newPassword: string) => Promise<DesktopResult<{ reset: boolean }>>;
   adminDeleteUser: (userId: string) => Promise<DesktopResult<{ deleted: boolean }>>;
   adminBanUser: (userId: string) => Promise<DesktopResult<{ banned: boolean }>>;
+  adminListVoiceMutes: () => Promise<DesktopResult<{ mutes: AdminVoiceMute[] }>>;
+  adminSetVoiceMute: (payload: {
+    userId: string;
+    muted: boolean;
+    durationSeconds?: number;
+  }) => Promise<DesktopResult<{ muted: boolean }>>;
+  adminListTimeouts: () => Promise<DesktopResult<{ timeouts: AdminLobbyTimeout[] }>>;
+  adminClearTimeout: (payload: {
+    lobbyId: string;
+    userId: string;
+  }) => Promise<DesktopResult<{ cleared: boolean }>>;
+  adminGetSettings: () => Promise<DesktopResult<{ settings: AdminRuntimeSettings }>>;
+  adminUpdateSettings: (
+    patch: AdminRuntimeSettingsPatch,
+  ) => Promise<DesktopResult<{ settings: AdminRuntimeSettings }>>;
+  adminClearProfileMedia: (userId: string) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
+  adminSetEmailVerified: (payload: {
+    userId: string;
+    verified: boolean;
+  }) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
+  adminCancelDeletion: (userId: string) => Promise<DesktopResult<{ cancelled: boolean }>>;
   adminUnbanUser: (userId: string) => Promise<DesktopResult<{ unbanned: boolean }>>;
   adminListLobbies: (params?: { search?: string; locked?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[]; total: number }>>;
   adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;

@@ -36,6 +36,7 @@ import { LobbySelectionScreen } from "./parts/LobbySelectionScreen";
 import { LobbyActionToolbar } from "./parts/LobbyActionToolbar";
 import { LobbyStageView } from "./parts/LobbyStageView";
 import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
+import { describeDuration } from "./parts/moderation-durations";
 
 interface LobbiesMainPanelProps {
   lobbiesCount: number;
@@ -295,31 +296,58 @@ export function LobbiesMainPanel({
   // lobby that may well still be running underneath this chat.
   const isTextOnly = activeLobby?.isTextOnly ?? false;
 
-  const handleServerMuteParticipant = (): void => {
+  // The menu decides how long; this only reports what it chose. Saying "5
+  // dakika susturuldu" rather than "susturuldu" is what stops a moderator
+  // having to remember which row they clicked.
+  const handleServerMuteParticipant = (muted: boolean, durationSeconds?: number): void => {
     if (!activeLobbyId || !contextMenuParticipantId) return;
     const targetId = contextMenuParticipantId;
     const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
-    const nextMuted = !(lobbyMembers.find((m) => m.userId === targetId)?.serverMuted ?? false);
-    void workspaceService.muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId, muted: nextMuted }).then((result) => {
-      if (result.ok) {
-        message.success(nextMuted ? `${targetName} susturuldu` : `${targetName} sesi açıldı`);
-      } else {
-        message.error(getApiErrorMessage(result.error));
-      }
-    });
+    void workspaceService
+      .muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId, muted, durationSeconds })
+      .then((result) => {
+        if (result.ok) {
+          message.success(
+            muted
+              ? `${targetName} susturuldu (${describeDuration(durationSeconds)})`
+              : `${targetName} sesi açıldı`,
+          );
+        } else {
+          message.error(getApiErrorMessage(result.error));
+        }
+      });
   };
 
   const handleKickParticipant = (): void => {
     if (!activeLobbyId || !contextMenuParticipantId) return;
     const targetId = contextMenuParticipantId;
     const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
-    void workspaceService.kickLobbyMember({ lobbyId: activeLobbyId, userId: targetId }).then((result) => {
-      if (result.ok) {
-        message.success(`${targetName} odadan atıldı`);
-      } else {
-        message.error(getApiErrorMessage(result.error));
-      }
-    });
+    void workspaceService
+      .kickLobbyMember({ lobbyId: activeLobbyId, userId: targetId })
+      .then((result) => {
+        if (result.ok) {
+          message.success(`${targetName} odadan atıldı`);
+        } else {
+          message.error(getApiErrorMessage(result.error));
+        }
+      });
+  };
+
+  const handleTimeoutParticipant = (durationSeconds?: number): void => {
+    if (!activeLobbyId || !contextMenuParticipantId) return;
+    const targetId = contextMenuParticipantId;
+    const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
+    void workspaceService
+      .timeoutLobbyMember({ lobbyId: activeLobbyId, userId: targetId, durationSeconds })
+      .then((result) => {
+        if (result.ok) {
+          message.success(
+            `${targetName} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
+          );
+        } else {
+          message.error(getApiErrorMessage(result.error));
+        }
+      });
   };
 
   const contextMenuParticipant = useMemo(
@@ -629,6 +657,7 @@ export function LobbiesMainPanel({
           canModerate={canModerate}
           onServerMute={handleServerMuteParticipant}
           onKick={handleKickParticipant}
+          onTimeout={handleTimeoutParticipant}
           friendState={contextMenuFriendState}
           isFriendActionPending={
             contextMenuParticipantId !== null &&

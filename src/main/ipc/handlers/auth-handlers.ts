@@ -35,6 +35,10 @@ import {
   updatePrivacySchema,
   emoteIdSchema,
   adminEmoteQuotaSchema,
+  adminVoiceMuteSchema,
+  adminClearTimeoutSchema,
+  adminEmailVerifiedSchema,
+  adminSettingsPatchSchema,
 } from "../validators";
 import { DesktopApiError } from "../../backend-client";
 
@@ -236,6 +240,7 @@ export function registerAuthHandlers(): void {
         email: parsed.email ?? null,
         bio: parsed.bio ?? null,
         avatarUrl: parsed.avatarUrl ?? null,
+        bannerUrl: parsed.bannerUrl ?? null,
       };
 
       const result = await withAccessToken((accessToken) => {
@@ -250,6 +255,7 @@ export function registerAuthHandlers(): void {
             ...current.user,
             displayName: result.profile.displayName,
             avatarUrl: result.profile.avatarUrl,
+            bannerUrl: result.profile.bannerUrl,
           },
         });
       }
@@ -525,6 +531,114 @@ export function registerAuthHandlers(): void {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminUnbanUser(accessToken, userId);
       });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-list-voice-mutes", async () => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminListVoiceMutes(accessToken),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-set-voice-mute", async (_event, payload: unknown) => {
+    try {
+      const parsed = adminVoiceMuteSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminSetVoiceMute(
+          accessToken,
+          parsed.userId,
+          parsed.muted,
+          parsed.durationSeconds,
+        ),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-list-timeouts", async () => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminListTimeouts(accessToken),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-clear-timeout", async (_event, payload: unknown) => {
+    try {
+      const parsed = adminClearTimeoutSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminClearTimeout(accessToken, parsed.lobbyId, parsed.userId),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-get-settings", async () => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminGetSettings(accessToken),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-update-settings", async (_event, payload: unknown) => {
+    try {
+      const parsed = adminSettingsPatchSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminUpdateSettings(accessToken, parsed),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-clear-profile-media", async (_event, userId: string) => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminClearProfileMedia(accessToken, userId),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-set-email-verified", async (_event, payload: unknown) => {
+    try {
+      const parsed = adminEmailVerifiedSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminSetEmailVerified(accessToken, parsed.userId, parsed.verified),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-cancel-deletion", async (_event, userId: string) => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminCancelDeletion(accessToken, userId),
+      );
       return ok(result);
     } catch (error) {
       return fail(error);

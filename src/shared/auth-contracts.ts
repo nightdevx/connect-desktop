@@ -151,6 +151,58 @@ export interface LobbyDescriptor {
 
 // The quoted message shown above a reply. Denormalised by the server so a
 // reply still renders after the original scrolls out of the loaded page.
+// The operator knobs the admin panel turns. All of them used to be a
+// compile-time constant or an environment variable, so changing one was a
+// redeploy that dropped everybody in a voice room.
+export interface AdminRuntimeSettings {
+  registrationOpen: boolean;
+  maxLobbies: number;
+  maxLobbiesPerUser: number;
+  lobbyCapacity: number;
+}
+
+// Every field optional: omitted means "leave unchanged", so the panel can send
+// one switch at a time.
+export interface AdminRuntimeSettingsPatch {
+  registrationOpen?: boolean;
+  maxLobbies?: number;
+  maxLobbiesPerUser?: number;
+  lobbyCapacity?: number;
+}
+
+// A voice mute as the admin panel sees it: the username resolved, because the
+// restriction is stored by id and nobody moderates a list of UUIDs.
+export interface AdminVoiceMute {
+  userId: string;
+  username: string;
+  mutedBy: string;
+  mutedAt: string;
+  expiresAt?: string | null;
+}
+
+// The same for timeouts, across every lobby at once rather than one room's view.
+export interface AdminLobbyTimeout {
+  lobbyId: string;
+  lobbyName: string;
+  userId: string;
+  username: string;
+  bannedBy: string;
+  bannedAt: string;
+  expiresAt?: string | null;
+}
+
+// A moderator timeout: this person may not enter this lobby.
+//
+// expiresAt absent means it stands until somebody lifts it from the admin panel,
+// which is the same convention the server stores (a NULL expiry column).
+export interface LobbyTimeout {
+  lobbyId: string;
+  userId: string;
+  bannedBy: string;
+  bannedAt: string;
+  expiresAt?: string | null;
+}
+
 export interface ChatReplyPreview {
   id: string;
   userId?: string;

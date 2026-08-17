@@ -568,9 +568,11 @@
   @apply h-full w-full object-cover;
 }
 
-/* antd puts the mask on hover only; without a cursor it does not read as
-   clickable at all. */
-.ct-profile-card-photo-root .ant-image-mask {
+/* antd shows the hover label only on hover; without a cursor it does not read
+   as clickable at all. The element is -cover in antd v6 (-mask is now the
+   fullscreen preview's backdrop), which is why this rule used to match
+   nothing. */
+.ct-profile-card-photo-root .ant-image-cover {
   @apply cursor-zoom-in text-2xs font-semibold;
 }
 

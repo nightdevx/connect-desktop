@@ -133,6 +133,12 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-join", payload),
   kickLobbyMember: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-kick", payload),
+  timeoutLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-timeout-member", payload),
+  clearLobbyTimeout: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-clear-timeout", payload),
+  listLobbyTimeouts: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-list-timeouts", payload),
   muteLobbyMember: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-mute-member", payload),
   leaveLobby: async (payload) =>
@@ -300,6 +306,21 @@ const desktopApi: DesktopApi = {
   adminResetPassword: async (userId, newPassword) => ipcRenderer.invoke("desktop:admin-reset-password", { userId, newPassword }),
   adminDeleteUser: async (userId) => ipcRenderer.invoke("desktop:admin-delete-user", userId),
   adminBanUser: async (userId) => ipcRenderer.invoke("desktop:admin-ban-user", userId),
+  adminListVoiceMutes: async () => ipcRenderer.invoke("desktop:admin-list-voice-mutes"),
+  adminSetVoiceMute: async (payload) =>
+    ipcRenderer.invoke("desktop:admin-set-voice-mute", payload),
+  adminListTimeouts: async () => ipcRenderer.invoke("desktop:admin-list-timeouts"),
+  adminClearTimeout: async (payload) =>
+    ipcRenderer.invoke("desktop:admin-clear-timeout", payload),
+  adminGetSettings: async () => ipcRenderer.invoke("desktop:admin-get-settings"),
+  adminUpdateSettings: async (patch) =>
+    ipcRenderer.invoke("desktop:admin-update-settings", patch),
+  adminClearProfileMedia: async (userId) =>
+    ipcRenderer.invoke("desktop:admin-clear-profile-media", userId),
+  adminSetEmailVerified: async (payload) =>
+    ipcRenderer.invoke("desktop:admin-set-email-verified", payload),
+  adminCancelDeletion: async (userId) =>
+    ipcRenderer.invoke("desktop:admin-cancel-deletion", userId),
   adminUnbanUser: async (userId) => ipcRenderer.invoke("desktop:admin-unban-user", userId),
   adminListLobbies: async (params) => ipcRenderer.invoke("desktop:admin-list-lobbies", params),
   adminListLobbyEvents: async (payload) => ipcRenderer.invoke("desktop:admin-list-lobby-events", payload),
