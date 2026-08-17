@@ -290,8 +290,25 @@ interface UserProfileCardPopoverProps extends UserProfileCardProps {
 }
 
 /**
- * Click-to-open wrapper. The card only mounts while it is open, which is what
- * keeps the query from firing for every name in a long backlog.
+ * Click-to-open wrapper.
+ *
+ * `content` is passed unconditionally, and that is load-bearing. It used to be
+ * `content={isOpen ? <UserProfileCard/> : null}` to keep the card's query from
+ * firing for every name on screen -- an optimisation that made the component
+ * impossible to open at all. antd's Tooltip, which Popover is built on, refuses
+ * to report an open request for a popup that has nothing in it:
+ *
+ *     const noTitle = !title && !overlay && title !== 0;   // antd/lib/tooltip
+ *     setOpen(noTitle ? false : vis);
+ *     if (!noTitle && onOpenChange) { onOpenChange(vis); }
+ *
+ * Closed meant empty, empty meant onOpenChange was swallowed, swallowed meant
+ * isOpen never turned true, and it stayed empty. A deadlock, and the only click
+ * target in the app that used this wrapper simply did nothing.
+ *
+ * The lazy mount it was reaching for is what destroyOnHidden already gives:
+ * antd does not mount the popup's subtree until the popover first opens, and
+ * unmounts it on close -- so the query still fires once, on demand, per card.
  */
 export function UserProfileCardPopover({
   children,
@@ -306,7 +323,8 @@ export function UserProfileCardPopover({
       trigger="click"
       placement="right"
       rootClassName="ct-profile-card-popover"
-      content={isOpen ? <UserProfileCard {...cardProps} /> : null}
+      content={<UserProfileCard {...cardProps} />}
+      destroyOnHidden
     >
       {children}
     </Popover>

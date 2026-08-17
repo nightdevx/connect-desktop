@@ -30,7 +30,6 @@ import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { LobbiesSidebarPanel } from "../lobby";
-import { QuickControls } from "../common";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
 import { getApiErrorMessage } from "../../workspace-utils";
@@ -106,23 +105,6 @@ interface WorkspaceSidebarProps {
     settingsSection: SettingsSection;
     setSettingsSection: (section: SettingsSection) => void;
   };
-  quickControlsProps: {
-    currentUsername: string;
-    currentUserAvatarUrl?: string | null;
-    hasActiveLobby: boolean;
-    isLeavingLobby: boolean;
-    micEnabled: boolean;
-    headphoneEnabled: boolean;
-    audioInputDevices: MediaDeviceInfo[];
-    audioOutputDevices: MediaDeviceInfo[];
-    selectedAudioInputDeviceId: string | null;
-    selectedAudioOutputDeviceId: string | null;
-    onSelectAudioInputDevice: (deviceId: string | null) => void;
-    onSelectAudioOutputDevice: (deviceId: string | null) => void;
-    onToggleMic: () => void;
-    onToggleHeadphone: () => void;
-    onDisconnect: () => void;
-  };
   audioConnectionProps: {
     statusText: string;
     tone: "ok" | "warn" | "error" | "idle";
@@ -162,7 +144,6 @@ export function WorkspaceSidebar({
   usersProps,
   lobbiesProps,
   settingsProps,
-  quickControlsProps,
   audioConnectionProps,
   audioProcessingProps,
   videoQualityProps,
@@ -634,31 +615,6 @@ export function WorkspaceSidebar({
             )}
           </div>
 
-          <QuickControls
-            currentUsername={quickControlsProps.currentUsername}
-            currentUserAvatarUrl={quickControlsProps.currentUserAvatarUrl}
-            hasActiveLobby={quickControlsProps.hasActiveLobby}
-            isLeavingLobby={quickControlsProps.isLeavingLobby}
-            micEnabled={quickControlsProps.micEnabled}
-            headphoneEnabled={quickControlsProps.headphoneEnabled}
-            audioInputDevices={quickControlsProps.audioInputDevices}
-            audioOutputDevices={quickControlsProps.audioOutputDevices}
-            selectedAudioInputDeviceId={
-              quickControlsProps.selectedAudioInputDeviceId
-            }
-            selectedAudioOutputDeviceId={
-              quickControlsProps.selectedAudioOutputDeviceId
-            }
-            onSelectAudioInputDevice={
-              quickControlsProps.onSelectAudioInputDevice
-            }
-            onSelectAudioOutputDevice={
-              quickControlsProps.onSelectAudioOutputDevice
-            }
-            onToggleMic={quickControlsProps.onToggleMic}
-            onToggleHeadphone={quickControlsProps.onToggleHeadphone}
-            onDisconnect={quickControlsProps.onDisconnect}
-          />
         </>
       )}
 

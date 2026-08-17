@@ -4,7 +4,8 @@ import {
   AudioOutlined,
   CustomerServiceOutlined,
   DisconnectOutlined,
-  MutedOutlined,
+  DesktopOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { getDisplayInitials } from "../../workspace-utils";
 
@@ -17,6 +18,8 @@ interface QuickControlsProps {
   isLeavingLobby: boolean;
   micEnabled: boolean;
   headphoneEnabled: boolean;
+  /** This user's own screen share, not somebody else's being watched. */
+  screenShareEnabled: boolean;
   audioInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   selectedAudioInputDeviceId: string | null;
@@ -25,9 +28,20 @@ interface QuickControlsProps {
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
   onToggleMic: () => void;
   onToggleHeadphone: () => void;
+  onStopScreenShare: () => void;
   onDisconnect: () => void;
 }
 
+/**
+ * The dock at the bottom of the sidebar column: who you are, your microphone
+ * and output, the way out of a room, and a live share.
+ *
+ * Rendered by WorkspaceShell rather than by a sidebar, and that is the point.
+ * It used to sit inside WorkspaceSidebar behind `workspaceSection !== "settings"`,
+ * and the admin section replaces the sidebar outright -- so the two screens
+ * where you are least likely to be watching the room were also the two where
+ * your microphone state, and the button that gets you out, disappeared.
+ */
 export function QuickControls({
   currentUsername,
   currentUserAvatarUrl,
@@ -35,6 +49,7 @@ export function QuickControls({
   isLeavingLobby,
   micEnabled,
   headphoneEnabled,
+  screenShareEnabled,
   audioInputDevices,
   audioOutputDevices,
   selectedAudioInputDeviceId,
@@ -43,10 +58,34 @@ export function QuickControls({
   onSelectAudioOutputDevice,
   onToggleMic,
   onToggleHeadphone,
+  onStopScreenShare,
   onDisconnect,
 }: QuickControlsProps) {
   return (
-    <footer className="ct-quick-idle" aria-label="Hızlı kontroller">
+    <div className="ct-quick-dock">
+      {/* Sits ABOVE the identity row on purpose: a share you have forgotten
+          about is the one piece of state here with a privacy cost, so it gets
+          its own box rather than a fourth icon in a row of icons. */}
+      {screenShareEnabled && (
+        <div className="ct-quick-share-bar" role="status" aria-live="polite">
+          <span className="ct-quick-share-state">
+            <DesktopOutlined aria-hidden="true" />
+            Ekranınız paylaşılıyor
+          </span>
+          <Tooltip title="Yayını kapat">
+            <button
+              type="button"
+              className="ct-quick-share-stop"
+              onClick={onStopScreenShare}
+              aria-label="Yayını kapat"
+            >
+              <StopOutlined />
+            </button>
+          </Tooltip>
+        </div>
+      )}
+
+      <footer className="ct-quick-idle" aria-label="Hızlı kontroller">
       <div className="ct-quick-idle-left">
         <div className="ct-quick-idle-logo" aria-hidden="true">
           {currentUserAvatarUrl ? (
@@ -105,31 +144,30 @@ export function QuickControls({
               aria-label="Kulaklık"
               aria-pressed={headphoneEnabled}
             >
-              {headphoneEnabled ? (
-                <CustomerServiceOutlined />
-              ) : (
-                <MutedOutlined />
-              )}
+              <CustomerServiceOutlined
+                className={headphoneEnabled ? undefined : "ct-icon-slashed"}
+              />
             </button>
           </Tooltip>
         </AudioDeviceDropdown>
 
-        {hasActiveLobby && (
-          <Tooltip
-            title={isLeavingLobby ? "Lobiden ayrılıyor" : "Lobiden ayrıl"}
-          >
-            <button
-              type="button"
-              className="ct-quick-icon-button danger"
-              onClick={onDisconnect}
-              disabled={isLeavingLobby}
-              aria-label="Lobiden ayrıl"
+          {hasActiveLobby && (
+            <Tooltip
+              title={isLeavingLobby ? "Lobiden ayrılıyor" : "Lobiden ayrıl"}
             >
-              <DisconnectOutlined />
-            </button>
-          </Tooltip>
-        )}
-      </div>
-    </footer>
+              <button
+                type="button"
+                className="ct-quick-icon-button danger"
+                onClick={onDisconnect}
+                disabled={isLeavingLobby}
+                aria-label="Lobiden ayrıl"
+              >
+                <DisconnectOutlined />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </footer>
+    </div>
   );
 }

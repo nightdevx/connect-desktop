@@ -1032,24 +1032,25 @@ export function UsersDirectMessagesPanel({
                   </div>
                   {/* Right side: Buttons */}
                   <div className="ct-banner-actions">
-                    <Button
-                      type="primary"
-                      size="middle"
-                      icon={<PhoneOutlined />}
+                    {/* Plain buttons: an antd Button here brought nothing but a
+                        cssinjs sheet this stylesheet then had to out-shout with
+                        !important on every property. See .ct-banner-accept-btn. */}
+                    <button
+                      type="button"
                       onClick={onAcceptCall}
                       className="ct-banner-accept-btn"
                     >
+                      <PhoneOutlined />
                       Kabul Et
-                    </Button>
-                    <Button
-                      danger
-                      size="middle"
-                      icon={<CloseOutlined />}
+                    </button>
+                    <button
+                      type="button"
                       onClick={onRejectCall}
                       className="ct-banner-reject-btn"
                     >
+                      <CloseOutlined />
                       Reddet
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1061,14 +1062,13 @@ export function UsersDirectMessagesPanel({
                     <PhoneOutlined className="ct-icon-success" />
                     <span >Devam eden aktif bir sesli/görüntülü arama var.</span>
                   </div>
-                  <Button
-                    type="primary"
-                    size="middle"
+                  <button
+                    type="button"
                     onClick={onRejoinCall}
                     className="ct-banner-rejoin-btn"
                   >
                     Katıl
-                  </Button>
+                  </button>
                 </div>
               )}
 

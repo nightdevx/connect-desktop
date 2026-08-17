@@ -55,11 +55,18 @@
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
   background: var(--ct-accent-soft);
+  /* The accent bar's light, cast INWARD.
+
+     This used to be `box-shadow: 0 0 12px var(--ct-accent-glow)` on the ::before
+     bar itself, and it never once rendered: the bar sits at left: 0 inside a tab
+     that carries overflow-hidden, so an outward glow is clipped on the side it
+     was meant to spill from. Same failure as the lobby tile's speaking ring. An
+     inset shadow is drawn inside the box that clips it, so it survives. */
+  box-shadow: inset 6px 0 14px -8px var(--ct-accent-glow);
 }
 
 .ct-settings-tab.active::before {
   height: 60%;
-  box-shadow: 0 0 12px var(--ct-accent-glow);
 }
 
 .ct-settings-tab-icon {
@@ -329,7 +336,7 @@
 }
 
 .ct-settings-subsection.danger h5 {
-  color: #ff7875;
+  color: var(--ct-danger);
 }
 
 .ct-settings-subsection p {
@@ -338,7 +345,7 @@
 }
 
 .ct-settings-subsection.danger p {
-  color: #ff7875;
+  color: var(--ct-danger);
 }
 
 /* Camera / stream preview surface. Fixed aspect so switching resolution does

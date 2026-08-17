@@ -1,6 +1,29 @@
+/* Two rows, and the second one is the whole point: the quick-controls dock is a
+   cell of the SHELL now, not the last child of a sidebar that some sections
+   replace and others hide. The rail spans both rows so it still reads as one
+   full-height column, and the section content keeps row 1 exactly as before. */
 .ct-workspace-shell {
   @apply grid h-full w-full min-h-0 overflow-hidden;
   grid-template-columns: var(--ct-rail-width) var(--ct-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--ct-panel-solid);
+}
+
+/* Both axes stated, so the rail cannot be swept somewhere else by
+   auto-placement once a sibling carries an explicit row. */
+.ct-workspace-shell > .ct-rail {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+
+/* The dock continues the sidebar's column, so it carries the sidebar's right
+   border too -- without it the column's edge stopped at the dock and the last
+   60px of the divider were missing. */
+.ct-quick-dock {
+  @apply flex min-w-0 flex-col border-r;
+  grid-column: 2;
+  grid-row: 2;
+  border-color: var(--ct-border);
   background: var(--ct-panel-solid);
 }
 
@@ -293,6 +316,40 @@
   border-color: var(--ct-border);
   backdrop-filter: blur(16px);
   background: var(--ct-panel-strong);
+}
+
+/* A live screen share, called out above the identity row.
+
+   Warning-toned rather than accent-toned: this is not a feature being
+   advertised, it is a reminder that other people can see your desktop. The row
+   below it is four quiet controls, so an accent here would read as decoration
+   and be exactly as easy to forget as the state it is reporting. */
+.ct-quick-share-bar {
+  @apply flex items-center justify-between gap-2 border-t py-2;
+  padding-inline: var(--ct-gutter);
+  border-color: color-mix(in srgb, var(--ct-warning) 28%, transparent);
+  background: color-mix(in srgb, var(--ct-warning) 12%, var(--ct-panel-strong));
+}
+
+.ct-quick-share-state {
+  @apply flex min-w-0 items-center gap-2 truncate text-2xs font-semibold;
+  color: var(--ct-warning);
+}
+
+.ct-quick-share-stop {
+  @apply inline-flex h-control-xs w-control-xs shrink-0 cursor-pointer items-center justify-center rounded-md border;
+  border-color: color-mix(in srgb, var(--ct-danger) 30%, transparent);
+  color: var(--ct-danger);
+  background: transparent;
+  font-size: var(--ct-icon-xs);
+  transition:
+    background var(--ct-duration-fast) ease,
+    border-color var(--ct-duration-fast) ease;
+}
+
+.ct-quick-share-stop:hover {
+  border-color: color-mix(in srgb, var(--ct-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
 }
 
 .ct-quick-idle-left {

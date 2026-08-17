@@ -342,9 +342,14 @@
   --ct-stage-tile-width: 320px;
   /* Clearance for the chat toggle above and the action toolbar below, derived
      from their own sizes rather than guessed. Toolbar: 24px offset + control-lg
-     + its 10px padding; toggle: 16px offset + its ~36px height. */
+     + its 10px padding top and bottom + its 1px border top and bottom, which is
+     the toolbar's real top edge; toggle: 16px offset + its ~36px height.
+
+     The 2px of border used to be left out. That is invisible almost everywhere,
+     and it is exactly what made the "show other participants" pill sit under
+     the toolbar rather than above it -- see .full-stage-mode below. */
   --ct-stage-clear-top: calc(16px + 36px + 14px);
-  --ct-stage-clear-bottom: calc(24px + var(--ct-control-lg) + 20px);
+  --ct-stage-clear-bottom: calc(24px + var(--ct-control-lg) + 20px + 2px);
   gap: var(--ct-stage-gap);
   grid-template-columns: repeat(
     var(--ct-stage-columns),
@@ -384,8 +389,19 @@
   padding-bottom: calc(var(--ct-stage-clear-bottom) + 18px);
 }
 
+/* "Full stage" is the mode with the thumbnail rail HIDDEN -- which is precisely
+   the mode that still shows the show/hide pill, since the pill is what turns
+   the rail back on. This rule used to drop the padding to bare
+   --ct-stage-clear-bottom, i.e. to the toolbar's own top edge, so the last flow
+   item in the column ended exactly where the floating toolbar begins. The pill
+   is that last item, the toolbar carries z-index: 50 against the row's 10, and
+   the result was a control drawn underneath the box it has to sit above.
+
+   The rail was never the thing that needed the room; the pill was, and the pill
+   is in both modes. What changes between them is only how much slack there is
+   above the toolbar. */
 .ct-lobby-stage-grid.focused-layout.full-stage-mode {
-  padding-bottom: var(--ct-stage-clear-bottom);
+  padding-bottom: calc(var(--ct-stage-clear-bottom) + 10px);
 }
 
 .ct-lobby-focused-slot {
@@ -448,19 +464,13 @@
   align-self: center;
 }
 
-/* A default Chromium scrollbar under the thumbnails is most of a thumbnail's
-   worth of stage height, and this is the row that has the least to spare. */
-.ct-lobby-participant-rail::-webkit-scrollbar {
-  height: 6px;
-}
-
-.ct-lobby-participant-rail::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ct-lobby-participant-rail::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--ct-alpha-20);
+/* Thinner than the app's bar: this is the row with the least stage height to
+   spare, and even 10px under the thumbnails costs a visible slice of it. The
+   colour, radius, inset and hover states all still come from the global rule in
+   base.css -- overriding the token is the whole override. */
+.ct-lobby-participant-rail {
+  --ct-scrollbar-size: 6px;
+  --ct-scrollbar-inset: 1px;
 }
 
 .ct-lobby-participant-tile {

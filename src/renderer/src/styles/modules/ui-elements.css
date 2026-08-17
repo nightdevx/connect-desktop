@@ -333,6 +333,35 @@ letter-spacing: 0.04em;
    near-BLACK in the light one, i.e. an "online" dot that went black the moment
    the theme flipped. Most call sites pass a colour inline from PRESENCE_COLORS;
    these classes cover the ones that do not. */
+
+/* A slash across an icon, for a device that is present but switched off.
+
+   Ant Design ships a muted MICROPHONE but no muted headphone, so "deafened" was
+   drawn with MutedOutlined -- a crossed-out SPEAKER. Two different glyphs for
+   one row of status flags read as two different devices, and the headphone was
+   the one flag that changed shape when it changed value. The glyph now stays
+   CustomerServiceOutlined in both states and this draws the slash, which is
+   also what makes the pair scan: same icon, one struck through.
+
+   currentColor, so it follows whatever state colour the flag already carries
+   and needs no variant per state. */
+.ct-icon-slashed {
+  position: relative;
+}
+
+.ct-icon-slashed::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.15em;
+  height: 1.5px;
+  translate: -50% -50%;
+  rotate: -45deg;
+  border-radius: 1px;
+  background: currentColor;
+}
+
 .ct-presence-dot {
 @apply inline-block h-2.5 w-2.5 rounded-full;
 background: var(--ct-presence-offline);

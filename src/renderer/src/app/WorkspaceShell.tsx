@@ -17,6 +17,7 @@ import {
   CallDock,
   CameraShareModal,
   LobbyPasswordPromptModal,
+  QuickControls,
   WorkspaceMainPanel,
   WorkspaceRail,
   WorkspaceSidebar,
@@ -1075,25 +1076,6 @@ function WorkspaceShell({
               settingsSection,
               setSettingsSection,
             }}
-            quickControlsProps={{
-              currentUsername,
-              currentUserAvatarUrl,
-              hasActiveLobby,
-              isLeavingLobby,
-              micEnabled,
-              headphoneEnabled,
-              audioInputDevices,
-              audioOutputDevices,
-              selectedAudioInputDeviceId:
-                audioPreferences.selectedAudioInputDeviceId,
-              selectedAudioOutputDeviceId:
-                audioPreferences.selectedAudioOutputDeviceId,
-              onSelectAudioInputDevice: handleSelectAudioInputDevice,
-              onSelectAudioOutputDevice: handleSelectAudioOutputDevice,
-              onToggleMic: handleMicToggle,
-              onToggleHeadphone: handleHeadphoneToggle,
-              onDisconnect: handleLeaveLobbyOrEndCall,
-            }}
             audioConnectionProps={audioConnection}
             videoQualityProps={videoQuality}
             audioProcessingProps={{
@@ -1236,6 +1218,33 @@ function WorkspaceShell({
           />
         </>
       )}
+
+      {/* Outside the admin/section branch above, so it is on screen whatever the
+          rail is pointing at. Your microphone state, the way out of a room and a
+          live screen share are not properties of the section you happen to be
+          looking at -- and Ayarlar and Yönetim, the two that used to hide it,
+          are exactly where you are least likely to notice you are still live. */}
+      <QuickControls
+        currentUsername={currentUsername}
+        currentUserAvatarUrl={currentUserAvatarUrl}
+        hasActiveLobby={hasActiveLobby}
+        isLeavingLobby={isLeavingLobby}
+        micEnabled={micEnabled}
+        headphoneEnabled={headphoneEnabled}
+        screenShareEnabled={screenEnabled}
+        audioInputDevices={audioInputDevices}
+        audioOutputDevices={audioOutputDevices}
+        selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
+        selectedAudioOutputDeviceId={
+          audioPreferences.selectedAudioOutputDeviceId
+        }
+        onSelectAudioInputDevice={handleSelectAudioInputDevice}
+        onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
+        onToggleMic={handleMicToggle}
+        onToggleHeadphone={handleHeadphoneToggle}
+        onStopScreenShare={handleScreenToggle}
+        onDisconnect={handleLeaveLobbyOrEndCall}
+      />
 
       <CallDock
         callState={callState}

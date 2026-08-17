@@ -123,9 +123,6 @@
      name and status icons black-on-black the moment the light theme was on. */
   --ct-on-media: #ffffff;
   --ct-on-media-muted: rgba(255, 255, 255, 0.74);
-  --ct-on-media-surface: rgba(0, 0, 0, 0.45);
-  --ct-on-media-surface-strong: rgba(0, 0, 0, 0.62);
-  --ct-on-media-border: rgba(255, 255, 255, 0.24);
 
   /* A highlighter pen, for the one mention that is of YOU. Same argument as the
      on-media pair: the point of a highlighter is that it is the same colour
@@ -183,6 +180,24 @@
   --ct-duration-base: 220ms;
   --ct-duration-slow: 320ms;
 
+  /* ---- Scrollbars -------------------------------------------------------
+     Read by the one global rule below, and overridable per scroll container:
+     declaring --ct-scrollbar-size on an element re-styles that element's own
+     bar, because a pseudo-element inherits custom properties from the element
+     it belongs to. That is the whole per-surface API -- no container needs to
+     repeat the four ::-webkit-scrollbar rules.
+
+     The thumb colours are alpha tokens, so they invert with the theme without a
+     second set of values: a translucent white bar on the dark theme, a
+     translucent black one on the light. */
+  --ct-scrollbar-size: 10px;
+  /* Transparent border + background-clip: padding-box, so the visible thumb is
+     this much narrower than the track on each side and never touches content. */
+  --ct-scrollbar-inset: 2px;
+  --ct-scrollbar-thumb: var(--ct-alpha-20);
+  --ct-scrollbar-thumb-hover: var(--ct-alpha-32);
+  --ct-scrollbar-thumb-active: var(--ct-alpha-50);
+
   /* ---- Layout ----------------------------------------------------------
      --ct-gutter is the one horizontal rhythm the sidebar column obeys. Panels
      apply it; their children add none of their own. */
@@ -190,13 +205,6 @@
   --ct-titlebar-height: 48px;
   --ct-rail-width: 72px;
   --ct-sidebar-width: 280px;
-
-  /* ---- Legacy aliases ---------------------------------------------------
-     Still referenced by feature stylesheets; kept until those are migrated. */
-  --ct-neon-emerald: var(--ct-success);
-  --ct-neon-emerald-glow: rgba(16, 185, 129, 0.25);
-  --ct-glass-bg: var(--ct-panel);
-  --ct-glass-border: var(--ct-alpha-08);
 
   /* The page itself, behind every translucent panel. A token because the light
      theme has to move it too, and because `body` is the one element whose
@@ -281,8 +289,6 @@
   --ct-shadow-md: 0 8px 24px rgba(15, 15, 20, 0.1);
   --ct-shadow-lg: 0 20px 44px rgba(15, 15, 20, 0.16);
 
-  --ct-neon-emerald-glow: rgba(15, 138, 99, 0.2);
-
   --ct-body-tint: rgba(15, 138, 99, 0.05);
   --ct-body-from: #f7f7f8;
   --ct-body-to: #ededf0;
@@ -311,6 +317,60 @@ body {
     radial-gradient(circle at 95% 5%, var(--ct-alpha-02), transparent 30%),
     linear-gradient(180deg, var(--ct-body-from) 0%, var(--ct-body-to) 100%);
   color: var(--ct-text-primary);
+}
+
+/* ==========================================================================
+   Scrollbars
+   ==========================================================================
+   One rule for the whole app, on `*` deliberately: a scrollbar appears wherever
+   content outgrows its box, including inside Ant Design's own popups, tables
+   and drawers, which render into a portal this stylesheet has no class on.
+   Anything narrower than a global selector leaves those on Windows' default
+   16px light-grey bar, which is what the app shipped with.
+
+   Not styled with `scrollbar-width` / `scrollbar-color`: in Chromium, either of
+   those standard properties makes it IGNORE every ::-webkit-scrollbar rule for
+   that scroller. They are the trap here, not the upgrade -- do not add them
+   alongside this, or the app silently reverts to the native bar.
+
+   Overflow is a mechanism, not a feature. The bar is quiet at rest and reacts
+   under the pointer; it never becomes the loudest thing on a panel. */
+::-webkit-scrollbar {
+  width: var(--ct-scrollbar-size);
+  height: var(--ct-scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Where a vertical and a horizontal bar meet. Left unstyled it is a solid grey
+   square in the corner of every two-way scroller. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The stepper arrows. Chromium draws them on Windows and nothing in this app
+   asks to be scrolled one line at a time with a mouse. */
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-thumb {
+  border: var(--ct-scrollbar-inset) solid transparent;
+  border-radius: 999px;
+  background-color: var(--ct-scrollbar-thumb);
+  /* Without this the border area is painted too and the inset does nothing. */
+  background-clip: padding-box;
+  transition: background-color var(--ct-duration-fast) ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ct-scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--ct-scrollbar-thumb-active);
 }
 
 /* A focus ring that is visible on every surface, so keyboard users are never

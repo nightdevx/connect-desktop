@@ -286,8 +286,17 @@
   color: var(--ct-text-primary);
 }
 
+/* The initials fallback, for a caller with no picture.
+
+   The gradient is a deliberate literal and does not follow the theme -- same
+   argument as --ct-highlight: it is a fixed coloured surface, not a page
+   surface, so what reads on it is fixed too. The parent sets
+   --ct-text-primary, which is near-white in the dark theme and near-black in
+   the light one; against this indigo that second case measured 2.6:1, i.e.
+   initials nobody could read. On-media white is the correct pair for both. */
 .ct-call-dock-avatar.fallback {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: var(--ct-on-media);
 }
 
 .ct-call-dock.incoming .ct-call-dock-avatar {

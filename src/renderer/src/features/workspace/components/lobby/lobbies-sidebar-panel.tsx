@@ -7,7 +7,6 @@ import {
   AudioOutlined,
   AudioMutedOutlined,
   CustomerServiceOutlined,
-  MutedOutlined,
   VideoCameraOutlined,
   DesktopOutlined,
   TeamOutlined,
@@ -502,17 +501,17 @@ export function LobbiesSidebarPanel({
                               />
                             )}
 
-                            {headphoneOpen ? (
-                              <CustomerServiceOutlined
-                                className="ct-lobby-member-flag on"
-                                title="Kulaklık açık"
-                              />
-                            ) : (
-                              <MutedOutlined
-                                className="ct-lobby-member-flag off"
-                                title="Kulaklık kapalı"
-                              />
-                            )}
+                            {/* Same glyph in both states, struck through when
+                                off. It used to become MutedOutlined, which is a
+                                crossed-out speaker -- a different device. */}
+                            <CustomerServiceOutlined
+                              className={`ct-lobby-member-flag ${
+                                headphoneOpen ? "on" : "off ct-icon-slashed"
+                              }`}
+                              title={
+                                headphoneOpen ? "Kulaklık açık" : "Kulaklık kapalı"
+                              }
+                            />
 
                             {member.cameraEnabled && (
                               <VideoCameraOutlined

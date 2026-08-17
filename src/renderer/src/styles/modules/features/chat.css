@@ -222,8 +222,17 @@
     @apply max-w-full;
   }
 
+  /* The thread is a container, because the same component renders at two very
+     different widths and a media query cannot tell them apart.
+
+     A direct-message thread gets the whole main panel. A lobby thread gets the
+     grid's second track -- clamp(300px, 27vw, 420px) -- and the window is the
+     same size in both cases, so every rule keyed to the viewport gets the lobby
+     wrong. This is the same fix the participant tile already uses. */
   .ct-chat-message-list {
     @apply flex flex-col gap-2;
+    container-type: inline-size;
+    container-name: chat-thread;
   }
 
   /* --- Mentions and system rows ----------------------------------------- */
@@ -286,6 +295,20 @@
     max-width: 100%;
     border-color: var(--ct-border);
     background: var(--ct-panel-strong);
+  }
+
+  /* Below this width the 78% column is not a design, it is wasted space.
+     At the lobby's narrowest the thread is ~276px, so a 78% bubble is 215px
+     with a 191px text box -- and the leftover 61px are empty on every single
+     line. 92% keeps the own/other offset that tells the two apart, and hands
+     the text (and any GIF inside it) back most of the column.
+
+     Placed after the rule it overrides on purpose: a container query carries no
+     specificity of its own, so source order is the only thing that decides. */
+  @container chat-thread (max-width: 480px) {
+    .ct-chat-bubble {
+      width: 92%;
+    }
   }
 
   .ct-chat-bubble.own {
@@ -498,10 +521,19 @@
 
   /* A message whose whole body is an image URL -- how a picked GIF arrives.
      Capped so a 1200px wide GIF cannot stretch the bubble, and lazy so a
-     backlog full of them does not fetch every one on open. */
+     backlog full of them does not fetch every one on open.
+
+     The cap is `min(320px, 100%)` and the 100% is the half that matters: the
+     lobby's chat column is clamp(300px, 27vw, 420px), so at its narrowest the
+     bubble's content box is ~191px (300 - 24 panel padding, 78% of that, minus
+     24 bubble padding). A flat 320px cap is wider than that at every realistic
+     lobby width, and a bubble does not clip -- the actions group hangs 14px
+     above it -- so every GIF sent in a room spilled out past the bubble's right
+     border. The direct-message thread is wide enough that 320px fits, which is
+     why it only showed in a lobby. */
   .ct-chat-inline-image {
     @apply block cursor-zoom-in rounded-sm;
-    max-width: 320px;
+    max-width: min(320px, 100%);
     max-height: 240px;
     background: var(--ct-alpha-04);
   }
@@ -761,47 +793,71 @@
   }
 }
 
+/* Plain <button>s, not antd Buttons wearing a class.
+
+   These three carried 22 `!important` declarations between them -- more than
+   half of the whole stylesheet's -- because an antd Button brings its own
+   cssinjs rules of equal specificity and there is no guaranteed order between
+   that runtime-injected sheet and this one. Every property had to shout to win.
+   None of the three uses anything an antd Button provides: no loading state, no
+   ripple, no size system. They are pills with an icon and a label. */
 .ct-banner-accept-btn,
 .ct-banner-reject-btn,
 .ct-banner-rejoin-btn {
-  flex-shrink: 0; /* Prevent buttons from shrinking */
-  font-weight: 500 !important;
-  border-radius: 16px !important;
-  padding: 0 16px !important;
-  height: 32px !important;
-  line-height: 30px !important;
-  transition: all 0.2s ease !important;
+  @apply inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium;
+  height: 32px;
+  border: 1px solid transparent;
+  background: transparent;
+  transition:
+    background var(--ct-duration-fast) ease,
+    border-color var(--ct-duration-fast) ease,
+    box-shadow var(--ct-duration-fast) ease;
 }
 
+.ct-banner-accept-btn:focus-visible,
+.ct-banner-reject-btn:focus-visible,
+.ct-banner-rejoin-btn:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
+}
+
+/* Hover deepens the tint rather than flipping to a solid fill. The fill version
+   set `color: var(--ct-text-primary)`, which is the theme's text colour: near
+   white on #10b981 in the dark theme (2.5:1) and near black on #0b7350 in the
+   light one (2.2:1) -- unreadable in BOTH, in opposite directions. A tint keeps
+   the label on the page's own ground, where one colour is correct for both. */
 .ct-banner-accept-btn {
-  background: color-mix(in srgb, var(--ct-success) 15%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--ct-success) 30%, transparent) !important;
-  color: var(--ct-success) !important;
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--ct-success) 5%, transparent) !important;
-  animation: ctaPulseAccept 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1) !important;
+  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 15%, transparent);
+  animation: ctaPulseAccept 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
+
 .ct-banner-accept-btn:hover {
-  background: var(--ct-success) !important;
-  color: var(--ct-text-primary) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ct-success) 25%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ct-success) 50%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 28%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ct-success) 25%, transparent);
 }
+
 .ct-banner-reject-btn {
-  background: transparent !important;
-  border: 1px solid color-mix(in srgb, var(--ct-danger) 25%, transparent) !important;
-  color: var(--ct-danger) !important;
+  border-color: color-mix(in srgb, var(--ct-danger) 25%, transparent);
+  color: var(--ct-danger);
 }
+
 .ct-banner-reject-btn:hover {
-  background: color-mix(in srgb, var(--ct-danger) 10%, transparent) !important;
-  border-color: color-mix(in srgb, var(--ct-danger) 50%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ct-danger) 50%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 10%, transparent);
 }
+
 .ct-banner-rejoin-btn {
-  background: color-mix(in srgb, var(--ct-success) 10%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--ct-success) 30%, transparent) !important;
-  color: var(--ct-success) !important;
+  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
 }
+
 .ct-banner-rejoin-btn:hover {
-  background: color-mix(in srgb, var(--ct-success) 20%, transparent) !important;
-  border-color: color-mix(in srgb, var(--ct-success) 50%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ct-success) 50%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 20%, transparent);
 }
 
 .ct-banner-actions {

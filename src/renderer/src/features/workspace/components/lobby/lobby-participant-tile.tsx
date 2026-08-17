@@ -517,22 +517,18 @@ function LobbyParticipantTileImpl({
                 className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
                 title="Sağ tık: çıkış cihazı"
               >
-                {headphoneOpen ? (
-                  <CustomerServiceOutlined  />
-                ) : (
-                  <MutedOutlined  />
-                )}
+                <CustomerServiceOutlined
+                  className={headphoneOpen ? undefined : "ct-icon-slashed"}
+                />
               </span>
             </AudioDeviceDropdown>
           ) : (
             <span
               className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
             >
-              {headphoneOpen ? (
-                <CustomerServiceOutlined  />
-              ) : (
-                <MutedOutlined  />
-              )}
+              <CustomerServiceOutlined
+                className={headphoneOpen ? undefined : "ct-icon-slashed"}
+              />
             </span>
           )}
 
