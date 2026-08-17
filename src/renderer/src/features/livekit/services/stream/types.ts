@@ -57,6 +57,14 @@ export interface RemoteParticipantAudioPreference {
   cameraHidden?: boolean;
   screenAudioMuted?: boolean;
   screenAudioVolumePercent?: number;
+  /**
+   * Silences this person's soundboard only.
+   *
+   * Kept here with the rest of "what I want to hear from this person" even
+   * though it never reaches LiveKit: an emote is a lobby-stream event and is
+   * played locally, so this is applied at playback and pushed to no session.
+   */
+  emoteMuted?: boolean;
 }
 
 export interface LiveKitStreamManagerCallbacks {

@@ -220,6 +220,7 @@ function WorkspaceShell({
     setScreenAudioMuted: handleSetRemoteParticipantScreenAudioMuted,
     setScreenAudioVolume: handleSetRemoteParticipantScreenAudioVolume,
     setCameraHidden: handleSetRemoteParticipantCameraHidden,
+    setEmoteMuted: handleSetRemoteParticipantEmoteMuted,
   } = useRemoteParticipantAudio({
     liveKitSessionRef,
     preferencesRef: remoteParticipantAudioPreferencesRef,
@@ -836,7 +837,11 @@ function WorkspaceShell({
     leaveActiveLobby,
   });
 
-  useLobbyEmotePlayback(activeLobbyRef, queryClient);
+  useLobbyEmotePlayback(
+    activeLobbyRef,
+    queryClient,
+    remoteParticipantAudioPreferencesRef,
+  );
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
   const {
@@ -1070,6 +1075,7 @@ function WorkspaceShell({
                 preferences: remoteParticipantAudioPreferences,
                 setMuted: handleSetRemoteParticipantMuted,
                 setVolume: handleSetRemoteParticipantVolume,
+                setEmoteMuted: handleSetRemoteParticipantEmoteMuted,
               },
             }}
             settingsProps={{
@@ -1127,6 +1133,9 @@ function WorkspaceShell({
             onJoinLobby={handleSelectLobby}
             onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={handleSetRemoteParticipantVolume}
+            onSetRemoteParticipantEmoteMuted={
+              handleSetRemoteParticipantEmoteMuted
+            }
             onSetRemoteParticipantCameraHidden={handleSetRemoteParticipantCameraHidden}
             onSetRemoteParticipantScreenAudioMuted={handleSetRemoteParticipantScreenAudioMuted}
             onSetRemoteParticipantScreenAudioVolume={handleSetRemoteParticipantScreenAudioVolume}

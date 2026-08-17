@@ -16,6 +16,7 @@ interface ProfileSettings {
   emailVerified: boolean;
   bio: string;
   avatarUrl: string | null;
+  bannerUrl: string | null;
 }
 
 interface ProfileSettingsProps {
@@ -28,12 +29,53 @@ interface ProfileSettingsProps {
 // ~6.7 MB on the wire; the backend's own limit (maxAvatarDataURLLength) is set
 // to match, and the /auth/profile route carries a 10 MiB body cap for it.
 const MAX_AVATAR_FILE_BYTES = 5 * 1024 * 1024;
+
+// A GIF is the one format that can be animated, and there is no way to re-encode
+// one in a canvas without flattening it to a single frame. So a GIF skips the
+// downscale below and is sent exactly as it came off disk — which means what is
+// stored IS what every read of it moves, and it needs a much tighter ceiling
+// than a picture that gets shrunk to 256px on the way. Matches maxAnimatedBytes
+// on the server.
+const MAX_ANIMATED_FILE_BYTES = 1024 * 1024;
+
 const SUPPORTED_AVATAR_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
 ]);
+
+const isAnimatableType = (mimeType: string): boolean => mimeType === "image/gif";
+
+/**
+ * Validates a chosen file and turns it into the data URL that will be sent.
+ *
+ * The GIF branch is the whole reason this exists as one function: an animated
+ * GIF put through the canvas below comes back as a single still frame, with no
+ * error anywhere to say the animation was thrown away. So a GIF is passed
+ * through untouched and bounded by a tighter file size instead.
+ */
+const prepareImageUpload = async (
+  file: File,
+  maxDimension: number,
+): Promise<string> => {
+  if (!SUPPORTED_AVATAR_MIME_TYPES.has(file.type)) {
+    throw new Error("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
+  }
+
+  const animated = isAnimatableType(file.type);
+  const ceiling = animated ? MAX_ANIMATED_FILE_BYTES : MAX_AVATAR_FILE_BYTES;
+  if (file.size > ceiling) {
+    throw new Error(
+      animated
+        ? `Hareketli görsel en fazla ${MAX_ANIMATED_FILE_BYTES / (1024 * 1024)} MB olabilir.`
+        : `Görsel en fazla ${MAX_AVATAR_FILE_BYTES / (1024 * 1024)} MB olabilir.`,
+    );
+  }
+
+  const dataUrl = await readFileAsDataURL(file);
+  return animated ? dataUrl : downscaleImageDataURL(dataUrl, maxDimension);
+};
 
 const getInitials = (value: string): string => {
   const parts = value.trim().split(/\s+/).filter(Boolean);
@@ -72,6 +114,11 @@ const readFileAsDataURL = (file: File): Promise<string> => {
 // preview. Matches the server's own bound, which re-encodes anything above it.
 const AVATAR_MAX_DIMENSION = 256;
 
+// A banner is a strip across the top of the profile card rather than a face in a
+// circle, so it is allowed to be several hundred pixels wide. Matches
+// bannerMaxDimension on the server.
+const BANNER_MAX_DIMENSION = 1024;
+
 /**
  * Downscales the chosen picture before it is sent.
  *
@@ -84,7 +131,10 @@ const AVATAR_MAX_DIMENSION = 256;
  * The server normalises anything that gets past this anyway; doing it here as
  * well is what keeps the several megabytes off the wire in the first place.
  */
-const downscaleImageDataURL = async (dataUrl: string): Promise<string> => {
+const downscaleImageDataURL = async (
+  dataUrl: string,
+  maxDimension: number,
+): Promise<string> => {
   const image = document.createElement("img");
   const loaded = new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
@@ -97,11 +147,11 @@ const downscaleImageDataURL = async (dataUrl: string): Promise<string> => {
   if (!width || !height) {
     return dataUrl;
   }
-  if (width <= AVATAR_MAX_DIMENSION && height <= AVATAR_MAX_DIMENSION) {
+  if (width <= maxDimension && height <= maxDimension) {
     return dataUrl;
   }
 
-  const scale = AVATAR_MAX_DIMENSION / Math.max(width, height);
+  const scale = maxDimension / Math.max(width, height);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
@@ -132,6 +182,7 @@ export function SettingsProfile({
 }: ProfileSettingsProps) {
   const queryClient = useQueryClient();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
@@ -140,6 +191,7 @@ export function SettingsProfile({
     emailVerified: false,
     bio: "",
     avatarUrl: null,
+    bannerUrl: null,
   });
 
   const [savedEmail, setSavedEmail] = useState("");
@@ -174,6 +226,7 @@ export function SettingsProfile({
             emailVerified: false,
             bio: "",
             avatarUrl: null,
+            bannerUrl: null,
           });
           setSavedEmail("");
 
@@ -192,6 +245,7 @@ export function SettingsProfile({
           emailVerified: !!profile.emailVerified,
           bio: profile.bio ?? "",
           avatarUrl: profile.avatarUrl ?? null,
+          bannerUrl: profile.bannerUrl ?? null,
         });
         setSavedEmail(profile.email ?? "");
       })
@@ -206,6 +260,7 @@ export function SettingsProfile({
           emailVerified: false,
           bio: "",
           avatarUrl: null,
+          bannerUrl: null,
         });
         setSavedEmail("");
         messageApi.error(
@@ -239,6 +294,7 @@ export function SettingsProfile({
         email: profileSettings.email.trim() || null,
         bio: profileSettings.bio.trim() || null,
         avatarUrl: profileSettings.avatarUrl,
+        bannerUrl: profileSettings.bannerUrl,
       });
 
       if (!result.ok || !result.data?.profile) {
@@ -255,6 +311,7 @@ export function SettingsProfile({
         emailVerified: !!profile.emailVerified,
         bio: profile.bio ?? "",
         avatarUrl: profile.avatarUrl ?? null,
+          bannerUrl: profile.bannerUrl ?? null,
       });
       setSavedEmail(profile.email ?? "");
       await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
@@ -332,46 +389,35 @@ export function SettingsProfile({
     }
   };
 
-  const handleAvatarSelect = async (
+  const handleImageSelect = async (
     event: ChangeEvent<HTMLInputElement>,
+    field: "avatarUrl" | "bannerUrl",
   ): Promise<void> => {
     const file = event.target.files?.[0];
+    // Cleared immediately so picking the same file twice still fires a change.
     event.target.value = "";
 
     if (!file) {
       return;
     }
 
-    if (!SUPPORTED_AVATAR_MIME_TYPES.has(file.type)) {
-      messageApi.warning("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
-      return;
-    }
-
-    if (file.size > MAX_AVATAR_FILE_BYTES) {
-      messageApi.warning("Profil resmi en fazla 5 MB olabilir.");
-      return;
-    }
-
     try {
-      const dataURL = await downscaleImageDataURL(await readFileAsDataURL(file));
-      setProfileSettings((previous) => ({
-        ...previous,
-        avatarUrl: dataURL,
-      }));
-      messageApi.info("Logo seçildi. Kaydet'e basarak profiline uygula.");
+      const dataURL = await prepareImageUpload(
+        file,
+        field === "avatarUrl" ? AVATAR_MAX_DIMENSION : BANNER_MAX_DIMENSION,
+      );
+      setProfileSettings((previous) => ({ ...previous, [field]: dataURL }));
+      messageApi.info("Seçildi. Kaydet'e basarak profiline uygula.");
     } catch (error) {
-      messageApi.error(
-        `Logo okunamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+      messageApi.warning(
+        error instanceof Error ? error.message : "Görsel okunamadı",
       );
     }
   };
 
-  const handleAvatarClear = (): void => {
-    setProfileSettings((previous) => ({
-      ...previous,
-      avatarUrl: null,
-    }));
-    messageApi.info("Logo kaldırıldı. Kaydet'e basarak değişikliği uygula.");
+  const handleImageClear = (field: "avatarUrl" | "bannerUrl"): void => {
+    setProfileSettings((previous) => ({ ...previous, [field]: null }));
+    messageApi.info("Kaldırıldı. Kaydet'e basarak değişikliği uygula.");
   };
 
   return (
@@ -407,6 +453,58 @@ export function SettingsProfile({
         <div className="ct-settings-subsection">
           <h5>Görünüm</h5>
 
+          {/* Banner first, avatar second: that is the order they stack on the
+              profile card, so the preview here reads as the card it produces. */}
+          <div className="ct-settings-banner-preview">
+            {profileSettings.bannerUrl ? (
+              <img src={profileSettings.bannerUrl} alt="" />
+            ) : (
+              <span>Afiş seçilmedi</span>
+            )}
+          </div>
+
+          <div className="ct-settings-profile-avatar-row">
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(event) => {
+                void handleImageSelect(event, "bannerUrl");
+              }}
+              hidden
+            />
+
+            <div className="ct-settings-profile-avatar-actions">
+              <div className="ct-settings-profile-avatar-buttons">
+                <Button
+                  type="text"
+                  icon={<UploadOutlined />}
+                  onClick={() => bannerInputRef.current?.click()}
+                  disabled={isProfileLoading || isSavingProfile}
+                >
+                  Afiş Yükle
+                </Button>
+
+                {profileSettings.bannerUrl && (
+                  <Button
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleImageClear("bannerUrl")}
+                    disabled={isProfileLoading || isSavingProfile}
+                  >
+                    Afişi Kaldır
+                  </Button>
+                )}
+              </div>
+
+              <small>
+                Profil kartının üst şeridi · PNG/JPG/WEBP · Hareketli GIF en
+                fazla 1 MB
+              </small>
+            </div>
+          </div>
+
           <div className="ct-settings-profile-avatar-row">
             <Avatar
               size={80}
@@ -424,7 +522,7 @@ export function SettingsProfile({
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={(event) => {
-                  void handleAvatarSelect(event);
+                  void handleImageSelect(event, "avatarUrl");
                 }}
                 hidden
               />
@@ -436,7 +534,7 @@ export function SettingsProfile({
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={isProfileLoading || isSavingProfile}
                 >
-                  Logo Yükle
+                  Profil Resmi Yükle
                 </Button>
 
                 {profileSettings.avatarUrl && (
@@ -444,15 +542,17 @@ export function SettingsProfile({
                     danger
                     type="text"
                     icon={<DeleteOutlined />}
-                    onClick={handleAvatarClear}
+                    onClick={() => handleImageClear("avatarUrl")}
                     disabled={isProfileLoading || isSavingProfile}
                   >
-                    Logoyu Kaldır
+                    Kaldır
                   </Button>
                 )}
               </div>
 
-              <small>PNG/JPG/WEBP/GIF - En fazla 5 MB</small>
+              <small>
+                PNG/JPG/WEBP en fazla 5 MB · Hareketli GIF en fazla 1 MB
+              </small>
             </div>
           </div>
 

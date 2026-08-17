@@ -8,6 +8,7 @@ import {
   SoundOutlined,
   DesktopOutlined,
   MutedOutlined,
+  NotificationOutlined,
   LogoutOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
@@ -22,6 +23,12 @@ interface ParticipantContextMenuProps {
   isScreenSharing: boolean;
   onClose: () => void;
   onMute: (muted: boolean) => void;
+  /**
+   * Their soundboard only, silenced locally. Optional because this menu is also
+   * the one a 1:1 call uses, and emotes are a lobby feature -- there is no
+   * soundboard in a direct call to mute.
+   */
+  onEmoteMute?: (muted: boolean) => void;
   onVolume: (volume: number) => void;
   onToggleCameraHidden: (hidden: boolean) => void;
   onScreenAudioMute: (muted: boolean) => void;
@@ -56,6 +63,7 @@ export function ParticipantContextMenu({
   isScreenSharing,
   onClose,
   onMute,
+  onEmoteMute,
   onVolume,
   onToggleCameraHidden,
   onScreenAudioMute,
@@ -133,6 +141,29 @@ export function ParticipantContextMenu({
         onClose();
       },
     },
+    ...(onEmoteMute
+      ? [
+          {
+            key: 'emote-mute',
+            // Their soundboard, not their voice. Separate annoyances, separate
+            // switches: somebody worth listening to can still be leaning on the
+            // emotes, and silencing them entirely is the wrong answer to that.
+            label: preference.emoteMuted
+              ? 'Emote Seslerini Aç'
+              : 'Emote Seslerini Sustur',
+            icon: preference.emoteMuted ? (
+              <NotificationOutlined />
+            ) : (
+              <MutedOutlined />
+            ),
+            className: 'ct-participant-context-menu-button',
+            onClick: () => {
+              onEmoteMute(!preference.emoteMuted);
+              onClose();
+            },
+          },
+        ]
+      : []),
     {
       key: 'camera',
       label: preference.cameraHidden ? 'Kamerayı Göster' : 'Kamerayı Gizle',

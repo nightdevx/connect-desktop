@@ -5,6 +5,15 @@ export interface UserProfile {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  /**
+   * The profile card's cover image.
+   *
+   * Only ever present on a single-user payload — this profile, or the signed-in
+   * user's own session. Deliberately absent from UserDirectoryEntry and from
+   * every roster: a cover image is far larger than a 40px face, and the avatar
+   * column already taught that lesson.
+   */
+  bannerUrl?: string | null;
   role: UserRole;
   createdAt: string;
 }
@@ -70,6 +79,7 @@ export interface UserSettingsProfile {
   emailVerified?: boolean;
   bio: string | null;
   avatarUrl: string | null;
+  bannerUrl: string | null;
   updatedAt: string;
   // Read-only here; writes go to PATCH /auth/privacy. Optional so a client
   // talking to a backend without the field still parses.
@@ -81,6 +91,7 @@ export interface UpdateProfileRequest {
   email?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
+  bannerUrl?: string | null;
 }
 
 export interface ForgotPasswordRequest {

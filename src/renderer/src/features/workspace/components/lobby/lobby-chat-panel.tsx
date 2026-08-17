@@ -5,6 +5,7 @@ import {
   useState,
   useRef,
   useEffect,
+  type CSSProperties,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -37,7 +38,11 @@ import {
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
 import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
-import { formatTimeLabel, getApiErrorMessage } from "../../workspace-utils";
+import {
+  formatTimeLabel,
+  getApiErrorMessage,
+  getUsernameHue,
+} from "../../workspace-utils";
 import { renderWithMentions, type MentionCandidate } from "../../mentions";
 import { MentionPicker, useMentionPicker } from "../common/mention-picker";
 
@@ -152,7 +157,18 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
 
         <div className="ct-chat-bubble-meta">
           <span>
-            {message.username} • {formatTimeLabel(message.createdAt)}
+            {/* <b>, not a <span>: `.ct-chat-bubble span` sets a muted colour and
+                display: block, and both would beat a class on a span here. */}
+            <b
+              className="ct-chat-author"
+              style={
+                { "--ct-name-h": getUsernameHue(message.userId) } as CSSProperties
+              }
+            >
+              {message.username}
+            </b>
+            {" • "}
+            {formatTimeLabel(message.createdAt)}
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 

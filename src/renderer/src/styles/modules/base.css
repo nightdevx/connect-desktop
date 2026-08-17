@@ -180,6 +180,18 @@
   --ct-duration-base: 220ms;
   --ct-duration-slow: 320ms;
 
+  /* ---- Speaker colours ---------------------------------------------------
+     A per-person name colour in a room with many speakers. The HUE comes from
+     the user id (see getUsernameHue) and arrives as an inline custom property;
+     lightness and chroma live here, so the same hue is written light enough to
+     read on the dark ground and dark enough to read on the light one. Handing
+     out a finished colour per user would have meant a palette legible on
+     exactly one theme. --ct-name-h is the fallback for anything that forgets
+     to set it. */
+  --ct-name-h: 232;
+  --ct-name-l: 0.78;
+  --ct-name-c: 0.13;
+
   /* ---- Scrollbars -------------------------------------------------------
      Read by the one global rule below, and overridable per scroll container:
      declaring --ct-scrollbar-size on an element re-styles that element's own
@@ -288,6 +300,11 @@
   --ct-shadow-sm: 0 2px 8px rgba(15, 15, 20, 0.08);
   --ct-shadow-md: 0 8px 24px rgba(15, 15, 20, 0.1);
   --ct-shadow-lg: 0 20px 44px rgba(15, 15, 20, 0.16);
+
+  /* Same hues, written dark instead of light: 0.78 against a white panel is a
+     pastel nobody can read at 11px. */
+  --ct-name-l: 0.52;
+  --ct-name-c: 0.15;
 
   --ct-body-tint: rgba(15, 138, 99, 0.05);
   --ct-body-from: #f7f7f8;

@@ -1,3 +1,7 @@
+import {
+  clampEmoteVolumePercent,
+  readEmoteVolumePercent,
+} from "@/store/emote-volume";
 import { type OscillatorTone, type SoundEffectOptions } from "./types";
 
 // One pattern per emote id. Keys mirror the closed set the backend enforces
@@ -49,10 +53,51 @@ class SoundEffectManager {
   // Decoded uploads, by emote id. An emote is pressed repeatedly by design.
   private readonly sampleCache = new Map<string, AudioBuffer>();
   private outputNode: AudioNode | null = null;
+  // Emotes only. The UI cues -- join, leave, mic toggle -- deliberately do NOT
+  // pass through it: they are this user's own feedback about their own actions,
+  // and somebody turning the soundboard down is turning down other people's
+  // noise, not the confirmation that their microphone opened.
+  private emoteGainNode: GainNode | null = null;
+  // Read at construction, so the first emote of a session already plays at the
+  // volume the user chose rather than at 100% until something sets it.
+  private emoteVolumePercent = readEmoteVolumePercent();
   private enabled = true;
 
   public configure(options: SoundEffectOptions): void {
     this.enabled = options.enabled;
+  }
+
+  /**
+   * How loud other people's soundboard is, 0-200%.
+   *
+   * Applied to the live node when there is one, so a drag on the slider is
+   * audible on the next press without rebuilding the graph.
+   */
+  public setEmoteVolumePercent(percent: number): void {
+    this.emoteVolumePercent = clampEmoteVolumePercent(percent);
+
+    if (this.emoteGainNode && this.audioContext) {
+      this.emoteGainNode.gain.setValueAtTime(
+        this.emoteVolumePercent / 100,
+        this.audioContext.currentTime,
+      );
+    }
+  }
+
+  /** The node every emote is routed through, built on first use. */
+  private getEmoteOutputNode(context: AudioContext): AudioNode {
+    if (this.emoteGainNode) {
+      return this.emoteGainNode;
+    }
+
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(
+      this.emoteVolumePercent / 100,
+      context.currentTime,
+    );
+    gain.connect(this.getOutputNode(context));
+    this.emoteGainNode = gain;
+    return gain;
   }
 
   public prime(): void {
@@ -108,13 +153,20 @@ class SoundEffectManager {
     return compressor;
   }
 
-  private playPattern(pattern: OscillatorTone[]): void {
+  private playPattern(
+    pattern: OscillatorTone[],
+    /** Emotes route through the soundboard gain; UI cues do not. */
+    destination: "cue" | "emote" = "cue",
+  ): void {
     const context = this.getAudioContext();
     if (!this.enabled || !context || pattern.length === 0) {
       return;
     }
 
-    const outputNode = this.getOutputNode(context);
+    const outputNode =
+      destination === "emote"
+        ? this.getEmoteOutputNode(context)
+        : this.getOutputNode(context);
     void context.resume().catch(() => undefined);
 
     const now = context.currentTime;
@@ -331,7 +383,7 @@ class SoundEffectManager {
       // server-side. Silence beats a wrong noise.
       return;
     }
-    this.playPattern(pattern);
+    this.playPattern(pattern, "emote");
   }
 
   /**
@@ -374,7 +426,7 @@ class SoundEffectManager {
       gain.gain.setValueAtTime(0.85, context.currentTime);
 
       source.connect(gain);
-      gain.connect(this.getOutputNode(context));
+      gain.connect(this.getEmoteOutputNode(context));
       source.start();
     } catch {
       // A clip this build cannot decode is silence, not an error dialog. The

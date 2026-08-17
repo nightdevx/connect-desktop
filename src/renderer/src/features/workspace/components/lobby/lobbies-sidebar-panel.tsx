@@ -71,6 +71,7 @@ interface LobbiesSidebarPanelProps {
     preferences: Record<string, RemoteParticipantAudioPreference>;
     setMuted: (userId: string, muted: boolean) => void;
     setVolume: (userId: string, volumePercent: number) => void;
+    setEmoteMuted: (userId: string, muted: boolean) => void;
   };
 }
 
@@ -545,6 +546,11 @@ export function LobbiesSidebarPanel({
                                 participantAudio.setVolume(
                                   member.userId,
                                   volumePercent,
+                                ),
+                              onEmoteMute: (muted: boolean) =>
+                                participantAudio.setEmoteMuted(
+                                  member.userId,
+                                  muted,
                                 ),
                             }
                           : undefined;

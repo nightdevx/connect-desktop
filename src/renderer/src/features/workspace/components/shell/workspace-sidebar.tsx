@@ -99,6 +99,8 @@ interface WorkspaceSidebarProps {
       preferences: Record<string, RemoteParticipantAudioPreference>;
       setMuted: (userId: string, muted: boolean) => void;
       setVolume: (userId: string, volumePercent: number) => void;
+      /** Their soundboard only, silenced locally. */
+      setEmoteMuted: (userId: string, muted: boolean) => void;
     };
   };
   settingsProps: {

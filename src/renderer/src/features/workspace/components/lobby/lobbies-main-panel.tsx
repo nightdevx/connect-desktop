@@ -58,6 +58,8 @@ interface LobbiesMainPanelProps {
   onJoinLobby: (lobbyId: string) => void;
   onSetRemoteParticipantMuted: (participantUserId: string, muted: boolean) => void;
   onSetRemoteParticipantVolume: (participantUserId: string, volumePercent: number) => void;
+  /** Their soundboard only, silenced locally. */
+  onSetRemoteParticipantEmoteMuted: (participantUserId: string, muted: boolean) => void;
   onSetRemoteParticipantCameraHidden: (participantUserId: string, hidden: boolean) => void;
   onSetRemoteParticipantScreenAudioMuted: (participantUserId: string, muted: boolean) => void;
   onSetRemoteParticipantScreenAudioVolume: (participantUserId: string, volumePercent: number) => void;
@@ -136,6 +138,7 @@ export function LobbiesMainPanel({
   onJoinLobby,
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
+  onSetRemoteParticipantEmoteMuted,
   onSetRemoteParticipantCameraHidden,
   onSetRemoteParticipantScreenAudioMuted,
   onSetRemoteParticipantScreenAudioVolume,
@@ -444,6 +447,11 @@ export function LobbiesMainPanel({
     onSetRemoteParticipantVolume(contextMenuParticipantId, volumePercent);
   };
 
+  const handleEmoteMute = (muted: boolean): void => {
+    if (!contextMenuParticipantId) return;
+    onSetRemoteParticipantEmoteMuted(contextMenuParticipantId, muted);
+  };
+
   const handleToggleCameraHidden = (hidden: boolean): void => {
     if (!contextMenuParticipantId) return;
     onSetRemoteParticipantCameraHidden(contextMenuParticipantId, hidden);
@@ -607,6 +615,7 @@ export function LobbiesMainPanel({
             setContextMenuPosition(null);
           }}
           onMute={handleMute}
+          onEmoteMute={handleEmoteMute}
           onVolume={handleVolume}
           onToggleCameraHidden={handleToggleCameraHidden}
           onScreenAudioMute={handleScreenAudioMute}

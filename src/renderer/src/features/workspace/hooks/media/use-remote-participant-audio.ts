@@ -105,11 +105,21 @@ export const useRemoteParticipantAudio = ({
     [patchPreference],
   );
 
+  const setEmoteMuted = useCallback(
+    (participantUserId: string, emoteMuted: boolean): void => {
+      // No session push: an emote is a lobby-stream event played locally, so
+      // there is no LiveKit track for a preference to reach.
+      patchPreference(participantUserId, { emoteMuted }, false);
+    },
+    [patchPreference],
+  );
+
   return {
     setMuted,
     setVolume,
     setScreenAudioMuted,
     setScreenAudioVolume,
     setCameraHidden,
+    setEmoteMuted,
   };
 };

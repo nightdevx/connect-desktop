@@ -15,6 +15,11 @@ import {
   saveViewPreferences,
   type ViewPreferences,
 } from "./view-preferences";
+import {
+  clampEmoteVolumePercent,
+  readEmoteVolumePercent,
+  saveEmoteVolumePercent,
+} from "./emote-volume";
 
 type AuthPage = "login" | "register";
 export type StatusTone = "ok" | "warn" | "error";
@@ -49,6 +54,9 @@ interface UiState {
   /** Whether GIFs in a conversation animate always, or only under the cursor. */
   gifPlayback: GifPlayback;
   setGifPlayback: (mode: GifPlayback) => void;
+  /** How loud other people's soundboard plays, 0-200%. */
+  emoteVolumePercent: number;
+  setEmoteVolumePercent: (percent: number) => void;
   /** Panel show/hide choices that outlive the panel that draws them. */
   viewPreferences: ViewPreferences;
   setViewPreference: <K extends keyof ViewPreferences>(
@@ -83,6 +91,12 @@ export const useUiStore = create<UiState>((set) => ({
   setGifPlayback: (mode) => {
     saveGifPlayback(mode);
     set({ gifPlayback: mode });
+  },
+  emoteVolumePercent: readEmoteVolumePercent(),
+  setEmoteVolumePercent: (percent) => {
+    const next = clampEmoteVolumePercent(percent);
+    saveEmoteVolumePercent(next);
+    set({ emoteVolumePercent: next });
   },
   viewPreferences: readViewPreferences(),
   setViewPreference: (key, value) =>

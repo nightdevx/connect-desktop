@@ -123,8 +123,13 @@
   @apply items-stretch justify-stretch overflow-hidden p-0;
 }
 
+/* Spans both shell rows. The shell grew a second row for the quick-controls
+   dock, which occupies the sidebar column only -- so without this the main
+   panel stayed in row 1 and the dock's height was left as a bare strip of shell
+   background under the stage and the chat. */
 .ct-main-panel {
   @apply grid min-h-0 grid-rows-[auto_1fr];
+  grid-row: 1 / -1;
   background: var(--ct-panel);
 }
 

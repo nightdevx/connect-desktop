@@ -1,6 +1,13 @@
 .ct-admin-panel-shell {
   @apply flex h-full w-full min-h-0 overflow-hidden;
-  grid-column: span 2;
+  /* Explicit lines, not `span 2`: an auto-placed span is resolved against
+     whatever the other grid items left free, and the shell now has items with
+     definite rows. Columns 2 to the end, row 1 only -- unlike .ct-main-panel,
+     this covers the sidebar column too, and the quick-controls dock owns the
+     bottom of that column. Spanning both rows would put the admin sidebar's
+     last 60px underneath it. */
+  grid-column: 2 / -1;
+  grid-row: 1 / 2;
   color: var(--ct-text-primary);
   background: var(--ct-panel-soft);
   backdrop-filter: blur(16px);

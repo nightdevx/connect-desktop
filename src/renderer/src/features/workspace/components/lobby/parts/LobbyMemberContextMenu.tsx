@@ -8,6 +8,7 @@ import {
   LogoutOutlined,
   MessageOutlined,
   MutedOutlined,
+  NotificationOutlined,
   SoundOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
@@ -32,6 +33,8 @@ export interface LobbyMemberMenuAudio {
   preference: RemoteParticipantAudioPreference;
   onMute: (muted: boolean) => void;
   onVolume: (volumePercent: number) => void;
+  /** Their soundboard only. Their voice is the two above. */
+  onEmoteMute: (muted: boolean) => void;
 }
 
 interface LobbyMemberContextMenuProps {
@@ -163,6 +166,22 @@ export function LobbyMemberContextMenu({
                 />
               </div>
             ),
+          },
+          {
+            key: "emote-mute",
+            // Separate from "Sustur" because they are separate annoyances: a
+            // person can be worth listening to and still be leaning on the
+            // soundboard, and silencing them entirely is the wrong answer to it.
+            label: audio.preference.emoteMuted
+              ? "Emote Seslerini Aç"
+              : "Emote Seslerini Sustur",
+            icon: audio.preference.emoteMuted ? (
+              <NotificationOutlined />
+            ) : (
+              <MutedOutlined />
+            ),
+            className: "ct-participant-context-menu-button",
+            onClick: () => audio.onEmoteMute(!audio.preference.emoteMuted),
           },
         ]
       : []),

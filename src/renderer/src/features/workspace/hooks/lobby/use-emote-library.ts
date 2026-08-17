@@ -26,6 +26,12 @@ export const EMOTE_MAX_FILE_BYTES = 290_000;
 // the client is where the audio already is.
 export const EMOTE_MAX_SECONDS = 12;
 
+// maxEmoteNameLength in internal/lobby/emote_library.go. Restated rather than
+// left as a bare 24 in the input, because the name is also SEEDED from the
+// chosen file's name — and maxLength only bounds typing, not a value set in
+// code, so a long filename used to reach the server and come back rejected.
+export const EMOTE_MAX_NAME_LENGTH = 24;
+
 const EMOTE_LIBRARY_KEY = ["emote-library"] as const;
 const emoteSampleKey = (emoteId: string): [string, string] => [
   "emote-sample",
@@ -86,6 +92,8 @@ export interface EmoteLibraryController {
   isUploading: boolean;
   upload: (name: string, dataUrl: string) => Promise<boolean>;
   remove: (emoteId: string) => Promise<boolean>;
+  /** Call when the board is opened. See below for why nothing else refetches. */
+  refresh: () => void;
   canUploadMore: boolean;
 }
 
@@ -95,10 +103,20 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
   const query = useQuery({
     queryKey: EMOTE_LIBRARY_KEY,
     queryFn: () => workspaceService.listEmotes(),
-    // The library changes when somebody uploads, which is rare and which every
-    // mutation below already writes through.
-    staleTime: 5 * 60_000,
+    // The board is shared: every upload lands in everybody's list, not just the
+    // uploader's. Nothing pushes that -- there is no library event on the lobby
+    // stream -- and the app turns refetchOnWindowFocus off globally, so this
+    // query is fetched once on mount and then never again for as long as the
+    // client runs. A staleTime alone therefore meant somebody else's upload was
+    // invisible for the rest of the session, which is exactly what people
+    // reported. `refresh` below is called when the board opens, which is the
+    // only moment the answer is looked at.
+    staleTime: 30_000,
   });
+
+  const refresh = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARY_KEY });
+  }, [queryClient]);
 
   const library =
     query.data?.ok && query.data.data ? query.data.data : EMPTY_LIBRARY;
@@ -146,6 +164,7 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
     isUploading: uploadMutation.isPending,
     upload,
     remove,
+    refresh,
     canUploadMore: library.used < library.quota,
   };
 };

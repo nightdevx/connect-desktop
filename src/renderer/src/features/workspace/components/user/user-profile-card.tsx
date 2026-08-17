@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactElement } from "react";
+import { useCallback, useRef, useState, type ReactElement } from "react";
 import { Avatar, Button, Image, Input, Popover, Spin, Tag, message } from "antd";
 import {
   ClockCircleOutlined,
@@ -33,6 +33,14 @@ interface UserProfileCardProps {
   fallbackName: string;
   currentUserId: string;
   friends: FriendsController;
+  /**
+   * Fires while the avatar's full-size preview is open.
+   *
+   * A host that unmounts this card on an outside click has to know, because the
+   * preview is portalled to document.body and every click on it reads as
+   * outside -- closing the card would take the picture down with it.
+   */
+  onPhotoPreviewChange?: (open: boolean) => void;
 }
 
 export function UserProfileCard({
@@ -40,6 +48,7 @@ export function UserProfileCard({
   fallbackName,
   currentUserId,
   friends,
+  onPhotoPreviewChange,
 }: UserProfileCardProps): ReactElement {
   const { card, isLoading, isUnavailable } = useUserCard(userId);
   const [isSending, setIsSending] = useState(false);
@@ -109,7 +118,14 @@ export function UserProfileCard({
       {/* A colour band behind the avatar, the way every profile card since
           Discord has done it: it is what makes the avatar read as the subject
           of the card rather than as an icon next to a name. */}
-      <div className="ct-profile-card-banner" aria-hidden="true" />
+      {/* aria-hidden either way: with a picture it is still decoration, and the
+          card already names the person underneath it. */}
+      <div
+        className={`ct-profile-card-banner ${card.bannerUrl ? "has-image" : ""}`}
+        aria-hidden="true"
+      >
+        {card.bannerUrl && <img src={card.bannerUrl} alt="" />}
+      </div>
 
       <div className="ct-profile-card-identity">
         {card.avatarUrl ? (
@@ -121,7 +137,7 @@ export function UserProfileCard({
             alt={displayName}
             className="ct-profile-card-photo"
             rootClassName="ct-profile-card-photo-root"
-            preview={{ mask: "Büyüt" }}
+            preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
           />
         ) : (
           <Avatar size={88} className="ct-profile-card-avatar">
@@ -258,16 +274,34 @@ export function UserProfileCardAnchor({
   onClose,
   ...cardProps
 }: UserProfileCardAnchorProps): ReactElement {
+  // A ref, not state: this is read inside onOpenChange during the same gesture
+  // that sets it, and a state update would not have landed yet.
+  const isPhotoPreviewOpen = useRef(false);
+
   return (
     <Popover
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        // The avatar's full-size preview is portalled to document.body, so
+        // every click on it is "outside" this popover. Closing here would
+        // unmount the card and the picture with it -- the host owns this
+        // component's lifetime, so unlike UserProfileCardPopover it cannot rely
+        // on the popup merely being hidden.
+        if (!open && !isPhotoPreviewOpen.current) {
+          onClose();
+        }
       }}
       trigger="click"
       placement="rightTop"
       rootClassName="ct-profile-card-popover"
-      content={<UserProfileCard {...cardProps} />}
+      content={
+        <UserProfileCard
+          {...cardProps}
+          onPhotoPreviewChange={(open) => {
+            isPhotoPreviewOpen.current = open;
+          }}
+        />
+      }
       destroyOnHidden
     >
       <div
@@ -306,9 +340,18 @@ interface UserProfileCardPopoverProps extends UserProfileCardProps {
  * isOpen never turned true, and it stayed empty. A deadlock, and the only click
  * target in the app that used this wrapper simply did nothing.
  *
- * The lazy mount it was reaching for is what destroyOnHidden already gives:
- * antd does not mount the popup's subtree until the popover first opens, and
- * unmounts it on close -- so the query still fires once, on demand, per card.
+ * And deliberately NO destroyOnHidden, which is what keeps the avatar's
+ * full-size preview working. antd renders that preview from inside this
+ * Popover's subtree but portals it to document.body, so it is a SIBLING of the
+ * popover, not a child. The first mousedown that lands on it therefore counts
+ * as "outside" and closes the popover -- and with destroyOnHidden that unmounts
+ * the <Image>, taking its preview portal down with it. The picture opened and
+ * vanished in the same gesture. Without it the popup is only hidden, the Image
+ * stays mounted, and the preview outlives the card it was opened from.
+ *
+ * The lazy mount this costs is small: antd still does not render the popup's
+ * subtree until the popover is opened the first time, so a roster of fifty
+ * names still fires zero card queries until one is clicked.
  */
 export function UserProfileCardPopover({
   children,
@@ -324,7 +367,6 @@ export function UserProfileCardPopover({
       placement="right"
       rootClassName="ct-profile-card-popover"
       content={<UserProfileCard {...cardProps} />}
-      destroyOnHidden
     >
       {children}
     </Popover>

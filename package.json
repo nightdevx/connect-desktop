@@ -1,7 +1,7 @@
 {
   "packageManager": "pnpm@11.15.1",
   "name": "connect-desktop",
-  "version": "0.1.64",
+  "version": "0.1.65",
   "description": "Electron + React + TypeScript starter architecture",
   "author": "nightdevx",
   "repository": {

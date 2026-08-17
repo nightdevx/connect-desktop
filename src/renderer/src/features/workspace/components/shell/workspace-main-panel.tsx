@@ -85,6 +85,11 @@ interface WorkspaceMainPanelProps {
     participantUserId: string,
     volumePercent: number,
   ) => void;
+  /** Their soundboard only, silenced locally. */
+  onSetRemoteParticipantEmoteMuted: (
+    participantUserId: string,
+    muted: boolean,
+  ) => void;
   onSetRemoteParticipantCameraHidden: (
     participantUserId: string,
     hidden: boolean,
@@ -227,6 +232,7 @@ export function WorkspaceMainPanel({
   onJoinLobby,
   onSetRemoteParticipantMuted,
   onSetRemoteParticipantVolume,
+  onSetRemoteParticipantEmoteMuted,
   onSetRemoteParticipantCameraHidden,
   onSetRemoteParticipantScreenAudioMuted,
   onSetRemoteParticipantScreenAudioVolume,
@@ -390,6 +396,7 @@ export function WorkspaceMainPanel({
             onJoinLobby={onJoinLobby}
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
+            onSetRemoteParticipantEmoteMuted={onSetRemoteParticipantEmoteMuted}
             onSetRemoteParticipantCameraHidden={onSetRemoteParticipantCameraHidden}
             onSetRemoteParticipantScreenAudioMuted={onSetRemoteParticipantScreenAudioMuted}
             onSetRemoteParticipantScreenAudioVolume={onSetRemoteParticipantScreenAudioVolume}

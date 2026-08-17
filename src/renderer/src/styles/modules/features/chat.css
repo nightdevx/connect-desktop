@@ -332,6 +332,17 @@
     @apply mt-1 flex items-center justify-between gap-2;
   }
 
+  /* The author of a message in a room with many of them. The hue is set inline
+     per user id; lightness and chroma come from the theme, so one hue is
+     written light on the dark ground and dark on the light one.
+
+     Deliberately not used in a direct thread: there are two people in it, "Sen"
+     and one name, and colouring those adds nothing to tell apart. */
+  .ct-chat-author {
+    color: oklch(var(--ct-name-l) var(--ct-name-c) var(--ct-name-h));
+    font-weight: 700;
+  }
+
   /* --- Message actions ---------------------------------------------------
      Reply / edit / delete / react used to be four identical 24px squares
      sitting in every bubble at all times, next to six always-visible emoji.

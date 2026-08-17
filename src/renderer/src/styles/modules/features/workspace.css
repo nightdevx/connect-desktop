@@ -27,6 +27,30 @@
   background: var(--ct-panel-solid);
 }
 
+/* The admin section has no sidebar column to align to -- its panel spans both
+   content columns -- so the dock runs the full width instead of leaving the
+   cell beside it as a bare strip of shell background. The controls stay where
+   they are on every other screen; only the bar behind them gets longer.
+   .ct-quick-idle is justify-between, so without the cap below the identity went
+   to the far left of the admin page and the buttons to the far right.
+
+   Written as three separate rules on purpose. As one comma-separated selector
+   list the build emitted a stray `)` before the brace -- `:has()` inside a
+   grouped selector does not survive this pipeline -- and a malformed selector
+   is dropped silently, which is how the cap went missing in the first place. */
+.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-dock {
+  @apply border-r-0;
+  grid-column: 2 / -1;
+}
+
+.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-idle {
+  max-width: var(--ct-sidebar-width);
+}
+
+.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-share-bar {
+  max-width: var(--ct-sidebar-width);
+}
+
 /* ==========================================================================
    RAIL
    Items are full-width pills rather than free-floating squares, so the icon
@@ -502,13 +526,30 @@
 
 /* The band the avatar sits on. Sized so the avatar overlaps it by about half,
    which is what makes the picture the first thing read. */
+/* The accent gradient is the FALLBACK, not the design: a card with no cover
+   image still needs a band behind the avatar or the avatar reads as an icon
+   beside a name rather than the subject of the card. */
 .ct-profile-card-banner {
-  @apply -mx-3 -mt-3 h-16 rounded-t-lg;
+  @apply relative -mx-3 -mt-3 h-16 overflow-hidden rounded-t-lg;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--ct-accent) 55%, transparent),
     color-mix(in srgb, var(--ct-accent) 18%, transparent)
   );
+}
+
+/* An uploaded cover replaces the gradient rather than sitting on it: a
+   half-transparent accent over somebody's picture tints it, and the tint is a
+   different colour in each theme. */
+.ct-profile-card-banner.has-image {
+  background: var(--ct-surface-3);
+}
+
+/* object-fit, so a wide photo is cropped to the strip instead of squashed into
+   it. GIFs animate here -- that is the whole point of exempting them from the
+   re-encode on both sides of the wire. */
+.ct-profile-card-banner img {
+  @apply h-full w-full object-cover;
 }
 
 .ct-profile-card-identity {

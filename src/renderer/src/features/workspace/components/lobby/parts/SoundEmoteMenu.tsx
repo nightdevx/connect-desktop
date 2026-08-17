@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Button, Input, Modal, Popover, Tooltip, message } from "antd";
+import { Button, Input, Modal, Popover, Slider, Tooltip, message } from "antd";
 import {
   DeleteOutlined,
   NotificationOutlined,
@@ -15,8 +15,11 @@ import {
   useEmoteLibrary,
   EMOTE_ACCEPTED_MIME_TYPES,
   EMOTE_MAX_FILE_BYTES,
+  EMOTE_MAX_NAME_LENGTH,
   EMOTE_MAX_SECONDS,
 } from "../../../hooks/lobby/use-emote-library";
+import { MAX_EMOTE_VOLUME_PERCENT } from "@/store/emote-volume";
+import { useUiStore } from "@/store/ui-store";
 
 // Label and glyph per built-in emote. The ids come from the shared set so this
 // cannot offer one the server would refuse; the picker breaks at compile time
@@ -111,6 +114,13 @@ export function SoundEmoteMenu({
   disabled,
 }: SoundEmoteMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  // This user's own knob for how loud everyone else's soundboard is. It lives
+  // here rather than in Ayarlar because this is the panel people are looking at
+  // when the answer stops being right.
+  const emoteVolumePercent = useUiStore((state) => state.emoteVolumePercent);
+  const setEmoteVolumePercent = useUiStore(
+    (state) => state.setEmoteVolumePercent,
+  );
   const [pending, setPending] = useState<PendingUpload | null>(null);
   const [pendingName, setPendingName] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -136,7 +146,10 @@ export function SoundEmoteMenu({
       try {
         const upload = await readEmoteFile(file);
         setPending(upload);
-        setPendingName(upload.fileName);
+        // Clipped here, not left to maxLength: that only bounds what a person
+        // types, so a long filename went to the server whole and came back a
+        // validation error the user had done nothing to cause.
+        setPendingName(upload.fileName.slice(0, EMOTE_MAX_NAME_LENGTH));
       } catch (error) {
         message.error(
           error instanceof Error ? error.message : "Ses dosyası okunamadı.",
@@ -178,12 +191,36 @@ export function SoundEmoteMenu({
     <>
       <Popover
         open={disabled ? false : isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          // The board is shared and nothing pushes an update when somebody else
+          // uploads. Opening it is the only moment its contents are looked at,
+          // so it is also the only moment worth a request.
+          if (open) {
+            library.refresh();
+          }
+        }}
         trigger="click"
         placement="top"
         rootClassName="ct-sound-emote-popover"
         content={
           <div className="ct-sound-emote-board">
+            <div className="ct-sound-emote-volume">
+              <label htmlFor="ct-emote-volume">
+                Emote ses seviyesi
+                <strong>%{emoteVolumePercent}</strong>
+              </label>
+              <Slider
+                id="ct-emote-volume"
+                min={0}
+                max={MAX_EMOTE_VOLUME_PERCENT}
+                step={5}
+                value={emoteVolumePercent}
+                onChange={setEmoteVolumePercent}
+                tooltip={{ formatter: (value) => `%${value}` }}
+              />
+            </div>
+
             <div className="ct-sound-emote-grid">
               {LOBBY_SOUND_EMOTES.map((emote) => (
                 <button
@@ -211,19 +248,27 @@ export function SoundEmoteMenu({
                 Henüz kimse ses yüklememiş.
               </p>
             ) : (
-              <div className="ct-sound-emote-grid">
+              /* One per row, not a two-column grid. A 232px board split in two
+                 left about 50px for the label, so an uploaded sound's name was
+                 the one thing on the board you could not read -- and the
+                 uploader was hidden in a title attribute nobody hovers. */
+              <div className="ct-sound-emote-list">
                 {library.emotes.map((emote) => (
                   <div key={emote.id} className="ct-sound-emote-custom">
                     <button
                       type="button"
-                      className="ct-sound-emote-item"
+                      className="ct-sound-emote-row"
                       onClick={() =>
                         handlePick(`${CUSTOM_EMOTE_PREFIX}${emote.id}`)
                       }
-                      title={`@${emote.ownerUsername}`}
+                      // The full name, for the one that still does not fit.
+                      title={`${emote.name} · @${emote.ownerUsername}`}
                     >
                       <span aria-hidden>🔊</span>
-                      <span>{emote.name}</span>
+                      <span className="ct-sound-emote-name">{emote.name}</span>
+                      <span className="ct-sound-emote-owner">
+                        @{emote.ownerUsername}
+                      </span>
                     </button>
 
                     {canDeleteEmote(emote, currentUserId, currentUserRole) && (
@@ -298,7 +343,10 @@ export function SoundEmoteMenu({
               id="emote-name"
               value={pendingName}
               onChange={(event) => setPendingName(event.target.value)}
-              maxLength={24}
+              maxLength={EMOTE_MAX_NAME_LENGTH}
+              // The count is the point: the field silently refused the 25th
+              // character with nothing on screen to explain why.
+              showCount
               placeholder="Korna"
             />
           </label>
