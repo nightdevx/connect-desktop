@@ -147,6 +147,17 @@
   --ct-control-md: 40px;
   --ct-control-lg: 48px;
 
+  /* The profile card's cover image, as a ratio rather than a height.
+     16:9 because that is the shape pictures already come in — a phone camera, a
+     screenshot, anything downloaded. A cover frame in that shape crops almost
+     nothing off what somebody actually uploads, which is the whole point of
+     letting them upload it.
+     A token because TWO surfaces have to agree on it: the card that draws the
+     banner, and the picker in Settings that claims to preview it. They used to
+     be 5.4:1 and 8.5:1, so somebody cropped their cover to look right in the
+     picker and got a different slice of it on the card. */
+  --ct-profile-banner-ratio: 16 / 9;
+
   /* Icon size paired with each control size. */
   --ct-icon-xs: 14px;
   --ct-icon-sm: 16px;

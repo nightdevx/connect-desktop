@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQueries, useQuery, type QueryClient } from "@tanstack/react-query";
 import type { UserProfile } from "@shared/auth-contracts";
 import workspaceService from "../../services";
+import { useStillImage, useStillImages } from "../media/use-still-image";
 
 // Public profile cards, keyed by user id.
 //
@@ -63,8 +64,16 @@ export const useUserCard = (userId: string | null | undefined) => {
     enabled: Boolean(userId),
   });
 
+  const card = query.data?.ok ? (query.data.data?.user ?? null) : null;
+
+  // Animated pictures are frozen to a still while the window is in the
+  // background. Done here rather than at the twelve places that draw an avatar:
+  // this is the one point every one of them reads from.
+  const avatarUrl = useStillImage(card?.avatarUrl);
+  const bannerUrl = useStillImage(card?.bannerUrl);
+
   return {
-    card: query.data?.ok ? (query.data.data?.user ?? null) : null,
+    card: card && { ...card, avatarUrl, bannerUrl },
     isLoading: Boolean(userId) && query.isPending,
     // Distinguishes "not loaded yet" from "the server will not name them",
     // which is what decides whether the card shows a spinner or a fallback.
@@ -97,17 +106,32 @@ export const useUserCards = (
     .map((result) => (result.data?.ok ? "1" : "0"))
     .join("");
 
-  return useMemo(() => {
-    const byUserId: Record<string, UserProfile> = {};
-    results.forEach((result, index) => {
+  const cards = useMemo(() => {
+    const loaded: UserProfile[] = [];
+    results.forEach((result) => {
       const user = result.data?.ok ? result.data.data?.user : null;
       if (user) {
-        byUserId[stableIds[index]] = user;
+        loaded.push(user);
       }
     });
-    return byUserId;
+    return loaded;
     // `results` is a new array on every render; the signature plus the id list
     // is what actually changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableIds, signature]);
+
+  const avatarSources = useMemo(
+    () => cards.map((card) => card.avatarUrl),
+    [cards],
+  );
+  // One subscription for the whole roster rather than one per row.
+  const avatarUrls = useStillImages(avatarSources);
+
+  return useMemo(() => {
+    const byUserId: Record<string, UserProfile> = {};
+    cards.forEach((card, index) => {
+      byUserId[card.id] = { ...card, avatarUrl: avatarUrls[index] };
+    });
+    return byUserId;
+  }, [cards, avatarUrls]);
 };

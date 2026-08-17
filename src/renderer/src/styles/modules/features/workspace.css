@@ -529,8 +529,16 @@
 /* The accent gradient is the FALLBACK, not the design: a card with no cover
    image still needs a band behind the avatar or the avatar reads as an icon
    beside a name rather than the subject of the card. */
+/* A ratio, not a height, and the SAME height whether or not there is a picture.
+   At the old 64px this band was 5.4:1 across a 320px card: somebody who
+   uploaded a cover got a sliver cut out of the middle of it, which is not a
+   picture, it is a stripe. One height for both states also means the card does
+   not jump when the query lands with a banner on it. */
+/* rounded-t only: the bottom edge runs into the card body, and rounding it
+   would leave two notches beside the avatar that overlaps it. */
 .ct-profile-card-banner {
-  @apply relative -mx-3 -mt-3 h-16 overflow-hidden rounded-t-lg;
+  @apply relative -mx-3 -mt-3 overflow-hidden rounded-t-lg;
+  aspect-ratio: var(--ct-profile-banner-ratio);
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--ct-accent) 55%, transparent),
@@ -545,15 +553,27 @@
   background: var(--ct-surface-3);
 }
 
-/* object-fit, so a wide photo is cropped to the strip instead of squashed into
-   it. GIFs animate here -- that is the whole point of exempting them from the
-   re-encode on both sides of the wire. */
+/* cover, centred: a picture that is not exactly 16:9 loses the same amount off
+   both ends rather than being anchored to a corner, and nothing is ever
+   squashed. object-position is spelled out rather than left to the default
+   because it IS the decision here -- the frame is 16:9 so that a normal photo
+   barely gets cropped, and where the little that goes comes from is the rest of
+   the answer.
+   contain would be the alternative and it is worse: it fits the whole picture
+   and pays for it with bars down the sides of somebody's profile.
+   GIFs animate here -- that is the whole point of resizing them frame by frame
+   rather than letting image.Decode flatten them. */
 .ct-profile-card-banner img {
   @apply h-full w-full object-cover;
+  object-position: center;
 }
 
+/* The avatar sits half on the cover. Net overlap is this minus the card's
+   12px gap, so 56 - 12 = 44px of a 94px avatar -- and it is measured from the
+   BOTTOM of the cover, which is why it did not have to change when the cover
+   did. */
 .ct-profile-card-identity {
-  @apply -mt-11 flex flex-col items-start gap-2;
+  @apply -mt-14 flex flex-col items-start gap-2;
 }
 
 .ct-profile-card-photo-root {

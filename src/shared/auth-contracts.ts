@@ -86,12 +86,26 @@ export interface UserSettingsProfile {
   privacy?: PrivacySettings;
 }
 
+// The region of the cover picture that gets kept, as fractions of the source.
+//
+// Fractions rather than pixels: the picture is re-encoded on the way in, so a
+// pixel rectangle would mean a different thing on each side of the wire.
+export interface ImageCropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface UpdateProfileRequest {
   displayName: string;
   email?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
+  // Only ever sent with an ANIMATED cover. Anything a canvas can re-encode is
+  // cropped before it leaves, so a rect here as well would crop it twice.
+  bannerCrop?: ImageCropRect;
 }
 
 export interface ForgotPasswordRequest {

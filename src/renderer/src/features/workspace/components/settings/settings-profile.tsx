@@ -9,6 +9,8 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import { authService } from "@/features/auth";
+import { ImageCropModal, type CropRect } from "./image-crop-modal";
+import { useStillImage } from "../../hooks/media/use-still-image";
 
 interface ProfileSettings {
   displayName: string;
@@ -58,6 +60,18 @@ const prepareImageUpload = async (
   file: File,
   maxDimension: number,
 ): Promise<string> => {
+  assertUploadable(file);
+  const dataUrl = await readFileAsDataURL(file);
+  return isAnimatableType(file.type)
+    ? dataUrl
+    : downscaleImageDataURL(dataUrl, maxDimension);
+};
+
+// Split out because the cover path needs the SAME rules against the SAME file
+// but must not downscale before the crop dialog sees it: the frame is 440px and
+// the output is 1024, so cutting the picture down first would throw away pixels
+// the crop still has a use for.
+const assertUploadable = (file: File): void => {
   if (!SUPPORTED_AVATAR_MIME_TYPES.has(file.type)) {
     throw new Error("Desteklenen formatlar: PNG, JPG, WEBP veya GIF.");
   }
@@ -67,12 +81,12 @@ const prepareImageUpload = async (
       `Görsel en fazla ${MAX_AVATAR_FILE_BYTES / (1024 * 1024)} MB olabilir.`,
     );
   }
-
-  const dataUrl = await readFileAsDataURL(file);
-  return isAnimatableType(file.type)
-    ? dataUrl
-    : downscaleImageDataURL(dataUrl, maxDimension);
 };
+
+// The cover's shape, and the only place the number lives on this side. The card
+// draws it from --ct-profile-banner-ratio; if these two disagree the dialog is
+// framing something other than what gets shown.
+const BANNER_ASPECT = 16 / 9;
 
 const getInitials = (value: string): string => {
   const parts = value.trim().split(/\s+/).filter(Boolean);
@@ -202,6 +216,19 @@ export function SettingsProfile({
     setVerificationCode("");
   }, [profileSettings.email]);
 
+  // The picture waiting to be framed. Held whole and at full resolution: it is
+  // what the dialog cuts from, and for a GIF it is also what gets uploaded.
+  const [pendingBanner, setPendingBanner] = useState<{
+    dataUrl: string;
+    animated: boolean;
+  } | null>(null);
+
+  // Your own pictures freeze in the background too. They are the two largest
+  // animations the app draws, and the settings page is a screen people leave
+  // open behind other windows.
+  const previewAvatarUrl = useStillImage(profileSettings.avatarUrl);
+  const previewBannerUrl = useStillImage(profileSettings.bannerUrl);
+
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -277,8 +304,23 @@ export function SettingsProfile({
     // actually reacts to.
   }, [currentUsername, messageApi]);
 
-  const handleSaveProfile = async (): Promise<void> => {
-    const normalizedDisplayName = profileSettings.displayName.trim();
+  /**
+   * Writes the profile and re-seeds the form from what came back.
+   *
+   * Takes the values rather than reading state, because the picture handlers
+   * call it in the same tick they choose a new one — reading profileSettings
+   * here would send the picture from before the click.
+   *
+   * PATCH /auth/profile is whole-object: a field it does not carry is CLEARED.
+   * So every save sends the complete profile, and the one thing that changed is
+   * an override on top of it.
+   */
+  const saveProfile = async (
+    next: ProfileSettings,
+    successMessage: string,
+    bannerCrop?: CropRect,
+  ): Promise<void> => {
+    const normalizedDisplayName = next.displayName.trim();
     if (normalizedDisplayName.length < 3) {
       messageApi.warning("Görünen ad en az 3 karakter olmalı.");
       return;
@@ -288,10 +330,11 @@ export function SettingsProfile({
     try {
       const result = await authService.updateProfile({
         displayName: normalizedDisplayName,
-        email: profileSettings.email.trim() || null,
-        bio: profileSettings.bio.trim() || null,
-        avatarUrl: profileSettings.avatarUrl,
-        bannerUrl: profileSettings.bannerUrl,
+        email: next.email.trim() || null,
+        bio: next.bio.trim() || null,
+        avatarUrl: next.avatarUrl,
+        bannerUrl: next.bannerUrl,
+        bannerCrop,
       });
 
       if (!result.ok || !result.data?.profile) {
@@ -301,6 +344,10 @@ export function SettingsProfile({
         return;
       }
 
+      // Re-seeded from the RESPONSE, not from what was sent: the server resizes
+      // and re-encodes both pictures, so what it stored is not the data URL that
+      // went up. Rendering the sent one would show a preview of something that
+      // no longer exists anywhere.
       const profile = result.data.profile;
       setProfileSettings({
         displayName: profile.displayName,
@@ -308,11 +355,18 @@ export function SettingsProfile({
         emailVerified: !!profile.emailVerified,
         bio: profile.bio ?? "",
         avatarUrl: profile.avatarUrl ?? null,
-          bannerUrl: profile.bannerUrl ?? null,
+        bannerUrl: profile.bannerUrl ?? null,
       });
       setSavedEmail(profile.email ?? "");
-      await queryClient.invalidateQueries({ queryKey: ["workspace-users"] });
-      messageApi.success("Profil ayarları kaydedildi.");
+
+      // The directory carries the avatar; the card carries both pictures. The
+      // users-WS updates other people's copies, but it does not come back to the
+      // sender, so this is what makes your own card right immediately.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["workspace-users"] }),
+        queryClient.invalidateQueries({ queryKey: ["user-card"] }),
+      ]);
+      messageApi.success(successMessage);
     } catch (error) {
       messageApi.error(
         `Profil kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
@@ -321,6 +375,9 @@ export function SettingsProfile({
       setIsSavingProfile(false);
     }
   };
+
+  const handleSaveProfile = (): Promise<void> =>
+    saveProfile(profileSettings, "Profil ayarları kaydedildi.");
 
   const handleSendVerificationCode = async (): Promise<void> => {
     const targetEmail = profileSettings.email.trim();
@@ -399,12 +456,28 @@ export function SettingsProfile({
     }
 
     try {
-      const dataURL = await prepareImageUpload(
-        file,
-        field === "avatarUrl" ? AVATAR_MAX_DIMENSION : BANNER_MAX_DIMENSION,
+      // The cover is cropped to 16:9 whatever happens, so the person doing it
+      // gets to choose which 16:9. The avatar is drawn at 88px inside a rounded
+      // square and centring it there costs nobody anything, so it skips the
+      // dialog and saves on the spot.
+      if (field === "bannerUrl") {
+        assertUploadable(file);
+        setPendingBanner({
+          dataUrl: await readFileAsDataURL(file),
+          animated: isAnimatableType(file.type),
+        });
+        return;
+      }
+
+      const dataURL = await prepareImageUpload(file, AVATAR_MAX_DIMENSION);
+      // Saved on the spot rather than staged behind the Save button. Choosing a
+      // file out of a picker IS the decision — there is nothing left to confirm
+      // — and a staged picture that looked applied but was not is the failure
+      // this had: the preview changed, the profile did not.
+      await saveProfile(
+        { ...profileSettings, avatarUrl: dataURL },
+        "Profil resmi güncellendi.",
       );
-      setProfileSettings((previous) => ({ ...previous, [field]: dataURL }));
-      messageApi.info("Seçildi. Kaydet'e basarak profiline uygula.");
     } catch (error) {
       messageApi.warning(
         error instanceof Error ? error.message : "Görsel okunamadı",
@@ -412,14 +485,51 @@ export function SettingsProfile({
     }
   };
 
-  const handleImageClear = (field: "avatarUrl" | "bannerUrl"): void => {
-    setProfileSettings((previous) => ({ ...previous, [field]: null }));
-    messageApi.info("Kaldırıldı. Kaydet'e basarak değişikliği uygula.");
+  const handleBannerCropApply = async (
+    rect: CropRect,
+    croppedDataURL: string | null,
+  ): Promise<void> => {
+    const pending = pendingBanner;
+    setPendingBanner(null);
+    if (!pending) {
+      return;
+    }
+
+    // A baked crop is already 16:9 and already the right size, so it carries no
+    // rect — sending one would ask the server to crop it a second time. A GIF
+    // comes back unbaked and travels whole with the rect attached, because the
+    // only thing that can cut every frame without flattening the animation is
+    // the resizer on the other end.
+    await saveProfile(
+      { ...profileSettings, bannerUrl: croppedDataURL ?? pending.dataUrl },
+      "Afiş güncellendi.",
+      croppedDataURL ? undefined : rect,
+    );
+  };
+
+  const handleImageClear = async (
+    field: "avatarUrl" | "bannerUrl",
+  ): Promise<void> => {
+    await saveProfile(
+      { ...profileSettings, [field]: null },
+      field === "avatarUrl" ? "Profil resmi kaldırıldı." : "Afiş kaldırıldı.",
+    );
   };
 
   return (
     <div className="ct-settings-section">
       {contextHolder}
+
+      <ImageCropModal
+        open={pendingBanner !== null}
+        src={pendingBanner?.dataUrl ?? null}
+        animated={pendingBanner?.animated ?? false}
+        aspect={BANNER_ASPECT}
+        outputWidth={BANNER_MAX_DIMENSION}
+        title="Afişi Konumlandır"
+        onApply={(rect, cropped) => void handleBannerCropApply(rect, cropped)}
+        onCancel={() => setPendingBanner(null)}
+      />
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
@@ -442,7 +552,7 @@ export function SettingsProfile({
           loading={isSavingProfile}
           disabled={isProfileLoading || isSavingProfile}
         >
-          Profili Kaydet
+          Adı ve Bio'yu Kaydet
         </Button>
       </div>
 
@@ -453,8 +563,8 @@ export function SettingsProfile({
           {/* Banner first, avatar second: that is the order they stack on the
               profile card, so the preview here reads as the card it produces. */}
           <div className="ct-settings-banner-preview">
-            {profileSettings.bannerUrl ? (
-              <img src={profileSettings.bannerUrl} alt="" />
+            {previewBannerUrl ? (
+              <img src={previewBannerUrl} alt="" />
             ) : (
               <span>Afiş seçilmedi</span>
             )}
@@ -487,7 +597,7 @@ export function SettingsProfile({
                     danger
                     type="text"
                     icon={<DeleteOutlined />}
-                    onClick={() => handleImageClear("bannerUrl")}
+                    onClick={() => void handleImageClear("bannerUrl")}
                     disabled={isProfileLoading || isSavingProfile}
                   >
                     Afişi Kaldır
@@ -496,8 +606,8 @@ export function SettingsProfile({
               </div>
 
               <small>
-                Profil kartının üst şeridi · PNG/JPG/WEBP/GIF · En fazla 10 MB ·
-                Yüklenen görsel otomatik küçültülür
+                Profil kartının kapağı · Seçtikten sonra 16:9 çerçevede
+                konumlandırırsın · PNG/JPG/WEBP/GIF · En fazla 10 MB
               </small>
             </div>
           </div>
@@ -505,7 +615,7 @@ export function SettingsProfile({
           <div className="ct-settings-profile-avatar-row">
             <Avatar
               size={80}
-              src={profileSettings.avatarUrl}
+              src={previewAvatarUrl}
               icon={!profileSettings.avatarUrl && <UserOutlined />}
               className="ct-settings-profile-avatar"
             >
@@ -539,7 +649,7 @@ export function SettingsProfile({
                     danger
                     type="text"
                     icon={<DeleteOutlined />}
-                    onClick={() => handleImageClear("avatarUrl")}
+                    onClick={() => void handleImageClear("avatarUrl")}
                     disabled={isProfileLoading || isSavingProfile}
                   >
                     Kaldır
@@ -548,8 +658,7 @@ export function SettingsProfile({
               </div>
 
               <small>
-                PNG/JPG/WEBP/GIF · En fazla 10 MB · Yüklenen görsel otomatik
-                küçültülür
+                PNG/JPG/WEBP/GIF · En fazla 10 MB · Seçilince hemen uygulanır
               </small>
             </div>
           </div>

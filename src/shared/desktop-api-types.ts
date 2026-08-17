@@ -328,6 +328,10 @@ export type UserDirectoryStreamEvent =
         username?: string;
         displayName: string;
         avatarUrl?: string | null;
+        // Only on THIS event, not on the directory listing it feeds. It is what
+        // updates an open profile card; UserDirectoryEntry deliberately has no
+        // banner, because that list is re-sent on presence flips.
+        bannerUrl?: string | null;
         role?: UserRole;
         createdAt?: string;
         appOnline?: boolean;

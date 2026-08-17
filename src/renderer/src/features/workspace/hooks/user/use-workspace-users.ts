@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { UserDirectoryEntry } from "@shared/auth-contracts";
+import type { UserDirectoryEntry, UserProfile } from "@shared/auth-contracts";
 import type { DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
+import { useStillImages } from "../media/use-still-image";
+import { userCardQueryKey } from "./use-user-cards";
 import type { UserFilter } from "../../workspace-utils";
 
 // Stable identity for "no directory yet"; see where it is used below.
@@ -240,6 +242,37 @@ export const useWorkspaceUsers = ({
         return;
       }
 
+      // The profile CARD is a separate cache with a five-minute stale time, and
+      // nothing was writing to it. So a picture somebody had just changed stayed
+      // wrong on every open card for up to five minutes, while their roster row
+      // — fed by the directory write below — updated immediately. The banner made
+      // that obvious because a banner appears NOWHERE else on screen: it looked
+      // like the upload had failed.
+      queryClient.setQueryData<DesktopResult<{ user: UserProfile }>>(
+        userCardQueryKey(event.user.userId),
+        (previous) => {
+          if (!previous?.ok || !previous.data) {
+            // Nothing cached for them yet, so there is nothing on screen to
+            // correct. Writing a partial card here would invent a join date.
+            return previous;
+          }
+
+          return {
+            ...previous,
+            data: {
+              user: {
+                ...previous.data.user,
+                username: event.user.username || previous.data.user.username,
+                displayName: event.user.displayName,
+                avatarUrl: event.user.avatarUrl ?? null,
+                bannerUrl: event.user.bannerUrl ?? null,
+                role: event.user.role ?? previous.data.user.role,
+              },
+            },
+          };
+        },
+      );
+
       queryClient.setQueryData<DesktopResult<{ users: UserDirectoryEntry[] }>>(
         ["workspace-users"],
         (previous: DesktopResult<{ users: UserDirectoryEntry[] }> | undefined) => {
@@ -356,10 +389,28 @@ export const useWorkspaceUsers = ({
   // A literal [] here was a new array on every render, so directoryUsers — and
   // everything memoised on it — recomputed on every render while the query was
   // still pending or errored.
-  const users =
+  const rawUsers =
     usersQuery.data?.ok && usersQuery.data.data
       ? usersQuery.data.data.users
       : EMPTY_DIRECTORY;
+
+  // The directory is the OTHER place an avatar comes from — the friends list and
+  // the DM sidebar read it rather than the card cache — so animated ones have to
+  // be frozen here as well while the window is in the background.
+  const avatarSources = useMemo(
+    () => rawUsers.map((user) => user.avatarUrl),
+    [rawUsers],
+  );
+  const avatarUrls = useStillImages(avatarSources);
+
+  const users = useMemo(() => {
+    // Same array identity when nothing froze, so every memo downstream of this
+    // keeps its cached result.
+    if (avatarUrls === avatarSources) {
+      return rawUsers;
+    }
+    return rawUsers.map((user, index) => ({ ...user, avatarUrl: avatarUrls[index] }));
+  }, [rawUsers, avatarSources, avatarUrls]);
 
   const directoryUsers = useMemo(() => {
     return users.filter((user) => user.username !== currentUsername);

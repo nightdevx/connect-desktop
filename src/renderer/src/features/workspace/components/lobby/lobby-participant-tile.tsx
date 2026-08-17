@@ -15,6 +15,7 @@ import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { logLiveKitDebug } from "@/services/debug-log";
 import { getDisplayInitials } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
+import { useWindowActive } from "../../hooks/media/use-window-active";
 
 // useWindowActive reports whether this app window is in the foreground.
 //
@@ -24,31 +25,6 @@ import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 // to capture and encode the stream. Remote streams are deliberately NOT paused
 // — watching one is now an explicit choice, and stopping it because the viewer
 // alt-tabbed would undo that choice for them.
-const useWindowActive = (): boolean => {
-  const [active, setActive] = useState(
-    () => typeof document === "undefined" || !document.hidden,
-  );
-
-  useEffect(() => {
-    const update = (): void => {
-      setActive(document.visibilityState === "visible" && document.hasFocus());
-    };
-
-    update();
-    window.addEventListener("focus", update);
-    window.addEventListener("blur", update);
-    document.addEventListener("visibilitychange", update);
-
-    return () => {
-      window.removeEventListener("focus", update);
-      window.removeEventListener("blur", update);
-      document.removeEventListener("visibilitychange", update);
-    };
-  }, []);
-
-  return active;
-};
-
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
   isPlaceholder?: boolean;

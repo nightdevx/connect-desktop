@@ -55,6 +55,16 @@ export const updateProfileSchema = z.object({
   // exactly what a stripped key looks like from the other side.
   avatarUrl: z.string().max(14_000_000).nullable().optional(),
   bannerUrl: z.string().max(14_000_000).nullable().optional(),
+  // Fractions of the source, so every one of them is inside 0..1. The server
+  // clamps as well; this is what stops a malformed rect reaching it at all.
+  bannerCrop: z
+    .object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      width: z.number().min(0).max(1),
+      height: z.number().min(0).max(1),
+    })
+    .optional(),
 });
 
 export const deleteAccountSchema = z.object({

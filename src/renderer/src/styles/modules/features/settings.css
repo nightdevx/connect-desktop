@@ -352,15 +352,79 @@
 
 /* The banner, previewed at the shape it will actually be drawn in: a strip, not
    a thumbnail. Somebody choosing a cover needs to see the crop. */
+/* The card's cover strip, at the card's shape and the card's size.
+   It is a preview only if it crops the way the real thing crops: this used to
+   be h-24 across the full 820px panel, an 8.5:1 letterbox that showed a
+   completely different slice of the picture from the 5.4:1 one the card drew.
+   Left-aligned rather than stretched, for the same reason. */
 .ct-settings-banner-preview {
-  @apply grid h-24 w-full place-items-center overflow-hidden rounded-md border text-2xs font-semibold;
+  @apply grid place-items-center overflow-hidden rounded-md border text-2xs font-semibold;
+  /* The card is 320px wide and its banner bleeds 12px past the padding on each
+     side — so this is exactly the band that gets drawn. */
+  width: 344px;
+  max-width: 100%;
+  aspect-ratio: var(--ct-profile-banner-ratio);
   border-color: var(--ct-border);
   color: var(--ct-text-muted);
   background: var(--ct-alpha-04);
 }
 
+/* Identical to the card's rule, and it has to stay identical: this is a preview
+   only if it crops the same way. */
 .ct-settings-banner-preview img {
   @apply h-full w-full object-cover;
+  object-position: center;
+}
+
+/* ==========================================================================
+   CROP DIALOG
+   Pan-and-zoom over a frame the shape of the surface that will draw the
+   picture. The frame is the message: whatever is inside it is what gets kept.
+   ========================================================================== */
+
+.ct-crop-modal {
+  @apply flex flex-col gap-3;
+}
+
+/* The dark surround is what makes the frame read as a viewport rather than as
+   a border around the picture. overflow-hidden is load-bearing: the image is
+   deliberately larger than this box, and everything outside it is the part
+   being cut. */
+/* Deliberately NOT a centring grid. The picture's position is computed in the
+   component, from the same numbers the crop rectangle is read back from, and
+   letting CSS centre it as well made those two disagree the moment the frame
+   was not exactly the width the arithmetic assumed. */
+.ct-crop-frame {
+  @apply relative mx-auto max-w-full overflow-hidden rounded-md;
+  background: var(--ct-surface-1);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ct-crop-frame:active {
+  cursor: grabbing;
+}
+
+/* Absolute at the frame's origin, then translated: no flow position to reason
+   about, no baseline gap, no margin collapsing — the transform IS the position.
+   No object-fit either, because the element is already exactly as big as the
+   picture is meant to be at this zoom; max-width would fight that. */
+.ct-crop-image {
+  @apply absolute left-0 top-0 block max-w-none select-none;
+  will-change: transform;
+}
+
+.ct-crop-controls {
+  @apply flex items-center gap-2;
+}
+
+.ct-crop-controls .ant-slider {
+  @apply grow;
+}
+
+.ct-crop-hint {
+  @apply text-2xs;
+  color: var(--ct-text-muted);
 }
 
 .ct-settings-subsection.danger h5 {

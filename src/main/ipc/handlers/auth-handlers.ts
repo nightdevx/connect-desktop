@@ -241,6 +241,7 @@ export function registerAuthHandlers(): void {
         bio: parsed.bio ?? null,
         avatarUrl: parsed.avatarUrl ?? null,
         bannerUrl: parsed.bannerUrl ?? null,
+        bannerCrop: parsed.bannerCrop,
       };
 
       const result = await withAccessToken((accessToken) => {
