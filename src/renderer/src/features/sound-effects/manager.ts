@@ -3,6 +3,7 @@ import {
   readEmoteVolumePercent,
 } from "@/store/emote-volume";
 import { type OscillatorTone, type SoundEffectOptions } from "./types";
+import { CUE_PATTERNS } from "./cues";
 
 // One pattern per emote id. Keys mirror the closed set the backend enforces
 // (internal/lobby/emote.go); an id missing from here plays nothing rather than
@@ -207,24 +208,43 @@ class SoundEffectManager {
       filter.frequency.setValueAtTime(tone.filterFrequency ?? 1500, cursor);
       filter.Q.setValueAtTime(0.5, cursor);
 
+      // Attack, body, tail.
+      //
+      // The tail is the whole difference between a notification and a beep.
+      // Every cue used to end 30ms after its body with an exponential slammed
+      // to silence, which is why they had to be kept so quiet to be bearable —
+      // a sound that stops dead is harsh at any volume. Giving the cues a real
+      // release lets them be two or three times louder AND softer at once, and
+      // it costs one scheduled ramp.
       gain.gain.setValueAtTime(0.0001, cursor);
-      const attackSeconds = Math.min(0.026, (tone.durationMs / 1000) * 0.3);
-      const sustainEndAt = cursor + tone.durationMs / 1000;
-      const releaseStartAt = Math.max(
-        cursor + attackSeconds + 0.016,
-        sustainEndAt - 0.03,
+      const bodySeconds = tone.durationMs / 1000;
+      // Unstated attack keeps the old proportional shape, so the percussive
+      // emote patterns — which were tuned against it — are untouched by all of
+      // this. The cues state theirs.
+      const defaultAttackSeconds = Math.min(0.026, bodySeconds * 0.3);
+      const attackSeconds = Math.max(
+        0.003,
+        Math.min(
+          tone.attackMs === undefined
+            ? defaultAttackSeconds
+            : tone.attackMs / 1000,
+          bodySeconds * 0.6,
+        ),
       );
+      const bodyEndAt = cursor + bodySeconds;
+      const releaseSeconds = Math.max(0.012, (tone.releaseMs ?? 30) / 1000);
+      const endAt = bodyEndAt + releaseSeconds;
 
       gain.gain.exponentialRampToValueAtTime(
         Math.max(0.0001, tone.gain),
         cursor + attackSeconds,
       );
+      // A slight fall across the body, so a held note breathes instead of
+      // sitting flat like a dial tone.
       gain.gain.exponentialRampToValueAtTime(
         Math.max(0.0001, tone.gain * 0.68),
-        releaseStartAt,
+        bodyEndAt,
       );
-
-      const endAt = sustainEndAt;
       gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
 
       const overtoneGain = context.createGain();
@@ -243,124 +263,42 @@ class SoundEffectManager {
       oscillatorMain.stop(endAt + 0.04);
       oscillatorOvertone.stop(endAt + 0.04);
 
-      cursor = endAt + (tone.pauseAfterMs ?? 22) / 1000;
+      // From the END OF THE BODY, not the end of the tail: the next note starts
+      // while this one is still ringing. Emote patterns are unaffected — their
+      // tail is the 30ms default, so this is the same arithmetic they were
+      // written against.
+      cursor = bodyEndAt + (tone.pauseAfterMs ?? 22) / 1000;
     }
+  }
+
+  /** You walked into a room: the full three-note chime. */
+  public playSelfJoinedLobby(): void {
+    this.playPattern(CUE_PATTERNS.selfJoinedLobby);
+  }
+
+  /** You walked out: the same three notes, the other way up. */
+  public playSelfLeftLobby(): void {
+    this.playPattern(CUE_PATTERNS.selfLeftLobby);
   }
 
   public playMemberJoined(): void {
-    this.playPattern([
-      {
-        frequency: 494,
-        glideToFrequency: 554,
-        durationMs: 88,
-        gain: 0.02,
-        type: "sine",
-        filterFrequency: 1420,
-        overtoneGainRatio: 0.12,
-      },
-      {
-        frequency: 659,
-        glideToFrequency: 740,
-        durationMs: 102,
-        gain: 0.022,
-        type: "triangle",
-        filterFrequency: 1680,
-        overtoneGainRatio: 0.1,
-      },
-    ]);
+    this.playPattern(CUE_PATTERNS.memberJoined);
   }
 
   public playMemberLeft(): void {
-    this.playPattern([
-      {
-        frequency: 587,
-        glideToFrequency: 520,
-        durationMs: 86,
-        gain: 0.019,
-        type: "triangle",
-        filterFrequency: 1380,
-      },
-      {
-        frequency: 440,
-        glideToFrequency: 370,
-        durationMs: 112,
-        gain: 0.021,
-        type: "sine",
-        filterFrequency: 1280,
-      },
-    ]);
+    this.playPattern(CUE_PATTERNS.memberLeft);
   }
 
   public playCameraEnabled(): void {
-    this.playPattern([
-      {
-        frequency: 740,
-        glideToFrequency: 820,
-        durationMs: 78,
-        gain: 0.018,
-        type: "sine",
-        filterFrequency: 1900,
-        overtoneGainRatio: 0.08,
-      },
-      {
-        frequency: 932,
-        glideToFrequency: 988,
-        durationMs: 90,
-        gain: 0.019,
-        type: "triangle",
-        filterFrequency: 2100,
-        overtoneGainRatio: 0.07,
-      },
-    ]);
+    this.playPattern(CUE_PATTERNS.cameraEnabled);
   }
 
   public playScreenEnabled(): void {
-    this.playPattern([
-      {
-        frequency: 392,
-        glideToFrequency: 430,
-        durationMs: 92,
-        gain: 0.02,
-        type: "triangle",
-        filterFrequency: 1320,
-      },
-      {
-        frequency: 523,
-        glideToFrequency: 580,
-        durationMs: 108,
-        gain: 0.021,
-        type: "sine",
-        filterFrequency: 1480,
-      },
-    ]);
+    this.playPattern(CUE_PATTERNS.screenEnabled);
   }
 
   public playMicToggle(enabled: boolean): void {
-    if (enabled) {
-      this.playPattern([
-        {
-          frequency: 680,
-          glideToFrequency: 740,
-          durationMs: 86,
-          gain: 0.02,
-          type: "triangle",
-          filterFrequency: 1720,
-          overtoneGainRatio: 0.08,
-        },
-      ]);
-      return;
-    }
-
-    this.playPattern([
-      {
-        frequency: 440,
-        glideToFrequency: 360,
-        durationMs: 105,
-        gain: 0.02,
-        type: "sine",
-        filterFrequency: 1240,
-      },
-    ]);
+    this.playPattern(enabled ? CUE_PATTERNS.micOn : CUE_PATTERNS.micOff);
   }
 
   /**
@@ -442,31 +380,9 @@ class SoundEffectManager {
   }
 
   public playHeadphoneToggle(enabled: boolean): void {
-    if (enabled) {
-      this.playPattern([
-        {
-          frequency: 554,
-          glideToFrequency: 620,
-          durationMs: 86,
-          gain: 0.019,
-          type: "triangle",
-          filterFrequency: 1540,
-          overtoneGainRatio: 0.08,
-        },
-      ]);
-      return;
-    }
-
-    this.playPattern([
-      {
-        frequency: 392,
-        glideToFrequency: 320,
-        durationMs: 108,
-        gain: 0.02,
-        type: "sine",
-        filterFrequency: 1180,
-      },
-    ]);
+    this.playPattern(
+      enabled ? CUE_PATTERNS.headphoneOn : CUE_PATTERNS.headphoneOff,
+    );
   }
 }
 

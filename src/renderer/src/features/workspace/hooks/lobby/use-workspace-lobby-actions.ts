@@ -307,7 +307,7 @@ export const useWorkspaceLobbyActions = ({
       // the reconnect chain; swallow it so it is not an unhandled rejection.
       void performPostJoinSynchronization(lobbyId).catch(() => undefined);
 
-      soundEffectManager.playMemberJoined();
+      soundEffectManager.playSelfJoinedLobby();
 
       const joinedLobby = lobbies.find((item) => item.id === lobbyId);
       setStatus(`${joinedLobby?.name ?? lobbyId} lobisine katıldın`, "ok");
@@ -350,7 +350,7 @@ export const useWorkspaceLobbyActions = ({
       // the next room, and a teardown still in flight when the next connect()
       // starts used to take the new room down with it.
       await liveKitSessionRef.current?.disconnect();
-      soundEffectManager.playMemberLeft();
+      soundEffectManager.playSelfLeftLobby();
       // The kick warning already told the user what happened; a second
       // contradicting "ok" toast right after is confusing, not informative.
       if (reason !== "kicked") {
