@@ -43,6 +43,14 @@ import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
 import { describeDuration } from "./parts/moderation-durations";
+import {
+  MEMBER_DRAG_TYPE,
+  buildMoveTargets,
+  canDropMemberOn,
+  decodeMemberDrag,
+  encodeMemberDrag,
+  type MemberDragPayload,
+} from "./parts/member-move";
 
 interface LobbiesSidebarPanelProps {
   lobbiesQuery: UseQueryResult<
@@ -111,6 +119,18 @@ export function LobbiesSidebarPanel({
   const queryClient = useQueryClient();
   // Where the last right-click landed, so "Profili Gör" opens the card there.
   const lastContextPointRef = useRef({ x: 0, y: 0 });
+  // The member currently being dragged, and the row under the cursor.
+  //
+  // State rather than dataTransfer, because dragover is not allowed to READ the
+  // payload — the browser only hands it over on drop. Without a local copy a
+  // row cannot tell whether it is a legal destination, so it would have to
+  // light up for every drag, including a file dropped in from the desktop.
+  const [draggedMember, setDraggedMember] = useState<MemberDragPayload | null>(
+    null,
+  );
+  const [dropTargetLobbyId, setDropTargetLobbyId] = useState<string | null>(
+    null,
+  );
   const [profileCardTarget, setProfileCardTarget] = useState<{
     userId: string;
     name: string;
@@ -186,6 +206,32 @@ export function LobbiesSidebarPanel({
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
+  };
+
+  // Moving somebody is the same decision from two directions: this menu item,
+  // and dropping their row on a lobby. Both land here so a failed move reads
+  // the same either way — and it does fail, on purpose, whenever the
+  // destination's own rules would have refused the person being moved.
+  const handleMoveMember = async (
+    sourceLobbyId: string,
+    userId: string,
+    username: string,
+    targetLobbyId: string,
+  ): Promise<void> => {
+    const targetName =
+      lobbies.find((lobby) => lobby.id === targetLobbyId)?.name ?? "odaya";
+
+    const result = await workspaceService.moveLobbyMember({
+      lobbyId: sourceLobbyId,
+      userId,
+      targetLobbyId,
+    });
+
+    if (result.ok) {
+      message.success(`${username} → ${targetName}`);
+    } else {
+      message.error(getApiErrorMessage(result.error));
+    }
   };
 
   const handleKickMember = async (
@@ -377,6 +423,13 @@ export function LobbiesSidebarPanel({
           const creatorPresent = members.some((m) => m.userId === lobby.createdBy);
           const isDisabled = isEditing || isDeleting || joiningLobbyId !== null;
           const unreadCount = unreadByLobbyId[lobby.id] ?? 0;
+          // A drop is a moderation action on BOTH rooms: you may not deposit
+          // somebody in a room you have no say over, so the destination is
+          // checked here as well as on the server.
+          const acceptsDrop =
+            canDropMemberOn(draggedMember, lobby) &&
+            canManageLobby(lobby.createdBy, currentUserId, currentUserRole);
+          const isDropTarget = acceptsDrop && dropTargetLobbyId === lobby.id;
 
           const handleLobbyClick = (): void => {
             if (isDisabled || isDisplayed) {
@@ -409,10 +462,48 @@ export function LobbiesSidebarPanel({
           const lobbyElement = (
             <li
               key={lobby.id}
-              className={`ct-list-item clickable ${isCurrent ? "active" : ""}`}
+              className={`ct-list-item clickable ${isCurrent ? "active" : ""} ${
+                isDropTarget ? "drop-target" : ""
+              }`}
               role="option"
               aria-selected={isCurrent}
               tabIndex={0}
+              // preventDefault is what MAKES this a drop target; without it the
+              // browser refuses the drop and the drag snaps back with no clue
+              // as to why. Only called when the room can actually take them,
+              // so an illegal destination stays visibly inert.
+              onDragOver={(event) => {
+                if (!acceptsDrop) {
+                  return;
+                }
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropTargetLobbyId(lobby.id);
+              }}
+              onDragLeave={() => {
+                setDropTargetLobbyId((previous) =>
+                  previous === lobby.id ? null : previous,
+                );
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDropTargetLobbyId(null);
+                // The payload is read back from the drag rather than trusted
+                // from state: state is this window's guess, dataTransfer is
+                // what was actually dropped.
+                const payload =
+                  decodeMemberDrag(event.dataTransfer.getData(MEMBER_DRAG_TYPE)) ??
+                  draggedMember;
+                if (!payload || !canDropMemberOn(payload, lobby)) {
+                  return;
+                }
+                void handleMoveMember(
+                  payload.sourceLobbyId,
+                  payload.userId,
+                  payload.username,
+                  lobby.id,
+                );
+              }}
               onClick={handleLobbyClick}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") {
@@ -480,7 +571,40 @@ export function LobbiesSidebarPanel({
                       const memberRow = (
                         <li
                           key={member.userId}
-                          className="ct-lobby-member-item"
+                          className={`ct-lobby-member-item ${
+                            canModerate ? "draggable" : ""
+                          }`}
+                          // Only a moderator can drag: for everybody else the
+                          // row would pick up, follow the cursor and drop into
+                          // a refusal. The menu makes the same offer, and both
+                          // are gated on the same answer.
+                          draggable={canModerate}
+                          onDragStart={(event) => {
+                            if (!canModerate) {
+                              return;
+                            }
+                            const payload = {
+                              userId: member.userId,
+                              username: member.username,
+                              sourceLobbyId: lobby.id,
+                            };
+                            event.dataTransfer.setData(
+                              MEMBER_DRAG_TYPE,
+                              encodeMemberDrag(payload),
+                            );
+                            // text/plain as well, so dropping the drag outside
+                            // the app pastes a name rather than nothing.
+                            event.dataTransfer.setData(
+                              "text/plain",
+                              member.username,
+                            );
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggedMember(payload);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedMember(null);
+                            setDropTargetLobbyId(null);
+                          }}
                           // Clicking a person is about that person, never about
                           // the room they happen to be standing in. The lobby row
                           // underneath joins the lobby on click, so without this a
@@ -638,6 +762,27 @@ export function LobbiesSidebarPanel({
                               member.username,
                               muted,
                               durationSeconds,
+                            )
+                          }
+                          // Only rooms this moderator may also moderate: a
+                          // destination they have no say over answers 403, and
+                          // offering it is offering a click that cannot work.
+                          moveTargets={buildMoveTargets(
+                            lobbies.filter((candidate) =>
+                              canManageLobby(
+                                candidate.createdBy,
+                                currentUserId,
+                                currentUserRole,
+                              ),
+                            ),
+                            lobby.id,
+                          )}
+                          onMove={(targetLobbyId) =>
+                            void handleMoveMember(
+                              lobby.id,
+                              member.userId,
+                              member.username,
+                              targetLobbyId,
                             )
                           }
                           onKick={() =>

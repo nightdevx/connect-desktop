@@ -184,7 +184,11 @@ export type LobbyRemovalReason =
   | "lobby-deleted"
   | "media-timeout"
   | "heartbeat-timeout"
-  | "moved";
+  | "moved"
+  // A moderator carried them into another room. The opposite of "moved": that
+  // one is this account's own doing on another device and is ignored, this one
+  // is somebody else's decision and is followed.
+  | "moved-by-moderator";
 
 // Mirrors the soundEmotes set in the Go backend (internal/lobby/emote.go).
 // Closed on both sides: the server refuses anything outside it, and the client
@@ -258,9 +262,12 @@ export type LobbyStreamEvent =
       type: "lobby-removed";
       lobbyId: string;
       reason: LobbyRemovalReason;
-      // Only for "moved": which room the account went to. Lets a client tell its
-      // own room change from the same account moving on another device.
+      // For "moved" and "moved-by-moderator": which room the account went to.
+      // Lets a client tell its own room change from the same account moving on
+      // another device, and tells a moved client where to follow to.
       movedTo?: string;
+      // "moved-by-moderator" only: who did it, for the message shown on arrival.
+      movedBy?: string;
       at?: string;
     }
   | {
@@ -543,6 +550,13 @@ export interface DesktopApi {
     lobbyId: string;
     userId: string;
   }) => Promise<DesktopResult<{ kicked: boolean }>>;
+  // Carries a member into another room. The destination's own rules still apply
+  // to the person being moved, so this answers the same refusals a join does.
+  moveLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+    targetLobbyId: string;
+  }) => Promise<DesktopResult<{ moved: boolean; targetLobbyId: string }>>;
   timeoutLobbyMember: (payload: {
     lobbyId: string;
     userId: string;

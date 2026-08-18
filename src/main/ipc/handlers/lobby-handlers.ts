@@ -12,6 +12,7 @@ import {
   deleteLobbySchema,
   lobbyJoinSchema,
   lobbyModerateSchema,
+  lobbyMoveSchema,
   lobbyTimeoutSchema,
   lobbyBansSchema,
   lobbyModerateMuteSchema,
@@ -124,6 +125,23 @@ export function registerLobbyHandlers(): void {
       const parsed = lobbyModerateSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
         return backendClient.lobby.kickLobbyMember(accessToken, parsed.lobbyId, parsed.userId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-move-member", async (_event, payload: unknown) => {
+    try {
+      const parsed = lobbyMoveSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.lobby.moveLobbyMember(
+          accessToken,
+          parsed.lobbyId,
+          parsed.userId,
+          parsed.targetLobbyId,
+        );
       });
       return ok(result);
     } catch (error) {

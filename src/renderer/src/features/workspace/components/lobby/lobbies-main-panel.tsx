@@ -37,6 +37,7 @@ import { LobbyActionToolbar } from "./parts/LobbyActionToolbar";
 import { LobbyStageView } from "./parts/LobbyStageView";
 import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
 import { describeDuration } from "./parts/moderation-durations";
+import { buildMoveTargets } from "./parts/member-move";
 
 interface LobbiesMainPanelProps {
   lobbiesCount: number;
@@ -330,6 +331,22 @@ export function LobbiesMainPanel({
       .then((result) => {
         if (result.ok) {
           message.success(`${targetName} odadan atıldı`);
+        } else {
+          message.error(getApiErrorMessage(result.error));
+        }
+      });
+  };
+
+  const handleMoveParticipant = (targetLobbyId: string): void => {
+    if (!activeLobbyId || !contextMenuParticipantId) return;
+    const targetId = contextMenuParticipantId;
+    const targetName = lobbyParticipants.find((p) => p.userId === targetId)?.username ?? targetId;
+    const roomName = lobbies.find((lobby) => lobby.id === targetLobbyId)?.name ?? "odaya";
+    void workspaceService
+      .moveLobbyMember({ lobbyId: activeLobbyId, userId: targetId, targetLobbyId })
+      .then((result) => {
+        if (result.ok) {
+          message.success(`${targetName} → ${roomName}`);
         } else {
           message.error(getApiErrorMessage(result.error));
         }
@@ -668,6 +685,15 @@ export function LobbiesMainPanel({
           onServerMute={handleServerMuteParticipant}
           onKick={handleKickParticipant}
           onTimeout={handleTimeoutParticipant}
+          // Only rooms this moderator may also moderate: the server checks the
+          // destination too, so anything else is an offer that answers 403.
+          moveTargets={buildMoveTargets(
+            lobbies.filter((candidate) =>
+              canManageLobby(candidate.createdBy, currentUserId, currentUserRole),
+            ),
+            activeLobbyId ?? "",
+          )}
+          onMove={handleMoveParticipant}
           friendState={contextMenuFriendState}
           isFriendActionPending={
             contextMenuParticipantId !== null &&

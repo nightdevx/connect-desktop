@@ -106,6 +106,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:lobbies-delete",
   "desktop:lobbies-join",
   "desktop:lobbies-kick",
+  "desktop:lobbies-move-member",
   "desktop:lobbies-timeout-member",
   "desktop:lobbies-clear-timeout",
   "desktop:lobbies-list-timeouts",

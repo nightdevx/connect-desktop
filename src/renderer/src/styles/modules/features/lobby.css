@@ -62,6 +62,33 @@
   background: color-mix(in srgb, var(--ct-text-inverse) 4%, transparent);
 }
 
+/* Only a moderator's rows are draggable, so the grab cursor is the affordance
+   that says the row can be carried somewhere. Everyone else's rows say nothing,
+   because for them nothing would happen. */
+.ct-lobby-member-item.draggable {
+  cursor: grab;
+}
+
+.ct-lobby-member-item.draggable:active {
+  cursor: grabbing;
+}
+
+/* An <img> starts its OWN drag by default, so grabbing somebody by their avatar
+   dragged the picture out of the app instead of picking the person up. */
+.ct-lobby-member-item.draggable img {
+  -webkit-user-drag: none;
+}
+
+/* The room under the cursor while a member is being dragged over it. Its own
+   colour rather than the active-row treatment: "this is where they will land"
+   and "this is the room you are in" are different statements, and during a drag
+   both can be true of different rows at once. */
+.ct-list-item.drop-target {
+  border-color: var(--ct-accent);
+  background: color-mix(in srgb, var(--ct-accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ct-accent);
+}
+
 .ct-lobby-member-main {
   @apply flex min-w-0 flex-1 items-center gap-2;
 }

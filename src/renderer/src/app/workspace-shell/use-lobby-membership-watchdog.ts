@@ -62,6 +62,14 @@ export interface LobbyMembershipWatchdogOptions {
   /** Re-declares mic/camera/screen and brings the media room back up. */
   performPostJoinSyncRef: MutableRefObject<(lobbyId: string) => Promise<void>>;
   leaveActiveLobby: (reason?: "kicked" | "user") => Promise<void> | void;
+  /**
+   * Follows a moderator's move into the room they put this account in.
+   *
+   * A ref for the same reason performPostJoinSyncRef is one: the join path is
+   * built further down the shell than this hook is called, and re-registering
+   * the removal listener on every render of it would drop frames.
+   */
+  followModeratorMoveRef: MutableRefObject<(lobbyId: string) => void>;
 }
 
 export function useLobbyMembershipWatchdog({
@@ -74,6 +82,7 @@ export function useLobbyMembershipWatchdog({
   lobbyTransitionRef,
   performPostJoinSyncRef,
   leaveActiveLobby,
+  followModeratorMoveRef,
 }: LobbyMembershipWatchdogOptions): void {
   const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
   const hasSeenCurrentUserInLobbyRef = useRef(false);
@@ -217,6 +226,26 @@ export function useLobbyMembershipWatchdog({
           );
           return;
         }
+        case "moved-by-moderator": {
+          // Somebody else's decision, and the state behind it has already been
+          // made: the server put this account in the destination before sending
+          // this. So there is nothing to agree to — the only question is whether
+          // the media follows, and if it does not, the user sits in a room the
+          // roster says they left.
+          const destination = event.movedTo ?? "";
+          if (!destination) {
+            // Cannot follow what does not say where. Treat it as the removal it
+            // literally is rather than staying in a room we are no longer in.
+            departFromLobby(lobbyId, "Odadan çıkarıldınız.");
+            return;
+          }
+
+          message.info(
+            `${event.movedBy ?? "Bir yetkili"} sizi başka bir odaya taşıdı.`,
+          );
+          followModeratorMoveRef.current(destination);
+          return;
+        }
         case "media-timeout":
         case "heartbeat-timeout":
           // Not a decision — the server lost sight of us. Re-join at once
@@ -227,7 +256,13 @@ export function useLobbyMembershipWatchdog({
           return;
       }
     });
-  }, [activeLobbyRef, departFromLobby, lobbyTransitionRef, recoverMembership]);
+  }, [
+    activeLobbyRef,
+    departFromLobby,
+    followModeratorMoveRef,
+    lobbyTransitionRef,
+    recoverMembership,
+  ]);
 
   // (2) We noticed. Recovery only — this path can no longer decide to leave.
   //

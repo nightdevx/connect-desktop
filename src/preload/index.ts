@@ -133,6 +133,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-join", payload),
   kickLobbyMember: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-kick", payload),
+  moveLobbyMember: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-move-member", payload),
   timeoutLobbyMember: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-timeout-member", payload),
   clearLobbyTimeout: async (payload) =>

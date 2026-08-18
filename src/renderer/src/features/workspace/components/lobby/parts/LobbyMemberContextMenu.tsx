@@ -11,11 +11,13 @@ import {
   NotificationOutlined,
   SoundOutlined,
   StopOutlined,
+  SwapOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
-import { buildDurationMenuItems } from "./moderation-durations";
+import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
+import type { MoveTarget } from "./member-move";
 
 /**
  * Right-click menu for a member row in the lobby sidebar.
@@ -57,6 +59,9 @@ interface LobbyMemberContextMenuProps {
   onServerMute: (muted: boolean, durationSeconds?: number) => void;
   onKick: () => void;
   onTimeout: (durationSeconds?: number) => void;
+  /** Rooms this member may be carried into — see buildMoveTargets. */
+  moveTargets?: MoveTarget[];
+  onMove?: (targetLobbyId: string) => void;
 }
 
 export function LobbyMemberContextMenu({
@@ -75,6 +80,8 @@ export function LobbyMemberContextMenu({
   onServerMute,
   onKick,
   onTimeout,
+  moveTargets,
+  onMove,
 }: LobbyMemberContextMenuProps): ReactElement {
   const items: MenuProps["items"] = [
     {
@@ -220,6 +227,24 @@ export function LobbyMemberContextMenu({
                   onServerMute(true, durationSeconds),
                 ),
               },
+          // Not dangerous, and deliberately above the two that are: moving
+          // somebody is the mild answer to "you are in the wrong room", and it
+          // should not sit among the actions that end their session.
+          ...(onMove
+            ? [
+                {
+                  key: "move",
+                  label: "Başka Odaya Taşı",
+                  icon: <SwapOutlined />,
+                  className: "ct-participant-context-menu-button",
+                  children: buildMoveMenuItems(
+                    "member-move",
+                    moveTargets ?? [],
+                    onMove,
+                  ),
+                },
+              ]
+            : []),
           {
             key: "kick",
             label: "Odadan At",

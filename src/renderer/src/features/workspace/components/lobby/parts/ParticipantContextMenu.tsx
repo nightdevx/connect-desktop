@@ -11,12 +11,14 @@ import {
   NotificationOutlined,
   LogoutOutlined,
   StopOutlined,
+  SwapOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
   IdcardOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
-import { buildDurationMenuItems } from "./moderation-durations";
+import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
+import type { MoveTarget } from "./member-move";
 
 interface ParticipantContextMenuProps {
   x: number;
@@ -42,6 +44,9 @@ interface ParticipantContextMenuProps {
   onServerMute?: (muted: boolean, durationSeconds?: number) => void;
   onKick?: () => void;
   onTimeout?: (durationSeconds?: number) => void;
+  /** Rooms this member may be carried into — see buildMoveTargets. */
+  moveTargets?: MoveTarget[];
+  onMove?: (targetLobbyId: string) => void;
   // Screen watching is opt-in, so it needs an explicit way out. Unsubscribing
   // stops the video at the SFU rather than just hiding it locally.
   isWatchingScreen?: boolean;
@@ -76,6 +81,8 @@ export function ParticipantContextMenu({
   onServerMute,
   onKick,
   onTimeout,
+  moveTargets,
+  onMove,
   isWatchingScreen = false,
   onSetScreenWatching,
   friendState,
@@ -294,6 +301,22 @@ export function ParticipantContextMenu({
               onClose();
             }),
           },
+      // The mild answer to "you are in the wrong room", so it sits above the two
+      // that end somebody's session rather than among them.
+      ...(onMove
+        ? [
+            {
+              key: 'move',
+              label: 'Başka Odaya Taşı',
+              icon: <SwapOutlined />,
+              className: 'ct-participant-context-menu-button',
+              children: buildMoveMenuItems('tile-move', moveTargets ?? [], (targetLobbyId) => {
+                onMove(targetLobbyId);
+                onClose();
+              }),
+            },
+          ]
+        : []),
       {
         key: 'kick',
         label: 'Odadan At',

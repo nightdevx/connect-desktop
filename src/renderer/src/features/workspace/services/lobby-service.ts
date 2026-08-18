@@ -141,6 +141,21 @@ export const lobbyService = {
     }
     return window.desktopApi.kickLobbyMember(payload);
   },
+  moveLobbyMember: (payload: {
+    lobbyId: string;
+    userId: string;
+    targetLobbyId: string;
+  }) => {
+    if (typeof window.desktopApi.moveLobbyMember !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{
+          moved: boolean;
+          targetLobbyId: string;
+        }>,
+      );
+    }
+    return window.desktopApi.moveLobbyMember(payload);
+  },
   timeoutLobbyMember: (payload: {
     lobbyId: string;
     userId: string;

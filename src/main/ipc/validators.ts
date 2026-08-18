@@ -162,6 +162,13 @@ export const lobbyModerateSchema = z.object({
   userId: z.string().min(2).max(128),
 });
 
+// The destination is the one field a moderation action has ever needed beyond
+// "who, where". Bounded like every other lobby id: the server resolves it
+// against the real room list, so anything longer is not a room name.
+export const lobbyMoveSchema = lobbyModerateSchema.extend({
+  targetLobbyId: z.string().min(2).max(128),
+});
+
 // How long a restriction lasts. Omitted means indefinite — until a moderator
 // lifts it — which is what every caller got before this existed. The ceiling
 // matches maxRestrictionDuration on the server; a value past it is refused

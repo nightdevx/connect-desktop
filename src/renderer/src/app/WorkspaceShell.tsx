@@ -115,6 +115,13 @@ function WorkspaceShell({
     () => undefined,
   );
 
+  // Filled in below for the same reason: a moderator can move this account into
+  // another room at any moment, and the listener that hears about it is
+  // registered long before the join path exists.
+  const followModeratorMoveRef = useRef<(lobbyId: string) => void>(
+    () => undefined,
+  );
+
   // Marks a lobbyId the current user was just server-kicked from. While set,
   // the reconnect loop must not silently rejoin that lobby (it would undo the
   // kick), and disconnect handlers must not claim they're "reconnecting".
@@ -861,6 +868,7 @@ function WorkspaceShell({
     lobbyTransitionRef,
     performPostJoinSyncRef,
     leaveActiveLobby,
+    followModeratorMoveRef,
   });
 
   useLobbyEmotePlayback(
@@ -910,6 +918,21 @@ function WorkspaceShell({
     },
     [lobbies, handleJoinLobby],
   );
+
+  // Following a move is an ordinary join, deliberately: the server has already
+  // put this account in the destination, so this brings the media across and
+  // re-declares mic/camera the same way clicking the room would. Going through
+  // the same funnel is also what tears the old room down first — otherwise the
+  // client would hold two LiveKit rooms at once.
+  useEffect(() => {
+    followModeratorMoveRef.current = (lobbyId: string): void => {
+      // Ahead of the join, and synchronously: the SFU eviction for the old room
+      // is already in flight, and without this it lands as "you were removed
+      // from the voice room" one second before arriving in the new one.
+      liveKitSessionRef.current?.expectRoomChange();
+      handleSelectLobby(lobbyId);
+    };
+  });
 
   // ----- CALL PRESENCE -----
   //

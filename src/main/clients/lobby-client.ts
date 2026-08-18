@@ -112,6 +112,30 @@ export class LobbyClient {
     );
   }
 
+  // Moves somebody from the room they are in into another one. Server-enforced
+  // the same way a kick is: the target's client is told and follows, and its old
+  // media session is evicted whether it follows or not.
+  public async moveLobbyMember(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+    targetLobbyId: string,
+  ): Promise<{ moved: boolean; targetLobbyId: string }> {
+    const room = encodeURIComponent(lobbyId);
+    const target = encodeURIComponent(userId);
+    return this.baseClient.request<{ moved: boolean; targetLobbyId: string }>(
+      `/media/livekit/lobbies/${room}/move/${target}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ targetLobbyId }),
+      },
+    );
+  }
+
   // durationSeconds omitted means the timeout stands until it is lifted by hand,
   // from the admin panel.
   public async timeoutLobbyMember(

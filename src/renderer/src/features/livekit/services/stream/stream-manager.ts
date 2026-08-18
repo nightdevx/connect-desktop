@@ -118,6 +118,9 @@ export class LiveKitStreamManager {
   // fields were written but never read.
   private manualDisconnect = false;
   private replacingRoom = false;
+  // Until when a disconnect is expected because the app is changing rooms on
+  // somebody else's instruction. See expectRoomChange.
+  private roomChangeExpectedUntil = 0;
   // Desired remote-audio state, owned by the manager rather than the
   // RemoteMediaHandler, which is discarded and rebuilt on every reconnect.
   private desiredDeafened = false;
@@ -1272,8 +1275,35 @@ export class LiveKitStreamManager {
     }
   }
 
+  /**
+   * "The next disconnect is one we are about to cause."
+   *
+   * A moderator moving somebody between rooms evicts their old media session at
+   * the SFU, and that arrives here as PARTICIPANT_REMOVED — indistinguishable
+   * from being kicked, so the person being moved was told "Sesli odadan
+   * çıkarıldınız." a second before landing in the new room. The join for the new
+   * room is already on its way when this is called, so the old room's teardown
+   * needs no explanation and no reconnect.
+   *
+   * Time-bounded rather than a plain flag: if the follow-up join never happens,
+   * an ordinary drop a minute later must still be reported as one.
+   */
+  public expectRoomChange(): void {
+    this.roomChangeExpectedUntil = Date.now() + 15_000;
+  }
+
   private handleDisconnected(reason?: DisconnectReason) {
     if (this.manualDisconnect || this.replacingRoom) return;
+
+    if (Date.now() < this.roomChangeExpectedUntil) {
+      this.roomChangeExpectedUntil = 0;
+      this.teardownRoomState();
+      // "closed", not "disconnected": the latter is what schedules the rejoin
+      // chain, and rejoining is precisely what must not happen to the room the
+      // user was just carried out of.
+      this.callbacks.onConnectionStateChanged?.("closed");
+      return;
+    }
 
     // The reason used to be ignored, so a deliberate removal and a flaky uplink
     // took the same path: tear down, tell the app, and the app immediately
