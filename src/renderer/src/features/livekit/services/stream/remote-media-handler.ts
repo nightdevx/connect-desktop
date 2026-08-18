@@ -8,6 +8,7 @@ import {
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
 import { readRmsLevel } from "./speaking";
+import { shouldSubscribePublication } from "./constants";
 
 // Remote playback runs through a single WebAudio bus:
 //
@@ -69,7 +70,13 @@ export class RemoteMediaHandler {
   private isDeafened = false;
   private masterVolume = 1.0;
 
-  public constructor(private readonly room: Room) {}
+  public constructor(
+    private readonly room: Room,
+    // Screen shares are opt-in, so re-subscribing after a deafen has to know
+    // which of them this user actually asked to watch. Without it, un-deafening
+    // pulled every screen share's audio in the room.
+    private readonly isWatchingScreen: (identity: string) => boolean,
+  ) {}
 
   // ---- Bus lifecycle ----
 
@@ -327,6 +334,12 @@ export class RemoteMediaHandler {
    *
    * The master gain is cut synchronously so the user hears silence immediately;
    * unsubscription is what makes it stop costing bandwidth a moment later.
+   *
+   * Un-deafening restores only what this user is entitled to hear. It used to
+   * subscribe every audio publication unconditionally, which handed back the
+   * screen-share audio of streams nobody had opened — and because the audio
+   * controls re-assert deafen state on every microphone toggle, that ran far
+   * more often than an actual deafen.
    */
   public setDeafened(deafened: boolean) {
     this.isDeafened = deafened;
@@ -341,7 +354,14 @@ export class RemoteMediaHandler {
           continue;
         }
         try {
-          publication.setSubscribed(!deafened);
+          publication.setSubscribed(
+            shouldSubscribePublication({
+              kind: publication.kind,
+              source: publication.source,
+              deafened,
+              watchingScreen: this.isWatchingScreen(participant.identity),
+            }),
+          );
         } catch (error) {
           logLiveKitDebug("remote-media", "deafen-subscription-failed", {
             identity: participant.identity,

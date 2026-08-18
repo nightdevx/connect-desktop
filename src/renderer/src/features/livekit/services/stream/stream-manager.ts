@@ -27,6 +27,7 @@ import {
 import {
   DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   isScreenSource as isScreenSourceKind,
+  shouldSubscribePublication,
 } from "./constants";
 import {
   NOT_SPEAKING,
@@ -392,7 +393,9 @@ export class LiveKitStreamManager {
     // a null dereference.
     const room = new Room(options);
     this.room = room;
-    this.remoteMediaHandler = new RemoteMediaHandler(room);
+    this.remoteMediaHandler = new RemoteMediaHandler(room, (identity) =>
+      this.watchedScreenIdentities.has(identity),
+    );
 
     // Re-seed the handler with the user's actual preferences.
     //
@@ -503,6 +506,16 @@ export class LiveKitStreamManager {
 
     this.manualDisconnect = !this.replacingRoom;
     this.currentLobbyId = null;
+    // Watching is per-visit, and this set outlives the room: the session object
+    // is created once per app mount and reused for every lobby and call after
+    // it. The renderer's mirror of it is cleared on every room change, so a
+    // leftover identity here was invisible — the roster showed "Yayını İzle"
+    // while subscribeToExistingTracks had already resubscribed that person's
+    // share on the next join, and its audio played into a stream nobody had
+    // opened. Only this deliberate teardown clears it; an unexpected drop goes
+    // through teardownRoomState, which keeps it so a reconnect can restore what
+    // the user was actually watching.
+    this.watchedScreenIdentities.clear();
     this.stopAudioMonitoring();
     this.statsCollector?.stop();
     this.statsCollector = null;
@@ -686,18 +699,18 @@ export class LiveKitStreamManager {
 
     for (const participant of this.room.remoteParticipants.values()) {
       for (const publication of participant.trackPublications.values()) {
-        if (deafened && publication.kind === Track.Kind.Audio) {
-          continue;
-        }
-        if (isScreenSourceKind(publication.source)) {
-          // Restores whatever the user had chosen to watch before the
-          // reconnect, rather than resubscribing everyone by default.
-          void publication.setSubscribed(
-            this.watchedScreenIdentities.has(participant.identity),
-          );
-          continue;
-        }
-        void publication.setSubscribed(true);
+        // Screen shares restore whatever the user had chosen to watch before
+        // the reconnect, rather than resubscribing everyone by default.
+        void publication.setSubscribed(
+          shouldSubscribePublication({
+            kind: publication.kind,
+            source: publication.source,
+            deafened,
+            watchingScreen: this.watchedScreenIdentities.has(
+              participant.identity,
+            ),
+          }),
+        );
       }
     }
   }
