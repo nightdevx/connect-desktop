@@ -14,6 +14,7 @@ interface WorkspaceRailProps {
   workspaceSection: WorkspaceSection;
   onSectionChange: (section: WorkspaceSection) => void;
   totalUnreadDirectMessages?: number;
+  totalUnreadLobbyMessages?: number;
   currentUserRole?: string;
   currentUsername?: string;
   currentUserId?: string;
@@ -59,6 +60,7 @@ export function WorkspaceRail({
   workspaceSection,
   onSectionChange,
   totalUnreadDirectMessages,
+  totalUnreadLobbyMessages,
   currentUserRole,
   onLogout,
   isLoggingOut,
@@ -72,6 +74,14 @@ export function WorkspaceRail({
       <nav className="ct-rail-items">
         {items.map((item) => {
           const isActive = workspaceSection === item.section;
+          // Both sections are unmounted whenever they are not the current one,
+          // so this rail is the only thing that can report their traffic.
+          const badgeCount =
+            item.section === "users"
+              ? totalUnreadDirectMessages
+              : item.section === "lobbies"
+                ? totalUnreadLobbyMessages
+                : undefined;
 
           return (
             <Tooltip
@@ -92,12 +102,8 @@ export function WorkspaceRail({
                   aria-label={item.title}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  {item.section === "users" ? (
-                    <Badge
-                      count={totalUnreadDirectMessages}
-                      size="small"
-                      offset={[6, -2]}
-                    >
+                  {badgeCount !== undefined ? (
+                    <Badge count={badgeCount} size="small" offset={[6, -2]}>
                       {item.icon}
                     </Badge>
                   ) : (

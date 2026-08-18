@@ -27,6 +27,7 @@ import {
   useDirectMessages,
   useFriends,
   useLobbyRoom,
+  useLobbyUnread,
   useMediaDevices,
   useNetworkReconnect,
   useOpenConversations,
@@ -78,6 +79,12 @@ function WorkspaceShell({
   const workspaceSection = useUiStore((state) => state.workspaceSection);
   const settingsSection = useUiStore((state) => state.settingsSection);
   const setWorkspaceSection = useUiStore((state) => state.setWorkspaceSection);
+  // Read here as well as in the lobbies panel: whether the chat column is on
+  // screen is what decides if an arriving message counts as unread.
+  const isLobbyChatOpen = useUiStore(
+    (state) => state.viewPreferences.lobbyChatOpen,
+  );
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setStatus = useUiStore((state) => state.setStatus);
 
@@ -99,6 +106,14 @@ function WorkspaceShell({
   // room is opened, never joined, so putting one on screen must leave the
   // LiveKit session — and everything else keyed off activeLobbyId — alone.
   const [openTextRoomId, setOpenTextRoomId] = useState<string | null>(null);
+
+  // Filled in below, once the lobby list exists. The notification listener is
+  // registered long before that and must not be re-registered when the list
+  // changes, so it reaches this through a ref the same way conversation
+  // routing does.
+  const selectTextRoomFromNotificationRef = useRef<(lobbyId: string) => void>(
+    () => undefined,
+  );
 
   // Marks a lobbyId the current user was just server-kicked from. While set,
   // the reconnect loop must not silently rejoin that lobby (it would undo the
@@ -331,8 +346,6 @@ function WorkspaceShell({
     activeLobbyId: openTextRoomId ?? activeLobbyId,
     workspaceSection: workspaceSection === "admin" ? "lobbies" : workspaceSection,
     setStatus,
-    currentUserId,
-    currentUsername,
   });
 
   // ----- MEDIA CONTROLS -----
@@ -533,12 +546,25 @@ function WorkspaceShell({
   // Clicking an OS notification opens the conversation it came from.
   useEffect(() => {
     return window.desktopApi.onNotificationActivated((payload) => {
+      if (payload.kind === "lobby-message") {
+        // Deliberately does not join anything: the toast says a room is
+        // talking, and joining a voice lobby because a toast was clicked is not
+        // something the click asked for. Show the room list with the chat
+        // column open; a text room the user can already read opens outright.
+        setWorkspaceSection("lobbies");
+        setViewPreference("lobbyChatOpen", true);
+        if (payload.lobbyId) {
+          selectTextRoomFromNotificationRef.current(payload.lobbyId);
+        }
+        return;
+      }
+
       if (!payload.peerUserId) {
         return;
       }
       selectConversationByIdRef.current(payload.peerUserId);
     });
-  }, [selectConversationByIdRef]);
+  }, [selectConversationByIdRef, setWorkspaceSection, setViewPreference]);
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
@@ -898,6 +924,40 @@ function WorkspaceShell({
   // the user just clicked, and the voice lobby carries on underneath it.
   const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : activeLobbyId);
 
+  // ----- LOBBY CHAT UNREAD -----
+  useEffect(() => {
+    selectTextRoomFromNotificationRef.current = (lobbyId: string): void => {
+      if (lobbies.find((lobby) => lobby.id === lobbyId)?.isTextOnly) {
+        setOpenTextRoomId(lobbyId);
+      }
+    };
+  });
+
+  const lobbyNameById = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const lobby of lobbies) {
+      names[lobby.id] = lobby.name;
+    }
+    return names;
+  }, [lobbies]);
+
+  // A text room has no stage to share the width with, so its chat is always on
+  // screen; a voice lobby's chat is a column the user can collapse.
+  const isLobbyChatOnScreen =
+    workspaceSection === "lobbies" &&
+    lobbyRoomId !== null &&
+    (openTextRoom !== null || isLobbyChatOpen);
+
+  const { unreadByLobbyId, totalUnread: totalUnreadLobbyMessages } =
+    useLobbyUnread({
+      currentUserId,
+      currentUsername,
+      visibleLobbyId: lobbyRoomId,
+      isChatVisible: isLobbyChatOnScreen,
+      lobbyNameById,
+      suppressNotifications: effectivePresenceStatus === "dnd",
+    });
+
   const callPeerUserId = callState.peerUser?.userId ?? null;
 
   // The stage lives in the peer's conversation, so that is the one place the
@@ -1019,6 +1079,7 @@ function WorkspaceShell({
         workspaceSection={workspaceSection}
         onSectionChange={handleSectionChange}
         totalUnreadDirectMessages={totalUnreadDirectMessages}
+        totalUnreadLobbyMessages={totalUnreadLobbyMessages}
         currentUserRole={currentUserRole}
         currentUsername={currentUsername}
         currentUserId={currentUserId}
@@ -1056,6 +1117,7 @@ function WorkspaceShell({
               activeLobbyId: isInCallRoom ? null : activeLobbyId,
               openTextRoomId: openTextRoom?.id ?? null,
               joiningLobbyId,
+              unreadByLobbyId,
               onJoinLobby: handleSelectLobby,
               onCreateLobby: createLobby,
               onUpdateLobby: updateLobby,
@@ -1129,6 +1191,9 @@ function WorkspaceShell({
             lobbies={lobbies}
             activeLobbyId={activeLobbyId}
             lobbyRoomId={lobbyRoomId}
+            unreadLobbyMessages={
+              lobbyRoomId ? (unreadByLobbyId[lobbyRoomId] ?? 0) : 0
+            }
             joiningLobbyId={joiningLobbyId}
             onJoinLobby={handleSelectLobby}
             onSetRemoteParticipantMuted={handleSetRemoteParticipantMuted}

@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
-import { message } from "antd";
+import { message, Badge } from "antd";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
 import type {
@@ -42,6 +42,8 @@ interface LobbiesMainPanelProps {
   lobbiesCount: number;
   lobbies: LobbyDescriptor[];
   activeLobbyId: string | null;
+  /** Unread messages in the room on screen, so a collapsed chat still says so. */
+  unreadLobbyMessages?: number;
   currentUserId: string;
   currentUsername: string;
   currentUserRole: UserRole;
@@ -122,6 +124,7 @@ export function LobbiesMainPanel({
   lobbiesCount,
   lobbies,
   activeLobbyId,
+  unreadLobbyMessages = 0,
   currentUserId,
   currentUsername,
   currentUserRole,
@@ -529,6 +532,13 @@ export function LobbiesMainPanel({
               ) : (
                 <>
                   <LeftOutlined  /> Sohbeti Aç
+                  {/* The one place a message can arrive with the chat right
+                      there and still be invisible: the column is collapsed. */}
+                  <Badge
+                    count={unreadLobbyMessages}
+                    overflowCount={99}
+                    size="small"
+                  />
                 </>
               )}
             </button>

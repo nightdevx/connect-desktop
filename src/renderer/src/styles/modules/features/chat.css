@@ -246,6 +246,20 @@
     background: color-mix(in srgb, var(--ct-info) 14%, transparent);
   }
 
+  /* A posted address. Underlined rather than colour-only, so it still reads as
+     a link for anyone who cannot tell it apart by hue. break-all because a long
+     URL with no spaces in it would otherwise push the whole bubble wide. */
+  .ct-chat-link {
+    @apply underline underline-offset-2;
+    color: var(--ct-info);
+    word-break: break-all;
+  }
+
+  .ct-chat-link:hover {
+    color: var(--ct-info);
+    filter: brightness(1.15);
+  }
+
   /* A mention of you is the one thing worth interrupting the palette for. */
   .ct-chat-mention.self {
     color: var(--ct-on-highlight);

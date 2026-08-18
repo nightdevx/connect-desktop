@@ -70,6 +70,7 @@ interface WorkspaceSidebarProps {
     /** The text room being read, which is never a connection — see WorkspaceShell. */
     openTextRoomId: string | null;
     joiningLobbyId: string | null;
+    unreadByLobbyId: Record<string, number>;
     onJoinLobby: (lobbyId: string) => void;
     onCreateLobby: (
       name: string,
@@ -400,6 +401,7 @@ export function WorkspaceSidebar({
             activeLobbyId={lobbiesProps.activeLobbyId}
             openTextRoomId={lobbiesProps.openTextRoomId}
             joiningLobbyId={lobbiesProps.joiningLobbyId}
+            unreadByLobbyId={lobbiesProps.unreadByLobbyId}
             onJoinLobby={lobbiesProps.onJoinLobby}
             onUpdateLobby={lobbiesProps.onUpdateLobby}
             onDeleteLobby={lobbiesProps.onDeleteLobby}

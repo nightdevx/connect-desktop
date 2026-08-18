@@ -1,5 +1,6 @@
 export * from "./chat/use-direct-messages";
 export * from "./lobby/use-lobby-room";
+export * from "./lobby/use-lobby-unread";
 export * from "./lobby/use-room-transitions";
 export * from "./lobby/use-workspace-lobbies";
 export * from "./lobby/use-workspace-lobby-actions";

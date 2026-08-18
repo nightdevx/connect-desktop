@@ -75,6 +75,7 @@ interface WorkspaceMainPanelProps {
    * id, which meant being in a call replaced the lobby list with an empty room.
    */
   lobbyRoomId: string | null;
+  unreadLobbyMessages: number;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
   onSetRemoteParticipantMuted: (
@@ -228,6 +229,7 @@ export function WorkspaceMainPanel({
   lobbies,
   activeLobbyId,
   lobbyRoomId,
+  unreadLobbyMessages,
   joiningLobbyId,
   onJoinLobby,
   onSetRemoteParticipantMuted,
@@ -377,6 +379,7 @@ export function WorkspaceMainPanel({
             lobbiesCount={lobbies.length}
             lobbies={lobbies}
             activeLobbyId={lobbyRoomId}
+            unreadLobbyMessages={unreadLobbyMessages}
             currentUserId={currentUserId}
             currentUsername={currentUsername}
             currentUserRole={currentUserRole}

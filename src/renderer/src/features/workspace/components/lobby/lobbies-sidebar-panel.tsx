@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Dropdown, Modal, Input, Avatar, Switch, Select, message } from "antd";
+import {
+  Dropdown,
+  Modal,
+  Input,
+  Avatar,
+  Switch,
+  Select,
+  message,
+  Badge,
+} from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -47,6 +56,8 @@ interface LobbiesSidebarPanelProps {
   /** The open text room. It is read, not joined, so it is never activeLobbyId. */
   openTextRoomId: string | null;
   joiningLobbyId: string | null;
+  /** Unread chat messages per lobby, for rooms not currently being read. */
+  unreadByLobbyId?: Record<string, number>;
   /** Opens a room: joins it if it is a voice lobby, just displays it if not. */
   onJoinLobby: (lobbyId: string) => void;
   onUpdateLobby: (
@@ -84,6 +95,7 @@ export function LobbiesSidebarPanel({
   activeLobbyId,
   openTextRoomId,
   joiningLobbyId,
+  unreadByLobbyId = {},
   onJoinLobby,
   onUpdateLobby,
   onDeleteLobby,
@@ -364,6 +376,7 @@ export function LobbiesSidebarPanel({
             : activeLobbyId === lobby.id;
           const creatorPresent = members.some((m) => m.userId === lobby.createdBy);
           const isDisabled = isEditing || isDeleting || joiningLobbyId !== null;
+          const unreadCount = unreadByLobbyId[lobby.id] ?? 0;
 
           const handleLobbyClick = (): void => {
             if (isDisabled || isDisplayed) {
@@ -432,6 +445,14 @@ export function LobbiesSidebarPanel({
                       />
                     )}
                   </p>
+                  {unreadCount > 0 && (
+                    <Badge
+                      count={unreadCount}
+                      overflowCount={99}
+                      size="small"
+                      title={`${unreadCount} okunmamış mesaj`}
+                    />
+                  )}
                   {!lobby.isTextOnly && members.length > 0 && (
                     <span className="ct-lobby-item-count">
                       <TeamOutlined />

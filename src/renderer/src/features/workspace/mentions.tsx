@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { segmentMessageBody } from "./chat-links";
 
 // Everything @mention: matching, highlighting, and "was I named".
 //
@@ -28,25 +29,63 @@ export interface MentionCandidate {
 }
 
 /** Renders @name runs as highlighted spans, marking the ones aimed at you. */
-export const renderWithMentions = (
-  body: string,
-  currentUsername: string,
+const renderMentionRuns = (
+  text: string,
+  self: string,
+  keyPrefix: string,
 ): ReactNode[] => {
-  const self = `@${lower(currentUsername)}`;
-
-  return body.split(MENTION_PATTERN).map((part, index) => {
+  return text.split(MENTION_PATTERN).map((part, index) => {
     if (!part.startsWith("@")) {
       return part;
     }
 
     return (
       <span
-        key={`${index}-${part}`}
+        key={`${keyPrefix}-${index}-${part}`}
         className={`ct-chat-mention ${lower(part) === self ? "self" : ""}`}
       >
         {part}
       </span>
     );
+  });
+};
+
+/**
+ * One pass over a message body: links become anchors, @names become mentions.
+ *
+ * Links used to render as plain text, so the only way to follow one was to
+ * select it, copy it and paste it into a browser by hand. They are anchors
+ * now; the window's own open handler (installNavigationGuards in the main
+ * process) sends http(s) to the OS browser and denies everything else, so
+ * there is no new IPC here and no way to navigate the app's own window away
+ * from its bundle.
+ *
+ * Links are matched FIRST, so an address containing an "@" — a mailto-looking
+ * path, a userinfo host — is not chopped into a mention run mid-href.
+ */
+export const renderMessageBody = (
+  body: string,
+  currentUsername: string,
+): ReactNode[] => {
+  const self = `@${lower(currentUsername)}`;
+
+  return segmentMessageBody(body).flatMap((segment): ReactNode[] => {
+    if (segment.kind === "text") {
+      return renderMentionRuns(segment.value, self, `t${segment.offset}`);
+    }
+
+    return [
+      <a
+        key={`l${segment.offset}`}
+        className="ct-chat-link"
+        href={segment.href}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={segment.href}
+      >
+        {segment.value}
+      </a>,
+    ];
   });
 };
 

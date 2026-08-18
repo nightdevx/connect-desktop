@@ -76,7 +76,10 @@ export interface DesktopAppPreferences {
   pushToTalkKey: string;
 }
 
-export type DesktopNotificationKind = "direct-message" | "incoming-call";
+export type DesktopNotificationKind =
+  | "direct-message"
+  | "incoming-call"
+  | "lobby-message";
 
 export interface DesktopNotificationRequest {
   kind: DesktopNotificationKind;
@@ -84,6 +87,10 @@ export interface DesktopNotificationRequest {
   body: string;
   // Echoed back on activation so the renderer can open the right conversation.
   peerUserId?: string;
+  // Lobby chat only. Doubles as the toast's identity: a busy room replaces its
+  // own toast instead of stacking one per message, which is the whole reason
+  // lobby chat used to raise no toast at all.
+  lobbyId?: string;
 }
 
 export interface DesktopHotkeyEvent {
@@ -758,6 +765,7 @@ export interface DesktopApi {
     listener: (payload: {
       kind: DesktopNotificationKind;
       peerUserId: string | null;
+      lobbyId: string | null;
     }) => void,
   ) => () => void;
   onHotkey: (listener: (event: DesktopHotkeyEvent) => void) => () => void;

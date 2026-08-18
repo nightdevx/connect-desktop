@@ -362,11 +362,12 @@ export const gifSearchSchema = z.object({
 }).optional().default({});
 
 export const notifySchema = z.object({
-  kind: z.enum(["direct-message", "incoming-call"]),
+  kind: z.enum(["direct-message", "incoming-call", "lobby-message"]),
   // Rendered straight into an OS toast, so keep it to a sane length.
   title: z.string().min(1).max(120),
   body: z.string().min(1).max(400),
   peerUserId: z.string().min(2).max(128).optional(),
+  lobbyId: z.string().min(1).max(128).optional(),
 });
 
 export const initiateCallSchema = z.object({

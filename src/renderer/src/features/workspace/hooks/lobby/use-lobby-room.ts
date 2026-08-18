@@ -15,18 +15,15 @@ import type {
 } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
-import { mentionsUser } from "../../mentions";
 import type { PendingAttachment } from "../chat/use-direct-messages";
 
 interface UseLobbyRoomParams {
   activeLobbyId: string | null;
   workspaceSection: "users" | "lobbies" | "settings";
   setStatus: (message: string, tone: "ok" | "warn" | "error") => void;
-  // Lobby chat raises no toast for ordinary traffic — a busy room would be
-  // unusable. Being named by @username is the exception, and it is deliberately
-  // the only one, which is also why "Rahatsız etmeyin" does not silence it.
-  currentUserId: string;
-  currentUsername: string;
+  // No notification concerns here: unread counts and toasts for lobby chat are
+  // useLobbyUnread's job, because they span every room rather than the one this
+  // hook happens to have on screen.
 }
 
 type LobbyMemberStatePatch = Partial<
@@ -100,8 +97,6 @@ export const useLobbyRoom = ({
   activeLobbyId,
   workspaceSection,
   setStatus,
-  currentUserId,
-  currentUsername,
 }: UseLobbyRoomParams): UseLobbyRoomResult => {
   const [lobbyMessageDraft, setLobbyMessageDraft] = useState("");
   const [lobbyReplyTo, setLobbyReplyTo] = useState<ChatMessage | null>(null);
@@ -286,26 +281,7 @@ export const useLobbyRoom = ({
           };
         },
       );
-
-      // Only when you were named, and never for your own message — writing
-      // "@ayse" as ayse would otherwise toast yourself. The main process still
-      // drops the toast while the window is focused.
-      if (
-        event.message.userId !== currentUserId &&
-        mentionsUser(event.message.body, currentUsername)
-      ) {
-        void workspaceService.notify({
-          kind: "direct-message",
-          title: `${event.message.username || "Biri"} lobide sizden bahsetti`,
-          body: event.message.body.slice(0, 240),
-          peerUserId: event.message.userId,
-        });
-      }
     });
-    // currentUserId/currentUsername identify the signed-in account and cannot
-    // change without a full remount, so re-subscribing the lobby message stream
-    // for them would only ever cost a dropped frame.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLobbyId, queryClient]);
 
   const lobbyMembers =

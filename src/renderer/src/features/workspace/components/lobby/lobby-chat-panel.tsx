@@ -43,7 +43,7 @@ import {
   getApiErrorMessage,
   getUsernameHue,
 } from "../../workspace-utils";
-import { renderWithMentions, type MentionCandidate } from "../../mentions";
+import { renderMessageBody, type MentionCandidate } from "../../mentions";
 import { MentionPicker, useMentionPicker } from "../common/mention-picker";
 
 interface LobbyChatMessageRowProps {
@@ -140,7 +140,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
         ) : (
           message.body && (
             <ChatMessageBody body={message.body}>
-              {renderWithMentions(message.body, currentUsername)}
+              {renderMessageBody(message.body, currentUsername)}
             </ChatMessageBody>
           )
         )}

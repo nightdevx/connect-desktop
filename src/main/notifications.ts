@@ -34,7 +34,13 @@ const notificationIconPath = (): string | undefined => {
   return candidates.find(Boolean);
 };
 
+// One live toast per conversation. For a lobby that is the room, not the
+// sender: a busy room would otherwise stack a toast per person talking, which
+// is exactly the noise that kept lobby chat silent in the first place.
 const tagFor = (request: DesktopNotificationRequest): string => {
+  if (request.kind === "lobby-message") {
+    return `lobby-message:${request.lobbyId ?? ""}`;
+  }
   return `${request.kind}:${request.peerUserId ?? ""}`;
 };
 
@@ -95,6 +101,7 @@ export const showDesktopNotification = (
       window.webContents.send(NOTIFICATION_ACTIVATED_CHANNEL, {
         kind: request.kind,
         peerUserId: request.peerUserId ?? null,
+        lobbyId: request.lobbyId ?? null,
       });
     }
   });

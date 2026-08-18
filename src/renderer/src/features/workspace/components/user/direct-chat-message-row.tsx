@@ -8,7 +8,7 @@ import {
 } from "@ant-design/icons";
 import type { ChatMessage } from "@shared/auth-contracts";
 import { formatTimeLabel } from "../../workspace-utils";
-import { renderWithMentions } from "../../mentions";
+import { renderMessageBody } from "../../mentions";
 import {
   ChatAttachmentView,
   ChatMessageBody,
@@ -134,7 +134,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
         ) : (
           message.body && (
             <ChatMessageBody body={message.body}>
-              {renderWithMentions(message.body, currentUsername)}
+              {renderMessageBody(message.body, currentUsername)}
             </ChatMessageBody>
           )
         )}
