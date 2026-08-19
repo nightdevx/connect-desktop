@@ -21,6 +21,9 @@ import {
   lobbyDeafenSchema,
   lobbyEnabledSchema,
   lobbyEmoteSchema,
+  minigameActionSchema,
+  minigameLeaderboardSchema,
+  minigameScoreSchema,
   emoteUploadSchema,
   emoteIdSchema,
   lobbyStateSchema,
@@ -343,6 +346,78 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.lobbyId,
           parsed.emote,
+        );
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Games live beside the lobby handlers rather than in a file of their own:
+  // their frames ride the lobby websocket, so this is where somebody tracing
+  // one back from the renderer looks first.
+  ipcMain.handle("desktop:minigame-list", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.minigame.listTables(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:minigame-play", async (_event, payload: unknown) => {
+    try {
+      const body = minigameActionSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.minigame.play(accessToken, body);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:minigame-scores", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.minigame.listScores(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle(
+    "desktop:minigame-score-submit",
+    async (_event, payload: unknown) => {
+      try {
+        const parsed = minigameScoreSchema.parse(payload);
+        const result = await withAccessToken((accessToken) => {
+          return backendClient.minigame.submitScore(
+            accessToken,
+            parsed.game,
+            parsed.score,
+          );
+        });
+        return ok(result);
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  ipcMain.handle("desktop:minigame-leaderboard", async (_event, payload: unknown) => {
+    try {
+      const parsed = minigameLeaderboardSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.minigame.leaderboard(
+          accessToken,
+          parsed.game,
+          parsed.limit,
         );
       });
       return ok(result);

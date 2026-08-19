@@ -268,6 +268,42 @@ export const lobbyEmoteSchema = z.object({
   emote: z.string().min(1).max(96),
 });
 
+// Every rule the server cares about — whose turn, whether the cell is free,
+// whether the caller is even seated — is enforced there. This shape only keeps
+// a malformed body from becoming a round trip, and pins `action` to the five
+// verbs so a typo fails at the bridge rather than as a 400 the page has to
+// explain.
+//
+// No lobby id: a game table is its own lobby and belongs to no room.
+export const minigameActionSchema = z.object({
+  action: z.enum(["open", "join", "move", "restart", "leave"]),
+  // Validated against the catalogue server-side; this bound only stops an
+  // unbounded string.
+  game: z.string().min(1).max(32).optional(),
+  tableId: z.string().min(1).max(64).optional(),
+  // The largest board in the catalogue is 7x6, but the ceiling is deliberately
+  // loose: a tighter one here would have to be edited every time a bigger board
+  // is added, and the server rejects an out-of-range cell anyway.
+  cell: z.number().int().min(0).max(4096).optional(),
+  // Chess, in UCI: four characters plus an optional promotion letter. The
+  // server decodes it against the real position, so this is only a shape bound.
+  move: z.string().min(4).max(5).optional(),
+});
+
+// The real bounds are per game and live in internal/minigame/score.go, which
+// knows a snake cannot be longer than its board. This is only the outer wall:
+// a finite non-negative integer, so a NaN or an Infinity never becomes a round
+// trip.
+export const minigameScoreSchema = z.object({
+  game: z.string().min(1).max(32),
+  score: z.number().int().min(0).max(10_000_000),
+});
+
+export const minigameLeaderboardSchema = z.object({
+  game: z.string().min(1).max(32),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
 // The upload. Every bound here is also enforced server-side — this only stops
 // an obviously bad request from becoming a round trip.
 export const emoteUploadSchema = z.object({
@@ -358,17 +394,27 @@ export const appPreferencesSchema = z.object({
   hotkeyToggleDeafen: z.string().max(64).optional(),
   pushToTalk: z.boolean().optional(),
   pushToTalkKey: z.string().max(24).optional(),
+  freeGameNotifications: z.boolean().optional(),
 });
 
 // The query is user input that ends up in a URL the main process builds, so it
 // is bounded here at the trust boundary. Empty is legal and means "trending".
 // 100 characters is far past any real GIF search and short enough that the
 // request line stays sane.
+// The only field is a flag, and even that is bounded: main applies its own
+// cooldown, so a renderer stuck in a loop cannot turn this into traffic.
+export const freeGamesSchema = z
+  .object({ refresh: z.boolean().optional() })
+  .optional()
+  .default({});
+
 export const gifSearchSchema = z.object({
   query: z.string().max(100).optional(),
 }).optional().default({});
 
 export const notifySchema = z.object({
+  // "free-game" is deliberately absent: that toast is raised by main's own
+  // poller, and nothing the renderer sends should be able to impersonate it.
   kind: z.enum(["direct-message", "incoming-call", "lobby-message"]),
   // Rendered straight into an OS toast, so keep it to a sane length.
   title: z.string().min(1).max(120),

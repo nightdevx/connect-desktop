@@ -14,6 +14,7 @@ const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   hotkeyToggleDeafen: "",
   pushToTalk: false,
   pushToTalkKey: "Space",
+  freeGameNotifications: true,
 };
 
 /**

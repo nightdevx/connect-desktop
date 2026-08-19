@@ -10,6 +10,15 @@ import {
   saveGifPlayback,
   type GifPlayback,
 } from "../styles/gif-playback";
+import type { FreeGameFilter, FreeGameStore } from "@shared/free-games";
+import {
+  isBetterScore,
+  readMinigameScores,
+  saveMinigameScores,
+  tracksScore,
+  type MinigameId,
+  type MinigameScores,
+} from "./minigame-scores";
 import {
   readViewPreferences,
   saveViewPreferences,
@@ -23,7 +32,13 @@ import {
 
 type AuthPage = "login" | "register";
 export type StatusTone = "ok" | "warn" | "error";
-export type WorkspaceSection = "users" | "lobbies" | "settings" | "admin";
+export type WorkspaceSection =
+  | "users"
+  | "lobbies"
+  | "free-games"
+  | "minigames"
+  | "settings"
+  | "admin";
 export type AdminSection =
   | "dashboard"
   | "users"
@@ -50,6 +65,28 @@ interface UiState {
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
   adminSection: AdminSection;
+  /**
+   * Which bucket the free-games page is showing.
+   *
+   * In the store rather than in a panel because the sidebar picks it and the
+   * main panel renders it, and they are siblings — the alternative is another
+   * pair of props threaded through the shell for a value the shell has no
+   * interest in.
+   */
+  freeGamesFilter: FreeGameFilter;
+  /** Store the free-games page is narrowed to, or "all". */
+  freeGamesStore: FreeGameStore | "all";
+  /**
+   * Which game the Oyunlar page is showing.
+   *
+   * Here for the same reason as freeGamesFilter: the sidebar picks it and the
+   * main panel renders it, and they are siblings -- the alternative is another
+   * pair of props threaded through the shell for a value the shell has no
+   * interest in.
+   */
+  selectedMinigame: MinigameId;
+  /** Personal bests, mirrored into localStorage on every write. */
+  minigameBestScores: MinigameScores;
   /** Drives the data-theme attribute on <html> and antd's algorithm. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
@@ -70,6 +107,11 @@ interface UiState {
   setWorkspaceSection: (section: WorkspaceSection) => void;
   setSettingsSection: (section: SettingsSection) => void;
   setAdminSection: (section: AdminSection) => void;
+  setFreeGamesFilter: (filter: FreeGameFilter) => void;
+  setFreeGamesStore: (store: FreeGameStore | "all") => void;
+  setSelectedMinigame: (game: MinigameId) => void;
+  /** Records a finished run. Keeps it only when it beats the stored one. */
+  recordMinigameScore: (game: MinigameId, score: number) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -78,6 +120,10 @@ export const useUiStore = create<UiState>((set) => ({
   statusTone: "warn",
   statusNonce: 0,
   workspaceSection: "lobbies",
+  freeGamesFilter: "free-now",
+  freeGamesStore: "all",
+  selectedMinigame: "2048",
+  minigameBestScores: readMinigameScores(),
   settingsSection: "profile",
   adminSection: "dashboard",
   themeMode: readThemeMode(),
@@ -144,4 +190,29 @@ export const useUiStore = create<UiState>((set) => ({
       set({ adminSection: section });
     }
   },
+  // No view transition here, unlike the section setters above: this swaps the
+  // contents of one panel, and animating a list re-filter reads as a stutter
+  // rather than as a navigation.
+  setFreeGamesFilter: (filter) => set({ freeGamesFilter: filter }),
+  setFreeGamesStore: (store) => set({ freeGamesStore: store }),
+  // Same reasoning as the free-games setters: swapping the contents of one
+  // panel, not navigating, so no view transition.
+  setSelectedMinigame: (game) => set({ selectedMinigame: game }),
+  recordMinigameScore: (game, score) =>
+    set((state) => {
+      // The two-player games keep no record: a win against another person is
+      // not a personal best.
+      if (!Number.isFinite(score) || !tracksScore(game)) {
+        return state;
+      }
+
+      const previous = state.minigameBestScores[game];
+      if (previous !== undefined && !isBetterScore(game, score, previous)) {
+        return state;
+      }
+
+      const next = { ...state.minigameBestScores, [game]: score };
+      saveMinigameScores(next);
+      return { minigameBestScores: next };
+    }),
 }));

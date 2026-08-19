@@ -84,6 +84,7 @@ function WorkspaceShell({
   );
   const setViewPreference = useUiStore((state) => state.setViewPreference);
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
+  const setFreeGamesFilter = useUiStore((state) => state.setFreeGamesFilter);
   const setStatus = useUiStore((state) => state.setStatus);
 
   // An admin lands on the admin panel when the workspace opens. ONCE — this
@@ -113,6 +114,14 @@ function WorkspaceShell({
     }
   }, [currentUserRole, workspaceSection, setWorkspaceSection]);
 
+  // The two chat hooks take a narrow union and use it as a gate, so every
+  // section that is neither Arkadaşlar nor Lobiler has to arrive as the value
+  // that gates nothing: "settings". Admin is mapped separately at each call
+  // site, where it has always leaned on a neighbouring section.
+  const sectionForChatHooks: "users" | "lobbies" | "settings" =
+    workspaceSection === "users" || workspaceSection === "lobbies"
+      ? workspaceSection
+      : "settings";
   // ----- SHARED STATE / REFS -----
   const [activeLobbyId, setActiveLobbyId] = useState<string | null>(null);
   const activeLobbyRef = useRef<string | null>(null);
@@ -390,7 +399,13 @@ function WorkspaceShell({
     // activeLobbyId, so it has to be named here or its messages would never
     // load — and while one is open the voice lobby's chat is not what is shown.
     activeLobbyId: openTextRoomId ?? activeLobbyId,
-    workspaceSection: workspaceSection === "admin" ? "lobbies" : workspaceSection,
+    // Ücretsiz Oyunlar behaves like Ayarlar here, not like Lobiler: it is a
+    // page you read, not a chat surface. "settings" is the inert value — it
+    // gates nothing on — so the room's backfill poll pauses exactly as it
+    // does in Ayarlar while the websocket keeps pushing into the cache.
+    // (admin keeps mapping to "lobbies", which is what it has always done.)
+    workspaceSection:
+      workspaceSection === "admin" ? "lobbies" : sectionForChatHooks,
     setStatus,
   });
 
@@ -592,6 +607,14 @@ function WorkspaceShell({
   // Clicking an OS notification opens the conversation it came from.
   useEffect(() => {
     return window.desktopApi.onNotificationActivated((payload) => {
+      if (payload.kind === "free-game") {
+        // Raised by main's poller, so there is no conversation to open —
+        // just the page the toast was about, on the bucket it was about.
+        setWorkspaceSection("free-games");
+        setFreeGamesFilter("free-now");
+        return;
+      }
+
       if (payload.kind === "lobby-message") {
         // Deliberately does not join anything: the toast says a room is
         // talking, and joining a voice lobby because a toast was clicked is not
@@ -610,7 +633,12 @@ function WorkspaceShell({
       }
       selectConversationByIdRef.current(payload.peerUserId);
     });
-  }, [selectConversationByIdRef, setWorkspaceSection, setViewPreference]);
+  }, [
+    selectConversationByIdRef,
+    setWorkspaceSection,
+    setViewPreference,
+    setFreeGamesFilter,
+  ]);
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
@@ -819,7 +847,14 @@ function WorkspaceShell({
     currentUsername,
     peerUserIds: directoryPeerUserIds,
     selectedUserId,
-    workspaceSection: workspaceSection === "admin" ? "users" : workspaceSection,
+    // This one MATTERS, and the first version of it was wrong. The hook reads
+    // `workspaceSection === "users"` as "the open conversation is on screen":
+    // an incoming message from the selected peer is then marked read and
+    // raises no toast and no unread badge. Folding Ücretsiz Oyunlar into
+    // "users" therefore SWALLOWED direct messages while the user was reading
+    // about giveaways. It maps to the inert value instead.
+    workspaceSection:
+      workspaceSection === "admin" ? "users" : sectionForChatHooks,
     setStatus,
     suppressNotifications: effectivePresenceStatus === "dnd",
   });
@@ -843,8 +878,13 @@ function WorkspaceShell({
     [setStatus],
   );
 
+
+  // Ends in an unguarded fallback, so a section missing from this list is the
+  // one failure the type system cannot see: the sidebar header and the panel
+  // header both silently read "Lobiler".
   const sectionTitle = useMemo(() => {
     if (workspaceSection === "users") return "Arkadaşlar";
+    if (workspaceSection === "free-games") return "Ücretsiz Oyunlar";
     if (workspaceSection === "settings") return "Ayarlar";
     return "Lobiler";
   }, [workspaceSection]);

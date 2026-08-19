@@ -23,6 +23,8 @@ import type {
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
+import { FreeGamesSidebarPanel } from "@/features/free-games";
+import { MinigamesSidebarPanel } from "@/features/minigames";
 import { LobbiesSidebarPanel } from "../lobby";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
@@ -351,6 +353,14 @@ export function WorkspaceSidebar({
           />
         )}
 
+        {/* No props: the panel owns its own data, and the shell has no
+            interest in giveaways. */}
+        {workspaceSection === "free-games" && <FreeGamesSidebarPanel />}
+
+        {/* Same deal: the list of games and the personal bests both live in the
+            ui store, so this panel and the board read one source. */}
+        {workspaceSection === "minigames" && <MinigamesSidebarPanel />}
+
         {workspaceSection === "settings" && (
           <SettingsSidebarTabs
             settingsSection={settingsProps.settingsSection}
@@ -359,7 +369,7 @@ export function WorkspaceSidebar({
         )}
       </div>
 
-      {workspaceSection !== "settings" && (
+      {workspaceSection !== "settings" && workspaceSection !== "free-games" && (
         <WorkspaceAudioStatus
           activeLobbyId={lobbiesProps.activeLobbyId}
           liveKitConnectionState={liveKitConnectionState}

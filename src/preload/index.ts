@@ -155,6 +155,14 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-screen", payload),
   sendLobbyEmote: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-emote", payload),
+  listMinigameTables: async () => ipcRenderer.invoke("desktop:minigame-list"),
+  playMinigame: async (payload) =>
+    ipcRenderer.invoke("desktop:minigame-play", payload),
+  listMinigameScores: async () => ipcRenderer.invoke("desktop:minigame-scores"),
+  submitMinigameScore: async (payload) =>
+    ipcRenderer.invoke("desktop:minigame-score-submit", payload),
+  getMinigameLeaderboard: async (payload) =>
+    ipcRenderer.invoke("desktop:minigame-leaderboard", payload),
   listEmotes: async () => ipcRenderer.invoke("desktop:emotes-list"),
   getEmoteSample: async (payload) =>
     ipcRenderer.invoke("desktop:emotes-sample", payload),
@@ -270,6 +278,21 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:direct-typing", payload),
   isGifPickerEnabled: async () => ipcRenderer.invoke("desktop:gif-enabled"),
   searchGifs: async (payload) => ipcRenderer.invoke("desktop:gif-search", payload),
+  getFreeGames: async (payload) => ipcRenderer.invoke("desktop:free-games", payload),
+  onFreeGamesUpdated: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ) => {
+      listener(payload as Parameters<typeof listener>[0]);
+    };
+
+    ipcRenderer.on("desktop:free-games-updated", wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener("desktop:free-games-updated", wrappedListener);
+    };
+  },
   notify: async (payload) => ipcRenderer.invoke("desktop:notify", payload),
   onNotificationActivated: (listener) => {
     const wrappedListener = (

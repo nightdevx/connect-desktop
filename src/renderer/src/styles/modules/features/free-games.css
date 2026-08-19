@@ -1,0 +1,371 @@
+/* ==========================================================================
+   FREE GAMES
+
+   A sidebar of buckets and a grid of cards. Both live inside the shell's
+   existing columns -- .ct-sidebar and .ct-main-panel are auto-placed, so this
+   file writes no grid rules and no widths.
+
+   The grid is sized with a container query rather than a media query, for the
+   reason responsive.css already documents for Settings: the panel is the window
+   minus the 72px rail and the sidebar, so a viewport breakpoint is answering a
+   different question from the one the cards are asking.
+   ========================================================================== */
+
+.ct-free-games-sidebar {
+  @apply flex min-h-0 flex-1 flex-col gap-3;
+}
+
+.ct-free-games-tabs {
+  @apply flex shrink-0 flex-col gap-1.5;
+}
+
+/* Deliberately the same shape as .ct-settings-tab: this is the second panel in
+   the app whose sidebar is a list of labelled destinations, and two different
+   answers to that would read as two different apps. */
+.ct-free-games-tab {
+  @apply relative flex flex-col gap-0.5 overflow-hidden rounded-md border px-3 py-2.5 text-left;
+  border-color: transparent;
+  color: var(--ct-text-secondary);
+  background: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-free-games-tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+  transition: height var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-free-games-tab:hover:not(.active) {
+  border-color: var(--ct-border);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+}
+
+.ct-free-games-tab.active {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+.ct-free-games-tab.active::before {
+  height: 60%;
+}
+
+.ct-free-games-tab-head {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-free-games-tab-label {
+  @apply text-sm font-semibold;
+  line-height: 1.3;
+}
+
+.ct-free-games-tab-count {
+  @apply shrink-0 rounded-full px-2 text-2xs font-semibold tabular-nums;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-08);
+}
+
+/* --ct-text-inverse, NOT --ct-on-info.
+
+   --ct-accent is #111113 under the light theme and #ffffff under the dark one,
+   while --ct-on-info is #ffffff in both. So on an accent background the label
+   was white-on-white in dark mode: the count on the selected tab simply was
+   not there. --ct-text-inverse is the token that flips with the accent. */
+.ct-free-games-tab.active .ct-free-games-tab-count {
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-free-games-tab-description {
+  @apply text-xs;
+  color: var(--ct-text-muted);
+  line-height: 1.3;
+}
+
+.ct-free-games-sidebar-footer {
+  @apply mt-auto flex shrink-0 flex-col gap-2 border-t pt-3;
+  border-color: var(--ct-border);
+}
+
+.ct-free-games-updated,
+.ct-free-games-warning {
+  @apply flex items-center gap-1.5 text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-free-games-warning {
+  color: var(--ct-warning);
+}
+
+/* --- the grid ------------------------------------------------------------ */
+
+.ct-free-games-panel {
+  @apply flex min-h-0 flex-1 flex-col gap-4;
+  container-type: inline-size;
+  container-name: free-games;
+}
+
+.ct-free-games-header {
+  @apply flex shrink-0 items-start justify-between gap-4;
+}
+
+.ct-free-games-header h4 {
+  @apply text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-free-games-header-description {
+  @apply text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-free-games-header-controls {
+  @apply flex shrink-0 items-center gap-2;
+}
+
+.ct-free-games-store-select {
+  min-width: 160px;
+}
+
+.ct-free-games-count {
+  @apply shrink-0 rounded-full border px-2.5 py-1 text-2xs font-semibold tabular-nums;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-02);
+}
+
+/* Sits under the grid, in normal flow with it.
+
+   It was briefly pinned instead, by making the panel's parent a flex column so
+   the grid could be its own scroller. That gave the card row a definite height
+   and the covers were squeezed out of existence — the pager is not worth a
+   layout that can do that to the content it pages. The page scrolls as one
+   document, as Ayarlar does. */
+.ct-free-games-pagination {
+  @apply flex shrink-0 justify-end;
+}
+
+.ct-free-games-grid {
+  @apply grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pb-2;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.ct-free-games-state {
+  @apply flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center text-sm;
+  color: var(--ct-text-muted);
+}
+
+.ct-free-games-state > :first-child {
+  font-size: var(--ct-icon-lg);
+}
+
+.ct-free-games-attribution {
+  @apply shrink-0 border-t pt-3 text-2xs;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+}
+
+.ct-free-games-attribution a {
+  color: var(--ct-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ct-free-games-attribution a:hover {
+  color: var(--ct-accent);
+}
+
+/* --- a card -------------------------------------------------------------- */
+
+.ct-free-game-card {
+  @apply flex flex-col overflow-hidden rounded-lg border;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+  box-shadow: var(--ct-shadow-sm);
+  transition:
+    border-color var(--ct-duration-base) ease,
+    box-shadow var(--ct-duration-base) ease,
+    transform var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-free-game-card:hover {
+  border-color: var(--ct-border-strong);
+  box-shadow: var(--ct-shadow-md);
+  transform: translateY(-2px);
+}
+
+/* A giveaway is the thing this page exists for; a discount is a footnote. */
+.ct-free-game-card.free-now {
+  border-color: color-mix(in srgb, var(--ct-success) 40%, var(--ct-border));
+}
+
+/* shrink-0 is not decoration.
+
+   The cover is a flex item in a column card, so it carries the default
+   flex-shrink: 1 — and the moment anything gives the card a height smaller than
+   its content (a flex parent, a constrained grid row), the 16/9 box is the part
+   that gets squeezed. With overflow: hidden on it and the image sized to the
+   box, that reads as "the cards went small and the pictures vanished", which is
+   exactly what a layout change here caused once. The aspect ratio is the
+   card's, not a suggestion. */
+.ct-free-game-cover {
+  @apply relative w-full shrink-0 overflow-hidden;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(140deg, var(--ct-surface-2), var(--ct-surface-3));
+}
+
+.ct-free-game-cover img {
+  @apply h-full w-full object-cover;
+  display: block;
+}
+
+.ct-free-game-cover-fallback {
+  @apply absolute inset-0 flex items-center justify-center;
+  color: var(--ct-text-muted);
+  font-size: var(--ct-icon-lg);
+}
+
+.ct-free-game-store,
+.ct-free-game-discount {
+  @apply absolute rounded-full px-2 py-0.5 text-2xs font-semibold;
+  backdrop-filter: blur(6px);
+}
+
+/* --ct-scrim, NOT --ct-alpha-70.
+
+   The alpha tokens are white-tinted under the dark theme, so the store name
+   was white text on a 70%-white pill — invisible over a pale cover and barely
+   there over a dark one. --ct-scrim and --ct-on-media are the pair that does
+   NOT flip with the theme, which is exactly what a label sitting on somebody
+   else's artwork needs: the artwork does not know what theme it is in.
+
+   The text shadow is for the same reason the scrim is not enough on its own:
+   a cover can be white at that corner, and 0.6 alpha over white still leaves
+   a light pill. */
+.ct-free-game-store {
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 90px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ct-on-media);
+  background: var(--ct-scrim);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 55%);
+}
+
+/* Same white-on-white trap as the tab count: --ct-accent flips, --ct-on-info
+   does not. */
+.ct-free-game-discount {
+  top: 8px;
+  right: 8px;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-free-game-body {
+  @apply flex min-w-0 flex-1 flex-col gap-2 p-3;
+}
+
+.ct-free-game-title {
+  @apply overflow-hidden text-sm font-semibold;
+  color: var(--ct-text-primary);
+  line-height: 1.3;
+  /* Two lines, then an ellipsis. A card whose title wraps to four lines pushes
+     its own button below the fold of the grid row. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ct-free-game-description {
+  @apply overflow-hidden text-xs;
+  color: var(--ct-text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.ct-free-game-meta {
+  @apply mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-2xs;
+  color: var(--ct-text-secondary);
+}
+
+.ct-free-game-price {
+  @apply inline-flex items-center gap-1 font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+/* The old price, beside the new one. Quieter and lighter than its neighbour so
+   the pair reads as "this, down from that" at a glance rather than as two
+   competing numbers. */
+.ct-free-game-price-was {
+  @apply font-normal tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+/* The old price on a giveaway is the point of the card, so it is struck rather
+   than hidden. */
+.ct-free-game-price.struck {
+  color: var(--ct-text-muted);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.ct-free-game-remaining {
+  @apply inline-flex items-center gap-1 tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-free-game-remaining.urgent {
+  color: var(--ct-warning);
+  font-weight: 600;
+}
+
+.ct-free-game-action {
+  @apply mt-1 inline-flex h-control-sm items-center justify-center gap-1.5 rounded-md border text-xs font-semibold;
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+  transition: all var(--ct-duration-base) ease;
+}
+
+/* And once more on hover, where it would have made the button's own label
+   disappear under the cursor. */
+.ct-free-game-action:hover {
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+/* Below this the two-column grid leaves a card too narrow for a title, a
+   deadline and a button on their own lines. */
+@container free-games (max-width: 520px) {
+  .ct-free-games-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-free-games-header {
+    @apply flex-col items-start gap-2;
+  }
+
+  /* The store select and the count fight for the last 160px once the header
+     stacks; full width is the only honest answer at this size. */
+  .ct-free-games-header-controls {
+    @apply w-full justify-between;
+  }
+
+  .ct-free-games-pagination {
+    @apply justify-center;
+  }
+}

@@ -3,6 +3,7 @@ import { BaseClient, DesktopApiError } from "./clients/base-client";
 import { ChatClient } from "./clients/chat-client";
 import { LobbyClient } from "./clients/lobby-client";
 import { MediaClient } from "./clients/media-client";
+import { MinigameClient } from "./clients/minigame-client";
 
 export class BackendClient {
   public readonly base: BaseClient;
@@ -10,6 +11,7 @@ export class BackendClient {
   public readonly lobby: LobbyClient;
   public readonly media: MediaClient;
   public readonly chat: ChatClient;
+  public readonly minigame: MinigameClient;
 
   public constructor(baseUrl: string) {
     this.base = new BaseClient(baseUrl);
@@ -17,6 +19,7 @@ export class BackendClient {
     this.lobby = new LobbyClient(this.base);
     this.media = new MediaClient(this.base);
     this.chat = new ChatClient(this.base);
+    this.minigame = new MinigameClient(this.base);
   }
 }
 

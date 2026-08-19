@@ -38,6 +38,10 @@ if (process.env.SENTRY_DSN && !isDev) {
   });
 }
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
+import {
+  startFreeGamesPoller,
+  stopFreeGamesPoller,
+} from "./free-games-poller";
 import { disposeGlobalHotkeys, installGlobalHotkeys } from "./global-hotkeys";
 import { clearDesktopNotifications } from "./notifications";
 import { createAppMenu } from "./menu";
@@ -387,6 +391,10 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     registerIpcHandlers();
     registerStreamingIpcHandlers();
     installGlobalHotkeys();
+    // Runs for the whole session, not only while the page is open: a
+    // giveaway that starts while the app sits in the tray is exactly the one
+    // worth a toast.
+    startFreeGamesPoller();
 
     if (!unsubscribePreferencesListener) {
       unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {
@@ -432,6 +440,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       unregisterStreamingIpcHandlers();
       disposeGlobalHotkeys();
       clearDesktopNotifications();
+      stopFreeGamesPoller();
       destroyModularUpdater();
       if (unsubscribePreferencesListener) {
         unsubscribePreferencesListener();

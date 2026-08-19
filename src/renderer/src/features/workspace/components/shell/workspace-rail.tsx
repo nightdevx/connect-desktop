@@ -2,6 +2,8 @@ import { Tooltip, Badge } from "antd";
 import {
   TeamOutlined,
   AppstoreOutlined,
+  GiftOutlined,
+  RocketOutlined,
   SettingOutlined,
   SafetyCertificateOutlined,
   LogoutOutlined,
@@ -41,6 +43,18 @@ const ITEMS: RailItem[] = [
     label: "Lobiler",
     title: "Lobiler",
     icon: <AppstoreOutlined />,
+  },
+  {
+    section: "free-games",
+    label: "Kampanya",
+    title: "Ücretsiz Oyunlar",
+    icon: <GiftOutlined />,
+  },
+  {
+    section: "minigames",
+    label: "Oyunlar",
+    title: "Oyunlar",
+    icon: <RocketOutlined />,
   },
   {
     section: "settings",

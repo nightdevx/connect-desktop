@@ -31,6 +31,13 @@ import type {
   UpdatePrivacyRequest,
 } from "./auth-contracts";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
+import type { FreeGamesSnapshot } from "./free-games";
+import type {
+  MinigameLeaderboard,
+  MinigameScoreMap,
+  MinigameTable,
+  MultiplayerGameId,
+} from "./minigames";
 
 export interface ApiErrorPayload {
   code: string;
@@ -74,12 +81,20 @@ export interface DesktopAppPreferences {
   // has focus. pushToTalkKey is a KeyboardEvent.code ("Space", "KeyV", …).
   pushToTalk: boolean;
   pushToTalkKey: string;
+  // A toast when a game becomes free. Separate from desktopNotifications
+  // because it is a different kind of interruption: a message is somebody
+  // waiting for you, a giveaway is an errand. Both must be refusable on
+  // their own.
+  freeGameNotifications: boolean;
 }
 
 export type DesktopNotificationKind =
   | "direct-message"
   | "incoming-call"
-  | "lobby-message";
+  | "lobby-message"
+  // Raised by the main-process poller, not by the renderer: the whole point
+  // is that it fires while the window is in the tray.
+  | "free-game";
 
 export interface DesktopNotificationRequest {
   kind: DesktopNotificationKind;
@@ -280,6 +295,30 @@ export type LobbyStreamEvent =
       userId: string;
       username: string;
       emote: LobbySoundEmote;
+      at?: string;
+    }
+  | {
+      // One game table, in full, after every change.
+      //
+      // Rides this socket but has nothing to do with lobbies: a table is its own
+      // lobby, open to anyone signed in, and there is no room to belong to. It
+      // is here because every client already holds this connection open, and a
+      // second websocket for a handful of frames a minute would be a second
+      // stream manager and a second reconnect ladder.
+      //
+      // The server owns the board, so this is the whole table and not a delta —
+      // there is no move to replay and nothing to reconcile, which is what makes
+      // a dropped frame cost a repaint rather than a desynced game. One table
+      // per frame rather than the whole registry: the client keeps a map keyed
+      // by id and derives both the browser list and its own board from it.
+      //
+      // `table: null` is an explicit frame, not silence: it is what tells the
+      // remaining player their opponent walked away, and the browser that a
+      // listing is gone. Inferring that from an absence is the same mistake
+      // lobby-removed exists to undo.
+      type: "minigame-table";
+      tableId: string;
+      table: MinigameTable | null;
       at?: string;
     }
   | {
@@ -602,6 +641,42 @@ export interface DesktopApi {
     lobbyId: string;
     emote: LobbySoundEmote | string;
   }) => Promise<DesktopResult<{ accepted: boolean }>>;
+  // Every open game table, read once when the page opens. Each later change
+  // arrives on the lobby stream as a minigame-table frame, so this is a
+  // starting point and not a poll.
+  listMinigameTables: () => Promise<
+    DesktopResult<{ tables: MinigameTable[] }>
+  >;
+  // Open, join, move, restart and leave, behind one call. The reply carries the
+  // resulting table so the clicker repaints without waiting for its own
+  // broadcast to come back round; everyone else is what the stream is for.
+  //
+  // `cell` under a gravity game names a COLUMN's worth of target — the server
+  // takes the column and drops the mark itself, because a client cannot know
+  // the landing row without racing the opponent.
+  playMinigame: (payload: {
+    action: "open" | "join" | "move" | "restart" | "leave";
+    game?: MultiplayerGameId;
+    tableId?: string;
+    // A grid game sends `cell`; chess sends `move` in UCI. The server reads
+    // whichever its table's engine wants and ignores the other.
+    cell?: number;
+    move?: string;
+  }) => Promise<DesktopResult<{ table: MinigameTable | null }>>;
+  // Every solo game this account holds a record at. Read once when the page
+  // opens; a submission answers with the new value, so nothing polls.
+  listMinigameScores: () => Promise<DesktopResult<{ scores: MinigameScoreMap }>>;
+  // Records a finished run. Idempotent: the server keeps the score only if it
+  // beats what is stored, which is what lets the desktop re-send its local
+  // records on every launch to catch up whatever was earned offline.
+  submitMinigameScore: (payload: { game: string; score: number }) => Promise<
+    DesktopResult<{ updated: boolean; game: string; best: number }>
+  >;
+  // One game ranked, plus the caller's own place in it. Public to every
+  // signed-in account — a board only its holder can see is not a board.
+  getMinigameLeaderboard: (payload: { game: string; limit?: number }) => Promise<
+    DesktopResult<MinigameLeaderboard>
+  >;
   // The uploaded soundboard. The list carries no audio; getEmoteSample is the
   // one call that does, and a client reads each id once and caches it.
   listEmotes: () => Promise<
@@ -781,6 +856,17 @@ export interface DesktopApi {
       peerUserId: string | null;
       lobbyId: string | null;
     }) => void,
+  ) => () => void;
+  // Free-game offers, gathered in main from four upstreams. `refresh` is the
+  // page's manual button; main still applies its own cooldown and answers
+  // from cache when it refuses.
+  getFreeGames: (payload?: {
+    refresh?: boolean;
+  }) => Promise<DesktopResult<FreeGamesSnapshot>>;
+  // Pushed whenever the background poll produces a new snapshot, so a page
+  // left open updates without asking.
+  onFreeGamesUpdated: (
+    listener: (snapshot: FreeGamesSnapshot) => void,
   ) => () => void;
   onHotkey: (listener: (event: DesktopHotkeyEvent) => void) => () => void;
   getWindowState: () => Promise<DesktopResult<DesktopWindowState>>;

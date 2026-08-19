@@ -21,6 +21,8 @@ import type {
 } from "../../hooks";
 import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import { LobbiesMainPanel } from "../lobby";
+import { FreeGamesMainPanel } from "@/features/free-games";
+import { MinigamesMainPanel } from "@/features/minigames";
 import { SettingsMainPanel } from "../settings";
 import type {
   AudioPreferences,
@@ -283,6 +285,8 @@ export function WorkspaceMainPanel({
   const hideWorkspaceIntro =
     workspaceSection === "users" ||
     workspaceSection === "settings" ||
+    workspaceSection === "free-games" ||
+    workspaceSection === "minigames" ||
     (workspaceSection === "lobbies" && lobbyRoomId !== null);
 
   return (
@@ -466,6 +470,17 @@ export function WorkspaceMainPanel({
             onSaveAudioPreferences={onSaveAudioPreferences}
             onSaveStreamPreferences={onSaveStreamPreferences}
           />
+        )}
+
+        {/* No props: the page fetches through main and holds its own state,
+            so the shell neither carries it nor re-renders for it. */}
+        {workspaceSection === "free-games" && <FreeGamesMainPanel />}
+
+        {/* Unmounted with the section, which is what stops a snake ticking and
+            a minesweeper clock counting behind a lobby. No room is threaded in:
+            a two-player table is its own lobby and belongs to no voice room. */}
+        {workspaceSection === "minigames" && (
+          <MinigamesMainPanel currentUserId={currentUserId} />
         )}
       </div>
     </section>

@@ -372,7 +372,33 @@ export function SettingsApplication() {
                 disabled={isSavingAppPreference}
               />
             </div>
+
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Ücretsiz oyun bildirimleri</strong>
+                <span>
+                  Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda
+                  bildirim gösterir. Uygulama tepsideyken de çalışır. Ücretsiz
+                  Oyunlar sayfası bu ayardan bağımsız çalışmaya devam eder.
+                </span>
+              </div>
+              <Switch
+                checked={appPreferences.freeGameNotifications}
+                onChange={(checked) => {
+                  void savePreference("freeGameNotifications", checked);
+                }}
+                disabled={
+                  isSavingAppPreference || !appPreferences.desktopNotifications
+                }
+              />
+            </div>
           </div>
+
+          {!appPreferences.desktopNotifications && (
+            <p className="ct-field-hint">
+              Masaüstü bildirimleri kapalıyken hiçbir bildirim gösterilmez.
+            </p>
+          )}
         </div>
 
         <div className="ct-settings-subsection">

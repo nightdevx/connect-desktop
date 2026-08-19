@@ -41,6 +41,11 @@ const tagFor = (request: DesktopNotificationRequest): string => {
   if (request.kind === "lobby-message") {
     return `lobby-message:${request.lobbyId ?? ""}`;
   }
+  // One tag for the whole feature: a second batch of giveaways replaces
+  // the first toast rather than stacking behind it.
+  if (request.kind === "free-game") {
+    return "free-game";
+  }
   return `${request.kind}:${request.peerUserId ?? ""}`;
 };
 
@@ -49,7 +54,15 @@ const shouldNotify = (kind: DesktopNotificationKind): boolean => {
     return false;
   }
 
-  if (!getDesktopAppPreferences().desktopNotifications) {
+  const preferences = getDesktopAppPreferences();
+  if (!preferences.desktopNotifications) {
+    return false;
+  }
+
+  // Its own switch on top of the master one. Somebody who wants to be told
+  // that a friend messaged does not necessarily want to be told that a game
+  // went free, and the two have nothing to do with each other.
+  if (kind === "free-game" && !preferences.freeGameNotifications) {
     return false;
   }
 

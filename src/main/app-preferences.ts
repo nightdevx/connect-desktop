@@ -15,6 +15,7 @@ const defaultAppPreferences: DesktopAppPreferences = {
   hotkeyToggleDeafen: "",
   pushToTalk: false,
   pushToTalkKey: "Space",
+  freeGameNotifications: true,
 };
 
 // An accelerator arrives from the renderer, so it is untrusted input that ends
@@ -97,6 +98,10 @@ const sanitizeLoadedPreferences = (payload: unknown): DesktopAppPreferences => {
       source.pushToTalkKey,
       defaultAppPreferences.pushToTalkKey,
     ),
+    freeGameNotifications:
+      typeof source.freeGameNotifications === "boolean"
+        ? source.freeGameNotifications
+        : defaultAppPreferences.freeGameNotifications,
   };
 };
 

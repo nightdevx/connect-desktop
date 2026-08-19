@@ -2,6 +2,7 @@ import { app, ipcMain, desktopCapturer } from "electron";
 import { ok, fail, getWindowFromSender } from "../context";
 import {
   appPreferencesSchema,
+  freeGamesSchema,
   gifSearchSchema,
   notifySchema,
   windowAttentionSchema,
@@ -19,6 +20,7 @@ import {
   installDownloadedAppUpdate,
 } from "../../update";
 import { launchMockUpdaterWindow } from "../../update/helper-mode";
+import { getFreeGames } from "../../free-games-poller";
 
 export function registerAppHandlers(): void {
   ipcMain.handle("app:ping", async () => "pong");
@@ -71,6 +73,19 @@ export function registerAppHandlers(): void {
 
       const items = await searchKlipyGifs(klipyApiKey, (parsed.query ?? "").trim());
       return ok({ items });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Four third-party feeds, fetched here rather than in the renderer:
+  // Epic's endpoint sends no CORS headers at all, so a renderer fetch is
+  // blocked before it starts. The poller owns the cache and the cooldown;
+  // this is only the door onto them.
+  ipcMain.handle("desktop:free-games", async (_event, payload: unknown) => {
+    try {
+      const parsed = freeGamesSchema.parse(payload);
+      return ok(await getFreeGames({ refresh: parsed.refresh }));
     } catch (error) {
       return fail(error);
     }

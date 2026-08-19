@@ -17,10 +17,24 @@
          not match bare klipy.com: without it, gif-hosts.ts would accept an
          apex-hosted URL, main's "every row dropped" warning would stay quiet,
          and the user would get a grid of broken cells with nothing logged
-         anywhere. Avatars and attachments are data: URLs. -->
+         anywhere. Avatars and attachments are data: URLs.
+
+         The six hosts after it are the free-games page's cover art. They are
+         enumerated rather than folded into a blanket `https:` for one reason:
+         every URL in that list arrives inside THIRD-PARTY JSON, so an upstream
+         that was compromised or merely careless could point the renderer at any
+         host it liked and use the request as a beacon. (connect-src is already
+         `https:`, but that is exercised by first-party code with first-party
+         URLs, which is a different trust question.)
+
+         CheapShark's thumbnails come from whichever CDN the tracked store uses
+         — eight different ones in a single page of deals — so that set is open
+         by nature and only Steam's two are listed. Anything not on this list is
+         BLOCKED, fires the image's onError, and falls back to the card's own
+         placeholder: a missing cover, never a broken layout. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: https://klipy.com https://*.klipy.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws://localhost:5173 http://localhost:5173 ws://127.0.0.1:7880 http://127.0.0.1:7880 https: wss:"
+      content="default-src 'self'; img-src 'self' data: https://klipy.com https://*.klipy.com https://cdn1.epicgames.com https://cdn2.epicgames.com https://www.gamerpower.com https://www.freetogame.com https://shared.fastly.steamstatic.com https://cdn.akamai.steamstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws://localhost:5173 http://localhost:5173 ws://127.0.0.1:7880 http://127.0.0.1:7880 https: wss:"
     />
     <title>Connect</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
