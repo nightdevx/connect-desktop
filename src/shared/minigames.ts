@@ -56,6 +56,21 @@ export interface MinigameChessBoard {
   /** The move just played, in UCI, so both of its squares can be flashed. */
   lastMove: string | null;
   /**
+   * Every move so far in algebraic notation ("e4", "Nf3", "Qxd5+", "O-O#"),
+   * oldest first. SAN rather than the UCI above because this is the half a
+   * person READS, and the notation already carries the capture, the check and
+   * the mate. The whole list, so a client that joined or reconnected mid-game
+   * can still draw the scoresheet.
+   */
+  history: string[];
+  /**
+   * The square of the king that is in check ("e1"), empty when neither is.
+   * Sent by the server rather than worked out here: this side parses only the
+   * piece placement of the FEN, and deciding whose king is in danger from it
+   * would be a second opinion about the position.
+   */
+  checkSquare: string;
+  /**
    * Why the game ended, already in Turkish, for the hint line. Empty while
    * running. Text because stalemate and insufficient material are both draws
    * and the envelope's `draw` flag cannot tell them apart.

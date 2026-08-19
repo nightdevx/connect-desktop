@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiStore } from "@/store/ui-store";
 import { MINIGAME_IDS, tracksScore } from "@/store/minigame-scores";
 import { scoreService } from "./score-service";
@@ -22,10 +22,23 @@ import { scoreService } from "./score-service";
  *   DOWN  The server's records are merged back in, which is what puts a record
  *         set on the user's OTHER machine onto this one. localStorage stops
  *         being the truth and becomes the copy that survives being offline.
+ *
+ * It returns a counter, bumped whenever a submission has LANDED, and that
+ * number is the whole point of the return value. The leaderboard used to
+ * refetch when the local record changed -- which is the instant the game ends,
+ * before the score has left the machine. The read and the write raced, the read
+ * usually won, and the board came back without the run that had just been
+ * played. Pressing refresh was the only way to see it, which is exactly the
+ * complaint. Waiting for the write to finish is the fix.
  */
-export function useScoreSync(): void {
+export function useScoreSync(): number {
   const bestScores = useUiStore((state) => state.minigameBestScores);
   const recordScore = useUiStore((state) => state.recordMinigameScore);
+  const [syncedAt, setSyncedAt] = useState(0);
+
+  // A counter rather than a timestamp: two submissions inside one millisecond
+  // are one value, and this is a dependency that has to change every time.
+  const markSynced = useCallback(() => setSyncedAt((value) => value + 1), []);
 
   // What has already been sent, so the effect below fires on a NEW record and
   // not on every render that happens to touch the store.
@@ -72,6 +85,10 @@ export function useScoreSync(): void {
         recordScore(game as (typeof MINIGAME_IDS)[number], score);
         submittedRef.current.set(game, score);
       }
+
+      // The catch-up is done and the server has whatever this machine was
+      // holding, so anything reading the board now reads it complete.
+      markSynced();
     };
 
     void sync();
@@ -79,11 +96,13 @@ export function useScoreSync(): void {
     return () => {
       cancelled = true;
     };
-  }, [recordScore]);
+  }, [recordScore, markSynced]);
 
   // Every later record, as it is set. The store is written by the games the
   // moment one ends, so this is what carries a fresh record to the board.
   useEffect(() => {
+    const pending: Promise<unknown>[] = [];
+
     for (const game of MINIGAME_IDS) {
       const score = bestScores[game];
       if (score === undefined || !tracksScore(game)) {
@@ -93,7 +112,18 @@ export function useScoreSync(): void {
         continue;
       }
       submittedRef.current.set(game, score);
-      void scoreService.submitScore(game, score);
+      pending.push(scoreService.submitScore(game, score));
     }
-  }, [bestScores]);
+
+    if (pending.length === 0) {
+      return;
+    }
+
+    // Bumped after the write RESOLVES, whichever way it went. A submission that
+    // lost to a better stored score still means the board is now current, and a
+    // failed one means a refetch is the only thing that can put it right.
+    void Promise.allSettled(pending).then(markSynced);
+  }, [bestScores, markSynced]);
+
+  return syncedAt;
 }

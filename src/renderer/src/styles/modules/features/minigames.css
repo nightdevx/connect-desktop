@@ -470,19 +470,19 @@
   border-style: dashed;
 }
 
-/* The seat colours, and the only place they are decided. The cells below reuse
+/* The seat colours, and the only place they are decided. The discs below reuse
    the same two tokens through data-owner, so a mark and its name always agree. */
 .ct-versus-mark {
   @apply inline-block h-3 w-3 rounded-full;
 }
 
 .ct-versus-mark[data-seat="0"],
-.ct-versus-cell[data-owner="0"] {
+.ct-versus-disc[data-owner="0"] {
   background: var(--ct-info);
 }
 
 .ct-versus-mark[data-seat="1"],
-.ct-versus-cell[data-owner="1"] {
+.ct-versus-disc[data-owner="1"] {
   background: var(--ct-warning);
 }
 
@@ -491,10 +491,18 @@
 }
 
 .ct-versus-cell {
-  @apply rounded-md;
+  @apply relative rounded-md;
   border: 1px solid transparent;
   background: var(--ct-alpha-04);
   transition: all var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+/* The mark is its own element so a disc can move into a slot that stays put.
+   border-radius: inherit is what lets one rule serve a square tic-tac-toe mark
+   and a round Connect Four disc. */
+.ct-versus-disc {
+  @apply absolute inset-0;
+  border-radius: inherit;
 }
 
 /* Only a playable cell is enabled, so :not(:disabled) IS "your turn, and free".
@@ -518,9 +526,46 @@
   border-color: var(--ct-text-primary);
 }
 
+/* Tic-tac-toe: the mark appears where it was clicked, so it pops. */
+.ct-versus-disc[data-landed] {
+  animation: ctTilePop 0.22s var(--ct-ease-spring) both;
+}
+
+/* Connect Four: it falls. --drop is how many rows, set inline from the landing
+   row, so a disc that reaches the bottom of the board travels further than one
+   that stops on top of a stack -- which is the only thing that says WHICH
+   column it went down. */
+.ct-versus-board[data-game="connect4"] .ct-versus-disc[data-landed] {
+  animation: ctDiscDrop 0.34s cubic-bezier(0.5, 0, 0.75, 1) both;
+}
+
+@keyframes ctDiscDrop {
+  from {
+    transform: translateY(calc(var(--drop, 1) * -100%));
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The line that won, walked through one cell at a time. The delay is what makes
+   it read as a line rather than as four cells lighting at once -- and the order
+   is whatever the server sent, which is the order it was found in. */
 .ct-versus-cell[data-winning] {
-  box-shadow: var(--ct-shadow-glow);
   border-color: var(--ct-success);
+  animation: ctWinCell 1.1s var(--ct-ease-spring) infinite;
+}
+
+@keyframes ctWinCell {
+  0%,
+  100% {
+    box-shadow: var(--ct-shadow-glow);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: none;
+    transform: scale(0.9);
+  }
 }
 
 .ct-versus-board[data-game="connect4"] .ct-versus-cell {
@@ -534,16 +579,159 @@
    king on any dark surface is a thin line that all but disappears next to a
    solid black one. See pieceGlyph in chess-position.ts. */
 
+.ct-chess {
+  @apply flex w-full min-w-0 flex-col items-center gap-2.5;
+}
+
+/* Board and scoresheet side by side, wrapping to stacked on a narrow panel.
+   Wider than the 520px every other board is capped at, because the sheet is
+   what the extra width buys -- the board itself still stops at 520. */
+.ct-chess-layout {
+  @apply flex w-full min-w-0 flex-wrap items-start justify-center gap-3;
+  max-width: 680px;
+}
+
+/* --- what just happened --------------------------------------------------- */
+
+/* The line that answers "did they move?". The board repainting was the only
+   signal before this, and unless you were watching the right two squares there
+   was nothing to see. */
+.ct-chess-ticker {
+  @apply flex w-full min-w-0 shrink-0 items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-xs;
+  max-width: 680px;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+  color: var(--ct-text-secondary);
+  min-height: 34px;
+  transition: border-color var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-chess-ticker-move {
+  @apply flex items-center gap-2 truncate;
+}
+
+.ct-chess-ticker-idle {
+  color: var(--ct-text-muted);
+}
+
+/* The notation itself, in the mono face and re-keyed on every move so this
+   animation replays. It is the smallest thing on screen that changes, so it is
+   the one thing that has to move. */
+.ct-chess-ticker strong {
+  @apply rounded px-1.5 py-0.5 font-semibold tabular-nums;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+  animation: ctChessMoveIn var(--ct-duration-slow) var(--ct-ease-spring) both;
+}
+
+@keyframes ctChessMoveIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.9);
+    background: var(--ct-accent-strong);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Check is the one state a player must not miss, so it is the one thing on the
+   page that keeps moving until it is dealt with. */
+.ct-chess-check {
+  @apply ml-auto shrink-0 rounded px-2 py-0.5 text-2xs font-bold;
+  letter-spacing: 0.08em;
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+  animation: ctChessCheckPulse 1.1s var(--ct-ease-premium) infinite;
+}
+
+@keyframes ctChessCheckPulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--ct-danger);
+  }
+  50% {
+    opacity: 0.82;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+/* --- the scoresheet ------------------------------------------------------- */
+
+.ct-chess-sheet {
+  @apply flex min-w-0 shrink-0 flex-col gap-1.5 rounded-lg border p-2;
+  flex: 1 1 136px;
+  max-width: 148px;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+  /* Matches the board it stands beside: the board is one square capped at 520,
+     so this is the tallest it can be without making the row taller than the
+     board. */
+  max-height: 520px;
+}
+
+.ct-chess-sheet-title {
+  @apply shrink-0 px-1 text-2xs font-semibold uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ct-text-muted);
+}
+
+/* Its own scroller, because the list is the only part that grows -- and it is
+   scrolled to the bottom on every move, so what is visible is always the end. */
+.ct-chess-sheet-scroll {
+  @apply min-h-0 flex-1 overflow-y-auto;
+}
+
+.ct-chess-sheet-empty {
+  @apply m-0 px-1 py-2 text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-chess-sheet-list {
+  @apply m-0 flex list-none flex-col gap-0.5 p-0;
+}
+
+.ct-chess-sheet-row {
+  @apply grid items-center gap-1 rounded px-1 py-0.5 text-2xs tabular-nums;
+  grid-template-columns: 1.6rem 1fr 1fr;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-secondary);
+}
+
+.ct-chess-sheet-number {
+  @apply text-right;
+  color: var(--ct-text-muted);
+}
+
+.ct-chess-sheet-move {
+  @apply truncate rounded px-1;
+}
+
+/* The newest ply. The list is scrolled to the bottom anyway, but "the last line"
+   and "the last move" are not the same thing while white is waiting for a
+   reply. */
+.ct-chess-sheet-move[data-current] {
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+  font-weight: 700;
+}
+
+/* --- the board ------------------------------------------------------------ */
+
 .ct-chess-board {
   @apply gap-0 p-1.5;
   /* Load-bearing for the glyph size below: cqw with no container ancestor
      resolves against the VIEWPORT, which would size the pieces off the window
      instead of off the board they sit on. */
   container-type: inline-size;
+  flex: 1 1 320px;
 }
 
 .ct-chess-square {
-  @apply flex items-center justify-center rounded-none leading-none;
+  @apply relative flex items-center justify-center overflow-hidden rounded-none leading-none;
   border: 0;
   background: var(--ct-alpha-08);
   transition: box-shadow var(--ct-duration-fast) var(--ct-ease-premium);
@@ -557,6 +745,39 @@
    happened without replaying it in their head. */
 .ct-chess-square[data-last] {
   background: var(--ct-accent-soft);
+}
+
+/* And the one it ENDED on gets a ring that fades, which is the difference
+   between "a move happened at some point" and "a move happened just now". */
+.ct-chess-square[data-landed] {
+  animation: ctChessLanded var(--ct-duration-slow) var(--ct-ease-premium) both;
+}
+
+@keyframes ctChessLanded {
+  from {
+    box-shadow: inset 0 0 0 3px var(--ct-accent);
+  }
+  to {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+/* The king in check, named by the server. Red, and still moving -- the same
+   reasoning as the badge above: this is the state that ends the game if it is
+   missed. */
+.ct-chess-square[data-check] {
+  background: var(--ct-danger);
+  animation: ctChessCheckSquare 1.1s var(--ct-ease-premium) infinite;
+}
+
+@keyframes ctChessCheckSquare {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--ct-danger);
+  }
+  50% {
+    box-shadow: inset 0 0 0 6px var(--ct-on-danger);
+  }
 }
 
 .ct-chess-square[data-selected] {
@@ -577,6 +798,18 @@
   height: 28%;
   border-radius: 50%;
   background: var(--ct-success);
+  animation: ctChessTargetIn var(--ct-duration-fast) var(--ct-ease-spring) both;
+}
+
+@keyframes ctChessTargetIn {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 /* A capture is a ring, not a dot: a dot centred on an enemy queen reads as
@@ -593,6 +826,31 @@
   box-shadow: inset 0 0 0 2px var(--ct-accent);
 }
 
+/* A square you can move from lifts its piece. The cursor already says the
+   square is live; this says which piece is about to travel. */
+.ct-chess-square:not(:disabled):hover .ct-chess-piece {
+  transform: scale(1.12);
+}
+
+/* Rank and file, on the two outer edges only. Tucked into the corners so they
+   never sit under a piece. */
+.ct-chess-coord {
+  @apply pointer-events-none absolute text-2xs font-semibold;
+  color: var(--ct-text-muted);
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.ct-chess-coord[data-edge="rank"] {
+  top: 2px;
+  left: 3px;
+}
+
+.ct-chess-coord[data-edge="file"] {
+  bottom: 2px;
+  right: 3px;
+}
+
 .ct-chess-piece {
   /* Sized from the square rather than in px: the board is one square divided by
      eight, and a fixed size would overflow it on a narrow window. */
@@ -602,6 +860,45 @@
      No webfont: these are in every system font stack that matters, and pulling
      one in would mean another host on the CSP font-src list. */
   font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", serif;
+  /* Declared here so the slide below always has a value, not only on the piece
+     React hands the offset to. Set inline, in squares, from moveOffset() in
+     chess-position.ts. Not --ct- prefixed: these are two numbers belonging to
+     one animation, not part of the palette. */
+  --chess-dx: 0;
+  --chess-dy: 0;
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
+}
+
+/* The slide.
+
+   Nothing actually moves between grid cells: the piece is already rendered on
+   the square it landed on, and this starts it displaced by exactly the distance
+   it travelled and animates that displacement away. The multiplier is 100% of
+   the glyph box, which is one square, because the board is a uniform
+   eight-column grid.
+
+   The square clears its own overflow and lifts, so a piece crossing the board
+   passes OVER the ones it passes rather than being clipped to a square it has
+   not arrived at yet. */
+.ct-chess-square:has(.ct-chess-piece[data-arriving]) {
+  overflow: visible;
+  z-index: 2;
+}
+
+.ct-chess-piece[data-arriving] {
+  animation: ctChessSlide var(--ct-duration-slow) var(--ct-ease-premium) both;
+}
+
+@keyframes ctChessSlide {
+  from {
+    transform: translate(
+      calc(var(--chess-dx) * 100%),
+      calc(var(--chess-dy) * 100%)
+    );
+  }
+  to {
+    transform: none;
+  }
 }
 
 .ct-chess-piece[data-color="white"] {
@@ -646,19 +943,61 @@
   font-size: 28px;
 }
 
-.ct-versus-actions {
-  @apply flex shrink-0 flex-wrap items-center justify-center gap-2;
+/* An animated board is a board somebody stares at for minutes at a time.
+   Everything above is decoration on state that is also written in text, so
+   turning all of it off loses the movement and nothing else. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-chess-ticker strong,
+  .ct-chess-check,
+  .ct-chess-square[data-landed],
+  .ct-chess-square[data-check],
+  .ct-chess-square[data-target]::after,
+  .ct-chess-piece[data-arriving],
+  .ct-versus-hint[data-tone="you"]::before {
+    animation: none !important;
+  }
 }
 
-.ct-minigame-state {
-  @apply flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm;
+/* --- the turn line -------------------------------------------------------- */
+
+/* Shared by all three two-player games. The text was already correct and
+   already invisible: a muted 12px line under the board, which is precisely the
+   "whose turn is it" complaint. */
+.ct-versus-hint {
+  @apply flex items-center justify-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold;
+  border-color: transparent;
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-versus-hint[data-tone="you"] {
+  border-color: var(--ct-accent);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+/* A dot that keeps breathing while the move is yours, and stops the moment it
+   is not. Movement is what the eye catches on a page it is not reading. */
+.ct-versus-hint[data-tone="you"]::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ct-accent);
+  animation: ctPulseDot 1.4s var(--ct-ease-premium) infinite;
+}
+
+.ct-versus-hint[data-tone="them"] {
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-hint[data-tone="wait"] {
   color: var(--ct-text-secondary);
 }
 
-.ct-minigame-state-hint {
-  @apply text-xs;
-  color: var(--ct-text-muted);
-  max-width: 42ch;
+.ct-versus-hint[data-tone="done"] {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-raised);
 }
 
 /* --- memory -------------------------------------------------------------- */
@@ -668,25 +1007,339 @@
   @apply gap-2 p-2.5;
 }
 
+/* --- the end of a run ----------------------------------------------------- */
+
+/* The stage is only here to give the outcome card something to be absolute
+   against. It takes the board's own width so the card is centred on the board
+   and not on the panel. */
+.ct-minigame-stage {
+  @apply relative flex w-full shrink-0 flex-col items-center;
+}
+
+/* Deliberately NOT a curtain. A minesweeper loss is only interesting because
+   you can see where the mines were, and a filled 2048 board is worth looking
+   at -- so the board stays lit and this sits on top of it. */
+.ct-outcome {
+  @apply pointer-events-none absolute inset-0 flex items-center justify-center;
+  animation: ctOutcomeIn var(--ct-duration-slow) var(--ct-ease-premium) both;
+}
+
+@keyframes ctOutcomeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ct-outcome-card {
+  @apply pointer-events-auto flex flex-col items-center gap-1.5 rounded-lg border px-6 py-4 text-center;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-panel-solid);
+  box-shadow: var(--ct-shadow-lg);
+  animation: ctOutcomeCardIn 0.42s var(--ct-ease-spring) both;
+}
+
+@keyframes ctOutcomeCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ct-outcome-title {
+  @apply text-lg font-bold;
+  color: var(--ct-text-primary);
+}
+
+.ct-outcome[data-tone="won"] .ct-outcome-card {
+  border-color: var(--ct-success);
+}
+
+.ct-outcome[data-tone="won"] .ct-outcome-title {
+  color: var(--ct-success);
+}
+
+.ct-outcome[data-tone="lost"] .ct-outcome-card {
+  border-color: var(--ct-danger);
+}
+
+.ct-outcome[data-tone="lost"] .ct-outcome-title {
+  color: var(--ct-danger);
+}
+
+.ct-outcome-detail {
+  @apply text-xs tabular-nums;
+  color: var(--ct-text-secondary);
+}
+
+/* The one line worth interrupting for, so it is the one that keeps moving.
+   Only shown on the run that actually beat the stored best -- see
+   useRecordRun. */
+.ct-outcome-record {
+  @apply rounded-full px-2.5 py-0.5 text-2xs font-bold;
+  letter-spacing: 0.1em;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  animation: ctOutcomeRecord 1.6s var(--ct-ease-premium) infinite;
+}
+
+@keyframes ctOutcomeRecord {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: var(--ct-shadow-glow);
+  }
+  50% {
+    transform: scale(1.07);
+    box-shadow: none;
+  }
+}
+
+/* --- what a board does when it ends --------------------------------------- */
+
+/* Losing shakes, winning glows. Shared by every board on the page, because
+   "the run is over" is the same event in all of them and four spellings of it
+   would drift. */
+.ct-minigame-board[data-state="lost"] {
+  animation: ctBoardShake 0.45s var(--ct-ease-premium) both;
+  border-color: var(--ct-danger);
+}
+
+@keyframes ctBoardShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-7px);
+  }
+  30% {
+    transform: translateX(6px);
+  }
+  45% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  80% {
+    transform: translateX(-1px);
+  }
+}
+
+.ct-minigame-board[data-state="won"] {
+  border-color: var(--ct-success);
+  animation: ctBoardWin 0.9s var(--ct-ease-premium) both;
+}
+
+@keyframes ctBoardWin {
+  0% {
+    box-shadow: 0 0 0 0 var(--ct-success);
+  }
+  40% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: var(--ct-shadow-glow);
+  }
+}
+
+.ct-minigame-board[data-state="draw"] {
+  border-color: var(--ct-border-strong);
+}
+
+/* Everything above is decoration on state that is also written in words, so a
+   reader who has asked for less movement loses nothing by turning it off. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-outcome,
+  .ct-outcome-card,
+  .ct-outcome-record,
+  .ct-minigame-board[data-state],
+  .ct-2048-cell[data-value],
+  .ct-mines-cell[data-revealed],
+  .ct-mines-cell[data-mine],
+  .ct-snake-cell[data-food],
+  .ct-snake-cell[data-part="head"],
+  .ct-memory-card[data-missed],
+  .ct-memory-card[data-matched],
+  .ct-versus-disc,
+  .ct-versus-cell[data-winning] {
+    animation: none !important;
+  }
+}
+
+/* --- per-game feel -------------------------------------------------------- */
+
+/* 2048: a tile that appeared or changed pops.
+   Replayed by a remount rather than by a class, because a CSS animation on an
+   element that is already on screen does not restart -- see the key in
+   game-2048.tsx, which carries the value. */
+.ct-2048-cell[data-value] {
+  animation: ctTilePop 0.2s var(--ct-ease-spring) both;
+}
+
+@keyframes ctTilePop {
+  from {
+    transform: scale(0.62);
+    opacity: 0.35;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Minesweeper: opening a cell is a small fade, and the mines arrive in rings
+   from wherever you stepped -- the delay is set inline, per cell. */
+.ct-mines-cell[data-revealed] {
+  animation: ctMineOpen 0.16s var(--ct-ease-premium) both;
+}
+
+@keyframes ctMineOpen {
+  from {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ct-mines-cell[data-mine] {
+  animation: ctMineBlow 0.3s var(--ct-ease-spring) both;
+}
+
+@keyframes ctMineBlow {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* A flag is a decision, so it lands rather than appears. */
+.ct-mines-cell[data-flag] {
+  animation: ctTilePop 0.16s var(--ct-ease-spring) both;
+}
+
+/* Snake: the food is the only thing on the board worth looking for, so it is
+   the only thing that moves on its own. */
+.ct-snake-cell[data-food] {
+  animation: ctFoodPulse 1s var(--ct-ease-premium) infinite;
+}
+
+@keyframes ctFoodPulse {
+  0%,
+  100% {
+    transform: scale(0.72);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
+.ct-snake-cell[data-part="head"] {
+  box-shadow: var(--ct-shadow-glow);
+}
+
+/* Dead: the whole snake goes red under the board shake. */
+.ct-snake-board[data-state="lost"] .ct-snake-cell[data-part] {
+  background: var(--ct-danger);
+}
+
+/* Memory: a real flip, which needs a card with two faces. Swapping the text
+   halfway through a rotation shows the symbol through the back of the card. */
 .ct-memory-card {
-  @apply flex items-center justify-center rounded-md text-3xl leading-none;
-  border: 1px solid var(--ct-border);
-  background: var(--ct-alpha-08);
+  @apply relative flex items-center justify-center rounded-md text-3xl leading-none;
+  border: 0;
+  background: transparent;
+  transform-style: preserve-3d;
+  transition: transform var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-memory-card[data-up] {
+  transform: rotateY(180deg);
+}
+
+.ct-memory-face {
+  @apply absolute inset-0 flex items-center justify-center rounded-md border;
+  backface-visibility: hidden;
+  border-color: var(--ct-border);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
-.ct-memory-card:hover:not([data-up]) {
+.ct-memory-face[data-side="back"] {
+  background: var(--ct-alpha-08);
+}
+
+.ct-memory-card:hover:not([data-up]) .ct-memory-face[data-side="back"] {
   background: var(--ct-alpha-20);
   border-color: var(--ct-border-strong);
 }
 
-.ct-memory-card[data-up] {
-  background: var(--ct-panel-raised);
+/* The face that carries the symbol is mounted pre-turned, so it comes up the
+   right way round when the card rotates. */
+.ct-memory-face[data-side="front"] {
+  transform: rotateY(180deg);
   border-color: var(--ct-border-strong);
+  background: var(--ct-panel-raised);
+}
+
+.ct-memory-card[data-matched] .ct-memory-face[data-side="front"] {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
 }
 
 .ct-memory-card[data-matched] {
-  background: var(--ct-accent-soft);
-  border-color: var(--ct-accent);
-  opacity: 0.65;
+  animation: ctMemoryMatch 0.4s var(--ct-ease-spring) both;
+}
+
+@keyframes ctMemoryMatch {
+  0% {
+    transform: rotateY(180deg) scale(1);
+  }
+  45% {
+    transform: rotateY(180deg) scale(1.12);
+  }
+  100% {
+    transform: rotateY(180deg) scale(1);
+  }
+}
+
+/* A miss says so before it turns back, which is the difference between "wrong"
+   and "the board did something". */
+.ct-memory-card[data-missed] .ct-memory-face[data-side="front"] {
+  border-color: var(--ct-danger);
+  background: var(--ct-danger);
+}
+
+.ct-memory-card[data-missed] {
+  animation: ctMemoryMiss 0.4s var(--ct-ease-premium) both;
+}
+
+@keyframes ctMemoryMiss {
+  0%,
+  100% {
+    transform: rotateY(180deg) translateX(0);
+  }
+  25% {
+    transform: rotateY(180deg) translateX(-5px);
+  }
+  75% {
+    transform: rotateY(180deg) translateX(5px);
+  }
 }

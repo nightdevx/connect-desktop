@@ -107,6 +107,10 @@ const main = async () => {
     parseUci,
     movesByOrigin,
     boardOrder,
+    squareIndex,
+    moveOffset,
+    pairMoves,
+    lastMoveSeat,
   } = await bundle(
     "src/renderer/src/features/minigames/chess-position.ts",
     "chess-position.mjs",
@@ -497,6 +501,64 @@ const main = async () => {
     // Same 64 squares, no duplicates: a flip that lost one would silently hide
     // a piece.
     assert.deepEqual([...black].sort((a, b) => a - b), white);
+  }
+
+  // --- reading a move back ---------------------------------------------------
+
+  // squareIndex is the inverse of squareName, and the check highlight and the
+  // slide both cross that gap: the server names squares, the board is an array.
+  // A round trip that does not close paints a red king on the wrong square.
+  for (let index = 0; index < 64; index += 1) {
+    assert.equal(squareIndex(squareName(index)), index);
+  }
+  // Garbage names a square that is not on the board rather than square 0, which
+  // is what keeps a malformed frame from highlighting a8.
+  assert.equal(squareIndex("j9"), -1);
+  assert.equal(squareIndex(""), -1);
+  assert.equal(squareIndex("e0"), -1);
+
+  {
+    // The slide starts a piece displaced by where it CAME FROM and animates the
+    // displacement away, so the sign is origin-minus-destination. For white,
+    // e2 is two rows BELOW e4 on screen -- rank 8 is row 0 -- so the pawn
+    // starts +2 down and travels up.
+    const push = { from: "e2", to: "e4", promotion: null };
+    assert.deepEqual(moveOffset(push, false), { dx: 0, dy: 2 });
+    // Black sees the same move from the other side, so it runs the other way.
+    // Getting this wrong animates every one of black moves backwards.
+    assert.deepEqual(moveOffset(push, true), { dx: 0, dy: -2 });
+
+    // A knight moves in both axes at once, which is the case a one-dimensional
+    // offset would silently get half right.
+    assert.deepEqual(
+      moveOffset({ from: "g1", to: "f3", promotion: null }, false),
+      { dx: 1, dy: 2 },
+    );
+
+    // A move whose squares do not parse animates nothing rather than throwing
+    // inside a render.
+    assert.equal(moveOffset({ from: "zz", to: "e4", promotion: null }, false), null);
+  }
+
+  {
+    // The scoresheet. Chess counts a full move as both sides having played, so
+    // a flat list of plies is not what anybody reads back.
+    assert.deepEqual(pairMoves([]), []);
+    assert.deepEqual(pairMoves(["e4"]), [{ number: 1, white: "e4", black: null }]);
+    assert.deepEqual(pairMoves(["e4", "e5", "Nf3"]), [
+      { number: 1, white: "e4", black: "e5" },
+      // White has moved and black has not replied: the row exists with a hole
+      // in it, which is what the "…" in the list is.
+      { number: 2, white: "Nf3", black: null },
+    ]);
+
+    // Seat 0 is white and white opens every game, so the parity needs no other
+    // input. This is what the "you played" / "they played" line is keyed off,
+    // and inverting it tells both players the wrong thing at once.
+    assert.equal(lastMoveSeat([]), -1);
+    assert.equal(lastMoveSeat(["e4"]), 0);
+    assert.equal(lastMoveSeat(["e4", "e5"]), 1);
+    assert.equal(lastMoveSeat(["e4", "e5", "Nf3"]), 0);
   }
 
   fs.rmSync(outDir, { recursive: true, force: true });

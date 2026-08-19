@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "antd";
-import { useUiStore } from "@/store/ui-store";
 import {
   createBoard,
   hasMoves,
@@ -10,6 +9,8 @@ import {
   type Direction,
 } from "../../minigames-logic";
 import { useArrowKeys } from "../../use-arrow-keys";
+import { useRecordRun } from "../../use-record-run";
+import { GameOutcome } from "../game-outcome";
 
 interface BoardState {
   board: number[];
@@ -24,7 +25,6 @@ interface BoardState {
  * counted twice and the score drifted only in dev builds.
  */
 export function Game2048() {
-  const recordScore = useUiStore((state) => state.recordMinigameScore);
   const [state, setState] = useState<BoardState>(() => ({
     board: createBoard(),
     score: 0,
@@ -34,6 +34,8 @@ export function Game2048() {
   // Derived, never stored: a flag would have to be reset by whoever resets the
   // board, and forgetting that is how "Kazandın" survives into the next game.
   const hasWon = state.board.some((value) => value >= WINNING_TILE);
+
+  const isRecord = useRecordRun("2048", isDead, state.score);
 
   const handleDirection = useCallback((direction: Direction) => {
     setState((current) => {
@@ -52,12 +54,6 @@ export function Game2048() {
 
   useArrowKeys(handleDirection);
 
-  useEffect(() => {
-    if (isDead) {
-      recordScore("2048", state.score);
-    }
-  }, [isDead, state.score, recordScore]);
-
   const reset = () => setState({ board: createBoard(), score: 0 });
 
   return (
@@ -72,33 +68,48 @@ export function Game2048() {
         </Button>
       </div>
 
-      <div className="ct-minigame-board ct-2048-board" aria-label="2048 tahtası">
-        {state.board.map((value, index) => (
-          <div
-            // The board is a fixed 16 cells that are rewritten in place, never
-            // inserted or removed, so the position is the identity.
-            key={index}
-            className="ct-2048-cell"
-            // Styled by attribute rather than by a class per value: the palette
-            // is a stylesheet decision, and 11 className branches in here would
-            // move it into the component.
-            //
-            // undefined, NOT "": React renders an empty string as a present
-            // attribute, and `[data-value]` matches on presence — so every
-            // empty cell was painted as a filled tile.
-            data-value={value === 0 ? undefined : Math.min(value, WINNING_TILE)}
-          >
-            {value === 0 ? "" : value}
-          </div>
-        ))}
+      <div className="ct-minigame-stage">
+        <div
+          className="ct-minigame-board ct-2048-board"
+          aria-label="2048 tahtası"
+          data-state={isDead ? "lost" : hasWon ? "won" : undefined}
+        >
+          {state.board.map((value, index) => (
+            <div
+              // The VALUE is part of the key, not just the position. The board
+              // is sixteen slots rewritten in place, so keying on position
+              // alone reuses the DOM node — and a reused node does not restart
+              // its animation, which is the whole of the pop below. Sixteen
+              // remounts on a move is nothing.
+              key={`${index}-${value}`}
+              className="ct-2048-cell"
+              // Styled by attribute rather than by a class per value: the palette
+              // is a stylesheet decision, and 11 className branches in here would
+              // move it into the component.
+              //
+              // undefined, NOT "": React renders an empty string as a present
+              // attribute, and `[data-value]` matches on presence — so every
+              // empty cell was painted as a filled tile.
+              data-value={value === 0 ? undefined : Math.min(value, WINNING_TILE)}
+            >
+              {value === 0 ? "" : value}
+            </div>
+          ))}
+        </div>
+
+        {isDead ? (
+          <GameOutcome
+            tone="lost"
+            title="Hamle kalmadı"
+            detail={`${state.score} puan`}
+            isRecord={isRecord}
+            onRestart={reset}
+          />
+        ) : null}
       </div>
 
       <p className="ct-minigame-hint">
-        {isDead
-          ? "Hamle kalmadı. Yeni oyun başlat."
-          : hasWon
-            ? "2048! İstersen devam et."
-            : "Ok tuşları veya WASD ile kaydır."}
+        {hasWon ? "2048! İstersen devam et." : "Ok tuşları veya WASD ile kaydır."}
       </p>
     </div>
   );

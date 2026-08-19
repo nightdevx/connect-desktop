@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Alert, Button, Spin } from "antd";
 import {
   isTableFinished,
@@ -241,6 +241,7 @@ function Board({
         <GridBoardView
           board={table.grid}
           game={table.game}
+          state={boardState(table, mySeat)}
           isMyTurn={isMyTurn}
           isBusy={isBusy}
           onMove={onCellMove}
@@ -257,7 +258,18 @@ function Board({
         />
       ) : null}
 
-      <p className="ct-minigame-hint">
+      {/* The tone is what makes a turn visible from across the room. The text
+          alone was a muted 12px line under the board, which is exactly the
+          complaint: the board repainted and nothing said the turn had come
+          round. */}
+      <p
+        className="ct-minigame-hint ct-versus-hint"
+        data-tone={
+          isFinished ? "done" : isWaiting ? "wait" : isMyTurn ? "you" : "them"
+        }
+        role="status"
+        aria-live="polite"
+      >
         {isFinished
           ? // Chess says HOW it ended — stalemate and insufficient material are
             // both draws, and "Berabere." alone leaves the players arguing.
@@ -285,6 +297,18 @@ function Board({
   );
 }
 
+// The board wears the result too, not only the line under it: a win that is
+// only written down is a win somebody misses.
+function boardState(table: MinigameTable, mySeat: number): string | undefined {
+  if (table.draw) {
+    return "draw";
+  }
+  if (table.winner === null) {
+    return undefined;
+  }
+  return table.winner === mySeat ? "won" : "lost";
+}
+
 function resultText(table: MinigameTable, mySeat: number): string {
   if (table.draw) {
     return "Berabere.";
@@ -299,12 +323,15 @@ function resultText(table: MinigameTable, mySeat: number): string {
 function GridBoardView({
   board,
   game,
+  state,
   isMyTurn,
   isBusy,
   onMove,
 }: {
   board: MinigameGridBoard;
   game: MinigameTable["game"];
+  /** "won", "lost", "draw" or undefined while it is still being played. */
+  state: string | undefined;
   isMyTurn: boolean;
   isBusy: boolean;
   onMove: (cell: number) => void;
@@ -320,22 +347,24 @@ function GridBoardView({
     <div
       className="ct-minigame-board ct-versus-board"
       data-game={game}
+      data-state={state}
       style={{ gridTemplateColumns: `repeat(${board.columns}, 1fr)` }}
       aria-label="Oyun tahtası"
       onMouseLeave={() => setHoveredColumn(null)}
     >
       {board.cells.map((owner, index) => {
         const column = index % board.columns;
+        const row = Math.floor(index / board.columns);
         const isPlayable = isMyTurn && owner === -1;
+        const isLanded = board.lastCell === index;
 
         return (
           <button
             key={index}
             type="button"
             className="ct-versus-cell"
-            data-owner={owner === -1 ? undefined : owner}
-            data-last={board.lastCell === index ? "true" : undefined}
-            data-winning={board.winningCells.includes(index) ? "true" : undefined}
+            data-last={isLanded ? "true" : undefined}
+            data-winning={(board.winningCells ?? []).includes(index) ? "true" : undefined}
             data-target={
               isPlayable && hasGravity && hoveredColumn === column ? "true" : undefined
             }
@@ -344,8 +373,29 @@ function GridBoardView({
             disabled={!isPlayable || isBusy}
             onMouseEnter={() => setHoveredColumn(column)}
             onClick={() => onMove(index)}
-            aria-label={`${column + 1}. sütun, ${Math.floor(index / board.columns) + 1}. sıra`}
-          />
+            aria-label={`${column + 1}. sütun, ${row + 1}. sıra`}
+          >
+            {/* The mark is a child rather than the slot itself, so it can move
+                into an empty hole that stays put. Keyed on the owner so a mark
+                landing in a slot is a mount, which is what replays the drop. */}
+            {owner === -1 ? null : (
+              <span
+                key={owner}
+                className="ct-versus-disc"
+                data-owner={owner}
+                data-landed={isLanded ? "true" : undefined}
+                // How far it fell, in rows, for the gravity game. Under
+                // Connect Four a disc enters at the top of its column and
+                // stops where it stops; a pop in place would say nothing about
+                // which column it went down.
+                style={
+                  isLanded && hasGravity
+                    ? ({ "--drop": String(row + 1) } as CSSProperties)
+                    : undefined
+                }
+              />
+            )}
+          </button>
         );
       })}
     </div>

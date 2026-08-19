@@ -27,8 +27,9 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 
   // Mounted HERE rather than per game: it reconciles every record at once, and
   // one sync that runs while the page is open beats four that each run when
-  // their own game is picked.
-  useScoreSync();
+  // their own game is picked. The counter it hands back is "the server now has
+  // this run", which is what the board waits for instead of racing it.
+  const syncedAt = useScoreSync();
 
   return (
     <div className="ct-minigames-panel">
@@ -50,6 +51,7 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
         <MinigameLeaderboard
           game={entry.id}
           currentUserId={currentUserId}
+          syncedAt={syncedAt}
           formatScore={entry.formatScore}
         />
       ) : null}

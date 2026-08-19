@@ -4,38 +4,60 @@ import { ReloadOutlined, TrophyOutlined } from "@ant-design/icons";
 import { toErrorMessage } from "@shared/error-message";
 import type { MinigameLeaderboard as Board } from "@shared/minigames";
 import type { MinigameId } from "@/store/minigame-scores";
-import { useUiStore } from "@/store/ui-store";
 import { scoreService } from "../score-service";
 
 interface MinigameLeaderboardProps {
   game: MinigameId;
   currentUserId: string;
+  /**
+   * Bumped by useScoreSync once a submission has landed. NOT the local record:
+   * that changes the instant the game ends, which is before the score has been
+   * sent, and refetching then reads a board that does not have the run on it
+   * yet.
+   */
+  syncedAt: number;
   /** Renders the score the way the sidebar does — "1200 puan", "45 saniye". */
   formatScore: (score: number) => string;
 }
 
+// Somebody else beating your time arrives on no channel, so the board has to
+// ask. Slow on purpose: this is a friend-group app, a record is a rare event,
+// and the request is one row per player.
+//
+// ponytail: a poll, not a push. The push exists next door -- the lobby socket
+// already carries minigame table frames -- but wiring a score event through it
+// means a broadcaster on the score store, an event type, an IPC frame and a
+// validator, for a number that changes a few times a day. Upgrade if a board
+// being twenty seconds stale ever actually matters.
+const POLL_MS = 20_000;
+
 /**
  * One game's board.
  *
- * Refetched whenever the account's own record for this game changes, which is
- * the only event that can move it from here — somebody else's run arrives on no
- * channel, so the manual refresh is the answer to "did anyone beat me". A
- * websocket for a page nobody is staring at would be a stream for an errand.
+ * Refetched on three things: the game changing, a submission landing, and the
+ * poll. The refresh button stays because it costs nothing and answers "now,
+ * please" — but nothing on this page depends on it any more.
  */
 export function MinigameLeaderboard({
   game,
   currentUserId,
+  syncedAt,
   formatScore,
 }: MinigameLeaderboardProps) {
-  const myBest = useUiStore((state) => state.minigameBestScores[game]);
   const [board, setBoard] = useState<Board | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Bumped by the refresh button. A counter rather than a boolean so pressing
-  // it twice in a row refetches twice.
+  // Bumped by the refresh button and by the poll. A counter rather than a
+  // boolean so two in a row are two refetches.
   const [reloadNonce, setReloadNonce] = useState(0);
 
   const refresh = useCallback(() => setReloadNonce((value) => value + 1), []);
+
+  // Unmounted with the page, which is what stops it running behind a lobby.
+  useEffect(() => {
+    const timer = setInterval(refresh, POLL_MS);
+    return () => clearInterval(timer);
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,9 +80,7 @@ export function MinigameLeaderboard({
     return () => {
       cancelled = true;
     };
-    // myBest is a dependency on purpose: a run that beats your own record moves
-    // you up the board, and the board is on screen while you play.
-  }, [game, myBest, reloadNonce]);
+  }, [game, syncedAt, reloadNonce]);
 
   return (
     <section className="ct-leaderboard" aria-label="Sıralama">

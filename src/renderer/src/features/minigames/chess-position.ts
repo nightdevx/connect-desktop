@@ -155,3 +155,101 @@ export function boardOrder(flipped: boolean): number[] {
   const order = Array.from({ length: BOARD_SQUARES }, (_, index) => index);
   return flipped ? order.reverse() : order;
 }
+
+/**
+ * The index of a named square in render order, or -1.
+ *
+ * The inverse of squareName, and the reason it exists is that the server names
+ * squares ("e1") while the board is an array -- the check highlight and the
+ * move animation both have to cross that gap.
+ */
+export function squareIndex(name: string): number {
+  const file = FILES.indexOf(name[0] ?? "");
+  const rank = Number(name[1]);
+  if (file < 0 || !Number.isInteger(rank) || rank < 1 || rank > 8) {
+    return -1;
+  }
+  return (8 - rank) * 8 + file;
+}
+
+/**
+ * Where a square sits once the board has been turned round for its player.
+ *
+ * boardOrder reverses the whole array for black, so a square's position on
+ * screen is its mirror index -- and that, not its true index, is what a
+ * distance measured in screen squares has to be based on.
+ */
+function renderPosition(index: number, flipped: boolean): number {
+  return flipped ? BOARD_SQUARES - 1 - index : index;
+}
+
+/**
+ * How far a move travelled, in SQUARES, in the direction the board is drawn.
+ *
+ * The sign is "where it came from, relative to where it landed", because that
+ * is what the arriving piece is offset BY before it slides home: the animation
+ * starts the glyph on the origin square and ends it where it belongs, so the
+ * board never has to move a real element between two grid cells.
+ *
+ * Flipped for black, or every animation on that side of the board would run
+ * backwards.
+ */
+export function moveOffset(
+  move: UciMove,
+  flipped: boolean,
+): { dx: number; dy: number } | null {
+  const from = squareIndex(move.from);
+  const to = squareIndex(move.to);
+  if (from < 0 || to < 0) {
+    return null;
+  }
+
+  const fromRender = renderPosition(from, flipped);
+  const toRender = renderPosition(to, flipped);
+
+  return {
+    dx: (fromRender % 8) - (toRender % 8),
+    dy: Math.floor(fromRender / 8) - Math.floor(toRender / 8),
+  };
+}
+
+/** One line of the scoresheet: a number, white's move and black's reply. */
+export interface MovePair {
+  /** 1-based, as it is written on a real scoresheet. */
+  number: number;
+  white: string;
+  /** null while white has moved and black has not replied yet. */
+  black: string | null;
+}
+
+/**
+ * The move list as numbered pairs.
+ *
+ * Chess counts a full move as both sides having played, so a flat list of plies
+ * is not what anybody reads back. Seat 0 is white by definition and white opens
+ * every game, so the parity here needs no other input.
+ */
+export function pairMoves(history: readonly string[]): MovePair[] {
+  const pairs: MovePair[] = [];
+
+  for (let ply = 0; ply < history.length; ply += 2) {
+    pairs.push({
+      number: ply / 2 + 1,
+      white: history[ply],
+      black: history[ply + 1] ?? null,
+    });
+  }
+
+  return pairs;
+}
+
+/**
+ * Which seat played the last move: 0 for white, 1 for black, -1 on an empty
+ * list. What the "your opponent just played X" line is keyed off.
+ */
+export function lastMoveSeat(history: readonly string[]): number {
+  if (history.length === 0) {
+    return -1;
+  }
+  return (history.length - 1) % 2;
+}

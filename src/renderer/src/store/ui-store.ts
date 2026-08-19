@@ -111,10 +111,15 @@ interface UiState {
   setFreeGamesStore: (store: FreeGameStore | "all") => void;
   setSelectedMinigame: (game: MinigameId) => void;
   /** Records a finished run. Keeps it only when it beats the stored one. */
-  recordMinigameScore: (game: MinigameId, score: number) => void;
+  /**
+   * Stores a finished run, keeping it only if it beats what is there, and
+   * reports whether it did. The boolean is what lets a game say "yeni rekor"
+   * on the run that earned it rather than on every run.
+   */
+  recordMinigameScore: (game: MinigameId, score: number) => boolean;
 }
 
-export const useUiStore = create<UiState>((set) => ({
+export const useUiStore = create<UiState>((set, get) => ({
   activePage: "login",
   statusMessage: "Giriş gerekli",
   statusTone: "warn",
@@ -198,21 +203,24 @@ export const useUiStore = create<UiState>((set) => ({
   // Same reasoning as the free-games setters: swapping the contents of one
   // panel, not navigating, so no view transition.
   setSelectedMinigame: (game) => set({ selectedMinigame: game }),
-  recordMinigameScore: (game, score) =>
-    set((state) => {
-      // The two-player games keep no record: a win against another person is
-      // not a personal best.
-      if (!Number.isFinite(score) || !tracksScore(game)) {
-        return state;
-      }
+  // Reads through get() rather than the set() updater, because it has an answer
+  // to give: a set() updater returns the next state, not a verdict.
+  recordMinigameScore: (game, score) => {
+    // The two-player games keep no record: a win against another person is not
+    // a personal best.
+    if (!Number.isFinite(score) || !tracksScore(game)) {
+      return false;
+    }
 
-      const previous = state.minigameBestScores[game];
-      if (previous !== undefined && !isBetterScore(game, score, previous)) {
-        return state;
-      }
+    const scores = get().minigameBestScores;
+    const previous = scores[game];
+    if (previous !== undefined && !isBetterScore(game, score, previous)) {
+      return false;
+    }
 
-      const next = { ...state.minigameBestScores, [game]: score };
-      saveMinigameScores(next);
-      return { minigameBestScores: next };
-    }),
+    const next = { ...scores, [game]: score };
+    saveMinigameScores(next);
+    set({ minigameBestScores: next });
+    return true;
+  },
 }));
