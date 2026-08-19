@@ -173,9 +173,10 @@
     @apply p-4;
   }
 
-  .ct-settings-section-header {
-    @apply flex-col items-start;
-  }
+  /* Settings is not here any more: its rows stack on the PANEL's width, which
+     is the window minus the rail and the sidebar, so a viewport breakpoint was
+     always answering a different question. See @container settings in
+     features/settings.css. */
 
   .ct-audio-details-grid {
     @apply grid-cols-1;

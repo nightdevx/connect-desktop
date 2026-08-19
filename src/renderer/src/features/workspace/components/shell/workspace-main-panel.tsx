@@ -276,8 +276,13 @@ export function WorkspaceMainPanel({
   // The friends home fills the no-selection case now, so the users section owns
   // its whole panel: keeping the selectedUser test would have stacked the
   // "Arkadaşlar / Hoş geldin" intro on top of a screen that already has a title.
+  // Settings is here for the same reason: every settings page opens with its
+  // own title, icon and description, so the generic "Ayarlar / Hoş geldin"
+  // above it was a second header that named the section less precisely than the
+  // one underneath it — and spent 70px of a panel that scrolls.
   const hideWorkspaceIntro =
     workspaceSection === "users" ||
+    workspaceSection === "settings" ||
     (workspaceSection === "lobbies" && lobbyRoomId !== null);
 
   return (

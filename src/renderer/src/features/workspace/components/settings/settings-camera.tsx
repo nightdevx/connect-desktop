@@ -51,6 +51,14 @@ export function SettingsCamera({
     onSaveCameraPreferences(nextPrefs as CameraPreferences);
   };
 
+  // The draft follows the preferences it was seeded from. Same trap as the
+  // audio panel: seeded once on mount, every control here writes the whole
+  // object back, so a change made anywhere else was reverted by the next
+  // touch of any control on this page.
+  useEffect(() => {
+    setDraftCameraPreferences(cameraPreferences);
+  }, [cameraPreferences]);
+
   // Detect camera hardware capabilities
   useEffect(() => {
     let active = true;

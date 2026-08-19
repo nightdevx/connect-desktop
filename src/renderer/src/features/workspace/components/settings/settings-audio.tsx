@@ -138,18 +138,32 @@ export function SettingsAudio({
     await closeAudioContextSafely(activeAudioContext);
   };
 
+  // The draft follows the preferences it was seeded from.
+  //
+  // Without this it was seeded once, on mount, and every control on the page
+  // then wrote that whole stale copy back. Picking an output device from the
+  // lobby tile and then touching any switch here put the old device back,
+  // silently, with the page still showing the new one.
+  useEffect(() => {
+    setDraftAudioPreferences(audioPreferences);
+  }, [audioPreferences]);
+
   const handlePreferenceChange = (
     key: keyof AudioPreferences,
     value: unknown,
   ): void => {
-    setDraftAudioPreferences((previous) => {
-      const nextPrefs = {
-        ...previous,
-        [key]: value,
-      };
-      onSaveAudioPreferences(nextPrefs);
-      return nextPrefs;
-    });
+    // Built from the draft here rather than inside a state updater. An updater
+    // runs during React's render pass, and calling the parent's setter from
+    // inside one is an update to another component mid-render — which React
+    // warns about and is free to run twice. Everything this needs is already
+    // in hand at the moment of the click.
+    const nextPrefs: AudioPreferences = {
+      ...draftAudioPreferences,
+      [key]: value,
+    };
+
+    setDraftAudioPreferences(nextPrefs);
+    onSaveAudioPreferences(nextPrefs);
   };
 
   const handleStartAudioTest = async (): Promise<void> => {
@@ -607,12 +621,25 @@ export function SettingsAudio({
               />
             </div>
 
+          </div>
+        </div>
+
+        {/* Its own subsection rather than a third row under "Lobi
+            Varsayılanları": the two above decide what YOUR microphone and
+            headphones do on the way in, and this one decides what you hear
+            about everybody else for the whole session. Filed together, people
+            looked for it under Uygulama > Bildirimler, which is the OS toast. */}
+        <div className="ct-settings-subsection">
+          <h5>Bildirim Sesleri</h5>
+
+          <div className="ct-settings-switch-list">
             <div className="ct-settings-switch-item">
               <div className="ct-settings-switch-item-content">
-                <strong>Lobi bildirim sesleri açık olsun</strong>
+                <strong>Oda sesleri</strong>
                 <span>
-                  Kullanıcı giriş-çıkışları ve hızlı medya değişimlerinde ses
-                  bildirimi çalar.
+                  Birisi odaya girdiğinde, çıktığında, kamerasını açtığında veya
+                  yayın başlattığında kısa bir ses çalar. Her olayın kendine ait
+                  bir sesi vardır.
                 </span>
               </div>
               <Switch

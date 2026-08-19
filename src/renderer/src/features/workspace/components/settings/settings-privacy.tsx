@@ -182,24 +182,30 @@ export function SettingsPrivacy() {
             </div>
           </div>
 
-          <div>
-            <label
-              className="ct-field-label"
-              htmlFor="settings-allow-friend-requests"
-            >
-              Arkadaşlık isteği alayım
-            </label>
-            <Switch
-              id="settings-allow-friend-requests"
-              checked={draft.allowFriendRequests}
-              onChange={(checked) =>
-                setDraft((current) => ({
-                  ...current,
-                  allowFriendRequests: checked,
-                }))
-              }
-              disabled={isLoading}
-            />
+          {/* The same row every other switch in Settings uses. It used to be
+              a bare label with the control underneath it, so the one toggle
+              on this page did not look like a toggle anywhere else. */}
+          <div className="ct-settings-switch-list">
+            <div className="ct-settings-switch-item">
+              <div className="ct-settings-switch-item-content">
+                <strong>Arkadaşlık isteği alayım</strong>
+                <span>
+                  Kapalıyken kimse sana arkadaşlık isteği gönderemez;
+                  mevcut arkadaşlıkların etkilenmez.
+                </span>
+              </div>
+              <Switch
+                id="settings-allow-friend-requests"
+                checked={draft.allowFriendRequests}
+                onChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    allowFriendRequests: checked,
+                  }))
+                }
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <div className="ct-settings-actions">

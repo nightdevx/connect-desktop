@@ -248,7 +248,7 @@ export function SettingsApplication() {
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">
-          <h5>Görünüm</h5>
+          <h5>Tema ve Görünüm</h5>
 
           <div className="ct-settings-switch-list">
             <div className="ct-settings-switch-item">
@@ -360,7 +360,8 @@ export function SettingsApplication() {
                 <strong>Masaüstü bildirimleri</strong>
                 <span>
                   Pencere arka plandayken gelen mesaj ve aramalar için işletim
-                  sistemi bildirimi gösterir.
+                  sistemi bildirimi gösterir. Odadaki giriş-çıkış ve yayın
+                  sesleri ayrı bir ayar: Ayarlar → Ses → Bildirim Sesleri.
                 </span>
               </div>
               <Switch

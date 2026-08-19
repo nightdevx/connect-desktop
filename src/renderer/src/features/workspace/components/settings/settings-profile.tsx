@@ -552,13 +552,13 @@ export function SettingsProfile({
           loading={isSavingProfile}
           disabled={isProfileLoading || isSavingProfile}
         >
-          Adı ve Bio'yu Kaydet
+          Profili Kaydet
         </Button>
       </div>
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">
-          <h5>Görünüm</h5>
+          <h5>Profil Görünümü</h5>
 
           {/* Banner first, avatar second: that is the order they stack on the
               profile card, so the preview here reads as the card it produces. */}
@@ -811,10 +811,6 @@ export function SettingsProfile({
               <strong className="ct-settings-info-value">
                 @{currentUsername}
               </strong>
-            </div>
-            <div className="ct-settings-info-item">
-              <span className="ct-settings-info-label">Rol</span>
-              <strong className="ct-settings-info-value">Yönetici</strong>
             </div>
           </div>
 

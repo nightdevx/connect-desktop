@@ -190,7 +190,7 @@ export function SettingsStream({
         <div className="ct-settings-subsection">
           <h5>Yayın Kalitesi</h5>
 
-          <div className="ct-settings-form-group">
+          <div className="ct-settings-two-col">
             <div>
               <label className="ct-field-label" htmlFor="settings-stream-fps">
                 Yayın Kare Hızı
@@ -229,7 +229,7 @@ export function SettingsStream({
                   say where: the hint used to name it with no way to find it. */}
               <span className="ct-field-hint">
                 Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8. Bu
-                anahtar Uygulama {">"} Genel {">"} Performans altındadır.
+                anahtar Uygulama {">"} Performans altındadır.
                 Değişiklik bir sonraki yayında geçerli olur.
               </span>
             </div>
