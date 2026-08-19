@@ -36,9 +36,7 @@ import {
   useRoomTransitions,
   useScreenSubscriptions,
   useUserCards,
-  useVideoQuality,
   useVoiceHotkeys,
-  useWorkspaceAudioConnection,
   useWorkspaceAudioCues,
   useWorkspaceLobbies,
   useWorkspaceLobbyActions,
@@ -88,11 +86,32 @@ function WorkspaceShell({
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setStatus = useUiStore((state) => state.setStatus);
 
+  // An admin lands on the admin panel when the workspace opens. ONCE — this
+  // used to re-run on every change of the role, which was harmless only while
+  // the role could not change without a restart. It can now (the users socket
+  // writes it straight into the session), and re-running it would teleport
+  // somebody who was just promoted out of the room they are sitting in.
+  const hasLandedRef = useRef(false);
   useEffect(() => {
+    if (hasLandedRef.current) {
+      return;
+    }
+    hasLandedRef.current = true;
+
     if (isAdminRole(currentUserRole)) {
       setWorkspaceSection("admin");
     }
   }, [currentUserRole, setWorkspaceSection]);
+
+  // The other direction: demoted while the admin panel is open. The rail entry
+  // disappears on its own, but the panel it points at is selected by
+  // workspaceSection, so without this the person keeps looking at a dashboard
+  // whose every request the server now refuses.
+  useEffect(() => {
+    if (workspaceSection === "admin" && !isAdminRole(currentUserRole)) {
+      setWorkspaceSection("lobbies");
+    }
+  }, [currentUserRole, workspaceSection, setWorkspaceSection]);
 
   // ----- SHARED STATE / REFS -----
   const [activeLobbyId, setActiveLobbyId] = useState<string | null>(null);
@@ -155,6 +174,27 @@ function WorkspaceShell({
       enabled: audioPreferences.notificationSoundsEnabled,
     });
   }, [audioPreferences.notificationSoundsEnabled]);
+
+  // Open the output device before anything needs it.
+  //
+  // The first cue of a session used to pay for constructing the audio context
+  // and waiting on the platform for an endpoint, at the exact moment it was
+  // supposed to be heard — so the sound that confirms you joined a room was the
+  // one most likely to arrive late or not at all. Primed on mount, and again on
+  // the first click, because a context created before any user gesture can
+  // still be born suspended.
+  useEffect(() => {
+    soundEffectManager.prime();
+
+    const primeOnGesture = (): void => soundEffectManager.prime();
+    window.addEventListener("pointerdown", primeOnGesture, { once: true });
+    window.addEventListener("keydown", primeOnGesture, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", primeOnGesture);
+      window.removeEventListener("keydown", primeOnGesture);
+    };
+  }, []);
 
   // An unplugged device must not stay selected. The capture path already falls
   // back to the default microphone on its own, but the stored preference kept
@@ -225,7 +265,6 @@ function WorkspaceShell({
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
     liveKitConnectionState,
-    mediaStats,
   } = useLivekitSession(
     currentUserId,
     audioPreferences,
@@ -259,7 +298,7 @@ function WorkspaceShell({
     selectedUser,
     // No workspaceSection: the directory and its stream now run for the whole
     // session rather than only while a particular tab is open.
-  } = useWorkspaceUsers({ currentUsername });
+  } = useWorkspaceUsers({ currentUsername, currentUserId });
 
   // The sidebar lists conversations, not the directory: it is client-owned, so
   // opening one is this shell's job and every route into a conversation below
@@ -815,6 +854,7 @@ function WorkspaceShell({
     activeLobbyId,
     currentUserId,
     lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers,
+    remoteParticipantStreams,
   });
 
   // ----- LOBBY ACTIONS -----
@@ -1014,14 +1054,6 @@ function WorkspaceShell({
     }
   }, [incomingCallerId, handleAcceptCall, selectConversationById]);
 
-  const audioConnection = useWorkspaceAudioConnection({
-    activeLobbyId,
-    liveKitConnectionState,
-    mediaStats,
-  });
-
-  const videoQuality = useVideoQuality(mediaStats);
-
   const handleSelectAudioInputDevice = (deviceId: string | null): void => {
     console.log(`[WorkspaceShell] Mikrofon cihazı değiştiriliyor: ${deviceId ?? "Varsayılan"}`);
     saveAudioPreferences({
@@ -1167,8 +1199,7 @@ function WorkspaceShell({
               settingsSection,
               setSettingsSection,
             }}
-            audioConnectionProps={audioConnection}
-            videoQualityProps={videoQuality}
+            liveKitConnectionState={liveKitConnectionState}
             audioProcessingProps={{
               enhancedNoiseSuppressionEnabled:
                 audioPreferences.enhancedNoiseSuppressionEnabled,
@@ -1369,7 +1400,6 @@ function WorkspaceShell({
         contentMode={selectedScreenShareContentMode}
         onChangeContentMode={setSelectedScreenShareContentMode}
         captureSystemAudio={captureSystemAudio}
-        uplinkHeadroomBps={mediaStats.availableOutgoingBitrateBps}
         onRefreshSources={loadScreenShareSources}
         onStart={startScreenShareFromModal}
         onSelectSource={setSelectedScreenShareSourceId}

@@ -232,6 +232,17 @@ export function LobbiesMainPanel({
     localFallbackJoinedAt,
   });
 
+  // Names for the audience badge on a screen tile. From the roster rather
+  // than the user directory: the directory is friends only, and the people
+  // watching a share are whoever is in the room.
+  const nameByUserId = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const member of lobbyMembers) {
+      names[member.userId] = member.username;
+    }
+    return names;
+  }, [lobbyMembers]);
+
   // 2. Stage Slots Hook
   const { stageParticipantSlots } = useLobbyStageSlots({
     lobbyParticipants,
@@ -596,6 +607,7 @@ export function LobbiesMainPanel({
               setIsRailVisible={setIsRailVisible}
               isWatchingScreen={isWatchingScreen}
               onWatchScreen={handleWatchScreen}
+              nameByUserId={nameByUserId}
             />
 
             {/* Bottom Actions Toolbar */}

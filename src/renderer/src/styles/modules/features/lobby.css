@@ -635,6 +635,42 @@
   pointer-events: none;
 }
 
+/* Who is watching this share. Top-RIGHT, opposite the "Ekran" chip: the two
+   answer different questions and a viewer reads them as a pair. Muted rather
+   than accented so it never competes with the kind badge, and pointer-events
+   stay on so the tooltip listing the names is reachable. */
+.ct-lobby-tile-watchers {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 55%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ct-alpha-08);
+  background: color-mix(in srgb, var(--ct-surface-1) 82%, transparent);
+  color: var(--ct-text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px var(--ct-shadow-color-soft);
+  cursor: default;
+}
+
+.ct-lobby-tile-watchers span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A compact tile has no room for names beside the kind chip. */
+.ct-lobby-participant-tile.compact .ct-lobby-tile-watchers span {
+  display: none;
+}
 /* Speaking indicator lives in theme.css (single source: static glow ring). */
 
 .ct-lobby-video-container {

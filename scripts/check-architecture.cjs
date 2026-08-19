@@ -217,17 +217,26 @@ const fail = (rule, detail) => failures.push(`[${rule}] ${detail}`);
 // convention; this stops the other form coming back.
 {
   const rendererSrc = path.join(srcRoot, "renderer/src");
+  const sharedRoot = path.join(srcRoot, "shared");
+  const storeRoot = path.join(rendererSrc, "store");
+
   for (const file of sources) {
     if (!file.startsWith(rendererSrc + path.sep)) continue;
     for (const specifier of readSpecifiers(text.get(file))) {
-      if (/^(\.\.\/){1,}(shared|store)\//.test(specifier)) {
-        const alias = specifier.startsWith("../") && specifier.includes("/shared/")
-          ? "@shared/..."
-          : "@/store/...";
-        fail(
-          "prefer-alias",
-          `${rel(file)} imports "${specifier}" — use ${alias}`,
-        );
+      if (!specifier.startsWith("../")) continue;
+
+      // Resolved, not pattern-matched. A feature with its own store/ folder
+      // beside its hooks/ is reaching one directory sideways, not climbing out
+      // to the app-level one — and the string "../store/" cannot tell those
+      // apart. Matching on the name alone told the livekit feature to import
+      // its own store through @/store, which is a different module.
+      const target = resolveSpecifier(file, specifier);
+      if (!target) continue;
+
+      if (target.startsWith(sharedRoot + path.sep)) {
+        fail("prefer-alias", `${rel(file)} imports "${specifier}" — use @shared/...`);
+      } else if (target.startsWith(storeRoot + path.sep)) {
+        fail("prefer-alias", `${rel(file)} imports "${specifier}" — use @/store/...`);
       }
     }
   }

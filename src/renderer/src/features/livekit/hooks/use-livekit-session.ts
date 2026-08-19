@@ -8,8 +8,11 @@ import {
   type ParticipantMediaMap,
   type RemoteParticipantAudioPreference,
   type VideoPublishPreferences,
+  type ScreenWatcherMap,
 } from "../services/stream";
 import type { ActiveNoiseSuppressionMode } from "../services/mic";
+import { useMediaStatsStore } from "../store/media-stats-store";
+import { useScreenWatchersStore } from "../store/screen-watchers-store";
 import { useUiStore } from "@/store/ui-store";
 
 // Deliberately NOT imported from the workspace feature's reconnect hook, which
@@ -144,8 +147,6 @@ export function useLivekitSession(
   const [activeNoiseSuppressionMode, setActiveNoiseSuppressionMode] =
     useState<ActiveNoiseSuppressionMode>("none");
   const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
-  const [mediaStats, setMediaStats] =
-    useState<MediaStatsSnapshot>(EMPTY_MEDIA_STATS);
   const [liveKitConnectionState, setLiveKitConnectionState] =
     useState<LiveKitConnectionStatus>("disconnected");
   const liveKitSessionRef = useRef<LiveKitMediaSession | null>(null);
@@ -228,8 +229,16 @@ export function useLivekitSession(
       onNoiseSuppressionModeChanged: (mode: ActiveNoiseSuppressionMode) => {
         setActiveNoiseSuppressionMode(mode);
       },
+      // Straight into the store, not React state: this fires once a second for
+      // the whole time the user is in a room, and only the connection card and
+      // the two panels behind it read a single number out of it.
       onMediaStats: (snapshot: MediaStatsSnapshot) => {
-        setMediaStats(snapshot);
+        useMediaStatsStore.getState().setSnapshot(snapshot);
+      },
+      // Same reasoning, different shape: only the badge on a share tile and
+      // the cue that reacts to it care who is watching.
+      onScreenWatchersChanged: (watchers: ScreenWatcherMap) => {
+        useScreenWatchersStore.getState().setWatchers(watchers);
       },
     });
 
@@ -261,7 +270,8 @@ export function useLivekitSession(
     return () => {
       liveKitSessionRef.current = null;
       setActiveSpeakerIds([]);
-      setMediaStats(EMPTY_MEDIA_STATS);
+      useMediaStatsStore.getState().setSnapshot(EMPTY_MEDIA_STATS);
+      useScreenWatchersStore.getState().setWatchers({});
       void session.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -315,6 +325,5 @@ export function useLivekitSession(
     remoteParticipantAudioPreferencesRef,
     activeSpeakerIds,
     liveKitConnectionState,
-    mediaStats,
   };
 }

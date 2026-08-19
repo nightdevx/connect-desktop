@@ -30,6 +30,8 @@ import type { OscillatorTone } from "./types";
 //   mic off         1    falling   mid      sharp   short   triangle
 //   headphone on    2    rising    mid      sharp   short   triangle
 //   headphone off   2    falling   low      sharp   short   triangle
+//   viewer joined   3    rising    high     sharp   short   sine
+//   watch started   3    falling   high     sharp   short   triangle
 //
 // The note COUNT alone separates the microphone (one) from the toggles and
 // person-cues (two) from arriving and leaving yourself (three); direction,
@@ -108,6 +110,24 @@ export const CUE_PATTERNS = {
   headphoneOff: [
     { frequency: 523.25, durationMs: 42, gain: 0.048, type: "triangle", filterFrequency: 900, overtoneGainRatio: 0.08, attackMs: 8, releaseMs: 170, pauseAfterMs: 0 },
     { frequency: 329.63, durationMs: 58, gain: 0.05, type: "triangle", filterFrequency: 750, overtoneGainRatio: 0.08, attackMs: 8, releaseMs: 280, pauseAfterMs: 0 },
+  ],
+  // Somebody opened your screen share. Three quick rising ticks, high and
+  // bright: heard by the person sharing and by anyone already watching, so
+  // it has to carry over whatever is being said about the screen without
+  // sounding like a person arriving (which is two notes, not three).
+  streamViewerJoined: [
+    { frequency: 880, durationMs: 34, gain: 0.05, type: "sine", filterFrequency: 5200, overtoneGainRatio: 0.22, attackMs: 4, releaseMs: 170, pauseAfterMs: 18 },
+    { frequency: 1046.5, durationMs: 34, gain: 0.052, type: "sine", filterFrequency: 5400, overtoneGainRatio: 0.22, attackMs: 4, releaseMs: 190, pauseAfterMs: 18 },
+    { frequency: 1318.5, durationMs: 52, gain: 0.056, type: "sine", filterFrequency: 5600, overtoneGainRatio: 0.24, attackMs: 4, releaseMs: 420, pauseAfterMs: 0 },
+  ],
+  // You opened somebody else's share. The mirror of the above — the same
+  // three steps descending, on triangle — because tuning in is the same
+  // event seen from the other side, and settling into something should land
+  // rather than lift.
+  streamWatchStarted: [
+    { frequency: 1318.5, durationMs: 34, gain: 0.046, type: "triangle", filterFrequency: 3400, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 170, pauseAfterMs: 18 },
+    { frequency: 1046.5, durationMs: 34, gain: 0.048, type: "triangle", filterFrequency: 3000, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 190, pauseAfterMs: 18 },
+    { frequency: 880, durationMs: 52, gain: 0.05, type: "triangle", filterFrequency: 2600, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 420, pauseAfterMs: 0 },
   ],
 } satisfies Record<string, OscillatorTone[]>;
 

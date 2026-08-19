@@ -5,6 +5,7 @@ import type {
 import { type ActiveNoiseSuppressionMode } from "../mic";
 import type { NoiseSuppressionPreset } from "@/features/rnnoise";
 import type { MediaStatsSnapshot } from "./stats-collector";
+import type { ScreenWatcherMap } from "./screen-watchers";
 
 export type ScreenShareMode = "slides" | "motion";
 export type LiveKitConnectionStatus =
@@ -75,6 +76,13 @@ export interface LiveKitStreamManagerCallbacks {
   onNoiseSuppressionModeChanged?: (mode: ActiveNoiseSuppressionMode) => void;
   /** Real WebRTC stats, sampled once per second while connected. */
   onMediaStats?: (snapshot: MediaStatsSnapshot) => void;
+  /**
+   * Who is watching each screen share in the room, this client included.
+   *
+   * Only fires when the audience actually changed — the underlying data
+   * channel re-announces whole state, so most frames say nothing new.
+   */
+  onScreenWatchersChanged?: (watchers: ScreenWatcherMap) => void;
 }
 
 export interface LiveKitAudioProcessingPreferences {

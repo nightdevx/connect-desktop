@@ -1,14 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Modal, Select, Input, message } from "antd";
-import {
-  CloseOutlined,
-  DashboardOutlined,
-  DisconnectOutlined,
-  ExclamationCircleOutlined,
-  PlusOutlined,
-  ThunderboltOutlined,
-  WifiOutlined,
-} from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import type {
   FriendEntry,
   LobbyDescriptor,
@@ -20,18 +12,21 @@ import type {
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { VideoQualitySnapshot } from "../../hooks/lobby/use-video-quality";
 import type {
   SettingsSection,
   WorkspaceSection,
 } from "@/store/ui-store";
-import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import type {
+  LiveKitConnectionStatus,
+  RemoteParticipantAudioPreference,
+} from "@/features/livekit";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { LobbiesSidebarPanel } from "../lobby";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
+import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
@@ -108,19 +103,9 @@ interface WorkspaceSidebarProps {
     settingsSection: SettingsSection;
     setSettingsSection: (section: SettingsSection) => void;
   };
-  audioConnectionProps: {
-    statusText: string;
-    tone: "ok" | "warn" | "error" | "idle";
-    pingMs: number | null;
-    packetLossPct: number | null;
-    jitterMs: number | null;
-    successfulSamples: number;
-    failedSamples: number;
-    networkType: string | null;
-    networkRttMs: number | null;
-    downlinkMbps: number | null;
-    lastMeasuredAt: string | null;
-  };
+  /** Transport state for the connection card; the numbers it shows come
+      from the media-stats store, not from here. */
+  liveKitConnectionState?: LiveKitConnectionStatus;
   audioProcessingProps: {
     enhancedNoiseSuppressionEnabled: boolean;
     micEnabled: boolean;
@@ -128,18 +113,7 @@ interface WorkspaceSidebarProps {
     activeNoiseMode: "none" | "browser" | "processor";
     onToggleEnhancedNoiseSuppression: () => void;
   };
-  videoQualityProps: VideoQualitySnapshot;
 }
-
-const TONE_LABELS: Record<
-  WorkspaceSidebarProps["audioConnectionProps"]["tone"],
-  string
-> = {
-  ok: "Gecikme düşük",
-  warn: "Yüksek ping",
-  error: "Bağlantı kesildi",
-  idle: "Bağlanıyor",
-};
 
 export function WorkspaceSidebar({
   sectionTitle,
@@ -147,9 +121,8 @@ export function WorkspaceSidebar({
   usersProps,
   lobbiesProps,
   settingsProps,
-  audioConnectionProps,
   audioProcessingProps,
-  videoQualityProps,
+  liveKitConnectionState,
 }: WorkspaceSidebarProps) {
   const [messageApi, contextHolder] = message.useMessage();
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
@@ -168,8 +141,6 @@ export function WorkspaceSidebar({
   // sendRequest is keyed by username, so it marks no pendingUserIds — there is
   // no user id to hang one on until the server answers. This button owns it.
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
-  const [isAudioPopupOpen, setIsAudioPopupOpen] = useState(false);
-  const audioAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const handleCreateLobbyClick = (): void => {
     if (workspaceSection !== "lobbies" || lobbiesProps.isCreatingLobby) {
@@ -276,45 +247,6 @@ export function WorkspaceSidebar({
       setIsSendingFriendRequest(false);
     }
   };
-
-  const audioStatusIcon =
-    audioConnectionProps.tone === "error" ? (
-      <ExclamationCircleOutlined aria-hidden="true" />
-    ) : audioConnectionProps.tone === "warn" ? (
-      <ThunderboltOutlined aria-hidden="true" />
-    ) : (
-      <WifiOutlined aria-hidden="true" />
-    );
-
-  useEffect(() => {
-    if (!isAudioPopupOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent): void => {
-      if (!audioAnchorRef.current) {
-        return;
-      }
-
-      if (!audioAnchorRef.current.contains(event.target as Node)) {
-        setIsAudioPopupOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        setIsAudioPopupOpen(false);
-      }
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [isAudioPopupOpen]);
 
   const handleCreateLobbySubmit = async (): Promise<void> => {
     if (lobbiesProps.isCreatingLobby) {
@@ -428,198 +360,11 @@ export function WorkspaceSidebar({
       </div>
 
       {workspaceSection !== "settings" && (
-        <>
-          <div className="ct-audio-connection-anchor" ref={audioAnchorRef}>
-            <button
-              type="button"
-              className={`ct-audio-connection-card ${audioConnectionProps.tone}`}
-              onClick={() => setIsAudioPopupOpen((previous) => !previous)}
-              aria-expanded={isAudioPopupOpen}
-              aria-label="Ses bağlantı detaylarını aç"
-              title="Ses bağlantı detayları"
-            >
-              <span className="ct-audio-connection-icon">
-                {audioStatusIcon}
-              </span>
-              <div className="ct-audio-connection-content">
-                <span className="ct-audio-connection-text">
-                  {audioConnectionProps.statusText}
-                </span>
-              </div>
-            </button>
-
-            {isAudioPopupOpen && (
-              <section
-                className="ct-audio-popover ct-stagger-entry"
-                role="dialog"
-                aria-modal="false"
-                aria-label="Ses bağlantı detayları"
-              >
-                <header className="ct-audio-popover-header">
-                  <h4>Ses Bağlantı Durumu</h4>
-                  <button
-                    type="button"
-                    className="ct-user-popup-close"
-                    onClick={() => setIsAudioPopupOpen(false)}
-                    aria-label="Detay penceresini kapat"
-                  >
-                    <CloseOutlined aria-hidden="true" />
-                  </button>
-                </header>
-
-                <p
-                  className={`ct-audio-popover-status ${audioConnectionProps.tone}`}
-                >
-                  {TONE_LABELS[audioConnectionProps.tone]}
-                </p>
-
-                <div className="ct-audio-details-grid">
-                  <div className="ct-metric-tile">
-                    <span>
-                      <DashboardOutlined /> Gecikme (Ping)
-                    </span>
-                    <strong>
-                      {audioConnectionProps.pingMs !== null
-                        ? `${audioConnectionProps.pingMs} ms`
-                        : "-"}
-                    </strong>
-                  </div>
-
-                  <div className="ct-metric-tile">
-                    <span>
-                      <DisconnectOutlined /> Paket Kaybı
-                    </span>
-                    <strong
-                      className={
-                        (audioConnectionProps.packetLossPct ?? 0) > 1
-                          ? "alarm"
-                          : undefined
-                      }
-                    >
-                      {audioConnectionProps.packetLossPct !== null
-                        ? `${audioConnectionProps.packetLossPct.toFixed(1)}%`
-                        : "%0.0"}
-                    </strong>
-                  </div>
-                </div>
-
-                {videoQualityProps.active && (
-                  <section
-                    className={`ct-video-quality ${videoQualityProps.tone}`}
-                    aria-label="Yayın kalitesi"
-                  >
-                    <h5>Yayın Kalitesi</h5>
-
-                    {videoQualityProps.problem && (
-                      <p className="ct-video-quality-problem">
-                        {videoQualityProps.problem}
-                      </p>
-                    )}
-
-                    {videoQualityProps.outgoing && (
-                      <dl className="ct-video-quality-rows">
-                        <div>
-                          <dt>Gönderilen</dt>
-                          <dd>
-                            {videoQualityProps.outgoing.resolution}
-                            {videoQualityProps.outgoing.fps !== null &&
-                              ` · ${videoQualityProps.outgoing.fps} fps`}
-                            {videoQualityProps.outgoing.bitrateMbps !== null &&
-                              ` · ${videoQualityProps.outgoing.bitrateMbps} Mbps`}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Kodlayıcı</dt>
-                          <dd>
-                            {videoQualityProps.outgoing.codec ?? "-"}
-                            {videoQualityProps.outgoing.hardware === true
-                              ? " · donanım"
-                              : videoQualityProps.outgoing.hardware === false
-                                ? " · yazılım"
-                                : ""}
-                            {` · ${videoQualityProps.outgoing.layerCount} katman`}
-                          </dd>
-                        </div>
-                        {videoQualityProps.headroomMbps !== null && (
-                          <div>
-                            <dt>Yükleme başlık payı</dt>
-                            <dd>{videoQualityProps.headroomMbps} Mbps</dd>
-                          </div>
-                        )}
-                      </dl>
-                    )}
-
-                    {videoQualityProps.incoming && (
-                      <dl className="ct-video-quality-rows">
-                        <div>
-                          <dt>Alınan</dt>
-                          <dd>
-                            {videoQualityProps.incoming.resolution}
-                            {videoQualityProps.incoming.fps !== null &&
-                              ` · ${videoQualityProps.incoming.fps} fps`}
-                            {videoQualityProps.incoming.bitrateMbps !== null &&
-                              ` · ${videoQualityProps.incoming.bitrateMbps} Mbps`}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Donma</dt>
-                          <dd
-                            className={
-                              (videoQualityProps.incoming.freezeCount ?? 0) > 0
-                                ? "alarm"
-                                : undefined
-                            }
-                          >
-                            {videoQualityProps.incoming.freezeCount ?? 0} kez
-                            {videoQualityProps.incoming.jitterBufferMs !== null &&
-                              ` · ${videoQualityProps.incoming.jitterBufferMs} ms tampon`}
-                          </dd>
-                        </div>
-                      </dl>
-                    )}
-                  </section>
-                )}
-
-                <div className="ct-audio-popover-actions">
-                  <div className="ct-audio-toggle-row">
-                    <div>
-                      <strong>RNNoise Gürültü Bastırma</strong>
-                      <span>Arka plan seslerini temizler.</span>
-                    </div>
-                    <Switch
-                      checked={
-                        audioProcessingProps.enhancedNoiseSuppressionEnabled
-                      }
-                      onChange={
-                        audioProcessingProps.onToggleEnhancedNoiseSuppression
-                      }
-                      size="small"
-                    />
-                  </div>
-
-                  {audioProcessingProps.enhancedNoiseSuppressionEnabled && (
-                    <div
-                      className={`ct-ns-mode-badge ct-ns-mode-badge--${audioProcessingProps.activeNoiseMode}`}
-                      role="status"
-                      aria-live="polite"
-                      title="Aktif gürültü bastırma modu"
-                    >
-                      <span className="ct-ns-mode-dot" aria-hidden="true" />
-                      {audioProcessingProps.activeNoiseMode === "processor"
-                        ? "RNNoise Filtresi Aktif"
-                        : audioProcessingProps.activeNoiseMode === "browser"
-                          ? "Tarayıcı Filtresi (Geri Dönüş)"
-                          : audioProcessingProps.micEnabled
-                            ? "Başlatılıyor..."
-                            : "Mikrofon açılınca etkinleşecek"}
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-          </div>
-
-        </>
+        <WorkspaceAudioStatus
+          activeLobbyId={lobbiesProps.activeLobbyId}
+          liveKitConnectionState={liveKitConnectionState}
+          audioProcessingProps={audioProcessingProps}
+        />
       )}
 
       <Modal

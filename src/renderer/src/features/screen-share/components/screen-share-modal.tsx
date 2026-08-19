@@ -1,6 +1,7 @@
 import { Modal, Button, Segmented, Switch } from "antd";
 import { SoundOutlined } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
+import { useMediaStatsStore } from "@/features/livekit";
 import { estimateScreenShareUplinkBps } from "../constants";
 import type {
   ScreenShareContentMode,
@@ -23,13 +24,6 @@ interface ScreenShareModalProps {
   qualityOptions: ScreenShareQualityOption[];
   contentMode: ScreenShareContentMode;
   captureSystemAudio: boolean;
-  /**
-   * Congestion control's current estimate of the uplink, or null before it has
-   * one. It is a floor rather than a ceiling — send-side BWE only probes above
-   * what is already being sent — so this marks presets as risky, never blocks
-   * them.
-   */
-  uplinkHeadroomBps: number | null;
   onChangeContentMode: (mode: ScreenShareContentMode) => void;
   onClose: () => void;
   onRefreshSources: () => void;
@@ -58,7 +52,6 @@ export function ScreenShareModal({
   qualityOptions,
   contentMode,
   captureSystemAudio,
-  uplinkHeadroomBps,
   onChangeContentMode,
   onClose,
   onRefreshSources,
@@ -68,6 +61,18 @@ export function ScreenShareModal({
   onChangeQuality,
   onToggleCaptureSystemAudio,
 }: ScreenShareModalProps) {
+  // Congestion control's current estimate of the uplink, or null before it has
+  // one. A floor rather than a ceiling — send-side BWE only probes above what
+  // is already being sent — so this marks presets as risky, never blocks them.
+  //
+  // Read here rather than passed down: the estimate is resampled every second,
+  // and threading it through the shell re-rendered the whole workspace for a
+  // number that is only on screen while this dialog is open. The selector
+  // returns null when it is closed, so a closed dialog never re-renders.
+  const uplinkHeadroomBps = useMediaStatsStore((state) =>
+    isOpen ? state.snapshot.availableOutgoingBitrateBps : null,
+  );
+
   return (
     <Modal
       title={

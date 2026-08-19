@@ -35,6 +35,13 @@ import {
   readRmsLevel,
   type SpeakingTrack,
 } from "./speaking";
+import {
+  buildWatcherMap,
+  decodeWatchState,
+  encodeWatchState,
+  watcherMapsEqual,
+  type ScreenWatcherMap,
+} from "./screen-watchers";
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
@@ -131,6 +138,13 @@ export class LiveKitStreamManager {
   // opt-in: nothing is subscribed until an identity is in here, and it survives
   // reconnects so a hiccup does not silently stop a stream you were watching.
   private readonly watchedScreenIdentities = new Set<string>();
+  // What everyone ELSE says they are watching, keyed by their identity.
+  // Replaced wholesale per sender; see ./screen-watchers.ts for why the wire
+  // format is whole state rather than deltas.
+  private readonly watchStateByViewer = new Map<string, string[]>();
+  // Last audience reported upward, so a re-announcement that changed nothing
+  // does not re-render every tile in the room.
+  private lastEmittedWatchers: ScreenWatcherMap = {};
   private readonly remoteAudioPreferences = new Map<string, RemoteParticipantAudioPreference>();
   // Single-flight guard for connect().
   private connectPromise: Promise<void> | null = null;
@@ -423,6 +437,16 @@ export class LiveKitStreamManager {
       (reason) => this.handleDisconnected(reason),
       () => this.restorePublishingState(),
       (identity) => this.watchedScreenIdentities.has(identity),
+      {
+        onData: (payload, senderIdentity) =>
+          this.handleWatchStateData(payload, senderIdentity),
+        onPeerConnected: () => this.publishWatchState(),
+        onPeerDisconnected: (identity) => {
+          if (this.watchStateByViewer.delete(identity)) {
+            this.emitScreenWatchers();
+          }
+        },
+      },
     );
 
     this.roomEventManager.registerEvents();
@@ -468,6 +492,13 @@ export class LiveKitStreamManager {
       // tracks, a 1000ms pause, then 50ms between video tracks — which pushed
       // join to ~2.5s and raced against room teardown.)
       this.subscribeToExistingTracks();
+
+      // Nobody in the room gets a ParticipantConnected for themselves, so
+      // this is the one announcement that has to come from this side. It
+      // matters on a reconnect, where the watch set survived the drop and the
+      // people still in the room have long since forgotten about it.
+      this.publishWatchState();
+      this.emitScreenWatchers();
 
       this.statsCollector?.start();
 
@@ -519,6 +550,9 @@ export class LiveKitStreamManager {
     // through teardownRoomState, which keeps it so a reconnect can restore what
     // the user was actually watching.
     this.watchedScreenIdentities.clear();
+    this.watchStateByViewer.clear();
+    this.lastEmittedWatchers = {};
+    this.callbacks.onScreenWatchersChanged?.({});
     this.stopAudioMonitoring();
     this.statsCollector?.stop();
     this.statsCollector = null;
@@ -753,6 +787,73 @@ export class LiveKitStreamManager {
     }
 
     this.updateMediaMap();
+    // Tell the room, then recompute locally. Both are needed: the publisher
+    // learns about this viewer from the broadcast, and this viewer's own tile
+    // has to count itself without waiting for its own packet to come back.
+    this.publishWatchState();
+    this.emitScreenWatchers();
+  }
+
+  /**
+   * Announces the whole set of shares this client is watching.
+   *
+   * Reliable rather than lossy: this is state, not a sample, and a dropped
+   * frame would leave somebody's audience wrong until the next toggle. Fired
+   * on every change and once more whenever anybody joins, because the data
+   * channel delivers nothing to a participant who was not there yet.
+   */
+  private publishWatchState(): void {
+    const room = this.room;
+    if (!room || room.state !== ConnectionState.Connected) {
+      return;
+    }
+
+    void room.localParticipant
+      .publishData(encodeWatchState(this.watchedScreenIdentities), {
+        reliable: true,
+      })
+      .catch((error: unknown) => {
+        // Not fatal and not worth a user-facing warning: the only casualty
+        // is a viewer count that is one person short until the next change.
+        logLiveKitDebug("stream-manager", "watch-state-publish-failed", {
+          error: String(error),
+        });
+      });
+  }
+
+  /** A data frame from the room; anything that is not ours is ignored. */
+  private handleWatchStateData(
+    payload: Uint8Array,
+    senderIdentity: string | undefined,
+  ): void {
+    if (!senderIdentity) {
+      // Server-originated data has no participant. Nothing here sends any.
+      return;
+    }
+
+    const targets = decodeWatchState(payload);
+    if (targets === null) {
+      return;
+    }
+
+    this.watchStateByViewer.set(senderIdentity, targets);
+    this.emitScreenWatchers();
+  }
+
+  /** Recomputes the audiences and reports them if they moved. */
+  private emitScreenWatchers(): void {
+    const next = buildWatcherMap(
+      this.watchStateByViewer,
+      this.room?.localParticipant.identity ?? "",
+      this.watchedScreenIdentities,
+    );
+
+    if (watcherMapsEqual(next, this.lastEmittedWatchers)) {
+      return;
+    }
+
+    this.lastEmittedWatchers = next;
+    this.callbacks.onScreenWatchersChanged?.(next);
   }
 
   // Video quality problems are invisible to the person causing them: their own
@@ -1369,8 +1470,15 @@ export class LiveKitStreamManager {
     }
     this.mediaMap = {};
     this.streamCache.clear();
+    // What other people were watching belonged to the room that just went
+    // away. The local watch set deliberately survives (a reconnect restores
+    // the subscriptions), but nobody else's does: a viewer who left during
+    // the outage would otherwise stay in the count forever.
+    this.watchStateByViewer.clear();
+    this.lastEmittedWatchers = {};
     void this.updateLocalAudioSource(null);
     this.callbacks.onRemoteStreamsChanged?.({});
+    this.callbacks.onScreenWatchersChanged?.({});
   }
 
   // Reuses the previous per-participant object whenever nothing about that

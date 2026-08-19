@@ -22,6 +22,13 @@ export class RoomEventManager {
     private readonly restorePublishingState: () => Promise<void>,
     // Screen shares are opt-in, so publication alone must not subscribe.
     private readonly isWatchingScreen: (identity: string) => boolean,
+    // Who is watching whose share, exchanged over the room data channel.
+    // Grouped rather than spread across three more positional parameters.
+    private readonly screenWatchPresence: {
+      onData: (payload: Uint8Array, senderIdentity: string | undefined) => void;
+      onPeerConnected: (identity: string) => void;
+      onPeerDisconnected: (identity: string) => void;
+    },
   ) {}
 
   public registerEvents() {
@@ -39,7 +46,8 @@ export class RoomEventManager {
       .on(RoomEvent.TrackUnmuted, this.updateMediaMap)
       .on(RoomEvent.LocalTrackPublished, this.updateMediaMap)
       .on(RoomEvent.LocalTrackUnpublished, this.updateMediaMap)
-      .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged);
+      .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged)
+      .on(RoomEvent.DataReceived, this.handleDataReceived);
   }
 
   private readonly handleConnected = () => {
@@ -60,12 +68,25 @@ export class RoomEventManager {
 
   private readonly handleParticipantConnected = (p: RemoteParticipant) => {
     logLiveKitDebug("stream-manager", "participant-connected", { identity: p.identity });
+    // Whole watch state is re-announced for the newcomer's benefit: the data
+    // channel has no backlog, so somebody joining after a share started would
+    // otherwise see an empty audience until the next time anyone toggled.
+    this.screenWatchPresence.onPeerConnected(p.identity);
     this.updateMediaMap();
   };
 
   private readonly handleParticipantDisconnected = (p: RemoteParticipant) => {
     logLiveKitDebug("stream-manager", "participant-disconnected", { identity: p.identity });
+    // Nobody announces that they stopped watching on the way out.
+    this.screenWatchPresence.onPeerDisconnected(p.identity);
     this.updateMediaMap();
+  };
+
+  private readonly handleDataReceived = (
+    payload: Uint8Array,
+    participant?: RemoteParticipant,
+  ) => {
+    this.screenWatchPresence.onData(payload, participant?.identity);
   };
 
   private readonly handleTrackPublished = (

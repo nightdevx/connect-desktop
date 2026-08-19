@@ -16,6 +16,7 @@ import { logLiveKitDebug } from "@/services/debug-log";
 import { getDisplayInitials } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 import { useWindowActive } from "../../hooks/media/use-window-active";
+import { ScreenWatcherBadge } from "./lobby-screen-watchers";
 
 // useWindowActive reports whether this app window is in the foreground.
 //
@@ -57,6 +58,14 @@ interface LobbyParticipantTileProps {
   // subscribed; onWatchScreen starts it.
   isWatchingScreen?: boolean;
   onWatchScreen?: (userId: string) => void;
+  /**
+   * Roster display names, for the audience badge on a screen tile.
+   *
+   * Deliberately absent from the memo comparator below: the badge reads the
+   * audience itself and re-renders on its own, and a rename is not worth
+   * re-rendering a live video element for.
+   */
+  nameByUserId?: Record<string, string>;
 }
 
 function LobbyParticipantTileImpl({
@@ -79,6 +88,7 @@ function LobbyParticipantTileImpl({
   localScreenAudioMuted = false,
   isWatchingScreen = false,
   onWatchScreen,
+  nameByUserId,
 }: LobbyParticipantTileProps) {
   const windowActive = useWindowActive();
 
@@ -345,6 +355,13 @@ function LobbyParticipantTileImpl({
           <DesktopOutlined  />
           <span>Ekran</span>
         </div>
+      )}
+
+      {kind === "screen" && !participant.isPlaceholder && (
+        <ScreenWatcherBadge
+          ownerUserId={participant.userId}
+          nameByUserId={nameByUserId ?? {}}
+        />
       )}
 
       {showWatchPrompt && (

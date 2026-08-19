@@ -14,5 +14,13 @@ export {
   type VideoPublishPreferences,
   type VideoPublishTarget,
 } from "./video-profiles";
+export {
+  SCREEN_WATCH_TOPIC,
+  buildWatcherMap,
+  decodeWatchState,
+  encodeWatchState,
+  watcherMapsEqual,
+  type ScreenWatcherMap,
+} from "./screen-watchers";
 export * from "./types";
 export * from "./constants";

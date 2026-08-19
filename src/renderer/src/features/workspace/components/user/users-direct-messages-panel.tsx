@@ -465,6 +465,16 @@ export function UsersDirectMessagesPanel({
     ? (remoteParticipantAudioPreferences[contextMenuParticipantId] ?? { muted: false, volumePercent: 100 })
     : { muted: false, volumePercent: 100 };
 
+  // Names for the audience badge on a shared screen. A call has no roster, so
+  // the two people on the stage are the whole directory it needs.
+  const nameByUserId = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const slot of enhancedStageParticipantSlots) {
+      names[slot.participant.userId] = slot.participant.username;
+    }
+    return names;
+  }, [enhancedStageParticipantSlots]);
+
   const focusedParticipantSlot = useMemo(
     () => (focusedParticipantId ? (enhancedStageParticipantSlots.find((slot) => slot.participant.userId === focusedParticipantId) ?? null) : null),
     [focusedParticipantId, enhancedStageParticipantSlots],
@@ -833,6 +843,7 @@ export function UsersDirectMessagesPanel({
                 {/* LobbyStageView */}
                 <LobbyStageView
                   stageParticipantSlots={enhancedStageParticipantSlots}
+                  nameByUserId={nameByUserId}
                   focusedParticipantSlot={focusedParticipantSlot}
                   nonFocusedParticipantSlots={nonFocusedParticipantSlots}
                   avatarByUserId={avatarByUserId || {}}

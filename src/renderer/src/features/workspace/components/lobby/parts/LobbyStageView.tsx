@@ -34,6 +34,8 @@ interface LobbyStageViewProps {
   // Screen shares are opt-in; the tile shows a "watch" prompt until then.
   isWatchingScreen: (userId: string) => boolean;
   onWatchScreen: (userId: string) => void;
+  /** Roster display names, for the audience badge on a screen tile. */
+  nameByUserId: Record<string, string>;
 }
 
 export function LobbyStageView({
@@ -59,6 +61,7 @@ export function LobbyStageView({
   setIsRailVisible,
   isWatchingScreen,
   onWatchScreen,
+  nameByUserId,
 }: LobbyStageViewProps) {
 
   return (
@@ -102,6 +105,7 @@ export function LobbyStageView({
               localScreenAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.screenAudioMuted}
               isWatchingScreen={isWatchingScreen(focusedParticipantSlot.participant.userId)}
               onWatchScreen={onWatchScreen}
+              nameByUserId={nameByUserId}
             />
           </div>
 
@@ -159,6 +163,7 @@ export function LobbyStageView({
                   localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
                   isWatchingScreen={isWatchingScreen(slot.participant.userId)}
                   onWatchScreen={onWatchScreen}
+                  nameByUserId={nameByUserId}
                 />
               ))}
             </div>
@@ -194,6 +199,7 @@ export function LobbyStageView({
             localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
             isWatchingScreen={isWatchingScreen(slot.participant.userId)}
             onWatchScreen={onWatchScreen}
+            nameByUserId={nameByUserId}
           />
         ))
       )}

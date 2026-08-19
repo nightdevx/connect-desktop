@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { UserDirectoryEntry, UserProfile } from "@shared/auth-contracts";
-import type { DesktopResult } from "@shared/desktop-api-types";
+import type {
+  DesktopResult,
+  SessionSnapshot,
+} from "@shared/desktop-api-types";
 import workspaceService from "../../services";
 import { useStillImages } from "../media/use-still-image";
 import { userCardQueryKey } from "./use-user-cards";
@@ -34,6 +37,8 @@ const getUserDirectoryReconnectDelayMs = (attempt: number): number => {
 
 interface UseWorkspaceUsersParams {
   currentUsername: string;
+  /** Whose profile updates are the signed-in user's own. */
+  currentUserId: string;
 }
 
 export interface UseWorkspaceUsersResult {
@@ -65,8 +70,14 @@ export interface UseWorkspaceUsersResult {
 
 export const useWorkspaceUsers = ({
   currentUsername,
+  currentUserId,
 }: UseWorkspaceUsersParams): UseWorkspaceUsersResult => {
   const queryClient = useQueryClient();
+  // Read at event time, not closed over: the directory socket is registered
+  // once for the life of the hook, and signing in as somebody else must not
+  // leave it matching the previous account.
+  const currentUserIdRef = useRef(currentUserId);
+  currentUserIdRef.current = currentUserId;
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
   const streamWantedRef = useRef(false);
@@ -216,6 +227,53 @@ export const useWorkspaceUsers = ({
           },
         );
         return;
+      }
+
+      // The signed-in user's OWN profile, which is also the session the
+      // whole UI derives its permissions from. The session query runs once
+      // on mount and then only while the backend looks unreachable, so an
+      // admin promoting or demoting somebody used to reach every OTHER
+      // client's roster immediately and the affected person's own window not
+      // at all — they kept the admin rail, or kept missing it, until they
+      // restarted the app. Written into the cache rather than refetched:
+      // the push already carries the answer.
+      if (
+        event.type === "user-profile-updated" &&
+        event.user.userId === currentUserIdRef.current
+      ) {
+        queryClient.setQueryData<DesktopResult<SessionSnapshot>>(
+          ["auth-session"],
+          (previous) => {
+            if (!previous?.ok || !previous.data?.user) {
+              return previous;
+            }
+
+            const user = previous.data.user;
+            const next = {
+              ...user,
+              username: event.user.username || user.username,
+              displayName: event.user.displayName,
+              avatarUrl: event.user.avatarUrl ?? null,
+              bannerUrl: event.user.bannerUrl ?? null,
+              role: event.user.role ?? user.role,
+            };
+
+            // Same values means the same object. The session is the root of
+            // the whole tree; handing React a fresh one for an update that
+            // changed only a field this does not mirror would re-render the
+            // entire app for nothing.
+            const unchanged =
+              next.username === user.username &&
+              next.displayName === user.displayName &&
+              next.avatarUrl === user.avatarUrl &&
+              next.bannerUrl === user.bannerUrl &&
+              next.role === user.role;
+
+            return unchanged
+              ? previous
+              : { ...previous, data: { ...previous.data, user: next } };
+          },
+        );
       }
 
       if (event.type !== "user-profile-updated") {

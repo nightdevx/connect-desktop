@@ -49,8 +49,22 @@ const EMOTE_PATTERNS: Record<string, OscillatorTone[]> = {
   ],
 };
 
+// How far ahead of the audio clock a cue is scheduled. Small enough that
+// nobody perceives it, large enough that the ramps are never behind the audio
+// thread by the time it reads them.
+const SCHEDULE_LEAD_SECONDS = 0.02;
+
+// Two of the same cue inside this window are one event as far as a listener is
+// concerned. A roster snapshot arrives about once a second and can carry three
+// arrivals in it.
+const COALESCE_WINDOW_MS = 220;
+
 class SoundEffectManager {
   private audioContext: AudioContext | null = null;
+  /** Last wall-clock time each cue key was played, for coalescing bursts. */
+  private readonly lastPlayedAtByKey = new Map<string, number>();
+  /** Whether the output device has been opened. See prime(). */
+  private isWarm = false;
   // Decoded uploads, by emote id. An emote is pressed repeatedly by design.
   private readonly sampleCache = new Map<string, AudioBuffer>();
   private outputNode: AudioNode | null = null;
@@ -101,6 +115,19 @@ class SoundEffectManager {
     return gain;
   }
 
+  /**
+   * Opens the output device before anything needs to be heard through it.
+   *
+   * The first cue of a session used to pay for all of this at the moment it was
+   * supposed to be heard: constructing the context, waiting for WASAPI to hand
+   * over an endpoint, building the compressor and the master gain. That is tens
+   * to hundreds of milliseconds, and it lands on the one sound that is supposed
+   * to confirm something just happened — so the first join chime arrived late,
+   * clipped, or not at all.
+   *
+   * Idempotent and cheap after the first call, so callers can prime on mount,
+   * on the first click, and on entering a room without thinking about it.
+   */
   public prime(): void {
     if (!this.enabled) {
       return;
@@ -112,6 +139,28 @@ class SoundEffectManager {
     }
 
     void context.resume().catch(() => undefined);
+
+    if (this.isWarm) {
+      return;
+    }
+    this.isWarm = true;
+
+    // Build the shared graph now rather than inside the first cue.
+    this.getOutputNode(context);
+
+    // One silent sample. A context can be "running" while the platform has not
+    // actually opened an endpoint yet; the first buffer it is asked to render
+    // is what forces that, and doing it here means the first real cue finds the
+    // device already awake.
+    try {
+      const silence = context.createBufferSource();
+      silence.buffer = context.createBuffer(1, 1, context.sampleRate);
+      silence.connect(context.destination);
+      silence.start();
+    } catch {
+      // A context that refuses this is one that was closed under us; the next
+      // cue rebuilds everything anyway.
+    }
   }
 
   private getAudioContext(): AudioContext | null {
@@ -129,7 +178,23 @@ class SoundEffectManager {
       return null;
     }
 
-    this.audioContext = new Ctx();
+    // latencyHint "interactive" asks the platform for the smallest buffer it
+    // will give us. The default is the same on Chromium today, but this is a
+    // notification path — being explicit costs nothing and the default is not
+    // promised.
+    this.audioContext = new Ctx({ latencyHint: "interactive" });
+
+    // A context does not only start suspended, it can GO suspended: switching
+    // the default output device, an exclusive-mode app taking the endpoint,
+    // the machine sleeping. Nothing resumed it afterwards, so the cues went
+    // quiet or arrived late for the rest of the session and the only fix was a
+    // restart. Now the context puts itself back.
+    this.audioContext.addEventListener("statechange", () => {
+      if (this.audioContext?.state === "suspended" && this.enabled) {
+        void this.audioContext.resume().catch(() => undefined);
+      }
+    });
+
     return this.audioContext;
   }
 
@@ -158,9 +223,49 @@ class SoundEffectManager {
     pattern: OscillatorTone[],
     /** Emotes route through the soundboard gain; UI cues do not. */
     destination: "cue" | "emote" = "cue",
+    /**
+     * Which cue this is. Two of the same inside COALESCE_WINDOW_MS play once:
+     * a roster snapshot that brings three people in at once used to start three
+     * identical chimes on the same millisecond, which is not three chimes, it
+     * is one smeared noise with the compressor pumping under it.
+     */
+    key?: string,
   ): void {
     const context = this.getAudioContext();
     if (!this.enabled || !context || pattern.length === 0) {
+      return;
+    }
+
+    const wallClock = Date.now();
+    if (key) {
+      const lastPlayedAt = this.lastPlayedAtByKey.get(key) ?? 0;
+      if (wallClock - lastPlayedAt < COALESCE_WINDOW_MS) {
+        return;
+      }
+      this.lastPlayedAtByKey.set(key, wallClock);
+    }
+
+    // A suspended context has a stopped clock, so scheduling against it lands
+    // every ramp in the past and the cue arrives clipped, late, or not at all.
+    // Resume first and schedule in the callback; the await is a frame or two
+    // when the device is already warm, which is what prime() is for.
+    if (context.state !== "running") {
+      void context
+        .resume()
+        .then(() => this.schedulePattern(context, pattern, destination))
+        .catch(() => undefined);
+      return;
+    }
+
+    this.schedulePattern(context, pattern, destination);
+  }
+
+  private schedulePattern(
+    context: AudioContext,
+    pattern: OscillatorTone[],
+    destination: "cue" | "emote",
+  ): void {
+    if (!this.enabled || context.state === "closed") {
       return;
     }
 
@@ -168,9 +273,12 @@ class SoundEffectManager {
       destination === "emote"
         ? this.getEmoteOutputNode(context)
         : this.getOutputNode(context);
-    void context.resume().catch(() => undefined);
 
-    const now = context.currentTime;
+    // Scheduled a hair ahead rather than at currentTime. An envelope that
+    // starts in the past is applied from wherever the audio thread has already
+    // got to, which is what turned the attack into a click and sometimes ate
+    // the first note outright.
+    const now = context.currentTime + SCHEDULE_LEAD_SECONDS;
     let cursor = now;
 
     for (const tone of pattern) {
@@ -273,28 +381,38 @@ class SoundEffectManager {
 
   /** You walked into a room: the full three-note chime. */
   public playSelfJoinedLobby(): void {
-    this.playPattern(CUE_PATTERNS.selfJoinedLobby);
+    this.playPattern(CUE_PATTERNS.selfJoinedLobby, "cue", "selfJoinedLobby");
   }
 
   /** You walked out: the same three notes, the other way up. */
   public playSelfLeftLobby(): void {
-    this.playPattern(CUE_PATTERNS.selfLeftLobby);
+    this.playPattern(CUE_PATTERNS.selfLeftLobby, "cue", "selfLeftLobby");
   }
 
   public playMemberJoined(): void {
-    this.playPattern(CUE_PATTERNS.memberJoined);
+    this.playPattern(CUE_PATTERNS.memberJoined, "cue", "memberJoined");
   }
 
   public playMemberLeft(): void {
-    this.playPattern(CUE_PATTERNS.memberLeft);
+    this.playPattern(CUE_PATTERNS.memberLeft, "cue", "memberLeft");
   }
 
   public playCameraEnabled(): void {
-    this.playPattern(CUE_PATTERNS.cameraEnabled);
+    this.playPattern(CUE_PATTERNS.cameraEnabled, "cue", "cameraEnabled");
   }
 
   public playScreenEnabled(): void {
-    this.playPattern(CUE_PATTERNS.screenEnabled);
+    this.playPattern(CUE_PATTERNS.screenEnabled, "cue", "screenEnabled");
+  }
+
+  /** Somebody started watching a share you are broadcasting or watching. */
+  public playStreamViewerJoined(): void {
+    this.playPattern(CUE_PATTERNS.streamViewerJoined, "cue", "streamViewerJoined");
+  }
+
+  /** You started watching somebody else's share. */
+  public playStreamWatchStarted(): void {
+    this.playPattern(CUE_PATTERNS.streamWatchStarted, "cue", "streamWatchStarted");
   }
 
   public playMicToggle(enabled: boolean): void {
