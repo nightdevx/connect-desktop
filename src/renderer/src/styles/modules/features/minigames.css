@@ -1,15 +1,25 @@
 /* ==========================================================================
    MINIGAMES
 
-   A sidebar of games and one board in the main panel. Both live inside the
-   shell's existing columns -- .ct-sidebar and .ct-main-panel are auto-placed,
-   so this file writes no grid rules and no widths.
+   A sidebar of games and one board in the main panel.
 
-   Every board is square and sized from its own width with aspect-ratio, not
-   from the viewport. The panel is the window minus the 72px rail and the
-   sidebar, so a media query would be answering a different question from the
-   one the board is asking -- the same reasoning free-games.css gives for its
-   container query.
+   Three rules the whole file follows, and each of them exists because the
+   version before it did not:
+
+   SIZE     A board is capped by BOTH its width and its height and keeps square
+            cells at whatever shape it is. Every board used to be forced square
+            at 520px, which gave Connect Four elliptical discs on its 7x6 grid,
+            drew 2048 at 130px a tile, and pushed the leaderboard off the bottom
+            of the page.
+   CONTRAST A game is looked AT, not read. --ct-alpha-* is translucent contrast
+            for hairlines and hover washes; two of its steps over the same
+            ground are a couple of percent apart. Minesweeper drew closed cells
+            at alpha-08 and open ones at alpha-02 and they were indistinguishable
+            — the core state of the game was invisible. Boards use the SOLID
+            --ct-board-* and --ct-square-* tokens instead.
+   WIDTH    Every game lays out inside the same shell, so the column does not
+            jump when the game changes. Chess used to be 160px wider than the
+            rest.
 
    No images anywhere in here. The page ships no assets, which is what keeps it
    off the img-src list in index.html.
@@ -18,19 +28,24 @@
 /* --- the sidebar --------------------------------------------------------- */
 
 .ct-minigames-sidebar {
-  @apply flex min-h-0 flex-1 flex-col gap-3;
+  @apply flex min-h-0 flex-1 flex-col gap-4;
 }
 
 .ct-minigames-tabs {
-  @apply flex shrink-0 flex-col gap-1.5;
+  @apply flex shrink-0 flex-col gap-1;
 }
 
 /* Deliberately the same shape as .ct-free-games-tab and .ct-settings-tab: this
    is the third panel in the app whose sidebar is a list of labelled
    destinations, and three different answers to that would read as three
    different apps. */
+/* items-center, NOT items-start. The icon is a 30px tile beside a body that is
+   two lines on most rows and three on any game with a record, so anchoring it
+   to the top left it sitting 12.5px above the row's centre line -- measured, not
+   guessed -- and the taller the row the more it looked dropped in from above.
+   Centred, it reads as one row whatever the body under it turns out to be. */
 .ct-minigames-tab {
-  @apply relative flex flex-col gap-0.5 overflow-hidden rounded-md border px-3 py-2.5 text-left;
+  @apply relative flex items-center gap-2.5 overflow-hidden rounded-md border px-2.5 py-2 text-left;
   border-color: transparent;
   color: var(--ct-text-secondary);
   background: transparent;
@@ -63,39 +78,55 @@
 }
 
 .ct-minigames-tab.active::before {
-  height: 60%;
+  height: 62%;
 }
 
-.ct-minigames-tab-head {
-  @apply flex items-center justify-between gap-2;
-}
-
-.ct-minigames-tab-label {
-  @apply flex items-center gap-2 text-sm font-semibold;
-  line-height: 1.3;
-}
-
+/* A tile rather than a bare glyph. The list is seven rows of very similar text,
+   and the icon is the only thing on each row that is not text. */
 .ct-minigames-tab-icon {
-  @apply flex items-center;
+  @apply flex shrink-0 items-center justify-center rounded-md;
+  width: 30px;
+  height: 30px;
   font-size: var(--ct-icon-sm);
   color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
 }
 
 .ct-minigames-tab.active .ct-minigames-tab-icon {
-  color: var(--ct-text-primary);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-minigames-tab-body {
+  @apply flex min-w-0 flex-col gap-0.5;
+}
+
+.ct-minigames-tab-label {
+  @apply text-sm font-semibold;
+  line-height: 1.25;
 }
 
 .ct-minigames-tab-description {
-  @apply text-xs;
+  @apply text-2xs;
   color: var(--ct-text-muted);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 /* --ct-success, not --ct-accent-strong: that one is a 32% alpha overlay, which
    works as a background and disappears as a text colour. */
 .ct-minigames-tab-best {
-  @apply mt-1 text-2xs font-semibold tabular-nums;
+  @apply mt-1 flex items-center gap-1.5 text-2xs font-semibold tabular-nums;
   color: var(--ct-success);
+}
+
+/* Which board the record is FOR. Without it the number silently changes meaning
+   when the difficulty does. */
+.ct-minigames-tab-best-scope {
+  @apply rounded px-1 py-px text-3xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-08);
 }
 
 .ct-minigames-group {
@@ -109,166 +140,457 @@
 }
 
 .ct-minigames-sidebar-note {
-  @apply mt-auto shrink-0 border-t pt-3 text-2xs;
+  @apply mt-auto shrink-0 rounded-md border p-2.5 text-2xs;
   border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
   color: var(--ct-text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-/* --- the board ----------------------------------------------------------- */
+/* --- the page ------------------------------------------------------------ */
+
+/* Two columns: the game, and one rail beside it.
+
+   THE RAIL IS ALWAYS THERE and is always the same width. It used to exist only
+   for the four games that keep a record, so picking XOX after 2048 collapsed
+   the whole track and slid the page sideways -- the single most visible thing
+   wrong with this layout. One fixed track means the frame is identical in all
+   seven games and only the board inside it changes.
+
+   The header spans the BOARD column and not the rail. Stretched across both, its
+   right-hand end -- the record badge and the difficulty picker -- sat above the
+   leaderboard, which is a control hovering over something it does not control.
+
+   height, not flex-1. The panel's parent is `display: block`, where a flex
+   child's flex property does nothing at all -- so the panel sized to its
+   content and left the bottom third of the page empty while the board was
+   capped as though space were tight. With a definite height the `1fr` row is
+   real, and the board can use what is actually there. */
+/* A size container wrapped around the page, and nothing else.
+
+   It is what lets the board below be sized from the height it ACTUALLY has
+   instead of from a hand-counted subtraction off the viewport -- the old cap was
+   `100vh - 280px`, where 280 was the titlebar plus the panel padding plus the
+   page header plus the rows in the board's own column, and it was wrong the
+   moment any one of those moved. Silently: too small wasted a third of the page,
+   too large ran the status line off the bottom.
+
+   It has to be an ANCESTOR of the grid rather than the grid item itself. A size
+   container is size-CONTAINED, so it reports zero to whatever is measuring it --
+   put it on .ct-arcade and the auto-sized game column stops seeing a board at
+   all and collapses onto the page header's width, drawing every board at about
+   a third of its size. That is not a hypothetical; it is what the first version
+   of this rule did. */
+.ct-minigames-page {
+  height: 100%;
+  container-type: size;
+}
 
 .ct-minigames-panel {
-  @apply flex min-h-0 flex-1 flex-col gap-4;
+  --ct-minigames-rail: 244px;
+  @apply grid min-h-0 gap-x-4 gap-y-3;
+  /* The game column HUGS, and the pair is centred -- 1fr instead hands the game
+     column every pixel the rail does not want, which puts the slack BETWEEN the
+     board and the card beside it rather than around the two of them. There is a
+     check pinned on this in scripts/check-minigames.cjs; it caught the
+     regression while this rule was being rewritten. */
+  grid-template-columns: minmax(0, auto) var(--ct-minigames-rail);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "head rail"
+    "game rail";
+  justify-content: center;
+  height: 100%;
 }
 
 .ct-minigames-header {
-  @apply flex shrink-0 items-start justify-between gap-4;
+  @apply flex shrink-0 flex-wrap items-center gap-3;
+  grid-area: head;
+}
+
+/* The column beside the board: the leaderboard, then what is live right now.
+
+   Its own scroller rather than the page's, so a long list of open tables cannot
+   push the board out of the layout it was just sized into. */
+.ct-minigames-rail {
+  @apply flex min-h-0 flex-col gap-3 overflow-y-auto;
+  grid-area: rail;
+}
+
+.ct-minigames-header-icon {
+  @apply flex shrink-0 items-center justify-center rounded-lg;
+  width: 38px;
+  height: 38px;
+  font-size: var(--ct-icon-md);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+/* Grows, so everything after it is pushed to the far end of the header. The
+   record badge used to do this with ml-auto, but it is conditional -- and with
+   no record yet the difficulty picker ended up welded to the title. */
+.ct-minigames-header-text {
+  @apply flex min-w-0 flex-1 flex-col;
 }
 
 .ct-minigames-header h4 {
-  @apply text-base font-semibold;
+  @apply m-0 text-base font-semibold;
   color: var(--ct-text-primary);
+  line-height: 1.2;
 }
 
 .ct-minigames-header-description {
-  @apply text-xs;
+  @apply m-0 text-xs tabular-nums;
   color: var(--ct-text-muted);
 }
 
+/* The record, at the right-hand end with the picker. The header text does the
+   pushing -- an ml-auto here only worked while the badge existed. */
 .ct-minigames-best {
-  @apply shrink-0 rounded-full border px-2.5 py-1 text-2xs font-semibold tabular-nums;
+  @apply flex shrink-0 flex-col items-end rounded-md border px-3 py-1;
   border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
   background: var(--ct-alpha-02);
 }
 
-.ct-minigame {
-  @apply flex min-h-0 flex-1 flex-col items-center gap-3;
+.ct-minigames-best-label {
+  @apply text-3xs font-semibold uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ct-text-muted);
 }
 
-.ct-minigame-bar {
-  @apply flex w-full max-w-[520px] shrink-0 items-center gap-3;
+.ct-minigames-best strong {
+  @apply text-sm font-bold tabular-nums;
+  color: var(--ct-success);
 }
 
-.ct-minigame-bar > :last-child {
-  @apply ml-auto;
-}
+/* --- difficulty ---------------------------------------------------------- */
 
-.ct-minigame-metric {
-  @apply flex flex-col rounded-md border px-3 py-1.5 tabular-nums;
+/* A segmented control, not a select: there are exactly three, they are ordered,
+   and the point is being able to see the other two. */
+.ct-difficulty {
+  @apply flex shrink-0 items-stretch gap-1 rounded-lg border p-1;
   border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  color: var(--ct-text-primary);
-  min-width: 78px;
+  background: var(--ct-alpha-02);
 }
 
-.ct-minigame-metric-label {
-  @apply text-2xs font-medium uppercase;
+.ct-difficulty-option {
+  @apply flex flex-col items-center gap-px rounded-md px-2.5 py-1;
+  border: 0;
+  background: transparent;
+  color: var(--ct-text-muted);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-difficulty-option:hover:not([data-active]) {
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-secondary);
+}
+
+.ct-difficulty-option[data-active] {
+  background: var(--ct-accent);
+  color: var(--ct-text-inverse);
+}
+
+.ct-difficulty-label {
+  @apply text-2xs font-bold uppercase;
   letter-spacing: 0.06em;
-  color: var(--ct-text-muted);
 }
 
-.ct-minigame-metric strong {
-  @apply text-base font-semibold;
+/* What the difficulty actually does, generated from the rules. It is the
+   difference between three words and a decision. */
+.ct-difficulty-hint {
+  @apply text-3xs tabular-nums;
+  opacity: 0.75;
+  line-height: 1.2;
 }
 
-/* One square, centred, capped so a maximised window does not hand the user a
-   700px minesweeper. aspect-ratio does the height; nothing here measures the
-   viewport. */
-.ct-minigame-board {
-  @apply grid w-full shrink-0 gap-1 rounded-lg border p-2;
-  max-width: 520px;
-  aspect-ratio: 1;
-  /* Load-bearing. Every cell in every one of these games is either empty or a
-     single character, so auto-sized rows collapse to nothing and the board
-     paints as a thin strip. aspect-ratio gives the container a definite height;
-     1fr is what divides it between the rows. */
-  grid-auto-rows: 1fr;
+/* --- the game shell ------------------------------------------------------ */
+
+/* A row: the board's column, and whatever stands beside it -- chess's
+   scoresheet, and nothing else so far.
+
+   Deliberately NOT a container of any kind; see .ct-minigames-page for why.
+   `flex: 1 1 0` is for the versus games only, where this is a flex child of
+   .ct-versus rather than the grid item -- in the grid it is ignored and the
+   `game` area stretches it.
+
+   Centred rather than wrapped. Wrapping was there so a narrow panel could put
+   the scoresheet under the board, but the row has a fixed height and anything
+   that wraps inside it simply overflows -- the sheet shrinks now, down to a
+   floor, and the board keeps its columns. */
+.ct-arcade {
+  @apply flex min-h-0 min-w-0 items-stretch justify-center gap-3;
+  grid-area: game;
+  flex: 1 1 0;
+}
+
+/* THE size rule, and the only place the arithmetic appears.
+
+   aspect-ratio comes from the board's own grid, so a 30x16 minefield is drawn
+   30x16 and its cells stay square. The width is whichever of two things is
+   smaller: the space available, or what the height cap allows at that ratio.
+   Both are needed -- capping only the width lets a tall board run off the page,
+   and capping only the height lets a wide one overflow sideways.
+
+   Everything in the column inherits that width, so the seats, the metrics and
+   the status line are exactly as wide as the board they belong to. Stretched to
+   the panel instead, they read as furniture with a board floating behind
+   them.
+
+   100cqh, NOT 100vh -- see .ct-minigames-page. cqh is the height the PAGE
+   actually got, so the only things left to subtract are the two rows above this
+   column and the rows inside it, both of which are a much smaller thing to be
+   approximately right about than a count that started at the window edge. */
+.ct-arcade-stage {
+  @apply flex min-w-0 flex-col items-stretch justify-center gap-2.5;
+  /* The page header and the grid's row gap, which stand between the container
+     and this column. */
+  --arcade-page-chrome: 60px;
+  /* Everything in this column that is NOT the board: a 47px metric bar, a 28px
+     status pill and the 10px gaps around them, rounded UP. Overestimating costs
+     a few pixels of board; underestimating overflows a row that does not clip,
+     so the board would sit over the page header. */
+  --arcade-chrome: 104px;
+  --board-max-height: clamp(
+    180px,
+    calc(100cqh - var(--arcade-page-chrome) - var(--arcade-chrome)),
+    720px
+  );
+  flex: 0 1 auto;
+  width: calc(
+    var(--board-max-height) * var(--board-columns) / var(--board-rows)
+  );
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+/* The two-player games add a row of seats above the HUD. */
+.ct-arcade-stage:has(.ct-arcade-header) {
+  --arcade-chrome: 124px;
+}
+
+/* Chess adds the move ticker under the seats on top of that. Declared AFTER the
+   rule above and at the same specificity, which is what makes it win -- both are
+   one class inside :has(). */
+.ct-arcade-stage:has(.ct-chess-ticker) {
+  --arcade-chrome: 168px;
+}
+
+.ct-arcade-header {
+  @apply flex shrink-0 flex-col items-center gap-2;
+}
+
+.ct-arcade-hud {
+  @apply flex shrink-0 flex-wrap items-stretch gap-2;
+}
+
+.ct-arcade-actions {
+  @apply ml-auto flex shrink-0 items-center gap-2;
+}
+
+.ct-arcade-metric {
+  @apply flex flex-col justify-center rounded-md border px-3 py-1 tabular-nums;
   border-color: var(--ct-border);
   background: var(--ct-panel-soft);
+  min-width: 76px;
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
 }
 
-.ct-minigame-hint {
-  @apply shrink-0 text-center text-xs;
+.ct-arcade-metric-label {
+  @apply text-3xs font-semibold uppercase;
+  letter-spacing: 0.07em;
   color: var(--ct-text-muted);
-  max-width: 520px;
+}
+
+.ct-arcade-metric-value {
+  @apply text-lg font-bold leading-tight;
+  color: var(--ct-text-primary);
+}
+
+.ct-arcade-metric[data-tone="record"] {
+  border-color: var(--ct-success);
+}
+
+.ct-arcade-metric[data-tone="record"] .ct-arcade-metric-value {
+  color: var(--ct-success);
+}
+
+.ct-arcade-metric[data-tone="alert"] {
+  border-color: var(--ct-warning);
+}
+
+.ct-arcade-metric[data-tone="alert"] .ct-arcade-metric-value {
+  color: var(--ct-warning);
+}
+
+.ct-arcade-frame {
+  @apply relative w-full rounded-xl border p-2;
+  /* Load-bearing for every cqw below. With no container ancestor cqw resolves
+     against the VIEWPORT, which sizes a glyph off the window rather than off
+     the board it is standing on. */
+  container-type: inline-size;
+  aspect-ratio: var(--board-columns) / var(--board-rows);
+  border-color: var(--ct-border);
+  background: var(--ct-board-bed);
+  box-shadow: var(--ct-shadow-md);
+}
+
+/* Every board is the same thing: a grid that fills its frame. The frame owns
+   the size; the board owns the gaps. */
+.ct-board {
+  @apply grid h-full w-full;
+  grid-template-columns: repeat(var(--board-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--board-rows), minmax(0, 1fr));
+}
+
+/* --- the status line ----------------------------------------------------- */
+
+/* The text was already correct and already invisible: a muted 12px line under
+   the board, which is precisely the "whose turn is it" complaint. */
+.ct-arcade-status {
+  @apply m-0 mx-auto flex w-fit shrink-0 items-center justify-center gap-2 rounded-full border px-3.5 py-1 text-xs font-semibold;
+  border-color: transparent;
+  color: var(--ct-text-muted);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+  text-align: center;
+}
+
+.ct-arcade-status[data-tone="you"] {
+  border-color: var(--ct-accent);
+  color: var(--ct-text-primary);
+  background: var(--ct-accent-soft);
+}
+
+/* A dot that keeps breathing while the move is yours, and stops the moment it
+   is not. Movement is what the eye catches on a page it is not reading. */
+.ct-arcade-status[data-tone="you"]::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ct-accent);
+  animation: ctPulseDot 1.4s var(--ct-ease-premium) infinite;
+}
+
+.ct-arcade-status[data-tone="wait"] {
+  color: var(--ct-text-secondary);
+  border-color: var(--ct-border);
+  border-style: dashed;
+}
+
+.ct-arcade-status[data-tone="done"] {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-raised);
+}
+
+/* --- the column beside the board ----------------------------------------- */
+
+/* As tall as the board, not 520px.
+
+   The fixed height was set when the board was capped at 520 too; the cap moved
+   and this did not, so on any tall window the scoresheet stopped 160px short of
+   the board it belongs to and the pair read as two unrelated boxes. min-h-0 and
+   the shrink are what let it give width back on a narrow panel rather than
+   pushing the board out of the row. */
+.ct-arcade-aside {
+  @apply flex min-h-0 min-w-0 flex-col;
+  flex: 0 1 190px;
+  min-width: 132px;
+  align-self: stretch;
 }
 
 /* --- 2048 ---------------------------------------------------------------- */
 
 .ct-2048-board {
-  grid-template-columns: repeat(4, 1fr);
-  @apply gap-2 p-2.5;
+  @apply gap-1.5;
 }
 
+/* The ramp climbs in LUMINANCE, and the text colour flips with it. Getting that
+   backwards is how free-games ended up with a white count on a white pill: the
+   solid tokens FLIP with the theme, so a tile wearing one takes
+   --ct-text-inverse, which flips with them. */
 .ct-2048-cell {
-  @apply flex items-center justify-center rounded-md text-2xl font-bold tabular-nums;
-  background: var(--ct-alpha-04);
+  @apply flex items-center justify-center rounded-lg font-bold tabular-nums;
+  font-size: clamp(0.85rem, 3.4cqw, 1.9rem);
+  /* An empty slot is a hole in the bed, drawn as a recess rather than as a
+     lighter square -- otherwise the lowest tile on the ramp and an empty cell
+     are the same colour, which is the whole problem this file opens with. */
+  background: rgb(0 0 0 / 0.22);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
   color: var(--ct-text-primary);
   transition: background var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
-/* A ramp rather than a palette: eleven hand-picked colours would need a light
-   and a dark variant each. Value climbs one accent instead, so both themes get
-   the ramp for free.
-
-   The two halves take DIFFERENT text colours, and which is which is not a
-   guess. --ct-accent-soft and --ct-accent-strong are alpha overlays (8% and 32%
-   of --ct-alpha-*), so a tile wearing one is still the board's own colour and
-   keeps --ct-text-primary. --ct-accent-dim and --ct-accent are solid and FLIP
-   with the theme -- white-ish in dark mode, near-black in light -- so they take
-   --ct-text-inverse, the token that flips with them. Reversing the two is how
-   free-games.css ended up with a white count on a white pill. */
-.ct-2048-cell[data-value] {
-  background: var(--ct-accent-soft);
+.ct-2048-cell[data-tier] {
+  box-shadow: none;
 }
 
-.ct-2048-cell[data-value="8"],
-.ct-2048-cell[data-value="16"],
-.ct-2048-cell[data-value="32"] {
-  background: var(--ct-accent-strong);
+.ct-2048-cell[data-tier="1"] {
+  background: var(--ct-tile-1);
 }
 
-.ct-2048-cell[data-value="64"],
-.ct-2048-cell[data-value="128"],
-.ct-2048-cell[data-value="256"] {
-  background: var(--ct-accent-dim);
+.ct-2048-cell[data-tier="2"] {
+  background: var(--ct-tile-2);
+}
+
+.ct-2048-cell[data-tier="3"] {
+  background: var(--ct-tile-3);
   color: var(--ct-text-inverse);
 }
 
-.ct-2048-cell[data-value="512"],
-.ct-2048-cell[data-value="1024"],
-.ct-2048-cell[data-value="2048"] {
-  background: var(--ct-accent);
+.ct-2048-cell[data-tier="4"] {
+  background: var(--ct-tile-4);
   color: var(--ct-text-inverse);
+}
+
+/* The hot end. --ct-highlight is the one colour on the ramp, and it is spent
+   here because "you are doing well" is worth saying in colour. */
+.ct-2048-cell[data-tier="5"] {
+  background: var(--ct-highlight);
+  color: var(--ct-on-highlight);
   box-shadow: var(--ct-shadow-glow);
 }
 
-/* Four digits in a cell that fits two comfortably. */
-.ct-2048-cell[data-value="128"],
-.ct-2048-cell[data-value="256"],
-.ct-2048-cell[data-value="512"] {
-  @apply text-xl;
+/* Four digits in a box sized for two. */
+.ct-2048-cell[data-digits="3"] {
+  font-size: clamp(0.75rem, 2.8cqw, 1.6rem);
 }
 
-.ct-2048-cell[data-value="1024"],
-.ct-2048-cell[data-value="2048"] {
-  @apply text-lg;
+.ct-2048-cell[data-digits="4"] {
+  font-size: clamp(0.65rem, 2.2cqw, 1.25rem);
+}
+
+.ct-2048-cell[data-digits="5"],
+.ct-2048-cell[data-digits="6"] {
+  font-size: clamp(0.55rem, 1.8cqw, 1rem);
+}
+
+/* Only the tile that APPEARED pops. Keying every cell on its value made the
+   whole board flash on every slide. */
+.ct-2048-cell[data-spawn] {
+  animation: ctTilePop 0.2s var(--ct-ease-spring) both;
 }
 
 /* --- minesweeper --------------------------------------------------------- */
 
 .ct-mines-board {
-  grid-template-columns: repeat(16, 1fr);
-  @apply gap-px p-1.5;
+  @apply gap-px;
 }
 
+/* A closed cell stands PROUD of the bed and an open one is the bed. That is the
+   whole visual language of this game, and the version before this drew both as
+   two nearly identical alpha steps. */
 .ct-mines-cell {
-  @apply flex items-center justify-center rounded-sm text-2xs font-bold leading-none tabular-nums;
+  @apply flex items-center justify-center rounded-sm font-bold leading-none tabular-nums;
+  font-size: clamp(0.5rem, 2.6cqw, 0.95rem);
   border: 0;
-  background: var(--ct-alpha-08);
+  background: var(--ct-board-cell);
   color: var(--ct-text-primary);
-  transition: background var(--ct-duration-fast) var(--ct-ease-premium);
+  box-shadow: inset 0 1px 0 var(--ct-alpha-12);
+  transition:
+    background var(--ct-duration-fast) var(--ct-ease-premium),
+    box-shadow var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
 .ct-mines-cell:hover:not([data-revealed]) {
@@ -276,7 +598,12 @@
 }
 
 .ct-mines-cell[data-revealed] {
-  background: var(--ct-alpha-02);
+  background: var(--ct-board-bed);
+  box-shadow: none;
+}
+
+.ct-mines-cell[data-flag] {
+  color: var(--ct-warning);
 }
 
 .ct-mines-cell[data-mine] {
@@ -313,10 +640,8 @@
 
 /* --- snake --------------------------------------------------------------- */
 
-/* grid-template-columns is set inline from SNAKE_COLUMNS: the board size is a
-   rule of the game, and duplicating it here is a second place to change it. */
 .ct-snake-board {
-  @apply gap-px p-1.5;
+  @apply gap-px;
 }
 
 .ct-snake-cell {
@@ -326,10 +651,13 @@
 
 .ct-snake-cell[data-part="body"] {
   background: var(--ct-accent-dim);
+  border-radius: 2px;
 }
 
 .ct-snake-cell[data-part="head"] {
   background: var(--ct-accent);
+  box-shadow: var(--ct-shadow-glow);
+  border-radius: 3px;
 }
 
 .ct-snake-cell[data-food] {
@@ -337,85 +665,21 @@
   border-radius: 50%;
 }
 
-/* --- the leaderboard ------------------------------------------------------ */
+/* --- memory -------------------------------------------------------------- */
 
-/* Sits under the board, in normal flow with it, and scrolls with the page —
-   the same call free-games.css makes for its pager, and for the same reason:
-   giving it its own scroller would give the board above it a definite height
-   and squeeze it. */
-.ct-leaderboard {
-  @apply flex w-full max-w-[520px] shrink-0 flex-col gap-2 self-center rounded-lg border p-3;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-}
-
-.ct-leaderboard-head {
-  @apply flex items-center justify-between gap-2;
-}
-
-.ct-leaderboard-head h5 {
-  @apply m-0 flex items-center gap-1.5 text-sm font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-leaderboard-head-right {
-  @apply flex items-center gap-1.5;
-}
-
-.ct-leaderboard-rank {
-  @apply rounded-full border px-2 py-0.5 text-2xs font-semibold tabular-nums;
-  border-color: var(--ct-border);
-  color: var(--ct-success);
-}
-
-.ct-leaderboard-empty {
-  @apply m-0 py-2 text-center text-xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-leaderboard-list {
-  @apply m-0 flex list-none flex-col gap-0.5 p-0;
-}
-
-.ct-leaderboard-row {
-  @apply flex items-center gap-2 rounded-md px-2 py-1 text-xs;
-  color: var(--ct-text-secondary);
-}
-
-.ct-leaderboard-row[data-me] {
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-  font-weight: 600;
-}
-
-.ct-leaderboard-position {
-  @apply shrink-0 text-right tabular-nums;
-  width: 2.25rem;
-  color: var(--ct-text-muted);
-}
-
-.ct-leaderboard-row[data-me] .ct-leaderboard-position {
-  color: var(--ct-text-primary);
-}
-
-.ct-leaderboard-name {
-  @apply min-w-0 flex-1 truncate;
-}
-
-.ct-leaderboard-score {
-  @apply shrink-0 tabular-nums;
+.ct-memory-board {
+  @apply gap-2;
 }
 
 /* --- the two-player boards ----------------------------------------------- */
 
-/* Both games share one board. Only the cell shape differs, so only the cell
-   shape is branched on -- the grid itself is sized from match.columns, which
-   arrives from the server and is set inline. */
+.ct-versus {
+  @apply flex min-h-0 min-w-0 flex-1 flex-col gap-3;
+  grid-area: game;
+}
 
-/* The table browser: the lobby list for a game. Capped at the board's own width
-   so switching between the list and the board does not shift the column. */
 .ct-versus-browser {
-  @apply flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-3;
+  @apply flex min-h-0 w-full max-w-[560px] flex-1 flex-col gap-3 self-center;
 }
 
 .ct-versus-browser-head {
@@ -432,23 +696,87 @@
 }
 
 .ct-versus-table-row {
-  @apply flex items-center gap-3 rounded-md border px-3 py-2;
+  @apply flex items-center gap-2.5 rounded-lg border px-3 py-2.5;
   border-color: var(--ct-border);
   background: var(--ct-panel-soft);
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
 }
 
-.ct-versus-table-host {
-  @apply flex items-center gap-2 text-sm font-semibold;
+.ct-versus-table-row:hover {
+  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-04);
+}
+
+/* Both names, each behind its own seat colour. The row used to print only the
+   host and then say "X ile oynuyor" in the state pill, which put the two
+   players in two different typefaces at two different sizes for no reason
+   beyond the order they sat down. */
+.ct-versus-table-players {
+  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-0.5;
+}
+
+.ct-versus-table-player {
+  @apply flex min-w-0 items-center gap-1.5;
+}
+
+.ct-versus-table-name {
+  @apply min-w-0 truncate text-sm font-semibold;
   color: var(--ct-text-primary);
 }
 
 .ct-versus-table-state {
-  @apply ml-auto text-xs;
+  @apply shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium;
+  color: var(--ct-success);
+  background: var(--ct-alpha-04);
+}
+
+.ct-versus-table-state[data-full] {
   color: var(--ct-text-muted);
 }
 
+/* Why the board under it takes no clicks. A disabled board with nothing saying
+   so reads as a broken one, which is exactly how the first draft of the
+   audience view tested. */
+.ct-versus-watching {
+  @apply flex items-center gap-1.5 self-center rounded-full border px-3 py-0.5 text-2xs font-bold uppercase;
+  letter-spacing: 0.08em;
+  border-color: var(--ct-info);
+  color: var(--ct-info);
+  background: var(--ct-alpha-04);
+}
+
+/* The empty and the blocked states, which are most of what this page shows
+   before anybody sits down. */
+.ct-versus-state {
+  @apply flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border py-8 text-center;
+  border-color: var(--ct-border);
+  border-style: dashed;
+  color: var(--ct-text-secondary);
+}
+
+.ct-versus-state-icon {
+  @apply flex items-center justify-center rounded-full;
+  width: 44px;
+  height: 44px;
+  font-size: var(--ct-icon-md);
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+}
+
+.ct-versus-state-title {
+  @apply m-0 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-versus-state-hint {
+  @apply m-0 text-xs;
+  color: var(--ct-text-muted);
+  max-width: 42ch;
+  line-height: 1.5;
+}
+
 .ct-versus-seats {
-  @apply flex w-full max-w-[520px] shrink-0 flex-wrap items-center justify-center gap-2;
+  @apply flex w-full shrink-0 flex-wrap items-center justify-center gap-2;
 }
 
 .ct-versus-seat {
@@ -465,15 +793,26 @@
   box-shadow: var(--ct-shadow-glow);
 }
 
+.ct-versus-seat-name {
+  @apply max-w-[16ch] truncate;
+}
+
+.ct-versus-seat-side {
+  @apply rounded px-1.5 py-px text-3xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-08);
+}
+
 .ct-versus-seat-empty {
   color: var(--ct-text-muted);
   border-style: dashed;
 }
 
-/* The seat colours, and the only place they are decided. The discs below reuse
-   the same two tokens through data-owner, so a mark and its name always agree. */
+/* The seat colours, and the only place they are decided. The discs reuse the
+   same two tokens through data-owner, so a mark and its name always agree. */
 .ct-versus-mark {
-  @apply inline-block h-3 w-3 rounded-full;
+  @apply inline-block h-3 w-3 shrink-0 rounded-full;
 }
 
 .ct-versus-mark[data-seat="0"],
@@ -487,11 +826,11 @@
 }
 
 .ct-versus-board {
-  @apply gap-1.5 p-2;
+  @apply gap-1.5;
 }
 
 .ct-versus-cell {
-  @apply relative rounded-md;
+  @apply relative rounded-lg;
   border: 1px solid transparent;
   background: var(--ct-alpha-04);
   transition: all var(--ct-duration-fast) var(--ct-ease-premium);
@@ -501,20 +840,15 @@
    border-radius: inherit is what lets one rule serve a square tic-tac-toe mark
    and a round Connect Four disc. */
 .ct-versus-disc {
-  @apply absolute inset-0;
+  @apply absolute;
+  inset: 8%;
   border-radius: inherit;
+  box-shadow: inset 0 -12% 0 var(--ct-alpha-20);
 }
 
 /* Only a playable cell is enabled, so :not(:disabled) IS "your turn, and free".
    No second condition in the component to keep in step with this one. */
-.ct-versus-cell:not(:disabled):hover {
-  border-color: var(--ct-accent);
-  background: var(--ct-alpha-12);
-}
-
-/* Under gravity the component hovers the whole column, because the column is
-   the target. Same treatment as the direct hover above so the two cannot look
-   like different affordances. */
+.ct-versus-cell:not(:disabled):hover,
 .ct-versus-cell[data-target] {
   border-color: var(--ct-accent);
   background: var(--ct-alpha-12);
@@ -526,225 +860,59 @@
   border-color: var(--ct-text-primary);
 }
 
-/* Tic-tac-toe: the mark appears where it was clicked, so it pops. */
-.ct-versus-disc[data-landed] {
-  animation: ctTilePop 0.22s var(--ct-ease-spring) both;
-}
-
-/* Connect Four: it falls. --drop is how many rows, set inline from the landing
-   row, so a disc that reaches the bottom of the board travels further than one
-   that stops on top of a stack -- which is the only thing that says WHICH
-   column it went down. */
-.ct-versus-board[data-game="connect4"] .ct-versus-disc[data-landed] {
-  animation: ctDiscDrop 0.34s cubic-bezier(0.5, 0, 0.75, 1) both;
-}
-
-@keyframes ctDiscDrop {
-  from {
-    transform: translateY(calc(var(--drop, 1) * -100%));
-  }
-  to {
-    transform: none;
-  }
-}
-
-/* The line that won, walked through one cell at a time. The delay is what makes
-   it read as a line rather than as four cells lighting at once -- and the order
-   is whatever the server sent, which is the order it was found in. */
-.ct-versus-cell[data-winning] {
-  border-color: var(--ct-success);
-  animation: ctWinCell 1.1s var(--ct-ease-spring) infinite;
-}
-
-@keyframes ctWinCell {
-  0%,
-  100% {
-    box-shadow: var(--ct-shadow-glow);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: none;
-    transform: scale(0.9);
-  }
+/* Connect Four is a frame with holes punched through it. The frame has to be
+   LIGHTER than the holes or there is nothing to see: drawn on the bed colour,
+   an empty slot was the same colour as the board around it and read as a faint
+   ring. */
+.ct-arcade-frame:has(.ct-versus-board[data-game="connect4"]) {
+  background: var(--ct-board-cell);
 }
 
 .ct-versus-board[data-game="connect4"] .ct-versus-cell {
   border-radius: 50%;
+  background: var(--ct-board-bed);
+  box-shadow: inset 0 3px 6px rgb(0 0 0 / 0.55);
 }
 
-/* --- chess ---------------------------------------------------------------- */
+.ct-versus-board[data-game="connect4"] .ct-versus-disc {
+  inset: 6%;
+}
+
+/* --- chess --------------------------------------------------------------- */
 
 /* Piece glyphs, no images. Both colours use the SOLID Unicode figures and are
    told apart by colour alone -- the outline figures (♔♕♖) are hollow, so a white
    king on any dark surface is a thin line that all but disappears next to a
    solid black one. See pieceGlyph in chess-position.ts. */
 
-.ct-chess {
-  @apply flex w-full min-w-0 flex-col items-center gap-2.5;
-}
-
-/* Board and scoresheet side by side, wrapping to stacked on a narrow panel.
-   Wider than the 520px every other board is capped at, because the sheet is
-   what the extra width buys -- the board itself still stops at 520. */
-.ct-chess-layout {
-  @apply flex w-full min-w-0 flex-wrap items-start justify-center gap-3;
-  max-width: 680px;
-}
-
-/* --- what just happened --------------------------------------------------- */
-
-/* The line that answers "did they move?". The board repainting was the only
-   signal before this, and unless you were watching the right two squares there
-   was nothing to see. */
-.ct-chess-ticker {
-  @apply flex w-full min-w-0 shrink-0 items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-xs;
-  max-width: 680px;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  color: var(--ct-text-secondary);
-  min-height: 34px;
-  transition: border-color var(--ct-duration-base) var(--ct-ease-premium);
-}
-
-.ct-chess-ticker-move {
-  @apply flex items-center gap-2 truncate;
-}
-
-.ct-chess-ticker-idle {
-  color: var(--ct-text-muted);
-}
-
-/* The notation itself, in the mono face and re-keyed on every move so this
-   animation replays. It is the smallest thing on screen that changes, so it is
-   the one thing that has to move. */
-.ct-chess-ticker strong {
-  @apply rounded px-1.5 py-0.5 font-semibold tabular-nums;
-  font-family: var(--ct-font-mono);
-  color: var(--ct-text-primary);
-  background: var(--ct-alpha-08);
-  animation: ctChessMoveIn var(--ct-duration-slow) var(--ct-ease-spring) both;
-}
-
-@keyframes ctChessMoveIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.9);
-    background: var(--ct-accent-strong);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* Check is the one state a player must not miss, so it is the one thing on the
-   page that keeps moving until it is dealt with. */
-.ct-chess-check {
-  @apply ml-auto shrink-0 rounded px-2 py-0.5 text-2xs font-bold;
-  letter-spacing: 0.08em;
-  color: var(--ct-on-danger);
-  background: var(--ct-danger);
-  animation: ctChessCheckPulse 1.1s var(--ct-ease-premium) infinite;
-}
-
-@keyframes ctChessCheckPulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 var(--ct-danger);
-  }
-  50% {
-    opacity: 0.82;
-    box-shadow: 0 0 0 4px transparent;
-  }
-}
-
-/* --- the scoresheet ------------------------------------------------------- */
-
-.ct-chess-sheet {
-  @apply flex min-w-0 shrink-0 flex-col gap-1.5 rounded-lg border p-2;
-  flex: 1 1 136px;
-  max-width: 148px;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  /* Matches the board it stands beside: the board is one square capped at 520,
-     so this is the tallest it can be without making the row taller than the
-     board. */
-  max-height: 520px;
-}
-
-.ct-chess-sheet-title {
-  @apply shrink-0 px-1 text-2xs font-semibold uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ct-text-muted);
-}
-
-/* Its own scroller, because the list is the only part that grows -- and it is
-   scrolled to the bottom on every move, so what is visible is always the end. */
-.ct-chess-sheet-scroll {
-  @apply min-h-0 flex-1 overflow-y-auto;
-}
-
-.ct-chess-sheet-empty {
-  @apply m-0 px-1 py-2 text-2xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-chess-sheet-list {
-  @apply m-0 flex list-none flex-col gap-0.5 p-0;
-}
-
-.ct-chess-sheet-row {
-  @apply grid items-center gap-1 rounded px-1 py-0.5 text-2xs tabular-nums;
-  grid-template-columns: 1.6rem 1fr 1fr;
-  font-family: var(--ct-font-mono);
-  color: var(--ct-text-secondary);
-}
-
-.ct-chess-sheet-number {
-  @apply text-right;
-  color: var(--ct-text-muted);
-}
-
-.ct-chess-sheet-move {
-  @apply truncate rounded px-1;
-}
-
-/* The newest ply. The list is scrolled to the bottom anyway, but "the last line"
-   and "the last move" are not the same thing while white is waiting for a
-   reply. */
-.ct-chess-sheet-move[data-current] {
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-  font-weight: 700;
-}
-
-/* --- the board ------------------------------------------------------------ */
-
 .ct-chess-board {
-  @apply gap-0 p-1.5;
-  /* Load-bearing for the glyph size below: cqw with no container ancestor
-     resolves against the VIEWPORT, which would size the pieces off the window
-     instead of off the board they sit on. */
-  container-type: inline-size;
-  flex: 1 1 320px;
+  @apply overflow-hidden rounded-md;
 }
 
 .ct-chess-square {
-  @apply relative flex items-center justify-center overflow-hidden rounded-none leading-none;
+  @apply relative flex items-center justify-center rounded-none leading-none;
   border: 0;
-  background: var(--ct-alpha-08);
+  /* SOLID, and clearly different from each other. Two alpha steps gave a board
+     whose light and dark squares were the same colour at arm's length, which is
+     the one thing a chessboard may not be. */
+  background: var(--ct-square-dark);
   transition: box-shadow var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
 .ct-chess-square[data-light] {
-  background: var(--ct-alpha-20);
+  background: var(--ct-square-light);
 }
 
-/* Both squares of the last move, so a player returning to the tab can see what
-   happened without replaying it in their head. */
-.ct-chess-square[data-last] {
-  background: var(--ct-accent-soft);
+/* Both squares of the last move. A tint over whichever square colour is
+   underneath, rather than a flat fill: filling them made the pair look like a
+   rendering fault and hid which of the two was light. */
+.ct-chess-square[data-last]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ct-highlight);
+  opacity: 0.22;
+  pointer-events: none;
 }
 
 /* And the one it ENDED on gets a ring that fades, which is the difference
@@ -753,63 +921,31 @@
   animation: ctChessLanded var(--ct-duration-slow) var(--ct-ease-premium) both;
 }
 
-@keyframes ctChessLanded {
-  from {
-    box-shadow: inset 0 0 0 3px var(--ct-accent);
-  }
-  to {
-    box-shadow: inset 0 0 0 0 transparent;
-  }
-}
-
-/* The king in check, named by the server. Red, and still moving -- the same
-   reasoning as the badge above: this is the state that ends the game if it is
-   missed. */
+/* The king in check, named by the server. Red, and still moving -- this is the
+   state that ends the game if it is missed. */
 .ct-chess-square[data-check] {
   background: var(--ct-danger);
   animation: ctChessCheckSquare 1.1s var(--ct-ease-premium) infinite;
 }
 
-@keyframes ctChessCheckSquare {
-  0%,
-  100% {
-    box-shadow: inset 0 0 0 2px var(--ct-danger);
-  }
-  50% {
-    box-shadow: inset 0 0 0 6px var(--ct-on-danger);
-  }
-}
-
+/* The piece you have picked up. A ring rather than a fill: filling the square
+   with the accent -- which IS the white piece colour -- made the piece vanish
+   into the square it was standing on. */
 .ct-chess-square[data-selected] {
-  background: var(--ct-accent);
-}
-
-.ct-chess-square[data-selected] .ct-chess-piece[data-color="white"] {
-  /* The selected square wears the accent, which IS the white piece colour --
-     without this the piece you just picked up vanishes into its own square. */
-  color: var(--ct-text-inverse);
+  box-shadow: inset 0 0 0 3px var(--ct-accent);
+  z-index: 1;
 }
 
 /* An empty destination is a dot. inset rather than a child element so an empty
    square needs no markup at all. */
 .ct-chess-square[data-target]::after {
   content: "";
-  width: 28%;
-  height: 28%;
+  width: 26%;
+  height: 26%;
   border-radius: 50%;
   background: var(--ct-success);
+  box-shadow: 0 0 0 2px var(--ct-alpha-32);
   animation: ctChessTargetIn var(--ct-duration-fast) var(--ct-ease-spring) both;
-}
-
-@keyframes ctChessTargetIn {
-  from {
-    transform: scale(0.2);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
 }
 
 /* A capture is a ring, not a dot: a dot centred on an enemy queen reads as
@@ -826,35 +962,33 @@
   box-shadow: inset 0 0 0 2px var(--ct-accent);
 }
 
-/* A square you can move from lifts its piece. The cursor already says the
-   square is live; this says which piece is about to travel. */
 .ct-chess-square:not(:disabled):hover .ct-chess-piece {
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 
-/* Rank and file, on the two outer edges only. Tucked into the corners so they
+/* Rank and file, on the two outer edges only, tucked into the corners so they
    never sit under a piece. */
 .ct-chess-coord {
-  @apply pointer-events-none absolute text-2xs font-semibold;
-  color: var(--ct-text-muted);
-  opacity: 0.75;
+  @apply pointer-events-none absolute text-3xs font-bold;
+  color: var(--ct-text-primary);
+  opacity: 0.45;
   line-height: 1;
 }
 
 .ct-chess-coord[data-edge="rank"] {
-  top: 2px;
-  left: 3px;
+  top: 3px;
+  left: 4px;
 }
 
 .ct-chess-coord[data-edge="file"] {
-  bottom: 2px;
-  right: 3px;
+  bottom: 3px;
+  right: 4px;
 }
 
 .ct-chess-piece {
-  /* Sized from the square rather than in px: the board is one square divided by
-     eight, and a fixed size would overflow it on a narrow window. */
-  font-size: min(6.5cqw, 34px);
+  /* Sized from the board rather than in px: the frame is a container, so cqw is
+     a share of the BOARD's width, and a fixed size would overflow a small one. */
+  font-size: clamp(0.9rem, 7cqw, 2.6rem);
   line-height: 1;
   /* Segoe UI Symbol on Windows, and whatever else has the figures elsewhere.
      No webfont: these are in every system font stack that matters, and pulling
@@ -869,19 +1003,43 @@
   transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
 }
 
+/* An outline, not a shadow.
+
+   The piece colours are fixed rather than tokenised: white is white and black
+   is black on every board ever made, and flipping them with the theme would
+   swap the armies. What the theme DOES change is the square underneath, and a
+   near-white bishop on the light theme's light square has nowhere to stand —
+   which is what the stroke is for. It guarantees a hard edge against any square
+   in either theme, where a blurred shadow only softened the problem.
+
+   paint-order puts the stroke behind the fill, so the outline grows outward
+   instead of eating the figure. The glyphs themselves are the SOLID set
+   (U+265A-265F) for both colours, measured rather than assumed — the outline
+   set (U+2654-2659) inks about a third of its own box and reads as line art. */
+.ct-chess-piece {
+  paint-order: stroke fill;
+}
+
+.ct-chess-piece[data-color="white"] {
+  color: #f7f7f9;
+  -webkit-text-stroke: 1px rgb(0 0 0 / 0.72);
+}
+
+.ct-chess-piece[data-color="black"] {
+  color: #16161a;
+  -webkit-text-stroke: 1px rgb(255 255 255 / 0.5);
+}
+
 /* The slide.
 
    Nothing actually moves between grid cells: the piece is already rendered on
    the square it landed on, and this starts it displaced by exactly the distance
    it travelled and animates that displacement away. The multiplier is 100% of
-   the glyph box, which is one square, because the board is a uniform
-   eight-column grid.
+   the glyph box, which is one square, because the board is a uniform grid.
 
-   The square clears its own overflow and lifts, so a piece crossing the board
-   passes OVER the ones it passes rather than being clipped to a square it has
-   not arrived at yet. */
+   The square lifts so a piece crossing the board passes OVER the ones it
+   passes. */
 .ct-chess-square:has(.ct-chess-piece[data-arriving]) {
-  overflow: visible;
   z-index: 2;
 }
 
@@ -889,49 +1047,131 @@
   animation: ctChessSlide var(--ct-duration-slow) var(--ct-ease-premium) both;
 }
 
-@keyframes ctChessSlide {
-  from {
-    transform: translate(
-      calc(var(--chess-dx) * 100%),
-      calc(var(--chess-dy) * 100%)
-    );
-  }
-  to {
-    transform: none;
-  }
+/* --- what just happened --------------------------------------------------- */
+
+/* The line that answers "did they move?". The board repainting was the only
+   signal before this, and unless you were watching the right two squares there
+   was nothing to see. */
+.ct-chess-ticker {
+  @apply flex w-full min-w-0 shrink-0 items-center justify-center gap-2 rounded-full border px-3 py-1 text-xs;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+  color: var(--ct-text-secondary);
+  min-height: 30px;
 }
 
-.ct-chess-piece[data-color="white"] {
-  color: var(--ct-accent);
-  /* An outline, so a white piece stays visible on a light square in the light
-     theme, where the accent is nearly the square's own colour. */
-  text-shadow:
-    0 0 1px var(--ct-text-inverse),
-    0 1px 2px var(--ct-shadow-color);
+.ct-chess-ticker-move {
+  @apply flex min-w-0 items-center gap-2 truncate;
 }
 
-.ct-chess-piece[data-color="black"] {
+.ct-chess-ticker-idle {
+  color: var(--ct-text-muted);
+}
+
+/* The notation itself, in the mono face and re-keyed on every move so this
+   animation replays. It is the smallest thing on screen that changes, so it is
+   the one thing that has to move. */
+.ct-chess-ticker strong {
+  @apply rounded px-1.5 py-0.5 font-bold tabular-nums;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+  animation: ctChessMoveIn var(--ct-duration-slow) var(--ct-ease-spring) both;
+}
+
+/* Check is the one state a player must not miss, so it is the one thing on the
+   page that keeps moving until it is dealt with. */
+.ct-chess-check {
+  @apply shrink-0 rounded-full px-2 py-0.5 text-3xs font-bold;
+  letter-spacing: 0.08em;
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+  animation: ctChessCheckPulse 1.1s var(--ct-ease-premium) infinite;
+}
+
+/* --- the scoresheet ------------------------------------------------------- */
+
+.ct-chess-sheet {
+  @apply flex min-h-0 flex-1 flex-col gap-1.5 rounded-lg border p-2;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+}
+
+.ct-chess-sheet-title {
+  @apply shrink-0 px-1 text-3xs font-bold uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ct-text-muted);
+}
+
+/* Its own scroller, because the list is the only part that grows -- and it is
+   scrolled to the bottom on every move, so what is visible is always the end. */
+.ct-chess-sheet-scroll {
+  @apply min-h-0 flex-1 overflow-y-auto;
+}
+
+.ct-chess-sheet-empty {
+  @apply m-0 px-1 py-2 text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-chess-sheet-list {
+  @apply m-0 flex list-none flex-col gap-px p-0;
+}
+
+.ct-chess-sheet-row {
+  @apply grid items-center gap-1 rounded px-1 py-0.5 text-2xs tabular-nums;
+  grid-template-columns: 1.5rem 1fr 1fr;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-secondary);
+}
+
+.ct-chess-sheet-row:nth-child(odd) {
+  background: var(--ct-alpha-02);
+}
+
+.ct-chess-sheet-number {
+  @apply text-right;
+  color: var(--ct-text-muted);
+}
+
+.ct-chess-sheet-move {
+  @apply truncate rounded px-1;
+}
+
+/* The newest ply. The list is scrolled to the bottom anyway, but "the last
+   line" and "the last move" are not the same thing while white is waiting for a
+   reply. */
+.ct-chess-sheet-move[data-current] {
   color: var(--ct-text-inverse);
-  text-shadow: 0 0 1px var(--ct-accent);
+  background: var(--ct-accent);
+  font-weight: 700;
 }
+
+/* --- promotion ----------------------------------------------------------- */
 
 .ct-chess-promotion {
-  @apply flex w-full max-w-[520px] shrink-0 items-center justify-center gap-2 rounded-md border p-2;
+  @apply absolute inset-x-2 bottom-2 flex flex-col items-center gap-2 rounded-lg border p-2;
   border-color: var(--ct-accent);
-  background: var(--ct-panel-raised);
+  background: var(--ct-panel-solid);
+  box-shadow: var(--ct-shadow-lg);
+  z-index: 3;
 }
 
 .ct-chess-promotion-label {
-  @apply text-xs font-semibold;
+  @apply text-2xs font-semibold;
   color: var(--ct-text-secondary);
+}
+
+.ct-chess-promotion-choices {
+  @apply flex items-center justify-center gap-2;
 }
 
 .ct-chess-promotion-choice {
   @apply flex items-center justify-center rounded-md border;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-color: var(--ct-border);
-  background: var(--ct-alpha-08);
+  background: var(--ct-board-cell);
 }
 
 .ct-chess-promotion-choice:hover {
@@ -940,97 +1180,243 @@
 }
 
 .ct-chess-promotion-choice .ct-chess-piece {
-  font-size: 28px;
+  font-size: 26px;
 }
 
-/* An animated board is a board somebody stares at for minutes at a time.
-   Everything above is decoration on state that is also written in text, so
-   turning all of it off loses the movement and nothing else. */
-@media (prefers-reduced-motion: reduce) {
-  .ct-chess-ticker strong,
-  .ct-chess-check,
-  .ct-chess-square[data-landed],
-  .ct-chess-square[data-check],
-  .ct-chess-square[data-target]::after,
-  .ct-chess-piece[data-arriving],
-  .ct-versus-hint[data-tone="you"]::before {
-    animation: none !important;
-  }
+/* --- the leaderboard ------------------------------------------------------ */
+
+/* A card in the rail. Beside the board rather than under it -- stacked, it was
+   below the fold on every game and nobody scrolled to it.
+
+   No width of its own any more: the rail is one track of one width for every
+   game, and a card that carried its own 230px was the reason the page changed
+   shape when the leaderboard was not there to carry it. */
+.ct-leaderboard {
+  @apply flex min-h-0 flex-1 flex-col gap-2 rounded-lg border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
 }
 
-/* --- the turn line -------------------------------------------------------- */
+/* Three boards, side by side, inside the card that shows one of them.
 
-/* Shared by all three two-player games. The text was already correct and
-   already invisible: a muted 12px line under the board, which is precisely the
-   "whose turn is it" complaint. */
-.ct-versus-hint {
-  @apply flex items-center justify-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold;
-  border-color: transparent;
-  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+   Deliberately NOT the .ct-difficulty segmented control in the page header:
+   that one deals a new board, this one only changes what is being read, and two
+   controls that look identical and do different things is worse than two that
+   look different. Flatter, quieter, and no hint line under each label. */
+.ct-leaderboard-scopes {
+  @apply flex shrink-0 items-stretch gap-1 rounded-md border p-0.5;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
 }
 
-.ct-versus-hint[data-tone="you"] {
-  border-color: var(--ct-accent);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+.ct-leaderboard-scope {
+  @apply flex-1 rounded px-1 py-0.5 text-3xs font-bold uppercase;
+  letter-spacing: 0.05em;
+  border: 0;
+  background: transparent;
+  color: var(--ct-text-muted);
+  transition: all var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
-/* A dot that keeps breathing while the move is yours, and stops the moment it
-   is not. Movement is what the eye catches on a page it is not reading. */
-.ct-versus-hint[data-tone="you"]::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.ct-leaderboard-scope:hover:not([data-active]) {
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+}
+
+.ct-leaderboard-scope[data-active] {
+  color: var(--ct-text-inverse);
   background: var(--ct-accent);
-  animation: ctPulseDot 1.4s var(--ct-ease-premium) infinite;
 }
 
-.ct-versus-hint[data-tone="them"] {
+/* Which one the board under the page is actually set to. Without it the card
+   can be reading Zor while the player is on Kolay and nothing says so -- an
+   underline is enough, because it is a fact rather than a control. */
+.ct-leaderboard-scope[data-playing]:not([data-active]) {
+  color: var(--ct-text-primary);
+  box-shadow: inset 0 -2px 0 var(--ct-accent);
+}
+
+.ct-leaderboard-scope-hint {
+  @apply m-0 shrink-0 text-center text-3xs tabular-nums;
   color: var(--ct-text-muted);
 }
 
-.ct-versus-hint[data-tone="wait"] {
+.ct-leaderboard-head {
+  @apply flex shrink-0 items-center justify-between gap-2;
+}
+
+.ct-leaderboard-head h5 {
+  @apply m-0 flex items-center gap-1.5 text-xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-primary);
+}
+
+.ct-leaderboard-head-right {
+  @apply flex items-center gap-1;
+}
+
+.ct-leaderboard-rank {
+  @apply rounded-full border px-2 py-0.5 text-3xs font-bold tabular-nums;
+  border-color: var(--ct-success);
+  color: var(--ct-success);
+}
+
+.ct-leaderboard-empty {
+  @apply m-0 py-3 text-center text-2xs;
+  color: var(--ct-text-muted);
+  line-height: 1.5;
+}
+
+.ct-leaderboard-list {
+  @apply m-0 flex min-h-0 list-none flex-col gap-0.5 overflow-y-auto p-0;
+}
+
+.ct-leaderboard-row {
+  @apply flex items-center gap-2 rounded-md px-1.5 py-1 text-2xs;
   color: var(--ct-text-secondary);
 }
 
-.ct-versus-hint[data-tone="done"] {
-  border-color: var(--ct-border-strong);
+.ct-leaderboard-row[data-me] {
   color: var(--ct-text-primary);
-  background: var(--ct-panel-raised);
+  background: var(--ct-accent-soft);
+  font-weight: 600;
 }
 
-/* --- memory -------------------------------------------------------------- */
+.ct-leaderboard-position {
+  @apply flex shrink-0 items-center justify-center rounded font-bold tabular-nums;
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+}
 
-.ct-memory-board {
-  grid-template-columns: repeat(4, 1fr);
-  @apply gap-2 p-2.5;
+.ct-leaderboard-row[data-me] .ct-leaderboard-position {
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-leaderboard-name {
+  @apply min-w-0 flex-1 truncate;
+}
+
+.ct-leaderboard-score {
+  @apply shrink-0 tabular-nums;
+}
+
+/* --- what is being played right now --------------------------------------- */
+
+/* The other card in the rail, and the only place on the page that knows about
+   more than one game at a time.
+
+   flex-1 rather than a height: it takes whatever the leaderboard leaves, which
+   is all of the rail on the two-player games -- they keep no records, so there
+   is no leaderboard above it. */
+.ct-live-tables {
+  @apply flex min-h-0 flex-1 flex-col gap-2 rounded-lg border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+}
+
+.ct-live-tables-head {
+  @apply flex shrink-0 items-center justify-between gap-2;
+}
+
+.ct-live-tables-head h5 {
+  @apply m-0 flex items-center gap-1.5 text-xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-primary);
+}
+
+.ct-live-tables-count {
+  @apply shrink-0 rounded-full px-2 text-2xs font-bold tabular-nums;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-live-tables-empty {
+  @apply m-0 flex items-center justify-center py-3 text-center text-2xs;
+  color: var(--ct-text-muted);
+  line-height: 1.5;
+}
+
+.ct-live-tables-list {
+  @apply m-0 flex min-h-0 list-none flex-col gap-2 overflow-y-auto p-0;
+}
+
+.ct-live-table {
+  @apply flex flex-col gap-1.5 rounded-md border p-2;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+  transition: border-color var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-live-table:hover {
+  border-color: var(--ct-border-strong);
+}
+
+/* Your own table, and the one you are watching. Two different states with two
+   different answers in the row's button, so they are told apart at a glance
+   rather than by reading it. */
+.ct-live-table[data-mine] {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
+}
+
+.ct-live-table[data-watched] {
+  border-color: var(--ct-info);
+}
+
+.ct-live-table-game {
+  @apply flex items-center gap-1.5 text-2xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-secondary);
+}
+
+.ct-live-table-icon {
+  @apply flex shrink-0 items-center justify-center;
+  font-size: var(--ct-icon-xs);
+  color: var(--ct-text-muted);
+}
+
+/* The state, pushed to the far end of the game line. Colour is the whole
+   signal here: three words at 10px are not read, they are recognised. */
+.ct-live-table-state {
+  @apply ml-auto shrink-0 rounded-full px-1.5 text-3xs font-semibold lowercase;
+  letter-spacing: 0;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+.ct-live-table-state[data-state="playing"] {
+  color: var(--ct-success);
+}
+
+.ct-live-table-state[data-state="waiting"] {
+  color: var(--ct-warning);
+}
+
+.ct-live-table-players {
+  @apply flex min-w-0 flex-col gap-0.5;
+}
+
+.ct-live-table-player {
+  @apply flex min-w-0 items-center gap-1.5 text-2xs;
+  color: var(--ct-text-primary);
+}
+
+.ct-live-table-name {
+  @apply min-w-0 truncate;
 }
 
 /* --- the end of a run ----------------------------------------------------- */
-
-/* The stage is only here to give the outcome card something to be absolute
-   against. It takes the board's own width so the card is centred on the board
-   and not on the panel. */
-.ct-minigame-stage {
-  @apply relative flex w-full shrink-0 flex-col items-center;
-}
 
 /* Deliberately NOT a curtain. A minesweeper loss is only interesting because
    you can see where the mines were, and a filled 2048 board is worth looking
    at -- so the board stays lit and this sits on top of it. */
 .ct-outcome {
-  @apply pointer-events-none absolute inset-0 flex items-center justify-center;
+  @apply pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl;
+  background: var(--ct-scrim);
   animation: ctOutcomeIn var(--ct-duration-slow) var(--ct-ease-premium) both;
-}
-
-@keyframes ctOutcomeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .ct-outcome-card {
@@ -1039,17 +1425,6 @@
   background: var(--ct-panel-solid);
   box-shadow: var(--ct-shadow-lg);
   animation: ctOutcomeCardIn 0.42s var(--ct-ease-spring) both;
-}
-
-@keyframes ctOutcomeCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.86);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 .ct-outcome-title {
@@ -1078,15 +1453,55 @@
   color: var(--ct-text-secondary);
 }
 
-/* The one line worth interrupting for, so it is the one that keeps moving.
-   Only shown on the run that actually beat the stored best -- see
-   useRecordRun. */
+/* The one line worth interrupting for, so it is the one that keeps moving. Only
+   shown on the run that actually beat the stored best -- see useRecordRun. */
 .ct-outcome-record {
   @apply rounded-full px-2.5 py-0.5 text-2xs font-bold;
   letter-spacing: 0.1em;
   color: var(--ct-text-inverse);
   background: var(--ct-accent);
   animation: ctOutcomeRecord 1.6s var(--ct-ease-premium) infinite;
+}
+
+/* --- what a board does when it ends --------------------------------------- */
+
+/* Losing shakes, winning glows. On the FRAME rather than the grid, so the
+   border and the bed move with the cells instead of sliding out from under
+   them. */
+.ct-arcade-frame:has([data-state="lost"]) {
+  animation: ctBoardShake 0.45s var(--ct-ease-premium) both;
+  border-color: var(--ct-danger);
+}
+
+.ct-arcade-frame:has([data-state="won"]) {
+  border-color: var(--ct-success);
+  animation: ctBoardWin 0.9s var(--ct-ease-premium) both;
+}
+
+.ct-arcade-frame:has([data-state="draw"]) {
+  border-color: var(--ct-border-strong);
+}
+
+/* --- animations ----------------------------------------------------------- */
+
+@keyframes ctOutcomeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ctOutcomeCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes ctOutcomeRecord {
@@ -1099,16 +1514,6 @@
     transform: scale(1.07);
     box-shadow: none;
   }
-}
-
-/* --- what a board does when it ends --------------------------------------- */
-
-/* Losing shakes, winning glows. Shared by every board on the page, because
-   "the run is over" is the same event in all of them and four spellings of it
-   would drift. */
-.ct-minigame-board[data-state="lost"] {
-  animation: ctBoardShake 0.45s var(--ct-ease-premium) both;
-  border-color: var(--ct-danger);
 }
 
 @keyframes ctBoardShake {
@@ -1133,11 +1538,6 @@
   }
 }
 
-.ct-minigame-board[data-state="won"] {
-  border-color: var(--ct-success);
-  animation: ctBoardWin 0.9s var(--ct-ease-premium) both;
-}
-
 @keyframes ctBoardWin {
   0% {
     box-shadow: 0 0 0 0 var(--ct-success);
@@ -1148,40 +1548,6 @@
   100% {
     box-shadow: var(--ct-shadow-glow);
   }
-}
-
-.ct-minigame-board[data-state="draw"] {
-  border-color: var(--ct-border-strong);
-}
-
-/* Everything above is decoration on state that is also written in words, so a
-   reader who has asked for less movement loses nothing by turning it off. */
-@media (prefers-reduced-motion: reduce) {
-  .ct-outcome,
-  .ct-outcome-card,
-  .ct-outcome-record,
-  .ct-minigame-board[data-state],
-  .ct-2048-cell[data-value],
-  .ct-mines-cell[data-revealed],
-  .ct-mines-cell[data-mine],
-  .ct-snake-cell[data-food],
-  .ct-snake-cell[data-part="head"],
-  .ct-memory-card[data-missed],
-  .ct-memory-card[data-matched],
-  .ct-versus-disc,
-  .ct-versus-cell[data-winning] {
-    animation: none !important;
-  }
-}
-
-/* --- per-game feel -------------------------------------------------------- */
-
-/* 2048: a tile that appeared or changed pops.
-   Replayed by a remount rather than by a class, because a CSS animation on an
-   element that is already on screen does not restart -- see the key in
-   game-2048.tsx, which carries the value. */
-.ct-2048-cell[data-value] {
-  animation: ctTilePop 0.2s var(--ct-ease-spring) both;
 }
 
 @keyframes ctTilePop {
@@ -1195,12 +1561,6 @@
   }
 }
 
-/* Minesweeper: opening a cell is a small fade, and the mines arrive in rings
-   from wherever you stepped -- the delay is set inline, per cell. */
-.ct-mines-cell[data-revealed] {
-  animation: ctMineOpen 0.16s var(--ct-ease-premium) both;
-}
-
 @keyframes ctMineOpen {
   from {
     opacity: 0.2;
@@ -1210,10 +1570,6 @@
     opacity: 1;
     transform: none;
   }
-}
-
-.ct-mines-cell[data-mine] {
-  animation: ctMineBlow 0.3s var(--ct-ease-spring) both;
 }
 
 @keyframes ctMineBlow {
@@ -1231,29 +1587,149 @@
   }
 }
 
-/* A flag is a decision, so it lands rather than appears. */
-.ct-mines-cell[data-flag] {
-  animation: ctTilePop 0.16s var(--ct-ease-spring) both;
-}
-
-/* Snake: the food is the only thing on the board worth looking for, so it is
-   the only thing that moves on its own. */
-.ct-snake-cell[data-food] {
-  animation: ctFoodPulse 1s var(--ct-ease-premium) infinite;
-}
-
 @keyframes ctFoodPulse {
   0%,
   100% {
-    transform: scale(0.72);
+    transform: scale(0.7);
   }
   50% {
     transform: scale(1);
   }
 }
 
-.ct-snake-cell[data-part="head"] {
-  box-shadow: var(--ct-shadow-glow);
+@keyframes ctMemoryMatch {
+  0% {
+    transform: rotateY(180deg) scale(1);
+  }
+  45% {
+    transform: rotateY(180deg) scale(1.12);
+  }
+  100% {
+    transform: rotateY(180deg) scale(1);
+  }
+}
+
+@keyframes ctMemoryMiss {
+  0%,
+  100% {
+    transform: rotateY(180deg) translateX(0);
+  }
+  25% {
+    transform: rotateY(180deg) translateX(-5px);
+  }
+  75% {
+    transform: rotateY(180deg) translateX(5px);
+  }
+}
+
+@keyframes ctChessLanded {
+  from {
+    box-shadow: inset 0 0 0 3px var(--ct-highlight);
+  }
+  to {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+@keyframes ctChessCheckSquare {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--ct-danger);
+  }
+  50% {
+    box-shadow: inset 0 0 0 6px var(--ct-on-danger);
+  }
+}
+
+@keyframes ctChessTargetIn {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes ctChessMoveIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.9);
+    background: var(--ct-accent-strong);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ctChessCheckPulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--ct-danger);
+  }
+  50% {
+    opacity: 0.82;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+@keyframes ctChessSlide {
+  from {
+    transform: translate(
+      calc(var(--chess-dx) * 100%),
+      calc(var(--chess-dy) * 100%)
+    );
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ctDiscDrop {
+  from {
+    transform: translateY(calc(var(--drop, 1) * -100%));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ctWinCell {
+  0%,
+  100% {
+    box-shadow: var(--ct-shadow-glow);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: none;
+    transform: scale(0.92);
+  }
+}
+
+/* --- per-game motion ------------------------------------------------------ */
+
+/* Opening a cell is a small fade; the mines arrive in rings from wherever you
+   stepped, on a delay set inline per cell. */
+.ct-mines-cell[data-revealed] {
+  animation: ctMineOpen 0.16s var(--ct-ease-premium) both;
+}
+
+.ct-mines-cell[data-mine] {
+  animation: ctMineBlow 0.3s var(--ct-ease-spring) both;
+}
+
+/* A flag is a decision, so it lands rather than appears. */
+.ct-mines-cell[data-flag] {
+  animation: ctTilePop 0.16s var(--ct-ease-spring) both;
+}
+
+/* The food is the only thing on the board worth looking for, so it is the only
+   thing that moves on its own. */
+.ct-snake-cell[data-food] {
+  animation: ctFoodPulse 1s var(--ct-ease-premium) infinite;
 }
 
 /* Dead: the whole snake goes red under the board shake. */
@@ -1261,10 +1737,10 @@
   background: var(--ct-danger);
 }
 
-/* Memory: a real flip, which needs a card with two faces. Swapping the text
-   halfway through a rotation shows the symbol through the back of the card. */
+/* A real flip, which needs a card with two faces. Swapping the text halfway
+   through a rotation shows the symbol through the back of the card. */
 .ct-memory-card {
-  @apply relative flex items-center justify-center rounded-md text-3xl leading-none;
+  @apply relative flex items-center justify-center rounded-lg leading-none;
   border: 0;
   background: transparent;
   transform-style: preserve-3d;
@@ -1276,14 +1752,18 @@
 }
 
 .ct-memory-face {
-  @apply absolute inset-0 flex items-center justify-center rounded-md border;
+  @apply absolute inset-0 flex items-center justify-center rounded-lg border;
   backface-visibility: hidden;
   border-color: var(--ct-border);
+  /* Big. The emoji is the entire content of the card and it was rendering at a
+     quarter of the space it had. */
+  font-size: clamp(1.1rem, 11cqw, 3.6rem);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-memory-face[data-side="back"] {
-  background: var(--ct-alpha-08);
+  background: var(--ct-board-cell);
+  box-shadow: inset 0 1px 0 var(--ct-alpha-12);
 }
 
 .ct-memory-card:hover:not([data-up]) .ct-memory-face[data-side="back"] {
@@ -1300,46 +1780,68 @@
 }
 
 .ct-memory-card[data-matched] .ct-memory-face[data-side="front"] {
-  border-color: var(--ct-accent);
-  background: var(--ct-accent-soft);
+  border-color: var(--ct-success);
+  background: var(--ct-alpha-08);
 }
 
 .ct-memory-card[data-matched] {
   animation: ctMemoryMatch 0.4s var(--ct-ease-spring) both;
 }
 
-@keyframes ctMemoryMatch {
-  0% {
-    transform: rotateY(180deg) scale(1);
-  }
-  45% {
-    transform: rotateY(180deg) scale(1.12);
-  }
-  100% {
-    transform: rotateY(180deg) scale(1);
-  }
-}
-
 /* A miss says so before it turns back, which is the difference between "wrong"
-   and "the board did something". */
+   and "the board did something". Outlined rather than flooded: a full-bleed red
+   card hides the symbol you are trying to memorise. */
 .ct-memory-card[data-missed] .ct-memory-face[data-side="front"] {
   border-color: var(--ct-danger);
-  background: var(--ct-danger);
+  box-shadow: inset 0 0 0 2px var(--ct-danger);
 }
 
 .ct-memory-card[data-missed] {
   animation: ctMemoryMiss 0.4s var(--ct-ease-premium) both;
 }
 
-@keyframes ctMemoryMiss {
-  0%,
-  100% {
-    transform: rotateY(180deg) translateX(0);
-  }
-  25% {
-    transform: rotateY(180deg) translateX(-5px);
-  }
-  75% {
-    transform: rotateY(180deg) translateX(5px);
+/* Tic-tac-toe: the mark appears where it was clicked, so it pops. */
+.ct-versus-disc[data-landed] {
+  animation: ctTilePop 0.22s var(--ct-ease-spring) both;
+}
+
+/* Connect Four: it falls. --drop is how many rows, set inline from the landing
+   row, so a disc that reaches the bottom travels further than one that stops on
+   a stack -- which is the only thing that says WHICH column it went down. */
+.ct-versus-board[data-game="connect4"] .ct-versus-disc[data-landed] {
+  animation: ctDiscDrop 0.34s cubic-bezier(0.5, 0, 0.75, 1) both;
+}
+
+/* The line that won. */
+.ct-versus-cell[data-winning] {
+  border-color: var(--ct-success);
+  animation: ctWinCell 1.1s var(--ct-ease-spring) infinite;
+}
+
+/* An animated board is a board somebody stares at for minutes at a time.
+   Everything above is decoration on state that is also written in words, so
+   turning all of it off loses the movement and nothing else. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-outcome,
+  .ct-outcome-card,
+  .ct-outcome-record,
+  .ct-arcade-frame,
+  .ct-arcade-status[data-tone="you"]::before,
+  .ct-2048-cell[data-spawn],
+  .ct-mines-cell[data-revealed],
+  .ct-mines-cell[data-mine],
+  .ct-mines-cell[data-flag],
+  .ct-snake-cell[data-food],
+  .ct-memory-card[data-missed],
+  .ct-memory-card[data-matched],
+  .ct-versus-disc,
+  .ct-versus-cell[data-winning],
+  .ct-chess-ticker strong,
+  .ct-chess-check,
+  .ct-chess-square[data-landed],
+  .ct-chess-square[data-check],
+  .ct-chess-square[data-target]::after,
+  .ct-chess-piece[data-arriving] {
+    animation: none !important;
   }
 }

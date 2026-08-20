@@ -436,6 +436,7 @@ export class LiveKitStreamManager {
       () => this.updateMediaMap(),
       (reason) => this.handleDisconnected(reason),
       () => this.restorePublishingState(),
+      () => this.applyMicrophoneState(),
       (identity) => this.watchedScreenIdentities.has(identity),
       {
         onData: (payload, senderIdentity) =>

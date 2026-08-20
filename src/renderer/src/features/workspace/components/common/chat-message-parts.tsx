@@ -17,6 +17,7 @@ import {
 } from "antd";
 import {
   DownloadOutlined,
+  EnterOutlined,
   ExpandOutlined,
   FileOutlined,
   PaperClipOutlined,
@@ -68,9 +69,16 @@ interface ChatReplyQuoteProps {
   replyTo: ChatReplyPreview;
 }
 
+// ONE line, always: name and the quoted text side by side, both truncated.
+// Stacked, this was two lines of chrome above every reply — and above the
+// composer it made the reply chip twice the height of the attachment one for no
+// extra information. The arrow is the same glyph the row's "Yanıtla" button
+// uses, so the quote and the action that produced it read as one gesture.
 export function ChatReplyQuote({ replyTo }: ChatReplyQuoteProps): JSX.Element {
   return (
     <div className="ct-chat-reply-quote">
+      <EnterOutlined className="ct-chat-reply-quote-icon" rotate={180} />
+
       {replyTo.deleted ? (
         <em>Silinmiş mesaj</em>
       ) : (
@@ -478,9 +486,20 @@ export function ChatReactionBar({
             onClick={() => onToggle(reaction.emoji, !mine)}
             className={`ct-chat-reaction ${mine ? "mine" : ""}`}
             aria-pressed={mine}
+            // The glyph alone is announced as its unicode name with no count and
+            // no clue that it can be pressed.
+            aria-label={`${reaction.emoji} tepkisi, ${reaction.count} kişi${
+              mine ? " (sen dahil)" : ""
+            }`}
+            title={mine ? "Tepkini geri al" : "Aynı tepkiyi ver"}
           >
-            <span>{reaction.emoji}</span>
-            <span>{reaction.count}</span>
+            {/* Classed, not bare spans. `.ct-chat-bubble span` is (0,1,1) and
+                sets display:block, 11px and the muted grey -- it was winning
+                over the chip's own rule, so a reaction rendered smaller and
+                fainter than the message it hung under. Two classes beat it
+                outright instead of relying on which rule comes later. */}
+            <span className="ct-chat-reaction-emoji">{reaction.emoji}</span>
+            <span className="ct-chat-reaction-count">{reaction.count}</span>
           </button>
         );
       })}

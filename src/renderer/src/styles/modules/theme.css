@@ -31,6 +31,39 @@
   font-weight: 700;
 }
 
+/* A Segmented label that carries a count. It lives here rather than beside the
+   screen-share modal that first needed it -- the friends tabs want the same
+   pair, and "share-kind" named neither of them.
+
+   The selected segment paints itself with --ct-accent, which is pure WHITE in
+   the dark theme, so the resting pill (white 12% under --ct-text-secondary) was
+   invisible on whichever tab you were standing on. The selected override builds
+   the pill out of --ct-text-inverse instead -- the colour the selected label is
+   already written in -- so it follows the theme without a second palette. */
+.ct-segmented-option {
+  @apply inline-flex items-center gap-1.5;
+}
+
+.ct-segmented-count {
+  @apply inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-bold tabular-nums;
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-12);
+  letter-spacing: 0;
+}
+
+.ant-segmented-item-selected .ct-segmented-count {
+  color: var(--ct-text-inverse);
+  background: color-mix(in srgb, var(--ct-text-inverse) 16%, transparent);
+}
+
+/* Something is waiting behind this tab. Identical in both states on purpose:
+   the whole point is that it reads before the tab is selected. */
+.ct-segmented-count.alert,
+.ant-segmented-item-selected .ct-segmented-count.alert {
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+}
+
 /* Nested bezel used by the auth card: an outer hairline frame with the card
    inset inside it. */
 .ct-double-bezel-outer {

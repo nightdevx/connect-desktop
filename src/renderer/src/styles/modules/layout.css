@@ -164,8 +164,12 @@
   @apply flex h-full min-h-0 overflow-hidden p-0;
 }
 
+/* A frame, so the room's rounded border is actually on screen. Both lobby
+   layers draw one, and edge-to-edge they were pressed flat against the window
+   and the sidebar's divider — the radius was there and never visible. */
 .ct-main-panel-content.lobby-mode {
-  @apply flex h-full min-h-0 overflow-hidden p-0;
+  @apply flex h-full min-h-0 overflow-hidden;
+  padding: var(--ct-lobby-frame);
 }
 
 .ct-main-panel-content.lobby-mode > .ct-content-card {

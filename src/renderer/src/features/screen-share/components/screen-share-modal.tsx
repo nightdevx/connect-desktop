@@ -1,5 +1,12 @@
-import { Modal, Button, Segmented, Switch } from "antd";
-import { SoundOutlined } from "@ant-design/icons";
+import { Modal, Button, Segmented, Switch, Tooltip } from "antd";
+import {
+  CheckOutlined,
+  DesktopOutlined,
+  ReloadOutlined,
+  SoundOutlined,
+  WarningOutlined,
+  WindowsOutlined,
+} from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { useMediaStatsStore } from "@/features/livekit";
 import { estimateScreenShareUplinkBps } from "../constants";
@@ -38,6 +45,23 @@ const mbps = (bps: number): string => {
   return (bps / 1_000_000).toFixed(1);
 };
 
+const describeSource = (source: ScreenCaptureSourceDescriptor): string => {
+  if (source.kind !== "screen") {
+    return "Pencere";
+  }
+  return source.displayId ? `Monitör • Ekran ${source.displayId}` : "Monitör";
+};
+
+/**
+ * "Yayını başlat": pick what to share, then how to send it.
+ *
+ * Laid out as two steps down the dialog rather than two columns beside it. The
+ * old version put the source list and every encoder setting side by side, which
+ * read as one wall of controls: the thing being chosen (a screen) was a 96x56
+ * thumbnail wedged next to a radio button, while five quality presets each got
+ * a full-width row of their own. The picture is the decision — it gets the
+ * space — and the settings under it are a single row of compact fields.
+ */
 export function ScreenShareModal({
   isOpen,
   isLoadingSources,
@@ -73,235 +97,288 @@ export function ScreenShareModal({
     isOpen ? state.snapshot.availableOutgoingBitrateBps : null,
   );
 
+  const selectedSource =
+    activeSources.find((source) => source.id === selectedSourceId) ?? null;
+
+  const selectedQualityOption =
+    qualityOptions.find((option) => option.id === selectedQuality) ?? null;
+
+  // 0.85 rather than 1.0: audio, retransmits and BWE's own probing all come out
+  // of the same uplink, and an estimate that is exactly met is one that gets
+  // missed the first time anything else moves.
+  const isOverBudget = (option: ScreenShareQualityOption): boolean => {
+    return (
+      uplinkHeadroomBps !== null &&
+      estimateScreenShareUplinkBps(option) > uplinkHeadroomBps * 0.85
+    );
+  };
+
   return (
     <Modal
+      rootClassName="ct-modal"
       title={
-        <div>
-          <span className="text-base font-bold text-ct-text-primary">Yayın Başlat</span>
+        <>
+          Yayın Başlat
           <p className="ct-modal-subtitle">
-            Monitör veya pencere seçip kalite profilini belirle.
+            Paylaşacağın ekranı seç, sonra nasıl gönderileceğini ayarla.
           </p>
-        </div>
+        </>
       }
       open={isOpen}
       onCancel={onClose}
-      footer={[
-        <Button
-          key="refresh"
-          onClick={onRefreshSources}
-          disabled={isLoadingSources || isStarting}
-          
-        >
-          Kaynakları Yenile
-        </Button>,
-        <Button
-          key="close"
-          onClick={onClose}
-          disabled={isStarting}
-          
-        >
-          İptal
-        </Button>,
-        <Button
-          key="start"
-          type="primary"
-          loading={isStarting}
-          onClick={onStart}
-          disabled={isStarting || isLoadingSources || !selectedSourceId}
-          
-        >
-          {isStarting ? "Yayın Başlatılıyor..." : "Yayını Başlat"}
-        </Button>,
-      ]}
-      styles={{
-        mask: {
-          backdropFilter: "blur(6px)",
-          background: "rgba(0, 0, 0, 0.7)",
-        },
-      }}
-      width={760}
-    >
-      <div className="ct-screen-share-grid" >
-        <div className="ct-screen-share-column">
-          <h5>Kaynak</h5>
+      footer={
+        <div className="ct-share-footer">
+          {/* What is about to happen, in one line. The dialog used to answer
+              this only by which radio button happened to be filled in. */}
+          <span className="ct-share-footer-summary">
+            {selectedSource ? (
+              <>
+                <CheckOutlined className="ct-icon-success" />
+                <strong>{selectedSource.name}</strong>
+                {selectedQualityOption ? ` • ${selectedQualityOption.description}` : ""}
+                {captureSystemAudio ? " • ses açık" : ""}
+              </>
+            ) : (
+              "Paylaşmak için bir kaynak seç."
+            )}
+          </span>
 
-          <div className="ct-screen-share-kind-tabs">
-            <button
-              type="button"
-              className={`ct-screen-share-kind-tab ${sourceKind === "screen" ? "active" : ""}`}
-              onClick={() => {
-                onChangeKind("screen");
-              }}
-              disabled={isLoadingSources}
+          <div className="ct-share-footer-actions">
+            <Button onClick={onClose} disabled={isStarting}>
+              İptal
+            </Button>
+            <Button
+              type="primary"
+              loading={isStarting}
+              onClick={onStart}
+              disabled={isStarting || isLoadingSources || !selectedSourceId}
             >
-              Monitör ({monitorSources.length})
-            </button>
-            <button
-              type="button"
-              className={`ct-screen-share-kind-tab ${sourceKind === "window" ? "active" : ""}`}
-              onClick={() => {
-                onChangeKind("window");
-              }}
-              disabled={isLoadingSources}
-            >
-              Pencere ({windowSources.length})
-            </button>
+              {isStarting ? "Başlatılıyor..." : "Yayını Başlat"}
+            </Button>
           </div>
+        </div>
+      }
+      // Wide enough for three 292px previews across: the thumbnails are what
+      // this dialog is for, and at the old 760px they were postage stamps.
+      width={1000}
+    >
+      <div className="ct-share-body">
+        <section className="ct-share-step">
+          <header className="ct-share-step-head">
+            <h5>
+              <span className="ct-share-step-index">1</span>Ne paylaşılacak?
+            </h5>
+
+            <div className="ct-share-step-tools">
+              <Segmented
+                value={sourceKind}
+                onChange={(value) => onChangeKind(value as ScreenShareSourceKind)}
+                disabled={isLoadingSources}
+                options={[
+                  {
+                    value: "screen",
+                    label: (
+                      <span className="ct-segmented-option">
+                        <DesktopOutlined />
+                        Monitör
+                        <span className="ct-segmented-count">
+                          {monitorSources.length}
+                        </span>
+                      </span>
+                    ),
+                  },
+                  {
+                    value: "window",
+                    label: (
+                      <span className="ct-segmented-option">
+                        <WindowsOutlined />
+                        Pencere
+                        <span className="ct-segmented-count">
+                          {windowSources.length}
+                        </span>
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+
+              {/* Refreshing the list is about the list, so it lives with it
+                  rather than in the footer beside "Yayını Başlat" — where it
+                  was one of three buttons the user had to read before finding
+                  the one that starts the share. */}
+              <Tooltip title="Kaynakları yenile">
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={onRefreshSources}
+                  loading={isLoadingSources}
+                  disabled={isStarting}
+                  aria-label="Kaynakları yenile"
+                />
+              </Tooltip>
+            </div>
+          </header>
 
           {isLoadingSources && (
-            <div className="ct-list-state">Kaynaklar yükleniyor...</div>
+            <div className="ct-list-state">
+              <p>Kaynaklar yükleniyor...</p>
+            </div>
           )}
 
           {!isLoadingSources && activeSources.length === 0 && (
             <div className="ct-list-state error">
-              {error ??
-                (sourceKind === "screen"
-                  ? "Paylaşılabilir monitör bulunamadı."
-                  : "Paylaşılabilir pencere bulunamadı.")}
+              <p>
+                {error ??
+                  (sourceKind === "screen"
+                    ? "Paylaşılabilir monitör bulunamadı."
+                    : "Paylaşılabilir pencere bulunamadı.")}
+              </p>
             </div>
           )}
 
           {!isLoadingSources && activeSources.length > 0 && (
-            <div className="ct-screen-share-source-list ct-share-source-scroll">
-              {activeSources.map((source) => (
-                <label
-                  key={source.id}
-                  className={`ct-screen-share-source ${selectedSourceId === source.id ? "active" : ""}`}
-                  htmlFor={`screen-source-${source.id}`}
-                >
-                  <input
-                    id={`screen-source-${source.id}`}
-                    type="radio"
-                    name="screen-share-source"
-                    checked={selectedSourceId === source.id}
-                    onChange={() => onSelectSource(source.id)}
-                    
-                  />
-                  <div className="ct-screen-share-source-preview">
-                    {source.previewDataUrl ? (
-                      <img
-                        src={source.previewDataUrl}
-                        alt={`${source.name} önizleme`}
-                      />
-                    ) : (
-                      <div className="ct-screen-share-source-preview-fallback">
-                        Önizleme yok
-                      </div>
-                    )}
-                  </div>
-                  <div className="ct-screen-share-source-meta">
-                    <strong>{source.name}</strong>
-                    <span>
-                      {source.kind === "screen" ? "Monitör" : "Pencere"}
-                      {source.displayId ? ` • Ekran ${source.displayId}` : ""}
+            <div className="ct-share-source-grid" role="radiogroup" aria-label="Yayın kaynağı">
+              {activeSources.map((source) => {
+                const isSelected = selectedSourceId === source.id;
+
+                return (
+                  <button
+                    key={source.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    className={`ct-share-source-card ${isSelected ? "active" : ""}`}
+                    onClick={() => onSelectSource(source.id)}
+                    title={source.name}
+                  >
+                    <span className="ct-share-source-thumb">
+                      {source.previewDataUrl ? (
+                        <img
+                          src={source.previewDataUrl}
+                          alt={`${source.name} önizleme`}
+                        />
+                      ) : (
+                        <span className="ct-share-source-thumb-empty">
+                          Önizleme yok
+                        </span>
+                      )}
+
+                      {isSelected && (
+                        <span className="ct-share-source-check">
+                          <CheckOutlined />
+                        </span>
+                      )}
                     </span>
-                  </div>
-                </label>
-              ))}
+
+                    <span className="ct-share-source-name">{source.name}</span>
+                    <span className="ct-share-source-kind">
+                      {describeSource(source)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="ct-screen-share-column">
-          <h5>Kalite</h5>
-          <div className="ct-screen-share-quality-list">
-            {qualityOptions.map((qualityOption) => {
+        <section className="ct-share-step">
+          <header className="ct-share-step-head">
+            <h5>
+              <span className="ct-share-step-index">2</span>Nasıl gönderilsin?
+            </h5>
+
+            {uplinkHeadroomBps !== null && (
+              <span className="ct-share-headroom">
+                Ölçülen yükleme payı: {mbps(uplinkHeadroomBps)} Mbps
+              </span>
+            )}
+          </header>
+
+          <div className="ct-share-quality-row" role="radiogroup" aria-label="Kalite">
+            {qualityOptions.map((option) => {
               // ponytail: marks the preset, does not switch it. Auto-downgrade
               // needs a headroom reading taken while video is actually flowing;
               // this one is measured against audio only and would under-pick.
-              const requiredBps = estimateScreenShareUplinkBps(qualityOption);
-              // 0.85 rather than 1.0: audio, retransmits and BWE's own probing
-              // all come out of the same uplink, and an estimate that is exactly
-              // met is one that gets missed the first time anything else moves.
-              const overBudget =
-                uplinkHeadroomBps !== null &&
-                requiredBps > uplinkHeadroomBps * 0.85;
+              const overBudget = isOverBudget(option);
+              const isSelected = selectedQuality === option.id;
 
               return (
-                <label
-                  key={qualityOption.id}
-                  className={`ct-screen-share-quality ${selectedQuality === qualityOption.id ? "active" : ""} ${overBudget ? "over-budget" : ""}`}
-                  htmlFor={`screen-quality-${qualityOption.id}`}
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`ct-share-quality-card ${isSelected ? "active" : ""} ${overBudget ? "over-budget" : ""}`}
+                  onClick={() => onChangeQuality(option.id)}
                 >
-                  <input
-                    id={`screen-quality-${qualityOption.id}`}
-                    type="radio"
-                    name="screen-share-quality"
-                    checked={selectedQuality === qualityOption.id}
-                    onChange={() => onChangeQuality(qualityOption.id)}
-                  />
-                  <div>
-                    <strong>{qualityOption.label}</strong>
-                    <span>
-                      {qualityOption.description} • ~{mbps(requiredBps)} Mbps
-                      {overBudget ? " • bağlantına ağır gelebilir" : ""}
-                    </span>
-                  </div>
-                </label>
+                  <strong>{option.label}</strong>
+                  <span>{option.description}</span>
+                  <span className="ct-share-quality-cost">
+                    ~{mbps(estimateScreenShareUplinkBps(option))} Mbps
+                    {overBudget && <WarningOutlined />}
+                  </span>
+                </button>
               );
             })}
           </div>
 
-          {uplinkHeadroomBps !== null && (
-            <div className="ct-field-hint">
-              Ölçülen yükleme başlık payı: {mbps(uplinkHeadroomBps)} Mbps.
-              Gösterilen değerler tüm katmanların toplamıdır.
-            </div>
+          {selectedQualityOption && isOverBudget(selectedQualityOption) && (
+            <p className="ct-inline-note">
+              Bu profil ölçülen bağlantına ağır gelebilir; yayın sırasında
+              düşürülebilir.
+            </p>
           )}
 
-          {/* Content mode: decides what the encoder protects when bandwidth
-              runs short — frame rate or sharpness. */}
-          <div >
-            <div
-              className="ct-field-label"
-            >
-              İçerik Türü
-            </div>
-            <Segmented
-              block
-              value={contentMode}
-              onChange={(value) =>
-                onChangeContentMode(value as ScreenShareContentMode)
-              }
-              options={[
-                { label: "Otomatik", value: "auto" },
-                { label: "Hareket", value: "motion" },
-                { label: "Metin", value: "detail" },
-              ]}
-            />
-            <div
-              className="ct-field-hint"
-            >
-              Hareket: oyun/video, bağlantı zayıflarsa akıcılık korunur.
-              Metin: sunum/kod, çözünürlük ve netlik korunur.
-            </div>
-          </div>
-
-          {/* Audio Share Toggle */}
-          <div
-            className={`ct-share-audio-toggle ${captureSystemAudio ? "on" : ""}`}
-          >
-            <div className="ct-share-audio-toggle-main">
-              <SoundOutlined />
-              <div>
-                <strong>Yayın Sesini Paylaş</strong>
-                <span className="ct-field-hint">
-                  Ekrandaki sistem sesi diğer kullanıcılara iletilir
-                </span>
+          <div className="ct-share-options">
+            {/* Content mode: decides what the encoder protects when bandwidth
+                runs short — frame rate or sharpness. */}
+            <div className="ct-share-option">
+              <div className="ct-share-option-head">
+                <strong>İçerik Türü</strong>
+                <span>Bağlantı zayıflarsa neyin korunacağını seçer.</span>
               </div>
-            </div>
-            <Switch
-              checked={captureSystemAudio}
-              onChange={onToggleCaptureSystemAudio}
-              size="small"
-            />
-          </div>
-        </div>
-      </div>
 
-      {error && activeSources.length > 0 && (
-        <p className="ct-list-state error">{error}</p>
-      )}
+              <Segmented
+                block
+                value={contentMode}
+                onChange={(value) =>
+                  onChangeContentMode(value as ScreenShareContentMode)
+                }
+                options={[
+                  { label: "Otomatik", value: "auto" },
+                  { label: "Hareket", value: "motion" },
+                  { label: "Metin", value: "detail" },
+                ]}
+              />
+
+              <p className="ct-field-hint">
+                Hareket: oyun/video, akıcılık korunur. Metin: sunum/kod, netlik
+                korunur.
+              </p>
+            </div>
+
+            <div
+              className={`ct-share-option ct-share-audio-toggle ${captureSystemAudio ? "on" : ""}`}
+            >
+              <div className="ct-share-audio-toggle-main">
+                <SoundOutlined />
+                <div className="ct-share-option-head">
+                  <strong>Yayın Sesi</strong>
+                  <span>Ekrandaki sistem sesi karşı tarafa iletilir.</span>
+                </div>
+              </div>
+
+              <Switch
+                checked={captureSystemAudio}
+                onChange={onToggleCaptureSystemAudio}
+              />
+            </div>
+          </div>
+        </section>
+
+        {error && activeSources.length > 0 && (
+          <p className="ct-form-error">{error}</p>
+        )}
+      </div>
     </Modal>
   );
 }

@@ -13,6 +13,7 @@ import {
 import type { ActiveNoiseSuppressionMode } from "../services/mic";
 import { useMediaStatsStore } from "../store/media-stats-store";
 import { useScreenWatchersStore } from "../store/screen-watchers-store";
+import { useSpeakingStore } from "../store/speaking-store";
 import { useUiStore } from "@/store/ui-store";
 
 // Deliberately NOT imported from the workspace feature's reconnect hook, which
@@ -153,6 +154,10 @@ export function useLivekitSession(
   const remoteParticipantAudioPreferencesRef = useRef<
     Record<string, RemoteParticipantAudioPreference>
   >({});
+  // The two halves of "who is talking", kept as refs because either callback
+  // can fire on its own and the answer needs both.
+  const remoteStreamsRef = useRef<ParticipantMediaMap>({});
+  const activeSpeakersRef = useRef<string[]>([]);
 
   useEffect(() => {
     remoteParticipantAudioPreferencesRef.current =
@@ -162,9 +167,40 @@ export function useLivekitSession(
 
   // Stable initialization of the session
   useEffect(() => {
+    // The same answer the stage's own tiles arrive at, published once for
+    // everything that draws a ring somewhere else (the sidebar roster).
+    //
+    // Measured audio first, the server's list only for people this client is
+    // not receiving at all — deafened, or not yet subscribed — because that is
+    // the one window where there is nothing local to measure. Exactly the rule
+    // useLobbyParticipants applies per tile; it lives here as well so the two
+    // surfaces cannot start disagreeing about who is talking.
+    const publishSpeakingUserIds = (): void => {
+      const streams = remoteStreamsRef.current;
+      const speaking = new Set<string>();
+
+      for (const [userId, state] of Object.entries(streams)) {
+        if (state.isSpeaking) {
+          speaking.add(userId);
+        }
+      }
+
+      for (const userId of activeSpeakersRef.current) {
+        if (!streams[userId]) {
+          speaking.add(userId);
+        }
+      }
+
+      useSpeakingStore
+        .getState()
+        .setSpeakingUserIds([...speaking].sort());
+    };
+
     const session = new LiveKitMediaSession({
       onRemoteStreamsChanged: (nextStreams: ParticipantMediaMap) => {
+        remoteStreamsRef.current = nextStreams;
         setRemoteParticipantStreams(nextStreams);
+        publishSpeakingUserIds();
       },
       onActiveSpeakersChanged: (speakerIds: string[]) => {
         // A new array only when the SET of speakers actually changed. LiveKit
@@ -179,12 +215,14 @@ export function useLivekitSession(
         // change. Nothing downstream cares about the order — every consumer asks
         // whether one id is present.
         const sorted = [...speakerIds].sort();
+        activeSpeakersRef.current = sorted;
         setActiveSpeakerIds((previous) =>
           previous.length === sorted.length &&
           previous.every((id, index) => id === sorted[index])
             ? previous
             : sorted,
         );
+        publishSpeakingUserIds();
       },
       onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
         setLiveKitConnectionState(state);
@@ -226,6 +264,19 @@ export function useLivekitSession(
         }
       },
       onWarning: (message: string) => setStatus(message, "warn"),
+      // A moderator mute is the one thing that silences someone without their
+      // own client knowing. The session republishes the microphone by itself
+      // when the grant comes back; this is only so the person is told, in both
+      // directions — being inaudible with your own mic button showing "on" and
+      // no explanation is what sent people out of the room and back in.
+      onMicrophonePermissionChanged: (allowed: boolean) => {
+        setStatus(
+          allowed
+            ? "Mikrofon kısıtlamanız kaldırıldı."
+            : "Bir yetkili mikrofonunuzu kapattı.",
+          allowed ? "ok" : "warn",
+        );
+      },
       onNoiseSuppressionModeChanged: (mode: ActiveNoiseSuppressionMode) => {
         setActiveNoiseSuppressionMode(mode);
       },
@@ -270,8 +321,11 @@ export function useLivekitSession(
     return () => {
       liveKitSessionRef.current = null;
       setActiveSpeakerIds([]);
+      remoteStreamsRef.current = {};
+      activeSpeakersRef.current = [];
       useMediaStatsStore.getState().setSnapshot(EMPTY_MEDIA_STATS);
       useScreenWatchersStore.getState().setWatchers({});
+      useSpeakingStore.getState().setSpeakingUserIds([]);
       void session.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

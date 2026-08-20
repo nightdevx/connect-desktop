@@ -3,11 +3,18 @@ import { Button, Spin } from "antd";
 import { ReloadOutlined, TrophyOutlined } from "@ant-design/icons";
 import { toErrorMessage } from "@shared/error-message";
 import type { MinigameLeaderboard as Board } from "@shared/minigames";
-import type { MinigameId } from "@/store/minigame-scores";
+import { DIFFICULTY_IDS, scoreKey, type DifficultyId } from "@/store/minigame-scores";
+import { DIFFICULTY_LABELS, describeDifficulty, type SoloGameId } from "../difficulty";
 import { scoreService } from "../score-service";
 
 interface MinigameLeaderboardProps {
-  game: MinigameId;
+  game: SoloGameId;
+  /**
+   * The board being played. It is the difficulty this card OPENS on, not the
+   * one it is stuck with — the panel remounts this component when it changes,
+   * which is what resets the choice below back to it.
+   */
+  difficulty: DifficultyId;
   currentUserId: string;
   /**
    * Bumped by useScoreSync once a submission has landed. NOT the local record:
@@ -32,18 +39,32 @@ interface MinigameLeaderboardProps {
 const POLL_MS = 20_000;
 
 /**
- * One game's board.
+ * One board, for one game at one difficulty — and a way to read the other two.
  *
- * Refetched on three things: the game changing, a submission landing, and the
- * poll. The refresh button stays because it costs nothing and answers "now,
- * please" — but nothing on this page depends on it any more.
+ * Every difficulty is its own ranking, all the way down: the desktop files a
+ * record under "game:difficulty", internal/minigame/score.go ranks by that same
+ * composite key and bounds each one against its own board, and a nine-second
+ * 9x9 field has never been comparable to a nine-second 30x16 one. What was
+ * missing was any way to SEE that. The card showed exactly the difficulty the
+ * board happened to be set to, so the only way to find out who was fastest on
+ * Zor was to switch your own game to Zor and throw away the run in progress.
+ *
+ * The three tabs read; they do not play. Nothing here touches the board, which
+ * is the whole point — comparing yourself against Zor is a thing you do while
+ * playing Kolay.
+ *
+ * Refetched on four things: the game changing, the tab changing, a submission
+ * landing, and the poll. The refresh button stays because it costs nothing and
+ * answers "now, please" — but nothing on this page depends on it any more.
  */
 export function MinigameLeaderboard({
   game,
+  difficulty,
   currentUserId,
   syncedAt,
   formatScore,
 }: MinigameLeaderboardProps) {
+  const [scope, setScope] = useState<DifficultyId>(difficulty);
   const [board, setBoard] = useState<Board | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +80,13 @@ export function MinigameLeaderboard({
     return () => clearInterval(timer);
   }, [refresh]);
 
+  const key = scoreKey(game, scope);
+
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
 
-    void scoreService.leaderboard(game).then((result) => {
+    void scoreService.leaderboard(key).then((result) => {
       if (cancelled) {
         return;
       }
@@ -80,7 +103,7 @@ export function MinigameLeaderboard({
     return () => {
       cancelled = true;
     };
-  }, [game, syncedAt, reloadNonce]);
+  }, [key, syncedAt, reloadNonce]);
 
   return (
     <section className="ct-leaderboard" aria-label="Sıralama">
@@ -105,6 +128,29 @@ export function MinigameLeaderboard({
         </div>
       </header>
 
+      {/* Three boards, not three views of one. The tab that matches the board
+          in play is marked so the card never quietly stops describing the game
+          under it. */}
+      <div className="ct-leaderboard-scopes" role="tablist" aria-label="Zorluk sıralaması">
+        {DIFFICULTY_IDS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={id === scope}
+            className="ct-leaderboard-scope"
+            data-active={id === scope ? "true" : undefined}
+            data-playing={id === difficulty ? "true" : undefined}
+            title={describeDifficulty(game, id)}
+            onClick={() => setScope(id)}
+          >
+            {DIFFICULTY_LABELS[id]}
+          </button>
+        ))}
+      </div>
+
+      <p className="ct-leaderboard-scope-hint">{describeDifficulty(game, scope)}</p>
+
       {error ? (
         <p className="ct-leaderboard-empty">{error}</p>
       ) : isLoading && !board ? (
@@ -113,7 +159,8 @@ export function MinigameLeaderboard({
         </div>
       ) : !board || board.entries.length === 0 ? (
         <p className="ct-leaderboard-empty">
-          Bu oyunu henüz kimse oynamadı. İlk skoru sen bırak.
+          {DIFFICULTY_LABELS[scope]} zorlukta henüz kimse skor bırakmadı. İlkini sen
+          bırak.
         </p>
       ) : (
         <ol className="ct-leaderboard-list">

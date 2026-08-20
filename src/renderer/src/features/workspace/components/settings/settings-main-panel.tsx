@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { SettingsSection } from "@/store/ui-store";
 import { SettingsApplication } from "./settings-application";
 import { SettingsProfile } from "./settings-profile";
@@ -41,8 +42,27 @@ export function SettingsMainPanel({
   onSaveAudioPreferences,
   onSaveStreamPreferences,
 }: SettingsMainPanelProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // A new page starts at its own top. The scroller is the shell's panel, not
+  // this element, and it is shared by every section -- so arriving at the short
+  // Kamera page from the bottom of the long Ses page left the reader below
+  // everything the new page has. Read off the DOM rather than threaded down as
+  // a ref: the shell has no interest in which settings page is open.
+  useEffect(() => {
+    panelRef.current?.closest(".ct-main-panel-content")?.scrollTo({ top: 0 });
+  }, [settingsSection]);
+
   return (
-    <div className="ct-settings-main-panel">
+    // The panel half of the tab pattern: the sidebar's tabs point here with
+    // aria-controls, and this says which of them it is currently showing.
+    <div
+      className="ct-settings-main-panel"
+      ref={panelRef}
+      id="settings-panel"
+      role="tabpanel"
+      aria-labelledby={`settings-tab-${settingsSection}`}
+    >
       {settingsSection === "profile" && (
         <SettingsProfile
           currentUsername={currentUsername}

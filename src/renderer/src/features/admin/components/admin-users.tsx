@@ -13,6 +13,7 @@ import {
   Space,
   Avatar,
   Popconfirm,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -25,10 +26,12 @@ import {
   MailOutlined,
   UndoOutlined,
   AudioMutedOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminUserDetail, UserRole } from "@shared/auth-contracts";
 import type { TablePaginationConfig } from "antd";
+import { AdminPageHeader } from "./admin-primitives";
 
 interface EditUserFormValues {
   displayName: string;
@@ -93,6 +96,13 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       });
       setUsers(res.users);
       setTotal(res.total || 0);
+      // The drawer's account actions read their own labels off this record --
+      // "E-postayı Doğrula" vs "Doğrulamayı Geri Al" is the same button. Left
+      // on the copy taken when the drawer opened, every one of them still
+      // offered the action that had just been carried out.
+      setEditingUser((current) =>
+        current ? (res.users.find((user) => user.id === current.id) ?? current) : current,
+      );
     } catch (err) {
       message.error(toErrorMessage(err, "Kullanıcılar alınamadı"));
     } finally {
@@ -188,6 +198,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     try {
       await adminService.deleteUser(userId);
       message.success("Kullanıcı başarıyla silindi");
+      setIsEditOpen(false);
       fetchUsers();
     } catch (err) {
       message.error(toErrorMessage(err, "Kullanıcı silinemedi"));
@@ -267,22 +278,31 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     }
   };
 
-  // No-op local filters, handled by backend API
-
+  // Four buttons, not nine.
+  //
+  // The action cell used to carry every operation this screen can perform, as
+  // nine unlabelled icons in a row: a padlock, a plug, a stop sign, a picture,
+  // an envelope, a crossed-out microphone, an undo arrow and two more. It was
+  // the widest column on the table, it read as a toolbar rather than as a set
+  // of choices, and the only way to learn what any of them did was to rest the
+  // pointer on it and wait for the operating system's tooltip.
+  //
+  // What is left here is the four things done often enough to be worth a click
+  // from the row. The other five are labelled buttons in the drawer, under the
+  // profile they act on -- see "Hesap İşlemleri" below.
   const columns = [
     {
       title: "Kullanıcı",
       key: "user",
+      width: 240,
       render: (_value: unknown, record: AdminUserDetail) => (
         <div className="ct-admin-table-user">
           <Avatar src={record.avatarUrl} className="ct-admin-avatar">
             {record.displayName[0]?.toUpperCase()}
           </Avatar>
-          <div>
-            <div >{record.displayName}</div>
-            <div className="ct-admin-muted">
-              @{record.username}
-            </div>
+          <div className="ct-admin-cell">
+            <strong>{record.displayName}</strong>
+            <span>@{record.username}</span>
           </div>
         </div>
       ),
@@ -290,14 +310,17 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     {
       title: "E-posta",
       key: "email",
+      width: 260,
       render: (_value: unknown, record: AdminUserDetail) => (
-        <div>
-          <div>{record.email || "-"}</div>
-          {record.email && (
-            <Tag color={record.emailVerified ? "success" : "warning"} >
+        <div className="ct-admin-cell">
+          <strong>{record.email || "—"}</strong>
+          {record.email ? (
+            <span
+              className={`ct-status-chip ${record.emailVerified ? "ok" : "warn"}`}
+            >
               {record.emailVerified ? "Doğrulanmış" : "Doğrulanmamış"}
-            </Tag>
-          )}
+            </span>
+          ) : null}
         </div>
       ),
     },
@@ -305,6 +328,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       title: "Rol",
       dataIndex: "role",
       key: "role",
+      width: 110,
       render: (role: string) => (
         <Tag color={role === "admin" ? "purple" : "blue"}>
           {role === "admin" ? "Yönetici" : "Üye"}
@@ -314,60 +338,67 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     {
       title: "Durum",
       key: "status",
+      width: 150,
+      // A pending deletion used to be visible only as a tenth icon appearing
+      // in the action row; it belongs in the column that answers "what is going
+      // on with this account".
       render: (_value: unknown, record: AdminUserDetail) => (
-        <Tag color={record.bannedAt ? "red" : "green"}>
-          {record.bannedAt ? "Yasaklı" : "Aktif"}
-        </Tag>
+        <Space size={4} wrap>
+          <Tag color={record.bannedAt ? "red" : "green"}>
+            {record.bannedAt ? "Yasaklı" : "Aktif"}
+          </Tag>
+          {record.deletionScheduledAt ? (
+            <Tag color="orange">Silinecek</Tag>
+          ) : null}
+        </Space>
       ),
     },
     {
       title: "Kayıt Tarihi",
       dataIndex: "createdAt",
       key: "createdAt",
+      width: 130,
       render: (date: string) => new Date(date).toLocaleDateString("tr-TR"),
     },
     {
       title: "İşlemler",
       key: "actions",
+      width: 160,
+      align: "right" as const,
       render: (_value: unknown, record: AdminUserDetail) => {
         const isSelf = record.id === currentUserId;
         return (
-          <Space size="middle">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => handleEditClick(record)}
-              className="ct-icon-info"
-              title={isSelf ? "Kendi hesabınızı düzenleyemezsiniz" : "Düzenle"}
-              disabled={isSelf}
-            />
-            <Button
-              type="text"
-              icon={<LockOutlined />}
-              onClick={() => handleResetPasswordClick(record)}
-              className="ct-icon-warning"
-              title={isSelf ? "Kendi şifrenizi buradan sıfırlayamazsınız" : "Şifre Sıfırla"}
-              disabled={isSelf}
-            />
-            <Popconfirm
-              title={`@${record.username} kullanıcısının tüm oturumlarını kapatmak istediğinize emin misiniz?`}
-              onConfirm={() => handleForceLogout(record)}
-              okText="Evet"
-              cancelText="Hayır"
-              disabled={isSelf}
+          <div className="ct-admin-actions">
+            <Tooltip
+              title={
+                isSelf
+                  ? "Kendi hesabınızı düzenleyemezsiniz"
+                  : "Düzenle ve hesap işlemleri"
+              }
             >
               <Button
                 type="text"
-                icon={<DisconnectOutlined />}
-                className="ct-icon-warning"
-                title={
-                  isSelf
-                    ? "Kendi oturumunuzu buradan kapatamazsınız"
-                    : "Oturumları Kapat"
-                }
+                icon={<EditOutlined />}
+                onClick={() => handleEditClick(record)}
+                className="ct-icon-info"
                 disabled={isSelf}
               />
-            </Popconfirm>
+            </Tooltip>
+            <Tooltip
+              title={
+                isSelf
+                  ? "Kendi şifrenizi buradan sıfırlayamazsınız"
+                  : "Şifre sıfırla"
+              }
+            >
+              <Button
+                type="text"
+                icon={<LockOutlined />}
+                onClick={() => handleResetPasswordClick(record)}
+                className="ct-icon-warning"
+                disabled={isSelf}
+              />
+            </Tooltip>
             <Popconfirm
               title={`Kullanıcıyı ${record.bannedAt ? "aktif etmek" : "yasaklamak"} istediğinize emin misiniz?`}
               onConfirm={() => handleToggleBan(record)}
@@ -375,69 +406,23 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               cancelText="Hayır"
               disabled={isSelf}
             >
-              <Button
-                type="text"
-                icon={<StopOutlined />}
-                className={record.bannedAt ? "ct-icon-success" : "ct-icon-danger"}
-                title={isSelf ? "Kendi hesabınızı yasaklayamazsınız" : (record.bannedAt ? "Yasağı Kaldır" : "Yasakla")}
-                disabled={isSelf}
-              />
-            </Popconfirm>
-            <Popconfirm
-              title="Bu kullanıcının profil resmi ve afişi kaldırılsın mı?"
-              onConfirm={() => handleClearMedia(record)}
-              okText="Evet"
-              cancelText="Hayır"
-              disabled={isSelf}
-            >
-              <Button
-                type="text"
-                icon={<PictureOutlined />}
-                disabled={isSelf}
-                title="Profil Görsellerini Kaldır"
-              />
-            </Popconfirm>
-            <Button
-              type="text"
-              icon={<MailOutlined />}
-              className={record.emailVerified ? "ct-icon-success" : undefined}
-              onClick={() => void handleToggleEmailVerified(record)}
-              disabled={isSelf || (!record.email && !record.emailVerified)}
-              title={
-                record.emailVerified
-                  ? "Doğrulamayı Geri Al"
-                  : "E-postayı Doğrulanmış İşaretle"
-              }
-            />
-            <Popconfirm
-              title={`@${record.username} sunucu genelinde susturulsun mu? Birebir aramalar dışında hiçbir lobide konuşamaz.`}
-              onConfirm={() => void handleServerMute(record)}
-              okText="Evet"
-              cancelText="Hayır"
-              disabled={isSelf}
-            >
-              <Button
-                type="text"
-                icon={<AudioMutedOutlined />}
-                disabled={isSelf}
-                title="Sunucuda Sustur"
-              />
-            </Popconfirm>
-            {record.deletionScheduledAt && (
-              <Popconfirm
-                title="Bu hesabın silinme talebi iptal edilsin mi?"
-                onConfirm={() => void handleCancelDeletion(record)}
-                okText="Evet"
-                cancelText="Hayır"
+              <Tooltip
+                title={
+                  isSelf
+                    ? "Kendi hesabınızı yasaklayamazsınız"
+                    : record.bannedAt
+                      ? "Yasağı kaldır"
+                      : "Yasakla"
+                }
               >
                 <Button
                   type="text"
-                  icon={<UndoOutlined />}
-                  className="ct-icon-success"
-                  title="Silme Talebini İptal Et"
+                  icon={<StopOutlined />}
+                  className={record.bannedAt ? "ct-icon-success" : "ct-icon-danger"}
+                  disabled={isSelf}
                 />
-              </Popconfirm>
-            )}
+              </Tooltip>
+            </Popconfirm>
             <Popconfirm
               title="Kullanıcıyı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!"
               onConfirm={() => handleDeleteUser(record.id)}
@@ -445,15 +430,24 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               cancelText="Hayır"
               disabled={record.role === "admin" || isSelf}
             >
-              <Button
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                disabled={record.role === "admin" || isSelf}
-                title={isSelf ? "Kendi hesabınızı silemezsiniz" : "Sil"}
-              />
+              <Tooltip
+                title={
+                  isSelf
+                    ? "Kendi hesabınızı silemezsiniz"
+                    : record.role === "admin"
+                      ? "Yönetici hesabı silinemez"
+                      : "Sil"
+                }
+              >
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  disabled={record.role === "admin" || isSelf}
+                />
+              </Tooltip>
             </Popconfirm>
-          </Space>
+          </div>
         );
       },
     },
@@ -461,21 +455,26 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
 
   return (
     <div className="ct-admin-page">
-      <header className="ct-admin-page-header">
-        <div>
-          <h1>Kullanıcı Yönetimi</h1>
-          <p>
-            Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini
-            sıfırlayın veya yasaklayın
-          </p>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="Kullanıcı Yönetimi"
+        description="Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini sıfırlayın veya yasaklayın."
+        actions={
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => fetchUsers()}
+          >
+            Yenile
+          </Button>
+        }
+      />
 
-      {/* Filters Bar */}
-      <div
-        className="ct-admin-toolbar"
-      >
+      {/* Filters only. "Yenile" moved to the page header, where it is on this
+          screen the same button in the same place as on the other six -- it
+          used to be the one refresh control that lived inside the filter bar. */}
+      <div className="ct-admin-toolbar">
         <Input
+          allowClear
           placeholder="İsim, kullanıcı adı veya e-posta ara..."
           prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
@@ -508,10 +507,6 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             { value: "banned", label: "Yasaklı Kullanıcılar" },
           ]}
         />
-
-        <Button type="primary" onClick={() => fetchUsers()}>
-          Yenile
-        </Button>
       </div>
 
       {/* Users Table */}
@@ -521,12 +516,18 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         rowKey="id"
         loading={loading}
         onChange={handleTableChange}
+        locale={{
+          emptyText: searchText
+            ? "Bu aramayla eşleşen kullanıcı yok."
+            : "Henüz kullanıcı yok.",
+        }}
         pagination={{
           current: currentPage,
           pageSize,
           total,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
+          showTotal: (count) => `${count} kullanıcı`,
         }}
         // No scroll.y. It was calc(100vh - 260px) — a VIEWPORT height for a
         // table that lives inside the admin panel, below the titlebar, the page
@@ -545,11 +546,11 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       {/* Edit Drawer */}
       <Drawer
         rootClassName="ct-admin-drawer"
-        title="Profil Düzenle"
+        title={editingUser ? `@${editingUser.username}` : "Kullanıcı"}
         placement="right"
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
-        width={400}
+        width={420}
         extra={
           <Space>
             <Button onClick={() => setIsEditOpen(false)}>Kapat</Button>
@@ -580,7 +581,14 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             <Input.TextArea rows={4} />
           </Form.Item>
 
-          <Form.Item name="role" label="Sistem Rolü" rules={[{ required: true }]}>
+          <Form.Item
+            name="role"
+            label="Sistem Rolü"
+            rules={[{ required: true }]}
+            // The last field in the form; the account actions below own the
+            // space under it.
+            className="!mb-0"
+          >
             <Select
               options={[
                 { value: "admin", label: "Yönetici (Admin)" },
@@ -589,6 +597,71 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             />
           </Form.Item>
         </Form>
+
+        {/* The five operations that used to be unlabelled icons in the table
+            row. Here each one says what it does, sits under the profile it acts
+            on, and has room for the confirmation to explain itself. They apply
+            immediately — none of them is part of the form above, so "Kaydet"
+            has nothing to do with them. */}
+        {editingUser ? (
+          <div className="ct-admin-field">
+            <label>Hesap İşlemleri</label>
+            <div className="ct-admin-action-list">
+              <Popconfirm
+                title={`@${editingUser.username} kullanıcısının tüm oturumlarını kapatmak istediğinize emin misiniz?`}
+                onConfirm={() => handleForceLogout(editingUser)}
+                okText="Evet"
+                cancelText="Hayır"
+              >
+                <Button icon={<DisconnectOutlined />}>Oturumları Kapat</Button>
+              </Popconfirm>
+
+              <Button
+                icon={<MailOutlined />}
+                className={editingUser.emailVerified ? "ct-icon-success" : undefined}
+                onClick={() => void handleToggleEmailVerified(editingUser)}
+                disabled={!editingUser.email && !editingUser.emailVerified}
+              >
+                {editingUser.emailVerified
+                  ? "E-posta Doğrulamasını Geri Al"
+                  : "E-postayı Doğrulanmış İşaretle"}
+              </Button>
+
+              <Popconfirm
+                title="Bu kullanıcının profil resmi ve afişi kaldırılsın mı?"
+                onConfirm={() => void handleClearMedia(editingUser)}
+                okText="Evet"
+                cancelText="Hayır"
+              >
+                <Button icon={<PictureOutlined />}>
+                  Profil Görsellerini Kaldır
+                </Button>
+              </Popconfirm>
+
+              <Popconfirm
+                title={`@${editingUser.username} sunucu genelinde susturulsun mu? Birebir aramalar dışında hiçbir lobide konuşamaz.`}
+                onConfirm={() => void handleServerMute(editingUser)}
+                okText="Evet"
+                cancelText="Hayır"
+              >
+                <Button icon={<AudioMutedOutlined />}>Sunucuda Sustur</Button>
+              </Popconfirm>
+
+              {editingUser.deletionScheduledAt ? (
+                <Popconfirm
+                  title="Bu hesabın silinme talebi iptal edilsin mi?"
+                  onConfirm={() => void handleCancelDeletion(editingUser)}
+                  okText="Evet"
+                  cancelText="Hayır"
+                >
+                  <Button icon={<UndoOutlined />} className="ct-icon-success">
+                    Silme Talebini İptal Et
+                  </Button>
+                </Popconfirm>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </Drawer>
 
       {/* Reset Password Modal */}

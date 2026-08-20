@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiStore } from "@/store/ui-store";
-import { MINIGAME_IDS, tracksScore } from "@/store/minigame-scores";
+import { splitScoreKey, tracksScore, type MinigameId } from "@/store/minigame-scores";
 import { scoreService } from "./score-service";
 
 /**
@@ -56,14 +56,18 @@ export function useScoreSync(): number {
     const sync = async () => {
       // UP first. Doing it the other way round would let the server's answer
       // overwrite a better local record before it had been offered.
+      //
+      // Over the KEYS of the map, not over the game ids: a key is
+      // "game:difficulty", so a loop over the seven games finds nothing at all.
+      // That is not a missing record, it is silence -- the submission never
+      // happens and the board never learns the run took place.
       const local = bestScoresRef.current;
-      for (const game of MINIGAME_IDS) {
-        const score = local[game];
-        if (score === undefined || !tracksScore(game)) {
+      for (const [key, score] of Object.entries(local)) {
+        if (!isSendable(key, score)) {
           continue;
         }
-        submittedRef.current.set(game, score);
-        await scoreService.submitScore(game, score);
+        submittedRef.current.set(key, score);
+        await scoreService.submitScore(key, score);
       }
 
       if (cancelled) {
@@ -78,12 +82,14 @@ export function useScoreSync(): number {
         return;
       }
 
-      for (const [game, score] of Object.entries(result.data?.scores ?? {})) {
+      for (const [key, score] of Object.entries(result.data?.scores ?? {})) {
         // recordMinigameScore, not a blind write: it applies the same
         // better-or-nothing rule the server does, so a stale server value
-        // cannot pull a local record backwards.
-        recordScore(game as (typeof MINIGAME_IDS)[number], score);
-        submittedRef.current.set(game, score);
+        // cannot pull a local record backwards. It also drops anything whose
+        // key this build does not recognise, which is what a server one version
+        // ahead would send.
+        recordScore(key, score);
+        submittedRef.current.set(key, score);
       }
 
       // The catch-up is done and the server has whatever this machine was
@@ -103,16 +109,15 @@ export function useScoreSync(): number {
   useEffect(() => {
     const pending: Promise<unknown>[] = [];
 
-    for (const game of MINIGAME_IDS) {
-      const score = bestScores[game];
-      if (score === undefined || !tracksScore(game)) {
+    for (const [key, score] of Object.entries(bestScores)) {
+      if (!isSendable(key, score)) {
         continue;
       }
-      if (submittedRef.current.get(game) === score) {
+      if (submittedRef.current.get(key) === score) {
         continue;
       }
-      submittedRef.current.set(game, score);
-      pending.push(scoreService.submitScore(game, score));
+      submittedRef.current.set(key, score);
+      pending.push(scoreService.submitScore(key, score));
     }
 
     if (pending.length === 0) {
@@ -126,4 +131,20 @@ export function useScoreSync(): number {
   }, [bestScores, markSynced]);
 
   return syncedAt;
+}
+
+/**
+ * Whether a stored entry is one the server will take.
+ *
+ * The two-player ids can never be in the map -- the store refuses them -- but
+ * the map also survives builds, and a key left behind by a game that has since
+ * been renamed would otherwise be re-offered on every launch and 400 every
+ * time.
+ */
+function isSendable(key: string, score: number): boolean {
+  if (!Number.isFinite(score)) {
+    return false;
+  }
+  const { game } = splitScoreKey(key);
+  return tracksScore(game as MinigameId);
 }

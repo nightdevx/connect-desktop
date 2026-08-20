@@ -1,7 +1,37 @@
+import type { ReactNode } from "react";
 import { Button, Tooltip } from "antd";
-import { ReloadOutlined, WarningOutlined } from "@ant-design/icons";
+import {
+  ClockCircleOutlined,
+  GiftOutlined,
+  HourglassOutlined,
+  ReloadOutlined,
+  SyncOutlined,
+  TagOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
+import type { FreeGameFilter } from "@shared/free-games";
 import { FREE_GAME_FILTERS, SOURCE_LABELS, formatFetchedAt } from "../free-games-utils";
 import { useFreeGames } from "../use-free-games";
+
+/**
+ * One glyph per bucket, so this list is scanned rather than read.
+ *
+ * Here rather than in free-games-utils beside the labels, because that module
+ * is plain .ts and a JSX element in it would make it .tsx for the sake of five
+ * icons -- and every non-visual consumer of the filter list would then be
+ * importing React to get at a string.
+ *
+ * The tile they sit in is the same 30px square the minigames sidebar uses. That
+ * is the point: the two game sections are one rail apart, and their lists were
+ * indented differently, padded differently and sized differently.
+ */
+const FILTER_ICONS: Record<FreeGameFilter, ReactNode> = {
+  "free-now": <GiftOutlined />,
+  "ending-soon": <HourglassOutlined />,
+  "free-soon": <ClockCircleOutlined />,
+  deals: <TagOutlined />,
+  "always-free": <SyncOutlined />,
+};
 
 /**
  * The bucket list, its counts, and the state of the last fetch.
@@ -38,13 +68,24 @@ export function FreeGamesSidebarPanel() {
               className={`ct-free-games-tab ${isActive ? "active" : ""}`}
               onClick={() => setFilter(entry.id)}
             >
-              <span className="ct-free-games-tab-head">
-                <span className="ct-free-games-tab-label">{entry.label}</span>
-                {/* Zero is drawn as a dash rather than hidden: an empty bucket is
-                    an answer, and a vanishing badge reads as a loading state. */}
-                <span className="ct-free-games-tab-count">{count > 0 ? count : "–"}</span>
+              <span className="ct-free-games-tab-icon" aria-hidden="true">
+                {FILTER_ICONS[entry.id]}
               </span>
-              <span className="ct-free-games-tab-description">{entry.description}</span>
+
+              <span className="ct-free-games-tab-body">
+                <span className="ct-free-games-tab-head">
+                  <span className="ct-free-games-tab-label">{entry.label}</span>
+                  {/* Zero is drawn as a dash rather than hidden: an empty bucket
+                      is an answer, and a vanishing badge reads as a loading
+                      state. */}
+                  <span className="ct-free-games-tab-count">
+                    {count > 0 ? count : "–"}
+                  </span>
+                </span>
+                <span className="ct-free-games-tab-description">
+                  {entry.description}
+                </span>
+              </span>
             </button>
           );
         })}

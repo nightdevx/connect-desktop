@@ -16,18 +16,44 @@
 }
 
 .ct-free-games-tabs {
-  @apply flex shrink-0 flex-col gap-1.5;
+  @apply flex shrink-0 flex-col gap-1;
 }
 
-/* Deliberately the same shape as .ct-settings-tab: this is the second panel in
-   the app whose sidebar is a list of labelled destinations, and two different
-   answers to that would read as two different apps. */
+/* Deliberately the same shape as .ct-minigames-tab -- to the pixel, which is
+   what it was not.
+
+   Both files carried a comment claiming these two lists matched, and neither
+   did: this one was px-3 py-2.5 with a 12px description and no icon, the other
+   px-2.5 py-2 with a 10px description and a 30px icon tile. The two sections sit
+   one rail button apart, so switching between them shifted every label by 38px
+   and resized it. The icon tile is the half that had to be ADDED rather than
+   removed: it is what makes a seven-row list of similar text scannable, and it
+   is why the minigames list was the better of the two. */
 .ct-free-games-tab {
-  @apply relative flex flex-col gap-0.5 overflow-hidden rounded-md border px-3 py-2.5 text-left;
+  @apply relative flex items-center gap-2.5 overflow-hidden rounded-md border px-2.5 py-2 text-left;
   border-color: transparent;
   color: var(--ct-text-secondary);
   background: transparent;
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-free-games-tab-icon {
+  @apply flex shrink-0 items-center justify-center rounded-md;
+  width: 30px;
+  height: 30px;
+  font-size: var(--ct-icon-sm);
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+  transition: all var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-free-games-tab.active .ct-free-games-tab-icon {
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-free-games-tab-body {
+  @apply flex min-w-0 flex-1 flex-col gap-0.5;
 }
 
 .ct-free-games-tab::before {
@@ -56,7 +82,7 @@
 }
 
 .ct-free-games-tab.active::before {
-  height: 60%;
+  height: 62%;
 }
 
 .ct-free-games-tab-head {
@@ -64,8 +90,8 @@
 }
 
 .ct-free-games-tab-label {
-  @apply text-sm font-semibold;
-  line-height: 1.3;
+  @apply min-w-0 truncate text-sm font-semibold;
+  line-height: 1.25;
 }
 
 .ct-free-games-tab-count {
@@ -86,9 +112,9 @@
 }
 
 .ct-free-games-tab-description {
-  @apply text-xs;
+  @apply text-2xs;
   color: var(--ct-text-muted);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .ct-free-games-sidebar-footer {
@@ -108,8 +134,19 @@
 
 /* --- the grid ------------------------------------------------------------ */
 
+/* height, not flex-1 -- the same trap the minigames panel documents.
+
+   The parent is `.ct-main-panel-content`, which is `display: block`, and a flex
+   property on a block child does nothing at all. So `flex: 1` here was inert
+   and everything under it that depended on this box having a height was inert
+   with it: the grid's own scroller never engaged, the attribution footer was
+   pushed below the fold on every bucket, and `.ct-free-games-state` centred its
+   empty message inside a box exactly as tall as the message -- which is to say
+   it sat jammed under the header instead of in the middle of the page, on the
+   one screen whose whole job is to say "there is nothing here". */
 .ct-free-games-panel {
-  @apply flex min-h-0 flex-1 flex-col gap-4;
+  @apply flex min-h-0 flex-col gap-4;
+  height: 100%;
   container-type: inline-size;
   container-name: free-games;
 }
@@ -143,20 +180,40 @@
   background: var(--ct-alpha-02);
 }
 
-/* Sits under the grid, in normal flow with it.
+/* Pinned under the grid, and it stays on screen while the cards scroll past it.
 
-   It was briefly pinned instead, by making the panel's parent a flex column so
-   the grid could be its own scroller. That gave the card row a definite height
-   and the covers were squeezed out of existence — the pager is not worth a
-   layout that can do that to the content it pages. The page scrolls as one
-   document, as Ayarlar does. */
+   The note that used to sit here blamed this arrangement for squeezing the
+   covers out of existence and concluded the page should scroll as one document.
+   The squeeze was real; the cause was not the scroller but the flex-value
+   `align-content` on it (see .ct-free-games-grid). With that fixed, a pager that
+   pages a scrolling list is reachable without scrolling to the end of it. */
 .ct-free-games-pagination {
   @apply flex shrink-0 justify-end;
 }
 
+/* The card scroller. The header above it and the pager and attribution below it
+   are all shrink-0 in the panel's flex column, so they stay put and this is the
+   only box that moves.
+
+   `align-content: start` is written by hand, NOT with Tailwind's `content-start`
+   utility, and the difference is the whole bug this rule was carrying:
+   `content-start` emits `align-content: flex-start`, which is a FLEX value.
+   Chromium does not accept it on a grid container, falls back to `normal` --
+   which for grid means STRETCH -- and stretch on auto rows in a box with a
+   definite height divides that height between the rows. That is why a bucket of
+   24 offers drew 24 rows of 8px: a strip of cover art with the whole card
+   hanging out of it, on every populated bucket. Three offers hid it, because
+   572/3 is nearly a card.
+
+   grid-auto-rows: max-content states the same intent a second time, from the
+   row side: a row is as tall as its tallest card and never a pixel less,
+   whatever the container's height turns out to be. chat.css:547 documents the
+   same pair for the same reason. */
 .ct-free-games-grid {
-  @apply grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pb-2;
+  @apply grid min-h-0 flex-1 gap-4 overflow-y-auto pb-2;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .ct-free-games-state {

@@ -9,24 +9,12 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import { MINIGAME_IDS, type MinigameId } from "@/store/minigame-scores";
+import type { MinigameBoardProps } from "./board-props";
 import { Game2048 } from "./components/games/game-2048";
 import { Memory } from "./components/games/memory";
 import { Minesweeper } from "./components/games/minesweeper";
 import { Snake } from "./components/games/snake";
 import { VersusBoard } from "./components/games/versus-board";
-
-/**
- * Every game gets the SAME props, whether or not it uses them.
- *
- * A solo game ignores them. The alternative was two registries -- one typed
- * `ComponentType` and one `ComponentType<MinigameBoardProps>` -- and two of
- * everything that reads them, to save one unused parameter in each of four
- * components.
- */
-export interface MinigameBoardProps {
-  /** Only the versus games read it; a solo game ignores it. */
-  currentUserId: string;
-}
 
 /**
  * The list of games, and everything the two panels need to draw one.
@@ -42,8 +30,9 @@ export interface MinigameEntry {
   description: string;
   icon: ReactNode;
   /**
-   * Solo runs alone and keeps a personal best; versus needs a second person in
-   * the same voice room and keeps none. Drives the sidebar's two groups.
+   * Solo runs alone and keeps a personal best per difficulty; versus is played
+   * against somebody and keeps none. Drives the sidebar's two groups, and
+   * whether the difficulty picker is drawn at all.
    */
   mode: "solo" | "versus";
   /** What the personal best measures. Absent for versus, which keeps none. */
@@ -64,7 +53,7 @@ const BY_ID: Record<MinigameId, MinigameEntry> = {
   minesweeper: {
     id: "minesweeper",
     label: "Mayın Tarlası",
-    description: "16x16, 40 mayın. İlk tıklama güvenli.",
+    description: "İlk tıklama her zaman güvenli.",
     icon: <FlagOutlined />,
     mode: "solo",
     formatScore: (score) => `${score} saniye`,
@@ -82,7 +71,7 @@ const BY_ID: Record<MinigameId, MinigameEntry> = {
   memory: {
     id: "memory",
     label: "Hafıza",
-    description: "Sekiz çifti en az hamlede eşle.",
+    description: "Çiftleri en az hamlede eşle.",
     icon: <BulbOutlined />,
     mode: "solo",
     formatScore: (score) => `${score} hamle`,
@@ -125,3 +114,5 @@ export const VERSUS_MINIGAMES = MINIGAMES.filter((entry) => entry.mode === "vers
 export function findMinigame(id: MinigameId): MinigameEntry {
   return BY_ID[id];
 }
+
+export type { MinigameBoardProps };

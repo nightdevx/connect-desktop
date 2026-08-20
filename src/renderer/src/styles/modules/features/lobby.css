@@ -1,115 +1,306 @@
 /* ==========================================================================
-   SIDEBAR LOBBY ROW
-   A lobby row is a .ct-list-item, so it inherits the sidebar's padding and
-   the active-state inversion. Nothing here re-declares a colour per state --
-   children inherit and use opacity, which reads on both grounds.
+   LOBBIES
+
+   Three surfaces, one rhythm:
+     - the sidebar list of rooms and who is in them
+     - the selection screen, before a room is open
+     - the room itself: identity bar, stage, toolbar, chat
+
+   Two rules the whole file obeys, both learned the hard way:
+
+   1. NOTHING FLOATS OVER THE STAGE ANY MORE. The toolbar and the chat toggle
+      used to be absolutely positioned, so the tile grid had to reserve room for
+      them with padding derived by hand from their own heights -- numbers that
+      went stale at every breakpoint. Everything is in the flow now, and the
+      leftover box is whatever the flex column hands the stage.
+   2. THE STAGE'S PADDING IS DECLARED HERE AND NOWHERE ELSE. useLobbyStageLayout
+      measures the content box of .ct-lobby-stage-area rather than subtracting
+      its own copy of these numbers.
    ========================================================================== */
 
-.ct-lobby-item {
-  @apply flex w-full min-w-0 flex-col gap-2;
+/* ==========================================================================
+   SIDEBAR: ROOMS AND THEIR MEMBERS
+
+   A room is a button with a member list under it, not a .ct-list-item wrapping
+   both. That inverted the WHOLE block to the accent colour when selected --
+   in a 280px column that is a solid white slab in the dark theme -- and every
+   nested colour then needed a color-mix() against --ct-text-inverse to survive
+   it. The selected row is a wash and an accent bar; nothing has to compensate.
+   ========================================================================== */
+
+.ct-lobby-list {
+  @apply m-0 flex list-none flex-col gap-1 p-0;
 }
 
-.ct-lobby-item-head {
-  @apply flex items-center justify-between gap-2;
+/* --------------------------------------------------------------------------
+   CATEGORIES
+
+   Voice rooms and message rooms are two different things you do with this app,
+   and they used to be interleaved in one flat column with nothing but a 16px
+   glyph telling them apart. Each kind gets its own foldable group now, and the
+   fold is remembered (view-preferences) rather than reset every time the panel
+   is unmounted.
+
+   The header sticks to the top of the sidebar's scroller, so scrolling through
+   twenty rooms never leaves you looking at rows with no idea which group they
+   belong to. -12px cancels the body's gutter so the sticky band spans the full
+   column width instead of leaving two transparent stripes at its edges.
+   -------------------------------------------------------------------------- */
+
+.ct-lobby-category {
+  @apply flex flex-col gap-0.5;
 }
 
-.ct-lobby-item-title {
-  @apply m-0 flex min-w-0 items-center gap-1.5 text-sm font-semibold;
+.ct-lobby-category-header {
+  @apply sticky top-0 z-10 flex w-full cursor-pointer items-center gap-1.5 border-0 py-1.5 text-left text-micro font-bold uppercase tracking-[0.14em];
+  margin-inline: calc(var(--ct-gutter) * -1);
+  padding-inline: var(--ct-gutter);
+  color: var(--ct-text-muted);
+  background: var(--ct-panel-solid);
+  transition: color var(--ct-duration-fast) ease;
+}
+
+.ct-lobby-category-header:hover {
   color: var(--ct-text-primary);
 }
 
-.ct-lobby-item-title .anticon {
+/* A hairline under the sticky band, so a row scrolling beneath it reads as
+   passing UNDER the header rather than colliding with it. */
+.ct-lobby-category-header::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--ct-gutter);
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--ct-alpha-12),
+    transparent 70%
+  );
+}
+
+.ct-lobby-category-chevron {
+  @apply shrink-0;
+  font-size: 9px;
+  color: var(--ct-text-muted);
+  transition: rotate var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-lobby-category.open .ct-lobby-category-chevron {
+  rotate: 90deg;
+}
+
+.ct-lobby-category-icon {
+  @apply inline-flex shrink-0 items-center;
   font-size: var(--ct-icon-xs);
-  flex-shrink: 0;
 }
 
-.ct-lobby-item-lock {
-  color: var(--ct-warning);
+.ct-lobby-category-label {
+  @apply min-w-0 flex-1 truncate;
 }
 
-.ct-lobby-item-crown {
+/* The count is the whole point of leaving a category folded: "8 rooms in here"
+   is the one thing a closed group still has to say. */
+.ct-lobby-category-count {
+  @apply inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-micro font-bold tabular-nums;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-08);
+  letter-spacing: 0;
+}
+
+.ct-lobby-category-header:hover .ct-lobby-category-count {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-12);
+}
+
+.ct-lobby-category-items {
+  @apply m-0 flex list-none flex-col gap-0.5 p-0;
+}
+
+.ct-lobby-group {
+  @apply flex flex-col gap-0.5;
+}
+
+.ct-lobby-group + .ct-lobby-group {
+  @apply mt-1;
+}
+
+/* The room under the cursor while a member is being dragged over it. Its own
+   colour rather than the selected-row treatment: "this is where they will land"
+   and "this is the room you are looking at" are different statements, and
+   during a drag both can be true of different rows at once. */
+.ct-lobby-group.drop-target {
+  @apply rounded-md;
+  box-shadow: inset 0 0 0 1px var(--ct-accent);
+  background: color-mix(in srgb, var(--ct-accent) 12%, transparent);
+}
+
+/* px-3 is the same 12px the sidebar body uses, so a room's name starts exactly
+   24px from the panel edge -- the same place as a friend's name in the other
+   section. */
+.ct-lobby-row {
+  @apply relative flex w-full min-h-9 cursor-pointer items-center gap-2 rounded-md border-0 px-3 text-left;
+  color: var(--ct-text-secondary);
+  background: transparent;
+  transition:
+    background var(--ct-duration-fast) ease,
+    color var(--ct-duration-fast) ease,
+    translate var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-lobby-row:hover {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+  translate: 2px 0;
+}
+
+/* A wash that fades out to the right rather than a flat block: the accent bar
+   is on the left edge, and a gradient running away from it reads as the bar
+   casting the highlight instead of as a second, unrelated rectangle. */
+.ct-lobby-row.active {
+  color: var(--ct-text-primary);
+  background: linear-gradient(
+    90deg,
+    var(--ct-alpha-12),
+    var(--ct-alpha-04) 65%,
+    transparent
+  );
+}
+
+.ct-lobby-row.active:hover {
+  translate: 0 0;
+}
+
+/* The accent bar, flush with the row's left edge. An inset shadow rather than a
+   border so the row's content does not shift by 2px when it is selected. */
+.ct-lobby-row.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  translate: 0 -50%;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+}
+
+/* Being CONNECTED to a room is not the same as looking at it -- you can sit in
+   voice while reading a text channel -- so it gets its own mark rather than the
+   same highlight. */
+.ct-lobby-row.joined .ct-lobby-row-icon {
   color: var(--ct-success);
 }
 
-.ct-lobby-item-text {
+.ct-lobby-row.joined::after {
+  content: "";
+  @apply ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full;
+  background: var(--ct-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ct-success) 60%, transparent);
+}
+
+/* A join is already running somewhere else. Not `disabled`, because that would
+   swallow the right-click that opens this room's settings. */
+.ct-lobby-row.busy {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* A fixed-width slot, so every room name in the column starts on the same
+   vertical whether its glyph is the speaker or the chat bubble. */
+.ct-lobby-row-icon {
+  @apply inline-flex w-4 shrink-0 items-center justify-center;
+  font-size: var(--ct-icon-sm);
   color: var(--ct-text-muted);
 }
 
-.ct-lobby-item-count {
+.ct-lobby-row-name {
+  @apply min-w-0 flex-1 truncate text-sm font-semibold;
+  color: inherit;
+}
+
+.ct-lobby-row-flag {
+  @apply shrink-0;
+  font-size: var(--ct-icon-xs);
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-row-flag.warn {
+  color: var(--ct-warning);
+}
+
+.ct-lobby-row-flag.ok {
+  color: var(--ct-success);
+}
+
+.ct-lobby-row-count {
   @apply inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums;
   color: var(--ct-text-muted);
 }
 
-.ct-lobby-item-empty {
-  @apply text-2xs;
+/* One unread pill for the whole feature: the sidebar row and the room header's
+   chat button. antd's Badge was used in one place and not the other, so the two
+   counts had different colours, heights and baselines. */
+.ct-lobby-unread {
+  @apply inline-flex h-4 shrink-0 items-center justify-center rounded-full px-1.5 text-micro font-bold tabular-nums;
+  min-width: 16px;
+  color: var(--ct-on-info);
+  background: var(--ct-info);
+  letter-spacing: 0;
+}
+
+.ct-lobby-empty {
+  @apply m-0 pl-3 text-2xs;
   color: var(--ct-text-muted);
 }
 
-.ct-lobby-member-list {
-  @apply m-0 flex list-none flex-col gap-1 p-0;
+/* The guide line lands under the room's NAME, so a member's avatar starts on
+   the same vertical as the text above it (16 + 6 + 6 = 28px, and the name
+   starts at 12 + 9 + 8 = 29px). The indent used to be an accident of two
+   paddings adding up to 9px, which is not a step on any scale in this app. */
+.ct-lobby-members {
+  @apply m-0 ml-4 flex list-none flex-col gap-px border-l py-0.5 pl-1.5 pr-0;
+  border-color: var(--ct-alpha-08);
 }
 
-.ct-lobby-member-item {
-  @apply flex items-center justify-between gap-2 rounded-sm border px-2 py-1.5;
-  border-color: var(--ct-alpha-04);
-  background: var(--ct-alpha-02);
-}
-
-.ct-list-item.clickable.active .ct-lobby-member-item {
-  /* On the active row, whose ground is --ct-accent: the tint has to contrast
-     with the ACCENT, not with the page, and those swap between themes. */
-  border-color: color-mix(in srgb, var(--ct-text-inverse) 6%, transparent);
-  background: color-mix(in srgb, var(--ct-text-inverse) 4%, transparent);
+.ct-lobby-member {
+  @apply flex min-h-7 items-center justify-between gap-2 rounded-sm px-1.5;
+  transition: background var(--ct-duration-fast) ease;
 }
 
 /* Only a moderator's rows are draggable, so the grab cursor is the affordance
    that says the row can be carried somewhere. Everyone else's rows say nothing,
    because for them nothing would happen. */
-.ct-lobby-member-item.draggable {
+.ct-lobby-member.draggable {
   cursor: grab;
 }
 
-.ct-lobby-member-item.draggable:active {
+.ct-lobby-member.draggable:active {
   cursor: grabbing;
 }
 
 /* An <img> starts its OWN drag by default, so grabbing somebody by their avatar
    dragged the picture out of the app instead of picking the person up. */
-.ct-lobby-member-item.draggable img {
+.ct-lobby-member.draggable img {
   -webkit-user-drag: none;
 }
 
-/* The room under the cursor while a member is being dragged over it. Its own
-   colour rather than the active-row treatment: "this is where they will land"
-   and "this is the room you are in" are different statements, and during a drag
-   both can be true of different rows at once. */
-.ct-list-item.drop-target {
-  border-color: var(--ct-accent);
-  background: color-mix(in srgb, var(--ct-accent) 14%, transparent);
-  box-shadow: inset 0 0 0 1px var(--ct-accent);
-}
-
-.ct-lobby-member-main {
-  @apply flex min-w-0 flex-1 items-center gap-2;
+/* The row washes on hover instead of underlining, because the trigger covers
+   the row and an underline running under an avatar reads as a mistake. Only the
+   name carries the link affordance. */
+.ct-lobby-member:has(.ct-lobby-member-identity:hover) {
+  background: var(--ct-alpha-08);
 }
 
 /* Avatar, name and everything up to the status icons, as ONE press target for
    the profile card. flex-1 is the whole point: hugging the text left the
    trigger about 60px wide in a 240px row, and every click that landed in the
-   gap after a short name fell through to the lobby row and joined the room. */
+   gap after a short name fell through to the row underneath. */
 .ct-lobby-member-identity {
-  @apply flex min-w-0 flex-1 items-center gap-2;
+  @apply flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-left;
 }
 
-/* The row washes on hover instead of underlining, because the trigger now
-   covers the row and an underline running under an avatar reads as a mistake.
-   Only the name carries the link affordance. */
-.ct-lobby-member-item:has(.ct-lobby-member-identity:hover) {
-  border-color: var(--ct-alpha-08);
-  background: var(--ct-alpha-08);
-}
-
-.ct-lobby-member-item .ct-lobby-member-identity:hover {
+.ct-lobby-member-identity:hover {
   text-decoration: none;
 }
 
@@ -119,24 +310,8 @@
   text-underline-offset: 2px;
 }
 
-/* The active lobby is the one whose members get hovered most, and its own rules
-   below are a class deeper than the two above — so without these the room the
-   user is actually in was the one place the row gave no feedback at all. Its
-   ground is --ct-accent, so the wash contrasts with the ACCENT, not the page. */
-.ct-list-item.clickable.active
-  .ct-lobby-member-item:has(.ct-lobby-member-identity:hover) {
-  border-color: color-mix(in srgb, var(--ct-text-inverse) 20%, transparent);
-  background: color-mix(in srgb, var(--ct-text-inverse) 14%, transparent);
-}
-
-.ct-list-item.clickable.active
-  .ct-lobby-member-identity:hover
-  .ct-lobby-member-name {
-  opacity: 1;
-}
-
 .ct-lobby-member-name {
-  @apply m-0 truncate text-2xs font-medium;
+  @apply m-0 min-w-0 flex-1 truncate text-2xs font-medium;
   color: var(--ct-text-secondary);
 }
 
@@ -147,12 +322,22 @@
   color: var(--ct-text-primary);
   font-size: 8px;
   font-weight: 700;
+  transition:
+    border-color var(--ct-duration-fast) ease,
+    box-shadow var(--ct-duration-fast) ease;
 }
 
-.ct-list-item.clickable.active .ct-lobby-member-avatar.ant-avatar {
-  border-color: color-mix(in srgb, var(--ct-text-inverse) 12%, transparent);
-  background: var(--ct-accent);
-  color: var(--ct-text-inverse);
+/* Talking right now. A ring around the face rather than a colour on the name:
+   the stage says it the same way on its tiles, and the sidebar is where a
+   listener is looking when they want to know who just said that.
+
+   Drawn as a shadow, not a border, so a 22px circle does not resize four times
+   a second as the speech gate opens and closes. */
+.ct-lobby-member-avatar.speaking.ant-avatar {
+  border-color: var(--ct-success);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--ct-success) 55%, transparent),
+    0 0 10px color-mix(in srgb, var(--ct-success) 45%, transparent);
 }
 
 .ct-lobby-member-icons {
@@ -160,7 +345,7 @@
 }
 
 .ct-lobby-member-flag {
-  @apply inline-flex items-center;
+  @apply inline-flex shrink-0 items-center;
   font-size: var(--ct-icon-xs);
   color: var(--ct-text-muted);
 }
@@ -179,77 +364,157 @@
   opacity: 1;
 }
 
+/* Muted by THIS user, for this user only. Amber, not the red above: one is
+   something done to the room, the other is a preference that follows the person
+   between lobbies and that only its owner can undo. Full opacity because it is
+   the one flag on the row that is actionable. */
+.ct-lobby-member-flag.self-muted {
+  color: var(--ct-warning);
+  opacity: 1;
+}
+
 .ct-lobby-member-flag.neutral {
   color: var(--ct-text-primary);
 }
 
-/* --------------------------------------------------------------------------
-   Selection screen (no lobby joined yet)
+/* ==========================================================================
+   SELECTION SCREEN (no room open yet)
 
-   The hero takes the leftover height and centres itself in it; the room list
-   keeps its own height at the bottom. It used to be justify-between with a
-   fixed py-16 hero, so once there were a few rooms the list ran off the
-   bottom of a card that could not scroll.
-   -------------------------------------------------------------------------- */
+   A left-aligned page title and a grid that fills the width it is given. It
+   used to be a centred hero with a one-column list under it: 88px of air
+   between the paragraph and the list heading, 2px between the cards, and a
+   single card stretched across the whole panel however many rooms there were.
+   ========================================================================== */
 
 .ct-lobby-selection {
-  @apply flex flex-col gap-6 overflow-y-auto p-6;
+  @apply flex flex-col gap-5 overflow-y-auto p-6;
+  border: 1px solid var(--ct-border);
+  border-radius: var(--ct-radius-xl);
+  background: var(--ct-lobby-surface);
 }
 
-.ct-lobby-selection-hero {
-  @apply flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center;
-}
-
-.ct-lobby-selection-hero h3 {
-  @apply m-0 mb-2 text-lg font-semibold;
+.ct-lobby-selection-head h2 {
+  @apply m-0 text-xl font-bold;
   color: var(--ct-text-primary);
+  letter-spacing: -0.01em;
 }
 
-.ct-lobby-selection-hero p {
-  @apply m-0 max-w-[340px] text-sm;
+.ct-lobby-selection-head p {
+  @apply m-0 mt-1.5 max-w-[52ch] text-sm;
   color: var(--ct-text-muted);
 }
 
 .ct-lobby-selection-rooms {
-  @apply shrink-0 border-t pt-6;
+  @apply flex min-h-0 flex-col gap-3 border-t pt-5;
   border-color: var(--ct-border);
 }
 
-.ct-lobby-selection-rooms > h4 {
-  @apply m-0 mb-3 text-2xs font-semibold uppercase tracking-wider;
+.ct-lobby-selection-rooms > h3 {
+  @apply m-0 flex items-center gap-2 text-2xs font-semibold uppercase tracking-wider;
   color: var(--ct-text-muted);
+}
+
+.ct-lobby-selection-count {
+  @apply inline-flex h-4 items-center justify-center rounded-full px-1.5 text-micro font-bold tabular-nums;
+  min-width: 16px;
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-08);
+  letter-spacing: 0;
+}
+
+.ct-lobby-selection-grid {
+  @apply m-0 grid list-none gap-3 p-0;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .ct-lobby-select-card {
-  @apply flex items-center justify-between gap-3 rounded-md border px-4 py-3;
-  border-color: var(--ct-alpha-04);
+  @apply flex flex-col gap-2 rounded-lg border p-4;
+  border-color: var(--ct-alpha-08);
   background: var(--ct-alpha-02);
-  transition: all var(--ct-duration-base) var(--ct-ease-premium);
+  transition:
+    border-color var(--ct-duration-base) var(--ct-ease-premium),
+    background var(--ct-duration-base) var(--ct-ease-premium);
 }
 
 .ct-lobby-select-card:hover {
-  border-color: var(--ct-alpha-12);
+  border-color: var(--ct-alpha-20);
   background: var(--ct-alpha-04);
 }
 
-.ct-lobby-select-card strong {
-  @apply block text-sm font-semibold;
+.ct-lobby-select-card-head {
+  @apply flex min-w-0 items-center gap-1.5;
+}
+
+.ct-lobby-select-card-icon {
+  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md;
+  font-size: var(--ct-icon-sm);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-08);
+}
+
+.ct-lobby-select-card-head strong {
+  @apply min-w-0 flex-1 truncate text-sm font-semibold;
   color: var(--ct-text-primary);
 }
 
-.ct-lobby-select-card span {
-  @apply block text-2xs;
+.ct-lobby-select-card-flag {
+  @apply shrink-0;
+  font-size: var(--ct-icon-xs);
   color: var(--ct-text-muted);
 }
 
-/* The selection screen and the live room occupy the same box and cross-fade;
-   the visible one is picked with a class rather than eight ternaries. */
+.ct-lobby-select-card-flag.warn {
+  color: var(--ct-warning);
+}
+
+.ct-lobby-select-card-meta {
+  @apply inline-flex items-center gap-1.5 text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-select-card-action.ant-btn {
+  @apply mt-1 w-full;
+}
+
+.ct-lobby-selection-empty {
+  @apply flex min-h-0 flex-1 flex-col items-center justify-center gap-1 py-12 text-center;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-selection-empty .anticon {
+  @apply mb-3 opacity-30;
+  font-size: 28px;
+}
+
+.ct-lobby-selection-empty h3 {
+  @apply m-0 text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-selection-empty p {
+  @apply m-0 mt-1 max-w-[38ch] text-sm;
+  color: var(--ct-text-muted);
+}
+
+/* ==========================================================================
+   THE TWO LAYERS
+
+   The selection screen and the live room occupy the same box and cross-fade;
+   the visible one is picked with a class rather than eight ternaries. Both
+   carry the same outer geometry, so the swap happens in place instead of one
+   surface being a card and the other being full-bleed.
+   ========================================================================== */
+
 .ct-lobby-main-stack {
   @apply relative h-full w-full overflow-hidden;
 }
 
 .ct-lobby-main-layer {
   @apply absolute inset-0 min-h-0;
+  --ct-lobby-surface:
+    radial-gradient(circle at 10% 10%, var(--ct-alpha-02), transparent 42%),
+    radial-gradient(circle at 100% 0%, var(--ct-alpha-04), transparent 36%),
+    linear-gradient(160deg, var(--ct-panel), var(--ct-panel-strong));
   transition:
     transform var(--ct-duration-slow) var(--ct-ease-spring),
     opacity var(--ct-duration-slow) var(--ct-ease-spring);
@@ -269,29 +534,9 @@
   transform: translateY(16px) scale(1.03);
 }
 
-/* Row order in the focused layout comes from the DOM now, not from grid-row
-   assignments -- see .ct-lobby-stage-grid.focused-layout below. */
-.ct-lobby-stage-slot-row {
-  @apply flex shrink-0 justify-center;
-  z-index: 10;
-}
-
-/* Same pill as the stage's chat toggle, so the two controls that float over
-   the video area match. */
-.ct-lobby-stage-hint {
-  @apply inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-alpha-70);
-  background: var(--ct-panel);
-  backdrop-filter: blur(12px);
-  transition: all var(--ct-duration-fast) ease;
-}
-
-.ct-lobby-stage-hint:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-panel-strong);
-}
+/* ==========================================================================
+   THE ROOM
+   ========================================================================== */
 
 .ct-lobby-room-card {
   @apply flex h-full min-h-0 flex-col;
@@ -301,45 +546,23 @@
   @apply relative rounded-none border-0 bg-transparent p-0;
 }
 
-.ct-lobby-chat-toggle {
-  @apply inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-alpha-70);
-  background: var(--ct-panel);
-  backdrop-filter: blur(12px);
-  transition: all var(--ct-duration-fast) ease;
-}
-
-.ct-lobby-chat-toggle.in-stage {
-  @apply absolute right-4 top-4 z-30;
-}
-
-.ct-lobby-chat-toggle:hover {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-panel-strong);
-}
-
+/* Header spans both columns, so a text room -- which renders no stage at all --
+   still says which room it is. Before this, the workspace header was hidden the
+   moment a lobby opened and nothing took its place: the room's name, its lock
+   and its occupancy appeared nowhere in the main panel. */
 .ct-lobby-room-grid-v2 {
   @apply grid h-full min-h-0 flex-1;
   grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "head head"
+    "stage chat";
   gap: 0;
   border: 1px solid var(--ct-border);
-  border-radius: 18px;
+  border-radius: var(--ct-radius-xl);
   overflow: hidden;
-  transition: grid-template-columns 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  background:
-    radial-gradient(
-      circle at 10% 10%,
-      var(--ct-alpha-02),
-      transparent 42%
-    ),
-    radial-gradient(
-      circle at 100% 0%,
-      var(--ct-alpha-04),
-      transparent 36%
-    ),
-    linear-gradient(160deg, var(--ct-panel), var(--ct-panel-strong));
+  transition: grid-template-columns var(--ct-duration-slow) var(--ct-ease-spring);
+  background: var(--ct-lobby-surface);
 }
 
 .ct-lobby-room-grid-v2.chat-closed {
@@ -352,89 +575,196 @@
    collapsed column. */
 .ct-lobby-room-grid-v2.stage-closed {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "chat";
 }
 
+/* --------------------------------------------------------------------------
+   Room identity bar
+   -------------------------------------------------------------------------- */
+
+.ct-lobby-room-header {
+  @apply flex items-center gap-3 border-b px-4;
+  grid-area: head;
+  min-height: var(--ct-lobby-bar-height);
+  border-color: var(--ct-border);
+  background: var(--ct-panel-strong);
+}
+
+.ct-lobby-room-identity {
+  @apply flex min-w-0 flex-1 items-center gap-2;
+}
+
+.ct-lobby-room-icon {
+  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md;
+  font-size: var(--ct-icon-sm);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-08);
+}
+
+.ct-lobby-room-name {
+  @apply m-0 min-w-0 truncate text-base font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-room-flag {
+  @apply shrink-0;
+  font-size: var(--ct-icon-sm);
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-room-flag.warn {
+  color: var(--ct-warning);
+}
+
+.ct-lobby-room-meta {
+  @apply flex shrink-0 items-center gap-3 text-2xs font-medium;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-room-meta-item {
+  @apply inline-flex items-center gap-1.5 tabular-nums;
+}
+
+.ct-lobby-room-status {
+  @apply inline-flex items-center gap-1.5;
+}
+
+.ct-lobby-room-status i {
+  @apply block h-1.5 w-1.5 rounded-full;
+  background: var(--ct-alpha-32);
+}
+
+.ct-lobby-room-status.on {
+  color: var(--ct-success);
+}
+
+.ct-lobby-room-status.on i {
+  background: var(--ct-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ct-success) 60%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Pills: the room header's chat button, the stage's show/hide-others control,
+   and the call panel's own chat toggle. One geometry, declared once -- these
+   used to be two identical blocks that had to be kept in step by hand.
+   -------------------------------------------------------------------------- */
+
+.ct-lobby-room-action,
+.ct-lobby-stage-hint,
+.ct-lobby-chat-toggle {
+  @apply inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-alpha-70);
+  background: var(--ct-panel);
+  backdrop-filter: blur(12px);
+  transition: all var(--ct-duration-fast) ease;
+}
+
+.ct-lobby-room-action:hover,
+.ct-lobby-stage-hint:hover,
+.ct-lobby-chat-toggle:hover {
+  border-color: var(--ct-border-strong);
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-strong);
+}
+
+.ct-lobby-room-action.on {
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-room-action-label {
+  @apply truncate;
+}
+
+/* Still used by the direct-message call panel, which keeps its toggle over the
+   stage; the lobby's moved into the header above. */
+.ct-lobby-chat-toggle.in-stage {
+  @apply absolute right-4 top-4 z-30;
+}
+
+/* --------------------------------------------------------------------------
+   Stage
+
+   A flex column: measured area on top, toolbar underneath. Nothing overlaps,
+   so nothing has to reserve room for anything else.
+   -------------------------------------------------------------------------- */
+
 .ct-lobby-stage-panel {
-  @apply relative min-h-0 h-full p-0;
+  @apply relative flex h-full min-h-0 flex-col;
+  --ct-stage-pad-y: 14px;
+  --ct-stage-pad-x: 18px;
+  grid-area: stage;
   overflow: hidden;
   border: 0;
   background: transparent;
 }
 
+/* THE measured box. useLobbyStageLayout observes this element and takes its
+   content box -- i.e. exactly what is left after the padding below -- as the
+   space the tiles have to fit into. There is no second copy of these numbers in
+   TypeScript any more.
+
+   overflow is hidden rather than auto on purpose: the fit always fits by
+   construction, and a scrollbar appearing would change the measured width,
+   which would change the fit, which would remove the scrollbar. */
+.ct-lobby-stage-area {
+  @apply min-h-0 flex-1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  padding: var(--ct-stage-pad-y) var(--ct-stage-pad-x);
+  overflow: hidden;
+}
+
+/* Loading, an error, or "nobody here yet" — the one thing the stage has to say
+   when it has no tiles to show. Centred in the area rather than stretched to
+   the top of it. */
+.ct-lobby-stage-area > .ct-list-state {
+  justify-self: center;
+  align-self: center;
+}
+
 .ct-lobby-stage-grid {
-  @apply grid w-full;
+  @apply grid;
   --ct-stage-columns: 2;
   --ct-stage-gap: 14px;
-  --ct-stage-max-width: 1220px;
   --ct-stage-tile-width: 320px;
-  /* Clearance for the chat toggle above and the action toolbar below, derived
-     from their own sizes rather than guessed. Toolbar: 24px offset + control-lg
-     + its 10px padding top and bottom + its 1px border top and bottom, which is
-     the toolbar's real top edge; toggle: 16px offset + its ~36px height.
-
-     The 2px of border used to be left out. That is invisible almost everywhere,
-     and it is exactly what made the "show other participants" pill sit under
-     the toolbar rather than above it -- see .full-stage-mode below. */
-  --ct-stage-clear-top: calc(16px + 36px + 14px);
-  --ct-stage-clear-bottom: calc(24px + var(--ct-control-lg) + 20px + 2px);
   gap: var(--ct-stage-gap);
   grid-template-columns: repeat(
     var(--ct-stage-columns),
     minmax(0, var(--ct-stage-tile-width))
   );
-  width: min(100%, var(--ct-stage-max-width));
-  max-width: min(100%, var(--ct-stage-max-width));
-  margin: 0 auto;
+  justify-self: center;
+  align-self: center;
   justify-content: center;
-  justify-items: stretch;
-  align-content: start;
-  padding: var(--ct-stage-clear-top) 18px var(--ct-stage-clear-bottom);
-  min-height: 100%;
+  align-content: center;
+  max-width: 100%;
   max-height: 100%;
-  overflow: auto;
-  position: relative;
 }
 
-/* The focused layout is a column, not a grid.
-   As a grid it sized the focused tile off viewport width alone
-   (clamp(680px, 74vw, 1180px)); at 16:9 that asked for up to 663px of height
-   the stage did not have, so the stage grew a vertical scrollbar on every
-   focus. Worse, the show/hide pill and the thumbnail rail both resolved to
-   grid-row 2 -- `.ct-lobby-participant-rail` is declared after
-   `.ct-lobby-stage-row-3` at equal specificity -- so they were drawn stacked on
-   top of each other in one cell. A column with a single flexible row hands the
-   tile whatever height is actually left over and takes its order from the DOM.
-   Scoped to .focused-layout throughout: the non-focused grid keeps
-   `display: grid` and `overflow: auto` from the base rule untouched. */
+/* The focused layout is a column, not a grid, and it takes the whole area.
+   As a grid it sized the focused tile off viewport width alone; worse, it was
+   capped by --ct-stage-max-width, a number computed for the GRID of thumbnails
+   it had just replaced -- so focusing somebody in a six-person room shrank the
+   stage from 816px to 612px. That variable is gone. */
 .ct-lobby-stage-grid.focused-layout {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-self: stretch;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
   gap: 10px;
   overflow: hidden;
-  /* Extra room for the participant rail that sits under the focused tile. */
-  padding-bottom: calc(var(--ct-stage-clear-bottom) + 18px);
-}
-
-/* "Full stage" is the mode with the thumbnail rail HIDDEN -- which is precisely
-   the mode that still shows the show/hide pill, since the pill is what turns
-   the rail back on. This rule used to drop the padding to bare
-   --ct-stage-clear-bottom, i.e. to the toolbar's own top edge, so the last flow
-   item in the column ended exactly where the floating toolbar begins. The pill
-   is that last item, the toolbar carries z-index: 50 against the row's 10, and
-   the result was a control drawn underneath the box it has to sit above.
-
-   The rail was never the thing that needed the room; the pill was, and the pill
-   is in both modes. What changes between them is only how much slack there is
-   above the toolbar. */
-.ct-lobby-stage-grid.focused-layout.full-stage-mode {
-  padding-bottom: calc(var(--ct-stage-clear-bottom) + 10px);
 }
 
 .ct-lobby-focused-slot {
   flex: 1 1 auto;
-  /* Both needed, or the flex item refuses to shrink under its content and the
-     scrollbar comes straight back. */
+  /* Both needed, or the flex item refuses to shrink under its content and a
+     scrollbar comes back. */
   min-height: 0;
   min-width: 0;
   width: min(100%, 1180px);
@@ -446,29 +776,29 @@
   justify-items: center;
   align-items: center;
   position: relative;
-  z-index: 2;
 }
 
 /* Capped on height as well as width, so the focused tile is fitted on both axes
    exactly like a grid tile is. aspect-ratio transfers the max-height into a
-   max-width, so 16:9 holds whichever axis runs out first -- previously a short,
-   wide stage letterboxed the focused video differently from the grid. */
+   max-width, so 16:9 holds whichever axis runs out first. */
 .ct-lobby-focused-slot > .ct-lobby-participant-tile {
   justify-self: center;
   align-self: center;
   max-height: 100%;
 }
 
-/* Hiding the rail is a request for MORE video. This used to pin the slot to
-   --ct-stage-tile-width -- the grid's per-participant thumbnail width, ~180px
-   in a busy room -- so hiding the rail shrank the focused tile to a thumbnail. */
+/* Hiding the rail is a request for MORE video. */
 .ct-lobby-focused-slot.full-stage {
   width: min(100%, 1400px);
 }
 
+.ct-lobby-stage-slot-row {
+  @apply flex shrink-0 justify-center;
+}
+
 .ct-lobby-participant-rail {
   flex: 0 0 auto;
-  width: min(100%, 1120px);
+  width: 100%;
   max-width: 100%;
   display: flex;
   flex-wrap: nowrap;
@@ -478,11 +808,15 @@
      scrolled back into view. */
   justify-content: safe center;
   gap: 10px;
-  padding: 2px 4px 6px;
+  padding: 2px 4px 4px;
   overflow-x: auto;
   overflow-y: hidden;
-  position: relative;
-  z-index: 1;
+  /* Thinner than the app's bar: this is the row with the least stage height to
+     spare, and even 10px under the thumbnails costs a visible slice of it. The
+     colour, radius, inset and hover states all still come from the global rule
+     in base.css -- overriding the token is the whole override. */
+  --ct-scrollbar-size: 6px;
+  --ct-scrollbar-inset: 1px;
 }
 
 /* The tile's own `align-self: stretch` would override the rail's centring and
@@ -491,17 +825,17 @@
   align-self: center;
 }
 
-/* Thinner than the app's bar: this is the row with the least stage height to
-   spare, and even 10px under the thumbnails costs a visible slice of it. The
-   colour, radius, inset and hover states all still come from the global rule in
-   base.css -- overriding the token is the whole override. */
-.ct-lobby-participant-rail {
-  --ct-scrollbar-size: 6px;
-  --ct-scrollbar-inset: 1px;
-}
+/* ==========================================================================
+   PARTICIPANT TILE
+   ========================================================================== */
 
 .ct-lobby-participant-tile {
-  @apply relative rounded-[20px] border text-left overflow-hidden;
+  @apply relative border text-left overflow-hidden;
+  /* One inset for every piece of chrome that floats on a tile: the kind chip,
+     the audience badge, the fullscreen and picture-in-picture buttons. They
+     used to be 12px, 12px, 12px and `20px + control-sm`. */
+  --ct-tile-inset: 12px;
+  border-radius: var(--ct-radius-xl);
   border-color: var(--ct-border);
   background: linear-gradient(
     150deg,
@@ -526,22 +860,54 @@
   container-name: participant-tile;
 }
 
-/* Container Queries for Participant Tile */
-/* A narrow tile shrinks its own furniture. The antd Avatar sizes itself
-   inline, so that one rule still needs to win. */
-@container participant-tile (max-width: 250px) {
+/* A narrow tile shrinks its own furniture, in three steps rather than one: the
+   same grid draws a 520px tile in a two-person room and a 170px thumbnail in
+   the rail, and a single breakpoint had to be wrong for one of them. The antd
+   Avatar writes its size inline, so these have to win with !important. */
+@container participant-tile (max-width: 520px) {
   .ct-lobby-tile-center-logo .ant-avatar {
-    width: 44px !important;
-    height: 44px !important;
-    font-size: 14px;
+    width: 104px !important;
+    height: 104px !important;
+    font-size: 32px;
   }
+}
+
+@container participant-tile (max-width: 420px) {
+  .ct-lobby-tile-center-logo .ant-avatar {
+    width: 88px !important;
+    height: 88px !important;
+    font-size: 27px;
+  }
+}
+
+@container participant-tile (max-width: 330px) {
+  .ct-lobby-tile-center-logo .ant-avatar {
+    width: 68px !important;
+    height: 68px !important;
+    font-size: 21px;
+  }
+}
+
+@container participant-tile (max-width: 250px) {
+  .ct-lobby-participant-tile {
+    --ct-tile-inset: 8px;
+  }
+
+  .ct-lobby-tile-center-logo .ant-avatar {
+    width: 52px !important;
+    height: 52px !important;
+    font-size: 16px;
+  }
+
   .ct-lobby-tile-userline p {
     font-size: 11px;
   }
+
   .ct-lobby-flag {
     width: 22px;
     height: 22px;
   }
+
   .ct-lobby-tile-footer {
     padding: 8px 10px;
   }
@@ -612,49 +978,43 @@
   border-color: color-mix(in srgb, var(--ct-info) 70%, transparent);
 }
 
-.ct-lobby-tile-kind-badge {
+/* Both chips in one top-left strip, capped short of the buttons on the right.
+   The audience badge used to be parked top-RIGHT at the same inset as the
+   fullscreen button, which is drawn a layer above it -- so hovering a screen
+   tile hid "who is watching" behind the control that expands it. */
+.ct-lobby-tile-topbar {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: var(--ct-tile-inset);
+  left: var(--ct-tile-inset);
   z-index: 20;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: 999px;
+  gap: 6px;
+  max-width: calc(100% - var(--ct-tile-inset) * 2 - var(--ct-control-sm) * 2 - 20px);
+  min-width: 0;
+}
+
+.ct-lobby-tile-kind-badge {
+  @apply inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-micro font-semibold;
   /* A saturated blue chip in both themes, so what reads on it is white in both
      themes — --ct-text-primary is near-black under the light theme and put dark
      lettering on a mid-blue pill. */
   background: color-mix(in srgb, var(--ct-info) 88%, transparent);
   color: var(--ct-on-info);
-  font-size: 10.5px;
-  font-weight: 600;
   letter-spacing: 0.02em;
   backdrop-filter: blur(6px);
   box-shadow: 0 4px 12px var(--ct-shadow-color);
   pointer-events: none;
 }
 
-/* Who is watching this share. Top-RIGHT, opposite the "Ekran" chip: the two
-   answer different questions and a viewer reads them as a pair. Muted rather
-   than accented so it never competes with the kind badge, and pointer-events
-   stay on so the tooltip listing the names is reachable. */
+/* Who is watching this share. Muted rather than accented so it never competes
+   with the kind badge, and pointer-events stay on so the tooltip listing the
+   names is reachable. */
 .ct-lobby-tile-watchers {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 55%;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--ct-alpha-08);
+  @apply inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-1 text-micro font-semibold;
+  border-color: var(--ct-alpha-08);
   background: color-mix(in srgb, var(--ct-surface-1) 82%, transparent);
   color: var(--ct-text-secondary);
-  font-size: 10.5px;
-  font-weight: 600;
   letter-spacing: 0.02em;
   backdrop-filter: blur(6px);
   box-shadow: 0 4px 12px var(--ct-shadow-color-soft);
@@ -662,15 +1022,14 @@
 }
 
 .ct-lobby-tile-watchers span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply min-w-0 truncate;
 }
 
 /* A compact tile has no room for names beside the kind chip. */
 .ct-lobby-participant-tile.compact .ct-lobby-tile-watchers span {
   display: none;
 }
+
 /* Speaking indicator lives in theme.css (single source: static glow ring). */
 
 .ct-lobby-video-container {
@@ -716,7 +1075,7 @@
 /* Watch-this-screen prompt: screen shares are opt-in, so an unwatched tile
    shows this instead of subscribing to the track on its own. */
 .ct-lobby-tile-watch-prompt {
-  @apply absolute inset-0 z-20 flex flex-col items-center justify-center gap-2;
+  @apply absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 px-4 text-center;
   background: var(--ct-panel-soft);
   backdrop-filter: blur(2px);
 }
@@ -727,7 +1086,7 @@
 }
 
 .ct-lobby-tile-watch-title {
-  @apply text-xs;
+  @apply max-w-full truncate text-xs;
   color: var(--ct-alpha-70);
 }
 
@@ -750,7 +1109,8 @@
 
 .ct-lobby-tile-fullscreen-btn,
 .ct-lobby-tile-pip-btn {
-  @apply absolute top-3 z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
+  @apply absolute z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;
+  top: var(--ct-tile-inset);
   border-color: var(--ct-alpha-20);
   color: var(--ct-text-primary);
   background: var(--ct-panel);
@@ -762,13 +1122,13 @@
 }
 
 .ct-lobby-tile-fullscreen-btn {
-  right: 12px;
+  right: var(--ct-tile-inset);
 }
 
-/* Parked left of the fullscreen button: same 12px edge gap, plus that button's
-   width and an 8px separation. */
+/* Parked left of the fullscreen button: same edge gap, plus that button's width
+   and an 8px separation. */
 .ct-lobby-tile-pip-btn {
-  right: calc(20px + var(--ct-control-sm));
+  right: calc(var(--ct-tile-inset) + var(--ct-control-sm) + 8px);
 }
 
 .ct-lobby-tile-fullscreen-exit-btn {
@@ -788,7 +1148,7 @@
   z-index: 9999;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 16px var(--ct-shadow-color);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
 .ct-lobby-tile-fullscreen-exit-btn:hover {
@@ -813,15 +1173,13 @@
   object-fit: contain;
 }
 
+/* Centred in what is LEFT of the tile, not in the tile: the footer covers the
+   bottom ~44px, and a face centred against the whole box sat low and, at the
+   larger avatar sizes, ran under the name. */
 .ct-lobby-tile-center-logo {
-  @apply absolute inset-0 grid place-items-center text-[44px] font-extrabold;
+  @apply absolute inset-0 grid place-items-center pb-7;
   color: var(--ct-text-primary);
-  letter-spacing: 0.08em;
   opacity: 0.88;
-  /* Only ever visible when there is NO video (.media-on takes it to 0), so this
-     lands on the tile's own panel — a fixed black blur under it was a smudge on
-     a near-white card. */
-  text-shadow: 0 10px 28px var(--ct-shadow-color);
   transition: opacity 0.2s ease;
 }
 
@@ -831,17 +1189,17 @@
   color: var(--ct-text-primary);
   font-weight: 700;
   box-shadow: var(--ct-shadow-sm);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .ct-lobby-tile-center-logo.media-on {
   opacity: 0;
 }
 
-.ct-lobby-avatar-container {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.ct-lobby-participant-tile:not(.local-user):hover .ct-lobby-avatar-container.ant-avatar {
+.ct-lobby-participant-tile:not(.local-user):hover
+  .ct-lobby-avatar-container.ant-avatar {
   box-shadow:
     var(--ct-shadow-sm),
     0 0 0 3px var(--ct-alpha-08);
@@ -860,7 +1218,7 @@
    :has() is what tells them apart — .ct-lobby-video-container is rendered only
    when there is something to play. */
 .ct-lobby-tile-footer {
-  @apply absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 py-3;
+  @apply absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3.5 py-2.5;
   background: linear-gradient(
     0deg,
     var(--ct-panel-solid) 15%,
@@ -868,8 +1226,7 @@
   );
 }
 
-.ct-lobby-participant-tile:has(.ct-lobby-video-container)
-  .ct-lobby-tile-footer {
+.ct-lobby-participant-tile:has(.ct-lobby-video-container) .ct-lobby-tile-footer {
   background: linear-gradient(
     0deg,
     rgba(0, 0, 0, 0.88) 15%,
@@ -890,27 +1247,6 @@
   aspect-ratio: 16 / 9;
 }
 
-.ct-lobby-stage-actions {
-  @apply absolute inline-flex items-center justify-center gap-3 rounded-lg border px-4 py-2.5;
-  bottom: 24px;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 50;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-solid);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--ct-shadow-lg);
-  /* Always visible so primary controls (mic/camera/screen/leave) stay
-     discoverable; idle state is just dimmer, not hidden. */
-  opacity: 0.72;
-  transition: opacity var(--ct-duration-base) var(--ct-ease-spring);
-}
-
-.ct-lobby-room-card:hover .ct-lobby-stage-actions,
-.ct-lobby-stage-actions:focus-within {
-  opacity: 1;
-}
-
 .ct-lobby-tile-userline {
   @apply min-w-0;
 }
@@ -920,13 +1256,8 @@
   color: var(--ct-text-primary);
 }
 
-.ct-lobby-tile-userline span {
-  @apply mt-0.5 block truncate text-[11px] font-medium;
-  color: var(--ct-text-muted);
-}
-
 .ct-lobby-tile-flags {
-  @apply inline-flex items-center gap-1;
+  @apply inline-flex shrink-0 items-center gap-1;
 }
 
 .ct-lobby-flag {
@@ -937,9 +1268,8 @@
   font-size: var(--ct-icon-xs);
 }
 
-/* The name and its subtitle are bare text with nothing behind them but the
-   scrim, so they are the two things that have to switch grounds with it. See the
-   footer above.
+/* The name is bare text with nothing behind it but the scrim, so it is the one
+   thing that has to switch grounds with it. See the footer above.
 
    The status chips below do NOT need this: each one carries its own opaque
    ground, so it reads on a picture and on a panel alike. */
@@ -947,12 +1277,6 @@
   .ct-lobby-tile-userline
   p {
   color: var(--ct-on-media);
-}
-
-.ct-lobby-participant-tile:has(.ct-lobby-video-container)
-  .ct-lobby-tile-userline
-  span {
-  color: var(--ct-on-media-muted);
 }
 
 /* The variant drives the icon colour, so the JSX stops passing a hex per
@@ -980,16 +1304,46 @@
   background: var(--ct-panel-strong);
 }
 
+/* "I muted them", not "they are muted". Amber keeps it apart from a moderator
+   mute, and apart from the plain grey of a microphone the person closed
+   themselves — the same three-way the sidebar row draws. */
 .ct-lobby-flag.muted {
-  border-color: color-mix(in srgb, var(--ct-danger) 32%, transparent);
-  color: var(--ct-danger);
-  background: color-mix(in srgb, var(--ct-danger) 12%, var(--ct-panel-strong));
+  border-color: color-mix(in srgb, var(--ct-warning) 38%, transparent);
+  color: var(--ct-warning);
+  background: color-mix(in srgb, var(--ct-warning) 14%, var(--ct-panel-strong));
 }
 
 .ct-lobby-flag.signal {
   border-color: var(--ct-accent-strong);
   color: var(--ct-text-primary);
   background: color-mix(in srgb, var(--ct-accent) 10%, var(--ct-panel-strong));
+}
+
+/* ==========================================================================
+   ACTION TOOLBAR
+
+   In the flow under the stage. It used to float over the video at
+   `opacity: .72`, which meant the one row that says whether your microphone is
+   open was dimmed whenever the pointer was anywhere else in the app -- and the
+   stage had to reserve room for it with padding derived by hand from the
+   toolbar's own height, at every breakpoint.
+   ========================================================================== */
+
+.ct-lobby-stage-actions {
+  @apply mx-auto mb-3.5 inline-flex shrink-0 flex-wrap items-center justify-center gap-2.5 rounded-lg border px-3 py-2;
+  align-self: center;
+  max-width: calc(100% - 24px);
+  border-color: var(--ct-border);
+  background: var(--ct-panel-solid);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--ct-shadow-md);
+}
+
+/* "Lobiden Ayrıl" used to sit flush against the camera button: the two clicks
+   most easily confused for one another were 12px apart. */
+.ct-lobby-action-divider {
+  @apply mx-0.5 block h-6 w-px shrink-0;
+  background: var(--ct-border);
 }
 
 /* The primary in-call controls: control-lg with its paired icon-lg. */
@@ -1040,14 +1394,31 @@
   cursor: not-allowed;
 }
 
+/* A moderator mute is a DECISION, not an unavailable control.
+   The generic disabled dim reads as "this app is broken" for the one button the
+   user is most likely to be pressing at that moment, so this keeps it at full
+   contrast and gives it the danger colour — it is refused, and it says why in
+   its tooltip and its label. Ordered after :disabled so it wins. */
+.ct-lobby-action-btn.forced-muted:disabled {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 12%, transparent);
+}
+
+/* ==========================================================================
+   CHAT COLUMN
+   ========================================================================== */
+
 .ct-lobby-chat-slot {
-  @apply relative min-h-0 h-full;
+  @apply relative h-full min-h-0;
+  grid-area: chat;
   border-left: 1px solid var(--ct-border);
   background: var(--ct-panel-soft);
   overflow: hidden;
   transition:
-    border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border-color var(--ct-duration-slow) var(--ct-ease-spring),
+    background var(--ct-duration-slow) var(--ct-ease-spring);
 }
 
 .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
@@ -1056,7 +1427,7 @@
 }
 
 /* In a text room the chat IS the room, so it must never be the slide-over
-   drawer responsive.css turns .ct-lobby-chat-slot into below 1100px — there is
+   drawer responsive.css turns .ct-lobby-chat-slot into below 900px — there is
    no stage behind it, so the drawer would leave the room blank. Three classes
    beats that rule's one, and media queries add no specificity, so this wins
    inside it without responsive.css having to know about text rooms. */
@@ -1075,17 +1446,32 @@
 
 .ct-lobby-chat-panel {
   @apply h-full min-h-0;
+  /* One gutter for the whole column. The search field paid 16px, the thread
+     16px and the composer 12px, so a message, the box it is typed in and the
+     field that searches it all started on different vertical lines. */
+  --ct-lobby-chat-gutter: 12px;
 }
 
 .ct-lobby-chat-panel .ct-chat-thread-box {
-  @apply h-full rounded-none min-h-0;
+  @apply h-full min-h-0 rounded-none;
   border: 0;
   background: var(--ct-panel-soft);
+}
+
+.ct-lobby-chat-panel .ct-chat-search,
+.ct-lobby-chat-panel .ct-chat-notice,
+.ct-lobby-chat-panel .ct-chat-messages,
+.ct-lobby-chat-panel .ct-chat-composer {
+  padding-inline: var(--ct-lobby-chat-gutter);
 }
 
 .ct-lobby-chat-panel .ct-chat-composer {
   @apply rounded-none;
 }
+
+/* ==========================================================================
+   PARTICIPANT CONTEXT MENU
+   ========================================================================== */
 
 /* This class lands on the overlay ROOT, not on the menu itself. Padding here
    drew a square-cornered frame around the rounded menu inside it, and `gap`
@@ -1098,11 +1484,7 @@
 .ct-participant-context-menu .ant-dropdown-menu {
   border: 1px solid var(--ct-alpha-20);
   background:
-    radial-gradient(
-      circle at 100% 0%,
-      var(--ct-alpha-08),
-      transparent 45%
-    ),
+    radial-gradient(circle at 100% 0%, var(--ct-alpha-08), transparent 45%),
     var(--ct-panel-solid);
   box-shadow:
     0 18px 38px var(--ct-shadow-color),
@@ -1143,9 +1525,13 @@
   accent-color: var(--ct-accent);
 }
 
-/* Direct Message Call Panel Overrides */
-/* Inside a direct-message call the stage is shorter, so the grid centres its
-   tiles instead of scrolling, and the toolbar stays at full opacity. */
+/* ==========================================================================
+   DIRECT-MESSAGE CALL PANEL
+
+   The same stage, in a shorter box. It keeps its chat toggle floating over the
+   video (there is no room header there), so the area buys it some headroom.
+   ========================================================================== */
+
 .ct-chat-panel .ct-lobby-stage-panel {
   height: 100%;
   max-height: 100%;
@@ -1153,18 +1539,8 @@
   overflow: hidden;
 }
 
-.ct-chat-panel .ct-lobby-stage-grid {
-  padding: 20px 18px;
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  align-content: center;
-}
-
-.ct-chat-panel .ct-lobby-stage-actions {
-  opacity: 1;
-  bottom: 20px;
+.ct-chat-panel .ct-lobby-stage-area {
+  padding-top: 56px;
 }
 
 /* The "waiting for them to join" tile: dashed, dimmed and inert. */
@@ -1180,7 +1556,6 @@
   box-shadow: none;
 }
 
-.ct-call-placeholder-pulsing .ct-lobby-tile-avatar,
 .ct-call-placeholder-pulsing .ct-lobby-tile-center-logo {
   animation: callAvatarDimPulse 2s infinite ease-in-out;
   filter: grayscale(80%) brightness(60%);
@@ -1199,7 +1574,6 @@
   font-style: italic;
 }
 
-
 /* ==========================================================================
    SOUND EMOTES
    A short synthesised noise every member of the room hears. The grid is fixed
@@ -1215,7 +1589,8 @@
   @apply flex cursor-pointer items-center gap-2 rounded-lg border-0 px-2 py-1.5 text-left text-xs font-medium;
   background: transparent;
   color: var(--ct-text-secondary);
-  transition: background-color var(--ct-duration-fast) ease,
+  transition:
+    background-color var(--ct-duration-fast) ease,
     color var(--ct-duration-fast) ease;
 }
 
@@ -1281,11 +1656,11 @@
   color: var(--ct-text-muted);
 }
 
-/* The delete button rides on top of the pad rather than beside it: a second
-   column would halve the room the name has, and most rows never show one. */
 /* Uploaded sounds are a LIST, while the built-in set stays a two-column grid.
    The built-ins have fixed two-word labels; an upload has a name somebody chose
-   and an owner, and neither fits in half of a 260px board. */
+   and an owner, and neither fits in half of a 260px board. The delete button
+   rides on top of the pad rather than beside it: a second column would halve
+   the room the name has, and most rows never show one. */
 .ct-sound-emote-list {
   @apply flex flex-col gap-0.5;
 }

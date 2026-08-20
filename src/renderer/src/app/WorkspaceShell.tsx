@@ -48,13 +48,31 @@ import {
   type LobbyTransitionState,
   type ScheduleActiveLobbyReconnect,
 } from "@/features/workspace";
-import { useUiStore } from "@/store/ui-store";
+import { useUiStore, type WorkspaceSection } from "@/store/ui-store";
 import { useConversationRouting } from "./workspace-shell/use-conversation-routing";
 import { useLobbyMembershipWatchdog } from "./workspace-shell/use-lobby-membership-watchdog";
 import { useCallRoomSync } from "./workspace-shell/use-call-room-sync";
 import { useAudioPreferenceSync } from "./workspace-shell/use-audio-preference-sync";
 import { useDesktopPreferences } from "./workspace-shell/use-desktop-preferences";
 import { useLobbyEmotePlayback } from "./workspace-shell/use-lobby-emote-playback";
+
+// A Record over the union rather than a chain of ifs ending in a fallback.
+// The chain was, in its own words, "the one failure the type system cannot
+// see", and it duly happened: the games section was added, nothing updated
+// this, and both the sidebar and the panel header read "Lobiler" on the games
+// page. A missing key is now a compile error.
+//
+// "admin" is here for completeness even though the admin shell draws its own
+// chrome -- the union is what has to be covered, not the sections that happen
+// to reach this header today.
+const SECTION_TITLES: Record<WorkspaceSection, string> = {
+  users: "Arkadaşlar",
+  lobbies: "Lobiler",
+  "free-games": "Ücretsiz Oyunlar",
+  minigames: "Oyunlar",
+  settings: "Ayarlar",
+  admin: "Yönetim",
+};
 
 interface WorkspaceShellProps {
   currentUserId: string;
@@ -412,6 +430,7 @@ function WorkspaceShell({
   // ----- MEDIA CONTROLS -----
   const {
     micEnabled,
+    micLocked,
     headphoneEnabled,
     cameraEnabled,
     screenEnabled,
@@ -793,10 +812,15 @@ function WorkspaceShell({
       (member) => member.userId === currentUserId,
     );
     if (!self) {
+      // Still told, with nothing to reconcile. The moderator-mute lock hangs off
+      // this call, and returning early here left the microphone button disabled
+      // in the NEXT room — the roster that would have cleared it is one we are no
+      // longer on.
+      reconcileDeclaredAudioState(undefined, undefined, false);
       return;
     }
 
-    reconcileDeclaredAudioState(self.muted, self.deafened);
+    reconcileDeclaredAudioState(self.muted, self.deafened, self.serverMuted);
   }, [activeLobbyRosterMembers, currentUserId, reconcileDeclaredAudioState]);
 
   // Resolved against the live list rather than trusted as stored: a text room
@@ -879,15 +903,12 @@ function WorkspaceShell({
   );
 
 
-  // Ends in an unguarded fallback, so a section missing from this list is the
-  // one failure the type system cannot see: the sidebar header and the panel
-  // header both silently read "Lobiler".
-  const sectionTitle = useMemo(() => {
-    if (workspaceSection === "users") return "Arkadaşlar";
-    if (workspaceSection === "free-games") return "Ücretsiz Oyunlar";
-    if (workspaceSection === "settings") return "Ayarlar";
-    return "Lobiler";
-  }, [workspaceSection]);
+  // A Record over the union rather than a chain ending in a fallback. The
+  // chain was "the one failure the type system cannot see", and it duly
+  // happened: the games section was added, nothing here mentioned it, and both
+  // the sidebar and the panel header read "Lobiler" on the games page. A
+  // missing key is now a compile error.
+  const sectionTitle = SECTION_TITLES[workspaceSection];
 
   // ----- SOUND CUES -----
   useWorkspaceAudioCues({
@@ -1261,6 +1282,7 @@ function WorkspaceShell({
             currentUsername={currentUsername}
             sectionTitle={sectionTitle}
             micEnabled={micEnabled}
+            micLocked={micLocked}
             headphoneEnabled={headphoneEnabled}
             cameraEnabled={cameraEnabled}
             screenEnabled={screenEnabled}
@@ -1394,10 +1416,13 @@ function WorkspaceShell({
           are exactly where you are least likely to notice you are still live. */}
       <QuickControls
         currentUsername={currentUsername}
+        currentUserId={currentUserId}
         currentUserAvatarUrl={currentUserAvatarUrl}
+        friends={friends}
         hasActiveLobby={hasActiveLobby}
         isLeavingLobby={isLeavingLobby}
         micEnabled={micEnabled}
+        micLocked={micLocked}
         headphoneEnabled={headphoneEnabled}
         screenShareEnabled={screenEnabled}
         audioInputDevices={audioInputDevices}
@@ -1456,6 +1481,11 @@ function WorkspaceShell({
         error={cameraShareModalError}
         previewStream={cameraPreviewStream}
         previewRef={cameraPreviewRef}
+        // The same stored preference Ayarlar → Kamera edits. Changing it here
+        // restarts the preview on the new constraints, so the dialog shows what
+        // it is about to publish rather than describing it.
+        cameraPreferences={cameraPreferences}
+        onChangeCameraPreferences={saveCameraPreferences}
         onStart={startCameraShareFromModal}
         onRefreshPreview={prepareCameraPreview}
       />

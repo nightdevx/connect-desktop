@@ -119,6 +119,11 @@ export interface FriendsController {
   incomingRequests: FriendEntry[];
   outgoingRequests: FriendEntry[];
   isLoading: boolean;
+  // Re-reads both lists. Behind the retry button on the load-error state, which
+  // was otherwise a dead end: the queries are 30s-stale and the WS only
+  // re-reads on a reconnect, so a failed first load stayed failed on screen.
+  refresh: () => void;
+  isRefreshing: boolean;
   // Per-id, not one global boolean: a requests list has a button per row.
   pendingUserIds: string[];
   sendRequest: (username: string) => Promise<{ ok: boolean; message: string }>;
@@ -235,6 +240,11 @@ export const useFriends = (enabled: boolean): FriendsController => {
       ? (requestsQuery.data.error ?? null)
       : null);
 
+  const refresh = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: FRIEND_REQUESTS_QUERY_KEY });
+  }, [queryClient]);
+
   // No pending marker here: sendRequest is keyed by username and there is no
   // user id to hang one on until the server answers. Its caller owns that
   // button's busy state.
@@ -341,6 +351,10 @@ export const useFriends = (enabled: boolean): FriendsController => {
     // A disabled react-query sits in `pending` forever, which would pin this
     // true for anyone who never opens the section.
     isLoading: enabled && (friendsQuery.isPending || requestsQuery.isPending),
+    refresh,
+    // isFetching, not isPending: a failed load still holds data (an ok:false
+    // envelope), so the retry would otherwise spin nothing.
+    isRefreshing: friendsQuery.isFetching || requestsQuery.isFetching,
     pendingUserIds,
     sendRequest,
     acceptRequest,

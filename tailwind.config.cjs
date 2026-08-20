@@ -17,6 +17,7 @@ module.exports = {
       // these were written as text-[10px] / text-[11px] / text-[13px] literals.
       fontSize: {
         micro: ["10px", { lineHeight: "14px", letterSpacing: "0.04em" }],
+        "3xs": ["10px", { lineHeight: "14px" }],
         "2xs": ["11px", { lineHeight: "16px" }],
         xs: ["12px", { lineHeight: "18px" }],
         sm: ["13px", { lineHeight: "20px" }],

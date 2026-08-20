@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { Button } from "antd";
+import { scoreKey } from "@/store/minigame-scores";
 import {
   buildMinefield,
   isMinefieldWon,
   revealCell,
   type MineCell,
 } from "../../minigames-logic";
+import { RULES_MINES } from "../../difficulty";
 import { useRecordRun } from "../../use-record-run";
 import { GameOutcome } from "../game-outcome";
-
-const COLUMNS = 16;
-const ROWS = 16;
-const MINES = 40;
+import { GameShell } from "../game-shell";
+import type { MinigameBoardProps } from "../../board-props";
 
 type Status = "idle" | "playing" | "lost" | "won";
 
@@ -22,7 +22,9 @@ interface FieldState {
 
 const IDLE_STATE: FieldState = { cells: [], status: "idle" };
 
-export function Minesweeper() {
+export function Minesweeper({ difficulty }: MinigameBoardProps) {
+  const { columns, rows, mines } = RULES_MINES[difficulty];
+
   const [state, setState] = useState<FieldState>(IDLE_STATE);
   const [seconds, setSeconds] = useState(0);
   // The cell that ended it, so the mines can appear outward from there rather
@@ -33,7 +35,11 @@ export function Minesweeper() {
   const isOver = state.status === "won" || state.status === "lost";
   // A loss is not a run: the record is a time, and a field you blew up has no
   // time on it. Only a clean field is submitted.
-  const isRecord = useRecordRun("minesweeper", state.status === "won", seconds);
+  const isRecord = useRecordRun(
+    scoreKey("minesweeper", difficulty),
+    state.status === "won",
+    seconds,
+  );
 
   useEffect(() => {
     if (!isRunning) {
@@ -60,21 +66,21 @@ export function Minesweeper() {
       return 0;
     }
     return Math.max(
-      Math.abs((index % COLUMNS) - (lostAt % COLUMNS)),
-      Math.abs(Math.floor(index / COLUMNS) - Math.floor(lostAt / COLUMNS)),
+      Math.abs((index % columns) - (lostAt % columns)),
+      Math.abs(Math.floor(index / columns) - Math.floor(lostAt / columns)),
     );
   };
 
   const handleReveal = (index: number) => {
-    if (state.status === "lost" || state.status === "won") {
+    if (isOver) {
       return;
     }
 
     // The field is built HERE, on the first click, not at reset -- that is what
     // lets the first click be guaranteed safe. Before it, there is no board.
     if (state.status === "idle") {
-      const fresh = buildMinefield(COLUMNS, ROWS, MINES, index, Math.random);
-      const opened = revealCell(fresh, COLUMNS, ROWS, index);
+      const fresh = buildMinefield(columns, rows, mines, index, Math.random);
+      const opened = revealCell(fresh, columns, rows, index);
       setSeconds(0);
       setState({
         cells: opened,
@@ -101,7 +107,7 @@ export function Minesweeper() {
       return;
     }
 
-    const opened = revealCell(state.cells, COLUMNS, ROWS, index);
+    const opened = revealCell(state.cells, columns, rows, index);
     setState({ cells: opened, status: isMinefieldWon(opened) ? "won" : "playing" });
   };
 
@@ -124,11 +130,11 @@ export function Minesweeper() {
   const flagged = state.cells.filter((cell) => cell.flagged).length;
   // Clamped at zero: over-flagging is allowed and a negative counter reads as a
   // bug rather than as "you have placed more flags than there are mines".
-  const remaining = Math.max(0, MINES - flagged);
+  const remaining = Math.max(0, mines - flagged);
 
   const cells: MineCell[] =
     state.status === "idle"
-      ? Array.from({ length: COLUMNS * ROWS }, () => ({
+      ? Array.from({ length: columns * rows }, () => ({
           mine: false,
           adjacent: 0,
           revealed: false,
@@ -137,67 +143,27 @@ export function Minesweeper() {
       : state.cells;
 
   return (
-    <div className="ct-minigame">
-      <div className="ct-minigame-bar">
-        <span className="ct-minigame-metric">
-          <span className="ct-minigame-metric-label">Mayın</span>
-          <strong>{remaining}</strong>
-        </span>
-        <span className="ct-minigame-metric">
-          <span className="ct-minigame-metric-label">Süre</span>
-          <strong>{seconds}s</strong>
-        </span>
+    <GameShell
+      columns={columns}
+      rows={rows}
+      hud={[
+        { label: "Mayın", value: remaining, tone: remaining === 0 ? "record" : undefined },
+        { label: "Süre", value: `${seconds}s` },
+      ]}
+      actions={
         <Button size="small" onClick={reset}>
           Yeni oyun
         </Button>
-      </div>
-
-      <div className="ct-minigame-stage">
-        <div
-          className="ct-minigame-board ct-mines-board"
-          aria-label="Mayın tarlası"
-          data-state={state.status === "lost" ? "lost" : state.status === "won" ? "won" : undefined}
-          // Suppressed once for the whole grid instead of on 256 buttons: the OS
-          // menu would otherwise cover the board on every flag.
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          {cells.map((cell, index) => (
-            <button
-              // The revealed flag is part of the key so opening a cell remounts
-              // it: a reused DOM node does not restart its animation, and the
-              // cascade below is the one moment this game has.
-              key={`${index}-${cell.revealed}`}
-              type="button"
-              className="ct-mines-cell"
-              data-revealed={cell.revealed ? "true" : undefined}
-              data-mine={cell.revealed && cell.mine ? "true" : undefined}
-              data-flag={cell.flagged && !cell.revealed ? "true" : undefined}
-              data-adjacent={cell.revealed && !cell.mine ? cell.adjacent : undefined}
-              // Every mine appears a beat after the one before it, walking
-              // outward from the click. Set inline because it is per cell and
-              // there are 256 of them; capped so a corner mine does not arrive
-              // three seconds late.
-              style={
-                cell.revealed && cell.mine
-                  ? { animationDelay: `${Math.min(mineDistance(index), 12) * 45}ms` }
-                  : undefined
-              }
-              aria-label={`${(index % COLUMNS) + 1}, ${Math.floor(index / COLUMNS) + 1}`}
-              onClick={() => handleReveal(index)}
-              onContextMenu={() => handleFlag(index)}
-            >
-              {cell.flagged && !cell.revealed
-                ? "⚑"
-                : cell.revealed && cell.mine
-                  ? "✳"
-                  : cell.revealed && cell.adjacent > 0
-                    ? cell.adjacent
-                    : ""}
-            </button>
-          ))}
-        </div>
-
-        {isOver ? (
+      }
+      status={{
+        text:
+          state.status === "idle"
+            ? "İlk tıklaman her zaman güvenli. Sol tık aç, sağ tık bayrak."
+            : "Sol tık aç, sağ tık bayrak.",
+        tone: "idle",
+      }}
+      overlay={
+        isOver ? (
           <GameOutcome
             tone={state.status === "won" ? "won" : "lost"}
             title={state.status === "won" ? "Tarla temiz" : "Mayına bastın"}
@@ -205,12 +171,51 @@ export function Minesweeper() {
             isRecord={isRecord}
             onRestart={reset}
           />
-        ) : null}
+        ) : null
+      }
+    >
+      <div
+        className="ct-board ct-mines-board"
+        aria-label="Mayın tarlası"
+        data-state={state.status === "lost" ? "lost" : state.status === "won" ? "won" : undefined}
+        // Suppressed once for the whole grid instead of on every cell: the OS
+        // menu would otherwise cover the board on every flag.
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        {cells.map((cell, index) => (
+          <button
+            // The revealed flag is part of the key so opening a cell remounts
+            // it: a reused DOM node does not restart its animation, and the
+            // cascade is the one moment this game has.
+            key={`${index}-${cell.revealed}`}
+            type="button"
+            className="ct-mines-cell"
+            data-revealed={cell.revealed ? "true" : undefined}
+            data-mine={cell.revealed && cell.mine ? "true" : undefined}
+            data-flag={cell.flagged && !cell.revealed ? "true" : undefined}
+            data-adjacent={cell.revealed && !cell.mine ? cell.adjacent : undefined}
+            // Every mine appears a beat after the one before it, walking outward
+            // from the click. Set inline because it is per cell; capped so a far
+            // corner does not arrive three seconds late.
+            style={
+              cell.revealed && cell.mine
+                ? { animationDelay: `${Math.min(mineDistance(index), 12) * 45}ms` }
+                : undefined
+            }
+            aria-label={`${(index % columns) + 1}, ${Math.floor(index / columns) + 1}`}
+            onClick={() => handleReveal(index)}
+            onContextMenu={() => handleFlag(index)}
+          >
+            {cell.flagged && !cell.revealed
+              ? "⚑"
+              : cell.revealed && cell.mine
+                ? "✳"
+                : cell.revealed && cell.adjacent > 0
+                  ? cell.adjacent
+                  : ""}
+          </button>
+        ))}
       </div>
-
-      <p className="ct-minigame-hint">
-        Sol tık aç, sağ tık bayrak. İlk tıklaman her zaman güvenli.
-      </p>
-    </div>
+    </GameShell>
   );
 }

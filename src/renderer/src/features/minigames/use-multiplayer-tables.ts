@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toErrorMessage } from "@shared/error-message";
 import { seatOf, type MinigameTable, type MultiplayerGameId } from "@shared/minigames";
+import { useUiStore } from "@/store/ui-store";
 import { multiplayerService } from "./multiplayer-service";
 
 export interface MultiplayerTablesController {
@@ -8,6 +9,19 @@ export interface MultiplayerTablesController {
   myTable: MinigameTable | null;
   /** Everyone else's tables for this game, newest first. */
   otherTables: MinigameTable[];
+  /**
+   * Every table on the server, for every game, newest first — including this
+   * account's own. What the "Canlı Masalar" rail lists.
+   */
+  allTables: MinigameTable[];
+  /**
+   * The table being watched from the audience, or null. Never a table this
+   * account is seated at: sitting down is playing, not watching.
+   */
+  watching: MinigameTable | null;
+  /** Watch somebody else's table. Only meaningful for the selected game. */
+  watch: (tableId: string) => void;
+  stopWatching: () => void;
   /** True until the first read of the registry resolves. */
   isLoading: boolean;
   /** True while an action is in flight, so a board can refuse a double click. */
@@ -36,9 +50,19 @@ export interface MultiplayerTablesController {
  * Rebuilding a list from a full snapshot on every move would put the whole
  * registry on the wire once per click; this way a frame is one table and the
  * list is derived.
+ *
+ * `game` is nullable so the live-tables rail can hold the same registry without
+ * pretending to be a board: with null there is no board, `otherTables` is
+ * empty, and only `allTables` is interesting.
+ *
+ * ponytail: the rail and the board each mount one of these, so the page holds
+ * two registries fed by the same socket. That is one extra GET on mount and one
+ * extra listener on an IPC channel that is already open — cheaper than a shared
+ * store with its own subscription bookkeeping. Upgrade if a third reader
+ * appears.
  */
 export function useMultiplayerTables(
-  game: MultiplayerGameId,
+  game: MultiplayerGameId | null,
   currentUserId: string,
 ): MultiplayerTablesController {
   const [tables, setTables] = useState<Map<string, MinigameTable>>(() => new Map());
@@ -95,21 +119,50 @@ export function useMultiplayerTables(
     });
   }, [applyTable]);
 
-  const { myTable, otherTables } = useMemo(() => {
-    const all = [...tables.values()];
+  const { myTable, otherTables, allTables } = useMemo(() => {
+    // Newest first: a table that has just been opened is the one somebody is
+    // sitting at waiting, and the one worth joining.
+    const all = [...tables.values()].sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    );
     // Across EVERY game, not just this one: an account can only be seated at a
     // single table, and finding it under the game the page is not showing is
     // what lets the page say so instead of silently offering to open a second.
     const mine = all.find((table) => seatOf(table, currentUserId) >= 0) ?? null;
 
-    const others = all
-      .filter((table) => table.game === game && table.id !== mine?.id)
-      // Newest first: a table that has just been opened is the one somebody is
-      // sitting at waiting, and the one worth joining.
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const others = all.filter(
+      (table) => table.game === game && table.id !== mine?.id,
+    );
 
-    return { myTable: mine, otherTables: others };
+    return { myTable: mine, otherTables: others, allTables: all };
   }, [tables, game, currentUserId]);
+
+  // The audience seat, and the only place it is decided. Read off the store so
+  // the rail's İzle button and the board agree without a prop between them.
+  const watchedTableId = useUiStore((state) => state.watchedTableId);
+  const setWatchedTable = useUiStore((state) => state.setWatchedTable);
+
+  const watching = useMemo(() => {
+    if (!watchedTableId) {
+      return null;
+    }
+    const table = tables.get(watchedTableId);
+    // Seated at it means playing it, and a player is not in the audience. This
+    // is what makes joining the table you were watching a clean handover.
+    if (!table || seatOf(table, currentUserId) >= 0) {
+      return null;
+    }
+    return table;
+  }, [tables, watchedTableId, currentUserId]);
+
+  // A watched table is somebody else's, so it can end and be reaped while it is
+  // on screen. Clearing the id rather than leaving it dangling is what stops the
+  // rail from painting a row as "İzleniyor" forever.
+  useEffect(() => {
+    if (watchedTableId && !isLoading && !tables.has(watchedTableId)) {
+      setWatchedTable(null);
+    }
+  }, [watchedTableId, tables, isLoading, setWatchedTable]);
 
   // Read inside the action callbacks so they do not have to be rebuilt — and so
   // a click cannot act on the table that was on screen two renders ago.
@@ -145,12 +198,30 @@ export function useMultiplayerTables(
     [applyTable],
   );
 
-  const open = useCallback(() => run(() => multiplayerService.open(game)), [run, game]);
+  // Taking a seat ends the watching, whichever way it is taken. Left set, the
+  // board would draw the audience view of a table the user is now playing at.
+  const open = useCallback(() => {
+    if (!game) {
+      return;
+    }
+    setWatchedTable(null);
+    run(() => multiplayerService.open(game));
+  }, [run, game, setWatchedTable]);
 
   const join = useCallback(
-    (tableId: string) => run(() => multiplayerService.join(tableId)),
-    [run],
+    (tableId: string) => {
+      setWatchedTable(null);
+      run(() => multiplayerService.join(tableId));
+    },
+    [run, setWatchedTable],
   );
+
+  const watch = useCallback(
+    (tableId: string) => setWatchedTable(tableId),
+    [setWatchedTable],
+  );
+
+  const stopWatching = useCallback(() => setWatchedTable(null), [setWatchedTable]);
 
   const withMyTable = useCallback(
     (action: (tableId: string) => Promise<Awaited<ReturnType<typeof multiplayerService.leave>>>) => {
@@ -187,6 +258,10 @@ export function useMultiplayerTables(
   return {
     myTable,
     otherTables,
+    allTables,
+    watching,
+    watch,
+    stopWatching,
     isLoading,
     isBusy,
     error,

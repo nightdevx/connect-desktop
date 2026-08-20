@@ -1,4 +1,6 @@
+import { scoreKey } from "@/store/minigame-scores";
 import { useUiStore } from "@/store/ui-store";
+import { DIFFICULTY_LABELS } from "../difficulty";
 import {
   SOLO_MINIGAMES,
   VERSUS_MINIGAMES,
@@ -23,9 +25,8 @@ export function MinigamesSidebarPanel() {
       <MinigameGroup title="İki kişilik" entries={VERSUS_MINIGAMES} />
 
       <p className="ct-minigames-sidebar-note">
-        Tek kişilik oyunlar çevrimdışı çalışır ve rekorları yalnızca bu bilgisayarda
-        tutulur. İki kişiliklerin kendi masaları vardır — masa aç, listede görünsün,
-        biri katılsın. Sesli odaya gerek yok.
+        Rekorlar zorluk başına tutulur — Kolay bir süre, Zor bir sürenin yerine
+        geçmez.
       </p>
     </div>
   );
@@ -41,6 +42,7 @@ function MinigameGroup({
   const selected = useUiStore((state) => state.selectedMinigame);
   const select = useUiStore((state) => state.setSelectedMinigame);
   const bestScores = useUiStore((state) => state.minigameBestScores);
+  const difficulties = useUiStore((state) => state.minigameDifficulty);
 
   return (
     <section className="ct-minigames-group">
@@ -48,7 +50,11 @@ function MinigameGroup({
       <nav className="ct-minigames-tabs" role="tablist" aria-label={title}>
         {entries.map((entry) => {
           const isActive = selected === entry.id;
-          const best = bestScores[entry.id];
+          const difficulty = difficulties[entry.id];
+          // The record for the difficulty this game is SET to, not for the game.
+          // One number covering three boards would be right on one of them and
+          // a lie on the other two.
+          const best = bestScores[scoreKey(entry.id, difficulty)];
 
           return (
             <button
@@ -59,22 +65,26 @@ function MinigameGroup({
               className={`ct-minigames-tab ${isActive ? "active" : ""}`}
               onClick={() => select(entry.id)}
             >
-              <span className="ct-minigames-tab-head">
-                <span className="ct-minigames-tab-label">
-                  <span className="ct-minigames-tab-icon" aria-hidden="true">
-                    {entry.icon}
-                  </span>
-                  {entry.label}
-                </span>
+              <span className="ct-minigames-tab-icon" aria-hidden="true">
+                {entry.icon}
               </span>
-              <span className="ct-minigames-tab-description">{entry.description}</span>
-              {/* Absent, not zero: a game never played has no record, and "0" is
-                  a real score in three of the four that keep one. */}
-              {best !== undefined && entry.formatScore ? (
-                <span className="ct-minigames-tab-best">
-                  Rekor: {entry.formatScore(best)}
-                </span>
-              ) : null}
+
+              <span className="ct-minigames-tab-body">
+                <span className="ct-minigames-tab-label">{entry.label}</span>
+                <span className="ct-minigames-tab-description">{entry.description}</span>
+
+                {/* Absent, not zero: a game never played at this difficulty has
+                    no record, and "0" is a real score in three of the four that
+                    keep one. */}
+                {best !== undefined && entry.formatScore ? (
+                  <span className="ct-minigames-tab-best">
+                    <span className="ct-minigames-tab-best-scope">
+                      {DIFFICULTY_LABELS[difficulty]}
+                    </span>
+                    {entry.formatScore(best)}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}

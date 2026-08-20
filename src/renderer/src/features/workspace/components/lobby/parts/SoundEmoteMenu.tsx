@@ -202,7 +202,6 @@ export function SoundEmoteMenu({
         }}
         trigger="click"
         placement="top"
-        rootClassName="ct-sound-emote-popover"
         content={
           <div className="ct-sound-emote-board">
             <div className="ct-sound-emote-volume">

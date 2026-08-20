@@ -1,41 +1,53 @@
+/* ==========================================================================
+   ADMIN PANEL
+
+   One rhythm for the whole area, so the seven screens read as one product:
+
+     - 24px between page blocks (--ct-admin-block), 16px inside a grid,
+       12px inside a control row. Nothing picks its own number.
+     - Every screen is: page header, then blocks. A block is either a
+       .ct-admin-section (a titled card) or a full-width table.
+     - Content is capped and centred. Below the cap the layout is fluid;
+       above it a table stops growing rather than stretching a five-column
+       row across 2000px of monitor.
+   ========================================================================== */
+
+/* Not a box -- a scope.
+
+   This used to be a real flex row placed at `grid-column: 2 / -1; grid-row: 1`,
+   i.e. one shell cell covering BOTH content columns, with its own sidebar
+   inside it. That made the admin area the one screen whose column structure
+   did not match the app's, and the quick-controls dock had to be stretched to
+   `grid-column: 2 / -1` to sit under it -- so switching to the admin panel
+   dragged the microphone and headphone controls out of the sidebar column and
+   across the full width of the window, on top of the page's own left edge.
+
+   `display: contents` drops the wrapper from the box tree and hands its two
+   children straight to the shell grid: the nav takes the sidebar column and
+   the content takes the main column, exactly like .ct-sidebar and
+   .ct-main-panel on every other screen. The dock then needs no admin case at
+   all -- it sits under the nav where it always does.
+   Custom properties still inherit through a display:contents element, which is
+   what keeps the scope below working. */
 .ct-admin-panel-shell {
-  @apply flex h-full w-full min-h-0 overflow-hidden;
-  /* Explicit lines, not `span 2`: an auto-placed span is resolved against
-     whatever the other grid items left free, and the shell now has items with
-     definite rows. Columns 2 to the end, row 1 only -- unlike .ct-main-panel,
-     this covers the sidebar column too, and the quick-controls dock owns the
-     bottom of that column. Spanning both rows would put the admin sidebar's
-     last 60px underneath it. */
-  grid-column: 2 / -1;
-  grid-row: 1 / 2;
-  color: var(--ct-text-primary);
-  background: var(--ct-panel-soft);
-  backdrop-filter: blur(16px);
-}
+  display: contents;
 
-.ct-admin-panel-content {
-  @apply flex min-h-0 flex-1 flex-col overflow-y-auto p-6;
-}
-
-.ct-admin-sidebar {
-  @apply flex min-h-0 shrink-0 flex-col border-r py-4;
-  width: 220px;
-  border-color: var(--ct-border);
-  background: var(--ct-panel);
-}
-
-.ct-admin-sidebar-header {
-  @apply mb-4 border-b px-4 pb-4;
-  border-color: var(--ct-border);
-}
-
-/* The one hue that is only ever used here. It was written out as #c084fc /
-   #a855f7 in eight places across the stylesheet and the JSX, none of which the
-   light theme could reach — and #c084fc on white is about 2:1, unreadable. */
-.ct-admin-panel-shell {
+  /* The one hue that is only ever used here. It was written out as #c084fc /
+     #a855f7 in eight places across the stylesheet and the JSX, none of which
+     the light theme could reach -- and #c084fc on white is about 2:1,
+     unreadable. */
   --ct-admin-accent: #c084fc;
   --ct-admin-accent-strong: #a855f7;
   --ct-admin-accent-soft: rgba(168, 85, 247, 0.15);
+
+  /* The vertical rhythm, as one number. Page blocks are this far apart; the
+     page header's rule sits at half of it above the first block, so the
+     header reads as part of the page rather than as another block. */
+  --ct-admin-block: 24px;
+  /* How wide the content column is allowed to get. Roughly a six-column
+     table at a comfortable measure -- past this a table row is a scan across
+     the whole monitor and the eye loses the row it is on. */
+  --ct-admin-measure: 1440px;
 }
 
 :root[data-theme="light"] .ct-admin-panel-shell {
@@ -44,8 +56,41 @@
   --ct-admin-accent-soft: rgba(112, 40, 184, 0.1);
 }
 
+/* The main column, on both rows -- the same placement .ct-main-panel takes, so
+   the page runs the full height beside the dock instead of stopping above it. */
+.ct-admin-panel-content {
+  @apply flex min-h-0 flex-col overflow-y-auto;
+  grid-column: 3;
+  grid-row: 1 / -1;
+  padding: var(--ct-admin-block);
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-soft);
+  backdrop-filter: blur(16px);
+}
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+
+/* The shell's sidebar column, not a box of its own width. It was 220px inside
+   a cell that is --ct-sidebar-width wide, so the admin nav was the one sidebar
+   in the app that did not line up with the dock underneath it or with the
+   panel that replaces it when you leave. */
+.ct-admin-sidebar {
+  @apply flex min-h-0 min-w-0 flex-col gap-4 border-r py-4;
+  grid-column: 2;
+  grid-row: 1;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-solid);
+}
+
+.ct-admin-sidebar-header {
+  @apply flex flex-col gap-0.5 border-b px-4 pb-4;
+  border-color: var(--ct-border);
+}
+
 .ct-admin-sidebar-header h2 {
-  @apply m-0 text-lg font-bold;
+  @apply m-0 text-base font-bold;
   color: var(--ct-admin-accent);
 }
 
@@ -55,17 +100,38 @@
 }
 
 .ct-admin-sidebar-nav {
-  @apply flex flex-col gap-0.5 px-2;
+  @apply flex min-h-0 flex-col gap-0.5 overflow-y-auto px-2;
+}
+
+/* Seven flat entries were a list to read; four labelled groups are a list to
+   scan. The label is a sibling of the buttons rather than a wrapper around
+   them, so the same DOM lays out as a column here and as a scrolling row on a
+   narrow window (see responsive.css) without a second markup shape. */
+.ct-admin-sidebar-group-label {
+  @apply px-3 pb-1 pt-3 text-micro font-semibold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-sidebar-nav > .ct-admin-sidebar-group-label:first-child {
+  @apply pt-0;
 }
 
 /* Same 12px inner padding as .ct-list-item, so the admin nav sits on the same
    column as every other sidebar in the app. */
 .ct-admin-nav-item {
-  @apply flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-left text-base;
+  @apply relative flex w-full cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm;
   border-color: transparent;
   color: var(--ct-alpha-70);
   background: transparent;
-  transition: all var(--ct-duration-fast) ease;
+  transition:
+    color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
+}
+
+.ct-admin-nav-item .anticon {
+  @apply shrink-0;
+  font-size: var(--ct-icon-sm);
 }
 
 .ct-admin-nav-item:hover:not(.active) {
@@ -79,67 +145,212 @@
   font-weight: 600;
 }
 
+/* Which entry is open, readable without relying on the tint alone -- the
+   light theme's accent-soft is a 10% wash and at a glance it was the only
+   thing separating the open screen from the six shut ones. */
+.ct-admin-nav-item.active::before {
+  content: "";
+  @apply absolute left-0 top-1/2 w-0.5;
+  height: 18px;
+  translate: 0 -50%;
+  border-radius: 0 2px 2px 0;
+  background: var(--ct-admin-accent);
+}
+
+.ct-admin-nav-item:focus-visible {
+  outline: 2px solid var(--ct-admin-accent);
+  outline-offset: -2px;
+}
+
 /* ==========================================================================
    PAGE SCAFFOLD
    ========================================================================== */
 
 /* Grows with its content; the panel around it is what scrolls.
    It used to be h-full, which pinned every page to exactly the visible height
-   while its content was taller — so the page and the table each had their own
+   while its content was taller -- so the page and the table each had their own
    scrollbar and neither showed the whole thing. */
 .ct-admin-page {
-  @apply flex min-h-full flex-col gap-6 pb-6;
+  @apply mx-auto flex min-h-full w-full flex-col;
+  gap: var(--ct-admin-block);
+  max-width: var(--ct-admin-measure);
+  padding-bottom: var(--ct-admin-block);
 }
 
+/* items-end, not items-start: the button on the right lines up with the
+   baseline of the description rather than floating beside the title. */
 .ct-admin-page-header {
-  @apply flex flex-wrap items-start justify-between gap-3;
+  @apply flex flex-wrap items-end justify-between gap-4 border-b;
+  padding-bottom: calc(var(--ct-admin-block) / 2);
+  border-color: var(--ct-border);
+}
+
+/* The title and its sentence are ONE column. They used to be direct children
+   of the flex row on the dashboard, which put the heading against the left
+   edge and its own description against the right one. */
+.ct-admin-page-header-text {
+  @apply flex min-w-0 flex-col gap-1;
 }
 
 .ct-admin-page-header h1 {
-  @apply m-0 mb-1 text-2xl font-bold;
+  @apply m-0 text-xl font-bold;
   color: var(--ct-text-primary);
 }
 
 .ct-admin-page-header p {
-  @apply m-0 text-base;
+  @apply m-0 text-sm;
+  max-width: 68ch;
   color: var(--ct-text-muted);
 }
 
+/* ml-auto, not just justify-between on the parent: once the title block is
+   wide enough to push these onto a second line, `justify-between` has one item
+   on that line and parks it against the LEFT edge -- so on a narrow panel the
+   "Yenile" button jumped from the right of the header to under the
+   description. The auto margin keeps it right in both cases. */
+.ct-admin-page-header-actions {
+  @apply ml-auto flex shrink-0 flex-wrap items-center gap-2;
+}
+
 .ct-admin-center-state {
-  @apply flex flex-1 items-center justify-center;
-  min-height: 140px;
+  @apply flex flex-1 flex-col items-center justify-center gap-3 text-sm;
+  min-height: 160px;
   color: var(--ct-text-muted);
 }
 
 /* ==========================================================================
-   TOOLBAR AND TABLES
+   SECTION -- the one card shape
+
+   Replaces antd <Card> on three screens. antd's card draws its own header
+   border, its own 24px body padding and a min-height that was set here to
+   stop a short card collapsing; three screens using it and two using a bare
+   div is why the same information sat on four different left edges.
+   ========================================================================== */
+
+.ct-admin-section {
+  @apply flex min-w-0 flex-col overflow-hidden rounded-md border;
+  border-color: var(--ct-border);
+  background: var(--ct-panel-soft);
+}
+
+.ct-admin-section-header {
+  @apply flex flex-wrap items-center gap-3 border-b px-4 py-3;
+  border-color: var(--ct-border);
+}
+
+.ct-admin-section-header h2 {
+  @apply m-0 flex min-w-0 items-center gap-2 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-section-title {
+  @apply min-w-0 truncate;
+}
+
+.ct-admin-section-icon {
+  @apply grid h-6 w-6 shrink-0 place-items-center rounded-sm;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+  font-size: var(--ct-icon-sm);
+}
+
+/* Both take the free space, so a hint alone sits at the right edge and a
+   hint next to an action sits directly before it. */
+.ct-admin-section-hint,
+.ct-admin-section-action {
+  @apply ml-auto shrink-0;
+}
+
+.ct-admin-section-hint {
+  @apply text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-section-action {
+  @apply flex items-center gap-2;
+}
+
+.ct-admin-section-body {
+  @apply flex min-w-0 flex-1 flex-col gap-3 p-4;
+}
+
+/* A body whose whole content is a table: antd pads its own cells, and a
+   second layer of padding put those tables on a different left edge from
+   every full-width table on the same screen. */
+.ct-admin-section.flush > .ct-admin-section-body {
+  @apply gap-0 p-0;
+}
+
+.ct-admin-section-footer {
+  @apply flex flex-wrap items-center justify-between gap-3 border-t px-4 py-2.5 text-xs;
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-section-footer strong {
+  color: var(--ct-text-primary);
+}
+
+/* ==========================================================================
+   GRIDS
+
+   Plain CSS grid, not antd's <Row gutter>. A gutter is implemented as a
+   negative margin on the row and a matching padding on each column, so the
+   dashboard's cards hung 8px past both edges of the stat grid directly above
+   them -- the one misalignment on the page that no amount of padding
+   anywhere else could explain.
+   ========================================================================== */
+
+/* A wide block beside a narrow one. Collapses in responsive.css. */
+.ct-admin-grid-split {
+  @apply grid gap-4;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+
+/* Equal blocks, as many per row as fit. No media query: auto-fit already
+   drops to one column when two no longer have room for their content. */
+.ct-admin-grid-halves {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+/* ==========================================================================
+   TOOLBAR
    ========================================================================== */
 
 .ct-admin-toolbar {
-  @apply flex flex-wrap items-center gap-3 rounded-md border p-3;
+  @apply flex flex-wrap items-center gap-2 rounded-md border p-2;
   border-color: var(--ct-border);
   background: var(--ct-alpha-02);
 }
 
+/* The search box takes whatever the filters leave. It is the control people
+   reach for first and the only one whose content has no fixed length. */
 .ct-admin-toolbar-search {
-  @apply min-w-[200px] flex-1;
+  @apply min-w-[240px];
+  flex: 2 1 240px;
 }
 
-/* A floor, not a fixed width: "Kullanıcı Seçin..." and the event-type labels
-   were both clipped at 160px, and a fixed width cannot grow into the row's
-   spare space when there are only two filters. */
+/* A floor AND a ceiling. As flex-1 with only a floor, a filter that wrapped
+   onto its own line stretched to the full width of the toolbar while its
+   siblings above stayed at 200px -- four filters, four different widths,
+   depending on the window. */
 .ct-admin-toolbar-filter {
-  @apply flex-1;
-  min-width: 180px;
-  max-width: 260px;
+  flex: 1 1 190px;
+  min-width: 190px;
+  max-width: 240px;
 }
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
 
 /* flex:none is load-bearing, not tidiness.
 
    This is a flex item in .ct-admin-page's column, and `overflow: hidden` (here
    for the rounded corners) sets a flex item's automatic minimum size to zero.
    So instead of growing and making .ct-admin-panel-content scroll, the box
-   shrank to whatever space was left and clipped its own contents — including
+   shrank to whatever space was left and clipped its own contents -- including
    the pagination, which antd renders inside the table root. On a short window
    the last rows and the pager were simply gone, and no scrollbar existed to
    reach them: the only fix available to the user was to make the window taller.
@@ -154,11 +365,49 @@
   background: var(--ct-panel-soft);
 }
 
+/* A section already draws the border and the corners, so anything filling a
+   flush body drops its own. .ct-settings-card is here too: the settings rows
+   are the app's one "a setting is a label, a sentence and one control" shape
+   and the admin settings screen reuses them, which used to mean a bordered
+   card inside a bordered card. */
+.ct-admin-section.flush .ct-admin-table-wrap,
+.ct-admin-section.flush .ct-settings-card {
+  @apply rounded-none border-0 bg-transparent;
+}
+
+/* antd hangs the pager off the table root, which in a flush body has no
+   padding of its own to sit in. */
+.ct-admin-section.flush .ant-table-pagination.ant-pagination {
+  @apply mb-3 mr-3;
+}
+
+/* Column headings as labels rather than as a second row of body text: a
+   heading at the same size and weight as the data under it is why a full
+   table read as one undifferentiated block. */
+.ct-admin-table-wrap .ant-table-thead > tr > th {
+  @apply text-2xs font-semibold uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+}
+
+.ct-admin-table-wrap .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--ct-alpha-04);
+}
+
+/* The action column is the one place the eye returns to on every row, so it
+   is pinned to a single right-hand edge instead of starting wherever the
+   widest date happened to end. */
+.ct-admin-actions {
+  @apply flex items-center justify-end gap-1;
+}
+
 /* The participant list inside an expanded lobby row. It used to reuse
-   .ct-admin-empty — the "nobody is in here" message — so a live member table
+   .ct-admin-empty -- the "nobody is in here" message -- so a live member table
    was rendered in muted text at that message's padding. */
 .ct-admin-subtable {
-  @apply p-2;
+  @apply p-3;
+  background: var(--ct-alpha-02);
 }
 
 .ct-admin-subtable .ant-table-thead > tr > th {
@@ -177,8 +426,20 @@
   border-color: var(--ct-border);
 }
 
+.ct-admin-drawer .ant-drawer-body {
+  @apply flex flex-col gap-5;
+}
+
 .ct-admin-table-user {
-  @apply flex items-center gap-2.5;
+  @apply flex min-w-0 items-center gap-2.5;
+}
+
+/* A cell that stacks a value over a smaller second line -- an id, a state
+   chip, a handle. Layout only: inside .ct-admin-table-user the two lines are
+   already painted by the rules below, and a cell that also painted them would
+   be two rules of the same specificity fighting over the same element. */
+.ct-admin-cell {
+  @apply flex min-w-0 flex-col items-start gap-1;
 }
 
 .ct-admin-avatar.ant-avatar {
@@ -189,12 +450,21 @@
 }
 
 .ct-admin-table-user strong {
-  @apply block text-sm font-semibold;
+  @apply block truncate text-sm font-semibold;
   color: var(--ct-text-primary);
 }
 
 .ct-admin-table-user span {
-  @apply block text-2xs;
+  @apply block truncate text-2xs;
+  color: var(--ct-text-muted);
+}
+
+/* An id is a thing to copy, not a thing to read: at body size next to a name
+   it competed with it, and in the log tables two of them side by side were
+   the widest thing on the row. */
+.ct-admin-mono {
+  @apply block truncate text-2xs;
+  font-family: var(--ct-font-mono);
   color: var(--ct-text-muted);
 }
 
@@ -203,7 +473,7 @@
 }
 
 .ct-admin-empty {
-  @apply px-4 py-2 text-sm;
+  @apply px-4 py-3 text-sm;
   color: var(--ct-text-muted);
 }
 
@@ -213,16 +483,22 @@
    left the last line of cards at a different width from the rest.
    ========================================================================== */
 
+/* 168px, not 190. There are five cards, and the panel is the window minus the
+   rail, the sidebar and 48px of gutter -- about 600px on a 1000px window,
+   which is 2px short of three 190px tracks. So the row broke to 2 + 2 + 1 and
+   left the fifth metric alone on its own line. Three fit at 168, and the
+   longest label ("Odadaki Üyeler", at micro size) measures ~110. */
 .ct-stat-grid {
   @apply grid gap-4;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
 }
 
 /* Each card sets --tone; everything else is derived from it, so a new metric
    is one entry in the data array rather than a new block of inline styles. */
 .ct-stat-card {
   --tone: var(--ct-accent);
-  @apply flex flex-col gap-2 rounded-md border p-4;
+  @apply flex flex-col justify-between gap-3 rounded-md border p-4;
+  min-height: 116px;
   border-color: color-mix(in srgb, var(--tone) 22%, transparent);
   background: linear-gradient(
     135deg,
@@ -252,24 +528,25 @@
 }
 
 .ct-stat-label {
-  @apply mb-1 text-xs;
+  @apply mb-1 block text-micro font-semibold uppercase;
+  letter-spacing: 0.05em;
   color: var(--ct-text-muted);
 }
 
 .ct-stat-value {
-  @apply text-2xl font-bold tabular-nums;
+  @apply block text-2xl font-bold leading-none tabular-nums;
   color: var(--tone);
 }
 
 .ct-stat-icon {
-  @apply grid h-control-md w-control-md shrink-0 place-items-center rounded-md;
+  @apply grid h-control-sm w-control-sm shrink-0 place-items-center rounded-md;
   color: var(--tone);
   background: color-mix(in srgb, var(--tone) 20%, transparent);
-  font-size: var(--ct-icon-lg);
+  font-size: var(--ct-icon-md);
 }
 
 .ct-stat-hint {
-  @apply flex items-center gap-1 text-2xs;
+  @apply flex items-center gap-1.5 text-2xs;
   color: var(--ct-text-muted);
 }
 
@@ -280,34 +557,21 @@
 }
 
 /* ==========================================================================
-   ADMIN CARDS AND CHARTS
+   CHARTS
    ========================================================================== */
-
-.ct-admin-card.ant-card {
-  border-radius: var(--ct-radius-md);
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  color: var(--ct-text-primary);
-  min-height: 260px;
-}
-
-.ct-admin-card .ant-card-head-title {
-  @apply inline-flex items-center gap-2 text-base font-semibold;
-  color: var(--ct-text-primary);
-}
 
 .ct-chart-body {
   @apply flex flex-col gap-2;
 }
 
 .ct-chart-caption {
-  @apply text-xs;
+  @apply text-2xs;
   color: var(--ct-text-muted);
 }
 
 .ct-chart-plot {
   @apply relative w-full;
-  height: 160px;
+  height: 168px;
 }
 
 .ct-chart-plot svg {
@@ -320,13 +584,13 @@
 }
 
 .ct-donut-row {
-  @apply flex items-center justify-around gap-3;
-  height: 160px;
+  @apply flex flex-wrap items-center justify-center gap-6;
+  min-height: 168px;
 }
 
 .ct-donut {
   @apply relative shrink-0;
-  width: min(120px, 100%);
+  width: min(132px, 100%);
   aspect-ratio: 1 / 1;
 }
 
@@ -350,11 +614,11 @@
 }
 
 .ct-legend {
-  @apply flex flex-col gap-2.5;
+  @apply flex flex-col gap-3;
 }
 
 .ct-legend-item {
-  @apply flex items-center gap-2;
+  @apply flex items-center gap-2.5;
 }
 
 .ct-legend-dot {
@@ -367,67 +631,14 @@
 }
 
 .ct-legend-item span {
-  @apply block text-2xs;
+  @apply block text-2xs tabular-nums;
   color: var(--ct-text-muted);
 }
 
-.ct-card-footnote {
-  @apply mt-3 flex justify-between border-t pt-3 text-xs;
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-}
-
-/* ==========================================================================
-   ACTIVITY FEED AND SYSTEM INFO
-   ========================================================================== */
-
-.ct-activity-row {
-  @apply flex w-full items-center justify-between gap-3;
-}
-
-.ct-activity-time {
-  @apply shrink-0 text-2xs tabular-nums;
-  color: var(--ct-text-muted);
-}
-
-.ct-admin-kv-grid {
-  @apply grid gap-4;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.ct-admin-kv {
-  @apply flex flex-col gap-1 rounded-sm border p-3;
-  border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
-}
-
-.ct-admin-kv > span {
-  @apply text-2xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-admin-kv > strong {
-  @apply inline-flex items-center gap-2 text-sm font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-admin-kv.plain {
-  @apply border-0 bg-transparent p-0;
-}
-
-.ct-admin-kv.plain > strong {
-  @apply text-sm font-medium;
-  word-break: break-all;
-}
-
-/* ==========================================================================
-   CHART PAINT
-   The dashboard's SVGs used to carry their colours as inline attributes —
-   stroke="rgba(255,255,255,0.1)", fill="#141414", stroke="#a855f7" — which is
+/* The dashboard's SVGs used to carry their colours as inline attributes --
+   stroke="rgba(255,255,255,0.1)", fill="#141414", stroke="#a855f7" -- which is
    the one place a var() cannot reach from. As classes they follow the theme
-   like everything else.
-   ========================================================================== */
-
+   like everything else. */
 .ct-chart-grid {
   stroke: var(--ct-alpha-12);
 }
@@ -469,16 +680,118 @@
   background: var(--ct-info);
 }
 
-/* Quota editors: a row of controls that must wrap rather than overflow their
-   card on a narrow window. */
+/* ==========================================================================
+   KEY / VALUE
+   ========================================================================== */
+
+.ct-admin-kv-grid {
+  @apply grid gap-3;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.ct-admin-kv {
+  @apply flex min-w-0 flex-col gap-1 rounded-sm border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
+}
+
+.ct-admin-kv > span {
+  @apply text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-kv > strong {
+  @apply inline-flex min-w-0 items-center gap-2 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-kv.plain {
+  @apply border-0 bg-transparent p-0;
+}
+
+.ct-admin-kv.plain > strong {
+  @apply text-xs font-medium;
+  font-family: var(--ct-font-mono);
+  word-break: break-all;
+}
+
+/* ==========================================================================
+   ACTIVITY FEED
+   ========================================================================== */
+
+.ct-activity-row {
+  @apply flex w-full min-w-0 items-center justify-between gap-3;
+}
+
+.ct-activity-row-main {
+  @apply flex min-w-0 flex-wrap items-center gap-2 text-sm;
+  color: var(--ct-text-secondary);
+}
+
+.ct-activity-row-main strong {
+  color: var(--ct-text-primary);
+}
+
+.ct-activity-time {
+  @apply shrink-0 text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+/* antd's List draws a 24px-tall divider row; inside a .ct-admin-section the
+   card already owns the edges, so the list only needs its separators. */
+.ct-activity-list .ant-list-item {
+  @apply px-0;
+  border-color: var(--ct-border);
+}
+
+.ct-activity-list .ant-list-item:first-child {
+  @apply pt-0;
+}
+
+/* ==========================================================================
+   FORMS INSIDE A SECTION
+   ========================================================================== */
+
+/* A label above its control, so a row of three controls has three headings
+   instead of one sentence and three unexplained boxes. */
+.ct-admin-field {
+  @apply flex min-w-0 flex-col gap-1.5;
+}
+
+.ct-admin-field > label {
+  @apply text-2xs font-semibold;
+  color: var(--ct-text-secondary);
+}
+
+/* The one field in a control row that should absorb the spare width -- a user
+   picker beside a two-digit number box. */
+.ct-admin-field.grow {
+  flex: 1 1 200px;
+  min-width: 200px;
+}
+
+/* Controls that must wrap rather than overflow their card on a narrow window.
+   items-end so the buttons sit on the same baseline as the inputs beside
+   them rather than floating level with their labels. */
 .ct-admin-quota-row {
-  @apply mt-3 flex flex-wrap items-center gap-2;
+  @apply flex flex-wrap items-end gap-2;
 }
 
 .ct-admin-quota-list {
-  @apply mt-3 flex flex-wrap gap-1;
+  @apply flex flex-wrap gap-1.5;
 }
 
 .ct-admin-quota-list .ant-tag {
-  @apply cursor-pointer;
+  @apply m-0 cursor-pointer;
+}
+
+/* A group of labelled account actions in the user drawer. They were nine
+   unlabelled icon buttons crammed into a table cell; here each one says what
+   it does and the destructive ones read as destructive. */
+.ct-admin-action-list {
+  @apply flex flex-col gap-2;
+}
+
+.ct-admin-action-list .ant-btn {
+  @apply w-full justify-start text-left;
 }

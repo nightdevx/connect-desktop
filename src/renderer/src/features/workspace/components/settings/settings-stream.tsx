@@ -191,7 +191,7 @@ export function SettingsStream({
           <h5>Yayın Kalitesi</h5>
 
           <div className="ct-settings-two-col">
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-stream-fps">
                 Yayın Kare Hızı
               </label>
@@ -208,7 +208,7 @@ export function SettingsStream({
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-stream-codec">
                 Video Codec
               </label>
@@ -239,9 +239,9 @@ export function SettingsStream({
         <div className="ct-settings-subsection">
           <h5>Yayın Sesi</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Ekran paylaşımında sistem sesini dahil et</strong>
                 <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
               </div>
@@ -256,11 +256,12 @@ export function SettingsStream({
         </div>
 
         <div className="ct-settings-subsection">
-          <h5>Yayın Testi</h5>
+          {/* Same as the camera panel: the control that starts the preview sits
+              on the heading line, next to the preview it fills. */}
+          <div className="ct-settings-subsection-header">
+            <h5>Yayın Testi</h5>
 
-          <div className="ct-settings-actions">
             <Button
-              type="text"
               icon={
                 streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
               }
@@ -295,6 +296,7 @@ export function SettingsStream({
               <video
                 ref={streamPreviewRef}
                 className="ct-settings-preview-video"
+                aria-label="Yayın önizlemesi"
                 autoPlay
                 muted
                 playsInline

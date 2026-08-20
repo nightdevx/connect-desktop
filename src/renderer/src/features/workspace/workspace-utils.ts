@@ -66,6 +66,41 @@ export const formatDateLabel = (value: string): string => {
   }).format(date);
 };
 
+/**
+ * How long somebody has been here, in words: "3 yıl 2 ay", "5 ay", "12 gün".
+ *
+ * A date on its own is a fact nobody can rank — "14.03.2024" says nothing about
+ * whether this is a founding member or someone who signed up last week, which
+ * is the only thing a join date is ever read for.
+ */
+export const formatMembershipLength = (value: string): string => {
+  const start = new Date(value);
+  if (Number.isNaN(start.getTime())) {
+    return "Bilinmiyor";
+  }
+
+  const days = Math.max(
+    0,
+    Math.floor((Date.now() - start.getTime()) / 86_400_000),
+  );
+
+  if (days < 1) {
+    return "Bugün katıldı";
+  }
+  if (days < 31) {
+    return `${days} gün`;
+  }
+
+  const months = Math.floor(days / 30.44);
+  if (months < 12) {
+    return `${months} ay`;
+  }
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  return remainingMonths > 0 ? `${years} yıl ${remainingMonths} ay` : `${years} yıl`;
+};
+
 export const formatTimeLabel = (value: string): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {

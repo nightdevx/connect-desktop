@@ -13,9 +13,14 @@ import {
 import type { FreeGameFilter, FreeGameStore } from "@shared/free-games";
 import {
   isBetterScore,
+  readMinigameDifficulties,
   readMinigameScores,
+  saveMinigameDifficulties,
   saveMinigameScores,
+  splitScoreKey,
   tracksScore,
+  type DifficultyId,
+  type MinigameDifficulties,
   type MinigameId,
   type MinigameScores,
 } from "./minigame-scores";
@@ -85,8 +90,29 @@ interface UiState {
    * interest in.
    */
   selectedMinigame: MinigameId;
-  /** Personal bests, mirrored into localStorage on every write. */
+  /**
+   * The two-player table being watched, or null.
+   *
+   * Here rather than inside the board for the same reason the selection is:
+   * the "Canlı Masalar" rail is a sibling of the board, and pressing İzle on a
+   * chess table from the 2048 page has to do two things at once — switch the
+   * game and hand the board a table it does not own. A prop pair threaded
+   * through the shell for that would be the third one on this page.
+   *
+   * Only ever a table this account is NOT seated at. Sitting down clears it,
+   * because a seat is not a seat in the audience.
+   */
+  watchedTableId: string | null;
+  setWatchedTable: (tableId: string | null) => void;
+  /**
+   * Personal bests, keyed "game:difficulty" and mirrored into localStorage on
+   * every write. A time on a 9x9 field is not a time on a 30x16 one, so they
+   * are not the same record.
+   */
   minigameBestScores: MinigameScores;
+  /** Which difficulty each game is set to. Persisted, so a page reopens where
+   *  it was left rather than snapping back to normal. */
+  minigameDifficulty: MinigameDifficulties;
   /** Drives the data-theme attribute on <html> and antd's algorithm. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
@@ -110,13 +136,17 @@ interface UiState {
   setFreeGamesFilter: (filter: FreeGameFilter) => void;
   setFreeGamesStore: (store: FreeGameStore | "all") => void;
   setSelectedMinigame: (game: MinigameId) => void;
-  /** Records a finished run. Keeps it only when it beats the stored one. */
+  setMinigameDifficulty: (game: MinigameId, difficulty: DifficultyId) => void;
   /**
-   * Stores a finished run, keeping it only if it beats what is there, and
-   * reports whether it did. The boolean is what lets a game say "yeni rekor"
-   * on the run that earned it rather than on every run.
+   * Stores a finished run, keyed "game:difficulty", keeping it only if it beats
+   * what is there, and reporting whether it did. The boolean is what lets a
+   * game say "yeni rekor" on the run that earned it rather than on every run.
+   *
+   * Takes the composite key rather than the two parts because its other caller
+   * is useScoreSync, which is merging keys the SERVER sent and has no business
+   * taking them apart to put them back together.
    */
-  recordMinigameScore: (game: MinigameId, score: number) => boolean;
+  recordMinigameScore: (key: string, score: number) => boolean;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -128,7 +158,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   freeGamesFilter: "free-now",
   freeGamesStore: "all",
   selectedMinigame: "2048",
+  watchedTableId: null,
   minigameBestScores: readMinigameScores(),
+  minigameDifficulty: readMinigameDifficulties(),
   settingsSection: "profile",
   adminSection: "dashboard",
   themeMode: readThemeMode(),
@@ -202,23 +234,40 @@ export const useUiStore = create<UiState>((set, get) => ({
   setFreeGamesStore: (store) => set({ freeGamesStore: store }),
   // Same reasoning as the free-games setters: swapping the contents of one
   // panel, not navigating, so no view transition.
-  setSelectedMinigame: (game) => set({ selectedMinigame: game }),
+  // Changing the game drops whatever was being watched: the watched table
+  // belongs to ONE game, and carrying its id into another one leaves the board
+  // hunting for a table that is not in its list.
+  setSelectedMinigame: (game) =>
+    set((state) =>
+      state.selectedMinigame === game
+        ? state
+        : { selectedMinigame: game, watchedTableId: null },
+    ),
+  setWatchedTable: (tableId) => set({ watchedTableId: tableId }),
+  setMinigameDifficulty: (game, difficulty) => {
+    const next = { ...get().minigameDifficulty, [game]: difficulty };
+    saveMinigameDifficulties(next);
+    set({ minigameDifficulty: next });
+  },
+
   // Reads through get() rather than the set() updater, because it has an answer
   // to give: a set() updater returns the next state, not a verdict.
-  recordMinigameScore: (game, score) => {
+  recordMinigameScore: (key, score) => {
     // The two-player games keep no record: a win against another person is not
-    // a personal best.
-    if (!Number.isFinite(score) || !tracksScore(game)) {
+    // a personal best. Checked on the BASE game, since the key carries a
+    // difficulty the catalogue knows nothing about.
+    const { game } = splitScoreKey(key);
+    if (!Number.isFinite(score) || !tracksScore(game as MinigameId)) {
       return false;
     }
 
     const scores = get().minigameBestScores;
-    const previous = scores[game];
-    if (previous !== undefined && !isBetterScore(game, score, previous)) {
+    const previous = scores[key];
+    if (previous !== undefined && !isBetterScore(key, score, previous)) {
       return false;
     }
 
-    const next = { ...scores, [game]: score };
+    const next = { ...scores, [key]: score };
     saveMinigameScores(next);
     set({ minigameBestScores: next });
     return true;

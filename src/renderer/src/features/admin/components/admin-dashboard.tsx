@@ -1,8 +1,8 @@
 import { toErrorMessage } from "@shared/error-message";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { BadgeProps } from "antd";
-import { Card, Col, Row, Spin, Alert, List, Tag, Badge, Tooltip, Space } from "antd";
+import { Spin, Alert, List, Tag, Badge, Tooltip, Button } from "antd";
 import {
   UserOutlined,
   GlobalOutlined,
@@ -15,9 +15,13 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  PieChartOutlined,
+  LineChartOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent } from "@shared/auth-contracts";
+import { AdminPageHeader, AdminSection } from "./admin-primitives";
 
 interface StatCard {
   tone: "violet" | "emerald" | "blue" | "amber" | "red";
@@ -94,6 +98,10 @@ export default function AdminDashboard() {
   const [recentEvents, setRecentEvents] = useState<AdminLobbyEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // What the header's timestamp shows. The page repolls every ten seconds and
+  // nothing on it moved visibly when a poll succeeded, so a stale panel and a
+  // live one looked identical.
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
   // Chart data: hourly activity metrics
   const activityTrendData = stats?.activityTrend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -105,50 +113,53 @@ export default function AdminDashboard() {
   // rows in the browser. The counts come from /admin/stats now, which had the
   // list in hand anyway, and the polled payload went from megabytes to a few
   // hundred bytes.
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async (): Promise<void> => {
     try {
       const [statsRes, eventsRes] = await Promise.all([
         adminService.getStats(),
-        adminService.listLobbyEvents({ limit: 5 }),
+        adminService.listLobbyEvents({ limit: 6 }),
       ]);
       setStats(statsRes.stats);
       setRecentEvents(eventsRes.events || []);
+      setRefreshedAt(new Date());
       setError(null);
     } catch (err) {
       setError(toErrorMessage(err, "Gösterge paneli verileri alınamadı"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000);
+    void fetchDashboardData();
+    const interval = setInterval(() => void fetchDashboardData(), 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchDashboardData]);
 
   if (loading && !stats) {
     return (
       // `tip` only renders in antd's nested or fullscreen pattern, so on a bare
       // Spin it was dropped and the typo in it never showed up either.
-      <div className="ct-admin-center-state">
-        <Space direction="vertical" align="center">
+      <div className="ct-admin-page">
+        <div className="ct-admin-center-state">
           <Spin size="large" />
           <span>İstatistikler yükleniyor…</span>
-        </Space>
+        </div>
       </div>
     );
   }
 
   if (error && !stats) {
     return (
-      <Alert
-        className="ct-alert"
-        message="Hata"
-        description={error}
-        type="error"
-        showIcon
-      />
+      <div className="ct-admin-page">
+        <Alert
+          className="ct-alert"
+          message="Hata"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
     );
   }
 
@@ -184,21 +195,35 @@ export default function AdminDashboard() {
 
   return (
     <div className="ct-admin-page">
-      <header className="ct-admin-page-header">
-        <h1>Sistem İncelemesi</h1>
-        <p>
-          Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel
-          bakış
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Genel Bakış"
+        description="Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel bakış. Sayfa 10 saniyede bir kendini yeniler."
+        actions={
+          <>
+            {error || refreshedAt ? (
+              <span className="ct-admin-section-hint">
+                {error
+                  ? "Yenilenemedi — son bilinen veriler"
+                  : `Güncellendi ${refreshedAt?.toLocaleTimeString("tr-TR")}`}
+              </span>
+            ) : null}
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => void fetchDashboardData()}
+            >
+              Yenile
+            </Button>
+          </>
+        }
+      />
 
       <div className="ct-stat-grid">
         {buildStatCards(stats).map((card) => (
           <article key={card.label} className={`ct-stat-card ${card.tone}`}>
             <div className="ct-stat-card-top">
               <div>
-                <div className="ct-stat-label">{card.label}</div>
-                <div className="ct-stat-value">{card.value}</div>
+                <span className="ct-stat-label">{card.label}</span>
+                <span className="ct-stat-value">{card.value}</span>
               </div>
               <span className="ct-stat-icon" aria-hidden="true">
                 {card.icon}
@@ -209,261 +234,244 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* SVG Charts Section */}
-      <Row gutter={[16, 16]}>
-        {/* Activity Trend Line Chart */}
-        <Col xs={24} lg={15}>
-          <Card
-            className="ct-admin-card"
-            title="Lobi Olay Hareketliliği (Son 12 Saat)"
-          >
-            <div className="ct-chart-body">
-              <div className="ct-chart-caption">Olay Sayısı Gelişimi</div>
-              <div className="ct-chart-plot">
-                <svg
-                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                  width="100%"
-                  height="100%"
-                >
-                  {/* Colours come from classes, not from stroke/fill
-                      attributes — an inline attribute is the one place a
-                      var() cannot reach, so the whole chart used to stay on the
-                      dark palette's white grid lines. */}
-                  <defs>
-                    <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop className="ct-chart-area-stop" offset="0%" stopOpacity="0.45" />
-                      <stop className="ct-chart-area-stop" offset="100%" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
+      {/* A plain CSS grid, not antd's <Row gutter>. The gutter is a negative
+          margin on the row plus a matching padding on each column, so these
+          cards used to hang 8px past both edges of the stat grid above. */}
+      <div className="ct-admin-grid-split">
+        <AdminSection
+          title="Lobi Olay Hareketliliği"
+          icon={<LineChartOutlined />}
+          hint="Son 12 saat"
+        >
+          <div className="ct-chart-body">
+            <div className="ct-chart-caption">Saat başına olay sayısı</div>
+            <div className="ct-chart-plot">
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                width="100%"
+                height="100%"
+              >
+                {/* Colours come from classes, not from stroke/fill
+                    attributes — an inline attribute is the one place a
+                    var() cannot reach, so the whole chart used to stay on the
+                    dark palette's white grid lines. */}
+                <defs>
+                  <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop className="ct-chart-area-stop" offset="0%" stopOpacity="0.45" />
+                    <stop className="ct-chart-area-stop" offset="100%" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
 
-                  {/* Grid lines */}
-                  <line className="ct-chart-grid" x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} strokeWidth="1" />
-                  <line className="ct-chart-grid faint" x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} strokeWidth="1" strokeDasharray="3,3" />
-                  <line className="ct-chart-grid faint" x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} strokeWidth="1" strokeDasharray="3,3" />
+                {/* Grid lines */}
+                <line className="ct-chart-grid" x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} strokeWidth="1" />
+                <line className="ct-chart-grid faint" x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} strokeWidth="1" strokeDasharray="3,3" />
+                <line className="ct-chart-grid faint" x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} strokeWidth="1" strokeDasharray="3,3" />
 
-                  {/* Area path */}
-                  <path d={areaPath} fill="url(#area-gradient)" />
+                {/* Area path */}
+                <path d={areaPath} fill="url(#area-gradient)" />
 
-                  {/* Line path */}
-                  <path className="ct-chart-line" d={linePath} fill="none" strokeWidth="2.5" />
+                {/* Line path */}
+                <path className="ct-chart-line" d={linePath} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
 
-                  {/* Data Point Circles */}
-                  {points.map((p: { x: number; y: number; val: number }, idx: number) => (
-                    <g key={idx}>
-                      <circle className="ct-chart-dot" cx={p.x} cy={p.y} r="4.5" strokeWidth="2" />
-                      <Tooltip title={`${idx + 1} saat önce: ${p.val} olay`}>
-                        <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
-                      </Tooltip>
-                    </g>
-                  ))}
-                </svg>
-              </div>
-              <div className="ct-chart-axis">
-                <span>12 saat önce</span>
-                <span>8 saat önce</span>
-                <span>4 saat önce</span>
-                <span>Şimdi</span>
-              </div>
+                {/* Data Point Circles */}
+                {points.map((p: { x: number; y: number; val: number }, idx: number) => (
+                  <g key={idx}>
+                    <circle className="ct-chart-dot" cx={p.x} cy={p.y} r="4.5" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    <Tooltip title={`${activityTrendData.length - idx} saat önce: ${p.val} olay`}>
+                      <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
+                    </Tooltip>
+                  </g>
+                ))}
+              </svg>
             </div>
-          </Card>
-        </Col>
-
-        {/* Roles Donut Chart */}
-        <Col xs={24} lg={9}>
-          <Card className="ct-admin-card" title="Kullanıcı Rol Dağılımı">
-            <div className="ct-donut-row">
-              <div className="ct-donut">
-                <svg viewBox="0 0 100 100" width="100%" height="100%">
-                  {/* Outer circle background */}
-                  <circle className="ct-donut-track" cx="50" cy="50" r={radius} fill="transparent" strokeWidth="10" />
-
-                  {/* Members arc */}
-                  <circle
-                    className="ct-donut-arc members"
-                    cx="50"
-                    cy="50"
-                    r={radius}
-                    fill="transparent"
-                    strokeWidth="10"
-                    strokeDasharray={`${memberStrokeLength} ${circumference}`}
-                    strokeLinecap="round"
-                  />
-
-                  {/* Admins arc */}
-                  <circle
-                    className="ct-donut-arc admins"
-                    cx="50"
-                    cy="50"
-                    r={radius}
-                    fill="transparent"
-                    strokeWidth="10"
-                    strokeDasharray={`${adminStrokeLength} ${circumference}`}
-                    strokeDashoffset={-memberStrokeLength}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="ct-donut-center">
-                  <strong>{totalUsers}</strong>
-                  <span>Kullanıcı</span>
-                </div>
-              </div>
-
-              <div className="ct-legend">
-                <div className="ct-legend-item">
-                  <span className="ct-legend-dot admins" />
-                  <div>
-                    <strong>Yöneticiler ({adminCount})</strong>
-                    <span>%{adminPercentage} Pay</span>
-                  </div>
-                </div>
-                <div className="ct-legend-item">
-                  <span className="ct-legend-dot members" />
-                  <div>
-                    <strong>Üyeler ({memberCount})</strong>
-                    <span>%{memberPercentage} Pay</span>
-                  </div>
-                </div>
-              </div>
+            <div className="ct-chart-axis">
+              <span>12 saat önce</span>
+              <span>8 saat önce</span>
+              <span>4 saat önce</span>
+              <span>Şimdi</span>
             </div>
+          </div>
+        </AdminSection>
 
-            <div className="ct-card-footnote">
+        <AdminSection
+          title="Kullanıcı Rol Dağılımı"
+          icon={<PieChartOutlined />}
+          footer={
+            <>
               <span>
-                Doğrulanmış E-posta: <strong>%{verifiedPercentage}</strong>
+                Doğrulanmış e-posta: <strong>%{verifiedPercentage}</strong>
               </span>
               <span>
-                Yasaklı Üye: <strong>{bannedCount}</strong>
+                Yasaklı üye: <strong>{bannedCount}</strong>
               </span>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+            </>
+          }
+        >
+          <div className="ct-donut-row">
+            <div className="ct-donut">
+              <svg viewBox="0 0 100 100" width="100%" height="100%">
+                {/* Outer circle background */}
+                <circle className="ct-donut-track" cx="50" cy="50" r={radius} fill="transparent" strokeWidth="10" />
 
-      {/* Live Activity & System Info */}
-      <Row gutter={[16, 16]}>
-        {/* Live Activity Feed */}
-        <Col xs={24} md={12}>
-          <Card
-            className="ct-admin-card"
-            title={
-              <>
-                <ClockCircleOutlined />
-                Canlı Aktivite Akışı
-              </>
-            }
-          >
-            {recentEvents.length === 0 ? (
-              <div className="ct-admin-center-state">
-                Henüz sistem aktivitesi loglanmadı.
+                {/* Members arc */}
+                <circle
+                  className="ct-donut-arc members"
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  fill="transparent"
+                  strokeWidth="10"
+                  strokeDasharray={`${memberStrokeLength} ${circumference}`}
+                  strokeLinecap="round"
+                />
+
+                {/* Admins arc */}
+                <circle
+                  className="ct-donut-arc admins"
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  fill="transparent"
+                  strokeWidth="10"
+                  strokeDasharray={`${adminStrokeLength} ${circumference}`}
+                  strokeDashoffset={-memberStrokeLength}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="ct-donut-center">
+                <strong>{totalUsers}</strong>
+                <span>Kullanıcı</span>
               </div>
-            ) : (
-              <List
-                dataSource={recentEvents}
-                renderItem={(item) => {
-                  const label = EVENT_LABELS[item.eventType] ?? {
-                    badge: "default",
-                    text: item.eventType.toUpperCase(),
-                  };
+            </div>
 
-                  return (
-                    <List.Item>
-                      <div className="ct-activity-row">
-                        <Space>
-                          <Badge status={label.badge} />
-                          <strong>@{item.username}</strong>
-                          <span>{label.text}</span>
-                          <Tag>{item.lobbyName}</Tag>
-                        </Space>
-                        <span className="ct-activity-time">
-                          {new Date(item.occurredAt).toLocaleTimeString("tr-TR")}
-                        </span>
+            <div className="ct-legend">
+              <div className="ct-legend-item">
+                <span className="ct-legend-dot admins" />
+                <div>
+                  <strong>Yöneticiler ({adminCount})</strong>
+                  <span>%{adminPercentage} pay</span>
+                </div>
+              </div>
+              <div className="ct-legend-item">
+                <span className="ct-legend-dot members" />
+                <div>
+                  <strong>Üyeler ({memberCount})</strong>
+                  <span>%{memberPercentage} pay</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </AdminSection>
+      </div>
+
+      <div className="ct-admin-grid-halves">
+        <AdminSection
+          title="Canlı Aktivite Akışı"
+          icon={<ClockCircleOutlined />}
+          hint={recentEvents.length > 0 ? `Son ${recentEvents.length} olay` : undefined}
+        >
+          {recentEvents.length === 0 ? (
+            <div className="ct-admin-center-state">
+              Henüz sistem aktivitesi loglanmadı.
+            </div>
+          ) : (
+            <List
+              className="ct-activity-list"
+              dataSource={recentEvents}
+              renderItem={(item) => {
+                const label = EVENT_LABELS[item.eventType] ?? {
+                  badge: "default",
+                  text: item.eventType.toUpperCase(),
+                };
+
+                return (
+                  <List.Item>
+                    <div className="ct-activity-row">
+                      <div className="ct-activity-row-main">
+                        <Badge status={label.badge} />
+                        <strong>@{item.username}</strong>
+                        <span>{label.text}</span>
+                        <Tag>{item.lobbyName}</Tag>
                       </div>
-                    </List.Item>
-                  );
-                }}
-              />
-            )}
-          </Card>
-        </Col>
+                      <span className="ct-activity-time">
+                        {new Date(item.occurredAt).toLocaleTimeString("tr-TR")}
+                      </span>
+                    </div>
+                  </List.Item>
+                );
+              }}
+            />
+          )}
+        </AdminSection>
 
-        {/* System Info & Health */}
-        <Col xs={24} md={12}>
-          <Card
-            className="ct-admin-card"
-            title={
-              <>
-                <DatabaseOutlined />
-                Sistem Durumu & Yapılandırma
-              </>
-            }
-          >
-            <div className="ct-chart-body">
-              <div className="ct-admin-kv-grid">
-                <div className="ct-admin-kv">
-                  <span>Veritabanı Servisi</span>
-                  <strong>
-                    {stats?.dbStatus === "connected" ? (
-                      <>
-                        <CheckCircleOutlined className="ct-icon-success" />
-                        PostgreSQL (Bağlı)
-                      </>
-                    ) : stats?.dbStatus === "in_memory" ? (
-                      <>
-                        <CheckCircleOutlined className="ct-icon-warning" />
-                        SQLite (Bellek İçi)
-                      </>
-                    ) : (
-                      <>
-                        <CloseCircleOutlined className="ct-icon-danger" />
-                        PostgreSQL (Bağlantı Yok)
-                      </>
-                    )}
-                  </strong>
-                </div>
-
-                <div className="ct-admin-kv">
-                  <span>LiveKit Video/Ses Sunucusu</span>
-                  <strong>
-                    {stats?.liveKitStatus === "connected" ? (
-                      <>
-                        <ThunderboltOutlined className="ct-icon-warning" />
-                        Aktif / Bağlı
-                      </>
-                    ) : (
-                      <>
-                        <CloseCircleOutlined className="ct-icon-danger" />
-                        Bağlantı Yok
-                      </>
-                    )}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="ct-admin-kv-grid">
-                <div className="ct-admin-kv plain">
-                  <span>Bağlantı Adresi</span>
-                  <strong>{stats?.apiUrl || "http://127.0.0.1:4000"}</strong>
-                </div>
-                <div className="ct-admin-kv plain">
-                  <span>Çalışma Modu</span>
-                  <strong>
-                    {stats?.envMode === "production"
-                      ? "Üretim (Production)"
-                      : stats?.envMode === "test"
-                        ? "Test"
-                        : "Geliştirme (Development)"}
-                  </strong>
-                </div>
-                <div className="ct-admin-kv plain">
-                  <span>LiveKit URL</span>
-                  <strong>
-                    {stats?.liveKitUrl || "wss://livekitservice..."}
-                  </strong>
-                </div>
-              </div>
+        <AdminSection
+          title="Sistem Durumu & Yapılandırma"
+          icon={<DatabaseOutlined />}
+        >
+          <div className="ct-admin-kv-grid">
+            <div className="ct-admin-kv">
+              <span>Veritabanı Servisi</span>
+              <strong>
+                {stats?.dbStatus === "connected" ? (
+                  <>
+                    <CheckCircleOutlined className="ct-icon-success" />
+                    PostgreSQL (Bağlı)
+                  </>
+                ) : stats?.dbStatus === "in_memory" ? (
+                  <>
+                    <CheckCircleOutlined className="ct-icon-warning" />
+                    SQLite (Bellek İçi)
+                  </>
+                ) : (
+                  <>
+                    <CloseCircleOutlined className="ct-icon-danger" />
+                    PostgreSQL (Bağlantı Yok)
+                  </>
+                )}
+              </strong>
             </div>
-          </Card>
-        </Col>
-      </Row>
+
+            <div className="ct-admin-kv">
+              <span>LiveKit Video/Ses Sunucusu</span>
+              <strong>
+                {stats?.liveKitStatus === "connected" ? (
+                  <>
+                    <ThunderboltOutlined className="ct-icon-warning" />
+                    Aktif / Bağlı
+                  </>
+                ) : (
+                  <>
+                    <CloseCircleOutlined className="ct-icon-danger" />
+                    Bağlantı Yok
+                  </>
+                )}
+              </strong>
+            </div>
+
+            <div className="ct-admin-kv">
+              <span>Çalışma Modu</span>
+              <strong>
+                {stats?.envMode === "production"
+                  ? "Üretim (Production)"
+                  : stats?.envMode === "test"
+                    ? "Test"
+                    : "Geliştirme (Development)"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="ct-admin-kv-grid">
+            <div className="ct-admin-kv plain">
+              <span>Bağlantı Adresi</span>
+              <strong>{stats?.apiUrl || "http://127.0.0.1:4000"}</strong>
+            </div>
+            <div className="ct-admin-kv plain">
+              <span>LiveKit URL</span>
+              <strong>{stats?.liveKitUrl || "wss://livekitservice..."}</strong>
+            </div>
+          </div>
+        </AdminSection>
+      </div>
     </div>
   );
 }

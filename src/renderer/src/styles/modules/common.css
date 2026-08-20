@@ -1,19 +1,28 @@
+/* The right-click target for a device picker. It has to be inline so it does
+   not stretch the mic/headphone control it wraps, and a positioned box so a
+   tooltip or badge inside the control still measures against the control. */
+.ct-audio-device-anchor {
+  @apply relative inline-flex;
+}
+
+/* Placed at the cursor by AudioDeviceDropdown, like every other context menu in
+   the app. It used to rely on CSS anchor positioning against a name shared by
+   every instance on screen, which resolved to no anchor at all and dropped the
+   menu in the bottom-left corner of the window. */
 .ct-audio-device-popover {
+  position: fixed;
+  inset: auto;
   margin: 0;
-  padding: 3px;
+  padding: 4px;
   border: 1px solid var(--ct-border);
   border-radius: var(--ct-radius-md);
-  background: var(--ct-panel-solid) !important;
+  background: var(--ct-panel-solid);
   backdrop-filter: blur(16px);
   box-shadow: 0 16px 36px var(--ct-shadow-color);
   color: var(--ct-text-primary);
   font-size: 12px;
-  min-width: 160px;
-  
-  /* CSS Anchor Positioning */
-  inset: auto;
-  position-area: block-start span-inline-start;
-  position-try-fallbacks: flip-block, flip-inline;
+  min-width: 180px;
+  max-width: 280px;
   z-index: 10000;
 }
 
@@ -28,11 +37,16 @@
 }
 
 .ct-device-menu-item {
-  padding: 3px 9px;
+  display: block;
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid transparent;
   line-height: 18px;
+  text-align: left;
   cursor: pointer;
   border-radius: var(--ct-radius-sm);
   color: var(--ct-alpha-70);
+  background: transparent;
   transition: all 0.15s ease;
   font-size: 13px;
   user-select: none;
@@ -43,10 +57,13 @@
   color: var(--ct-text-primary);
 }
 
+/* The border is on every row now, transparent when unselected: it used to
+   appear only here, so picking a device grew the row by 2px and shunted the
+   rest of the list down. */
 .ct-device-menu-item.active {
-  background: var(--ct-accent-soft) !important;
-  color: var(--ct-text-primary) !important;
-  border: 1px solid var(--ct-accent-strong);
+  border-color: var(--ct-accent-strong);
+  background: var(--ct-accent-soft);
+  color: var(--ct-text-primary);
   font-weight: 600;
 }
 
@@ -62,127 +79,188 @@
   font-size: 13px;
 }
 
-.ct-screen-share-grid {
-  @apply mt-3 grid gap-3;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+/* ==========================================================================
+   SCREEN SHARE DIALOG
+
+   Two steps down the page, not two columns beside each other: pick a picture,
+   then say how to send it. The previous layout gave five quality presets a
+   full-width row each and the thing actually being chosen — a screen — a 96x56
+   thumbnail wedged next to a radio button.
+   ========================================================================== */
+
+.ct-share-body {
+  @apply flex flex-col gap-5;
 }
 
-.ct-screen-share-column {
-  @apply rounded-xl border p-3;
+.ct-share-step {
+  @apply flex min-w-0 flex-col gap-3;
+}
+
+.ct-share-step-head {
+  @apply flex flex-wrap items-center justify-between gap-3;
+}
+
+.ct-share-step-head h5 {
+  @apply m-0 inline-flex items-center gap-2 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-share-step-index {
+  @apply inline-flex h-5 w-5 items-center justify-center rounded-full text-micro font-bold tabular-nums;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  letter-spacing: 0;
+}
+
+.ct-share-step-tools {
+  @apply flex shrink-0 items-center gap-2;
+}
+
+/* The Segmented label + count pill this section used to define is now
+   .ct-segmented-option / .ct-segmented-count in modules/theme.css, shared with
+   the friends tabs. */
+
+/* The preview IS the choice, so it gets the room. auto-fill rather than a fixed
+   column count: this dialog is 820px wide with three monitors on one machine
+   and eleven windows on the next. */
+.ct-share-source-grid {
+  @apply grid gap-3 pr-1;
+  grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.ct-share-source-card {
+  @apply flex cursor-pointer flex-col gap-2 rounded-lg border p-2.5 text-left;
   border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
+  background: var(--ct-panel);
+  transition:
+    border-color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
 }
 
-.ct-screen-share-column h5 {
-  @apply m-0 mb-2 text-xs uppercase tracking-[0.08em];
-  color: var(--ct-text-secondary);
-}
-
-.ct-screen-share-kind-tabs {
-  @apply mb-3 flex gap-2;
-}
-
-.ct-screen-share-kind-tab {
-  @apply inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: var(--ct-panel-strong);
-  transition: all 0.16s ease;
-}
-
-.ct-screen-share-kind-tab:hover:not(:disabled) {
+.ct-share-source-card:hover {
   border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
 }
 
-.ct-screen-share-kind-tab.active {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
+.ct-share-source-card.active {
+  border-color: var(--ct-accent);
   background: var(--ct-accent-soft);
+  box-shadow: 0 0 0 1px var(--ct-accent);
 }
 
-.ct-screen-share-kind-tab:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.ct-share-source-thumb {
+  @apply relative grid w-full place-items-center overflow-hidden rounded-md border;
+  aspect-ratio: 16 / 9;
+  border-color: var(--ct-alpha-12);
+  background: var(--ct-surface-1);
 }
 
-.ct-screen-share-source-list,
-.ct-screen-share-quality-list {
+.ct-share-source-thumb img {
+  @apply h-full w-full;
+  object-fit: contain;
+}
+
+.ct-share-source-thumb-empty {
+  @apply text-micro font-medium;
+  color: var(--ct-text-muted);
+}
+
+/* The tick, on the picture rather than beside the name: at a glance the eye is
+   on the thumbnails, and that is where "this one" has to be legible. */
+.ct-share-source-check {
+  @apply absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-micro;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  box-shadow: var(--ct-shadow-sm);
+}
+
+.ct-share-source-name {
+  @apply truncate text-xs font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-share-source-kind {
+  @apply truncate text-micro;
+  color: var(--ct-text-muted);
+}
+
+.ct-share-headroom {
+  @apply text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-share-quality-row {
   @apply grid gap-2;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
-.ct-screen-share-source {
-  @apply flex items-start gap-3 rounded-lg border px-3 py-2;
+.ct-share-quality-card {
+  @apply flex cursor-pointer flex-col gap-0.5 rounded-lg border px-3 py-2 text-left;
   border-color: var(--ct-border);
   background: var(--ct-panel);
-  transition: all 0.16s ease;
+  transition:
+    border-color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
 }
 
-.ct-screen-share-quality {
-  @apply flex items-start gap-3 rounded-lg border px-3 py-2;
-  border-color: var(--ct-border);
-  background: var(--ct-panel);
-  transition: all 0.16s ease;
+.ct-share-quality-card:hover {
+  border-color: var(--ct-border-strong);
 }
 
-.ct-screen-share-source input,
-.ct-screen-share-quality input {
-  @apply mt-1 h-4 w-4;
-  accent-color: var(--ct-accent);
+.ct-share-quality-card.active {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
 }
 
-.ct-screen-share-source strong,
-.ct-screen-share-quality strong {
-  @apply block text-sm;
+.ct-share-quality-card strong {
+  @apply text-sm font-semibold;
   color: var(--ct-text-primary);
 }
 
-.ct-screen-share-source-preview {
-  @apply mt-0.5 h-14 w-24 shrink-0 overflow-hidden rounded-md border;
-  border-color: var(--ct-alpha-20);
-  background: var(--ct-panel-strong);
-}
-
-.ct-screen-share-source-preview img {
-  @apply block h-full w-full;
-  object-fit: cover;
-}
-
-.ct-screen-share-source-preview-fallback {
-  @apply grid h-full w-full place-items-center text-[10px] font-medium;
-  color: var(--ct-text-muted);
-  letter-spacing: 0.03em;
-}
-
-.ct-screen-share-source-meta {
-  @apply min-w-0;
-}
-
-.ct-screen-share-source span,
-.ct-screen-share-quality span {
-  @apply mt-1 block text-xs;
+.ct-share-quality-card > span {
+  @apply text-2xs;
   color: var(--ct-text-muted);
 }
 
-.ct-screen-share-source.active,
-.ct-screen-share-quality.active {
-  border-color: var(--ct-accent-strong);
-  background: var(--ct-accent-soft);
+.ct-share-quality-cost {
+  @apply inline-flex items-center gap-1 tabular-nums;
 }
 
 /* A preset whose whole simulcast ladder does not fit the measured uplink. Still
    selectable — the estimate is a floor, not a verdict — but it should not look
    like a free choice. */
-.ct-screen-share-quality.over-budget span {
+.ct-share-quality-card.over-budget .ct-share-quality-cost {
   color: var(--ct-warning);
 }
 
-/* Opt-in system-audio capture. The whole row brightens when it is on, so the
-   state is legible without reading the switch. */
-.ct-share-audio-toggle {
-  @apply mt-5 flex items-center justify-between gap-3 rounded-md border px-4 py-3.5;
+.ct-share-options {
+  @apply grid gap-3;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.ct-share-option {
+  @apply flex min-w-0 flex-col gap-2 rounded-lg border p-3;
   border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
+  background: var(--ct-panel-soft);
+}
+
+.ct-share-option-head strong {
+  @apply block text-xs font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-share-option-head span {
+  @apply mt-0.5 block text-micro;
+  color: var(--ct-text-muted);
+}
+
+/* Opt-in system-audio capture. The whole row brightens when it is on, so the
+   state is legible without reading the switch. Declared after .ct-share-option
+   because it is the same box laid out as a row. */
+.ct-share-audio-toggle {
+  @apply flex-row items-center justify-between gap-3;
   transition: all var(--ct-duration-base) ease;
 }
 
@@ -201,30 +279,65 @@
 }
 
 .ct-share-audio-toggle-main .anticon {
-  font-size: var(--ct-icon-sm);
+  @apply shrink-0;
+  font-size: var(--ct-icon-md);
 }
 
-.ct-share-audio-toggle-main strong {
-  @apply block text-sm font-semibold leading-snug;
-  color: inherit;
+/* What is about to happen, beside the button that will do it. */
+.ct-share-footer {
+  @apply flex flex-wrap items-center justify-between gap-3;
 }
 
-.ct-share-source-scroll {
-  max-height: 300px;
-  overflow-y: auto;
+.ct-share-footer-summary {
+  @apply inline-flex min-w-0 flex-1 items-center gap-1.5 truncate text-left text-2xs;
+  color: var(--ct-text-muted);
 }
 
+.ct-share-footer-summary strong {
+  @apply truncate font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-share-footer-actions {
+  @apply flex shrink-0 items-center gap-2;
+}
+
+/* 16:9, the shape the tile it is previewing for is drawn in. It used to be a
+   min-height with a max-height on the video inside, so the box jumped as soon
+   as a stream arrived.
+
+   Relative rather than a grid: the <video> stays mounted through every state
+   and the placeholder is drawn ON it. Swapping the element out for a message
+   is what left the preview black after a refresh — the hook hands the stream to
+   an element by ref, and the element it had been given no longer existed. */
 .ct-camera-preview-box {
-  @apply mt-2 grid min-h-[220px] place-items-center overflow-hidden rounded-xl border;
+  @apply relative w-full overflow-hidden rounded-xl border;
+  aspect-ratio: 16 / 9;
   border-color: var(--ct-border);
-  background: var(--ct-panel);
+  background: var(--ct-surface-1);
 }
 
 .ct-camera-preview-video {
-  @apply h-full w-full;
-  max-height: 340px;
+  @apply absolute inset-0 h-full w-full;
   object-fit: cover;
-  background: #000;
+  background: var(--ct-surface-1);
+}
+
+/* Covers the video while there is nothing to show. Opaque, because underneath
+   is either black or a frozen last frame. */
+.ct-camera-preview-state {
+  @apply absolute inset-0 grid place-items-center content-center gap-2 px-6 text-center text-xs;
+  color: var(--ct-text-muted);
+  background: var(--ct-surface-1);
+}
+
+.ct-camera-preview-state .anticon {
+  font-size: 26px;
+  opacity: 0.5;
+}
+
+.ct-camera-preview-state p {
+  @apply m-0 max-w-[34ch];
 }
 
 .ct-user-popup-close {
@@ -387,6 +500,12 @@
 
 .ct-modal .ant-modal-footer {
   margin-top: 20px;
+}
+
+/* A title with a glyph in front of it. antd's title is a plain block, so the
+   icon sat on the text baseline rather than on its optical centre. */
+.ct-modal-title-icon {
+  @apply inline-flex items-center gap-2;
 }
 
 /* ==========================================================================

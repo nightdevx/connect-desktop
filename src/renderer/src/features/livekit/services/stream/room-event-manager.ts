@@ -9,7 +9,10 @@ import {
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
-import { shouldSubscribePublication } from "./constants";
+import {
+  resolveMicrophonePermission,
+  shouldSubscribePublication,
+} from "./constants";
 import { RemoteMediaHandler } from "./remote-media-handler";
 
 export class RoomEventManager {
@@ -20,6 +23,10 @@ export class RoomEventManager {
     private readonly updateMediaMap: () => void,
     private readonly onDisconnected: (reason?: DisconnectReason) => void,
     private readonly restorePublishingState: () => Promise<void>,
+    // Re-runs the microphone half of restorePublishingState on its own. A
+    // permission change must not touch the camera or a screen share: those are
+    // expensive to republish and were never what the server revoked.
+    private readonly reapplyMicrophoneState: () => Promise<void>,
     // Screen shares are opt-in, so publication alone must not subscribe.
     private readonly isWatchingScreen: (identity: string) => boolean,
     // Who is watching whose share, exchanged over the room data channel.
@@ -30,6 +37,10 @@ export class RoomEventManager {
       onPeerDisconnected: (identity: string) => void;
     },
   ) {}
+
+  // Whether the local participant may publish a microphone, as last observed.
+  // null until the first permission arrives — see handlePermissionsChanged.
+  private microphoneAllowed: boolean | null = null;
 
   public registerEvents() {
     this.room
@@ -47,6 +58,7 @@ export class RoomEventManager {
       .on(RoomEvent.LocalTrackPublished, this.updateMediaMap)
       .on(RoomEvent.LocalTrackUnpublished, this.updateMediaMap)
       .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged)
+      .on(RoomEvent.ParticipantPermissionsChanged, this.handlePermissionsChanged)
       .on(RoomEvent.DataReceived, this.handleDataReceived);
   }
 
@@ -64,6 +76,51 @@ export class RoomEventManager {
     logLiveKitDebug("stream-manager", "room-reconnected");
     this.callbacks.onConnectionStateChanged?.("connected");
     void this.restorePublishingState();
+  };
+
+  // A moderator mute is enforced by taking the MICROPHONE source out of this
+  // participant's publish grant, so this event is how the client finds out — in
+  // both directions.
+  //
+  // Nothing listened for it, and that was the whole of the reported bug: the
+  // server took the microphone away, LiveKit dropped the track, and the local
+  // state still said "mic on". So when the mute was lifted and the grant came
+  // back, nothing ever asked to publish again — `micEnabled` had not changed, so
+  // the effect that pushes it into the session never re-ran. The user was
+  // silent, their own button showed them unmuted, and the only way out was to
+  // leave the room and rejoin.
+  private readonly handlePermissionsChanged = (
+    _previous: unknown,
+    participant: Participant,
+  ) => {
+    if (participant.identity !== this.room.localParticipant.identity) {
+      return;
+    }
+
+    // This manager is rebuilt per connection, so the baseline is per connection
+    // too — which is what makes the first permission of a session a baseline and
+    // not an announcement.
+    const { allowed, announce, republish } = resolveMicrophonePermission(
+      participant.permissions?.canPublishSources,
+      this.microphoneAllowed,
+    );
+    this.microphoneAllowed = allowed;
+
+    if (!announce) {
+      return;
+    }
+
+    logLiveKitDebug("stream-manager", "local-permissions-changed", { allowed });
+    this.callbacks.onMicrophonePermissionChanged?.(allowed);
+
+    // The controller compares desired state against what the participant is
+    // ACTUALLY publishing, so the revoked side needs no bookkeeping here: the
+    // track is gone, the intent is still "on", and that mismatch is exactly what
+    // makes this call republish.
+    if (republish) {
+      void this.reapplyMicrophoneState();
+    }
+    this.updateMediaMap();
   };
 
   private readonly handleParticipantConnected = (p: RemoteParticipant) => {

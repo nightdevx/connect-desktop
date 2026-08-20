@@ -104,6 +104,22 @@ color: var(--ct-text-muted);
 color: var(--ct-danger);
 }
 
+/* The knob on a switch that is ON.
+
+   antd paints the track from colorPrimary and the knob from handleBg, and
+   handleBg is white in both of its algorithms. This app's accent IS white on
+   the dark theme, so an ON switch was a white knob on a white track: the only
+   thing left saying which way it was set was which end of the pill the knob
+   sat at. The knob takes the accent's counterpart -- the same token the
+   primary button's label already uses -- so it is black on the dark theme and
+   white on the light one, against a track that is the reverse in each.
+
+   Only the checked state. Unchecked, the track is a neutral grey in both
+   themes and antd's white knob is the right colour on it. */
+.ant-switch.ant-switch-checked .ant-switch-handle::before {
+background: var(--ct-text-inverse);
+}
+
 .ct-inline-note {
 @apply mt-1.5 block text-2xs;
 color: var(--ct-warning);

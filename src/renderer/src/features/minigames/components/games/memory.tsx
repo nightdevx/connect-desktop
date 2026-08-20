@@ -1,21 +1,44 @@
 import { useEffect, useState } from "react";
 import { Button } from "antd";
+import { scoreKey } from "@/store/minigame-scores";
 import { shuffle } from "../../minigames-logic";
+import { RULES_MEMORY } from "../../difficulty";
 import { useRecordRun } from "../../use-record-run";
 import { GameOutcome } from "../game-outcome";
+import { GameShell } from "../game-shell";
+import type { MinigameBoardProps } from "../../board-props";
 
-// Eight pairs. Emoji rather than image files on purpose: the page ships no
-// assets at all, so it adds nothing to the installer and needs no host on the
-// renderer CSP -- see the img-src list in index.html for what that costs.
-const SYMBOLS = ["🍒", "🍋", "🍇", "🥝", "🌶", "🥑", "🍑", "🥥"] as const;
+// Emoji rather than image files on purpose: the page ships no assets at all, so
+// it adds nothing to the installer and needs no host on the renderer CSP -- see
+// the img-src list in index.html for what that costs. Twelve, so the hard board
+// has enough without repeating a face.
+const SYMBOLS = [
+  "🍒",
+  "🍋",
+  "🍇",
+  "🥝",
+  "🌶",
+  "🥑",
+  "🍑",
+  "🥥",
+  "🍉",
+  "🍍",
+  "🫐",
+  "🥕",
+] as const;
 
 const MATCH_PAUSE_MS = 350;
 const MISS_PAUSE_MS = 700;
 
-const dealCards = (): string[] => shuffle([...SYMBOLS, ...SYMBOLS]);
+const dealCards = (pairs: number): string[] => {
+  const faces = SYMBOLS.slice(0, pairs);
+  return shuffle([...faces, ...faces]);
+};
 
-export function Memory() {
-  const [cards, setCards] = useState<string[]>(dealCards);
+export function Memory({ difficulty }: MinigameBoardProps) {
+  const { pairs, columns } = RULES_MEMORY[difficulty];
+
+  const [cards, setCards] = useState<string[]>(() => dealCards(pairs));
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
@@ -24,7 +47,7 @@ export function Memory() {
   const [missed, setMissed] = useState<number[]>([]);
 
   const hasWon = matched.length === cards.length;
-  const isRecord = useRecordRun("memory", hasWon, moves);
+  const isRecord = useRecordRun(scoreKey("memory", difficulty), hasWon, moves);
 
   useEffect(() => {
     if (flipped.length !== 2) {
@@ -55,7 +78,7 @@ export function Memory() {
   }, [flipped, cards]);
 
   const reset = () => {
-    setCards(dealCards());
+    setCards(dealCards(pairs));
     setFlipped([]);
     setMatched([]);
     setMissed([]);
@@ -78,56 +101,28 @@ export function Memory() {
   };
 
   return (
-    <div className="ct-minigame">
-      <div className="ct-minigame-bar">
-        <span className="ct-minigame-metric">
-          <span className="ct-minigame-metric-label">Hamle</span>
-          <strong>{moves}</strong>
-        </span>
-        <span className="ct-minigame-metric">
-          <span className="ct-minigame-metric-label">Çift</span>
-          <strong>
-            {matched.length / 2}/{cards.length / 2}
-          </strong>
-        </span>
+    <GameShell
+      columns={columns}
+      rows={cards.length / columns}
+      hud={[
+        { label: "Hamle", value: moves },
+        {
+          label: "Çift",
+          value: `${matched.length / 2}/${pairs}`,
+          tone: hasWon ? "record" : undefined,
+        },
+      ]}
+      actions={
         <Button size="small" onClick={reset}>
           Yeni oyun
         </Button>
-      </div>
-
-      <div className="ct-minigame-stage">
-        <div
-          className="ct-minigame-board ct-memory-board"
-          aria-label="Hafıza tahtası"
-          data-state={hasWon ? "won" : undefined}
-        >
-          {cards.map((symbol, index) => {
-            const isUp = flipped.includes(index) || matched.includes(index);
-
-            return (
-              <button
-                key={index}
-                type="button"
-                className="ct-memory-card"
-                data-up={isUp ? "true" : undefined}
-                data-matched={matched.includes(index) ? "true" : undefined}
-                data-missed={missed.includes(index) ? "true" : undefined}
-                onClick={() => handleFlip(index)}
-                aria-label={isUp ? symbol : "Kapalı kart"}
-              >
-                {/* Two faces, both always rendered. A real flip needs something
-                    on the back of the card, and swapping the text mid-rotation
-                    shows the symbol through the back at ninety degrees. */}
-                <span className="ct-memory-face" data-side="back" aria-hidden="true" />
-                <span className="ct-memory-face" data-side="front">
-                  {symbol}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {hasWon ? (
+      }
+      status={{
+        text: "Aynı iki kartı bul. Eşleşmezlerse geri kapanır.",
+        tone: hasWon ? "done" : "idle",
+      }}
+      overlay={
+        hasWon ? (
           <GameOutcome
             tone="won"
             title="Hepsini buldun"
@@ -135,12 +130,39 @@ export function Memory() {
             isRecord={isRecord}
             onRestart={reset}
           />
-        ) : null}
-      </div>
+        ) : null
+      }
+    >
+      <div
+        className="ct-board ct-memory-board"
+        aria-label="Hafıza tahtası"
+        data-state={hasWon ? "won" : undefined}
+      >
+        {cards.map((symbol, index) => {
+          const isUp = flipped.includes(index) || matched.includes(index);
 
-      <p className="ct-minigame-hint">
-        Aynı iki kartı bul. Kartlar eşleşmezse geri kapanır.
-      </p>
-    </div>
+          return (
+            <button
+              key={index}
+              type="button"
+              className="ct-memory-card"
+              data-up={isUp ? "true" : undefined}
+              data-matched={matched.includes(index) ? "true" : undefined}
+              data-missed={missed.includes(index) ? "true" : undefined}
+              onClick={() => handleFlip(index)}
+              aria-label={isUp ? symbol : "Kapalı kart"}
+            >
+              {/* Two faces, both always rendered. A real flip needs something on
+                  the back of the card, and swapping the text mid-rotation shows
+                  the symbol through the back at ninety degrees. */}
+              <span className="ct-memory-face" data-side="back" aria-hidden="true" />
+              <span className="ct-memory-face" data-side="front">
+                {symbol}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </GameShell>
   );
 }

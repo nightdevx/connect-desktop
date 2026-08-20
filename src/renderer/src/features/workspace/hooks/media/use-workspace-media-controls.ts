@@ -37,6 +37,10 @@ interface UseWorkspaceMediaControlsParams {
 
 export interface WorkspaceMediaControlsState {
   micEnabled: boolean;
+  // A moderator mute stands. micEnabled still carries what the user wants — the
+  // session republishes from it when the restriction lifts — so this is the flag
+  // the buttons disable on.
+  micLocked: boolean;
   setMicEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   headphoneEnabled: boolean;
   setHeadphoneEnabled: React.Dispatch<React.SetStateAction<boolean>>;
@@ -85,8 +89,9 @@ export interface WorkspaceMediaControlsState {
   // Compares what the server roster says about US against what we believe and
   // re-declares on a mismatch. Fed from the live roster in WorkspaceShell.
   reconcileDeclaredAudioState: (
-    serverMuted: boolean | undefined,
-    serverDeafened: boolean | undefined,
+    rosterMuted: boolean | undefined,
+    rosterDeafened: boolean | undefined,
+    rosterServerMuted?: boolean,
   ) => void;
   syncLobbyMediaState: (lobbyId: string) => Promise<void>;
   resetLocalMediaCapture: () => void;

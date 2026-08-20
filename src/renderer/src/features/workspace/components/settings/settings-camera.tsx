@@ -333,7 +333,7 @@ export function SettingsCamera({
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-camera-fps">
                 Kamera Kare Hızı
               </label>
@@ -356,11 +356,13 @@ export function SettingsCamera({
         </div>
 
         <div className="ct-settings-subsection">
-          <h5>Kamera Testi</h5>
+          {/* The button that starts the preview, on the line of the heading
+              that names it -- a row of its own put a band of empty panel
+              between the control and the thing it turns on. */}
+          <div className="ct-settings-subsection-header">
+            <h5>Kamera Testi</h5>
 
-          <div className="ct-settings-actions">
             <Button
-              type="text"
               icon={
                 cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
               }
@@ -395,6 +397,7 @@ export function SettingsCamera({
               <video
                 ref={cameraPreviewRef}
                 className="ct-settings-preview-video"
+                aria-label="Kamera önizlemesi"
                 autoPlay
                 muted
                 playsInline

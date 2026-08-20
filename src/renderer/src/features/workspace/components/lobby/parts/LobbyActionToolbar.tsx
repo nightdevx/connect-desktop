@@ -15,6 +15,10 @@ import { SoundEmoteMenu } from "./SoundEmoteMenu";
 
 interface LobbyActionToolbarProps {
   micEnabled: boolean;
+  // A moderator took this user's microphone away. The button is disabled rather
+  // than flipped: micEnabled is what the person wants, it survives the
+  // restriction, and the session republishes from it the moment the mute lifts.
+  micLocked: boolean;
   headphoneEnabled: boolean;
   screenEnabled: boolean;
   cameraEnabled: boolean;
@@ -38,6 +42,7 @@ interface LobbyActionToolbarProps {
 
 export function LobbyActionToolbar({
   micEnabled,
+  micLocked,
   headphoneEnabled,
   screenEnabled,
   cameraEnabled,
@@ -58,18 +63,30 @@ export function LobbyActionToolbar({
   currentUserRole,
 }: LobbyActionToolbarProps) {
   return (
-    <div className="ct-lobby-stage-actions" aria-label="Lobi işlevleri">
+    // Three groups, not one run of six. "Lobiden Ayrıl" used to sit flush
+    // against the camera button, so the two clicks most easily confused for one
+    // another were 12px apart; the dividers put a beat between them.
+    <div className="ct-lobby-stage-actions" role="toolbar" aria-label="Lobi işlevleri">
       <AudioDeviceDropdown
         kind="input"
         devices={audioInputDevices}
         selectedDeviceId={selectedAudioInputDeviceId}
         onSelectDevice={onSelectAudioInputDevice}
       >
-        <Tooltip title={micEnabled ? "Mikrofonu Kapat (Sağ tık: cihaz seç)" : "Mikrofonu Aç (Sağ tık: cihaz seç)"}>
+        <Tooltip
+          title={
+            micLocked
+              ? "Bir yetkili mikrofonunuzu kapattı"
+              : micEnabled
+                ? "Mikrofonu Kapat (Sağ tık: cihaz seç)"
+                : "Mikrofonu Aç (Sağ tık: cihaz seç)"
+          }
+        >
           <Button
             size="large"
-            className={`ct-lobby-action-btn ${micEnabled ? "active" : ""}`}
-            icon={micEnabled ? <AudioOutlined /> : <AudioMutedOutlined />}
+            className={`ct-lobby-action-btn ${micLocked ? "forced-muted" : micEnabled ? "active" : ""}`}
+            icon={micLocked || !micEnabled ? <AudioMutedOutlined /> : <AudioOutlined />}
+            disabled={micLocked}
             onClick={onToggleMic}
           />
         </Tooltip>
@@ -90,6 +107,8 @@ export function LobbyActionToolbar({
           />
         </Tooltip>
       </AudioDeviceDropdown>
+
+      <span className="ct-lobby-action-divider" aria-hidden="true" />
 
       {/* While a share is live the single toggle splits in two: stopping it and
           adjusting it were the same click, so there was no way to change
@@ -126,12 +145,16 @@ export function LobbyActionToolbar({
         />
       </Tooltip>
 
+      <span className="ct-lobby-action-divider" aria-hidden="true" />
+
       <SoundEmoteMenu
         onSend={onSendEmote}
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
         disabled={isLeavingLobby}
       />
+
+      <span className="ct-lobby-action-divider" aria-hidden="true" />
 
       <Tooltip title="Lobiden Ayrıl">
         <Button

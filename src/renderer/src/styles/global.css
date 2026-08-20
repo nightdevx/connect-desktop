@@ -17,5 +17,6 @@
 @import "./modules/features/settings.css";
 @import "./modules/features/free-games.css";
 @import "./modules/features/minigames.css";
+@import "./modules/features/release-notes.css";
 @import "./modules/theme.css";
 @import "./modules/responsive.css";

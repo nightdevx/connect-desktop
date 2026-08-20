@@ -9,6 +9,7 @@ import {
   WifiOutlined,
 } from "@ant-design/icons";
 import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
+import { WhatsNewModal } from "./features/release-notes";
 import WorkspaceShell from "./app/WorkspaceShell";
 import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
@@ -137,6 +138,16 @@ function App() {
   return (
     <main className="ct-app-shell">
       {messageHolder}
+
+      {/* Opens itself once, on the first launch after an update, and renders
+          nothing on every other launch. Gated on being signed in and past the
+          boot check: a changelog over the login card interrupts somebody who
+          cannot use any of what it is describing yet. */}
+      <WhatsNewModal
+        version={appVersion}
+        enabled={isAuthenticated && !isBooting}
+      />
+
       <div className="ct-app-content">
         <header className="ct-titlebar">
           <div className="ct-titlebar-brand">

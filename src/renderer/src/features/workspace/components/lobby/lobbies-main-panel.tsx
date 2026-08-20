@@ -7,8 +7,7 @@ import {
   type MouseEvent,
   type SetStateAction,
 } from "react";
-import { LeftOutlined, RightOutlined } from "@ant-design/icons";
-import { message, Badge } from "antd";
+import { message } from "antd";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
 import type {
@@ -33,6 +32,7 @@ import { type LobbyParticipantView } from "./lobby-participant-tile";
 import { useLobbyParticipants } from "./hooks/use-lobby-participants";
 import { useLobbyStageSlots } from "./hooks/use-lobby-stage-slots";
 import { LobbySelectionScreen } from "./parts/LobbySelectionScreen";
+import { LobbyRoomHeader } from "./parts/LobbyRoomHeader";
 import { LobbyActionToolbar } from "./parts/LobbyActionToolbar";
 import { LobbyStageView } from "./parts/LobbyStageView";
 import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
@@ -49,6 +49,9 @@ interface LobbiesMainPanelProps {
   currentUsername: string;
   currentUserRole: UserRole;
   micEnabled: boolean;
+  // A moderator mute stands; the microphone button must not offer a toggle the
+  // server will refuse. micEnabled still carries the user's own intent.
+  micLocked: boolean;
   headphoneEnabled: boolean;
   cameraEnabled: boolean;
   screenEnabled: boolean;
@@ -130,6 +133,7 @@ export function LobbiesMainPanel({
   currentUsername,
   currentUserRole,
   micEnabled,
+  micLocked,
   headphoneEnabled,
   cameraEnabled,
   screenEnabled,
@@ -256,7 +260,7 @@ export function LobbiesMainPanel({
     return stageParticipantSlots.length;
   }, [focusedParticipantId, isRailVisible, stageParticipantSlots.length]);
 
-  const { stagePanelRef, stageLayoutStyle } = useLobbyStageLayout(
+  const { stageAreaRef, stageLayoutStyle } = useLobbyStageLayout(
     effectiveParticipantCount,
     isLobbyChatOpen,
   );
@@ -310,6 +314,24 @@ export function LobbiesMainPanel({
   // branch: its leave button, and the sidebar's disconnect, belong to the voice
   // lobby that may well still be running underneath this chat.
   const isTextOnly = activeLobby?.isTextOnly ?? false;
+
+  // The stage says exactly one thing at a time: what it is waiting for, why it
+  // failed, that the room is empty, or the tiles. These used to be four
+  // siblings stacked ABOVE the grid, so a pending query pushed every tile down
+  // by a line and an error pushed them down by two.
+  const stageStateMessage = lobbyStateQuery.isPending
+    ? "Üye durumları yükleniyor…"
+    : lobbyStateQuery.isError
+      ? `Üye durumları alınamadı: ${lobbyStateQuery.error.message}`
+      : !lobbyStateQuery.data?.ok
+        ? `Üye durumları alınamadı: ${getApiErrorMessage(lobbyStateQuery.data?.error)}`
+        : lobbyParticipants.length === 0
+          ? "Bu lobide henüz üye yok."
+          : null;
+
+  const isStageStateError =
+    !lobbyStateQuery.isPending &&
+    (lobbyStateQuery.isError || !lobbyStateQuery.data?.ok);
 
   // The menu decides how long; this only reports what it chose. Saying "5
   // dakika susturuldu" rather than "susturuldu" is what stops a moderator
@@ -544,75 +566,71 @@ export function LobbiesMainPanel({
         <div
           className={`ct-lobby-room-grid-v2 ${isTextOnly ? "stage-closed" : isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
         >
+          <LobbyRoomHeader
+            lobby={activeLobby}
+            memberCount={lobbyMembers.length}
+            // The SERVER's roster, not the local participant list: the local
+            // tile is added optimistically the moment a join is attempted, so
+            // asking it would answer "Bağlı" before anything had connected.
+            isConnected={lobbyMembers.some(
+              (member) => member.userId === currentUserId,
+            )}
+            isChatOpen={isLobbyChatOpen}
+            unreadCount={unreadLobbyMessages}
+            onToggleChat={() =>
+              setViewPreference("lobbyChatOpen", !isLobbyChatOpen)
+            }
+          />
+
           {!isTextOnly && (
-          <section className="ct-lobby-stage-panel" ref={stagePanelRef}>
-            <button
-              type="button"
-              className="ct-lobby-chat-toggle in-stage"
-              onClick={() =>
-                setViewPreference("lobbyChatOpen", !isLobbyChatOpen)
-              }
-            >
-              {isLobbyChatOpen ? (
-                <>
-                  <RightOutlined  /> Sohbeti Kapat
-                </>
+          <section className="ct-lobby-stage-panel">
+            {/* The measured box. Its padding IS the stage's breathing room, and
+                useLobbyStageLayout reads the content box left over — one source
+                for a number that used to be written down in two places and
+                agreed in neither. */}
+            <div className="ct-lobby-stage-area" ref={stageAreaRef}>
+              {stageStateMessage ? (
+                <div
+                  className={`ct-list-state ${isStageStateError ? "error" : ""}`}
+                >
+                  <p>{stageStateMessage}</p>
+                </div>
               ) : (
-                <>
-                  <LeftOutlined  /> Sohbeti Aç
-                  {/* The one place a message can arrive with the chat right
-                      there and still be invisible: the column is collapsed. */}
-                  <Badge
-                    count={unreadLobbyMessages}
-                    overflowCount={99}
-                    size="small"
-                  />
-                </>
+                <LobbyStageView
+                  stageParticipantSlots={stageParticipantSlots}
+                  focusedParticipantSlot={focusedParticipantSlot}
+                  nonFocusedParticipantSlots={nonFocusedParticipantSlots}
+                  avatarByUserId={avatarByUserId}
+                  localCameraStream={localCameraStream}
+                  localScreenStream={localScreenStream}
+                  remoteParticipantStreams={remoteParticipantStreams}
+                  remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
+                  focusedParticipantId={focusedParticipantId}
+                  stageLayoutStyle={stageLayoutStyle}
+                  handleParticipantFocus={handleParticipantFocus}
+                  handleParticipantContextMenu={handleParticipantContextMenu}
+                  audioInputDevices={audioInputDevices}
+                  audioOutputDevices={audioOutputDevices}
+                  selectedAudioInputDeviceId={selectedAudioInputDeviceId}
+                  selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+                  onSelectAudioInputDevice={onSelectAudioInputDevice}
+                  onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+                  isRailVisible={isRailVisible}
+                  setIsRailVisible={setIsRailVisible}
+                  isWatchingScreen={isWatchingScreen}
+                  onWatchScreen={handleWatchScreen}
+                  nameByUserId={nameByUserId}
+                />
               )}
-            </button>
+            </div>
 
-            {/* Stage Loading & Error States */}
-            {lobbyStateQuery.isPending && <div className="ct-list-state">Üye durumları yükleniyor...</div>}
-            {!lobbyStateQuery.isPending && lobbyStateQuery.isError && (
-              <div className="ct-list-state error">Üye durumları alınamadı: {lobbyStateQuery.error.message}</div>
-            )}
-            {!lobbyStateQuery.isPending && !lobbyStateQuery.isError && !lobbyStateQuery.data?.ok && (
-              <div className="ct-list-state error">Üye durumları alınamadı: {getApiErrorMessage(lobbyStateQuery.data?.error)}</div>
-            )}
-            {!lobbyStateQuery.isPending && !lobbyStateQuery.isError && lobbyStateQuery.data?.ok && lobbyParticipants.length === 0 && (
-              <div className="ct-list-state">Bu lobide henüz üye yok.</div>
-            )}
-
-            {/* Stage Participants Grid */}
-            <LobbyStageView
-              stageParticipantSlots={stageParticipantSlots}
-              focusedParticipantSlot={focusedParticipantSlot}
-              nonFocusedParticipantSlots={nonFocusedParticipantSlots}
-              avatarByUserId={avatarByUserId}
-              localCameraStream={localCameraStream}
-              localScreenStream={localScreenStream}
-              remoteParticipantStreams={remoteParticipantStreams}
-              remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
-              focusedParticipantId={focusedParticipantId}
-              stageLayoutStyle={stageLayoutStyle}
-              handleParticipantFocus={handleParticipantFocus}
-              handleParticipantContextMenu={handleParticipantContextMenu}
-              audioInputDevices={audioInputDevices}
-              audioOutputDevices={audioOutputDevices}
-              selectedAudioInputDeviceId={selectedAudioInputDeviceId}
-              selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
-              onSelectAudioInputDevice={onSelectAudioInputDevice}
-              onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-              isRailVisible={isRailVisible}
-              setIsRailVisible={setIsRailVisible}
-              isWatchingScreen={isWatchingScreen}
-              onWatchScreen={handleWatchScreen}
-              nameByUserId={nameByUserId}
-            />
-
-            {/* Bottom Actions Toolbar */}
+            {/* In the flow under the stage, not floating over it: the grid used
+                to reserve room for this with padding derived from the
+                toolbar's own height, and every change to either side had to be
+                re-derived by hand. */}
             <LobbyActionToolbar
               micEnabled={micEnabled}
+              micLocked={micLocked}
               headphoneEnabled={headphoneEnabled}
               screenEnabled={screenEnabled}
               cameraEnabled={cameraEnabled}

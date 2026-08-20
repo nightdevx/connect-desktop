@@ -83,6 +83,17 @@ export interface LiveKitStreamManagerCallbacks {
    * channel re-announces whole state, so most frames say nothing new.
    */
   onScreenWatchersChanged?: (watchers: ScreenWatcherMap) => void;
+  /**
+   * A moderator took this user's microphone away, or gave it back.
+   *
+   * Read off the server's publish grant rather than off the roster: the grant is
+   * what actually decides whether audio leaves this machine, and it is the only
+   * signal that arrives at the moment it changes. The session republishes the
+   * microphone by itself when it comes back — this exists so the UI can say what
+   * happened, because a silenced user was otherwise shown their own microphone
+   * as open and had no way to tell why nobody could hear them.
+   */
+  onMicrophonePermissionChanged?: (allowed: boolean) => void;
 }
 
 export interface LiveKitAudioProcessingPreferences {

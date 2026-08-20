@@ -250,9 +250,9 @@ export function SettingsApplication() {
         <div className="ct-settings-subsection">
           <h5>Tema ve Görünüm</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Tema</strong>
                 <span>
                   Açık tema aydınlık ortamlarda, koyu tema düşük ışıkta daha
@@ -273,8 +273,8 @@ export function SettingsApplication() {
               />
             </div>
 
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Hareketli görseller</strong>
                 <span>
                   Sohbetteki GIF'ler sürekli oynayabilir ya da yalnızca fare
@@ -298,9 +298,9 @@ export function SettingsApplication() {
         <div className="ct-settings-subsection">
           <h5>Başlangıç ve Pencere</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Bilgisayar açıldığında Connect otomatik başlasın</strong>
                 <span>
                   Uygulama oturum açıldığında arka planda çalışmaya hazır olur.
@@ -315,8 +315,8 @@ export function SettingsApplication() {
               />
             </div>
 
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Pencere küçültülünce sistem tepsisine gönder</strong>
                 <span>
                   Küçült butonuna basıldığında uygulama görev çubuğundan
@@ -332,8 +332,8 @@ export function SettingsApplication() {
               />
             </div>
 
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Kapat tuşunda sistem tepsisine gizle</strong>
                 <span>
                   Pencereyi kapatmak uygulamayı sonlandırmaz; tepside çalışmaya
@@ -354,9 +354,9 @@ export function SettingsApplication() {
         <div className="ct-settings-subsection">
           <h5>Bildirimler</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Masaüstü bildirimleri</strong>
                 <span>
                   Pencere arka plandayken gelen mesaj ve aramalar için işletim
@@ -373,8 +373,8 @@ export function SettingsApplication() {
               />
             </div>
 
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Ücretsiz oyun bildirimleri</strong>
                 <span>
                   Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda
@@ -404,9 +404,9 @@ export function SettingsApplication() {
         <div className="ct-settings-subsection">
           <h5>Performans</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Donanım hızlandırma (video kodlama)</strong>
                 <span>
                   Ekran paylaşımı ve kamerayı GPU ile kodlar; CPU kullanımını

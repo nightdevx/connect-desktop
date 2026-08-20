@@ -560,111 +560,125 @@ export function SettingsProfile({
         <div className="ct-settings-subsection">
           <h5>Profil Görünümü</h5>
 
-          {/* Banner first, avatar second: that is the order they stack on the
-              profile card, so the preview here reads as the card it produces. */}
-          <div className="ct-settings-banner-preview">
-            {previewBannerUrl ? (
-              <img src={previewBannerUrl} alt="" />
-            ) : (
-              <span>Afiş seçilmedi</span>
-            )}
-          </div>
-
-          <div className="ct-settings-profile-avatar-row">
-            <input
-              ref={bannerInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={(event) => {
-                void handleImageSelect(event, "bannerUrl");
-              }}
-              hidden
-            />
-
-            <div className="ct-settings-profile-avatar-actions">
-              <div className="ct-settings-profile-avatar-buttons">
-                <Button
-                  type="text"
-                  icon={<UploadOutlined />}
-                  onClick={() => bannerInputRef.current?.click()}
-                  disabled={isProfileLoading || isSavingProfile}
-                >
-                  Afiş Yükle
-                </Button>
-
-                {profileSettings.bannerUrl && (
-                  <Button
-                    danger
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    onClick={() => void handleImageClear("bannerUrl")}
-                    disabled={isProfileLoading || isSavingProfile}
-                  >
-                    Afişi Kaldır
-                  </Button>
+          {/* The card these two pictures end up on, drawn at the size and shape
+              it is drawn at, beside the buttons that change it. They used to be
+              a detached cover strip and two rows sharing one class but not one
+              skeleton -- the avatar row had a picture on the left and the
+              banner row had nothing there at all. */}
+          <div className="ct-settings-profile-card">
+            <div className="ct-settings-profile-card-preview">
+              <div
+                className={`ct-settings-profile-card-banner${previewBannerUrl ? " has-image" : ""}`}
+              >
+                {previewBannerUrl ? (
+                  <img src={previewBannerUrl} alt="" />
+                ) : (
+                  <span>Afiş seçilmedi</span>
                 )}
               </div>
 
-              <small>
-                Profil kartının kapağı · Seçtikten sonra 16:9 çerçevede
-                konumlandırırsın · PNG/JPG/WEBP/GIF · En fazla 10 MB
-              </small>
+              <div className="ct-settings-profile-card-identity">
+                <Avatar
+                  size={72}
+                  src={previewAvatarUrl}
+                  icon={!profileSettings.avatarUrl && <UserOutlined />}
+                  className="ct-settings-profile-avatar"
+                >
+                  {!profileSettings.avatarUrl &&
+                    getInitials(profileSettings.displayName || currentUsername)}
+                </Avatar>
+
+                <div className="ct-settings-profile-card-names">
+                  <strong>
+                    {profileSettings.displayName || currentUsername}
+                  </strong>
+                  <span>@{currentUsername}</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="ct-settings-profile-avatar-row">
-            <Avatar
-              size={80}
-              src={previewAvatarUrl}
-              icon={!profileSettings.avatarUrl && <UserOutlined />}
-              className="ct-settings-profile-avatar"
-            >
-              {!profileSettings.avatarUrl &&
-                getInitials(profileSettings.displayName || currentUsername)}
-            </Avatar>
+            <div className="ct-settings-profile-card-actions">
+              <div className="ct-settings-profile-card-action">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(event) => {
+                    void handleImageSelect(event, "avatarUrl");
+                  }}
+                  hidden
+                />
 
-            <div className="ct-settings-profile-avatar-actions">
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(event) => {
-                  void handleImageSelect(event, "avatarUrl");
-                }}
-                hidden
-              />
-
-              <div className="ct-settings-profile-avatar-buttons">
-                <Button
-                  type="text"
-                  icon={<UploadOutlined />}
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={isProfileLoading || isSavingProfile}
-                >
-                  Profil Resmi Yükle
-                </Button>
-
-                {profileSettings.avatarUrl && (
+                <div className="ct-settings-profile-card-action-buttons">
                   <Button
-                    danger
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    onClick={() => void handleImageClear("avatarUrl")}
+                    icon={<UploadOutlined />}
+                    onClick={() => avatarInputRef.current?.click()}
                     disabled={isProfileLoading || isSavingProfile}
                   >
-                    Kaldır
+                    Profil Resmi Yükle
                   </Button>
-                )}
+
+                  {profileSettings.avatarUrl && (
+                    <Button
+                      danger
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={() => void handleImageClear("avatarUrl")}
+                      disabled={isProfileLoading || isSavingProfile}
+                    >
+                      Kaldır
+                    </Button>
+                  )}
+                </div>
+
+                <small>
+                  PNG/JPG/WEBP/GIF · En fazla 10 MB · Seçilince hemen uygulanır
+                </small>
               </div>
 
-              <small>
-                PNG/JPG/WEBP/GIF · En fazla 10 MB · Seçilince hemen uygulanır
-              </small>
+              <div className="ct-settings-profile-card-action">
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(event) => {
+                    void handleImageSelect(event, "bannerUrl");
+                  }}
+                  hidden
+                />
+
+                <div className="ct-settings-profile-card-action-buttons">
+                  <Button
+                    icon={<UploadOutlined />}
+                    onClick={() => bannerInputRef.current?.click()}
+                    disabled={isProfileLoading || isSavingProfile}
+                  >
+                    Afiş Yükle
+                  </Button>
+
+                  {profileSettings.bannerUrl && (
+                    <Button
+                      danger
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={() => void handleImageClear("bannerUrl")}
+                      disabled={isProfileLoading || isSavingProfile}
+                    >
+                      Afişi Kaldır
+                    </Button>
+                  )}
+                </div>
+
+                <small>
+                  Profil kartının kapağı · Seçtikten sonra 16:9 çerçevede
+                  konumlandırırsın · En fazla 10 MB
+                </small>
+              </div>
             </div>
           </div>
 
           <div className="ct-settings-grid">
-            <div>
+            <div className="ct-settings-field measured">
               <label className="ct-field-label" htmlFor="settings-display-name">
                 Görünen Ad
               </label>
@@ -682,7 +696,7 @@ export function SettingsProfile({
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-profile-bio">
                 Hakkımda
               </label>
@@ -710,32 +724,39 @@ export function SettingsProfile({
           <h5>E-posta</h5>
 
           <div>
-            <div>
-              <label className="ct-field-label" htmlFor="settings-email">
-                E-posta Adresi
-              </label>
-              {profileSettings.email ? (
-                profileSettings.emailVerified ? (
-                  <span className="ct-status-chip ok">Doğrulanmış</span>
+            {/* The label and the chip that qualifies it, on one line. The label
+                is a block, so the chip written after it fell to a row of its
+                own and pushed this input 22px below every other input on the
+                page -- the one field on the page that did not line up. */}
+            <div className="ct-settings-field measured">
+              <div className="ct-settings-field-header">
+                <label className="ct-field-label" htmlFor="settings-email">
+                  E-posta Adresi
+                </label>
+                {profileSettings.email ? (
+                  profileSettings.emailVerified ? (
+                    <span className="ct-status-chip ok">Doğrulanmış</span>
+                  ) : (
+                    <span className="ct-status-chip warn">Doğrulanmamış</span>
+                  )
                 ) : (
-                  <span className="ct-status-chip warn">Doğrulanmamış</span>
-                )
-              ) : (
-                <span className="ct-status-chip danger">E-posta Yok</span>
-              )}
+                  <span className="ct-status-chip danger">E-posta Yok</span>
+                )}
+              </div>
+
+              <Input
+                id="settings-email"
+                value={profileSettings.email}
+                onChange={(event) =>
+                  setProfileSettings((previous) => ({
+                    ...previous,
+                    email: event.target.value,
+                  }))
+                }
+                placeholder="örnek@mail.com"
+                disabled={isProfileLoading || isSavingProfile}
+              />
             </div>
-            <Input
-              id="settings-email"
-              value={profileSettings.email}
-              onChange={(event) =>
-                setProfileSettings((previous) => ({
-                  ...previous,
-                  email: event.target.value,
-                }))
-              }
-              placeholder="örnek@mail.com"
-              disabled={isProfileLoading || isSavingProfile}
-            />
 
             {profileSettings.email && profileSettings.email !== savedEmail && (
               <div className="ct-inline-note">
@@ -805,12 +826,16 @@ export function SettingsProfile({
         <div className="ct-settings-subsection">
           <h5>Hesap</h5>
 
-          <div className="ct-settings-info-grid">
-            <div className="ct-settings-info-item">
-              <span className="ct-settings-info-label">Kullanıcı Adı</span>
-              <strong className="ct-settings-info-value">
-                @{currentUsername}
-              </strong>
+          {/* One value does not need a grid. This was a bordered auto-fit
+              track holding a single username, stretched across the whole 820px
+              panel because that is what one column of auto-fit does. */}
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
+                <strong>Kullanıcı Adı</strong>
+                <span>Bu ad değiştirilemez; seni bulmak için kullanılır.</span>
+              </div>
+              <strong>@{currentUsername}</strong>
             </div>
           </div>
 

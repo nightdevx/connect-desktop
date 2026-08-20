@@ -350,18 +350,24 @@ function LobbyParticipantTileImpl({
           : "Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
       }
     >
+      {/* Both chips sit in one top-LEFT strip. The audience badge used to be
+          parked top-right at the same 12px inset as the fullscreen button,
+          which is drawn a layer above it — so hovering a screen tile covered
+          "who is watching" with the control that expands it. */}
       {kind === "screen" && (
-        <div className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
-          <DesktopOutlined  />
-          <span>Ekran</span>
-        </div>
-      )}
+        <div className="ct-lobby-tile-topbar">
+          <span className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
+            <DesktopOutlined />
+            <span>Ekran</span>
+          </span>
 
-      {kind === "screen" && !participant.isPlaceholder && (
-        <ScreenWatcherBadge
-          ownerUserId={participant.userId}
-          nameByUserId={nameByUserId ?? {}}
-        />
+          {!participant.isPlaceholder && (
+            <ScreenWatcherBadge
+              ownerUserId={participant.userId}
+              nameByUserId={nameByUserId ?? {}}
+            />
+          )}
+        </div>
       )}
 
       {showWatchPrompt && (
@@ -440,11 +446,14 @@ function LobbyParticipantTileImpl({
         className={`ct-lobby-tile-center-logo ${previewStream ? "media-on" : ""}`}
         aria-hidden="true"
       >
+        {/* The face is the whole tile when there is no video, so it is sized
+            for that rather than for a list row. The container queries in
+            features/lobby.css step it back down as the tile narrows — antd
+            writes the size inline, so those have to win with !important. */}
         <Avatar
-          size={isCompact ? 40 : 64}
+          size={isCompact ? 64 : 120}
           src={avatarUrl}
           className="ct-lobby-avatar-container"
-          
         >
           {getDisplayInitials(participant.username)}
         </Avatar>

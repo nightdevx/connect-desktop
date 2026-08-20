@@ -81,10 +81,6 @@ export function SettingsAudio({
   }, [audioTestStream]);
 
   useEffect(() => {
-    setDraftAudioPreferences(audioPreferences);
-  }, [audioPreferences]);
-
-  useEffect(() => {
     // Captured now, not inside the cleanup: React detaches refs around unmount,
     // so reading audioPreviewRef.current from in there can find null and leave
     // the preview playing over the rest of the app. The <audio> element is
@@ -386,7 +382,7 @@ export function SettingsAudio({
           <h5>Cihazlar ve Seviyeler</h5>
 
           <div className="ct-settings-two-col">
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-audio-input">
                 Mikrofon giriş cihazı
               </label>
@@ -405,7 +401,7 @@ export function SettingsAudio({
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-audio-output">
                 Ses çıkış cihazı
               </label>
@@ -485,9 +481,9 @@ export function SettingsAudio({
         <div className="ct-settings-subsection">
           <h5>Ses İşleme</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>
                 <span>
                   Mikrofon açıkken arka plan seslerini azaltmak için RNNoise
@@ -504,37 +500,43 @@ export function SettingsAudio({
                 }
               />
             </div>
-          </div>
 
-          {/* Out of the switch card it used to sit inside: nesting a bordered
-              block in the row list gave it a double hairline. */}
-          {draftAudioPreferences.enhancedNoiseSuppressionEnabled && (
-            <div>
-              <label className="ct-field-label" htmlFor="settings-audio-preset">
-                RNNoise kalite profili
-              </label>
-              <Select
-                id="settings-audio-preset"
-                value={draftAudioPreferences.noiseSuppressionPreset}
-                onChange={(value) => {
-                  handlePreferenceChange("noiseSuppressionPreset", value);
-                }}
-                options={NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => ({
-                  value: preset.id,
-                  label: `${preset.label} - ${preset.description}`,
-                }))}
-                className="ct-block-control"
-              />
-            </div>
-          )}
+            {/* A detail row inside the card the switch lives in, not a bare
+                field dropped underneath it. The profile only exists while the
+                switch above is on, and nothing said so when it sat outside. */}
+            {draftAudioPreferences.enhancedNoiseSuppressionEnabled && (
+              <div className="ct-settings-row detail">
+                <div className="ct-settings-row-text">
+                  <strong>Kalite profili</strong>
+                  <span>
+                    Daha güçlü profiller daha çok gürültü keser, karşılığında
+                    biraz daha CPU harcar.
+                  </span>
+                </div>
+                <Select
+                  aria-label="RNNoise kalite profili"
+                  value={draftAudioPreferences.noiseSuppressionPreset}
+                  onChange={(value) => {
+                    handlePreferenceChange("noiseSuppressionPreset", value);
+                  }}
+                  options={NOISE_SUPPRESSION_PRESET_OPTIONS.map((preset) => ({
+                    value: preset.id,
+                    label: preset.label,
+                    title: preset.description,
+                  }))}
+                  className="ct-settings-row-select"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="ct-settings-subsection">
           <h5>Mikrofon Kısayolları</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Bas-konuş</strong>
                 <span>
                   Mikrofon normalde kapalı kalır, tuşu basılı tuttuğunuz sürece
@@ -556,6 +558,7 @@ export function SettingsAudio({
                 hint="Alana tıklayıp istediğiniz tuşa basın."
                 value={appPreferences.pushToTalkKey}
                 mode="key"
+                detail
                 disabled={isSavingAppPreference}
                 onChange={(next) => {
                   void savePreference("pushToTalkKey", next);
@@ -590,9 +593,9 @@ export function SettingsAudio({
         <div className="ct-settings-subsection">
           <h5>Lobi Varsayılanları</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Mikrofon varsayılan olarak açık olsun</strong>
                 <span>
                   Lobiye girişte mikrofon durumu bu ayara göre uygulanır.
@@ -606,8 +609,8 @@ export function SettingsAudio({
               />
             </div>
 
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Kulaklık varsayılan olarak açık olsun</strong>
                 <span>
                   Lobiye girişte duyma durumu bu ayara göre uygulanır.
@@ -632,9 +635,9 @@ export function SettingsAudio({
         <div className="ct-settings-subsection">
           <h5>Bildirim Sesleri</h5>
 
-          <div className="ct-settings-switch-list">
-            <div className="ct-settings-switch-item">
-              <div className="ct-settings-switch-item-content">
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
                 <strong>Oda sesleri</strong>
                 <span>
                   Birisi odaya girdiğinde, çıktığında, kamerasını açtığında veya
@@ -659,47 +662,59 @@ export function SettingsAudio({
               test rather than at the top of the panel. */}
           <audio ref={audioPreviewRef} hidden playsInline />
 
-          <div className="ct-settings-actions">
-            <Button
-              type="text"
-              icon={audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-              onClick={() => {
-                if (audioTestStream) {
-                  void stopAudioTest().then(() => {
-                    messageApi.info("Mikrofon testi durduruldu.");
-                  });
-                  return;
-                }
+          {/* The meter and the button that feeds it, in one card and in the
+              same shape as the two volume cards above -- label and value on one
+              line, the bar under them. They were two blocks with two different
+              layouts for the same quantity. */}
+          <div className="ct-settings-volume-card">
+            <div className="ct-settings-volume-header">
+              <span className="ct-settings-volume-label">
+                Mikrofon Seviyesi
+              </span>
+              <span className="ct-settings-volume-value">
+                %{micLevelPercent}
+              </span>
+            </div>
 
-                void handleStartAudioTest();
-              }}
-              loading={isStartingAudioTest}
-              disabled={isStartingAudioTest}
-              danger={Boolean(audioTestStream)}
-            >
-              {audioTestStream
-                ? "Mikrofon Testini Durdur"
-                : "Mikrofon Testini Başlat"}
-            </Button>
-
-            <Button
-              type="text"
-              icon={<PlayCircleOutlined />}
-              onClick={handlePlayTestTone}
-            >
-              Test Sesi Çal
-            </Button>
-          </div>
-
-          <div className="ct-settings-audio-meter-wrap">
-            <span className="ct-field-label">Mikrofon Seviyesi</span>
             <Progress
               percent={micLevelPercent}
               showInfo={false}
               strokeColor="var(--ct-accent)"
               trailColor="var(--ct-alpha-08)"
+              aria-label="Mikrofon seviyesi"
             />
-            <strong className="ct-metric-value">%{micLevelPercent}</strong>
+
+            <div className="ct-settings-actions">
+              <Button
+                icon={
+                  audioTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
+                }
+                onClick={() => {
+                  if (audioTestStream) {
+                    void stopAudioTest().then(() => {
+                      messageApi.info("Mikrofon testi durduruldu.");
+                    });
+                    return;
+                  }
+
+                  void handleStartAudioTest();
+                }}
+                loading={isStartingAudioTest}
+                disabled={isStartingAudioTest}
+                danger={Boolean(audioTestStream)}
+              >
+                {audioTestStream
+                  ? "Mikrofon Testini Durdur"
+                  : "Mikrofon Testini Başlat"}
+              </Button>
+
+              <Button
+                icon={<PlayCircleOutlined />}
+                onClick={handlePlayTestTone}
+              >
+                Test Sesi Çal
+              </Button>
+            </div>
           </div>
         </div>
       </div>

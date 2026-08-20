@@ -112,20 +112,6 @@
   }
 }
 
-/* A measure, not the whole panel.
-
-   The main panel is 1fr of the shell, so on a wide window this ran to a
-   thousand pixels and every settings row ran with it: a label at the far left
-   and its switch at the far right with a hand-span of empty panel between them,
-   text inputs wide enough for a paragraph, and a section rule that made the gap
-   look deliberate. Every one of these rows is a label and one control -- the
-   pairing is the information, and it only reads when the two are near each
-   other.
-
-   820px is set by the widest thing inside it: the two-column device grid in
-   Ses, which needs room for two dropdowns and their labels. Left-aligned rather
-   than centred, so the header rule, the tab that opened it and the sidebar
-   above all start on the same vertical line. */
 /* A container, because the panel's width is not the window's.
 
    Every responsive rule for settings used to be a media query, and the two
@@ -133,10 +119,15 @@
    because the rail and the sidebar take the rest. So rows that had to stack
    only started stacking at a window width where the panel had been cramped for
    250px already, and a wide window with the sidebar collapsed got the narrow
-   treatment for no reason. The panel asks about itself now. */
+   treatment for no reason. The panel asks about itself now.
+
+   The container is the whole width the shell gives settings; the MEASURE lives
+   on .ct-settings-section inside it. Both used to be this one element, which
+   makes every query here lie by exactly the measure: a container cannot report
+   a width its own max-width forbids, so at any window size above the cap the
+   panel reported 880 and the rules keyed off the wrong number. */
 .ct-settings-main-panel {
   @apply flex w-full flex-col gap-6;
-  max-width: 820px;
   padding: 0;
   background: transparent;
   container-type: inline-size;
@@ -147,8 +138,24 @@
   @apply mt-0;
 }
 
+/* A measure, not the whole panel -- and one column at every size.
+
+   The main panel is 1fr of the shell, so on a wide window it runs to well over
+   a thousand pixels. Letting the settings run with it puts a label at the far
+   left and its switch at the far right with a hand-span of empty panel between
+   them, and text inputs wide enough for a paragraph. Every one of these rows is
+   a label and one control; the pairing is the information, and it only reads
+   when the two are near each other.
+
+   880px is set by the widest thing inside it: the two-column device grid in
+   Ses, which needs room for two dropdowns and their labels.
+
+   Centred, and the settings stay a single stack however wide the window gets:
+   a wide screen shows more of the page at once, not more columns of it. The
+   leftover width is margin on both sides rather than a void on the right. */
 .ct-settings-section {
-  @apply flex flex-col gap-5;
+  @apply mx-auto flex w-full flex-col gap-5;
+  max-width: 880px;
   animation: fadeSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -219,30 +226,98 @@
   color: var(--ct-text-primary);
 }
 
-.ct-settings-profile-avatar-row {
-  @apply flex flex-wrap items-center gap-5 rounded-md border p-4;
+/* The two pictures, and the surface they end up on, in one card.
+
+   They were three blocks: a cover strip, then a row whose left column was
+   empty, then an identical row whose left column held the avatar -- the same
+   class describing two different skeletons, with the preview of one picture
+   detached from the buttons that set it. A profile picture and a cover are not
+   two settings; they are one surface, and the only way to judge either is to
+   see them together on it. So the left column IS the profile card, drawn at the
+   size and shape the app draws it, and the right column is what changes it. */
+.ct-settings-profile-card {
+  @apply flex flex-wrap items-start gap-5 rounded-md border p-4;
   border-color: var(--ct-border);
   background: var(--ct-alpha-02);
 }
 
+/* 344px is the real card: 320px wide, with the cover bleeding 12px past the
+   padding on each side. Anything else previews a crop nobody will be shown. */
+.ct-settings-profile-card-preview {
+  @apply flex shrink-0 flex-col overflow-hidden rounded-lg border p-3;
+  width: 344px;
+  max-width: 100%;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-surface-2);
+}
+
+/* Identical to the real card's cover rule, and it has to stay identical: this
+   is a preview only if it crops the same way. */
+.ct-settings-profile-card-banner {
+  @apply relative -mx-3 -mt-3 grid place-items-center overflow-hidden rounded-t-lg text-2xs font-semibold;
+  aspect-ratio: var(--ct-profile-banner-ratio);
+  color: var(--ct-text-muted);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ct-accent) 55%, transparent),
+    color-mix(in srgb, var(--ct-accent) 18%, transparent)
+  );
+}
+
+.ct-settings-profile-card-banner.has-image {
+  background: var(--ct-surface-3);
+}
+
+.ct-settings-profile-card-banner img {
+  @apply h-full w-full object-cover;
+  object-position: center;
+}
+
+/* Half on the cover, like the real one. */
+.ct-settings-profile-card-identity {
+  @apply -mt-8 flex items-end gap-3;
+}
+
 .ct-settings-profile-avatar.ant-avatar {
-  @apply shrink-0 border;
-  border-color: var(--ct-alpha-12);
-  background: var(--ct-alpha-04);
+  @apply shrink-0;
+  border: 3px solid var(--ct-surface-2);
+  background: var(--ct-alpha-08);
   color: var(--ct-text-primary);
   font-size: 24px;
   font-weight: 600;
 }
 
-.ct-settings-profile-avatar-actions {
-  @apply flex min-w-0 flex-1 flex-col gap-2;
+.ct-settings-profile-card-names {
+  @apply flex min-w-0 flex-col pb-1;
 }
 
-.ct-settings-profile-avatar-buttons {
+.ct-settings-profile-card-names strong {
+  @apply truncate text-sm font-bold leading-tight;
+  color: var(--ct-text-primary);
+}
+
+.ct-settings-profile-card-names span {
+  @apply truncate text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-settings-profile-card-actions {
+  @apply flex flex-1 flex-col gap-4;
+  /* Below this the buttons wrap two-to-a-line under a 344px preview and the
+     card looks broken rather than dense; the flex-wrap on the parent drops the
+     column under the preview instead. */
+  min-width: 240px;
+}
+
+.ct-settings-profile-card-action {
+  @apply flex flex-col gap-2;
+}
+
+.ct-settings-profile-card-action-buttons {
   @apply flex flex-wrap gap-2;
 }
 
-.ct-settings-profile-avatar-actions small {
+.ct-settings-profile-card-action small {
   @apply block text-2xs;
   color: var(--ct-text-muted);
 }
@@ -250,45 +325,103 @@
 /* A grouped list: one card, hairline dividers between rows. Rows used to be
    separate floating cards that also lifted 1px on hover, so passing the mouse
    down a settings page made the whole column ripple. */
-.ct-settings-switch-list {
+.ct-settings-card {
   @apply flex flex-col overflow-hidden rounded-md border;
   border-color: var(--ct-border);
   background: var(--ct-alpha-02);
 }
 
-.ct-settings-switch-list > * + * {
+.ct-settings-card > * + * {
   border-top: 1px solid var(--ct-border);
 }
 
-.ct-settings-switch-item {
+/* One row: a title, a sentence about it, and exactly one control. Named for
+   what it is rather than for the control it happens to hold -- half of these
+   carry a Select, a Segmented or a button, and calling the class "switch-item"
+   is why the pages that hold a Select grew their own bare-<div> row instead. */
+.ct-settings-row {
   @apply flex items-center justify-between gap-4 p-4;
   transition: background var(--ct-duration-fast) ease;
 }
 
-.ct-settings-switch-item.compact {
-  @apply px-4 py-2.5;
-}
-
-.ct-settings-switch-item:hover {
+.ct-settings-row:hover {
   background: var(--ct-alpha-02);
 }
 
-.ct-settings-switch-item-content {
+/* A setting that only exists while the row above it is on: the RNNoise quality
+   profile, the push-to-talk key. The indent and the tick say "this belongs to
+   that" -- these used to be dropped outside the card entirely, where nothing
+   connected them to the switch that governs them. */
+.ct-settings-row.detail {
+  @apply relative py-3 pl-9;
+}
+
+.ct-settings-row.detail::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 0;
+  bottom: 50%;
+  width: 1px;
+  background: var(--ct-border-strong);
+}
+
+.ct-settings-row.detail::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--ct-border-strong);
+}
+
+.ct-settings-row-text {
   @apply flex min-w-0 flex-1 flex-col gap-1;
 }
 
 /* A measure for the explanation too, not just for the panel. A row is a label,
    a sentence about it, and one control; when the sentence runs the full width
-   of an 820px panel it reads as body copy and the control stops looking like
+   of an 880px panel it reads as body copy and the control stops looking like
    its answer. */
-.ct-settings-switch-item-content span {
+.ct-settings-row-text span {
   max-width: 62ch;
 }
 
 /* The control side of a row must not be squeezed to nothing by a long label.
    antd's Select and Segmented are happy to shrink to a few illegible pixels. */
-.ct-settings-switch-item > *:not(.ct-settings-switch-item-content) {
+.ct-settings-row > *:not(.ct-settings-row-text) {
   @apply shrink-0;
+}
+
+/* A vertical field: label, control, hint. Written out by hand at fourteen call
+   sites before this existed, which is why the hint sat flush against its
+   control on one page and 6px under it on the next. The gap owns that spacing
+   now, so .ct-field-label drops the margin it carries elsewhere. */
+.ct-settings-field {
+  @apply flex flex-col gap-1.5;
+}
+
+.ct-settings-field > .ct-field-label {
+  @apply mb-0;
+}
+
+/* The label and the state chip that qualifies it, on one line. The label is a
+   block element, so a chip written after it fell to its own row and pushed the
+   input 22px below every other input on the page. */
+.ct-settings-field-header {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+/* A measure for a single-column control.
+   880px is the panel, and it is the right width for a two-column device grid or
+   a sentence of explanation. It is the wrong width for a password box: a
+   six-character secret typed into a field wide enough for a paragraph reads as
+   the wrong kind of input. 420px is one column of the two-column grid, so a
+   field constrained here still lines up with the grid above it. */
+.ct-settings-field.measured,
+.ct-settings-form-group .ct-settings-field {
+  max-width: 420px;
 }
 
 /* ==========================================================================
@@ -302,12 +435,23 @@
 @container settings (max-width: 620px) {
   /* Label above control, both left-aligned. justify-between in a column
      stretches nothing, so the control is pinned back to the start edge. */
-  .ct-settings-switch-item {
+  .ct-settings-row {
     @apply flex-col items-stretch gap-3;
   }
 
-  .ct-settings-switch-item > *:not(.ct-settings-switch-item-content) {
+  .ct-settings-row > *:not(.ct-settings-row-text) {
     @apply self-start;
+  }
+
+  /* The tick has nothing to point at once the control is under the label, and
+     a 36px inset costs a narrow panel more than the relationship is worth. */
+  .ct-settings-row.detail {
+    @apply pl-4;
+  }
+
+  .ct-settings-row.detail::before,
+  .ct-settings-row.detail::after {
+    content: none;
   }
 
   /* The section's action button drops under the title rather than fighting it
@@ -322,7 +466,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .ct-settings-banner-preview {
+  /* The preview stops being a fixed 344px card beside its buttons and becomes
+     the full width of the column they now sit under. */
+  .ct-settings-profile-card-preview {
     width: 100%;
   }
 
@@ -333,15 +479,13 @@
 }
 
 @container settings (max-width: 420px) {
-  .ct-settings-switch-item,
-  .ct-settings-switch-item.compact {
+  .ct-settings-row {
     @apply p-3;
   }
 
   .ct-settings-info-grid,
   .ct-settings-volume-card,
-  .ct-settings-profile-avatar-row,
-  .ct-settings-audio-meter-wrap {
+  .ct-settings-profile-card {
     @apply p-3;
   }
 
@@ -352,12 +496,12 @@
   }
 }
 
-.ct-settings-switch-item strong {
+.ct-settings-row strong {
   @apply block text-sm font-semibold leading-snug;
   color: var(--ct-text-primary);
 }
 
-.ct-settings-switch-item span {
+.ct-settings-row span {
   @apply block text-xs;
   color: var(--ct-text-muted);
 }
@@ -368,20 +512,17 @@
   background: #000;
 }
 
-.ct-settings-audio-meter-wrap {
-  @apply rounded-md border p-4;
-  border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
+/* The live microphone meter is a .ct-settings-volume-card like the two sliders
+   above it -- it used to have a layout of its own (label on top, bar in the
+   middle, percentage below and right-aligned), so the same page showed the same
+   quantity in two different shapes. It only needs the bar to sit where a slider
+   sits. */
+.ct-settings-volume-card .ant-progress {
+  @apply m-0;
 }
 
-.ct-settings-audio-meter-wrap span {
-  @apply block text-xs font-medium;
-  color: var(--ct-text-muted);
-}
-
-.ct-settings-audio-meter-wrap strong {
-  @apply mt-1 block text-sm;
-  color: var(--ct-text-primary);
+.ct-settings-volume-card .ant-progress-inner {
+  border-radius: 999px;
 }
 
 .ct-settings-volume-grid {
@@ -453,37 +594,20 @@
   border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
 }
 
+/* A subsection whose heading carries one action -- the control that starts the
+   camera or stream preview. Anything longer than one control belongs in the
+   body; this is for the button the heading is naming. */
+.ct-settings-subsection-header {
+  @apply flex flex-wrap items-center justify-between gap-3;
+}
+
 /* Tailwind's preflight strips heading size and weight, so without this a
-   subsection title rendered identically to the hint sitting under it. */
+   subsection title rendered identically to the hint sitting under it.
+   flex, because some of these carry a leading icon and a baseline-aligned
+   anticon sits two pixels low next to uppercase text. */
 .ct-settings-subsection h5 {
-  @apply m-0 text-xs font-bold uppercase tracking-wider;
+  @apply m-0 flex items-center gap-2 text-xs font-bold uppercase tracking-wider;
   color: var(--ct-text-secondary);
-}
-
-/* The banner, previewed at the shape it will actually be drawn in: a strip, not
-   a thumbnail. Somebody choosing a cover needs to see the crop. */
-/* The card's cover strip, at the card's shape and the card's size.
-   It is a preview only if it crops the way the real thing crops: this used to
-   be h-24 across the full 820px panel, an 8.5:1 letterbox that showed a
-   completely different slice of the picture from the 5.4:1 one the card drew.
-   Left-aligned rather than stretched, for the same reason. */
-.ct-settings-banner-preview {
-  @apply grid place-items-center overflow-hidden rounded-md border text-2xs font-semibold;
-  /* The card is 320px wide and its banner bleeds 12px past the padding on each
-     side — so this is exactly the band that gets drawn. */
-  width: 344px;
-  max-width: 100%;
-  aspect-ratio: var(--ct-profile-banner-ratio);
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: var(--ct-alpha-04);
-}
-
-/* Identical to the card's rule, and it has to stay identical: this is a preview
-   only if it crops the same way. */
-.ct-settings-banner-preview img {
-  @apply h-full w-full object-cover;
-  object-position: center;
 }
 
 /* ==========================================================================
@@ -551,11 +675,18 @@
 }
 
 /* Camera / stream preview surface. Fixed aspect so switching resolution does
-   not resize the panel around it. */
+   not resize the panel around it.
+
+   The width is the column and the height follows from it -- nothing caps the
+   height any more. It was `w-full` + `aspect-ratio: 16/9` + `max-height: 360px`,
+   and those three cannot all hold: at the panel's 880px the ratio asks for
+   461px of height, the cap allowed 360, and the cap won -- so the "16:9
+   preview" was drawn as a 2.28:1 letterbox with the 16:9 video pillarboxed
+   inside it behind 90px of black down each side. Now the box is exactly the
+   shape of what it contains, at whatever width its column gives it. */
 .ct-media-preview {
   @apply relative flex w-full items-center justify-center overflow-hidden rounded-md border;
   aspect-ratio: 16 / 9;
-  max-height: 360px;
   border-color: var(--ct-border);
   background: rgba(0, 0, 0, 0.4);
 }
@@ -611,7 +742,15 @@
   background: color-mix(in srgb, var(--ct-danger) 6%, transparent);
 }
 
-.ct-metric-value {
-  @apply min-w-[32px] text-right text-xs tabular-nums;
-  color: var(--ct-text-primary);
+/* A Select on the control side of a row. Wide enough for the longest option it
+   carries, narrow enough that it still reads as the row's answer rather than as
+   the row -- the two-column device grid is where a full-width Select belongs. */
+.ct-settings-row-select.ant-select {
+  width: 200px;
+}
+
+@container settings (max-width: 620px) {
+  .ct-settings-row-select.ant-select {
+    width: 100%;
+  }
 }

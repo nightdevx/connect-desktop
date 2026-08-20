@@ -83,6 +83,7 @@ const main = async () => {
     moveBoard,
     spawnTile,
     emptyBoard,
+    createBoard,
     hasMoves,
     buildMinefield,
     revealCell,
@@ -93,9 +94,28 @@ const main = async () => {
     shuffle,
     SNAKE_COLUMNS,
     SNAKE_ROWS,
+    SNAKE_BOARD,
   } = await bundle(
     "src/renderer/src/features/minigames/minigames-logic.ts",
     "minigames-logic.mjs",
+  );
+
+  const {
+    RULES_2048,
+    RULES_MINES,
+    RULES_SNAKE,
+    RULES_MEMORY,
+    SOLO_GAME_IDS,
+    describeDifficulty,
+    difficultyOptions,
+  } = await bundle(
+    "src/renderer/src/features/minigames/difficulty.ts",
+    "difficulty.mjs",
+  );
+
+  const { scoreKey, splitScoreKey, DIFFICULTY_IDS, DEFAULT_DIFFICULTY } = await bundle(
+    "src/renderer/src/store/minigame-scores.ts",
+    "minigame-scores.mjs",
   );
 
   const {
@@ -298,7 +318,7 @@ const main = async () => {
   // --- snake ----------------------------------------------------------------
 
   {
-    const start = createSnake(seededRng(3));
+    const start = createSnake(SNAKE_BOARD, seededRng(3));
     assert.equal(start.body.length, 3);
     assert.equal(start.alive, true);
     // Food never spawns under the snake.
@@ -308,7 +328,7 @@ const main = async () => {
     );
 
     // A plain step moves the head and keeps the length.
-    const moved = stepSnake(start, seededRng(3));
+    const moved = stepSnake(start, SNAKE_BOARD, seededRng(3));
     assert.equal(moved.body.length, 3);
     assert.equal(moved.body[0].x, start.body[0].x + 1);
 
@@ -331,7 +351,7 @@ const main = async () => {
 
     // One turn per tick, not a permanent ban: once the snake has actually moved
     // up, turning left is legal again.
-    const afterUp = stepSnake(turnedUp, seededRng(3));
+    const afterUp = stepSnake(turnedUp, SNAKE_BOARD, seededRng(3));
     assert.deepEqual(turnSnake(afterUp, { x: -1, y: 0 }).direction, { x: -1, y: 0 });
   }
 
@@ -350,7 +370,7 @@ const main = async () => {
       alive: true,
       score: 0,
     };
-    assert.equal(stepSnake(state, seededRng(5)).alive, true, "died chasing its own tail");
+    assert.equal(stepSnake(state, SNAKE_BOARD, seededRng(5)).alive, true, "died chasing its own tail");
   }
 
   // Walls kill.
@@ -362,20 +382,20 @@ const main = async () => {
       alive: true,
       score: 0,
     };
-    assert.equal(stepSnake(atEdge, seededRng(5)).alive, false);
+    assert.equal(stepSnake(atEdge, SNAKE_BOARD, seededRng(5)).alive, false);
     // And a dead snake stays dead rather than walking off the board.
-    assert.deepEqual(stepSnake(stepSnake(atEdge, seededRng(5)), seededRng(5)).alive, false);
+    assert.deepEqual(stepSnake(stepSnake(atEdge, SNAKE_BOARD, seededRng(5)), SNAKE_BOARD, seededRng(5)).alive, false);
   }
 
   // Eating grows the body by one and moves the food somewhere legal.
   {
-    const about = createSnake(seededRng(9));
+    const about = createSnake(SNAKE_BOARD, seededRng(9));
     const head = about.body[0];
     const eating = {
       ...about,
       food: { x: head.x + 1, y: head.y },
     };
-    const after = stepSnake(eating, seededRng(9));
+    const after = stepSnake(eating, SNAKE_BOARD, seededRng(9));
     assert.equal(after.body.length, about.body.length + 1);
     assert.equal(after.score, 1);
     assert.ok(after.food.x >= 0 && after.food.x < SNAKE_COLUMNS);
@@ -561,8 +581,316 @@ const main = async () => {
     assert.equal(lastMoveSeat(["e4", "e5", "Nf3"]), 0);
   }
 
+  // --- difficulty ------------------------------------------------------------
+
+  // The bounds the SERVER uses to reject an impossible score are derived from
+  // these numbers by hand, in internal/minigame/score.go. A board that grows
+  // here without the ceiling moving there turns a legitimate run into a 400 the
+  // player cannot do anything about, so the arithmetic is asserted rather than
+  // trusted.
+  //
+  // Kept as literals rather than read from the Go file: the point is that two
+  // independent statements of the same number agree, and parsing one out of the
+  // other would just be one statement with extra steps.
+  {
+    // snake:easy = 358, snake:normal = 286, snake:hard = 166 -- every cell of
+    // the board minus the three segments it starts with.
+    const SERVER_SNAKE_MAX = { easy: 358, normal: 286, hard: 166 };
+    for (const id of DIFFICULTY_IDS) {
+      const { columns, rows } = RULES_SNAKE[id];
+      assert.equal(
+        columns * rows - 3,
+        SERVER_SNAKE_MAX[id],
+        `snake:${id} can reach ${columns * rows - 3}, but the server caps it at ${SERVER_SNAKE_MAX[id]}`,
+      );
+    }
+
+    // memory:easy = 6, normal = 8, hard = 12 -- one guess per pair is a perfect
+    // game, and fewer is impossible.
+    const SERVER_MEMORY_MIN = { easy: 6, normal: 8, hard: 12 };
+    for (const id of DIFFICULTY_IDS) {
+      assert.equal(
+        RULES_MEMORY[id].pairs,
+        SERVER_MEMORY_MIN[id],
+        `memory:${id} deals ${RULES_MEMORY[id].pairs} pairs, but the server's floor is ${SERVER_MEMORY_MIN[id]}`,
+      );
+    }
+  }
+
+  {
+    // Every solo game has every difficulty, and each one is a different board.
+    // Three identical entries would be a picker that does nothing.
+    for (const game of SOLO_GAME_IDS) {
+      const options = difficultyOptions(game);
+      assert.equal(options.length, 3, `${game} has ${options.length} difficulties`);
+      assert.deepEqual(
+        options.map((option) => option.id),
+        [...DIFFICULTY_IDS],
+        `${game} lists its difficulties out of order`,
+      );
+
+      const hints = options.map((option) => option.hint);
+      assert.equal(
+        new Set(hints).size,
+        3,
+        `${game} describes two difficulties identically: ${hints.join(" / ")}`,
+      );
+      for (const hint of hints) {
+        assert.ok(hint.length > 0, `${game} has a difficulty with no description`);
+      }
+    }
+
+    // The hint is generated from the rules, so it cannot go stale -- assert it
+    // actually reflects them rather than being a constant.
+    assert.equal(describeDifficulty("minesweeper", "hard"), "30x16, 99 mayın");
+    assert.equal(describeDifficulty("2048", "easy"), "5x5 tahta");
+    assert.equal(describeDifficulty("memory", "normal"), "8 çift");
+  }
+
+  {
+    // Difficulty has to CHANGE the game, in the direction it claims.
+    assert.ok(
+      RULES_2048.easy.size > RULES_2048.normal.size,
+      "easy 2048 is not a bigger board",
+    );
+    assert.ok(
+      RULES_2048.hard.size < RULES_2048.normal.size,
+      "hard 2048 is not a smaller board",
+    );
+
+    const density = (id) => {
+      const { columns, rows, mines } = RULES_MINES[id];
+      return mines / (columns * rows);
+    };
+    assert.ok(density("easy") < density("normal"), "easy is not the sparser field");
+    assert.ok(density("normal") < density("hard"), "hard is not the denser field");
+
+    // A field with no room to open is not a game: buildMinefield protects the
+    // clicked cell and its eight neighbours, and needs somewhere to put the
+    // mines afterwards.
+    for (const id of DIFFICULTY_IDS) {
+      const { columns, rows, mines } = RULES_MINES[id];
+      assert.ok(
+        columns * rows - 9 > mines,
+        `minesweeper:${id} has no room for a safe opening`,
+      );
+    }
+
+    // Snake gets faster AND smaller, and never faster than its own floor.
+    assert.ok(
+      RULES_SNAKE.easy.baseTickMs > RULES_SNAKE.normal.baseTickMs,
+      "easy snake is not slower",
+    );
+    assert.ok(
+      RULES_SNAKE.hard.baseTickMs < RULES_SNAKE.normal.baseTickMs,
+      "hard snake is not faster",
+    );
+    for (const id of DIFFICULTY_IDS) {
+      const rules = RULES_SNAKE[id];
+      assert.ok(
+        rules.floorTickMs < rules.baseTickMs,
+        `snake:${id} starts at its own speed limit`,
+      );
+      // The snake starts three long, centred and facing right. On a board too
+      // narrow for that it begins inside a wall.
+      assert.ok(Math.floor(rules.columns / 2) - 2 >= 0, `snake:${id} starts in a wall`);
+    }
+
+    // Memory has to fill whole rows, or the last row is ragged.
+    for (const id of DIFFICULTY_IDS) {
+      const { pairs, columns } = RULES_MEMORY[id];
+      assert.equal(
+        (pairs * 2) % columns,
+        0,
+        `memory:${id} deals ${pairs * 2} cards into ${columns} columns`,
+      );
+    }
+  }
+
+  {
+    // Score keys. The round trip is what carries a record from one build to the
+    // next, and the legacy case is what stops the migration losing one.
+    for (const game of SOLO_GAME_IDS) {
+      for (const id of DIFFICULTY_IDS) {
+        const key = scoreKey(game, id);
+        assert.equal(key, `${game}:${id}`);
+        assert.deepEqual(splitScoreKey(key), { game, difficulty: id });
+      }
+    }
+
+    // A key written before difficulty existed. Every one of those was played on
+    // what is now the default, so that is what it reads as -- dropping it would
+    // throw away a record somebody earned.
+    assert.deepEqual(splitScoreKey("2048"), {
+      game: "2048",
+      difficulty: DEFAULT_DIFFICULTY,
+    });
+    assert.equal(DEFAULT_DIFFICULTY, "normal");
+    // And a suffix that is not a difficulty is not one: a game whose id ever
+    // contains a colon must not be read as a difficulty nobody has.
+    assert.deepEqual(splitScoreKey("2048:brutal"), {
+      game: "2048:brutal",
+      difficulty: DEFAULT_DIFFICULTY,
+    });
+  }
+
+  // --- the parameterised boards ------------------------------------------------
+
+  {
+    // 2048 at every size. The merge rule is the same; the geometry is not, and
+    // lineIndices is where a hardcoded 4 would survive unnoticed on a 4x4 board
+    // and scramble a 5x5 one.
+    for (const id of DIFFICULTY_IDS) {
+      const { size } = RULES_2048[id];
+      const board = emptyBoard(size);
+      assert.equal(board.length, size * size, `2048:${id} board length`);
+
+      // A full row of 2s packs to the left edge and merges in pairs.
+      const row = board.slice();
+      for (let column = 0; column < size; column += 1) {
+        row[column] = 2;
+      }
+      const left = moveBoard(row, "left", size);
+      assert.equal(left.board[0], 4, `2048:${id} did not merge to the left edge`);
+      assert.equal(left.gained, Math.floor(size / 2) * 4, `2048:${id} score`);
+
+      // The same row to the RIGHT lands on the far edge. Reading the direction
+      // off a hardcoded width puts it in the middle of a 5x5 board.
+      const right = moveBoard(row, "right", size);
+      assert.equal(
+        right.board[size - 1],
+        4,
+        `2048:${id} did not merge against the right wall`,
+      );
+
+      // Vertical, which is the axis that breaks first when the stride is wrong.
+      const column = board.slice();
+      for (let y = 0; y < size; y += 1) {
+        column[y * size] = 2;
+      }
+      const up = moveBoard(column, "up", size);
+      assert.equal(up.board[0], 4, `2048:${id} did not merge upward`);
+      const down = moveBoard(column, "down", size);
+      assert.equal(
+        down.board[(size - 1) * size],
+        4,
+        `2048:${id} did not merge downward`,
+      );
+
+      // A fresh board has exactly two tiles wherever it is sized.
+      const dealt = createBoard(size, seededRng(7));
+      assert.equal(dealt.filter((value) => value !== 0).length, 2);
+      assert.equal(hasMoves(dealt, size), true);
+    }
+  }
+
+  {
+    // Snake on every board. The head is placed from the board rather than at a
+    // fixed (8, 8) -- on the 13x13 hard board that constant is the wall.
+    for (const id of DIFFICULTY_IDS) {
+      const board = { columns: RULES_SNAKE[id].columns, rows: RULES_SNAKE[id].rows };
+      const snake = createSnake(board, seededRng(11));
+
+      assert.equal(snake.body.length, 3, `snake:${id} body`);
+      for (const point of snake.body) {
+        assert.ok(
+          point.x >= 0 && point.x < board.columns && point.y >= 0 && point.y < board.rows,
+          `snake:${id} starts outside its own board at ${point.x},${point.y}`,
+        );
+      }
+      assert.ok(
+        snake.food.x >= 0 && snake.food.x < board.columns,
+        `snake:${id} food outside the board`,
+      );
+
+      // It survives its first tick, which the fixed start position did not on
+      // the small board.
+      assert.equal(stepSnake(snake, board, seededRng(11)).alive, true, `snake:${id}`);
+
+      // And the wall is the board's own wall, not 17.
+      const atEdge = {
+        ...snake,
+        body: [{ x: board.columns - 1, y: 0 }, { x: board.columns - 2, y: 0 }],
+        direction: { x: 1, y: 0 },
+      };
+      assert.equal(
+        stepSnake(atEdge, board, seededRng(11)).alive,
+        false,
+        `snake:${id} walked through its right wall`,
+      );
+    }
+  }
+
   fs.rmSync(outDir, { recursive: true, force: true });
+
+  checkPageLayout();
+
   console.log("check-minigames: ok");
+};
+
+/**
+ * Three CSS declarations that are load-bearing and do not look it.
+ *
+ * Layout usually fails loudly enough to see, but these three fail in ways that
+ * read as deliberate: a board drawn at a third of its size looks like a small
+ * board, and a control at the wrong end of a header looks like a choice. All
+ * three were wrong on this page at once, so each is pinned with its reason
+ * rather than with its value.
+ */
+const checkPageLayout = () => {
+  const css = fs.readFileSync(
+    path.join(projectRoot, "src/renderer/src/styles/modules/features/minigames.css"),
+    "utf8",
+  );
+
+  // The declarations of one rule, found by scanning from the selector to the
+  // next brace. No regex: the selectors here contain dots and the bodies
+  // contain braces-free @apply lines, so a scan is both shorter and exact.
+  const ruleOf = (selector) => {
+    const start = css.indexOf("\n" + selector + " {");
+    assert.notEqual(start, -1, selector + " is gone from minigames.css");
+    const open = css.indexOf("{", start);
+    const close = css.indexOf("}", open);
+    return css.slice(open + 1, close);
+  };
+
+  // A grid track sizes an `auto` column by ASKING the item how wide it wants
+  // to be, and a percentage has no answer at that point -- it resolves to
+  // zero. So `width: min(100%, X)` measures as 0, the track falls back to the
+  // HUD's min-content, and a 680px board is drawn 248px wide. The percentage
+  // belongs in max-width and the real number in width.
+  const stage = ruleOf(".ct-arcade-stage");
+  assert.match(
+    stage,
+    /width:\s*calc\(/,
+    ".ct-arcade-stage needs a definite width, or the auto grid track measures it as zero and the board collapses",
+  );
+  assert.ok(
+    !/width:\s*min\(\s*100%/.test(stage),
+    ".ct-arcade-stage must not put a percentage inside width's min(): it measures as 0 during intrinsic sizing",
+  );
+
+  // 1fr on the game column hands it every pixel the leaderboard does not
+  // want, which puts the empty space BETWEEN the board and the table that
+  // ranks it rather than around the pair.
+  assert.ok(
+    !/grid-template-columns:[^;]*1fr/.test(ruleOf(".ct-minigames-panel")),
+    ".ct-minigames-panel must not size the game column at 1fr: it reopens the gutter between the board and the leaderboard",
+  );
+
+  // The header's right-hand cluster is pushed by the text block, which is
+  // always rendered. Hanging it on the record badge instead means no push at
+  // all until somebody sets a record -- which is exactly when a new player is
+  // looking at the page.
+  assert.match(
+    ruleOf(".ct-minigames-header-text"),
+    /flex-1/,
+    ".ct-minigames-header-text must grow, or the difficulty picker sits against the title whenever there is no record yet",
+  );
+  assert.ok(
+    !/ml-auto/.test(ruleOf(".ct-minigames-best")),
+    ".ct-minigames-best is conditional, so it cannot be what pushes the header's right-hand cluster",
+  );
 };
 
 main().catch((error) => {

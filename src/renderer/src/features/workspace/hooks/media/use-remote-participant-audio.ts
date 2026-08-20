@@ -17,6 +17,23 @@ export const DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE: RemoteParticipantAudio
     cameraHidden: false,
   };
 
+/**
+ * Is this person silent for me right now?
+ *
+ * Dragging the slider to 0 is the same intent as "Sustur", and the audio graph
+ * has always treated it that way (gain 0). Only the UI disagreed: every icon
+ * and menu label read `muted` alone, so somebody turned all the way down was
+ * drawn as live and their menu still offered "Sustur".
+ *
+ * Derived rather than stored, so there is no second flag to keep in step with
+ * the slider — and so the stored preference still remembers WHICH of the two
+ * the user did.
+ */
+export const isRemoteParticipantMuted = (
+  preference: RemoteParticipantAudioPreference | undefined,
+): boolean =>
+  preference !== undefined && (preference.muted || preference.volumePercent === 0);
+
 const clampVolumePercent = (volumePercent: number): number => {
   if (!Number.isFinite(volumePercent)) {
     return DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE.volumePercent;
@@ -67,9 +84,23 @@ export const useRemoteParticipantAudio = ({
 
   const setMuted = useCallback(
     (participantUserId: string, muted: boolean): void => {
-      patchPreference(participantUserId, { muted });
+      // Un-muting somebody sitting at 0% has to move the slider as well.
+      // Clearing the flag alone left the gain at zero, so "Sesi Aç" produced
+      // silence and the menu immediately offered "Sesi Aç" again.
+      const current = preferencesRef.current[participantUserId];
+      const isSilencedByVolume = (current?.volumePercent ?? 100) === 0;
+
+      patchPreference(participantUserId, {
+        muted,
+        ...(!muted && isSilencedByVolume
+          ? {
+              volumePercent:
+                DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE.volumePercent,
+            }
+          : {}),
+      });
     },
-    [patchPreference],
+    [patchPreference, preferencesRef],
   );
 
   const setVolume = useCallback(

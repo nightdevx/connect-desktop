@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Button,
-  Card,
   InputNumber,
   Popconfirm,
   Select,
   Table,
   Tag,
+  Tooltip,
   message,
 } from "antd";
-import { DeleteOutlined, ReloadOutlined, SoundOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  NumberOutlined,
+  ReloadOutlined,
+  SoundOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import type { AdminEmoteLibrary, CustomEmoteSummary } from "@shared/desktop-api-types";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import adminService from "../services/admin-service";
 import { toErrorMessage } from "@shared/error-message";
+import { AdminPageHeader, AdminSection } from "./admin-primitives";
 
 // The soundboard is the one member-level feature that writes to shared storage
 // and plays on everyone else's speakers, so it needs both halves of an operator
@@ -102,15 +109,21 @@ export default function AdminSounds() {
   const overrideRows = Object.entries(library?.userQuotas ?? {}).map(
     ([userId, quota]) => ({ userId, quota }),
   );
+  const maxQuota = library?.maxQuota ?? 50;
+  const totalBytes = (library?.emotes ?? []).reduce(
+    (sum, emote) => sum + emote.byteLength,
+    0,
+  );
 
   const emoteColumns = [
     {
       title: "Ses",
       key: "name",
+      width: 280,
       render: (_: unknown, record: CustomEmoteSummary) => (
         <div className="ct-admin-table-user">
           <SoundOutlined className="ct-admin-muted" />
-          <div>
+          <div className="ct-admin-cell">
             <strong>{record.name}</strong>
             <span>{record.mimeType}</span>
           </div>
@@ -120,6 +133,7 @@ export default function AdminSounds() {
     {
       title: "Yükleyen",
       key: "owner",
+      width: 180,
       render: (_: unknown, record: CustomEmoteSummary) => (
         <Tag color="blue">
           {record.ownerUsername ? `@${record.ownerUsername}` : usernameOf(record.ownerId)}
@@ -129,6 +143,8 @@ export default function AdminSounds() {
     {
       title: "Boyut",
       key: "size",
+      width: 110,
+      align: "right" as const,
       render: (_: unknown, record: CustomEmoteSummary) =>
         `${Math.max(1, Math.round(record.byteLength / 1024))} KB`,
     },
@@ -136,52 +152,67 @@ export default function AdminSounds() {
       title: "Yüklenme",
       dataIndex: "createdAt",
       key: "createdAt",
+      width: 180,
       render: (value: string) => new Date(value).toLocaleString("tr-TR"),
     },
     {
       title: "İşlemler",
       key: "actions",
+      width: 100,
+      align: "right" as const,
       render: (_: unknown, record: CustomEmoteSummary) => (
-        <Popconfirm
-          title="Bu sesi kalıcı olarak silmek istediğinize emin misiniz?"
-          onConfirm={() => void deleteEmote(record.id)}
-          okText="Evet"
-          cancelText="Hayır"
-        >
-          <Button type="text" danger icon={<DeleteOutlined />} title="Sil" />
-        </Popconfirm>
+        <div className="ct-admin-actions">
+          <Popconfirm
+            title="Bu sesi kalıcı olarak silmek istediğinize emin misiniz?"
+            onConfirm={() => void deleteEmote(record.id)}
+            okText="Evet"
+            cancelText="Hayır"
+          >
+            <Tooltip title="Sesi sil">
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Tooltip>
+          </Popconfirm>
+        </div>
       ),
     },
   ];
 
   return (
     <div className="ct-admin-page">
-      <header className="ct-admin-page-header">
-        <div>
-          <h1>Sesler</h1>
-          <p>
-            Kullanıcıların yüklediği emote seslerini yönetin ve yükleme
-            haklarını belirleyin
-          </p>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={() => void fetchLibrary()}>
-          Yenile
-        </Button>
-      </header>
+      <AdminPageHeader
+        title="Sesler"
+        description="Kullanıcıların yüklediği emote seslerini yönetin ve yükleme haklarını belirleyin."
+        actions={
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => void fetchLibrary()}
+          >
+            Yenile
+          </Button>
+        }
+      />
 
-      <div className="ct-admin-kv-grid">
-        <Card className="ct-admin-card" title="Genel Yükleme Hakkı">
+      {/* Two quota editors side by side. They used to sit in .ct-admin-kv-grid
+          -- the 180px key/value chip grid -- so two cards full of controls
+          were laid out on a track sized for a one-line label. */}
+      <div className="ct-admin-grid-halves">
+        <AdminSection title="Genel Yükleme Hakkı" icon={<NumberOutlined />}>
           <p className="ct-admin-muted">
             Kendine özel bir hakkı olmayan herkes için geçerli. En fazla{" "}
-            {library?.maxQuota ?? 50}.
+            {maxQuota}.
           </p>
           <div className="ct-admin-quota-row">
-            <InputNumber
-              min={0}
-              max={library?.maxQuota ?? 50}
-              value={globalDraft ?? undefined}
-              onChange={(value) => setGlobalDraft(value ?? null)}
-            />
+            <div className="ct-admin-field">
+              <label htmlFor="admin-global-quota">Hak</label>
+              <InputNumber
+                id="admin-global-quota"
+                min={0}
+                max={maxQuota}
+                value={globalDraft ?? undefined}
+                onChange={(value) => setGlobalDraft(value ?? null)}
+              />
+            </div>
             <Button
               type="primary"
               loading={savingQuota}
@@ -191,41 +222,52 @@ export default function AdminSounds() {
               Kaydet
             </Button>
           </div>
-        </Card>
+        </AdminSection>
 
-        <Card className="ct-admin-card" title="Kullanıcıya Özel Hak">
+        <AdminSection
+          title="Kullanıcıya Özel Hak"
+          icon={<UserOutlined />}
+          hint={overrideRows.length > 0 ? `${overrideRows.length} istisna` : undefined}
+        >
           <p className="ct-admin-muted">
-            Bir kullanıcı için genel hakkı ezer. Boş bırakılırsa o kullanıcı
-            genel hakka döner.
+            Bir kullanıcı için genel hakkı ezer. Kaldırılırsa o kullanıcı genel
+            hakka döner.
           </p>
           <div className="ct-admin-quota-row">
-            <Select
-              showSearch
-              allowClear
-              placeholder="Kullanıcı seçin..."
-              className="ct-admin-toolbar-filter"
-              value={overrideUserId}
-              onChange={(value) => {
-                setOverrideUserId(value);
-                setOverrideValue(
-                  value != null ? (library?.userQuotas[value] ?? null) : null,
-                );
-              }}
-              filterOption={(input, option) =>
-                (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-              }
-              options={users.map((user) => ({
-                value: user.id,
-                label: `@${user.username}`,
-              }))}
-            />
-            <InputNumber
-              min={0}
-              max={library?.maxQuota ?? 50}
-              value={overrideValue ?? undefined}
-              disabled={!overrideUserId}
-              onChange={(value) => setOverrideValue(value ?? null)}
-            />
+            <div className="ct-admin-field grow">
+              <label htmlFor="admin-quota-user">Kullanıcı</label>
+              <Select
+                id="admin-quota-user"
+                showSearch
+                allowClear
+                placeholder="Kullanıcı seçin..."
+                value={overrideUserId}
+                onChange={(value) => {
+                  setOverrideUserId(value);
+                  setOverrideValue(
+                    value != null ? (library?.userQuotas[value] ?? null) : null,
+                  );
+                }}
+                filterOption={(input, option) =>
+                  (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                }
+                options={users.map((user) => ({
+                  value: user.id,
+                  label: `@${user.username}`,
+                }))}
+              />
+            </div>
+            <div className="ct-admin-field">
+              <label htmlFor="admin-quota-value">Hak</label>
+              <InputNumber
+                id="admin-quota-value"
+                min={0}
+                max={maxQuota}
+                value={overrideValue ?? undefined}
+                disabled={!overrideUserId}
+                onChange={(value) => setOverrideValue(value ?? null)}
+              />
+            </div>
             <Button
               type="primary"
               loading={savingQuota}
@@ -264,19 +306,34 @@ export default function AdminSounds() {
               ))}
             </div>
           )}
-        </Card>
+        </AdminSection>
       </div>
 
-      <Table
-        dataSource={library?.emotes ?? []}
-        columns={emoteColumns}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 20, showSizeChanger: true }}
-        scroll={{ x: "max-content" }}
-        className="ct-admin-table-wrap"
-        locale={{ emptyText: "Henüz ses yüklenmemiş." }}
-      />
+      <AdminSection
+        title="Yüklenmiş Sesler"
+        icon={<SoundOutlined />}
+        hint={
+          library
+            ? `${library.emotes.length} ses · ${Math.max(1, Math.round(totalBytes / 1024))} KB`
+            : undefined
+        }
+        flush
+      >
+        <Table
+          dataSource={library?.emotes ?? []}
+          columns={emoteColumns}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: true,
+            showTotal: (count) => `${count} ses`,
+          }}
+          scroll={{ x: "max-content" }}
+          className="ct-admin-table-wrap"
+          locale={{ emptyText: "Henüz ses yüklenmemiş." }}
+        />
+      </AdminSection>
     </div>
   );
 }

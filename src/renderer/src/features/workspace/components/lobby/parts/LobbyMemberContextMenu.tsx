@@ -16,6 +16,7 @@ import {
   UserDeleteOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
 import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
 
@@ -83,6 +84,8 @@ export function LobbyMemberContextMenu({
   moveTargets,
   onMove,
 }: LobbyMemberContextMenuProps): ReactElement {
+  const locallyMuted = isRemoteParticipantMuted(audio?.preference);
+
   const items: MenuProps["items"] = [
     {
       key: "title",
@@ -139,21 +142,20 @@ export function LobbyMemberContextMenu({
           { type: "divider" as const },
           {
             key: "mute",
-            label: audio.preference.muted ? "Sesi Aç" : "Sustur",
-            icon: audio.preference.muted ? (
-              <AudioOutlined />
-            ) : (
-              <AudioMutedOutlined />
-            ),
+            label: locallyMuted ? "Sesi Aç" : "Sustur",
+            icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
             className: "ct-participant-context-menu-button",
-            onClick: () => audio.onMute(!audio.preference.muted),
+            onClick: () => audio.onMute(!locallyMuted),
           },
           {
             key: "volume-header",
             label: (
               <div className="ct-participant-context-menu-hint">
                 <SoundOutlined />
-                <span>Ses Seviyesi: %{audio.preference.volumePercent}</span>
+                <span>
+                  Ses Seviyesi: %{audio.preference.volumePercent}
+                  {locallyMuted && " · susturuldu"}
+                </span>
               </div>
             ),
             disabled: true,

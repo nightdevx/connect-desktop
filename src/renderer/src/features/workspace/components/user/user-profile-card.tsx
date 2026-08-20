@@ -1,26 +1,41 @@
 import { useCallback, useRef, useState, type ReactElement } from "react";
-import { Avatar, Button, Image, Input, Popover, Spin, Tag, message } from "antd";
+import { Avatar, Button, Image, Input, Popover, Tag, Tooltip, message } from "antd";
+import type { TooltipPlacement } from "antd/es/tooltip";
 import {
+  CheckOutlined,
   ClockCircleOutlined,
+  CopyOutlined,
+  CrownOutlined,
   SendOutlined,
+  TeamOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
 import { useUserCard } from "../../hooks/user/use-user-cards";
+import { useUserPresence } from "../../hooks/user/use-user-presence";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import workspaceService from "../../services";
-import { getApiErrorMessage } from "../../workspace-utils";
-import { formatDateLabel, getDisplayInitials } from "../../workspace-utils";
+import {
+  formatDateLabel,
+  formatMembershipLength,
+  getApiErrorMessage,
+  getDisplayInitials,
+  getPresenceColor,
+  getUserStatusLabel,
+} from "../../workspace-utils";
 
 // Same ceiling the composer uses. Enforced again server-side; this only stops
 // the request being made at all.
 const MAX_QUICK_MESSAGE_LENGTH = 2_000;
 
-// The profile card: who is this person, and can I add them.
+// The profile card: who is this person, and what can I do about it.
 //
 // It exists because a voice room is full of people the friends-only directory
 // cannot describe — no avatar, no handle, no join date — so a stranger in a
 // lobby was a grey circle with a display name on it. Everything here comes from
-// the public-card endpoint, which answers for any id the caller already holds.
+// the public-card endpoint, which answers for any id the caller already holds,
+// plus two things the client already knows and the card used to throw away:
+// whether they are online (directory, friends only) and how long they have been
+// a member (derived from the join date it was already printing).
 //
 // Deliberately NOT a full profile drawer. Blocking, unfriending and opening a
 // DM already have their own surfaces (the conversation header, the friends
@@ -43,6 +58,28 @@ interface UserProfileCardProps {
   onPhotoPreviewChange?: (open: boolean) => void;
 }
 
+/** The band + avatar frame, shared by the real card and its loading skeleton. */
+function ProfileCardBanner({
+  bannerUrl,
+}: {
+  bannerUrl?: string | null;
+}): ReactElement {
+  return (
+    // A colour band behind the avatar, the way every profile card since Discord
+    // has done it: it is what makes the avatar read as the subject of the card
+    // rather than as an icon next to a name.
+    //
+    // aria-hidden either way: with a picture it is still decoration, and the
+    // card already names the person underneath it.
+    <div
+      className={`ct-profile-card-banner ${bannerUrl ? "has-image" : ""}`}
+      aria-hidden="true"
+    >
+      {bannerUrl && <img src={bannerUrl} alt="" />}
+    </div>
+  );
+}
+
 export function UserProfileCard({
   userId,
   fallbackName,
@@ -51,7 +88,9 @@ export function UserProfileCard({
   onPhotoPreviewChange,
 }: UserProfileCardProps): ReactElement {
   const { card, isLoading, isUnavailable } = useUserCard(userId);
+  const presence = useUserPresence(userId);
   const [isSending, setIsSending] = useState(false);
+  const [hasCopiedHandle, setHasCopiedHandle] = useState(false);
 
   const isSelf = userId === currentUserId;
   const isFriend = friends.friendIds.includes(userId);
@@ -82,11 +121,67 @@ export function UserProfileCard({
       .finally(() => setIsSending(false));
   }, [card?.username, friends, isSending]);
 
+  const handleCopyHandle = useCallback((): void => {
+    if (!card?.username) {
+      return;
+    }
+
+    void navigator.clipboard
+      .writeText(`@${card.username}`)
+      .then(() => {
+        // The tick on the button IS the confirmation; a toast for a copy is
+        // noise on top of a popover that is already an overlay.
+        setHasCopiedHandle(true);
+        window.setTimeout(() => setHasCopiedHandle(false), 1_400);
+      })
+      .catch(() => message.error("Kullanıcı adı kopyalanamadı"));
+  }, [card?.username]);
+
+  // The skeleton is the finished layout with its text blanked out, not a
+  // spinner on a line of its own: the card is a popover anchored to a row, and
+  // one that opens 40px tall and then jumps to 300px drags its own anchor
+  // across the screen while the query lands.
   if (isLoading) {
     return (
-      <div className="ct-profile-card loading">
-        <Spin size="small" />
-        <span>{fallbackName}</span>
+      <div className="ct-profile-card loading" aria-busy="true">
+        <ProfileCardBanner />
+
+        <div className="ct-profile-card-head">
+          <div className="ct-profile-card-photo-root skeleton" />
+          <div className="ct-profile-card-names">
+            <strong>{fallbackName}</strong>
+            <span className="ct-profile-card-skeleton-line" />
+          </div>
+        </div>
+
+        {/* Reserved, not just the stats. Without the tag row and the two action
+            slots the card still grew about 100px when the query landed — which
+            is the jump the skeleton exists to prevent, and it drags the popover
+            across its own anchor on the way. */}
+        <div className="ct-profile-card-tags">
+          <span className="ct-profile-card-skeleton-line tag" />
+          <span className="ct-profile-card-skeleton-line tag" />
+        </div>
+
+        <div className="ct-profile-card-stats">
+          <div className="ct-profile-card-stat">
+            <span>Katılım</span>
+            <strong className="ct-profile-card-skeleton-line" />
+          </div>
+          <div className="ct-profile-card-stat">
+            <span>Üyelik</span>
+            <strong className="ct-profile-card-skeleton-line" />
+          </div>
+        </div>
+
+        {/* isSelf is known before the query answers, so the slots that only
+            exist for other people are reserved only for other people. */}
+        {!isSelf && (
+          <>
+            <span className="ct-profile-card-skeleton-line bar" />
+            <span className="ct-profile-card-skeleton-line bar" />
+          </>
+        )}
       </div>
     );
   }
@@ -94,13 +189,19 @@ export function UserProfileCard({
   if (!card) {
     return (
       <div className="ct-profile-card">
-        <div className="ct-profile-card-identity">
-          <Avatar size={64} className="ct-profile-card-avatar">
+        <ProfileCardBanner />
+
+        <div className="ct-profile-card-head">
+          {/* 96, the same as the loaded card and the skeleton. At 88 the avatar
+              shrank by 8px the moment the query failed, so the failure looked
+              like a second, differently-sized card. */}
+          <Avatar size={96} className="ct-profile-card-avatar">
             {getDisplayInitials(fallbackName)}
           </Avatar>
+
           <div className="ct-profile-card-names">
             <strong>{fallbackName}</strong>
-            <span>
+            <span className="ct-profile-card-unavailable">
               {isUnavailable
                 ? "Bu hesabın profili görüntülenemiyor."
                 : "Profil yüklenemedi."}
@@ -112,66 +213,134 @@ export function UserProfileCard({
   }
 
   const displayName = card.displayName.trim() || card.username;
+  const isAdmin = card.role === "admin";
 
   return (
     <div className="ct-profile-card">
-      {/* A colour band behind the avatar, the way every profile card since
-          Discord has done it: it is what makes the avatar read as the subject
-          of the card rather than as an icon next to a name. */}
-      {/* aria-hidden either way: with a picture it is still decoration, and the
-          card already names the person underneath it. */}
-      <div
-        className={`ct-profile-card-banner ${card.bannerUrl ? "has-image" : ""}`}
-        aria-hidden="true"
-      >
-        {card.bannerUrl && <img src={card.bannerUrl} alt="" />}
-      </div>
+      <ProfileCardBanner bannerUrl={card.bannerUrl} />
 
-      <div className="ct-profile-card-identity">
-        {card.avatarUrl ? (
-          // antd's Image, not Avatar, so the picture opens full size on click.
-          // A profile picture is the one thing on this card people want to see
-          // bigger, and 88px is not it.
-          //
-          // classNames.root, NOT rootClassName. antd hands rootClassName to
-          // rc-image, which puts it on the thumbnail's wrapper AND on the
-          // fullscreen preview's root:
-          //
-          //     className:     clsx(prefixCls, rootClassName, classNames.root)
-          //     rootClassName: clsx(previewRootClassName, rootClassName)
-          //
-          // antd needs that (its hashId and CSS-var classes have to reach the
-          // portalled preview too), but it meant the 88px box below — fixed
-          // size, overflow-hidden, rounded — also clamped the preview, so the
-          // full-size picture opened as an 88px square in the top-left corner.
-          // classNames.root lands on the thumbnail only.
-          <Image
-            src={card.avatarUrl}
-            alt={displayName}
-            className="ct-profile-card-photo"
-            classNames={{ root: "ct-profile-card-photo-root" }}
-            preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
-          />
-        ) : (
-          <Avatar size={88} className="ct-profile-card-avatar">
-            {getDisplayInitials(displayName)}
-          </Avatar>
-        )}
+      <div className="ct-profile-card-head">
+        <div className="ct-profile-card-photo-wrap">
+          {card.avatarUrl ? (
+            // antd's Image, not Avatar, so the picture opens full size on click.
+            // A profile picture is the one thing on this card people want to see
+            // bigger, and 96px is not it.
+            //
+            // classNames.root, NOT rootClassName. antd hands rootClassName to
+            // rc-image, which puts it on the thumbnail's wrapper AND on the
+            // fullscreen preview's root:
+            //
+            //     className:     clsx(prefixCls, rootClassName, classNames.root)
+            //     rootClassName: clsx(previewRootClassName, rootClassName)
+            //
+            // antd needs that (its hashId and CSS-var classes have to reach the
+            // portalled preview too), but it meant the fixed-size,
+            // overflow-hidden, rounded box below also clamped the preview, so
+            // the full-size picture opened as a 96px square in the top-left
+            // corner. classNames.root lands on the thumbnail only.
+            <Image
+              src={card.avatarUrl}
+              alt={displayName}
+              className="ct-profile-card-photo"
+              classNames={{ root: "ct-profile-card-photo-root" }}
+              preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
+            />
+          ) : (
+            <Avatar size={96} className="ct-profile-card-avatar">
+              {getDisplayInitials(displayName)}
+            </Avatar>
+          )}
+
+          {/* Only for people the directory carries, which is friends. Guessing
+              "çevrimdışı" for a stranger would be wrong about most of a room. */}
+          {presence && (
+            <Tooltip
+              title={getUserStatusLabel(presence.appOnline, presence.presence)}
+            >
+              <span
+                className="ct-profile-card-presence"
+                style={{
+                  background: getPresenceColor(
+                    presence.appOnline,
+                    presence.presence,
+                  ),
+                }}
+                role="img"
+                aria-label={getUserStatusLabel(
+                  presence.appOnline,
+                  presence.presence,
+                )}
+              />
+            </Tooltip>
+          )}
+        </div>
 
         <div className="ct-profile-card-names">
-          <strong>{displayName}</strong>
-          <span>@{card.username}</span>
+          <strong title={displayName}>{displayName}</strong>
+
+          {/* The handle is the one string on this card somebody needs to type
+              somewhere else — into "Arkadaş Ekle", into a lobby's allow list —
+              so it is a copy button rather than dead text. */}
+          <button
+            type="button"
+            className="ct-profile-card-handle"
+            onClick={handleCopyHandle}
+            title="Kullanıcı adını kopyala"
+          >
+            <span>@{card.username}</span>
+            {hasCopiedHandle ? <CheckOutlined /> : <CopyOutlined />}
+          </button>
         </div>
       </div>
 
+      {/* antd's `color="gold"` / `color="success"` presets are antd's palette,
+          not this app's: they ignore --ct-warning and --ct-success and paint two
+          saturated chips into an otherwise monochrome card. The variants are
+          classes now, built from the tokens, so they follow the theme. */}
       <div className="ct-profile-card-tags">
-        <Tag>{card.role === "admin" ? "Yönetici" : "Üye"}</Tag>
-        {isFriend && <Tag color="success">Arkadaş</Tag>}
+        {isAdmin ? (
+          <Tag className="ct-profile-card-tag admin" icon={<CrownOutlined />}>
+            Yönetici
+          </Tag>
+        ) : (
+          <Tag className="ct-profile-card-tag">Üye</Tag>
+        )}
+        {isSelf && <Tag className="ct-profile-card-tag">Sen</Tag>}
+        {isFriend && (
+          <Tag className="ct-profile-card-tag friend" icon={<TeamOutlined />}>
+            Arkadaş
+          </Tag>
+        )}
+        {!isSelf && !isFriend && hasOutgoingRequest && (
+          <Tag className="ct-profile-card-tag" icon={<ClockCircleOutlined />}>
+            İstek gönderildi
+          </Tag>
+        )}
       </div>
 
-      <div className="ct-profile-card-meta">
-        <span>Katılım</span>
-        <strong>{formatDateLabel(card.createdAt)}</strong>
+      {/* Two facts from one field. A date alone cannot be ranked — "14.03.2024"
+          says nothing about whether this is a founding member or somebody who
+          signed up last week, which is the only thing a join date is read
+          for. */}
+      <div className="ct-profile-card-stats">
+        <div className="ct-profile-card-stat">
+          <span>Katılım</span>
+          <strong>{formatDateLabel(card.createdAt)}</strong>
+        </div>
+
+        <div className="ct-profile-card-stat">
+          <span>Üyelik</span>
+          <strong>{formatMembershipLength(card.createdAt)}</strong>
+        </div>
+
+        {presence && (
+          <div className="ct-profile-card-stat">
+            <span>Durum</span>
+            <strong>
+              {getUserStatusLabel(presence.appOnline, presence.presence)}
+            </strong>
+          </div>
+        )}
       </div>
 
       {/* Nothing to offer for yourself or for someone already on the list; an
@@ -180,7 +349,6 @@ export function UserProfileCard({
         <Button
           block
           type="primary"
-          size="small"
           icon={hasOutgoingRequest ? <ClockCircleOutlined /> : <UserAddOutlined />}
           disabled={hasOutgoingRequest}
           loading={isSending}
@@ -294,6 +462,7 @@ export function UserProfileCardAnchor({
   return (
     <Popover
       open
+      rootClassName="ct-profile-card-popover"
       onOpenChange={(open) => {
         // The avatar's full-size preview is portalled to document.body, so
         // every click on it is "outside" this popover. Closing here would
@@ -306,7 +475,6 @@ export function UserProfileCardAnchor({
       }}
       trigger="click"
       placement="rightTop"
-      rootClassName="ct-profile-card-popover"
       content={
         <UserProfileCard
           {...cardProps}
@@ -334,6 +502,8 @@ export function UserProfileCardAnchor({
 
 interface UserProfileCardPopoverProps extends UserProfileCardProps {
   children: ReactElement;
+  /** Roster rows sit at the left edge; the quick dock sits at the bottom. */
+  placement?: TooltipPlacement;
 }
 
 /**
@@ -368,6 +538,7 @@ interface UserProfileCardPopoverProps extends UserProfileCardProps {
  */
 export function UserProfileCardPopover({
   children,
+  placement = "right",
   ...cardProps
 }: UserProfileCardPopoverProps): ReactElement {
   const [isOpen, setIsOpen] = useState(false);
@@ -376,9 +547,9 @@ export function UserProfileCardPopover({
     <Popover
       open={isOpen}
       onOpenChange={setIsOpen}
-      trigger="click"
-      placement="right"
       rootClassName="ct-profile-card-popover"
+      trigger="click"
+      placement={placement}
       content={<UserProfileCard {...cardProps} />}
     >
       {children}

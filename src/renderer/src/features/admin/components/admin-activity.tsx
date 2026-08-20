@@ -5,6 +5,7 @@ import type { TablePaginationConfig } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
+import { AdminPageHeader } from "./admin-primitives";
 
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
@@ -113,11 +114,25 @@ export default function AdminActivity() {
     setPageSize(pagination.pageSize ?? DEFAULT_PAGE_SIZE);
   };
 
+  const hasFilter =
+    Boolean(searchText || lobbyFilter || userFilter) || eventTypeFilter !== "all";
+
   const columns = [
     {
-      title: "Olay Tipi",
+      title: "Tarih / Saat",
+      dataIndex: "occurredAt",
+      key: "occurredAt",
+      width: 180,
+      // First, not last. This is a log: the question asked of every row is
+      // "when", and it was the one column parked past the right edge of a
+      // table that scrolls horizontally.
+      render: (date: string) => new Date(date).toLocaleString("tr-TR"),
+    },
+    {
+      title: "Olay",
       dataIndex: "eventType",
       key: "eventType",
+      width: 140,
       // antd's preset names, not literal hex. A hex Tag is a solid block of one
       // fixed colour with white text on it — the same five blocks whether the
       // page is dark or light, and the only reason a log row could be brighter
@@ -132,57 +147,49 @@ export default function AdminActivity() {
       },
     },
     {
-      title: "Oda",
-      key: "lobby",
-      render: (_value: unknown, record: AdminLobbyEvent) => (
-        <div className="ct-admin-table-user">
-          <div>
-            <strong>{record.lobbyName}</strong>
-            <span>ID: {record.lobbyId}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
       title: "Kullanıcı",
       key: "user",
+      width: 240,
       render: (_value: unknown, record: AdminLobbyEvent) => (
-        <div className="ct-admin-table-user">
-          <div>
-            <strong>@{record.username}</strong>
-            <span>ID: {record.userId}</span>
-          </div>
+        <div className="ct-admin-cell">
+          <strong>@{record.username}</strong>
+          <span className="ct-admin-mono">{record.userId}</span>
         </div>
       ),
     },
     {
-      title: "Tarih / Saat",
-      dataIndex: "occurredAt",
-      key: "occurredAt",
-      render: (date: string) => new Date(date).toLocaleString("tr-TR"),
+      title: "Oda",
+      key: "lobby",
+      width: 240,
+      render: (_value: unknown, record: AdminLobbyEvent) => (
+        <div className="ct-admin-cell">
+          <strong>{record.lobbyName}</strong>
+          <span className="ct-admin-mono">{record.lobbyId}</span>
+        </div>
+      ),
     },
   ];
 
   return (
     <div className="ct-admin-page">
-      <header className="ct-admin-page-header">
-        <div>
-          <h1>Aktivite Logları</h1>
-          <p>
-            Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı
-            geçmişi
-          </p>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={() => fetchEvents()}>
-          Yenile
-        </Button>
-      </header>
+      <AdminPageHeader
+        title="Aktivite Logları"
+        description="Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı geçmişi."
+        actions={
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => fetchEvents()}
+          >
+            Yenile
+          </Button>
+        }
+      />
 
       {/* Filters */}
-      <div
-        className="ct-admin-toolbar"
-      >
+      <div className="ct-admin-toolbar">
         <Input
+          allowClear
           placeholder="İsim, kullanıcı adı, oda adı ara..."
           prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
@@ -198,16 +205,16 @@ export default function AdminActivity() {
             { value: "all", label: "Tüm Olay Tipleri" },
             { value: "join", label: "Giriş (Join)" },
             { value: "leave", label: "Çıkış (Leave)" },
-            { value: "create", label: "Oda Oluşturma (Create)" },
-            { value: "delete", label: "Oda Silme (Delete)" },
-            { value: "edit", label: "Oda Güncelleme (Edit)" },
+            { value: "create", label: "Oda Oluşturma" },
+            { value: "delete", label: "Oda Silme" },
+            { value: "edit", label: "Oda Güncelleme" },
           ]}
         />
 
         <Select
           showSearch
           allowClear
-          placeholder="Oda Seçin..."
+          placeholder="Oda seçin..."
           value={lobbyFilter || undefined}
           onOpenChange={(open) => open && void loadFilterOptions()}
           onChange={(val) => setLobbyFilter(val || "")}
@@ -221,7 +228,7 @@ export default function AdminActivity() {
         <Select
           showSearch
           allowClear
-          placeholder="Kullanıcı Seçin..."
+          placeholder="Kullanıcı seçin..."
           value={userFilter || undefined}
           onOpenChange={(open) => open && void loadFilterOptions()}
           onChange={(val) => setUserFilter(val || "")}
@@ -240,12 +247,18 @@ export default function AdminActivity() {
         rowKey="id"
         loading={loading}
         onChange={handleTableChange}
+        locale={{
+          emptyText: hasFilter
+            ? "Bu filtrelerle eşleşen kayıt yok."
+            : "Henüz kayıt yok.",
+        }}
         pagination={{
           current: currentPage,
           pageSize,
           total,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
+          showTotal: (count) => `${count} kayıt`,
         }}
         // See admin-users: the viewport-height body cut the last row and hid
         // the pagination. This page defaults to 50 rows, so it was the worst

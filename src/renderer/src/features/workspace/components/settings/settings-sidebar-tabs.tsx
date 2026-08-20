@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type KeyboardEvent } from "react";
 import type { SettingsSection } from "@/store/ui-store";
 import {
   UserOutlined,
@@ -94,6 +94,43 @@ export function SettingsSidebarTabs({
   settingsSection,
   onSettingsSectionChange,
 }: SettingsSidebarTabsProps) {
+  // Up/Down inside a group, as a vertical tablist owes its user. Wraps at both
+  // ends; Home/End go to the group's first and last. Crossing between groups is
+  // Tab's job, which is why the roving tabIndex below makes each group expose
+  // exactly one stop.
+  const handleGroupKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    tabs: TabConfig[],
+  ): void => {
+    const current = tabs.findIndex((tab) => tab.id === settingsSection);
+    if (current === -1) {
+      return;
+    }
+
+    const next =
+      event.key === "ArrowDown"
+        ? (current + 1) % tabs.length
+        : event.key === "ArrowUp"
+          ? (current - 1 + tabs.length) % tabs.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? tabs.length - 1
+              : -1;
+
+    if (next === -1) {
+      return;
+    }
+
+    event.preventDefault();
+    onSettingsSectionChange(tabs[next].id);
+    // Selection follows focus here, so focus has to follow selection back --
+    // otherwise the arrow key changes the page while the ring stays behind.
+    event.currentTarget
+      .querySelector<HTMLButtonElement>(`#settings-tab-${tabs[next].id}`)
+      ?.focus();
+  };
+
   return (
     <div className="ct-settings-tabs">
       {TAB_GROUPS.map((group) => (
@@ -107,15 +144,28 @@ export function SettingsSidebarTabs({
             role="tablist"
             aria-orientation="vertical"
             aria-label={`${group.title} ayarları`}
+            onKeyDown={(event) => handleGroupKeyDown(event, group.tabs)}
           >
             {group.tabs.map((tab) => (
               <button
                 key={tab.id}
+                id={`settings-tab-${tab.id}`}
                 type="button"
                 className={`ct-settings-tab ${settingsSection === tab.id ? "active" : ""}`}
                 onClick={() => onSettingsSectionChange(tab.id)}
                 role="tab"
                 aria-selected={settingsSection === tab.id}
+                aria-controls="settings-panel"
+                // One stop per group: Tab reaches the group, the arrows move
+                // inside it. A tablist where every tab is tabbable makes a
+                // seven-item list seven stops on the way to the panel.
+                tabIndex={
+                  settingsSection === tab.id ||
+                  (!group.tabs.some((entry) => entry.id === settingsSection) &&
+                    tab.id === group.tabs[0].id)
+                    ? 0
+                    : -1
+                }
               >
                 <div className="ct-settings-tab-icon">{tab.icon}</div>
                 <div className="ct-settings-tab-content">

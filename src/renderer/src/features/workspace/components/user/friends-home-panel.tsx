@@ -4,8 +4,11 @@ import { Button, Dropdown, Input, Segmented, Tooltip } from "antd";
 import {
   CheckOutlined,
   CloseOutlined,
+  InboxOutlined,
   PhoneOutlined,
+  ReloadOutlined,
   SearchOutlined,
+  TeamOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
   WarningOutlined,
@@ -33,7 +36,7 @@ export interface FriendsHomePanelProps {
   onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
 }
 
-type FriendsTab = "friends" | "requests" | "online" | "offline";
+type FriendsTab = "friends" | "online" | "offline" | "requests";
 
 interface RequestRow extends FriendEntry {
   name: string;
@@ -53,8 +56,35 @@ const toPeer = (user: UserDirectoryEntry): OpenConversation => ({
   avatarUrl: user.avatarUrl ?? null,
 });
 
+// A tab label and the number behind it. Counts sit ON the tabs because that is
+// the question the tabs are asked -- "is anyone online" used to be answerable
+// only by switching to Çevrimiçi and reading an empty list.
+function TabLabel({
+  label,
+  count,
+  alert,
+}: {
+  label: string;
+  count: number;
+  alert?: boolean;
+}) {
+  return (
+    <span className="ct-segmented-option">
+      {label}
+      <span className={`ct-segmented-count ${alert ? "alert" : ""}`}>
+        {count}
+      </span>
+    </span>
+  );
+}
+
 // Requests carry no avatar - FriendEntry deliberately omits it, since it rides
 // the users-WS - so the initials branch is the only one a request row takes.
+//
+// Two halves, and only the left one is interactive: Enter on a focused row can
+// then never mean "unfriend", and the action buttons need no stopPropagation to
+// keep a click off the row underneath them. The row keeps its <li> semantics --
+// the identity half carries role="button" rather than the list item itself.
 function PersonRow({
   name,
   subtitle,
@@ -62,6 +92,7 @@ function PersonRow({
   presenceDot,
   actions,
   onActivate,
+  activateLabel,
 }: {
   name: string;
   subtitle: string;
@@ -69,14 +100,9 @@ function PersonRow({
   presenceDot?: string;
   actions?: ReactNode;
   onActivate?: () => void;
+  activateLabel?: string;
 }) {
-  const activateOnKey = (event: KeyboardEvent<HTMLLIElement>): void => {
-    // Only the row itself: Enter on one of the action buttons bubbles up here,
-    // and unfriending someone must not also open their conversation.
-    if (event.target !== event.currentTarget) {
-      return;
-    }
-
+  const activateOnKey = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (!onActivate || (event.key !== "Enter" && event.key !== " ")) {
       return;
     }
@@ -84,45 +110,86 @@ function PersonRow({
     onActivate();
   };
 
-  return (
-    <li
-      className={`ct-list-item ${onActivate ? "clickable" : ""}`}
-      role={onActivate ? "option" : undefined}
-      aria-selected={onActivate ? false : undefined}
-      tabIndex={onActivate ? 0 : undefined}
-      onClick={onActivate}
-      onKeyDown={activateOnKey}
-    >
-      <div className="ct-list-user">
-        <div
-          className={`ct-user-avatar ${presenceDot ? "with-presence" : ""}`}
-          aria-hidden="true"
-        >
-          <div className="ct-user-avatar-core">
-            {avatarUrl ? (
-              <img className="ct-user-avatar-image" src={avatarUrl} alt="" />
-            ) : (
-              <span className="ct-user-avatar-fallback">
-                {getDisplayInitials(name)}
-              </span>
-            )}
-          </div>
-
-          {presenceDot && (
-            <span className="ct-presence-dot" style={{ background: presenceDot }} />
+  const identity = (
+    <div className="ct-list-user">
+      <div
+        className={`ct-user-avatar ${presenceDot ? "with-presence" : ""}`}
+        aria-hidden="true"
+      >
+        <div className="ct-user-avatar-core">
+          {avatarUrl ? (
+            <img className="ct-user-avatar-image" src={avatarUrl} alt="" />
+          ) : (
+            <span className="ct-user-avatar-fallback">
+              {getDisplayInitials(name)}
+            </span>
           )}
         </div>
 
-        <div className="ct-list-user-meta">
-          <p>
-            <span className="truncate">{name}</span>
-          </p>
-          <span>{subtitle}</span>
-        </div>
+        {presenceDot && (
+          <span className="ct-presence-dot" style={{ background: presenceDot }} />
+        )}
       </div>
+
+      <div className="ct-list-user-meta">
+        <p>
+          <span className="truncate">{name}</span>
+        </p>
+        <span>{subtitle}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <li className={`ct-list-item ${onActivate ? "clickable" : ""}`}>
+      {onActivate ? (
+        <div
+          className="ct-row-open"
+          role="button"
+          tabIndex={0}
+          aria-label={activateLabel}
+          onClick={onActivate}
+          onKeyDown={activateOnKey}
+        >
+          {identity}
+        </div>
+      ) : (
+        identity
+      )}
 
       {actions && <div className="ct-list-item-actions">{actions}</div>}
     </li>
+  );
+}
+
+// One icon button on a row. Always the same 32px square, muted until it is
+// pointed at -- see .ct-row-action for why the colour waits for the hover.
+function RowAction({
+  title,
+  icon,
+  tone,
+  ariaLabel,
+  isLoading,
+  onClick,
+}: {
+  title: string;
+  icon: ReactNode;
+  tone: "success" | "danger" | "neutral";
+  ariaLabel: string;
+  isLoading?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip title={title}>
+      <Button
+        type="text"
+        className={`ct-row-action ${tone}`}
+        icon={icon}
+        loading={isLoading}
+        aria-label={ariaLabel}
+        onClick={onClick}
+      />
+    </Tooltip>
   );
 }
 
@@ -167,6 +234,11 @@ export function FriendsHomePanel({
     [directoryUsers, friendIdSet],
   );
 
+  const onlineCount = useMemo(
+    () => friendUsers.filter((user) => user.appOnline).length,
+    [friendUsers],
+  );
+
   const visibleFriends = useMemo(
     () =>
       friendUsers.filter((user) => {
@@ -195,19 +267,36 @@ export function FriendsHomePanel({
   const incomingRows = toRequestRows(friends.incomingRequests);
   const outgoingRows = toRequestRows(friends.outgoingRequests);
 
-  // Off the unfiltered list: the badge answers "is there anything waiting",
+  // Off the unfiltered lists: the badge answers "is there anything waiting",
   // which the search box must not be able to talk you out of.
   const incomingCount = friends.incomingRequests.length;
+  const requestTotal = incomingCount + friends.outgoingRequests.length;
 
   const tabOptions = [
-    { value: "friends", label: "Arkadaşlar" },
+    {
+      value: "friends",
+      label: <TabLabel label="Arkadaşlar" count={friendUsers.length} />,
+    },
+    { value: "online", label: <TabLabel label="Çevrimiçi" count={onlineCount} /> },
+    {
+      value: "offline",
+      label: (
+        <TabLabel label="Çevrimdışı" count={friendUsers.length - onlineCount} />
+      ),
+    },
     {
       value: "requests",
-      label: incomingCount > 0 ? `İstekler (${incomingCount})` : "İstekler",
+      label: (
+        <TabLabel
+          label="İstekler"
+          count={incomingCount}
+          alert={incomingCount > 0}
+        />
+      ),
     },
-    { value: "online", label: "Çevrimiçi" },
-    { value: "offline", label: "Çevrimdışı" },
   ];
+
+  const askUnfriend = (row: RequestRow): void => setPendingUnfriend(row);
 
   // Above every empty state, because "no friends" and "the call failed" used to
   // render identically — which is how a broken list stayed unreported.
@@ -225,8 +314,58 @@ export function FriendsHomePanel({
         {friends.loadError?.code ?? "UNKNOWN"}
         {friends.loadError?.statusCode ? ` · ${friends.loadError.statusCode}` : ""}
       </span>
+      <Button
+        size="small"
+        icon={<ReloadOutlined />}
+        loading={friends.isRefreshing}
+        onClick={friends.refresh}
+      >
+        Tekrar dene
+      </Button>
     </li>
   );
+
+  const renderFriendEmpty = (): ReactNode => {
+    if (query) {
+      return (
+        <li className="ct-list-state">
+          <SearchOutlined className="ct-list-state-icon" />
+          <p>Aramaya uygun arkadaş bulunamadı.</p>
+          <span>Farklı bir isim deneyin.</span>
+        </li>
+      );
+    }
+
+    if (tab === "online") {
+      return (
+        <li className="ct-list-state">
+          <TeamOutlined className="ct-list-state-icon" />
+          <p>Şu anda çevrimiçi arkadaşınız yok.</p>
+          <span>Biri bağlandığında burada görünür.</span>
+        </li>
+      );
+    }
+
+    if (tab === "offline") {
+      return (
+        <li className="ct-list-state">
+          <TeamOutlined className="ct-list-state-icon" />
+          <p>Bütün arkadaşlarınız çevrimiçi.</p>
+        </li>
+      );
+    }
+
+    return (
+      <li className="ct-list-state">
+        <TeamOutlined className="ct-list-state-icon" />
+        <p>Henüz arkadaşınız yok.</p>
+        <span>Kullanıcı adını bildiğiniz birine arkadaşlık isteği gönderin.</span>
+        <Button icon={<UserAddOutlined />} onClick={onAddFriend}>
+          Arkadaş Ekle
+        </Button>
+      </li>
+    );
+  };
 
   const renderFriendList = (): ReactNode => {
     if (friends.isLoading) {
@@ -238,33 +377,19 @@ export function FriendsHomePanel({
     }
 
     if (visibleFriends.length === 0) {
-      return (
-        <li className="ct-list-state">
-          <SearchOutlined className="ct-list-state-icon" />
-          {query ? (
-            <>
-              <p>Aramaya uygun arkadaş bulunamadı.</p>
-              <span>Farklı bir isim deneyin.</span>
-            </>
-          ) : tab === "online" ? (
-            <p>Şu anda çevrimiçi arkadaşınız yok.</p>
-          ) : tab === "offline" ? (
-            <p>Bütün arkadaşlarınız çevrimiçi.</p>
-          ) : (
-            <>
-              <p>Henüz arkadaşınız yok.</p>
-              <span>
-                Kullanıcı adını bildiğiniz birine arkadaşlık isteği gönderin.
-              </span>
-            </>
-          )}
-        </li>
-      );
+      return renderFriendEmpty();
     }
 
     return visibleFriends.map((user) => {
       const name = user.displayName || user.username;
       const isPending = friends.pendingUserIds.includes(user.userId);
+      const asRow: RequestRow = {
+        userId: user.userId,
+        username: user.username,
+        displayName: user.displayName,
+        name,
+      };
+
       const row = (
         <PersonRow
           name={name}
@@ -272,45 +397,29 @@ export function FriendsHomePanel({
           avatarUrl={user.avatarUrl}
           presenceDot={getPresenceColor(user.appOnline, user.presence)}
           onActivate={() => onOpenConversation(toPeer(user))}
+          activateLabel={`${name} ile sohbeti aç`}
           actions={
             <>
               {/* Offline gets no button rather than a dead one: the call would
                   ring into nothing. */}
               {onInitiateCall && user.appOnline && (
-                <Tooltip title="Ara">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<PhoneOutlined className="ct-icon-success" />}
-                    aria-label={`${name} kişisini ara`}
-                    onClick={(event) => {
-                      // The row itself opens the conversation.
-                      event.stopPropagation();
-                      onInitiateCall(user);
-                    }}
-                  />
-                </Tooltip>
+                <RowAction
+                  title="Sesli ara"
+                  tone="success"
+                  icon={<PhoneOutlined />}
+                  ariaLabel={`${name} kişisini ara`}
+                  onClick={() => onInitiateCall(user)}
+                />
               )}
 
-              <Tooltip title="Arkadaşlıktan Çıkar">
-                <Button
-                  type="text"
-                  size="small"
-                  danger
-                  icon={<UserDeleteOutlined />}
-                  loading={isPending}
-                  aria-label={`${name} ile arkadaşlığı bitir`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPendingUnfriend({
-                      userId: user.userId,
-                      username: user.username,
-                      displayName: user.displayName,
-                      name,
-                    });
-                  }}
-                />
-              </Tooltip>
+              <RowAction
+                title="Arkadaşlıktan çıkar"
+                tone="danger"
+                icon={<UserDeleteOutlined />}
+                ariaLabel={`${name} ile arkadaşlığı bitir`}
+                isLoading={isPending}
+                onClick={() => askUnfriend(asRow)}
+              />
             </>
           }
         />
@@ -330,13 +439,7 @@ export function FriendsHomePanel({
                 icon: <UserDeleteOutlined />,
                 danger: true,
                 disabled: isPending,
-                onClick: () =>
-                  setPendingUnfriend({
-                    userId: user.userId,
-                    username: user.username,
-                    displayName: user.displayName,
-                    name,
-                  }),
+                onClick: () => askUnfriend(asRow),
               },
             ],
           }}
@@ -347,57 +450,47 @@ export function FriendsHomePanel({
     });
   };
 
-  return (
-    <div className="ct-friends-home">
-      <header className="ct-friends-home-header">
-        <div>
-          <h3>Arkadaşlar</h3>
-          <p>
-            Bir sohbeti açmak için arkadaşınıza tıklayın, kapatmak için soldaki
-            listede sağ tıklayın.
-          </p>
-        </div>
+  // Both request lists render only when they have rows, under one heading that
+  // carries its own count. Two permanent headings over two "nothing here" lines
+  // was three quarters of the tab saying the same thing twice.
+  const renderRequests = (): ReactNode => {
+    if (friends.loadError) {
+      return <ul className="ct-list">{renderLoadError()}</ul>;
+    }
 
-        <Button
-          type="primary"
-          icon={<UserAddOutlined />}
-          onClick={onAddFriend}
-          className="ct-friends-home-add"
-        >
-          Arkadaş Ekle
-        </Button>
-      </header>
+    if (incomingRows.length === 0 && outgoingRows.length === 0) {
+      return (
+        <ul className="ct-list">
+          <li className="ct-list-state">
+            <InboxOutlined className="ct-list-state-icon" />
+            {query && requestTotal > 0 ? (
+              <>
+                <p>Aramaya uygun istek yok.</p>
+                <span>Farklı bir isim deneyin.</span>
+              </>
+            ) : (
+              <>
+                <p>Bekleyen istek yok.</p>
+                <span>
+                  Gönderdiğiniz ve size gelen istekler burada listelenir.
+                </span>
+              </>
+            )}
+          </li>
+        </ul>
+      );
+    }
 
-      <Segmented
-        block
-        value={tab}
-        onChange={(value) => setTab(value as FriendsTab)}
-        options={tabOptions}
-        className="ct-segmented-premium"
-      />
-
-      <Input
-        allowClear
-        value={search}
-        placeholder="İsim veya kullanıcı adı ara..."
-        prefix={<SearchOutlined />}
-        onChange={(event) => setSearch(event.target.value)}
-      />
-
-      <div className="ct-friends-home-body">
-        {tab === "requests" ? (
-          <>
+    return (
+      <>
+        {incomingRows.length > 0 && (
+          <section className="ct-friends-home-group">
             <p className="ct-list-group-title">
-              Gelen istekler ({incomingRows.length})
+              Gelen istekler
+              <span className="ct-segmented-count">{incomingRows.length}</span>
             </p>
 
-            <ul className="ct-list" role="list" aria-label="Gelen istekler">
-              {friends.loadError
-                ? renderLoadError()
-                : incomingRows.length === 0 && (
-                    <li className="ct-list-state">Bekleyen istek yok.</li>
-                  )}
-
+            <ul className="ct-list" aria-label="Gelen istekler">
               {incomingRows.map((row) => {
                 // Both buttons carry the row's pending flag: it is keyed by user
                 // id, not by which of the two was clicked.
@@ -410,67 +503,106 @@ export function FriendsHomePanel({
                     subtitle="Arkadaş olmak istiyor"
                     actions={
                       <>
-                        <Tooltip title="Kabul et">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<CheckOutlined />}
-                            loading={isPending}
-                            aria-label={`${row.name} isteğini kabul et`}
-                            onClick={() => void friends.acceptRequest(row.userId)}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Reddet">
-                          <Button
-                            type="text"
-                            size="small"
-                            danger
-                            icon={<CloseOutlined />}
-                            loading={isPending}
-                            aria-label={`${row.name} isteğini reddet`}
-                            onClick={() => void friends.removeFriend(row.userId)}
-                          />
-                        </Tooltip>
+                        <RowAction
+                          title="Kabul et"
+                          tone="success"
+                          icon={<CheckOutlined />}
+                          ariaLabel={`${row.name} isteğini kabul et`}
+                          isLoading={isPending}
+                          onClick={() => void friends.acceptRequest(row.userId)}
+                        />
+                        <RowAction
+                          title="Reddet"
+                          tone="danger"
+                          icon={<CloseOutlined />}
+                          ariaLabel={`${row.name} isteğini reddet`}
+                          isLoading={isPending}
+                          onClick={() => void friends.removeFriend(row.userId)}
+                        />
                       </>
                     }
                   />
                 );
               })}
             </ul>
+          </section>
+        )}
 
+        {outgoingRows.length > 0 && (
+          <section className="ct-friends-home-group">
             <p className="ct-list-group-title">
-              Gönderilen istekler ({outgoingRows.length})
+              Gönderilen istekler
+              <span className="ct-segmented-count">{outgoingRows.length}</span>
             </p>
 
-            <ul className="ct-list" role="list" aria-label="Gönderilen istekler">
-              {outgoingRows.length === 0 && (
-                <li className="ct-list-state">Bekleyen isteğiniz yok.</li>
-              )}
-
+            <ul className="ct-list" aria-label="Gönderilen istekler">
               {outgoingRows.map((row) => (
                 <PersonRow
                   key={row.userId}
                   name={row.name}
                   subtitle="Yanıt bekleniyor"
                   actions={
-                    <Tooltip title="İptal et">
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        icon={<CloseOutlined />}
-                        loading={friends.pendingUserIds.includes(row.userId)}
-                        aria-label={`${row.name} isteğini iptal et`}
-                        onClick={() => void friends.removeFriend(row.userId)}
-                      />
-                    </Tooltip>
+                    <RowAction
+                      title="İsteği iptal et"
+                      tone="danger"
+                      icon={<CloseOutlined />}
+                      ariaLabel={`${row.name} isteğini iptal et`}
+                      isLoading={friends.pendingUserIds.includes(row.userId)}
+                      onClick={() => void friends.removeFriend(row.userId)}
+                    />
                   }
                 />
               ))}
             </ul>
-          </>
+          </section>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div className="ct-friends-home">
+      <header className="ct-friends-home-header">
+        <div>
+          <h2>Arkadaşlar</h2>
+          <p>
+            Sohbeti açmak için bir arkadaşınıza tıklayın; sağ tık daha fazla
+            seçenek gösterir.
+          </p>
+        </div>
+
+        <Button type="primary" icon={<UserAddOutlined />} onClick={onAddFriend}>
+          Arkadaş Ekle
+        </Button>
+      </header>
+
+      <div className="ct-friends-home-toolbar">
+        <Segmented
+          value={tab}
+          onChange={(value) => setTab(value as FriendsTab)}
+          options={tabOptions}
+          className="ct-segmented-premium"
+        />
+
+        <Input
+          allowClear
+          className="ct-friends-home-search"
+          value={search}
+          placeholder="Arkadaş ara..."
+          prefix={<SearchOutlined />}
+          aria-label="Arkadaş ara"
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+
+      {/* The label rides the <ul>, not this scroller: a bare div carries no
+          role, so a name on it is announced by nothing. The requests tab labels
+          its own two lists. */}
+      <div className="ct-friends-home-body">
+        {tab === "requests" ? (
+          renderRequests()
         ) : (
-          <ul className="ct-list" role="listbox" aria-label="Arkadaşlar">
+          <ul className="ct-list" aria-label="Arkadaşlar">
             {renderFriendList()}
           </ul>
         )}

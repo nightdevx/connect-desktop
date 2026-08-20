@@ -413,7 +413,7 @@ export function UsersDirectMessagesPanel({
     return enhancedStageParticipantSlots.length;
   }, [focusedParticipantId, isRailVisible, enhancedStageParticipantSlots.length]);
 
-  const { stagePanelRef, stageLayoutStyle } = useLobbyStageLayout(
+  const { stageAreaRef, stageLayoutStyle } = useLobbyStageLayout(
     effectiveParticipantCount,
     isChatOpen,
   );
@@ -683,7 +683,8 @@ export function UsersDirectMessagesPanel({
             onChoose={mentionPicker.choose}
           />
           {replyTo && (
-            <div className="ct-composer-chip">
+            <div className="ct-composer-chip reply">
+              <span className="ct-composer-chip-label">Yanıt</span>
               <div className="ct-composer-chip-text">
                 <ChatReplyQuote
                   replyTo={{
@@ -693,29 +694,34 @@ export function UsersDirectMessagesPanel({
                   }}
                 />
               </div>
-              <Button
-                type="text"
-                size="small"
-                icon={<CloseOutlined />}
-                onClick={() => onSetReplyTo?.(null)}
-                aria-label="Yanıtı iptal et"
-              />
+              <Tooltip title="Yanıtı iptal et (Esc)">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() => onSetReplyTo?.(null)}
+                  aria-label="Yanıtı iptal et"
+                />
+              </Tooltip>
             </div>
           )}
 
           {pendingAttachment && (
             <div className="ct-composer-chip">
+              <span className="ct-composer-chip-label">Dosya</span>
               <span className="ct-composer-chip-text">
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
               </span>
-              <Button
-                type="text"
-                size="small"
-                icon={<CloseOutlined />}
-                onClick={() => onSetPendingAttachment?.(null)}
-                aria-label="Dosyayı kaldır"
-              />
+              <Tooltip title="Dosyayı kaldır">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() => onSetPendingAttachment?.(null)}
+                  aria-label="Dosyayı kaldır"
+                />
+              </Tooltip>
             </div>
           )}
 
@@ -766,8 +772,15 @@ export function UsersDirectMessagesPanel({
               onBlur={mentionPicker.close}
               onKeyDown={(event) => {
                 // Consumes Enter/Tab/arrows while the list is open, so picking
-                // a name does not also send the message.
-                mentionPicker.handleKeyDown(event);
+                // a name does not also send the message. It reports whether it
+                // took the key -- Escape belongs to the picker first, and only
+                // drops the reply once there is no picker to close.
+                if (mentionPicker.handleKeyDown(event)) {
+                  return;
+                }
+                if (event.key === "Escape" && replyTo) {
+                  onSetReplyTo?.(null);
+                }
               }}
               onPressEnter={(event) => {
                 if (mentionPicker.isOpen) {
@@ -811,18 +824,18 @@ export function UsersDirectMessagesPanel({
   const isCallActive = (callState?.status === "active" || (callState?.status === "outgoing" && callState.callerId === currentUserId)) && callState.peerUser?.userId === selectedUser?.userId;
 
   return (
+    // friends-mode drops the panel's gutter: the friends home is banded --
+    // header, toolbar, list -- and its dividers have to reach the panel edge.
+    // The thread view keeps the gutter it has always had.
     <article
-      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""}`}
+      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""} ${selectedUser ? "" : "friends-mode"}`}
     >
       {selectedUser ? (
         <>
           {isCallActive ? (
             <div className="ct-call-split">
               {/* LEFT SIDE: EMBEDDED CALL STAGE */}
-              <section
-                className="ct-lobby-stage-panel ct-call-stage"
-                ref={stagePanelRef}
-              >
+              <section className="ct-lobby-stage-panel ct-call-stage">
                 {/* Embedded Stage Toggle Chat Button */}
                 <button
                   type="button"
@@ -840,7 +853,10 @@ export function UsersDirectMessagesPanel({
                   )}
                 </button>
 
-                {/* LobbyStageView */}
+                {/* The measured box: its padding is the stage's breathing
+                    room, and useLobbyStageLayout fits the tiles to whatever
+                    content box is left over. */}
+                <div className="ct-lobby-stage-area" ref={stageAreaRef}>
                 <LobbyStageView
                   stageParticipantSlots={enhancedStageParticipantSlots}
                   nameByUserId={nameByUserId}
@@ -866,10 +882,16 @@ export function UsersDirectMessagesPanel({
                   isWatchingScreen={isWatchingScreen}
                   onWatchScreen={handleWatchScreen}
                 />
+                </div>
 
                 {/* LobbyActionToolbar */}
+                {/* micLocked is never set here. A moderator mute is a lobby
+                    restriction, and the token path exempts call rooms for the
+                    same reason: a one-to-one call is between two people who
+                    chose to be in it and can hang up. */}
                 <LobbyActionToolbar
                   micEnabled={micEnabled || false}
+                  micLocked={false}
                   headphoneEnabled={headphoneEnabled || false}
                   screenEnabled={screenEnabled || false}
                   cameraEnabled={cameraEnabled || false}

@@ -41,6 +41,10 @@ interface WorkspaceMainPanelProps {
   currentUsername: string;
   currentUserId: string;
   micEnabled: boolean;
+  // A moderator mute stands. micEnabled still carries what the user wants — the
+  // session republishes from it when the restriction lifts — so this is the flag
+  // the microphone button disables on.
+  micLocked: boolean;
   headphoneEnabled: boolean;
   cameraEnabled: boolean;
   screenEnabled: boolean;
@@ -206,6 +210,7 @@ export function WorkspaceMainPanel({
   currentUsername,
   currentUserId,
   micEnabled,
+  micLocked,
   headphoneEnabled,
   cameraEnabled,
   screenEnabled,
@@ -287,7 +292,10 @@ export function WorkspaceMainPanel({
     workspaceSection === "settings" ||
     workspaceSection === "free-games" ||
     workspaceSection === "minigames" ||
-    (workspaceSection === "lobbies" && lobbyRoomId !== null);
+    // Both lobby screens carry their own title now — the room's identity bar
+    // and the selection screen's heading — so the generic one above them was
+    // the second title on the page in either case.
+    workspaceSection === "lobbies";
 
   return (
     <section
@@ -393,6 +401,7 @@ export function WorkspaceMainPanel({
             currentUsername={currentUsername}
             currentUserRole={currentUserRole}
             micEnabled={micEnabled}
+            micLocked={micLocked}
             headphoneEnabled={headphoneEnabled}
             cameraEnabled={cameraEnabled}
             screenEnabled={screenEnabled}

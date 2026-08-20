@@ -1,0 +1,96 @@
+/* ==========================================================================
+   YENİLİKLER
+
+   The changelog dialog, shown once after an update. Everything outside the body
+   is the app's normal modal chrome (.ct-modal in common.css); this file styles
+   only what is inside it.
+
+   The body scrolls rather than the page: somebody who skipped four releases
+   gets four sections, and a modal that grows past the window has no way back to
+   its own confirm button. 60vh leaves the header and the footer on screen at
+   every window height this app supports.
+   ========================================================================== */
+
+.ct-whats-new-body {
+  @apply flex flex-col gap-5 overflow-y-auto pr-1;
+  max-height: 60vh;
+  --ct-scrollbar-size: 8px;
+}
+
+.ct-whats-new-release {
+  @apply flex flex-col gap-2;
+}
+
+.ct-whats-new-release-head {
+  @apply flex items-baseline gap-2;
+}
+
+.ct-whats-new-version {
+  @apply rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-whats-new-date {
+  @apply text-2xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-whats-new-summary {
+  @apply m-0 text-xs;
+  color: var(--ct-text-secondary);
+}
+
+.ct-whats-new-list {
+  @apply m-0 flex list-none flex-col gap-2 p-0;
+}
+
+/* The tag sits in the first column at a fixed width, so the sentences beside it
+   all start on the same vertical however long their labels are — three ragged
+   left edges is what a plain inline badge gives you. */
+.ct-whats-new-item {
+  @apply grid items-start gap-2.5;
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.ct-whats-new-tag {
+  @apply inline-flex items-center justify-center rounded-md border px-1.5 py-0.5 text-micro font-bold uppercase tracking-[0.06em];
+  border-color: var(--ct-border);
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+}
+
+/* Three tones, because the three kinds are read differently: a new feature is
+   worth looking for, a fix is worth knowing about, an improvement is neither.
+
+   Keyed on data-kind rather than on a second class, because one of the kinds is
+   literally `fixed` and Tailwind owns `.fixed`. See whats-new-modal.tsx. */
+.ct-whats-new-tag[data-kind="new"] {
+  border-color: color-mix(in srgb, var(--ct-success) 32%, transparent);
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
+}
+
+.ct-whats-new-tag[data-kind="improved"] {
+  border-color: color-mix(in srgb, var(--ct-info) 32%, transparent);
+  color: var(--ct-info);
+  background: color-mix(in srgb, var(--ct-info) 10%, transparent);
+}
+
+.ct-whats-new-tag[data-kind="fixed"] {
+  border-color: color-mix(in srgb, var(--ct-warning) 32%, transparent);
+  color: var(--ct-warning);
+  background: color-mix(in srgb, var(--ct-warning) 10%, transparent);
+}
+
+.ct-whats-new-text {
+  @apply min-w-0 text-xs;
+  color: var(--ct-text-secondary);
+  line-height: 1.5;
+}
+
+/* A hairline between releases, on the sections that have one above them. */
+.ct-whats-new-release + .ct-whats-new-release {
+  @apply border-t pt-5;
+  border-color: var(--ct-border);
+}

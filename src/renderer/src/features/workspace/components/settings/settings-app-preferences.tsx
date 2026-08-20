@@ -155,6 +155,10 @@ interface HotkeyCaptureFieldProps {
   // raw KeyboardEvent.code for the renderer-side push-to-talk listener.
   mode: "accelerator" | "key";
   disabled: boolean;
+  // Set on a field that only exists while the row above it is on -- the
+  // push-to-talk key belongs to the push-to-talk switch and reads as a
+  // free-standing setting without it.
+  detail?: boolean;
   onChange: (value: string) => void;
 }
 
@@ -164,6 +168,7 @@ export function HotkeyCaptureField({
   value,
   mode,
   disabled,
+  detail = false,
   onChange,
 }: HotkeyCaptureFieldProps) {
   const [capturing, setCapturing] = useState(false);
@@ -210,16 +215,19 @@ export function HotkeyCaptureField({
   }, [capturing, mode, onChange]);
 
   return (
-    <div className="ct-settings-switch-item">
-      <div className="ct-settings-switch-item-content">
+    <div className={`ct-settings-row${detail ? " detail" : ""}`}>
+      <div className="ct-settings-row-text">
         <strong>{label}</strong>
         <span>{hint}</span>
       </div>
       <Button
-        size="small"
         disabled={disabled}
         onClick={() => setCapturing((previous) => !previous)}
         className="ct-hotkey-button"
+        // The button's own label is the whole state of this control, and it
+        // changes without the pointer moving -- a screen reader is told about
+        // it here or not at all.
+        aria-live="polite"
       >
         {capturing ? "Tuşa basın…" : value || "Atanmadı"}
       </Button>

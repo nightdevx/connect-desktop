@@ -10,23 +10,29 @@ import {
 export type LobbyStageLayoutStyle = CSSProperties & {
   "--ct-stage-columns"?: string;
   "--ct-stage-gap"?: string;
-  "--ct-stage-max-width"?: string;
   "--ct-stage-tile-width"?: string;
 };
 
 interface UseLobbyStageLayoutResult {
-  stagePanelRef: MutableRefObject<HTMLElement | null>;
+  /**
+   * Goes on `.ct-lobby-stage-area` — the padded box the tiles are laid out in.
+   *
+   * Deliberately the element that CARRIES the padding rather than the stage
+   * panel around it: a ResizeObserver reports the CONTENT box, so whatever the
+   * stylesheet spends on padding is already subtracted by the time it gets
+   * here. The old version observed the panel and subtracted four hardcoded
+   * numbers (28/28/76/96) that no stylesheet agreed with — the CSS spent
+   * 18/18/66/94, and 10/10 below 900px — so every tile was fitted to an area
+   * that did not exist.
+   */
+  stageAreaRef: MutableRefObject<HTMLDivElement | null>;
   stageLayoutStyle: LobbyStageLayoutStyle;
 }
 
-const STAGE_HORIZONTAL_PADDING_PX = 28;
-const STAGE_VERTICAL_PADDING_TOP_PX = 76;
-const STAGE_VERTICAL_PADDING_BOTTOM_PX = 96;
-const STAGE_INNER_HORIZONTAL_PADDING_PX = 28;
 const TILE_ASPECT_RATIO = 16 / 9;
 const DEFAULT_STAGE_WIDTH_WITH_CHAT = 1040;
 const DEFAULT_STAGE_WIDTH_NO_CHAT = 1360;
-const DEFAULT_STAGE_HEIGHT = 760;
+const DEFAULT_STAGE_HEIGHT = 620;
 const MAX_COLUMNS = 7;
 const RESIZE_DELTA_THRESHOLD = 8;
 
@@ -73,7 +79,6 @@ function resolveIdealMinTileWidth(
 interface StageGridFit {
   columns: number;
   tileWidth: number;
-  stageWidth: number;
 }
 
 function calculateTileWidth(
@@ -105,22 +110,15 @@ function resolveGridFit(
   const fallbackWidth = isLobbyChatOpen
     ? DEFAULT_STAGE_WIDTH_WITH_CHAT
     : DEFAULT_STAGE_WIDTH_NO_CHAT;
-  const measuredWidth = stageSize.width > 0 ? stageSize.width : fallbackWidth;
-  const measuredHeight =
-    stageSize.height > 0 ? stageSize.height : DEFAULT_STAGE_HEIGHT;
 
+  // The measured box IS the content box, so nothing is subtracted from it.
   const availableWidth = Math.max(
     240,
-    measuredWidth -
-      STAGE_HORIZONTAL_PADDING_PX -
-      STAGE_INNER_HORIZONTAL_PADDING_PX,
+    stageSize.width > 0 ? stageSize.width : fallbackWidth,
   );
-
   const availableHeight = Math.max(
     160,
-    measuredHeight -
-      STAGE_VERTICAL_PADDING_TOP_PX -
-      STAGE_VERTICAL_PADDING_BOTTOM_PX,
+    stageSize.height > 0 ? stageSize.height : DEFAULT_STAGE_HEIGHT,
   );
 
   const maxColumns = Math.max(1, Math.min(participantCount, MAX_COLUMNS));
@@ -147,11 +145,7 @@ function resolveGridFit(
     }
 
     const rows = Math.ceil(participantCount / columns);
-    const candidate: StageGridFit = {
-      columns,
-      tileWidth,
-      stageWidth: Math.floor(tileWidth * columns + gapPx * (columns - 1)),
-    };
+    const candidate: StageGridFit = { columns, tileWidth };
 
     if (
       !bestAnyFit ||
@@ -179,40 +173,20 @@ function resolveGridFit(
 
   const selectedFit = bestComfortFit ?? bestAnyFit;
   if (!selectedFit) {
-    return {
-      columns: 1,
-      tileWidth: Math.max(1, Math.floor(availableWidth)),
-      stageWidth: Math.max(240, Math.floor(availableWidth)),
-    };
+    return { columns: 1, tileWidth: Math.max(1, Math.floor(availableWidth)) };
   }
 
   return {
     columns: selectedFit.columns,
     tileWidth: Math.max(1, selectedFit.tileWidth),
-    stageWidth: Math.max(
-      240,
-      Math.min(Math.floor(availableWidth), selectedFit.stageWidth),
-    ),
   };
-}
-
-function resolveMaxWidth(
-  stageWidth: number,
-  computedStageWidth: number,
-): string {
-  const availableWidth =
-    stageWidth > 0
-      ? Math.max(320, stageWidth - STAGE_HORIZONTAL_PADDING_PX)
-      : computedStageWidth;
-
-  return `${Math.floor(Math.min(availableWidth, computedStageWidth))}px`;
 }
 
 export function useLobbyStageLayout(
   participantCount: number,
   isLobbyChatOpen: boolean,
 ): UseLobbyStageLayoutResult {
-  const stagePanelRef = useRef<HTMLElement | null>(null);
+  const stageAreaRef = useRef<HTMLDivElement | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
   const [stageSize, setStageSize] = useState<StageSize>({
     width: 0,
@@ -220,19 +194,37 @@ export function useLobbyStageLayout(
   });
 
   useEffect(() => {
-    const stagePanel = stagePanelRef.current;
-    if (!stagePanel) {
+    const stageArea = stageAreaRef.current;
+    if (!stageArea) {
       return;
     }
 
-    const updateSize = (force = false): void => {
-      const rect = stagePanel.getBoundingClientRect();
-      const nextSize = {
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      };
+    // The same content box the observer reports, read synchronously so the
+    // first paint is already fitted rather than laid out from the fallback.
+    const readContentBox = (): StageSize => {
+      const styles = window.getComputedStyle(stageArea);
+      const horizontal =
+        parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+      const vertical =
+        parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
 
+      return {
+        width: Math.max(0, Math.round(stageArea.clientWidth - horizontal)),
+        height: Math.max(0, Math.round(stageArea.clientHeight - vertical)),
+      };
+    };
+
+    const applySize = (nextSize: StageSize, force: boolean): void => {
       setStageSize((previousSize) => {
+        if (
+          previousSize.width === nextSize.width &&
+          previousSize.height === nextSize.height
+        ) {
+          return previousSize;
+        }
+
+        // A few pixels of drift is not worth reflowing every tile for; the
+        // first measurement always is.
         if (
           !force &&
           Math.abs(previousSize.width - nextSize.width) <
@@ -243,39 +235,37 @@ export function useLobbyStageLayout(
           return previousSize;
         }
 
-        if (
-          previousSize.width === nextSize.width &&
-          previousSize.height === nextSize.height
-        ) {
-          return previousSize;
-        }
-
         return nextSize;
       });
     };
 
-    updateSize(true);
+    applySize(readContentBox(), true);
 
-    const scheduleResize = (): void => {
+    const scheduleResize = (nextSize: StageSize): void => {
       if (resizeFrameRef.current !== null) {
         return;
       }
 
       resizeFrameRef.current = window.requestAnimationFrame(() => {
         resizeFrameRef.current = null;
-        updateSize();
+        applySize(nextSize, false);
       });
     };
 
-    const observer = new ResizeObserver(() => {
-      scheduleResize();
-    });
-    observer.observe(stagePanel);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
 
-    window.addEventListener("resize", scheduleResize);
+      scheduleResize({
+        width: Math.round(entry.contentRect.width),
+        height: Math.round(entry.contentRect.height),
+      });
+    });
+    observer.observe(stageArea);
 
     return () => {
-      window.removeEventListener("resize", scheduleResize);
       observer.disconnect();
 
       if (resizeFrameRef.current !== null) {
@@ -298,18 +288,12 @@ export function useLobbyStageLayout(
     return {
       "--ct-stage-columns": String(gridFit.columns),
       "--ct-stage-gap": `${gapPx}px`,
-      "--ct-stage-max-width": resolveMaxWidth(
-        stageSize.width,
-        gridFit.stageWidth,
-      ),
       "--ct-stage-tile-width": `${gridFit.tileWidth}px`,
     };
   }, [isLobbyChatOpen, participantCount, stageSize]);
 
   return {
-    stagePanelRef,
+    stageAreaRef,
     stageLayoutStyle,
   };
 }
-
-

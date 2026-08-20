@@ -1,14 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dropdown,
   Modal,
   Input,
-  Avatar,
   Switch,
   Select,
   message,
-  Badge,
 } from "antd";
 import {
   EditOutlined,
@@ -22,6 +20,8 @@ import {
   LockOutlined,
   CrownOutlined,
   MessageOutlined,
+  SoundOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
@@ -35,12 +35,18 @@ import {
   UserProfileCardPopover,
 } from "../user/user-profile-card";
 import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
+import { LobbyMemberAvatar } from "./parts/LobbyMemberAvatar";
 import { fetchUserCard } from "../../hooks/user/use-user-cards";
-import { DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE } from "../../hooks/media/use-remote-participant-audio";
+import {
+  DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE,
+  isRemoteParticipantMuted,
+} from "../../hooks/media/use-remote-participant-audio";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
-import { getApiErrorMessage, getDisplayInitials } from "../../workspace-utils";
+import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
+import { useUiStore } from "@/store/ui-store";
+import type { ViewPreferences } from "@/store/view-preferences";
 import workspaceService from "../../services";
 import { describeDuration } from "./parts/moderation-durations";
 import {
@@ -117,6 +123,16 @@ export function LobbiesSidebarPanel({
   participantAudio,
 }: LobbiesSidebarPanelProps) {
   const queryClient = useQueryClient();
+  // Persisted, like every other fold in this app: the panel is unmounted the
+  // moment the workspace switches section, so a useState here would forget which
+  // categories were closed on the way back from Ayarlar.
+  const isVoiceCategoryOpen = useUiStore(
+    (state) => state.viewPreferences.lobbyVoiceCategoryOpen,
+  );
+  const isTextCategoryOpen = useUiStore(
+    (state) => state.viewPreferences.lobbyTextCategoryOpen,
+  );
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
   // Where the last right-click landed, so "Profili Gör" opens the card there.
   const lastContextPointRef = useRef({ x: 0, y: 0 });
   // The member currently being dragged, and the row under the cursor.
@@ -374,49 +390,56 @@ export function LobbiesSidebarPanel({
     setEditRemovePassword(false);
   };
 
-  return (
-    <>
-      <ul className="ct-list" role="listbox" aria-label="Lobiler">
-        {lobbiesQuery.isPending && (
-          <li className="ct-list-state">Lobiler yükleniyor...</li>
-        )}
+  // The room on screen — the same answer `isDisplayed` computes per row, hoisted
+  // because a collapsed category needs it to decide what it may not hide.
+  const displayedLobbyId = openTextRoomId ?? activeLobbyId;
 
-        {!lobbiesQuery.isPending && lobbiesQuery.isError && (
-          <li className="ct-list-state error">
-            Lobiler alınamadı: {lobbiesQuery.error.message}
-          </li>
-        )}
+  // Two kinds of room, two groups. Voice and text used to be interleaved in one
+  // flat column with only their glyph telling them apart, which in a 280px
+  // sidebar with a dozen rooms read as one undifferentiated list.
+  const categories: Array<{
+    key: string;
+    label: string;
+    icon: ReactNode;
+    lobbies: LobbyDescriptor[];
+    open: boolean;
+    preferenceKey: keyof ViewPreferences;
+  }> = [
+    {
+      key: "voice",
+      label: "Sesli Odalar",
+      icon: <SoundOutlined />,
+      lobbies: lobbies.filter((lobby) => !lobby.isTextOnly),
+      open: isVoiceCategoryOpen,
+      preferenceKey: "lobbyVoiceCategoryOpen",
+    },
+    {
+      key: "text",
+      label: "Mesaj Odaları",
+      icon: <MessageOutlined />,
+      lobbies: lobbies.filter((lobby) => lobby.isTextOnly),
+      open: isTextCategoryOpen,
+      preferenceKey: "lobbyTextCategoryOpen",
+    },
+  ];
 
-        {!lobbiesQuery.isPending &&
-          !lobbiesQuery.isError &&
-          !lobbiesQuery.data?.ok && (
-            <li className="ct-list-state error">
-              Lobiler alınamadı: {getApiErrorMessage(lobbiesQuery.data?.error)}
-            </li>
-          )}
-
-        {!lobbiesQuery.isPending &&
-          !lobbiesQuery.isError &&
-          lobbiesQuery.data?.ok &&
-          lobbies.length === 0 && (
-            <li className="ct-list-state">
-              <TeamOutlined className="ct-list-state-icon" />
-              <p>Aktif lobi bulunamadı.</p>
-            </li>
-          )}
-
-        {lobbies.map((lobby) => {
+  // One room's row, drawn the same way in either category. It used to be the
+  // body of `lobbies.map(...)` inline; it is a function now because the list is
+  // no longer one flat column — the same markup is rendered under "Sesli Odalar"
+  // and under "Mesaj Odaları".
+  const renderLobby = (lobby: LobbyDescriptor) => {
           const isEditing = renamingLobbyId === lobby.id;
           const isDeleting = deletingLobbyId === lobby.id;
           const members = lobbyMembersById[lobby.id] ?? [];
-          // Two different kinds of "current": connected to a voice lobby, and
-          // reading a text room. Both are where the user is, so both highlight —
-          // and they can be true at the same time on two different rows.
-          const isCurrent =
-            activeLobbyId === lobby.id || openTextRoomId === lobby.id;
-          // Only one of them is actually on screen, though. Clicking the voice
-          // lobby you are already connected to while reading a text room has to
-          // stay live: that click is how you get back to it.
+          // Two different kinds of "current", and they used to be drawn with
+          // the same highlight: connected to a voice lobby, and reading a room.
+          // They can be true of two different rows at once — sitting in voice
+          // while reading a text channel — so each gets its own mark: the
+          // selected row is the one on screen, the live dot is the room your
+          // microphone is in.
+          const isJoined = activeLobbyId === lobby.id;
+          // Clicking the voice lobby you are already connected to while reading
+          // a text room has to stay live: that click is how you get back to it.
           const isDisplayed = openTextRoomId
             ? openTextRoomId === lobby.id
             : activeLobbyId === lobby.id;
@@ -459,15 +482,88 @@ export function LobbiesSidebarPanel({
             },
           ];
 
-          const lobbyElement = (
+          // The row itself is a real button now. It used to be a <li
+          // role="option"> with a tabIndex and a hand-written Enter/Space
+          // handler, wrapped around the profile buttons and the member list —
+          // an option is not allowed to contain either.
+          const lobbyRow = (
+            <button
+              type="button"
+              className={[
+                "ct-lobby-row",
+                isDisplayed ? "active" : "",
+                isJoined ? "joined" : "",
+                isDisabled ? "busy" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              // aria-disabled, not disabled: a disabled button swallows
+              // contextmenu as well, and the settings menu hanging off this row
+              // has to stay reachable while some other room is being joined.
+              aria-disabled={isDisabled || undefined}
+              aria-current={isDisplayed ? "true" : undefined}
+              onClick={handleLobbyClick}
+            >
+              {/* The room's KIND, in the slot the "#" used to occupy: a
+                  speaker for a voice lobby, a chat bubble for a message room.
+                  The hash said the same thing about both, so the one glyph on
+                  the row carried no information at all. */}
+              <span
+                className="ct-lobby-row-icon"
+                title={
+                  lobby.isTextOnly
+                    ? "Mesaj odası — sesli bağlantı yok"
+                    : "Sesli lobi"
+                }
+              >
+                {lobby.isTextOnly ? <MessageOutlined /> : <SoundOutlined />}
+              </span>
+
+              <span className="ct-lobby-row-name">{lobby.name}</span>
+
+              {lobby.isLocked && (
+                <LockOutlined
+                  className="ct-lobby-row-flag warn"
+                  title="Bu lobi kilitlidir"
+                />
+              )}
+
+              {creatorPresent && (
+                <CrownOutlined
+                  className="ct-lobby-row-flag ok"
+                  title="Kurucu şu an lobide"
+                />
+              )}
+
+              {unreadCount > 0 && (
+                <span
+                  className="ct-lobby-unread"
+                  title={`${unreadCount} okunmamış mesaj`}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+
+              {!lobby.isTextOnly && members.length > 0 && (
+                <span className="ct-lobby-row-count">
+                  <TeamOutlined />
+                  {members.length}
+                </span>
+              )}
+            </button>
+          );
+
+          const isOwner = canManageLobby(
+            lobby.createdBy,
+            currentUserId,
+            currentUserRole,
+          );
+          const hasLobbyMenu = !isDefaultLobby(lobby) && isOwner;
+
+          return (
             <li
               key={lobby.id}
-              className={`ct-list-item clickable ${isCurrent ? "active" : ""} ${
-                isDropTarget ? "drop-target" : ""
-              }`}
-              role="option"
-              aria-selected={isCurrent}
-              tabIndex={0}
+              className={`ct-lobby-group ${isDropTarget ? "drop-target" : ""}`}
               // preventDefault is what MAKES this a drop target; without it the
               // browser refuses the drop and the drag snaps back with no clue
               // as to why. Only called when the room can actually take them,
@@ -504,66 +600,45 @@ export function LobbiesSidebarPanel({
                   lobby.id,
                 );
               }}
-              onClick={handleLobbyClick}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") {
-                  return;
-                }
-                event.preventDefault();
-                handleLobbyClick();
-              }}
             >
-              <div className="ct-lobby-item">
-                <div className="ct-lobby-item-head">
-                  <p className="ct-lobby-item-title">
-                    <span className="truncate">#&nbsp;{lobby.name}</span>
-                    {lobby.isTextOnly && (
-                      <MessageOutlined
-                        className="ct-lobby-item-text"
-                        title="Mesaj odası — sesli bağlantı yok"
-                      />
-                    )}
-                    {lobby.isLocked && (
-                      <LockOutlined
-                        className="ct-lobby-item-lock"
-                        title="Bu lobi kilitlidir"
-                      />
-                    )}
-                    {creatorPresent && (
-                      <CrownOutlined
-                        className="ct-lobby-item-crown"
-                        title="Kurucu şu an lobide"
-                      />
-                    )}
-                  </p>
-                  {unreadCount > 0 && (
-                    <Badge
-                      count={unreadCount}
-                      overflowCount={99}
-                      size="small"
-                      title={`${unreadCount} okunmamış mesaj`}
-                    />
-                  )}
-                  {!lobby.isTextOnly && members.length > 0 && (
-                    <span className="ct-lobby-item-count">
-                      <TeamOutlined />
-                      {members.length}
-                    </span>
-                  )}
-                </div>
+              {hasLobbyMenu ? (
+                <Dropdown
+                  menu={{ items: contextMenuItems }}
+                  trigger={["contextMenu"]}
+                >
+                  {lobbyRow}
+                </Dropdown>
+              ) : (
+                lobbyRow
+              )}
 
-                {/* A message room has no occupancy at all — nobody is ever "in"
-                    one — so it gets neither a count nor "Lobide kimse yok.",
-                    which would read as an empty voice lobby. */}
-                {lobby.isTextOnly ? (
-                  <span className="ct-lobby-item-empty">Sohbet kanalı</span>
-                ) : members.length === 0 ? (
-                  <span className="ct-lobby-item-empty">Lobide kimse yok.</span>
-                ) : (
-                  <ul className="ct-lobby-member-list" aria-label="Lobi üyeleri">
+              {/* A message room has no occupancy at all — nobody is ever "in"
+                  one — and an empty voice lobby says so only on the row being
+                  looked at. Ten rooms each repeating "Lobide kimse yok." was
+                  ten lines of noise in a 280px column; the absent count already
+                  says the same thing. */}
+              {isDisplayed && !lobby.isTextOnly && members.length === 0 && (
+                <p className="ct-lobby-empty">Lobide kimse yok.</p>
+              )}
+
+              {members.length > 0 && (
+                  <ul
+                    className="ct-lobby-members"
+                    aria-label={`${lobby.name} üyeleri`}
+                  >
                     {members.map((member) => {
                       const micOpen = !member.muted && !member.serverMuted;
                       const headphoneOpen = !member.deafened;
+                      const isSelf = member.userId === currentUserId;
+                      // Read for every row, not just the active room's: the
+                      // preference is keyed by person and survives lobbies, so
+                      // a row that does not show it is hiding the reason this
+                      // person will be silent when you next sit with them.
+                      const locallyMuted =
+                        !isSelf &&
+                        isRemoteParticipantMuted(
+                          participantAudio?.preferences[member.userId],
+                        );
                       const canModerate =
                         canManageLobby(lobby.createdBy, currentUserId, currentUserRole) &&
                         member.userId !== currentUserId;
@@ -571,7 +646,7 @@ export function LobbiesSidebarPanel({
                       const memberRow = (
                         <li
                           key={member.userId}
-                          className={`ct-lobby-member-item ${
+                          className={`ct-lobby-member ${
                             canModerate ? "draggable" : ""
                           }`}
                           // Only a moderator can drag: for everybody else the
@@ -605,64 +680,68 @@ export function LobbiesSidebarPanel({
                             setDraggedMember(null);
                             setDropTargetLobbyId(null);
                           }}
-                          // Clicking a person is about that person, never about
-                          // the room they happen to be standing in. The lobby row
-                          // underneath joins the lobby on click, so without this a
-                          // click aimed at somebody's name dragged the user into a
-                          // voice room, microphone live.
-                          onClick={(event) => event.stopPropagation()}
-                          // Same for the right-click: the lobby row has a context
-                          // menu of its own (rename/delete). The position is kept
-                          // because "Profili Gör" opens the card at the cursor.
+                          // The position is kept because "Profili Gör" opens the
+                          // card where the right-click landed.
+                          //
+                          // Nothing has to be stopped from bubbling here any
+                          // more: the lobby's own row is a SIBLING button now,
+                          // not this row's ancestor, so a click aimed at a
+                          // person can no longer fall through and join the room
+                          // they happen to be standing in.
                           onContextMenu={(event) => {
-                            event.stopPropagation();
                             lastContextPointRef.current = {
                               x: event.clientX,
                               y: event.clientY,
                             };
                           }}
                         >
-                          <div className="ct-lobby-member-main">
-                            {/* The trigger stretches across the row — avatar,
-                                name and the empty space after it — rather than
-                                hugging the text. A 60px-wide target inside a
-                                240px row meant most clicks aimed at a person
-                                missed and hit the lobby underneath. */}
-                            <UserProfileCardPopover
-                              userId={member.userId}
-                              fallbackName={member.username}
-                              currentUserId={currentUserId}
-                              friends={friends}
+                          {/* The trigger stretches across the row — avatar,
+                              name and the empty space after it — rather than
+                              hugging the text. A 60px-wide target inside a
+                              240px row meant most clicks aimed at a person
+                              missed and hit the lobby underneath. */}
+                          <UserProfileCardPopover
+                            userId={member.userId}
+                            fallbackName={member.username}
+                            currentUserId={currentUserId}
+                            friends={friends}
+                          >
+                            <button
+                              type="button"
+                              className="ct-profile-trigger ct-lobby-member-identity"
+                              aria-label={`${member.username} profilini aç`}
                             >
-                              <button
-                                type="button"
-                                className="ct-profile-trigger ct-lobby-member-identity"
-                                aria-label={`${member.username} profilini aç`}
-                              >
-                                <Avatar
-                                  size={24}
-                                  src={avatarByUserId[member.userId]}
-                                  className="ct-lobby-member-avatar"
-                                >
-                                  {getDisplayInitials(member.username)}
-                                </Avatar>
-
-                                <span className="ct-lobby-member-name">
-                                  {member.username}
-                                </span>
-                              </button>
-                            </UserProfileCardPopover>
-
-                            {member.userId === lobby.createdBy && (
-                              <CrownOutlined
-                                title="Lobi sahibi"
-                                className="ct-lobby-member-flag on"
+                              <LobbyMemberAvatar
+                                userId={member.userId}
+                                username={member.username}
+                                avatarUrl={avatarByUserId[member.userId]}
                               />
-                            )}
-                          </div>
+
+                              <span className="ct-lobby-member-name">
+                                {member.username}
+                              </span>
+
+                              {member.userId === lobby.createdBy && (
+                                <CrownOutlined
+                                  title="Lobi sahibi"
+                                  className="ct-lobby-member-flag on"
+                                />
+                              )}
+                            </button>
+                          </UserProfileCardPopover>
 
                           <div className="ct-lobby-member-icons">
-                            {micOpen ? (
+                            {/* Your own mute wins the icon: it is the only one
+                                of the three states you can act on, and it holds
+                                whether or not their microphone is open. Amber
+                                rather than the red a moderator mute uses —
+                                different act, different consequence. */}
+                            {locallyMuted ? (
+                              <AudioMutedOutlined
+                                className="ct-lobby-member-flag self-muted"
+                                title="Siz susturdunuz (sağ tık: sesi aç)"
+                              />
+                            ) : micOpen ? (
                               <AudioOutlined
                                 className="ct-lobby-member-flag on"
                                 title="Mikrofon açık"
@@ -707,11 +786,13 @@ export function LobbiesSidebarPanel({
                         </li>
                       );
 
-                      const isSelf = member.userId === currentUserId;
-                      // Playback preferences only mean something for people in
-                      // the room this client is actually connected to.
+                      // Offered from any row, not only the active room's. The
+                      // preference is keyed by person and persisted, so muting
+                      // somebody two lobbies over is a real choice that holds
+                      // when they walk into yours — and a row drawn as muted
+                      // has to carry the way back out of it.
                       const audio =
-                        !isSelf && participantAudio && lobby.id === activeLobbyId
+                        !isSelf && participantAudio
                           ? {
                               preference:
                                 participantAudio.preferences[member.userId] ??
@@ -806,27 +887,114 @@ export function LobbiesSidebarPanel({
                       );
                     })}
                   </ul>
-                )}
-              </div>
+              )}
             </li>
           );
+  };
 
-          const isOwner = canManageLobby(lobby.createdBy, currentUserId, currentUserRole);
-          if (isDefaultLobby(lobby) || !isOwner) {
-            return lobbyElement;
+  return (
+    <>
+      {/* Not role="listbox" any more: every row carries a button, a nested
+          member list and its own menus, and an option is not allowed to hold
+          interactive content — a screen reader read the whole column as one
+          broken select. A list of rooms is a list. */}
+      <div className="ct-lobby-list">
+        {lobbiesQuery.isPending && (
+          <div className="ct-list-state">Lobiler yükleniyor...</div>
+        )}
+
+        {!lobbiesQuery.isPending && lobbiesQuery.isError && (
+          <div className="ct-list-state error">
+            Lobiler alınamadı: {lobbiesQuery.error.message}
+          </div>
+        )}
+
+        {!lobbiesQuery.isPending &&
+          !lobbiesQuery.isError &&
+          !lobbiesQuery.data?.ok && (
+            <div className="ct-list-state error">
+              Lobiler alınamadı: {getApiErrorMessage(lobbiesQuery.data?.error)}
+            </div>
+          )}
+
+        {!lobbiesQuery.isPending &&
+          !lobbiesQuery.isError &&
+          lobbiesQuery.data?.ok &&
+          lobbies.length === 0 && (
+            <div className="ct-list-state">
+              <TeamOutlined className="ct-list-state-icon" />
+              <p>Aktif lobi bulunamadı.</p>
+            </div>
+          )}
+
+        {categories.map((category) => {
+          if (category.lobbies.length === 0) {
+            return null;
           }
 
+          // A collapsed category still shows the room you are standing in.
+          // Folding "Sesli Odalar" away while connected otherwise hid the one
+          // row that says where your microphone is — and the roster with it.
+          const visible = category.open
+            ? category.lobbies
+            : category.lobbies.filter(
+                (lobby) =>
+                  lobby.id === activeLobbyId || lobby.id === displayedLobbyId,
+              );
+          const hiddenUnread = category.open
+            ? 0
+            : category.lobbies.reduce(
+                (total, lobby) =>
+                  visible.some((shown) => shown.id === lobby.id)
+                    ? total
+                    : total + (unreadByLobbyId[lobby.id] ?? 0),
+                0,
+              );
+
           return (
-            <Dropdown
-              key={lobby.id}
-              menu={{ items: contextMenuItems }}
-              trigger={["contextMenu"]}
+            <section
+              key={category.key}
+              className={`ct-lobby-category ${category.open ? "open" : ""}`}
             >
-              {lobbyElement}
-            </Dropdown>
+              <button
+                type="button"
+                className="ct-lobby-category-header"
+                aria-expanded={category.open}
+                onClick={() =>
+                  setViewPreference(category.preferenceKey, !category.open)
+                }
+                title={category.open ? "Kategoriyi kapat" : "Kategoriyi aç"}
+              >
+                <RightOutlined className="ct-lobby-category-chevron" />
+                <span className="ct-lobby-category-icon">{category.icon}</span>
+                <span className="ct-lobby-category-label">
+                  {category.label}
+                </span>
+                <span className="ct-lobby-category-count">
+                  {category.lobbies.length}
+                </span>
+                {hiddenUnread > 0 && (
+                  <span
+                    className="ct-lobby-unread"
+                    title={`${hiddenUnread} okunmamış mesaj`}
+                  >
+                    {hiddenUnread > 99 ? "99+" : hiddenUnread}
+                  </span>
+                )}
+              </button>
+
+              {visible.length > 0 && (
+                <ul
+                  className="ct-lobby-category-items"
+                  aria-label={category.label}
+                >
+                  {visible.map(renderLobby)}
+                </ul>
+              )}
+            </section>
           );
         })}
-      </ul>
+      </div>
 
       <Modal
         rootClassName="ct-modal"
@@ -873,8 +1041,10 @@ export function LobbiesSidebarPanel({
             <Switch checked={editIsLocked} onChange={setEditIsLocked} />
           </div>
 
+          {/* A <div>, not a <label>: there are two controls in here, and a
+              label that points at two things points at neither. */}
           {editIsLocked && (
-            <label className="ct-field">
+            <div className="ct-field">
               <span>Erişimi Olan Kullanıcılar</span>
               <Select
                 mode="multiple"
@@ -909,7 +1079,11 @@ export function LobbiesSidebarPanel({
                 loading={isLookingUp}
                 maxLength={32}
               />
-            </label>
+
+              <p className="ct-field-hint">
+                Listede olmayan birini tam kullanıcı adıyla ekleyebilirsin.
+              </p>
+            </div>
           )}
 
           {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur, mesaj

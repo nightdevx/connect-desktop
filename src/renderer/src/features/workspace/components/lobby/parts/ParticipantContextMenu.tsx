@@ -17,6 +17,7 @@ import {
   IdcardOutlined,
 } from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
 import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
 
@@ -91,6 +92,8 @@ export function ParticipantContextMenu({
   onRemoveFriend,
   onShowProfile,
 }: ParticipantContextMenuProps) {
+  const locallyMuted = isRemoteParticipantMuted(preference);
+
   const menuItems: MenuProps['items'] = [
     {
       key: 'title',
@@ -144,11 +147,11 @@ export function ParticipantContextMenu({
     ] : []),
     {
       key: 'mute',
-      label: preference.muted ? 'Sesi Aç' : 'Sustur',
-      icon: preference.muted ? <AudioOutlined /> : <AudioMutedOutlined />,
+      label: locallyMuted ? 'Sesi Aç' : 'Sustur',
+      icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
       className: 'ct-participant-context-menu-button',
       onClick: () => {
-        onMute(!preference.muted);
+        onMute(!locallyMuted);
         onClose();
       },
     },
@@ -193,7 +196,10 @@ export function ParticipantContextMenu({
       label: (
         <div className="ct-participant-context-menu-hint">
           <SoundOutlined />
-          <span>Mikrofon Sesi: %{preference.volumePercent}</span>
+          <span>
+            Mikrofon Sesi: %{preference.volumePercent}
+            {locallyMuted && " · susturuldu"}
+          </span>
         </div>
       ),
       disabled: true,

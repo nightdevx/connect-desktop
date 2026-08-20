@@ -35,6 +35,12 @@
   to { opacity: 1; }
 }
 
+/* A placeholder bar, breathing while the thing it stands in for loads. */
+@keyframes ctSkeletonPulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+
 /* Indeterminate: the session check has no progress to report. */
 @keyframes ctBootBar {
   from { transform: translateX(-100%); }

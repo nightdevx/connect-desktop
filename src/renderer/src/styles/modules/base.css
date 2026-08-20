@@ -120,9 +120,12 @@
      turn at them. (Same principle as --ct-shadow-color's note above.)
 
      Reaching for --ct-text-primary instead is what turned a participant tile's
-     name and status icons black-on-black the moment the light theme was on. */
+     name and status icons black-on-black the moment the light theme was on.
+
+     There used to be a --ct-on-media-muted beside this, for a tile subtitle
+     line the JSX had stopped rendering; add it back if a second tier of text
+     ever lands on a picture again. */
   --ct-on-media: #ffffff;
-  --ct-on-media-muted: rgba(255, 255, 255, 0.74);
 
   /* A highlighter pen, for the one mention that is of YOU. Same argument as the
      on-media pair: the point of a highlighter is that it is the same colour
@@ -134,6 +137,35 @@
 
   /* ---- Radius (5 steps, replacing 11 ad-hoc values) -------------------- */
   --ct-radius-sm: 6px;
+  /* ---- Game surfaces ---------------------------------------------------
+     A board is the one thing in this app that is looked AT rather than read,
+     and the chrome ladder cannot draw one. --ct-alpha-* is translucent
+     contrast: two adjacent steps of it over the same ground differ by a couple
+     of percent, which is fine for a hairline and useless for "this cell is
+     open and that one is not". Minesweeper shipped with exactly that problem —
+     revealed cells were alpha-02 and closed ones alpha-08, and nobody could
+     tell them apart.
+
+     These are SOLID, and the gap between them is deliberate rather than
+     incidental. */
+  --ct-board-bed: #0e0e11;
+  --ct-board-cell: #23232a;
+
+  /* A chessboard has to read as a chessboard. The same two alpha steps gave a
+     board whose light and dark squares were the same colour at a glance. */
+  --ct-square-light: #6b6b78;
+  --ct-square-dark: #414150;
+
+  /* 2048 climbs in LUMINANCE, not in hue. This app is monochrome — the accent
+     is pure white — so a colour ramp would be the one rainbow on the page. The
+     original game's beige-to-gold arc survives as grey-to-white, with
+     --ct-highlight kept for the top tiles, where "you are doing well" is worth
+     saying in colour. */
+  --ct-tile-1: #34343d;
+  --ct-tile-2: #4e4e5b;
+  --ct-tile-3: #74747f;
+  --ct-tile-4: #a3a3ae;
+
   --ct-radius-md: 10px;
   --ct-radius-lg: 14px;
   --ct-radius-xl: 20px;
@@ -225,6 +257,13 @@
      --ct-gutter is the one horizontal rhythm the sidebar column obeys. Panels
      apply it; their children add none of their own. */
   --ct-gutter: 12px;
+  /* The frame around the lobby's room/selection surface, and the height of the
+     room's identity bar. Both are read from more than one place -- the frame by
+     the panel that draws it and by the chat drawer that has to sit inside it,
+     the bar height by the header itself and by the same drawer, which starts
+     below it. */
+  --ct-lobby-frame: 12px;
+  --ct-lobby-bar-height: 52px;
   --ct-titlebar-height: 48px;
   --ct-rail-width: 72px;
   --ct-sidebar-width: 280px;
@@ -284,6 +323,22 @@
   --ct-accent: #111113;
   --ct-accent-dim: #3a3a40;
   --ct-accent-glow: rgba(0, 0, 0, 0.16);
+
+  /* Boards, mirrored: the bed is the recessed surface in both themes, so here
+     it is DARKER than the cell that sits proud of it, exactly as it is darker
+     there. The chess squares keep the classic warm pair rather than two greys —
+     a neutral board reads as a spreadsheet. */
+  --ct-board-bed: #dcdce2;
+  --ct-board-cell: #f2f2f4;
+  --ct-square-light: #eae7de;
+  --ct-square-dark: #b3ab9b;
+
+  /* The value ramp runs the other way: light tiles for small numbers, dark for
+     large, so the climb is still a climb in contrast against the page. */
+  --ct-tile-1: #dcdce2;
+  --ct-tile-2: #babac4;
+  --ct-tile-3: #85858f;
+  --ct-tile-4: #4a4a54;
 
   /* Green and red are darkened: the dark theme's values are tuned to glow on
      black and drop to ~2.5:1 as text on white. */

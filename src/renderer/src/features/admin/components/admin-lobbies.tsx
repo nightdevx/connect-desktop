@@ -1,6 +1,20 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Space, message, Tag, Avatar, Modal, Form, Input, Popconfirm, Select, Switch } from "antd";
+import {
+  Table,
+  Button,
+  Space,
+  message,
+  Tag,
+  Avatar,
+  Modal,
+  Form,
+  Input,
+  Popconfirm,
+  Select,
+  Switch,
+  Tooltip,
+} from "antd";
 import type { TablePaginationConfig } from "antd";
 import {
   HomeOutlined,
@@ -13,6 +27,7 @@ import {
   DesktopOutlined,
   SearchOutlined,
   StopOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
@@ -21,6 +36,7 @@ import type {
   AdminUserDetail,
   LobbyTimeout,
 } from "@shared/auth-contracts";
+import { AdminPageHeader } from "./admin-primitives";
 
 interface EditLobbyFormValues {
   name: string;
@@ -211,24 +227,31 @@ export default function AdminLobbies() {
 
   const columns = [
     {
-      title: "Oda Bilgisi",
+      title: "Oda",
       key: "lobby",
+      width: 300,
       render: (_value: unknown, record: AdminLobbySnapshot) => (
         <div className="ct-admin-table-user">
           <HomeOutlined className="ct-admin-muted" />
-          <div>
+          <div className="ct-admin-cell">
             {/* strong/span, not bare divs: .ct-admin-table-user styles those two
                 and nothing else, so the name used to render at the table's
                 default weight with the id at the same size beneath it. */}
             <strong>{record.lobby.name}</strong>
-            <span>ID: {record.lobby.id}</span>
+            <span className="ct-admin-mono">{record.lobby.id}</span>
           </div>
+          {record.lobby.isLocked ? (
+            <Tooltip title="Kilitli oda — yalnızca izin verilenler girebilir">
+              <LockOutlined className="ct-icon-warning" />
+            </Tooltip>
+          ) : null}
         </div>
       ),
     },
     {
       title: "Oluşturan",
       key: "createdBy",
+      width: 160,
       render: (_value: unknown, record: AdminLobbySnapshot) => {
         const username = record.lobby.createdByUsername || record.lobby.createdBy;
         return <Tag color="blue">@{username}</Tag>;
@@ -238,43 +261,51 @@ export default function AdminLobbies() {
       title: "Üye Sayısı",
       dataIndex: "size",
       key: "size",
+      width: 130,
       render: (size: number) => (
-        <Tag color={size > 0 ? "green" : "default"}>{size} Aktif Üye</Tag>
+        <Tag color={size > 0 ? "green" : "default"}>{size} aktif üye</Tag>
       ),
     },
     {
       title: "Kurulma Tarihi",
       dataIndex: ["lobby", "createdAt"],
       key: "createdAt",
+      width: 170,
       render: (date: string) => new Date(date).toLocaleString("tr-TR"),
     },
     {
       title: "İşlemler",
       key: "actions",
+      width: 130,
+      align: "right" as const,
       render: (_value: unknown, record: AdminLobbySnapshot) => (
-        <Space size="middle">
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEditClick(record)}
-            className="ct-icon-info"
-            title="Adı Değiştir"
-          />
-          <Button
-            type="text"
-            icon={<StopOutlined />}
-            onClick={() => void openTimeouts(record)}
-            title="Zaman Aşımları"
-          />
+        <div className="ct-admin-actions">
+          <Tooltip title="Yetkileri düzenle">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={() => handleEditClick(record)}
+              className="ct-icon-info"
+            />
+          </Tooltip>
+          <Tooltip title="Zaman aşımları">
+            <Button
+              type="text"
+              icon={<StopOutlined />}
+              onClick={() => void openTimeouts(record)}
+            />
+          </Tooltip>
           <Popconfirm
             title="Odayı silmek istediğinize emin misiniz? Tüm katılımcıların bağlantısı kesilecektir."
             onConfirm={() => handleDeleteLobby(record.lobby.id)}
             okText="Evet"
             cancelText="Hayır"
           >
-            <Button type="text" danger icon={<DeleteOutlined />} title="Sil" />
+            <Tooltip title="Odayı sil">
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Tooltip>
           </Popconfirm>
-        </Space>
+        </div>
       ),
     },
   ];
@@ -310,17 +341,17 @@ export default function AdminLobbies() {
         render: (date: string) => new Date(date).toLocaleTimeString("tr-TR"),
       },
       {
-        title: "Ses / Mikrofon Durumu",
+        title: "Ses / Mikrofon",
         key: "audioStatus",
         render: (_value: unknown, member: AdminLobbyMember) => (
-          <Space>
+          <Space size={4} wrap>
             {member.muted ? (
               <Tag color="red" icon={<AudioMutedOutlined />}>
                 Sessiz
               </Tag>
             ) : (
               <Tag color="green" icon={<SoundOutlined />}>
-                Ses Açık
+                Ses açık
               </Tag>
             )}
             {member.deafened && (
@@ -330,20 +361,20 @@ export default function AdminLobbies() {
         ),
       },
       {
-        title: "Kamera / Ekran Durumu",
+        title: "Kamera / Ekran",
         key: "mediaStatus",
         render: (_value: unknown, member: AdminLobbyMember) => (
-          <Space>
+          <Space size={4} wrap>
             {member.cameraEnabled ? (
               <Tag color="purple" icon={<VideoCameraOutlined />}>
-                Kamera Açık
+                Kamera açık
               </Tag>
             ) : (
-              <Tag color="default">Kamera Kapalı</Tag>
+              <Tag color="default">Kamera kapalı</Tag>
             )}
             {member.screenSharing ? (
               <Tag color="cyan" icon={<DesktopOutlined />}>
-                Ekran Paylaşıyor
+                Ekran paylaşıyor
               </Tag>
             ) : null}
           </Space>
@@ -352,6 +383,7 @@ export default function AdminLobbies() {
       {
         title: "İşlemler",
         key: "actions",
+        align: "right" as const,
         render: (_value: unknown, member: AdminLobbyMember) => (
           <Popconfirm
             title="Kullanıcıyı odadan atmak istediğinize emin misiniz?"
@@ -388,24 +420,24 @@ export default function AdminLobbies() {
 
   return (
     <div className="ct-admin-page">
-      <header className="ct-admin-page-header">
-        <div>
-          <h1>Aktif Odalar</h1>
-          <p>
-            Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık
-            izleyin
-          </p>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={() => fetchLobbies()}>
-          Yenile
-        </Button>
-      </header>
+      <AdminPageHeader
+        title="Odalar"
+        description="Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık izleyin. Liste 4 saniyede bir yenilenir."
+        actions={
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => fetchLobbies()}
+          >
+            Yenile
+          </Button>
+        }
+      />
 
       {/* Filters Bar */}
-      <div
-        className="ct-admin-toolbar"
-      >
+      <div className="ct-admin-toolbar">
         <Input
+          allowClear
           placeholder="Oda adı, ID veya oluşturan ara..."
           prefix={<SearchOutlined className="ct-admin-muted" />}
           value={searchText}
@@ -432,12 +464,18 @@ export default function AdminLobbies() {
         loading={loading}
         expandable={{ expandedRowRender, defaultExpandAllRows: true }}
         onChange={handleTableChange}
+        locale={{
+          emptyText: searchText
+            ? "Bu aramayla eşleşen oda yok."
+            : "Şu anda açık oda yok.",
+        }}
         pagination={{
           current: currentPage,
           pageSize,
           total,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
+          showTotal: (count) => `${count} oda`,
         }}
         // See admin-users: a viewport height for a table that is not the
         // viewport clipped the last row and hid the pagination. The page
@@ -464,12 +502,15 @@ export default function AdminLobbies() {
           pagination={false}
           size="small"
           locale={{ emptyText: "Bu odada zaman aşımı verilmiş kimse yok." }}
+          className="ct-admin-table-wrap"
           columns={[
             {
               title: "Kullanıcı",
               dataIndex: "userId",
               key: "userId",
-              render: (userId: string) => <strong>{userId}</strong>,
+              render: (userId: string) => (
+                <span className="ct-admin-mono">{userId}</span>
+              ),
             },
             {
               title: "Bitiş",
@@ -484,11 +525,12 @@ export default function AdminLobbies() {
             {
               title: "İşlem",
               key: "actions",
+              align: "right" as const,
               render: (_value: unknown, row: LobbyTimeout) => (
                 <Button
-                  type="text"
+                  type="link"
+                  size="small"
                   onClick={() => void handleClearTimeout(row.userId)}
-                  className="ct-icon-info"
                 >
                   Kaldır
                 </Button>
@@ -525,7 +567,12 @@ export default function AdminLobbies() {
             <Input />
           </Form.Item>
 
-          <Form.Item name="isLocked" valuePropName="checked" label="Kilitli Oda">
+          <Form.Item
+            name="isLocked"
+            valuePropName="checked"
+            label="Kilitli Oda"
+            extra="Kilitliyken yalnızca aşağıdaki listedeki kullanıcılar ve odayı kuran kişi girebilir."
+          >
             <Switch />
           </Form.Item>
 

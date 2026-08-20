@@ -152,7 +152,7 @@ export function SettingsSecurity() {
           <h5>Şifre</h5>
 
           <div className="ct-settings-form-group">
-            <div>
+            <div className="ct-settings-field">
               <label
                 className="ct-field-label"
                 htmlFor="settings-current-password"
@@ -169,7 +169,7 @@ export function SettingsSecurity() {
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-new-password">
                 Yeni Şifre
               </label>
@@ -183,7 +183,7 @@ export function SettingsSecurity() {
               />
             </div>
 
-            <div>
+            <div className="ct-settings-field">
               <label
                 className="ct-field-label"
                 htmlFor="settings-confirm-password"
@@ -209,7 +209,14 @@ export function SettingsSecurity() {
                 void handleChangePassword();
               }}
               loading={isChangingPassword}
-              disabled={isChangingPassword}
+              // An empty form has nothing to submit, and a button that is
+              // clickable there only exists to produce a warning toast.
+              disabled={
+                isChangingPassword ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword
+              }
             >
               Şifreyi Değiştir
             </Button>
@@ -254,7 +261,13 @@ export function SettingsSecurity() {
         </div>
       </div>
 
+      {/* rootClassName, like every other dialog in the app. Without it this one
+          modal rendered in Ant Design's own chrome -- a different surface, a
+          different header rule, a different footer -- and its three children
+          stacked flush against each other, because the spacing between them is
+          .ct-modal-form's, not something antd supplies. */}
       <Modal
+        rootClassName="ct-modal"
         open={isDeleteModalOpen}
         title="Hesabı Sil"
         okText="Hesabımı Sil"
@@ -270,23 +283,37 @@ export function SettingsSecurity() {
           void handleDeleteAccount();
         }}
       >
-        <p >
-          Hesabınız hemen devre dışı bırakılacak ve {DELETION_GRACE_DAYS} gün
-          sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri
-          alabilirsiniz.
-        </p>
-        <Input.Password
-          placeholder="Şifreniz"
-          autoComplete="current-password"
-          value={deletePassword}
-          onChange={(event) => setDeletePassword(event.target.value)}
-          
-        />
-        <Input
-          placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yazın`}
-          value={deleteConfirmWord}
-          onChange={(event) => setDeleteConfirmWord(event.target.value)}
-        />
+        <div className="ct-modal-form">
+          <p className="ct-field-hint">
+            Hesabınız hemen devre dışı bırakılacak ve {DELETION_GRACE_DAYS} gün
+            sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri
+            alabilirsiniz.
+          </p>
+
+          <div className="ct-settings-field">
+            <label className="ct-field-label" htmlFor="settings-delete-password">
+              Şifreniz
+            </label>
+            <Input.Password
+              id="settings-delete-password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(event) => setDeletePassword(event.target.value)}
+            />
+          </div>
+
+          <div className="ct-settings-field">
+            <label className="ct-field-label" htmlFor="settings-delete-confirm">
+              Onay
+            </label>
+            <Input
+              id="settings-delete-confirm"
+              placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yazın`}
+              value={deleteConfirmWord}
+              onChange={(event) => setDeleteConfirmWord(event.target.value)}
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

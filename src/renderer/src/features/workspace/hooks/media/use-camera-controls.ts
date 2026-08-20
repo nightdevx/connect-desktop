@@ -101,6 +101,33 @@ export const useCameraControls = ({
     void prepareCameraPreview();
   }, [prepareCameraPreview]);
 
+  // Resolution and framerate are chosen inside the dialog now, and they are
+  // capture constraints — a preview that keeps running on the old ones is
+  // showing something the room will not get. Restart it when they change.
+  //
+  // Guarded by what the CURRENT preview was built with rather than by a
+  // dependency list: prepareCameraPreview's identity changes whenever the
+  // preview stream does, so this effect re-runs constantly and the ref is what
+  // keeps it from re-opening the camera every time.
+  const previewPreferencesRef = useRef(cameraPreferences);
+  useEffect(() => {
+    if (!isCameraShareModalOpen) {
+      previewPreferencesRef.current = cameraPreferences;
+      return;
+    }
+
+    const applied = previewPreferencesRef.current;
+    if (
+      applied.resolution === cameraPreferences.resolution &&
+      applied.frameRate === cameraPreferences.frameRate
+    ) {
+      return;
+    }
+
+    previewPreferencesRef.current = cameraPreferences;
+    void prepareCameraPreview();
+  }, [cameraPreferences, isCameraShareModalOpen, prepareCameraPreview]);
+
   const closeCameraShareModal = useCallback((): void => {
     if (isStartingCameraShare || isPreparingCameraPreview) return;
     stopCameraPreview();

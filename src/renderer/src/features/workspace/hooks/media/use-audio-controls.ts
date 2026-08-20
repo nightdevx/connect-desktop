@@ -41,6 +41,17 @@ export const useAudioControls = ({
     () => readAudioPreferences().defaultHeadphoneEnabled
   );
 
+  // A moderator has taken this user's microphone away.
+  //
+  // Kept apart from micEnabled on purpose: micEnabled is what the person WANTS,
+  // and it has to survive the restriction — the session republishes from it the
+  // moment the grant comes back, which is what stopped a lifted mute needing a
+  // leave-and-rejoin. This is the other half of that: the button must not offer
+  // an action the server will refuse, and it must say why.
+  const [micLocked, setMicLocked] = useState(false);
+  const micLockedRef = useRef(false);
+  micLockedRef.current = micLocked;
+
   // 0. Continuous state synchronization with the active LiveKit session
   useEffect(() => {
     if (liveKitSessionRef.current) {
@@ -106,17 +117,28 @@ export const useAudioControls = ({
   // if they differ. Throttled, because the roster arrives about once a second.
   const lastReassertAtRef = useRef(0);
   const reconcileDeclaredAudioState = useCallback(
-    (serverMuted: boolean | undefined, serverDeafened: boolean | undefined): void => {
+    (
+      rosterMuted: boolean | undefined,
+      rosterDeafened: boolean | undefined,
+      // The moderator restriction, which is a different flag from rosterMuted:
+      // one is what this person chose, the other is what was done to them.
+      rosterServerMuted?: boolean,
+    ): void => {
       const lobbyId = activeLobbyRef.current;
+      // Before the early returns below. A moderator mute is a lobby restriction,
+      // so leaving the room is also how it stops applying to this button —
+      // returning early would leave it locked in the next room.
+      setMicLocked(Boolean(lobbyId) && !lobbyId?.startsWith("call_") && Boolean(rosterServerMuted));
+
       if (!lobbyId || lobbyId.startsWith("call_")) {
         return;
       }
-      if (serverMuted === undefined && serverDeafened === undefined) {
+      if (rosterMuted === undefined && rosterDeafened === undefined) {
         return;
       }
 
       const agrees =
-        serverMuted === !micEnabled && serverDeafened === !headphoneEnabled;
+        rosterMuted === !micEnabled && rosterDeafened === !headphoneEnabled;
       if (agrees) {
         return;
       }
@@ -177,17 +199,43 @@ export const useAudioControls = ({
     [activeLobbyRef, currentUserId, liveKitSessionRef, patchLobbyMemberState, setStatus]
   );
 
+  // Turning the microphone ON while a moderator mute stands is the one thing
+  // this hook refuses.
+  //
+  // Not cosmetic: the SFU drops the publish, POST /lobby/mute answers 403, and
+  // the capture attempt surfaces as a device warning — three failures for one
+  // press, none of which say what is actually going on. Turning it OFF is always
+  // allowed; a restriction is not a reason to force somebody's microphone open.
+  const refuseWhileLocked = useCallback(
+    (next: boolean): boolean => {
+      if (!next || !micLockedRef.current) {
+        return false;
+      }
+      setStatus("Bir yetkili mikrofonunuzu kapattı; açamazsınız.", "warn");
+      return true;
+    },
+    [setStatus],
+  );
+
   const handleMicToggle = useCallback((): void => {
     const next = !micEnabled;
+    if (refuseWhileLocked(next)) {
+      return;
+    }
     setMicEnabled(next);
     applyMicState(next);
-  }, [micEnabled, applyMicState]);
+  }, [micEnabled, applyMicState, refuseWhileLocked]);
 
   // Absolute set rather than a toggle. Push-to-talk needs it: a key-repeat or a
   // missed keyup must never leave the mic in the opposite state to the key.
   const setMicState = useCallback(
     (next: boolean): void => {
       if (next === micEnabled) {
+        return;
+      }
+      // Silently, unlike the button: push-to-talk is held down, and a warning
+      // per key repeat would bury the screen in toasts.
+      if (next && micLockedRef.current) {
         return;
       }
       setMicEnabled(next);
@@ -245,6 +293,7 @@ export const useAudioControls = ({
 
   return {
     micEnabled,
+    micLocked,
     setMicEnabled,
     headphoneEnabled,
     setHeadphoneEnabled,

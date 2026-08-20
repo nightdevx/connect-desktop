@@ -40,10 +40,15 @@ export function LobbyPasswordPromptModal({
   };
 
   return (
+    // rootClassName, like every other modal in the app. This one used to
+    // re-implement .ct-modal inline — its own mask blur, its own primary-button
+    // palette, its own body colours — so it was the one dialog that did not
+    // follow the theme when the shared rules changed.
     <Modal
+      rootClassName="ct-modal"
       title={
-        <span >
-          <LockOutlined  />
+        <span className="ct-modal-title-icon">
+          <LockOutlined />
           Oda Şifresi
         </span>
       }
@@ -52,46 +57,32 @@ export function LobbyPasswordPromptModal({
       onCancel={onCancel}
       okText="Katıl"
       cancelText="İptal"
+      destroyOnHidden
       okButtonProps={{
         disabled: password.trim().length === 0,
         loading: isJoining,
-        // Tokens, not literals: white-on-black is the dark theme's primary
-        // button, and on a light page it was a white button with black text
-        // sitting on a white panel.
-        style: {
-          background: "var(--ct-accent)",
-          color: "var(--ct-text-inverse)",
-          fontWeight: "600",
-        },
-      }}
-      cancelButtonProps={{
-        style: {
-          background: "transparent",
-          borderColor: "var(--ct-border-strong)",
-          color: "var(--ct-text-primary)",
-        },
-      }}
-      styles={{
-        mask: { backdropFilter: "blur(6px)", background: "var(--ct-scrim)" },
-        body: { background: "transparent", color: "var(--ct-text-primary)" },
       }}
     >
-      <div >
+      <div className="ct-modal-form">
         <p className="ct-field-hint">
           Bu lobi şifre korumalı. Katılmak için şifreyi girin.
         </p>
-        <Input.Password
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Oda şifresi"
-          autoFocus
-          onPressEnter={handleOk}
-          status={pending?.wrong ? "error" : undefined}
-        />
+
+        <label className="ct-field" htmlFor="lobby-join-password">
+          <span>Oda Şifresi</span>
+          <Input.Password
+            id="lobby-join-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Oda şifresi"
+            autoFocus
+            onPressEnter={handleOk}
+            status={pending?.wrong ? "error" : undefined}
+          />
+        </label>
+
         {pending?.wrong && (
-          <p className="ct-form-error">
-            Şifre yanlış, tekrar deneyin.
-          </p>
+          <p className="ct-form-error">Şifre yanlış, tekrar deneyin.</p>
         )}
       </div>
     </Modal>

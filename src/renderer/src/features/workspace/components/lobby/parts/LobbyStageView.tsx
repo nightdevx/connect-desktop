@@ -9,6 +9,7 @@ import {
   resolvePreviewStream,
 } from "../lobby-view-utils";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
+import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
 
 interface LobbyStageViewProps {
   stageParticipantSlots: StageParticipantSlot[];
@@ -101,7 +102,7 @@ export function LobbyStageView({
               selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
               onSelectAudioInputDevice={onSelectAudioInputDevice}
               onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-              localAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.muted}
+              localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId])}
               localScreenAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.screenAudioMuted}
               isWatchingScreen={isWatchingScreen(focusedParticipantSlot.participant.userId)}
               onWatchScreen={onWatchScreen}
@@ -159,7 +160,7 @@ export function LobbyStageView({
                   selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
                   onSelectAudioInputDevice={onSelectAudioInputDevice}
                   onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-                  localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
+                  localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[slot.participant.userId])}
                   localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
                   isWatchingScreen={isWatchingScreen(slot.participant.userId)}
                   onWatchScreen={onWatchScreen}
@@ -195,7 +196,7 @@ export function LobbyStageView({
             selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
             onSelectAudioInputDevice={onSelectAudioInputDevice}
             onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-            localAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.muted}
+            localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[slot.participant.userId])}
             localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
             isWatchingScreen={isWatchingScreen(slot.participant.userId)}
             onWatchScreen={onWatchScreen}

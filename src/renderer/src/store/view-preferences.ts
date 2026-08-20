@@ -20,6 +20,10 @@ export interface ViewPreferences {
   callChatOpen: boolean;
   /** The strip of everyone who is not the focused participant. */
   participantRailVisible: boolean;
+  /** The "Sesli Odalar" category in the lobbies sidebar. */
+  lobbyVoiceCategoryOpen: boolean;
+  /** The "Mesaj Odaları" category in the lobbies sidebar. */
+  lobbyTextCategoryOpen: boolean;
 }
 
 const VIEW_PREFERENCES_STORAGE_KEY = "ct.settings.view";
@@ -28,6 +32,8 @@ export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   lobbyChatOpen: true,
   callChatOpen: true,
   participantRailVisible: true,
+  lobbyVoiceCategoryOpen: true,
+  lobbyTextCategoryOpen: true,
 };
 
 export const readViewPreferences = (): ViewPreferences => {

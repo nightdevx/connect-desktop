@@ -499,7 +499,7 @@ export function LobbyChatPanel({
           )}
 
           {!lobbyMessagesQuery.isPending && lobbyMessagesQuery.isError && (
-            <div className="ct-chat-search">
+            <div className="ct-chat-notice">
               <Alert
                 message="Hata"
                 description={`Sohbet alınamadı: ${lobbyMessagesQuery.error.message}`}
@@ -513,7 +513,7 @@ export function LobbyChatPanel({
           {!lobbyMessagesQuery.isPending &&
             !lobbyMessagesQuery.isError &&
             !lobbyMessagesQuery.data?.ok && (
-              <div className="ct-chat-search">
+              <div className="ct-chat-notice">
                 <Alert
                   message="Hata"
                   description={`Sohbet alınamadı: ${getApiErrorMessage(lobbyMessagesQuery.data?.error)}`}
@@ -601,9 +601,8 @@ export function LobbyChatPanel({
             onChoose={mentionPicker.choose}
           />
           {replyTo && (
-            <div
-              className="ct-composer-chip"
-            >
+            <div className="ct-composer-chip reply">
+              <span className="ct-composer-chip-label">Yanıt</span>
               <div className="ct-composer-chip-text">
                 <ChatReplyQuote
                   replyTo={{
@@ -613,33 +612,34 @@ export function LobbyChatPanel({
                   }}
                 />
               </div>
-              <Button
-                type="text"
-                size="small"
-                icon={<CloseOutlined />}
-                onClick={() => onSetReplyTo?.(null)}
-                aria-label="Yanıtı iptal et"
-              />
+              <Tooltip title="Yanıtı iptal et (Esc)">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() => onSetReplyTo?.(null)}
+                  aria-label="Yanıtı iptal et"
+                />
+              </Tooltip>
             </div>
           )}
 
           {pendingAttachment && (
-            <div
-              className="ct-composer-chip"
-            >
-              <span
-                className="ct-composer-chip-text"
-              >
+            <div className="ct-composer-chip">
+              <span className="ct-composer-chip-label">Dosya</span>
+              <span className="ct-composer-chip-text">
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
               </span>
-              <Button
-                type="text"
-                size="small"
-                icon={<CloseOutlined />}
-                onClick={() => onSetPendingAttachment?.(null)}
-                aria-label="Dosyayı kaldır"
-              />
+              <Tooltip title="Dosyayı kaldır">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() => onSetPendingAttachment?.(null)}
+                  aria-label="Dosyayı kaldır"
+                />
+              </Tooltip>
             </div>
           )}
 
@@ -688,7 +688,14 @@ export function LobbyChatPanel({
               onSelect={mentionPicker.syncCaret}
               onBlur={mentionPicker.close}
               onKeyDown={(event) => {
-                mentionPicker.handleKeyDown(event);
+                // Escape belongs to the picker first; it only drops the reply
+                // once there is no picker left to close.
+                if (mentionPicker.handleKeyDown(event)) {
+                  return;
+                }
+                if (event.key === "Escape" && replyTo) {
+                  onSetReplyTo?.(null);
+                }
               }}
               onPressEnter={(event) => {
                 // The list is open: Enter is picking a name, not sending.

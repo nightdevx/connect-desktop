@@ -130,6 +130,14 @@
     @apply shrink-0 px-4 pt-2;
   }
 
+  /* An error or a notice inside the thread. It used to borrow .ct-chat-search
+     purely for that class's padding, which meant the search field and an alert
+     could never be spaced differently even though only one of them is a
+     control. */
+  .ct-chat-notice {
+    @apply shrink-0 px-4 py-2;
+  }
+
   .ct-chat-search-summary {
     @apply px-3 py-1.5 text-2xs;
     color: var(--ct-alpha-50);
@@ -173,15 +181,45 @@
   }
 
   /* Reply preview and pending attachment share one shape: a strip above the
-     input with the content on the left and a dismiss button on the right. */
+     input with the content on the left and a dismiss button on the right.
+
+     They also used to share one LOOK, which was the problem: two identical grey
+     strips, and nothing on either said which was which. Each now opens with a
+     label naming what it is, and the reply carries the same accent bar its
+     quote does inside a bubble. */
   .ct-composer-chip {
-    @apply flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs;
+    @apply flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs;
+    border-color: var(--ct-alpha-08);
     background: var(--ct-alpha-04);
   }
 
+  .ct-composer-chip.reply {
+    border-left: 3px solid color-mix(in srgb, var(--ct-info) 55%, transparent);
+  }
+
+  .ct-composer-chip-label {
+    @apply shrink-0 text-micro font-bold uppercase tracking-[0.1em];
+    color: var(--ct-text-muted);
+  }
+
   .ct-composer-chip-text {
-    @apply min-w-0 flex-1 truncate;
+    @apply flex min-w-0 flex-1 items-center gap-2 truncate;
     color: var(--ct-text-secondary);
+  }
+
+  /* The quote is already the chip's content; its own margin would push the
+     dismiss button off the row's centre line. */
+  .ct-composer-chip-text .ct-chat-reply-quote {
+    @apply mb-0 min-w-0 flex-1 border-l-0 pl-0;
+  }
+
+  .ct-composer-chip .ant-btn {
+    @apply h-control-xs w-control-xs shrink-0 p-0;
+    color: var(--ct-text-muted);
+  }
+
+  .ct-composer-chip .ant-btn:hover {
+    color: var(--ct-text-primary);
   }
 
   /* min-w-0 lets the field actually shrink to its flex basis, so it fills the
@@ -604,18 +642,46 @@
   /* --- Reply quote, attachment, reactions --------------------------------
      Shared by both conversation surfaces. */
 
+  /* One line: arrow, author, quoted text, all truncated in place.
+
+     It was two -- a block <strong> over the body -- which put four lines of
+     chrome above a two-line reply, and made the composer's reply chip twice the
+     height of its attachment chip for no extra information.
+
+     No `opacity` either. Fading the whole block took the author's name down
+     with the quote, and 0.75 of --ct-text-muted lands under 4.5:1 on the
+     bubble. The two halves now carry their own colours, which is also what
+     lets the author read as the louder of the two. */
   .ct-chat-reply-quote {
-    @apply mb-1.5 pl-2 text-xs leading-snug;
+    @apply mb-1.5 flex min-w-0 items-center gap-1.5 pl-2 text-xs leading-snug;
     border-left: 2px solid color-mix(in srgb, var(--ct-info) 55%, transparent);
-    opacity: 0.75;
   }
 
+  .ct-chat-reply-quote-icon {
+    @apply shrink-0;
+    font-size: var(--ct-icon-xs);
+    color: color-mix(in srgb, var(--ct-info) 75%, var(--ct-text-muted));
+  }
+
+  /* Capped, so a 30-character display name cannot push the quoted text out of
+     the row entirely. */
   .ct-chat-reply-quote strong {
-    @apply block text-2xs;
+    @apply max-w-[45%] shrink-0 truncate text-xs font-semibold;
+    color: var(--ct-text-secondary);
+  }
+
+  /* Same specificity as `.ct-chat-bubble span` (display:block, 11px, muted),
+     so this wins by sitting later in the file -- the arrangement that rule and
+     its neighbours have always relied on. Keep it below that block. */
+  .ct-chat-reply-quote > span {
+    @apply block min-w-0 flex-1 truncate text-xs;
+    color: var(--ct-text-muted);
+    white-space: nowrap;
   }
 
   .ct-chat-reply-quote em {
-    opacity: 0.7;
+    @apply truncate;
+    color: var(--ct-text-muted);
   }
 
   .ct-chat-attachment {
@@ -654,82 +720,73 @@
     opacity: 0.55;
   }
 
+  /* --- Reactions ---------------------------------------------------------
+     A reaction is a GLYPH with a number beside it, and the glyph is the whole
+     message. It used to be drawn at 11px in --ct-text-muted, inheriting
+     `.ct-chat-bubble span`, inside a 17px-tall pill: smaller and fainter than
+     the text it was attached to, and under the WCAG 2.2 minimum for a target.
+     The chip is now one control step tall (24px = --ct-control-xs), the emoji
+     is 16px and the count is the annotation. */
+
   .ct-chat-reactions {
-    @apply mt-1 flex flex-wrap gap-1;
+    @apply mt-1.5 flex flex-wrap items-center gap-1;
   }
 
   .ct-chat-reaction {
-    @apply inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-2xs leading-none;
-    border-color: var(--ct-border-strong);
-    color: inherit;
+    @apply inline-flex h-control-xs cursor-pointer select-none items-center gap-1.5 rounded-full border px-2;
+    border-color: var(--ct-alpha-12);
     background: var(--ct-alpha-04);
+    transition:
+      border-color var(--ct-duration-fast) ease,
+      background var(--ct-duration-fast) ease;
+  }
+
+  .ct-chat-reaction .ct-chat-reaction-emoji {
+    @apply text-lg leading-none;
+  }
+
+  .ct-chat-reaction .ct-chat-reaction-count {
+    @apply text-2xs font-bold leading-none tabular-nums;
+    color: var(--ct-text-secondary);
+  }
+
+  .ct-chat-reaction:hover:not(:disabled) {
+    border-color: var(--ct-border-strong);
+    background: var(--ct-alpha-08);
   }
 
   /* Your own reaction reads as "pressed", so a count you contributed to is
-     distinguishable from one you only watched. */
+     distinguishable from one you only watched. The count comes along: on a
+     tinted chip a grey number is the one part that still looks switched off. */
   .ct-chat-reaction.mine {
-    border-color: color-mix(in srgb, var(--ct-info) 70%, transparent);
+    border-color: color-mix(in srgb, var(--ct-info) 60%, transparent);
     background: color-mix(in srgb, var(--ct-info) 16%, transparent);
+  }
+
+  .ct-chat-reaction.mine .ct-chat-reaction-count {
+    color: var(--ct-info);
+  }
+
+  .ct-chat-reaction.mine:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--ct-info) 85%, transparent);
+    background: color-mix(in srgb, var(--ct-info) 24%, transparent);
   }
 
   .ct-chat-reaction:disabled {
     cursor: default;
+    opacity: 0.6;
   }
 
-  /* Reaction picker is now the full emoji keyboard inside a popover. */
+  /* Reaction picker is now the full emoji keyboard inside a popover.
 
-  /* A 20px hit target was below the point where a pointer reliably lands on
-     it; control-xs is the smallest size on the scale and still comfortable. */
-  .ct-chat-message-delete {
-    @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
-    border-color: transparent;
-    color: var(--ct-text-muted);
-    background: transparent;
-    font-size: var(--ct-icon-xs);
-    transition: all var(--ct-duration-fast) ease;
-  }
-
-  .ct-chat-message-delete:hover:not(:disabled) {
-    border-color: var(--ct-border-strong);
-    color: var(--ct-text-primary);
-    background: var(--ct-alpha-12);
-  }
-
-  .ct-chat-message-delete:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .ct-chat-composer {
-    @apply flex items-center gap-2 border-t p-3;
-    border-color: var(--ct-border);
-    background: var(--ct-panel-soft);
-  }
-
-  .ct-chat-composer .ct-input {
-    @apply flex-1;
-  }
-
-  .ct-chat-send-icon {
-    @apply inline-flex h-control-md w-control-md items-center justify-center rounded-md border;
-    border-color: var(--ct-accent-strong);
-    color: var(--ct-text-inverse);
-    background: var(--ct-accent);
-    font-size: var(--ct-icon-sm);
-    box-shadow: var(--ct-shadow-glow);
-    transition: all var(--ct-duration-base) ease;
-  }
-
-  .ct-chat-send-icon:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 22px var(--ct-accent-glow);
-  }
-
-  .ct-chat-send-icon:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
+     A SECOND .ct-chat-composer rule used to sit here -- `flex items-center`,
+     i.e. a row -- and being later in the file it beat the real one 500 lines
+     up. That is why the reply quote and the pending-attachment chip rendered
+     BESIDE the input instead of above it: the composer was laid out as one
+     horizontal strip, so both chips became columns of it and squeezed the field
+     they belong to. Its `.ct-chat-composer .ct-input` companion matched nothing
+     at all -- the field is .ct-chat-input. Both deleted; the flex-col rule above
+     is the live one. */
 
 /* Call Banners */
 .ct-muted-call-banner,
@@ -893,37 +950,202 @@
 
 /* --------------------------------------------------------------------------
    Friends home -- what the main panel shows with no conversation selected.
-   No padding of its own: .ct-chat-panel-plain already carries the p-3/p-4 the
-   thread view sits in, so the two states line up on the same gutter.
+
+   ONE vertical rule at 20px from the panel edge, and everything on the page
+   stands on it: the title, the paragraph, the tab strip, the search box, the
+   group headings and the avatars. The page used to inherit .ct-chat-panel-plain's
+   p-3/p-4 and then inset the rows another 12px inside that, so the rows sat 12px
+   right of every control above them and no divider could ever reach the panel
+   edge. The panel now hands this screen its full width (.friends-mode below) and
+   the three bands set their own padding:
+
+     header   px-5    title / description / Arkadaş Ekle
+     toolbar  px-5    tabs + search, divider underneath
+     body     pl-2    the scroller; rows add the remaining 12px themselves
+
+   20 = 8 + 12 is what lines the avatars up with the title above them, and the
+   right edge is the scrollbar gutter rather than padding -- see the body below.
    -------------------------------------------------------------------------- */
 
+/* The thread view keeps its gutter; the friends home is banded and takes the
+   panel edge to edge. */
+.ct-chat-panel-plain.friends-mode {
+  @apply p-0;
+}
+
+/* A container rather than a media query: what decides whether the tabs and the
+   search box fit on one row is the width of this panel, and the panel is the
+   window minus a rail and a sidebar that both resize on their own. */
 .ct-friends-home {
-  @apply flex min-h-0 flex-1 flex-col gap-3;
+  @apply flex min-h-0 flex-1 flex-col;
+  container-type: inline-size;
+  container-name: friends-home;
 }
 
+/* items-center, not items-start: the button used to hang off the top of a
+   two-line text block, which reads as a misalignment because it is one. */
 .ct-friends-home-header {
-  @apply flex items-start justify-between gap-3;
+  @apply flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-4;
 }
 
-.ct-friends-home-header h3 {
-  @apply m-0 text-[15px] font-bold;
+.ct-friends-home-header h2 {
+  @apply m-0 text-xl font-bold;
   color: var(--ct-text-primary);
+  letter-spacing: -0.01em;
 }
 
+/* 52ch, the same measure the lobby selection screen's description uses: long
+   enough to read as a sentence, short enough not to run under the button. */
 .ct-friends-home-header p {
-  @apply m-0 mt-0.5 max-w-[420px] text-xs;
+  @apply m-0 mt-1 max-w-[52ch] text-sm;
   color: var(--ct-text-muted);
+}
+
+.ct-friends-home-header .ant-btn {
+  @apply shrink-0;
+}
+
+/* align-items: stretch is what makes the tab strip and the search box the same
+   height without either one being told a number -- the shorter control grows to
+   the taller one, whichever that turns out to be after a font change. */
+.ct-friends-home-toolbar {
+  @apply flex shrink-0 flex-wrap items-stretch gap-2 border-b px-5 pb-3;
+  border-color: var(--ct-border);
+}
+
+.ct-friends-home-toolbar .ant-segmented {
+  @apply min-w-0 max-w-full;
+}
+
+/* Pushed right and capped: a search box stretched across a 1200px panel is a
+   1200px runway for a 12-character username. Below 560px of panel it drops to
+   its own full-width row instead of squeezing the tabs -- see the @container at
+   the end of this block. */
+.ct-friends-home-search.ant-input-affix-wrapper {
+  @apply ml-auto;
+  flex: 1 1 200px;
+  max-width: 280px;
 }
 
 /* The only scroller. Without it a long Çevrimdışı list pushes the tabs and the
    search box off screen, and Arkadaş Ekle -- the sole route to a stranger --
-   goes with them. */
+   goes with them.
+
+   scrollbar-gutter, because this list changes length every time a tab is
+   clicked: without it a full Çevrimdışı list has a bar and a short Çevrimiçi one
+   does not, and every row on the page slides 10px sideways between the two. The
+   gutter is reserved instead of a right padding, so the reserved strip IS the
+   right margin and the rows still end where the header's button does. */
 .ct-friends-home-body {
-  @apply min-h-0 flex-1 overflow-y-auto;
+  @apply flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-3 pl-2 pr-0;
+  scrollbar-gutter: stable;
 }
 
-.ct-friends-home-body .ct-list + .ct-list-group-title {
+.ct-friends-home-group {
+  @apply flex flex-col gap-1.5;
+}
+
+/* --------------------------------------------------------------------------
+   Friend row
+
+   The row is a list item with two halves: the identity, which opens the
+   conversation, and the actions, which do not. Only the left half is focusable,
+   so Enter on a focused row can never mean "unfriend".
+   -------------------------------------------------------------------------- */
+
+.ct-friends-home .ct-list-item {
+  @apply relative;
+}
+
+.ct-row-open {
+  @apply flex min-w-0 flex-1 items-center;
+}
+
+/* The row's own 12px padding is dead space otherwise: clicking just left of an
+   avatar did nothing. Stretched over the whole row, and the actions sit above it
+   by being positioned later in the DOM. */
+.ct-row-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ct-friends-home .ct-list-item-actions {
+  @apply relative;
+}
+
+/* The ring belongs to the whole row, not to the 60% of it that happens to hold
+   the tabindex -- an outline around part of a row reads as a rendering fault.
+   Inset by 1px so it lands on the row's own border box rather than colliding
+   with the row above. */
+.ct-friends-home .ct-list-item:has(.ct-row-open:focus-visible) {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: -1px;
+}
+
+.ct-row-open:focus-visible {
+  outline: none;
+}
+
+/* Every icon button on a row is one control size (32px) with its paired 16px
+   icon, so the call and the unfriend buttons carry the same optical weight.
+   They rest MUTED and take their colour on hover: a green phone and a red bin
+   painted on every row turned the list into a wall of traffic lights, and the
+   colour stopped meaning anything by the third row. */
+.ct-row-action.ant-btn {
+  @apply grid h-control-sm w-control-sm place-items-center p-0;
+  color: var(--ct-text-muted);
+}
+
+.ct-row-action.ant-btn .anticon {
+  font-size: var(--ct-icon-sm);
+}
+
+.ct-row-action.ant-btn:hover,
+.ct-row-action.ant-btn:focus-visible {
+  color: var(--ct-text-primary);
+}
+
+.ct-row-action.success:hover,
+.ct-row-action.success:focus-visible {
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 14%, transparent);
+}
+
+.ct-row-action.danger:hover,
+.ct-row-action.danger:focus-visible {
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
+}
+
+/* A spinner has to stay visible even while the pointer is elsewhere. */
+.ct-row-action.ant-btn.ant-btn-loading {
+  color: var(--ct-text-secondary);
+}
+
+/* An empty state that names a dead end and offers no way out is a dead end.
+   Both the "no friends yet" and the "list failed to load" cases end in a
+   button, so the screen always has a next move. */
+.ct-friends-home .ct-list-state .ant-btn {
   @apply mt-3;
+}
+
+/* Narrow panel: the header and the toolbar each stop sharing a row. The search
+   box goes full width rather than sitting as a 280px island against the right
+   edge -- off the 20px rule everything else on the page stands on. */
+@container friends-home (max-width: 560px) {
+  .ct-friends-home-header {
+    @apply flex-col items-stretch gap-3;
+  }
+
+  .ct-friends-home-toolbar .ant-segmented {
+    @apply w-full;
+  }
+
+  .ct-friends-home-search.ant-input-affix-wrapper {
+    @apply ml-0 max-w-none;
+    flex-basis: 100%;
+  }
 }
 
 /* --------------------------------------------------------------------------

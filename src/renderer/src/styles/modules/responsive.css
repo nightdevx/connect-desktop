@@ -14,6 +14,28 @@
    the admin key/value grids -- reflows on its own and is not repeated here.
    ========================================================================== */
 
+/* The admin dashboard's wide-beside-narrow pair. It breaks earlier than the
+   shell does because the two halves are a 12-point line chart and a donut with
+   a legend beside it: below this the chart is too short to read a trend off
+   and the legend wraps under its own donut. Everything else on those screens
+   is auto-fit and reflows without a query. */
+@media (max-width: 1100px) {
+  .ct-admin-grid-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The games rail narrows before anything else on that page does.
+
+     It is one fixed track carrying the leaderboard and the live-table list, and
+     the board beside it is sized from what is LEFT -- so every pixel the rail
+     keeps here comes straight off the board. Narrowing beats stacking: both
+     cards are a label and a name per row and read fine at 200px, while moving
+     them under the board would spend the axis this app has least of. */
+  .ct-minigames-panel {
+    --ct-minigames-rail: 204px;
+  }
+}
+
 @media (max-width: 900px) {
   /* Retuning the tokens moves the shell grid, the rail and every rule derived
      from them in one step. */
@@ -27,34 +49,16 @@
     @apply hidden;
   }
 
+  /* The admin nav is a normal sidebar-column item, so --ct-sidebar-width above
+     already narrowed it along with every other sidebar; it no longer turns
+     into a horizontal strip of its own. Only the page rhythm tightens: 24px of
+     gutter is a fifth of a 720px-wide panel. */
   .ct-admin-panel-shell {
-    flex-direction: column;
-  }
-
-  .ct-admin-sidebar {
-    width: 100%;
-    flex-direction: row;
-    flex-shrink: 0;
-    overflow-x: auto;
-    padding: 8px;
-    border-right: 0;
-    border-bottom: 1px solid var(--ct-border);
+    --ct-admin-block: 16px;
   }
 
   .ct-admin-sidebar-header {
-    @apply hidden;
-  }
-
-  .ct-admin-sidebar-nav {
-    @apply flex-row;
-  }
-
-  .ct-admin-nav-item {
-    @apply shrink-0;
-  }
-
-  .ct-admin-panel-content {
-    @apply p-4;
+    @apply pb-3;
   }
 
   /* A 350px chat drawer beside the call stage leaves too little for video. */
@@ -62,38 +66,31 @@
     width: min(60vw, 300px);
   }
 
+  /* One column, and the header keeps its own row across it. The chat becomes a
+     drawer below (fixed, so it leaves the grid), except in a text room where it
+     IS the room and takes the second row. */
   .ct-lobby-room-grid-v2,
   .ct-lobby-room-grid-v2.chat-closed {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "stage";
     border-radius: var(--ct-radius-lg);
   }
 
+  .ct-lobby-room-grid-v2.stage-closed {
+    grid-template-areas:
+      "head"
+      "chat";
+  }
+
   .ct-lobby-stage-panel {
-    overflow: hidden;
-  }
-
-  .ct-lobby-stage-grid {
-    --ct-stage-max-width: 100%;
-    max-width: none;
-    max-height: 100%;
-    padding: var(--ct-stage-clear-top) 10px var(--ct-stage-clear-bottom);
-  }
-
-  .ct-lobby-stage-grid.focused-layout {
-    grid-template-rows: auto auto;
-    gap: 10px;
-    padding: var(--ct-stage-clear-top) 10px
-      calc(var(--ct-stage-clear-bottom) + 14px);
-  }
-
-  .ct-lobby-focused-slot {
-    width: 100%;
+    --ct-stage-pad-x: 10px;
+    --ct-stage-pad-y: 10px;
   }
 
   .ct-lobby-participant-rail {
-    width: 100%;
     justify-content: flex-start;
-    padding: 2px 2px 8px;
   }
 
   .ct-lobby-participant-tile {
@@ -109,8 +106,10 @@
     width: clamp(156px, 42vw, 220px);
   }
 
-  .ct-screen-share-grid {
-    grid-template-columns: 1fr;
+  /* The share dialog's two option boxes stack; the source and quality grids are
+     auto-fill/auto-fit and reflow on their own. */
+  .ct-share-options {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* Lobby chat slides in over the stage instead of taking a column.
@@ -118,19 +117,26 @@
      neither of which the panel renders any more -- so the slot was left as a
      full-screen fixed box with nothing to slide, and the chat covered the
      whole window at this width. The slot is the drawer. */
+  /* Inside the room's frame and BELOW its identity bar, rather than edge to
+     edge from the titlebar down: the bar carries the button that closes this
+     drawer again, and a drawer starting above it covered its own way out. */
   .ct-lobby-chat-slot {
     position: fixed;
-    right: 0;
-    top: var(--ct-titlebar-height);
-    bottom: 0;
+    right: var(--ct-lobby-frame);
+    top: calc(
+      var(--ct-titlebar-height) + var(--ct-lobby-frame) +
+        var(--ct-lobby-bar-height)
+    );
+    bottom: var(--ct-lobby-frame);
     left: auto;
     z-index: 40;
     width: min(94vw, 360px);
     border-left: 1px solid var(--ct-border);
+    border-bottom-right-radius: var(--ct-radius-xl);
     background: var(--ct-panel-solid);
     backdrop-filter: blur(16px);
     box-shadow: var(--ct-shadow-lg);
-    transform: translateX(100%);
+    transform: translateX(calc(100% + var(--ct-lobby-frame)));
     transition: transform var(--ct-duration-base) var(--ct-ease-spring);
     pointer-events: none;
   }
@@ -173,6 +179,10 @@
     @apply p-4;
   }
 
+  .ct-minigames-panel {
+    --ct-minigames-rail: 176px;
+  }
+
   /* Settings is not here any more: its rows stack on the PANEL's width, which
      is the window minus the rail and the sidebar, so a viewport breakpoint was
      always answering a different question. See @container settings in
@@ -197,29 +207,40 @@
     width: min(94vw, 300px);
   }
 
-  .ct-lobby-stage-grid {
-    padding: var(--ct-stage-clear-top) 8px var(--ct-stage-clear-bottom);
+  .ct-lobby-stage-panel {
+    --ct-stage-pad-x: 8px;
+    --ct-stage-pad-y: 8px;
   }
 
-  .ct-lobby-stage-grid.focused-layout {
-    gap: 8px;
-    padding: var(--ct-stage-clear-top) 8px
-      calc(var(--ct-stage-clear-bottom) + 12px);
+  /* The room header drops its secondary line and the toggle's label; the name
+     and the count are what a 700px-wide panel has room for. */
+  .ct-lobby-room-header {
+    @apply gap-2 px-3;
+    min-height: 46px;
   }
 
-  .ct-lobby-inline-volume-value {
-    width: 38px;
+  .ct-lobby-room-status {
+    @apply hidden;
+  }
+
+  .ct-lobby-room-action-label {
+    @apply hidden;
   }
 
   .ct-lobby-stage-actions {
-    bottom: 8px;
-    gap: 8px;
-    padding-inline: 12px;
+    @apply mb-2 gap-2 px-2;
   }
 
   .ct-lobby-action-btn {
     @apply h-control-md w-control-md;
     font-size: var(--ct-icon-md);
+  }
+
+  /* The stop/settings pair reads as ONE control, so the chevron has to shrink
+     with the button it is welded to -- it stayed 48px against a 40px stop
+     button and the group came out lopsided. */
+  .ct-stream-menu-btn {
+    @apply h-control-md;
   }
 
   .ct-chat-bubble {
@@ -239,6 +260,16 @@
   }
 
   .ct-quick-idle-meta span {
+    @apply hidden;
+  }
+
+  /* Same trade on the friends page: the description is read once and then costs
+     a row of the list forever. The title, the tabs and the search box stay. */
+  .ct-friends-home-header {
+    @apply pb-2 pt-3;
+  }
+
+  .ct-friends-home-header p {
     @apply hidden;
   }
 }

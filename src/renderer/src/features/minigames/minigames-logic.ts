@@ -17,6 +17,13 @@ export type Rng = () => number;
 
 // --- 2048 -------------------------------------------------------------------
 
+/**
+ * The classic board, and the default every function here falls back to.
+ *
+ * A parameter rather than a constant because difficulty moves it: 5x5 forgives,
+ * 3x3 does not. Defaulted so that the call sites which genuinely mean "the
+ * normal game" -- and the self-check -- stay readable.
+ */
 export const BOARD_SIZE = 4;
 export const BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
 export const WINNING_TILE = 2048;
@@ -59,18 +66,18 @@ export function slideRow(row: readonly number[]): { row: number[]; gained: numbe
  * The board indices of one line, ordered so that position 0 is the edge the
  * tiles are sliding towards. Four directions collapse into one slideRow.
  */
-function lineIndices(line: number, direction: Direction): number[] {
-  const steps = Array.from({ length: BOARD_SIZE }, (_, step) => step);
+function lineIndices(line: number, direction: Direction, size: number): number[] {
+  const steps = Array.from({ length: size }, (_, step) => step);
 
   switch (direction) {
     case "left":
-      return steps.map((column) => line * BOARD_SIZE + column);
+      return steps.map((column) => line * size + column);
     case "right":
-      return steps.map((column) => line * BOARD_SIZE + (BOARD_SIZE - 1 - column));
+      return steps.map((column) => line * size + (size - 1 - column));
     case "up":
-      return steps.map((row) => row * BOARD_SIZE + line);
+      return steps.map((row) => row * size + line);
     case "down":
-      return steps.map((row) => (BOARD_SIZE - 1 - row) * BOARD_SIZE + line);
+      return steps.map((row) => (size - 1 - row) * size + line);
   }
 }
 
@@ -81,12 +88,13 @@ function lineIndices(line: number, direction: Direction): number[] {
 export function moveBoard(
   board: readonly number[],
   direction: Direction,
+  size: number = BOARD_SIZE,
 ): { board: number[]; gained: number; moved: boolean } {
   const next = board.slice();
   let gained = 0;
 
-  for (let line = 0; line < BOARD_SIZE; line += 1) {
-    const indices = lineIndices(line, direction);
+  for (let line = 0; line < size; line += 1) {
+    const indices = lineIndices(line, direction, size);
     const slid = slideRow(indices.map((boardIndex) => next[boardIndex]));
     gained += slid.gained;
     indices.forEach((boardIndex, position) => {
@@ -101,8 +109,8 @@ export function moveBoard(
   };
 }
 
-export function emptyBoard(): number[] {
-  return Array.from({ length: BOARD_CELLS }, () => 0);
+export function emptyBoard(size: number = BOARD_SIZE): number[] {
+  return Array.from({ length: size * size }, () => 0);
 }
 
 /** A 2 nine times out of ten, a 4 otherwise -- the original distribution. */
@@ -123,8 +131,8 @@ export function spawnTile(board: readonly number[], rng: Rng = Math.random): num
   return next;
 }
 
-export function createBoard(rng: Rng = Math.random): number[] {
-  return spawnTile(spawnTile(emptyBoard(), rng), rng);
+export function createBoard(size: number = BOARD_SIZE, rng: Rng = Math.random): number[] {
+  return spawnTile(spawnTile(emptyBoard(size), rng), rng);
 }
 
 /**
@@ -132,8 +140,8 @@ export function createBoard(rng: Rng = Math.random): number[] {
  * board with an adjacent pair is still playable, and calling it dead is the
  * second classic 2048 bug.
  */
-export function hasMoves(board: readonly number[]): boolean {
-  return DIRECTIONS.some((direction) => moveBoard(board, direction).moved);
+export function hasMoves(board: readonly number[], size: number = BOARD_SIZE): boolean {
+  return DIRECTIONS.some((direction) => moveBoard(board, direction, size).moved);
 }
 
 // --- Minesweeper ------------------------------------------------------------
@@ -294,15 +302,28 @@ export interface SnakeState {
   score: number;
 }
 
+/** The normal board, and the default the functions below fall back to. */
 export const SNAKE_COLUMNS = 17;
 export const SNAKE_ROWS = 17;
 
-function spawnFood(body: readonly Point[], rng: Rng): Point {
+/** How big the field is. Difficulty carries extra keys; nothing here reads them. */
+export interface SnakeBoard {
+  columns: number;
+  rows: number;
+}
+
+export const SNAKE_BOARD: SnakeBoard = {
+  columns: SNAKE_COLUMNS,
+  rows: SNAKE_ROWS,
+};
+
+function spawnFood(body: readonly Point[], board: SnakeBoard, rng: Rng): Point {
+  const { columns, rows } = board;
   const taken = new Set(body.map((point) => `${point.x},${point.y}`));
   const free: Point[] = [];
 
-  for (let y = 0; y < SNAKE_ROWS; y += 1) {
-    for (let x = 0; x < SNAKE_COLUMNS; x += 1) {
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < columns; x += 1) {
       if (!taken.has(`${x},${y}`)) {
         free.push({ x, y });
       }
@@ -314,17 +335,29 @@ function spawnFood(body: readonly Point[], rng: Rng): Point {
   return free.length === 0 ? body[0] : free[Math.floor(rng() * free.length)];
 }
 
-export function createSnake(rng: Rng = Math.random): SnakeState {
+/**
+ * Three segments, centred, facing right.
+ *
+ * The head is placed from the board rather than at a fixed (8, 8): on the 13x13
+ * hard board that constant is the far right wall, so the snake used to start
+ * one tick from death.
+ */
+export function createSnake(
+  board: SnakeBoard = SNAKE_BOARD,
+  rng: Rng = Math.random,
+): SnakeState {
+  const x = Math.floor(board.columns / 2);
+  const y = Math.floor(board.rows / 2);
   const body: Point[] = [
-    { x: 8, y: 8 },
-    { x: 7, y: 8 },
-    { x: 6, y: 8 },
+    { x, y },
+    { x: x - 1, y },
+    { x: x - 2, y },
   ];
 
   return {
     body,
     direction: { x: 1, y: 0 },
-    food: spawnFood(body, rng),
+    food: spawnFood(body, board, rng),
     alive: true,
     score: 0,
   };
@@ -352,7 +385,11 @@ export function turnSnake(state: SnakeState, direction: Point): SnakeState {
   return { ...state, direction };
 }
 
-export function stepSnake(state: SnakeState, rng: Rng = Math.random): SnakeState {
+export function stepSnake(
+  state: SnakeState,
+  board: SnakeBoard = SNAKE_BOARD,
+  rng: Rng = Math.random,
+): SnakeState {
   if (!state.alive) {
     return state;
   }
@@ -368,7 +405,7 @@ export function stepSnake(state: SnakeState, rng: Rng = Math.random): SnakeState
   const occupied = ate ? state.body : state.body.slice(0, -1);
 
   const hitWall =
-    head.x < 0 || head.y < 0 || head.x >= SNAKE_COLUMNS || head.y >= SNAKE_ROWS;
+    head.x < 0 || head.y < 0 || head.x >= board.columns || head.y >= board.rows;
   const hitSelf = occupied.some((point) => point.x === head.x && point.y === head.y);
 
   if (hitWall || hitSelf) {
@@ -380,7 +417,7 @@ export function stepSnake(state: SnakeState, rng: Rng = Math.random): SnakeState
   return {
     body,
     direction: state.direction,
-    food: ate ? spawnFood(body, rng) : state.food,
+    food: ate ? spawnFood(body, board, rng) : state.food,
     alive: true,
     score: ate ? state.score + 1 : state.score,
   };

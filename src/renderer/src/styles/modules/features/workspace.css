@@ -27,29 +27,13 @@
   background: var(--ct-panel-solid);
 }
 
-/* The admin section has no sidebar column to align to -- its panel spans both
-   content columns -- so the dock runs the full width instead of leaving the
-   cell beside it as a bare strip of shell background. The controls stay where
-   they are on every other screen; only the bar behind them gets longer.
-   .ct-quick-idle is justify-between, so without the cap below the identity went
-   to the far left of the admin page and the buttons to the far right.
-
-   Written as three separate rules on purpose. As one comma-separated selector
-   list the build emitted a stray `)` before the brace -- `:has()` inside a
-   grouped selector does not survive this pipeline -- and a malformed selector
-   is dropped silently, which is how the cap went missing in the first place. */
-.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-dock {
-  @apply border-r-0;
-  grid-column: 2 / -1;
-}
-
-.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-idle {
-  max-width: var(--ct-sidebar-width);
-}
-
-.ct-workspace-shell:has(.ct-admin-panel-shell) .ct-quick-share-bar {
-  max-width: var(--ct-sidebar-width);
-}
+/* No admin case here any more.
+   The admin panel used to be one grid item covering both content columns, so
+   the dock was stretched to `grid-column: 2 / -1` to sit under it -- which
+   dragged the microphone and headphone controls out of the sidebar column and
+   across the whole width of the window the moment you opened the panel. The
+   admin nav is a normal sidebar-column item now (see .ct-admin-panel-shell),
+   so the dock stays where it is on every screen. */
 
 /* ==========================================================================
    RAIL
@@ -145,10 +129,21 @@
   @apply mt-auto;
 }
 
+/* The column is lit from the top: a wash that fades out over the first third of
+   its height, so the header reads as raised off the list rather than as the
+   same flat slab with a line under it. Both stops are alpha tokens, so the
+   light theme gets the same shape in black without a second rule.
+
+   The 1px highlight on the inner edge is what separates the sidebar from the
+   rail beside it -- a border alone gave two adjacent panels of near-identical
+   darkness one hairline between them and no sense of depth. */
 .ct-sidebar {
-  @apply grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
+  @apply relative grid min-h-0 grid-rows-[auto_1fr_auto] border-r;
   border-color: var(--ct-border);
-  background: var(--ct-panel-solid);
+  background:
+    linear-gradient(180deg, var(--ct-alpha-04), transparent 38%),
+    var(--ct-panel-solid);
+  box-shadow: inset 1px 0 0 var(--ct-alpha-04);
 }
 
 /* --------------------------------------------------------------------------
@@ -161,29 +156,71 @@
    at 28px, 28px and 36px because each block invented its own inset.
    -------------------------------------------------------------------------- */
 
+/* The border is gone in favour of a gradient hairline drawn by ::after: a flat
+   1px line all the way across cut the column in two, where the section title
+   only needs separating on the side it actually sits on. */
 .ct-sidebar-header {
-  @apply flex h-14 shrink-0 items-center justify-between gap-2 border-b;
+  @apply relative flex h-14 shrink-0 items-center justify-between gap-2;
   padding-inline: var(--ct-gutter);
-  border-color: var(--ct-border);
 }
 
+.ct-sidebar-header::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--ct-gutter);
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--ct-alpha-20),
+    var(--ct-alpha-08) 45%,
+    transparent
+  );
+}
+
+/* The accent tick before the title. It is the one mark that says which section
+   the column belongs to without spending a colour on it -- the palette is
+   monochrome, so the vocabulary here is shape and weight, not hue. */
 .ct-sidebar-header h3 {
-  @apply m-0 truncate text-xs font-bold uppercase tracking-[0.12em];
-  color: var(--ct-text-secondary);
+  @apply relative m-0 min-w-0 flex-1 truncate pl-2.5 text-xs font-bold uppercase tracking-[0.14em];
+  color: var(--ct-text-primary);
+}
+
+.ct-sidebar-header h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 13px;
+  translate: 0 -50%;
+  border-radius: 3px;
+  background: var(--ct-accent);
+  box-shadow: 0 0 8px var(--ct-accent-glow);
 }
 
 .ct-sidebar-header-action {
-  @apply inline-flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-md border;
+  @apply inline-flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-full border;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
   background: var(--ct-alpha-04);
-  transition: all var(--ct-duration-fast) ease;
+  transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }
 
+/* Lifts and inverts. A + that only changes shade is easy to miss in a header
+   whose other content never moves; this one is the sole action in the row and
+   is allowed to behave like it. */
 .ct-sidebar-header-action:hover:not(:disabled) {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-alpha-08);
+  border-color: var(--ct-accent);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+  translate: 0 -1px;
+  box-shadow: 0 4px 12px var(--ct-accent-glow);
+}
+
+.ct-sidebar-header-action:active:not(:disabled) {
+  translate: 0 0;
+  box-shadow: none;
 }
 
 .ct-sidebar-header-action:disabled {
@@ -191,9 +228,14 @@
   cursor: not-allowed;
 }
 
+/* A narrower bar than the app default: this is a 280px column, and a 10px
+   scrollbar over a list of room names is a tenth of the width spent on chrome.
+   overscroll-contain stops a flick at the end of the list from scrolling the
+   panel behind it. */
 .ct-sidebar-body {
-  @apply flex min-h-0 flex-col gap-2 overflow-y-auto;
+  @apply flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain;
   padding: var(--ct-gutter);
+  --ct-scrollbar-size: 8px;
 }
 
 /* Ant Design's Input pads to 11px; nudge it to the gutter so the search icon
@@ -257,24 +299,20 @@
 
 /* The active row inverts to a white background. Rather than passing an
    isActive flag into every nested colour, children inherit and lean on
-   opacity, which reads correctly on both the light and the dark ground. */
-.ct-list-item.clickable.active .ct-list-user-meta p,
-.ct-list-item.clickable.active .ct-lobby-item-title {
+   opacity, which reads correctly on both the light and the dark ground.
+
+   Only the user rows are left here. A lobby row is no longer a .ct-list-item:
+   inverting it took the whole block -- room name, roster, avatars, status
+   glyphs -- with it, and each of those then needed its own color-mix() against
+   --ct-text-inverse to stay legible. See .ct-lobby-row in features/lobby.css,
+   which marks the selected room with a wash and an accent bar instead. */
+.ct-list-item.clickable.active .ct-list-user-meta p {
   color: inherit;
 }
 
-.ct-list-item.clickable.active .ct-list-user-meta span,
-.ct-list-item.clickable.active .ct-lobby-item-count,
-.ct-list-item.clickable.active .ct-lobby-item-empty,
-.ct-list-item.clickable.active .ct-lobby-member-name {
+.ct-list-item.clickable.active .ct-list-user-meta span {
   color: inherit;
   opacity: 0.6;
-}
-
-.ct-list-item.clickable.active .ct-lobby-item-title .anticon,
-.ct-list-item.clickable.active .ct-lobby-member-flag {
-  color: inherit;
-  opacity: 0.65;
 }
 
 .ct-calling-icon {
@@ -376,8 +414,24 @@
   background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
 }
 
+/* A button, because it opens your own profile card. The negative margin keeps
+   the hover target bigger than the text without moving the row: the dock's own
+   padding is what aligns this against the sidebar above it. */
 .ct-quick-idle-left {
-  @apply flex min-w-0 items-center gap-3;
+  @apply -m-1 flex min-w-0 cursor-pointer items-center gap-3 rounded-md border p-1 text-left;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  transition:
+    background var(--ct-duration-fast) ease,
+    border-color var(--ct-duration-fast) ease;
+}
+
+.ct-quick-idle-left:hover,
+.ct-quick-idle-left[aria-expanded="true"] {
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-04);
 }
 
 .ct-quick-idle-logo {
@@ -443,6 +497,17 @@
   cursor: not-allowed;
 }
 
+/* Same reasoning as .ct-lobby-action-btn.forced-muted: a moderator mute is a
+   decision the user has to be able to read, and the generic disabled dim hides
+   it behind what looks like a broken control. Ordered after :disabled so it
+   wins. */
+.ct-quick-icon-button.forced-muted:disabled {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 12%, transparent);
+}
+
 /* --------------------------------------------------------------------------
    Friend requests
 
@@ -451,8 +516,10 @@
    line the avatars sit on -- it is not a second gutter on top of the body's.
    -------------------------------------------------------------------------- */
 
+/* flex, so a heading can carry a count pill beside its label and have the two
+   share a baseline. A label on its own is unaffected. */
 .ct-list-group-title {
-  @apply m-0 text-micro font-bold uppercase tracking-[0.12em];
+  @apply m-0 flex items-center gap-2 text-micro font-bold uppercase tracking-[0.12em];
   padding-inline: 12px;
   color: var(--ct-text-muted);
 }
@@ -519,9 +586,20 @@
    at most one button -- so it never reflows while the query lands.
    ========================================================================== */
 
+/* The popover owns no padding: the card bleeds its cover image to the edges,
+   and a 12px frame around it made the band look like a picture pasted onto a
+   panel rather than the top of the card. Overflow is what rounds the cover's
+   top corners to the popover's own radius. */
+.ct-profile-card-popover .ant-popover-inner {
+  padding: 0;
+  border-radius: var(--ct-radius-lg);
+  overflow: hidden;
+}
+
 .ct-profile-card {
-  @apply relative flex flex-col gap-3;
-  width: 320px;
+  @apply relative flex flex-col gap-3 pb-4;
+  width: 340px;
+  padding-inline: 14px;
 }
 
 /* The band the avatar sits on. Sized so the avatar overlaps it by about half,
@@ -534,15 +612,19 @@
    uploaded a cover got a sliver cut out of the middle of it, which is not a
    picture, it is a stripe. One height for both states also means the card does
    not jump when the query lands with a banner on it. */
-/* rounded-t only: the bottom edge runs into the card body, and rounding it
-   would leave two notches beside the avatar that overlaps it. */
+/* Flush with the popover's edges; the popover clips the top corners. */
 .ct-profile-card-banner {
-  @apply relative -mx-3 -mt-3 overflow-hidden rounded-t-lg;
+  @apply relative overflow-hidden;
+  margin-inline: -14px;
   aspect-ratio: var(--ct-profile-banner-ratio);
+  /* Mixed INTO a surface, not into transparent. The accent is pure white on the
+     dark theme, so a 55% wash of it over the popover was a near-white slab
+     taking up the top third of the card — brighter than anything else on
+     screen, for a band whose whole job is to sit behind the avatar. */
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--ct-accent) 55%, transparent),
-    color-mix(in srgb, var(--ct-accent) 18%, transparent)
+    color-mix(in srgb, var(--ct-accent) 16%, var(--ct-surface-3)),
+    color-mix(in srgb, var(--ct-accent) 4%, var(--ct-surface-2))
   );
 }
 
@@ -568,20 +650,45 @@
   object-position: center;
 }
 
-/* The avatar sits half on the cover. Net overlap is this minus the card's
-   12px gap, so 56 - 12 = 44px of a 94px avatar -- and it is measured from the
-   BOTTOM of the cover, which is why it did not have to change when the cover
-   did. */
-.ct-profile-card-identity {
-  @apply -mt-14 flex flex-col items-start gap-2;
+/* A scrim along the bottom of the cover. The avatar and the name sit over the
+   last third of it, and somebody's uploaded picture can be any colour at all —
+   without this the ring around the avatar disappeared into bright covers. */
+.ct-profile-card-banner::after {
+  content: "";
+  @apply pointer-events-none absolute inset-x-0 bottom-0;
+  height: 55%;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--ct-surface-2) 92%, transparent),
+    transparent
+  );
+}
+
+/* The avatar sits half on the cover: the negative margin is measured from the
+   BOTTOM of the cover, which is why it does not have to change when the cover
+   does. The name sits BESIDE it now rather than under it -- stacked, a 96px
+   picture and two lines of text spent 150px of a popover on four words. */
+.ct-profile-card-head {
+  @apply -mt-12 flex min-w-0 items-end gap-3;
+}
+
+.ct-profile-card-photo-wrap {
+  @apply relative shrink-0;
 }
 
 .ct-profile-card-photo-root {
-  @apply block shrink-0 overflow-hidden rounded-xl;
-  width: 88px;
-  height: 88px;
-  border: 3px solid var(--ct-surface-2);
+  @apply block shrink-0 overflow-hidden rounded-2xl;
+  width: 96px;
+  height: 96px;
+  border: 4px solid var(--ct-surface-2);
   background: var(--ct-surface-2);
+  box-shadow: var(--ct-shadow-md);
+}
+
+/* The loading placeholder, at exactly the finished size. */
+.ct-profile-card-photo-root.skeleton {
+  background: var(--ct-alpha-08);
+  animation: ctSkeletonPulse 1.6s ease-in-out infinite;
 }
 
 .ct-profile-card-photo.ant-image-img {
@@ -596,20 +703,27 @@
   @apply cursor-zoom-in text-2xs font-semibold;
 }
 
-.ct-profile-card.loading {
-  @apply flex-row items-center gap-2;
-  color: var(--ct-text-muted);
-  font-size: 13px;
+/* On the avatar, where every other surface in this app puts it. */
+.ct-profile-card-presence {
+  @apply absolute block h-4 w-4 rounded-full;
+  right: 2px;
+  bottom: 2px;
+  border: 3px solid var(--ct-surface-2);
 }
 
 .ct-profile-card-avatar.ant-avatar {
-  @apply shrink-0;
-  border: 3px solid var(--ct-surface-2);
+  @apply shrink-0 rounded-2xl;
+  border: 4px solid var(--ct-surface-2);
+  background: var(--ct-surface-4);
+  color: var(--ct-text-primary);
   font-size: 30px;
+  box-shadow: var(--ct-shadow-md);
 }
 
+/* pb, because the head is items-end: the text baseline lines up with the
+   avatar's bottom edge rather than sinking below it. */
 .ct-profile-card-names {
-  @apply flex min-w-0 flex-col;
+  @apply flex min-w-0 flex-1 flex-col gap-0.5 pb-1;
 }
 
 .ct-profile-card-names strong {
@@ -617,24 +731,110 @@
   color: var(--ct-text-primary);
 }
 
-.ct-profile-card-names span {
-  @apply truncate text-xs;
+.ct-profile-card-unavailable {
+  @apply text-xs;
   color: var(--ct-text-muted);
+}
+
+/* The handle is the one string here somebody has to type somewhere else, so it
+   is a button. Quiet until hovered: it is still, mostly, a label. */
+.ct-profile-card-handle {
+  @apply inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm border-0 px-1 py-0.5 text-xs;
+  margin-inline-start: -4px;
+  color: var(--ct-text-muted);
+  background: transparent;
+  transition:
+    color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
+}
+
+.ct-profile-card-handle span {
+  @apply truncate;
+}
+
+.ct-profile-card-handle .anticon {
+  @apply shrink-0;
+  font-size: var(--ct-icon-xs);
+  opacity: 0.7;
+}
+
+.ct-profile-card-handle:hover {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
 }
 
 .ct-profile-card-tags {
   @apply flex flex-wrap items-center gap-1;
 }
 
-.ct-profile-card-meta {
-  @apply flex items-center justify-between rounded-lg px-3 py-2 text-xs;
+/* Built from the app's tokens rather than antd's colour presets, which is what
+   `color="gold"` and `color="success"` were reaching for -- two saturated chips
+   that answered to neither theme's palette. The neutral variant is the default;
+   admin and friend are the only two that earn a hue. */
+.ct-profile-card-tag.ant-tag {
+  @apply m-0 inline-flex items-center gap-1 rounded-full border px-2 py-0 text-2xs font-semibold leading-5;
+  border-color: var(--ct-alpha-12);
+  color: var(--ct-text-secondary);
   background: var(--ct-alpha-04);
+}
+
+.ct-profile-card-tag.ant-tag .anticon {
+  font-size: var(--ct-icon-xs);
+}
+
+.ct-profile-card-tag.admin.ant-tag {
+  border-color: color-mix(in srgb, var(--ct-warning) 40%, transparent);
+  color: var(--ct-warning);
+  background: color-mix(in srgb, var(--ct-warning) 14%, transparent);
+}
+
+.ct-profile-card-tag.friend.ant-tag {
+  border-color: color-mix(in srgb, var(--ct-success) 40%, transparent);
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 14%, transparent);
+}
+
+/* One tile per fact. It used to be a single "Katılım / date" row, which is a
+   third of a line of information taking a full row of the card. */
+.ct-profile-card-stats {
+  @apply grid gap-1.5;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+}
+
+.ct-profile-card-stat {
+  @apply flex min-w-0 flex-col gap-0.5 rounded-lg border px-2.5 py-2;
+  border-color: var(--ct-alpha-04);
+  background: var(--ct-alpha-04);
+}
+
+.ct-profile-card-stat > span {
+  @apply text-micro font-semibold uppercase tracking-wider;
   color: var(--ct-text-muted);
 }
 
-.ct-profile-card-meta strong {
-  color: var(--ct-text-secondary);
-  font-variant-numeric: tabular-nums;
+.ct-profile-card-stat > strong {
+  @apply truncate text-xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-profile-card-skeleton-line {
+  @apply block h-3 rounded-sm;
+  width: 70%;
+  background: var(--ct-alpha-12);
+  animation: ctSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+/* One placeholder shape per thing being reserved: a tag pill, and the two
+   full-width controls at the foot of the card. */
+.ct-profile-card-skeleton-line.tag {
+  @apply h-5 rounded-full;
+  width: 72px;
+}
+
+/* The friend button and the quick-message composer, both one control tall. The
+   card is a gap-3 column, so the 12px between them needs no margin here. */
+.ct-profile-card-skeleton-line.bar {
+  @apply h-control-sm w-full rounded-md;
 }
 
 .ct-profile-card-composer {
