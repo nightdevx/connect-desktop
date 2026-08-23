@@ -25,3 +25,44 @@ export const createLobbyTransitionState = (): LobbyTransitionState => ({
 
 export const isLobbyTransitionBusy = (state: LobbyTransitionState): boolean =>
   state.joiningLobbyId !== null || state.isLeaving;
+
+/**
+ * What has to happen to the room the user is in before they enter the next one.
+ *
+ * Pure, and separate from the hook that acts on it, because getting it wrong is
+ * silent and expensive: this used to answer "leave-lobby" for a lobby-to-lobby
+ * switch, so clicking a room that then refused the join — a password prompt the
+ * user cancels, a full room, a ban, a timeout — left them in no room at all,
+ * having been removed from the one they were happily sitting in.
+ *
+ * Lobby-to-lobby is "none" on purpose. The server's join is exclusive: it
+ * removes the user from every other lobby as part of admitting them, and the
+ * media session replaces its room in the same call. Leaving up front bought
+ * nothing and made every refusal destructive.
+ */
+export type RoomTransitionAction = "none" | "leave-lobby" | "teardown-call";
+
+const CALL_ROOM_PREFIX = "call_";
+
+export const resolveRoomTransition = (
+  currentRoomId: string | null,
+  nextRoomId: string | null,
+): RoomTransitionAction => {
+  if (!currentRoomId || currentRoomId === nextRoomId) {
+    return "none";
+  }
+
+  // A call has another person on the other end who must be told, whatever comes
+  // next — including another call.
+  if (currentRoomId.startsWith(CALL_ROOM_PREFIX)) {
+    return "teardown-call";
+  }
+
+  // Lobby -> lobby: the join itself is the switch.
+  if (nextRoomId && !nextRoomId.startsWith(CALL_ROOM_PREFIX)) {
+    return "none";
+  }
+
+  // Lobby -> nothing, or lobby -> call: nothing else will let go of this room.
+  return "leave-lobby";
+};

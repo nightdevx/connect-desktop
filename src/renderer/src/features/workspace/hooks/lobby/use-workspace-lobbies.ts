@@ -32,14 +32,42 @@ interface UseWorkspaceLobbiesProps {
   // Mirrors hasLiveSnapshotRef out to the shell, which owns lobbiesQuery and
   // uses it to stop that query running while the stream is authoritative.
   onLobbyStreamLiveChange: (live: boolean) => void;
+  // Called when a re-join is refused for a reason that will never stop being
+  // true — banned, kicked, room deleted, password changed. The loop stops there
+  // and this hands the decision to the membership watchdog, which owns telling
+  // the user and leaving properly. A ref because the watchdog is built further
+  // down the shell than this hook.
+  membershipDepartureRef: React.MutableRefObject<
+    ((lobbyId: string, reason: string) => void) | null
+  >;
 }
+
+// A re-join refused with one of these will be refused forever: retrying is not
+// recovery, it is a background loop hammering the server on behalf of someone
+// who has been removed. The watchdog used to own this table and its own probe;
+// the scheduler had neither, so a banned user's client re-joined every 15
+// seconds for the rest of the session, complete with a warning toast each time.
+const DEPARTURE_MESSAGE_FOR_CODE: Record<string, string> = {
+  LOBBY_KICKED: "Odadan atıldınız.",
+  LOBBY_BANNED: "Bu odadan yasaklandınız.",
+  LOBBY_NOT_FOUND: "Oda kapatıldı.",
+  LOBBY_LOCKED: "Odaya erişim izniniz kaldırıldı.",
+  LOBBY_PASSWORD_REQUIRED: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
+  LOBBY_PASSWORD_INCORRECT: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
+  LOBBY_TEXT_ONLY: "Oda mesajlaşma odasına dönüştürüldü.",
+  FORBIDDEN: "Odaya erişim izniniz kaldırıldı.",
+};
 
 // The two events that mean the media membership itself may be gone. Exported so
 // the LiveKit session — which is created before this hook and calls back into it
 // through a ref — is typed against the same set rather than `any`.
 export type ActiveLobbyReconnectReason =
   | "network-online"
-  | "livekit-disconnected";
+  | "livekit-disconnected"
+  // The roster stopped listing us, or the server said it dropped us. Same
+  // recovery as the other two — a re-join tells us which it was — but it comes
+  // from the membership watchdog rather than from the transport.
+  | "membership-lost";
 
 export type ScheduleActiveLobbyReconnect = (
   reason: ActiveLobbyReconnectReason,
@@ -95,6 +123,7 @@ export function useWorkspaceLobbies({
   kickedLobbyIdRef,
   activeLobbyPasswordRef,
   onLobbyStreamLiveChange,
+  membershipDepartureRef,
 }: UseWorkspaceLobbiesProps) {
   const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
   const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
@@ -198,6 +227,41 @@ export function useWorkspaceLobbies({
     handles.scheduleActiveLobbyReconnect("network-online", true);
   }, [isOnline]);
 
+  // Waking from sleep leaves every socket dead with nothing in the page to
+  // notice: "online" never went false, so the effect above does not run, and
+  // recovery was left to whichever timer happened to be parked — up to ~50s
+  // against a 45s server-side member TTL, which is how a reopened lid cost
+  // someone their seat. The main process is the only side that gets the signal.
+  //
+  // Routed through the same scheduler as every other reconnect, deliberately:
+  // it holds the backoff, the in-flight guard and the stand-down while a
+  // deliberate join is in progress. Calling join directly from here would
+  // reintroduce the second unattended join loop.
+  useEffect(() => {
+    const unsubscribe = window.desktopApi?.onSystemResumed?.(() => {
+      const handles = reconnectHandlesRef.current;
+      handles.clearLobbyReconnectTimer();
+      handles.scheduleLobbyStreamReconnect(true);
+
+      if (!activeLobbyRef.current) return;
+
+      if (shouldEmitReconnectStatusRef.current("network", 4_000)) {
+        setStatusRef.current(
+          "Bilgisayar uyandı, lobi bağlantısı yeniden kuruluyor...",
+          "warn",
+        );
+      }
+      handles.clearActiveLobbyReconnectTimer();
+      handles.scheduleActiveLobbyReconnect("network-online", true);
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+    // Everything it touches is a ref, so this subscribes once for the session —
+    // the same shape as the reconnect handles above.
+  }, []);
+
   const clearLobbyReconnectTimer = useCallback((): void => {
     if (lobbyStreamReconnectTimerRef.current !== null) {
       window.clearTimeout(lobbyStreamReconnectTimerRef.current);
@@ -282,7 +346,7 @@ export function useWorkspaceLobbies({
   // suppression checks compared against it, so that comparison was permanently
   // true and a successful reconnect announced itself on every single attempt.
   const scheduleActiveLobbyReconnect = useCallback((
-    reason: "network-online" | "livekit-disconnected",
+    reason: ActiveLobbyReconnectReason,
     immediate = false,
   ): void => {
     if (!activeLobbyRef.current) return;
@@ -376,6 +440,17 @@ export function useWorkspaceLobbies({
         })
         .then(async (result) => {
           if (!result.ok) {
+            // Some refusals are answers, not failures. Retrying a ban or a
+            // deleted room forever is what this branch used to do, once every
+            // 15 seconds, with a toast each time.
+            const departure =
+              DEPARTURE_MESSAGE_FOR_CODE[result.error?.code ?? ""];
+            if (departure) {
+              activeLobbyReconnectAttemptRef.current = 0;
+              membershipDepartureRef.current?.(targetLobbyID, departure);
+              return;
+            }
+
             activeLobbyReconnectAttemptRef.current = attempt + 1;
             if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
               setStatusRef.current(`Lobi bağlantısı geri yüklenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`, "warn");
@@ -455,7 +530,6 @@ export function useWorkspaceLobbies({
           return {
             id: snapshot.id,
             name: snapshot.name,
-            room: snapshot.room,
             createdAt: snapshot.createdAt,
             createdBy: snapshot.createdBy,
             // Carried by the snapshot now. Omitting them here is what used to
@@ -468,6 +542,9 @@ export function useWorkspaceLobbies({
             // Same trap as isLocked: dropping it here turns a text room back
             // into a voice room — with a live mic — on the next push.
             isTextOnly: snapshot.isTextOnly,
+            // Same trap once more: drop it and every "3 / 10" collapses to "3"
+            // on the first push after the REST seed.
+            capacity: snapshot.capacity,
           };
         });
 

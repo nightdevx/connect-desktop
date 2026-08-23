@@ -135,7 +135,13 @@ export interface AuthResponse {
 // What the user is telling other people, as opposed to appOnline, which is
 // merely whether a socket exists. "offline" is derived, never chosen.
 export type PresenceStatus = "online" | "idle" | "dnd" | "offline";
-export type SelectablePresenceStatus = Exclude<PresenceStatus, "offline">;
+// Every status a user may pick for themselves, which is now all of them:
+// "offline" is the invisible option. It used to be derived from connection
+// state alone, so being present without announcing it was not expressible. The
+// alias stays because the distinction is still worth naming at call sites — the
+// server decides what OTHER people see, and it reports someone who picked this
+// as offline in both halves of the pair (see Service.visiblePresence).
+export type SelectablePresenceStatus = PresenceStatus;
 
 export interface UserDirectoryEntry {
   userId: string;
@@ -151,7 +157,6 @@ export interface UserDirectoryEntry {
 export interface LobbyDescriptor {
   id: string;
   name: string;
-  room: string;
   createdAt: string;
   createdBy: string;
   createdByUsername?: string;
@@ -161,6 +166,26 @@ export interface LobbyDescriptor {
   hasPassword?: boolean;
   // Chat-only room: no LiveKit token, no voice reconciler. Fixed at creation.
   isTextOnly?: boolean;
+  // The room's member ceiling. Optional: an older server omits it.
+  capacity?: number;
+}
+
+// Server-reported lobby membership. Deliberately has no `speaking` flag: the
+// backend cannot know it (LiveKit does not report speaking state), so the field
+// was always false on the wire. Speaking is derived client-side from LiveKit's
+// ActiveSpeakersChanged — see LobbyParticipantView.
+//
+// Lives here rather than in desktop-api-types because the admin contracts below
+// need it, and that file already imports this one.
+export interface LobbyStateMember {
+  userId: string;
+  username: string;
+  joinedAt: string;
+  muted: boolean;
+  serverMuted: boolean;
+  deafened: boolean;
+  cameraEnabled: boolean;
+  screenSharing: boolean;
 }
 
 // The quoted message shown above a reply. Denormalised by the server so a
@@ -283,27 +308,27 @@ export interface AdminUpdateUserRequest {
   role?: UserRole;
 }
 
-export interface AdminLobbyMember {
-  userId: string;
-  username: string;
-  joinedAt: string;
-  muted: boolean;
-  deafened: boolean;
-  speaking: boolean;
-  cameraEnabled: boolean;
-  screenSharing: boolean;
-}
-
 export interface AdminLobbySnapshot {
   lobby: LobbyDescriptor;
-  members: AdminLobbyMember[];
+  members: LobbyStateMember[];
   size: number;
   revision: number;
+  // The allow-list resolved to usernames, in the same order as the
+  // lobby.allowedUsers CSV. Admin-only, so it lives here and not on the
+  // descriptor that every authenticated user gets from GET /lobby/rooms.
+  allowedUsernames?: string[];
+  // The ids behind those usernames, same order — sent alongside them, so the
+  // panel does not have to re-split the CSV to know which id a name is.
+  allowedUserIds?: string[];
 }
 
 export interface AdminLobbyEvent {
   id: number;
-  eventType: "join" | "leave";
+  // Open set — the server keeps adding verbs. Known today: create, edit,
+  // delete, join, join-admin, ban, timeout-leave, kicked, banned,
+  // lobby-deleted, media-timeout, heartbeat-timeout, moved,
+  // moved-by-moderator, self.
+  eventType: string;
   lobbyId: string;
   lobbyName: string;
   userId: string;

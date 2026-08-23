@@ -7,6 +7,7 @@ import {
 import {
   buildSimulcastLayerSpecs,
   CAMERA_MAX_ENCODINGS,
+  CAMERA_MAX_ENCODINGS_WHILE_SHARING,
   SCREEN_SHARE_MAX_ENCODINGS,
   type VideoLayerSpec,
 } from "@shared/video-layers";
@@ -133,8 +134,15 @@ export const buildVideoPublishPlan = (params: {
   codec: VideoCodec;
   contentMode: VideoContentMode;
   isScreenShare: boolean;
+  // True while this machine is also publishing a screen share. The camera drops
+  // a layer then, so the two sources together stay inside what a hardware
+  // encoder will take — see CAMERA_MAX_ENCODINGS_WHILE_SHARING.
+  isSharingScreen?: boolean;
 }): VideoPublishPlan => {
-  const { target, codec, contentMode, isScreenShare } = params;
+  const { target, codec, contentMode, isScreenShare, isSharingScreen } = params;
+  const cameraMaxEncodings = isSharingScreen
+    ? CAMERA_MAX_ENCODINGS_WHILE_SHARING
+    : CAMERA_MAX_ENCODINGS;
 
   const degradationPreference: RTCDegradationPreference =
     contentMode === "motion" ? "maintain-framerate" : "maintain-resolution";
@@ -146,7 +154,8 @@ export const buildVideoPublishPlan = (params: {
 
   const layers = buildSimulcastLayerSpecs(
     target,
-    isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : CAMERA_MAX_ENCODINGS,
+    isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : cameraMaxEncodings,
+    isScreenShare,
   );
 
   if (isSvcCodec(codec)) {

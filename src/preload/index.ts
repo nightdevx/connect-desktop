@@ -6,6 +6,7 @@ const DIRECT_MESSAGES_EVENT_CHANNEL = "desktop:direct-messages-event";
 const LOBBY_STREAM_EVENT_CHANNEL = "desktop:lobbies-stream-event";
 const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
+const SYSTEM_RESUMED_EVENT_CHANNEL = "desktop:system-resumed";
 const UPDATE_EVENT_CHANNEL = "desktop:update-event";
 const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
 
@@ -238,6 +239,20 @@ const desktopApi: DesktopApi = {
   setWindowAttention: async (payload) =>
     ipcRenderer.invoke("desktop:window-attention", payload),
   getWindowState: async () => ipcRenderer.invoke("desktop:window-state"),
+  onSystemResumed: (listener) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ) => {
+      listener(payload as Parameters<typeof listener>[0]);
+    };
+
+    ipcRenderer.on(SYSTEM_RESUMED_EVENT_CHANNEL, wrappedListener);
+
+    return () => {
+      ipcRenderer.removeListener(SYSTEM_RESUMED_EVENT_CHANNEL, wrappedListener);
+    };
+  },
   onWindowStateChanged: (listener) => {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,

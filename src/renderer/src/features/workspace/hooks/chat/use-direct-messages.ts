@@ -16,6 +16,14 @@ import type {
   DirectMessagesStreamEvent,
 } from "@shared/desktop-api-types";
 
+// One conversation's cache entry. `hasMore` used to be dropped by every writer
+// because the generic on setQueryData only mentioned `messages` — the compiler
+// had no idea a field was going missing.
+type DirectMessagesPage = DesktopResult<{
+  messages: ChatMessage[];
+  hasMore?: boolean;
+}>;
+
 // The picked file kept alongside its encoded payload, so the composer can show
 // a name and size without re-reading the file.
 export interface PendingAttachment {
@@ -23,6 +31,7 @@ export interface PendingAttachment {
   name: string;
   size: number;
 }
+import { mergeDirectMessagePages } from "./direct-message-merge";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { mentionsUser } from "../../mentions";
@@ -63,10 +72,7 @@ interface UseDirectMessagesParams {
 }
 
 export interface UseDirectMessagesResult {
-  directMessagesQuery: UseQueryResult<
-    DesktopResult<{ messages: ChatMessage[] }>,
-    Error
-  >;
+  directMessagesQuery: UseQueryResult<DirectMessagesPage, Error>;
   directMessages: ChatMessage[];
   messageDraft: string;
   setMessageDraft: Dispatch<SetStateAction<string>>;
@@ -153,6 +159,26 @@ export const useDirectMessages = ({
   );
   const [peerNamesById, setPeerNamesById] = useState<Record<string, string>>({});
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  // The cursor the server cannot page from — its row is gone (404), or it
+  // answered with nothing this thread did not already have. Scrolling fires
+  // loadOlderMessages many times per gesture, so without this a dead cursor
+  // meant one request — and one error toast — per scroll event, forever. Keyed
+  // by cursor rather than by peer so it releases itself as soon as the oldest
+  // loaded message changes; a timeout or a 500 is NOT latched, since scrolling
+  // again is exactly the right thing to do after a blip.
+  const deadOlderCursorRef = useRef<string | null>(null);
+  // Set the instant a send starts, not a render later. react-query defers its
+  // observer notification through a 0ms timer, so `isPending` read off the
+  // committed render is still false for at least one task after mutate() — long
+  // enough for a double Enter to post the same message twice.
+  const sendInFlightRef = useRef(false);
+  // The thread the directMessagesQuery below actually owns, mirrored into a ref
+  // so the socket handler — whose subscription lags a commit behind — never
+  // reads a stale answer. Written during render on purpose: it must be current
+  // for the very render that changes it.
+  const activeThreadRef = useRef<string | null>(null);
+  activeThreadRef.current =
+    workspaceSection === "users" ? selectedUserId : null;
   // Composer attachments: the picked file plus its base64 payload. Held here
   // rather than in the panel so switching conversations clears it with the
   // draft.
@@ -163,9 +189,6 @@ export const useDirectMessages = ({
   // null = not searching; [] = searched and found nothing.
   const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  // Peers whose history is known to be fully loaded. Keyed rather than a single
-  // flag so switching conversations does not reset the wrong one.
-  const [exhaustedPeerIds, setExhaustedPeerIds] = useState<string[]>([]);
   const lastTypingPingRef = useRef(0);
   const streamWantedRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -312,11 +335,61 @@ export const useDirectMessages = ({
 
   const directMessagesQuery = useQuery({
     queryKey: ["direct-messages", selectedUserId],
-    queryFn: () =>
-      workspaceService.listDirectMessages({
-        peerUserId: selectedUserId as string,
+    queryFn: async () => {
+      const peerUserId = selectedUserId as string;
+      const readCache = (): DirectMessagesPage | undefined =>
+        queryClient.getQueryData<DirectMessagesPage>([
+          "direct-messages",
+          peerUserId,
+        ]);
+
+      // Taken BEFORE the request: everything in the entry afterwards that is
+      // not in here arrived on the socket while this fetch was in flight, and
+      // is therefore newer than the snapshot the server answered with. Deciding
+      // that by timestamp instead resurrected messages deleted while the socket
+      // was down — the delete event never arrived, so they looked new forever.
+      const inFlightBefore = new Set(
+        (() => {
+          const entry = readCache();
+          return entry?.ok && entry.data ? entry.data.messages : [];
+        })().map((message) => message.id),
+      );
+
+      const result = await workspaceService.listDirectMessages({
+        peerUserId,
         limit: 120,
-      }),
+      });
+      if (!result.ok || !result.data) {
+        // A failed refetch must not erase the conversation. React Query stores
+        // whatever this returns, so handing back the error object dropped every
+        // paged-in message and the hasMore that went with them.
+        return readCache() ?? result;
+      }
+
+      // Every refetch — the reconnect backfill below, a stale remount after 60s
+      // in another section — asks for the NEWEST 120. The older pages the user
+      // scrolled back for live in this same cache entry, so returning the fresh
+      // page on its own is what silently threw their history away.
+      const cached = readCache();
+      const cachedData = cached?.ok && cached.data ? cached.data : undefined;
+      // hasMore describes the OLDER end of the thread, which this response knows
+      // nothing about: it only re-read the newest page. Carrying the cached
+      // answer forward is what keeps a thread that was paged to its beginning
+      // from advertising "scroll up for more" again after every reconnect.
+      const carriedHasMore = cachedData?.hasMore ?? result.data.hasMore;
+
+      return {
+        ok: true,
+        data: {
+          messages: mergeDirectMessagePages({
+            cached: cachedData?.messages ?? [],
+            fresh: result.data.messages,
+            inFlightBefore,
+          }),
+          hasMore: carriedHasMore,
+        },
+      } satisfies DirectMessagesPage;
+    },
     enabled: workspaceSection === "users" && Boolean(selectedUserId),
     // The websocket keeps every open thread current and a reconnect re-reads
     // them, so a cached conversation is correct for as long as the socket has
@@ -333,17 +406,33 @@ export const useDirectMessages = ({
   const setDirectMessagesCache = (
     peerUserId: string,
     updater: (currentMessages: ChatMessage[]) => ChatMessage[],
+    hasMoreOverride?: boolean,
   ): void => {
-    queryClient.setQueryData<DesktopResult<{ messages: ChatMessage[] }>>(
+    queryClient.setQueryData<DirectMessagesPage>(
       ["direct-messages", peerUserId],
       (previous) => {
-        const currentMessages =
-          previous?.ok && previous.data ? previous.data.messages : [];
+        const current =
+          previous?.ok && previous.data ? previous.data : undefined;
+
+        // Seeding an entry for a thread nobody has opened stamps it as freshly
+        // fetched, and staleTime then suppresses the real history read: opening
+        // that conversation showed the one message the socket had delivered and
+        // nothing before it, for a minute. Only the thread the query itself owns
+        // may be seeded — which is not "the selected peer" but "the selected
+        // peer while the users section is open", since selectedUserId outlives a
+        // section change and the query does not.
+        if (!current && peerUserId !== activeThreadRef.current) {
+          return previous;
+        }
 
         return {
           ok: true,
           data: {
-            messages: updater(currentMessages),
+            messages: updater(current?.messages ?? []),
+            // hasMore belongs to the same object as the messages it describes.
+            // Rebuilding the entry without it is what forced a separate
+            // exhaustion flag, which then desynchronised permanently.
+            hasMore: hasMoreOverride ?? current?.hasMore,
           },
         };
       },
@@ -524,8 +613,20 @@ export const useDirectMessages = ({
         return;
       }
 
-      setMessageDraft("");
-      setReplyTo(null);
+      // Strip exactly what went out, not the whole box: the composer stays
+      // editable during a send now, so clearing blindly ate the next sentence —
+      // and leaving it whole re-sent the delivered half on the next Enter.
+      setMessageDraft((current) => {
+        const rest = current.trimStart();
+        return rest.startsWith(variables.body)
+          ? rest.slice(variables.body.length)
+          : current;
+      });
+      // Same reasoning: a reply target picked while the request was in flight
+      // belongs to the next message, not to this one.
+      setReplyTo((current) =>
+        current && current.id === variables.replyToId ? null : current,
+      );
       setPendingAttachment(null);
     },
     onError: (error) => {
@@ -534,6 +635,9 @@ export const useDirectMessages = ({
         "error",
       );
     },
+    onSettled: () => {
+      sendInFlightRef.current = false;
+    },
   });
 
   // bodyOverride is the GIF picker: the URL goes out as its own message and the
@@ -541,6 +645,13 @@ export const useDirectMessages = ({
   // what silently ate whatever the user had typed ("şuna bak" + a GIF sent
   // "şuna bak" and threw the GIF away).
   const handleSendMessage = (bodyOverride?: string): void => {
+    // The composer used to be disabled while a send was in flight, which was
+    // also the double-send guard. It stays editable now — that is what keeps
+    // the caret — so the guard lives here instead.
+    if (sendInFlightRef.current || sendDirectMessageMutation.isPending) {
+      return;
+    }
+
     const isOverride = typeof bodyOverride === "string";
     const body = (isOverride ? bodyOverride : messageDraft).trim();
 
@@ -555,6 +666,7 @@ export const useDirectMessages = ({
       return;
     }
 
+    sendInFlightRef.current = true;
     sendDirectMessageMutation.mutate({
       peerUserId: selectedUserId,
       body,
@@ -804,6 +916,9 @@ export const useDirectMessages = ({
     setPendingAttachment(null);
     setSearchQuery("");
     setSearchResults(null);
+    // The dead-cursor latch belongs to one thread's oldest message; carrying it
+    // into the next conversation would block paging there for no reason.
+    deadOlderCursorRef.current = null;
   }, [selectedUserId]);
 
   // Expire stale typing entries. Polling once a second is cheaper and simpler
@@ -842,51 +957,70 @@ export const useDirectMessages = ({
     if (!selectedUserId || isLoadingOlderMessages) {
       return;
     }
-    if (exhaustedPeerIds.includes(selectedUserId)) {
+    const cached = queryClient.getQueryData<DirectMessagesPage>([
+      "direct-messages",
+      selectedUserId,
+    ]);
+    const cachedMessages =
+      cached?.ok && cached.data ? cached.data.messages : [];
+    const oldest = cachedMessages[0];
+    if (!oldest || deadOlderCursorRef.current === oldest.id) {
       return;
     }
 
-    const cached = queryClient.getQueryData<
-      DesktopResult<{ messages: ChatMessage[] }>
-    >(["direct-messages", selectedUserId]);
-    const oldest =
-      cached?.ok && cached.data ? cached.data.messages[0] : undefined;
-    if (!oldest) {
-      return;
-    }
-
+    const cursorId = oldest.id;
+    const knownIds = new Set(cachedMessages.map((message) => message.id));
     const peerUserId = selectedUserId;
     setIsLoadingOlderMessages(true);
     void workspaceService
       .listDirectMessages({ peerUserId, limit: 80, before: oldest.id })
       .then((result) => {
         if (!result.ok || !result.data) {
+          // A cursor whose row was deleted answers 404 here. Staying silent
+          // left the "scroll up for more" hint standing and every scroll
+          // re-firing the same failing request.
+          // 404 means the cursor row itself is gone, so retrying it can only
+          // fail again. Everything else — a timeout, a 500, a dropped IPC — is
+          // worth another scroll.
+          if (result.error?.statusCode === 404) {
+            deadOlderCursorRef.current = cursorId;
+          }
+          setStatus(
+            `Eski mesajlar yüklenemedi: ${getApiErrorMessage(result.error)}`,
+            "error",
+          );
           return;
         }
 
         const older = result.data.messages;
+        // A page that dedupes down to nothing cannot move the cursor, so
+        // retrying it is the same request forever.
+        if (older.every((message) => knownIds.has(message.id))) {
+          deadOlderCursorRef.current = cursorId;
+        }
+
         if (older.length === 0) {
-          setExhaustedPeerIds((previous) =>
-            previous.includes(peerUserId) ? previous : [...previous, peerUserId],
+          setDirectMessagesCache(
+            peerUserId,
+            (currentMessages) => currentMessages,
+            false,
           );
           return;
         }
 
-        setDirectMessagesCache(peerUserId, (currentMessages) => {
-          // The live socket may have inserted something while the page was in
-          // flight; dedupe rather than trusting the two halves not to overlap.
-          const known = new Set(currentMessages.map((message) => message.id));
-          return [
-            ...older.filter((message) => !known.has(message.id)),
-            ...currentMessages,
-          ];
-        });
-
-        if (result.data.hasMore === false) {
-          setExhaustedPeerIds((previous) =>
-            previous.includes(peerUserId) ? previous : [...previous, peerUserId],
-          );
-        }
+        setDirectMessagesCache(
+          peerUserId,
+          (currentMessages) => {
+            // The live socket may have inserted something while the page was in
+            // flight; dedupe rather than trusting the two halves not to overlap.
+            const known = new Set(currentMessages.map((message) => message.id));
+            return [
+              ...older.filter((message) => !known.has(message.id)),
+              ...currentMessages,
+            ];
+          },
+          result.data.hasMore,
+        );
       })
       .finally(() => {
         setIsLoadingOlderMessages(false);
@@ -895,7 +1029,7 @@ export const useDirectMessages = ({
     // listed; naming it as well would only re-create this callback whenever an
     // unrelated part of the hook re-rendered.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUserId, isLoadingOlderMessages, exhaustedPeerIds, queryClient]);
+  }, [selectedUserId, isLoadingOlderMessages, queryClient]);
 
   // Seed the badges once the directory is known. Unread state used to live only
   // in this component's state, so every restart showed zero unread even when
@@ -959,9 +1093,11 @@ export const useDirectMessages = ({
     notifyTyping,
     loadOlderMessages,
     isLoadingOlderMessages,
-    hasMoreMessages: Boolean(
-      selectedUserId && !exhaustedPeerIds.includes(selectedUserId),
-    ),
+    hasMoreMessages:
+      Boolean(selectedUserId) &&
+      Boolean(directMessagesQuery.data?.ok && directMessagesQuery.data.data) &&
+      directMessagesQuery.data?.data?.hasMore !== false &&
+      deadOlderCursorRef.current !== directMessages[0]?.id,
     pendingAttachment,
     setPendingAttachment,
     replyTo,

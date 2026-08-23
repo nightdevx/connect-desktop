@@ -16,6 +16,12 @@ import { logLiveKitDebug } from "@/services/debug-log";
 import { getDisplayInitials } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 import { useWindowActive } from "../../hooks/media/use-window-active";
+import {
+  closePip,
+  openPip,
+  pipKeyFor,
+  usePipKey,
+} from "../../hooks/media/pip-stream";
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
 
 // useWindowActive reports whether this app window is in the foreground.
@@ -106,7 +112,11 @@ function LobbyParticipantTileImpl({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPictureInPicture, setIsPictureInPicture] = useState(false);
+  // PiP plays on a module-owned element, not on this one, so the flag has to
+  // come from there: this tile is unmounted and rebuilt every time the stage
+  // switches layouts, and state of its own would not survive that.
+  const pipKey = pipKeyFor(participant.userId, kind);
+  const isPictureInPicture = usePipKey() === pipKey;
   // videoWidth stays 0 until a frame's worth of metadata has decoded, and a PiP
   // window opened on a stream that never produces one is an empty grey box.
   const [hasVideoTrack, setHasVideoTrack] = useState(false);
@@ -115,15 +125,13 @@ function LobbyParticipantTileImpl({
 
   // Your own preview, while you are working in another app, is a video nobody
   // is looking at. The capture and the encode still run — viewers need them —
-  // but the local decode/composite does not have to. Fullscreen and
-  // picture-in-picture are both exempt: each keeps the preview on screen after
-  // the app window has stopped being the focused one, so suspending it there is
-  // the same bug wearing a different surface.
+  // but the local decode/composite does not have to. Fullscreen is exempt: it
+  // keeps the preview on screen after the app window has stopped being the
+  // focused one, so suspending it there is the same bug wearing a different
+  // surface. PiP no longer needs the same exemption — it renders on its own
+  // element, which this one never touches.
   const previewSuspended =
-    participant.isLocalUser &&
-    !windowActive &&
-    !isFullscreen &&
-    !isPictureInPicture;
+    participant.isLocalUser && !windowActive && !isFullscreen;
 
   const handleVideoLoadedMetadata = () => {
     const videoElement = videoRef.current;
@@ -146,9 +154,7 @@ function LobbyParticipantTileImpl({
     // One surface at a time. Leaving the stream in a PiP window while it also
     // fills the screen is two decodes of one track and two sets of controls
     // arguing over it.
-    if (document.pictureInPictureElement) {
-      document.exitPictureInPicture().catch(() => {});
-    }
+    closePip();
 
     containerElement.requestFullscreen().catch((err) => {
       console.error("Fullscreen request failed:", err);
@@ -157,11 +163,10 @@ function LobbyParticipantTileImpl({
 
   const handleTogglePictureInPicture = (event: MouseEvent) => {
     event.stopPropagation();
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
+    if (!previewStream) return;
 
-    if (document.pictureInPictureElement === videoElement) {
-      document.exitPictureInPicture().catch(() => {});
+    if (isPictureInPicture) {
+      closePip();
       return;
     }
 
@@ -172,10 +177,7 @@ function LobbyParticipantTileImpl({
       document.exitFullscreen().catch(() => {});
     }
 
-    videoElement.requestPictureInPicture().catch(() => {
-      // Refused when the track has no frames yet; the sync effect below keeps
-      // the button honest either way.
-    });
+    void openPip(pipKey, previewStream);
   };
 
   const handleDoubleClick = (event: MouseEvent<HTMLElement>) => {
@@ -183,7 +185,7 @@ function LobbyParticipantTileImpl({
     handleToggleFullscreen(event);
   };
 
-  // Both presentation flags are read back off the DOM, never assumed.
+  // Fullscreen is read back off the DOM, never assumed.
   //
   // The old fullscreenchange listener bailed out on `if (containerRef.current)`,
   // which is exactly the case that breaks it: when the container unmounts while
@@ -195,39 +197,23 @@ function LobbyParticipantTileImpl({
   // back on for the local user.
   useEffect(() => {
     const containerElement = containerRef.current;
-    const videoElement = videoRef.current;
 
     const syncPresentation = (): void => {
       setIsFullscreen(
         containerElement !== null &&
           document.fullscreenElement === containerElement,
       );
-      setIsPictureInPicture(
-        videoElement !== null &&
-          document.pictureInPictureElement === videoElement,
-      );
     };
 
     syncPresentation();
 
     document.addEventListener("fullscreenchange", syncPresentation);
-    videoElement?.addEventListener("enterpictureinpicture", syncPresentation);
-    videoElement?.addEventListener("leavepictureinpicture", syncPresentation);
 
     return () => {
       document.removeEventListener("fullscreenchange", syncPresentation);
-      videoElement?.removeEventListener(
-        "enterpictureinpicture",
-        syncPresentation,
-      );
-      videoElement?.removeEventListener(
-        "leavepictureinpicture",
-        syncPresentation,
-      );
-      // These elements are on their way out, so whatever they were presenting
-      // is already gone. The next run re-derives from the replacements.
+      // This element is on its way out, so whatever it was presenting is
+      // already gone. The next run re-derives from the replacement.
       setIsFullscreen(false);
-      setIsPictureInPicture(false);
     };
   }, [previewStream]);
 
@@ -308,9 +294,8 @@ function LobbyParticipantTileImpl({
     // fullscreenchange does and we would pause the very video we are promoting
     // to the whole screen — fullscreen opening on a frozen frame.
     const presenting =
-      (containerRef.current !== null &&
-        document.fullscreenElement === containerRef.current) ||
-      document.pictureInPictureElement === videoElement;
+      containerRef.current !== null &&
+      document.fullscreenElement === containerRef.current;
 
     if (previewSuspended && !presenting) {
       videoElement.pause();

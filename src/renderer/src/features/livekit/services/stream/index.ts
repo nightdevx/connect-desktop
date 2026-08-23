@@ -1,4 +1,4 @@
-export { LiveKitStreamManager, LiveKitMediaSession } from "./stream-manager";
+export { LiveKitMediaSession } from "./stream-manager";
 export {
   MediaStatsCollector,
   EMPTY_MEDIA_STATS,

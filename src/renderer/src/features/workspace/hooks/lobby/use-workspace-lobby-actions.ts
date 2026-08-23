@@ -14,6 +14,7 @@ import {
   isLobbyTransitionBusy,
   type LobbyTransitionState,
 } from "./lobby-transition";
+import type { ScheduleActiveLobbyReconnect } from "./use-workspace-lobbies";
 
 type StatusTone = "ok" | "warn" | "error";
 
@@ -30,6 +31,9 @@ interface UseWorkspaceLobbyActionsParams {
   setStatus: (message: string, tone: StatusTone) => void;
   performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
   clearActiveLobbyReconnectTimer: () => void;
+  // Armed when the media bring-up fails before room.connect() is reached: no
+  // connection state ever changes in that case, so nothing else would retry.
+  scheduleActiveLobbyReconnect: ScheduleActiveLobbyReconnect;
   activeLobbyReconnectAttemptRef: MutableRefObject<number>;
   activeLobbyReconnectInFlightRef: MutableRefObject<boolean>;
   resetLocalMediaCapture: () => void;
@@ -83,6 +87,7 @@ export const useWorkspaceLobbyActions = ({
   setStatus,
   performPostJoinSynchronization,
   clearActiveLobbyReconnectTimer,
+  scheduleActiveLobbyReconnect,
   activeLobbyReconnectAttemptRef,
   activeLobbyReconnectInFlightRef,
   resetLocalMediaCapture,
@@ -258,10 +263,16 @@ export const useWorkspaceLobbyActions = ({
   const joinLobby = async (lobbyId: string, password?: string): Promise<void> => {
     // The ref, not the state, decides. State lands a commit later, and a
     // reconnect timer firing inside that window would see "idle" and race this.
-    if (
-      isLobbyTransitionBusy(lobbyTransitionRef.current) ||
-      activeLobbyId === lobbyId
-    ) {
+    if (activeLobbyId === lobbyId) {
+      return;
+    }
+
+    if (isLobbyTransitionBusy(lobbyTransitionRef.current)) {
+      // Silently returning here is what produced "the lobby button does
+      // nothing": the row is only disabled while a JOIN is in flight, so a click
+      // during the leave leg of a switch reached this guard and died with no
+      // spinner, no toast and no state change.
+      setStatus("Oda değişimi sürüyor, birazdan tekrar dene", "warn");
       return;
     }
 
@@ -303,9 +314,15 @@ export const useWorkspaceLobbyActions = ({
       activeLobbyReconnectAttemptRef.current = 0;
       activeLobbyReconnectInFlightRef.current = false;
 
-      // A LiveKit failure here already warned the user and will be retried by
-      // the reconnect chain; swallow it so it is not an unhandled rejection.
-      void performPostJoinSynchronization(lobbyId).catch(() => undefined);
+      // The reconnect chain only retries what fails AFTER room.connect() — it
+      // is driven by connection-state changes. A token request that times out,
+      // or a microphone that throws, rejects before the room exists, so
+      // swallowing it left the user on the roster, with a "you joined" toast,
+      // and no audio in either direction until the server timed them out ~50s
+      // later. Hand those failures to the same scheduler instead.
+      void performPostJoinSynchronization(lobbyId).catch(() => {
+        scheduleActiveLobbyReconnect("livekit-disconnected", true);
+      });
 
       soundEffectManager.playSelfJoinedLobby();
 

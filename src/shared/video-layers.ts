@@ -42,13 +42,25 @@ const scaleLayer = (
   };
 };
 
-// Above this width a third encoding costs more than it is worth. Every
-// simulcast layer is a separate encoder instance, and hardware H.264 encoders
-// have a hard concurrent-session limit (consumer NVENC historically 2-3, shared
-// with whatever else is recording). At 1440p and up the half layer is already
-// 1280x720 or better, which serves a weak subscriber perfectly well, so the
-// quarter layer buys very little for a whole extra encode of a huge frame.
+// Above this width a third encoding costs more than it is worth for a CAMERA.
+// Every simulcast layer is a separate encoder instance, and hardware H.264
+// encoders have a hard concurrent-session limit (consumer NVENC historically
+// 2-3, shared with whatever else is recording). A camera's half layer is already
+// small, so the quarter layer buys very little for a whole extra encode.
+//
+// A large screen share is the opposite case, which is why this no longer applies
+// to it: at 1440p the half layer is 1280x720 and at 2160p it is 1920x1080, so a
+// viewer whose tile is 400px wide — the grid, the rail, the new picture-in-
+// picture window — has nothing in the ladder to ask for and gets a layer many
+// times its own size or a stalled one. See SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH.
 const MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS = 2560;
+
+// Below this width a screen share stays on two encodings: the half layer is
+// already tile-sized and a third encode would be spent on nothing. At or above
+// it the quarter layer is what a small tile actually subscribes to (960x540 of
+// a 4K share, 640x360 of a 1440p one), and dynacast pauses it whenever nobody
+// is watching at that size — so the extra encoder only runs when it is wanted.
+const SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH = 2560;
 
 /**
  * Encoding budget for a screen share.
@@ -61,8 +73,14 @@ const MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS = 2560;
  * Two encodings put the budget where it is actually seen. Camera keeps three:
  * those frames are small, and a 320x180 face in a grid tile is perfectly usable.
  */
-export const SCREEN_SHARE_MAX_ENCODINGS = 2;
+export const SCREEN_SHARE_MAX_ENCODINGS = 3;
 export const CAMERA_MAX_ENCODINGS = 3;
+
+// What the camera drops to while a screen share is live. Three camera layers
+// plus three screen layers is six concurrent encoder sessions, which is past
+// what consumer hardware encoders will take — they fall back to software and
+// both streams suffer. The face in a grid tile is the cheaper thing to trim.
+export const CAMERA_MAX_ENCODINGS_WHILE_SHARING = 2;
 
 /**
  * Extra simulcast layers below the primary encoding, ordered low quality first
@@ -74,15 +92,23 @@ export const CAMERA_MAX_ENCODINGS = 3;
 export const buildSimulcastLayerSpecs = (
   target: VideoLayerSpec,
   maxEncodings: number = CAMERA_MAX_ENCODINGS,
+  isScreenShare = false,
 ): VideoLayerSpec[] => {
   const layers: VideoLayerSpec[] = [];
   const extraLayerBudget = Math.max(0, maxEncodings - 1);
+
+  // A big screen share earns its quarter layer precisely where a camera does
+  // not: the ladder's half rung is still 720p or 1080p, which no grid tile can
+  // use.
+  const allowQuarterLayer = isScreenShare
+    ? target.width >= SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH
+    : target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS;
 
   // Quarter scale first (lowest quality), then half.
   if (
     extraLayerBudget >= 2 &&
     target.width / 4 >= MIN_LAYER_WIDTH &&
-    target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS
+    allowQuarterLayer
   ) {
     layers.push(scaleLayer(target, 1 / 4, 15));
   }
@@ -104,8 +130,9 @@ export const buildSimulcastLayerSpecs = (
 export const estimateLadderBitrateBps = (
   target: VideoLayerSpec,
   maxEncodings: number = CAMERA_MAX_ENCODINGS,
+  isScreenShare = false,
 ): number => {
-  return buildSimulcastLayerSpecs(target, maxEncodings).reduce(
+  return buildSimulcastLayerSpecs(target, maxEncodings, isScreenShare).reduce(
     (total, layer) => total + layer.maxBitrateBps,
     target.maxBitrateBps,
   );

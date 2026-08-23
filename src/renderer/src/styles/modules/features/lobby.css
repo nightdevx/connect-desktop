@@ -496,6 +496,57 @@
   color: var(--ct-text-muted);
 }
 
+/* --------------------------------------------------------------------------
+   THE SETTINGS MODAL'S READ-ONLY HEADER
+
+   Everything above the editable fields: the room's identity, who owns it, how
+   full it is, and the allow-list resolved to names. An admin opens this dialog
+   for rooms they had no part in creating, so it has to answer "whose room is
+   this and who may walk in" before it offers to change any of it.
+   -------------------------------------------------------------------------- */
+
+.ct-lobby-info {
+  @apply flex flex-col gap-1.5 rounded-lg p-3;
+  background: var(--ct-alpha-04);
+}
+
+.ct-lobby-info-head {
+  @apply flex min-w-0 flex-col gap-0.5 pb-1.5;
+  border-bottom: 1px solid var(--ct-border);
+}
+
+.ct-lobby-info-head strong {
+  @apply truncate text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-info-id {
+  @apply truncate text-micro;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-muted);
+}
+
+/* Label left, value right, and the value wraps onto its own lines when it is a
+   row of tags rather than one word. */
+.ct-lobby-info-row {
+  @apply flex items-start justify-between gap-3 text-2xs;
+}
+
+.ct-lobby-info-row > span:first-child {
+  @apply shrink-0;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-info-row > span:last-child {
+  @apply flex min-w-0 flex-wrap items-center justify-end gap-1 text-right;
+  color: var(--ct-text-secondary);
+}
+
+/* antd's own trailing margin, dropped in favour of the row's gap. */
+.ct-lobby-info-row .ant-tag {
+  @apply m-0;
+}
+
 /* ==========================================================================
    THE TWO LAYERS
 

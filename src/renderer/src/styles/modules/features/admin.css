@@ -227,8 +227,16 @@
    div is why the same information sat on four different left edges.
    ========================================================================== */
 
+/* flex: none is load-bearing, for the same reason .ct-admin-table-wrap needs
+   it: .ct-admin-page is a min-h-full flex column inside the scrolling content
+   pane, so a section left at the default flex-shrink gives up its height to
+   fit the viewport instead of making the pane scroll. The section is
+   overflow-hidden, so what it gives up is simply gone -- on the sounds screen
+   that was every row past the fold AND the pager, with no scrollbar anywhere
+   to reach them. */
 .ct-admin-section {
   @apply flex min-w-0 flex-col overflow-hidden rounded-md border;
+  flex: none;
   border-color: var(--ct-border);
   background: var(--ct-panel-soft);
 }

@@ -2,6 +2,7 @@ import type {
   ChatMessage,
   ChangePasswordRequest,
   LobbyDescriptor,
+  LobbyStateMember,
   LobbyTimeout,
   AdminRuntimeSettings,
   AdminRuntimeSettingsPatch,
@@ -112,20 +113,9 @@ export interface DesktopHotkeyEvent {
   action: "toggle-mute" | "toggle-deafen";
 }
 
-// Server-reported lobby membership. Deliberately has no `speaking` flag: the
-// backend cannot know it (LiveKit does not report speaking state), so the field
-// was always false on the wire. Speaking is derived client-side from LiveKit's
-// ActiveSpeakersChanged — see LobbyParticipantView.
-export interface LobbyStateMember {
-  userId: string;
-  username: string;
-  joinedAt: string;
-  muted: boolean;
-  serverMuted: boolean;
-  deafened: boolean;
-  cameraEnabled: boolean;
-  screenSharing: boolean;
-}
+// Defined in auth-contracts (the admin contracts there need it); re-exported
+// here so every existing import path keeps working.
+export type { LobbyStateMember } from "./auth-contracts";
 
 export interface ScreenCaptureSourceDescriptor {
   id: string;
@@ -153,7 +143,6 @@ export interface LiveKitTokenPayload {
 export interface LobbyRealtimeSnapshot {
   id: string;
   name: string;
-  room: string;
   createdAt: string;
   createdBy: string;
   createdByUsername?: string;
@@ -165,6 +154,8 @@ export interface LobbyRealtimeSnapshot {
   allowedUsers?: string;
   hasPassword?: boolean;
   isTextOnly?: boolean;
+  // The room's member ceiling. Optional: an older server omits it.
+  capacity?: number;
 }
 
 // Inline file upload carried in the same payload as the message. mimeType is a
@@ -873,6 +864,10 @@ export interface DesktopApi {
   onWindowStateChanged: (
     listener: (state: DesktopWindowState) => void,
   ) => () => void;
+  // Fired when the machine wakes from sleep. Every socket is dead by then and
+  // nothing in the page can tell: window "online" does not fire on wake, nor on
+  // a network handoff that keeps the interface up.
+  onSystemResumed: (listener: (event: { at: number }) => void) => () => void;
   adminListUsers: (params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ users: AdminUserDetail[]; total: number }>>;
   adminGetUser: (userId: string) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminUpdateUser: (userId: string, payload: AdminUpdateUserRequest) => Promise<DesktopResult<{ user: AdminUserDetail }>>;

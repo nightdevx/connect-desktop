@@ -204,7 +204,10 @@ export function FriendsHomePanel({
   onAddFriend,
   onInitiateCall,
 }: FriendsHomePanelProps) {
-  const [tab, setTab] = useState<FriendsTab>("friends");
+  // Çevrimiçi first, not the full list. Opening "Arkadaşlar" is almost always
+  // about who is around right now — the full roster is one click away and does
+  // not answer that question, it buries it under everyone who is asleep.
+  const [tab, setTab] = useState<FriendsTab>("online");
   // Deliberately local. Feeding this back into use-workspace-users' userSearch
   // would narrow the directory that selectedUser resolves through, and blank the
   // open conversation the moment someone typed here.

@@ -308,6 +308,14 @@ export function useLivekitSession(
       microphoneVolume: audioPreferences.microphoneVolume,
     });
 
+    // The expensive, room-independent half of the microphone chain: an
+    // AudioContext, two AudioWorklet modules and the RNNoise WASM. Doing it here
+    // takes it off the join path entirely — it used to run after room.connect()
+    // resolved, which is the window where you can hear everyone and nobody can
+    // hear you. Fire-and-forget: a failure falls back to the browser filters and
+    // the publish path retries it anyway.
+    void session.warmUpMicrophoneChain();
+
     // Hand the restored (or, if this is a re-created session, the current)
     // per-participant choices to the fresh session. Without this the manager's
     // own map starts empty and the first person to publish audio comes in at

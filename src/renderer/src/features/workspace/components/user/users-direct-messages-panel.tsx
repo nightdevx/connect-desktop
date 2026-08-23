@@ -272,6 +272,53 @@ export function UsersDirectMessagesPanel({
     inputRef: composerInputRef,
   });
 
+  // Persisted, for the same reason as the lobby's: this panel is unmounted on
+  // every workspace section change, so a closed thread came back open.
+  const isChatOpen = useUiStore((state) => state.viewPreferences.callChatOpen);
+  const isCallActive =
+    (callState?.status === "active" ||
+      (callState?.status === "outgoing" &&
+        callState.callerId === currentUserId)) &&
+    callState.peerUser?.userId === selectedUser?.userId;
+
+  const focusComposer = useCallback((): void => {
+    // cursor: "end" matters on a remount — the call view renders the composer
+    // from a different branch, so starting a call builds a fresh input whose
+    // caret would otherwise sit at index 0, in front of the draft.
+    composerInputRef.current?.focus({ cursor: "end" });
+  }, []);
+
+  // Opening a thread should let you type immediately.
+  const selectedUserId = selectedUser?.userId;
+  useEffect(() => {
+    if (!selectedUserId) {
+      return;
+    }
+    // During a call the composer lives in a drawer that is collapsed to zero
+    // width rather than hidden, so it stays focusable: focusing it there puts
+    // the caret in an invisible, aria-hidden box and swallows every keystroke.
+    // Closing the drawer while typing walks into the same box from the other
+    // side, so focus has to be released, not merely withheld.
+    if (isCallActive && !isChatOpen) {
+      const element = composerInputRef.current?.input;
+      if (element && document.activeElement === element) {
+        element.blur();
+      }
+      return;
+    }
+    focusComposer();
+  }, [selectedUserId, isCallActive, isChatOpen, focusComposer]);
+
+  // The send button takes focus on click, so the caret has to be put back
+  // explicitly after every send.
+  const sendAndRefocus = useCallback(
+    (bodyOverride?: string): void => {
+      onSendMessage(bodyOverride);
+      focusComposer();
+    },
+    [onSendMessage, focusComposer],
+  );
+
   // Mute toggle list management
   useEffect(() => {
     if (!selectedUser) return;
@@ -391,9 +438,6 @@ export function UsersDirectMessagesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageParticipantSlots, lobbyParticipants, selectedUser, activeLobbyId, callState?.status, currentUserId, micEnabled, headphoneEnabled, cameraEnabled, screenEnabled]);
 
-  // Persisted, for the same reason as the lobby's: this panel is unmounted on
-  // every workspace section change, so a closed thread came back open.
-  const isChatOpen = useUiStore((state) => state.viewPreferences.callChatOpen);
   const isRailVisible = useUiStore(
     (state) => state.viewPreferences.participantRailVisible,
   );
@@ -727,7 +771,6 @@ export function UsersDirectMessagesPanel({
 
           <div className="ct-chat-composer-row">
             <ChatComposerEmojiButton
-              disabled={isSendingMessage}
               // Updater, not `messageDraft + emoji`: the picker stays open, so a
               // burst of picks shares one render and every closure would read
               // the same stale draft — each emoji overwriting the previous one.
@@ -741,10 +784,9 @@ export function UsersDirectMessagesPanel({
                 bak" gone, with no undo. */}
             <ChatGifButton
               disabled={isSendingMessage}
-              onPick={(url) => onSendMessage(url)}
+              onPick={(url) => sendAndRefocus(url)}
             />
             <ChatAttachButton
-              disabled={isSendingMessage}
               onSelect={(upload, file) =>
                 onSetPendingAttachment?.({
                   upload,
@@ -769,6 +811,10 @@ export function UsersDirectMessagesPanel({
               // Clicking or arrowing into the middle of an @token has to open
               // the picker too, not just typing at the end.
               onSelect={mentionPicker.syncCaret}
+              // Focus returns here after a send or a GIF pick; without this the
+              // picker stays latched closed from the blur that preceded it and
+              // an unfinished @mention never completes.
+              onFocus={mentionPicker.syncCaret}
               onBlur={mentionPicker.close}
               onKeyDown={(event) => {
                 // Consumes Enter/Tab/arrows while the list is open, so picking
@@ -791,10 +837,14 @@ export function UsersDirectMessagesPanel({
                   (messageDraft.trim() || pendingAttachment)
                 ) {
                   event.preventDefault();
-                  onSendMessage();
+                  sendAndRefocus();
                 }
               }}
-              disabled={isSendingMessage}
+              // Deliberately neither disabled nor readOnly while sending: a
+              // disabled input is blurred by the browser and never gets focus
+              // back (that was the vanishing caret), and readOnly eats
+              // keystrokes with no visual or screen-reader signal at all. The
+              // double-send guard sits in handleSendMessage.
               className="ct-chat-input"
               suffix={
                 <Button
@@ -805,7 +855,7 @@ export function UsersDirectMessagesPanel({
                   // Wrapped, not passed directly: onClick hands the handler a
                   // MouseEvent, which would arrive as the body override and be
                   // sent as the message.
-                  onClick={() => onSendMessage()}
+                  onClick={() => sendAndRefocus()}
                   loading={isSendingMessage}
                   disabled={
                     isSendingMessage ||
@@ -820,8 +870,6 @@ export function UsersDirectMessagesPanel({
       </div>
     );
   };
-
-  const isCallActive = (callState?.status === "active" || (callState?.status === "outgoing" && callState.callerId === currentUserId)) && callState.peerUser?.userId === selectedUser?.userId;
 
   return (
     // friends-mode drops the panel's gutter: the friends home is banded --

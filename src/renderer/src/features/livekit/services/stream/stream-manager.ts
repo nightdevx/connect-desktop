@@ -61,6 +61,10 @@ import {
 } from "./video-profiles";
 
 const AUDIO_LEVEL_SAMPLE_INTERVAL_MS = 100;
+// How long leaving a room may wait for the microphone to be muted politely.
+// The mute is queued behind every other microphone operation, so without a
+// ceiling a slow one held the leave open with the user still audible.
+const DISCONNECT_MIC_MUTE_BUDGET_MS = 300;
 // Stats tick once a second; only warn after the limitation has persisted, so a
 // momentary spike while a share starts up does not fire a scary message.
 const QUALITY_LIMITATION_TICKS = 8;
@@ -97,7 +101,7 @@ const isSameParticipantMediaState = (
   );
 };
 
-export class LiveKitStreamManager {
+export class LiveKitMediaSession {
   private room: Room | null = null;
   private currentLobbyId: string | null = null;
   private mediaMap: ParticipantMediaMap = {};
@@ -158,7 +162,6 @@ export class LiveKitStreamManager {
   private audioContext: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
   private localAudioSource: MediaStreamAudioSourceNode | null = null;
-  private micGainNode: GainNode | null = null;
   // Resolved speaking state per LiveKit identity — everyone in the room,
   // including the local participant. Owned here rather than derived in React so
   // there is exactly one answer to "is this person talking", arrived at the same
@@ -294,10 +297,8 @@ export class LiveKitStreamManager {
   private async updateLocalAudioSource(stream: MediaStream | null) {
     if (!stream) {
       this.localAudioSource?.disconnect();
-      this.micGainNode?.disconnect();
       this.localAudioSource = null;
       this.localAnalyser = null;
-      this.micGainNode = null;
       this.lastCapturedStreamId = null;
       return;
     }
@@ -314,19 +315,22 @@ export class LiveKitStreamManager {
       }
 
       this.localAudioSource?.disconnect();
-      this.micGainNode?.disconnect();
 
       this.localAnalyser = this.audioContext.createAnalyser();
       this.localAnalyser.fftSize = 256;
-      this.micGainNode = this.audioContext.createGain();
-      this.micGainNode.gain.value = Math.max(0, this.audioProcessingPreferences.microphoneVolume) / 100;
 
+      // Straight into the analyser, with no gain node in between. The stream fed
+      // here is the PUBLISHED track, which has already had the processor's gain
+      // applied — multiplying by microphoneVolume a second time made the meter
+      // read gain squared against the fixed speaking thresholds, so at 50% mic
+      // volume your own speaking ring stayed dark while everyone else saw you
+      // talking. That asymmetry is exactly what the speaking gate exists to
+      // remove.
       this.localAudioSource = this.audioContext.createMediaStreamSource(stream);
-      this.localAudioSource.connect(this.micGainNode);
-      this.micGainNode.connect(this.localAnalyser);
+      this.localAudioSource.connect(this.localAnalyser);
       this.lastCapturedStreamId = stream.id;
     } catch (err) {
-      console.warn("[LiveKitStreamManager] Failed to setup local audio analysis:", err);
+      console.warn("[LiveKitMediaSession] Failed to setup local audio analysis:", err);
     }
   }
 
@@ -401,7 +405,13 @@ export class LiveKitStreamManager {
         videoCodec: this.resolvedVideoCodec,
         dtx: true,
         red: true,
-        stopMicTrackOnMute: true,
+        // Muting must not close the microphone. Push-to-talk drives this path on
+        // every key press and release, and stopping the track meant each unmute
+        // re-ran getUserMedia, rebuilt the AudioContext graph, re-registered two
+        // audioWorklets and recompiled the RNNoise WASM — 200-600ms, which is the
+        // first syllable of whatever the user was saying. The track is muted at
+        // the sender either way, so nothing leaves the machine while it is off.
+        stopMicTrackOnMute: false,
       },
     };
 
@@ -522,7 +532,7 @@ export class LiveKitStreamManager {
           await this.audioContext.close();
         }
       } catch (err) {
-        console.warn("[LiveKitStreamManager] Failed to close audioContext:", err);
+        console.warn("[LiveKitMediaSession] Failed to close audioContext:", err);
       }
       this.audioContext = null;
     }
@@ -558,17 +568,28 @@ export class LiveKitStreamManager {
     this.statsCollector?.stop();
     this.statsCollector = null;
 
-    // 1. Explicitly disable/mute and stop the microphone track and processor BEFORE disconnecting the room!
+    // 1. Mute the microphone before tearing the room down, so nothing is still
+    // going out while the socket closes — but do not wait on it indefinitely.
+    // This call joins the serialised microphone queue, so anything already in
+    // that queue used to hold the whole leave with the user still audible and
+    // still on the roster. microphoneController.dispose() below stops the track
+    // regardless; this is politeness, not the mechanism.
     if (room) {
+      const participant = room.localParticipant;
       try {
-        await this.microphoneController.applyMicrophoneState({
-          enabled: false,
-          participant: room.localParticipant,
-          preferences: this.buildMicrophonePreferences(),
-          publishOptions: this.buildMicrophonePublishOptions(),
-        });
+        await Promise.race([
+          this.microphoneController.applyMicrophoneState({
+            enabled: false,
+            participant,
+            preferences: this.buildMicrophonePreferences(),
+            publishOptions: this.buildMicrophonePublishOptions(),
+          }),
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, DISCONNECT_MIC_MUTE_BUDGET_MS),
+          ),
+        ]);
       } catch (err) {
-        console.warn("[LiveKitStreamManager] Failed to mute mic before disconnect:", err);
+        console.warn("[LiveKitMediaSession] Failed to mute mic before disconnect:", err);
       }
     }
 
@@ -594,7 +615,10 @@ export class LiveKitStreamManager {
       this.remoteMediaHandler = null;
     }
 
-    await this.microphoneController.dispose();
+    // Not dispose(): that closes the AudioContext, and the worklet registration
+    // cache is keyed on it, so every room switch paid for two addModule calls
+    // and a WASM compile again. The session's own teardown still disposes.
+    await this.microphoneController.releaseForRoomChange();
     this.mediaMap = {};
     this.streamCache.clear();
     this.callbacks.onRemoteStreamsChanged?.({});
@@ -607,6 +631,19 @@ export class LiveKitStreamManager {
     if (room) {
       this.callbacks.onConnectionStateChanged?.("disconnected");
     }
+  }
+
+  /**
+   * Prepare the microphone chain before there is a room to publish into.
+   *
+   * Called once when the session is created, so the first join does not pay for
+   * the AudioContext, the worklet loads and the RNNoise compile on its critical
+   * path. Safe to call repeatedly.
+   */
+  public warmUpMicrophoneChain(): Promise<void> {
+    return this.microphoneController.warmUp(
+      this.audioProcessingPreferences.enhancedNoiseSuppressionEnabled,
+    );
   }
 
   public async setCameraEnabled(
@@ -690,12 +727,11 @@ export class LiveKitStreamManager {
     }
 
     if (micVolumeChanged) {
-      // Published audio: the gain node inside the microphone processor chain.
+      // One gain stage, inside the microphone processor chain. The meter reads
+      // the published track, so it already sees this change — applying it a
+      // second time on the way to the analyser is what made the local level bar
+      // and the local speaking gate disagree with every other client.
       this.microphoneController.setMicrophoneGain(prefs.microphoneVolume);
-      // Local level meter, so the bar reflects what is actually being sent.
-      if (this.micGainNode) {
-        this.micGainNode.gain.value = Math.max(0, prefs.microphoneVolume) / 100;
-      }
     }
 
     if (changed && this.room?.localParticipant.isMicrophoneEnabled) {
@@ -910,14 +946,17 @@ export class LiveKitStreamManager {
     };
   }
 
-  // 64 kbps mono Opus instead of LiveKit's 32 kbps default. Voice is the one
-  // stream that is always on and it is by far the cheapest thing in the room to
-  // spend bitrate on; RED adds packet-loss redundancy on top.
+  // 48 kbps mono Opus (AudioPresets.music), with RED for packet-loss
+  // redundancy. This used to be musicHighQuality, which the comment described as
+  // 64 kbps and is actually 96 kbps in livekit-client 2.18 — with RED that is
+  // ~190 kbps per talking participant, permanently, competing with a video
+  // ladder that can ask for megabits. Speech is indistinguishable at 48; the win
+  // is voice no longer crowding out the encoder on a constrained uplink.
   private buildMicrophonePublishOptions(): TrackPublishOptions {
     return {
       dtx: true,
       red: true,
-      audioPreset: AudioPresets.musicHighQuality,
+      audioPreset: AudioPresets.music,
     };
   }
 
@@ -1034,7 +1073,7 @@ export class LiveKitStreamManager {
 
     if (mismatch) {
       console.warn(
-        `[LiveKitStreamManager] ${label} publish did not honour the requested encoding: ${mismatch}`,
+        `[LiveKitMediaSession] ${label} publish did not honour the requested encoding: ${mismatch}`,
       );
     }
   }
@@ -1117,7 +1156,7 @@ export class LiveKitStreamManager {
       await sender.setParameters(parameters);
     } catch (error) {
       console.warn(
-        `[LiveKitStreamManager] ${label} live encoding update failed:`,
+        `[LiveKitMediaSession] ${label} live encoding update failed:`,
         error,
       );
     }
@@ -1234,6 +1273,9 @@ export class LiveKitStreamManager {
         codec: this.resolvedVideoCodec,
         contentMode: "motion",
         isScreenShare: false,
+        // One layer fewer while a share is live: six concurrent encoder sessions
+        // is where a consumer GPU gives up and both streams go soft.
+        isSharingScreen: this.desiredScreenEnabled,
       });
 
       logLiveKitDebug("stream-manager", "publish-camera", {
@@ -1253,9 +1295,13 @@ export class LiveKitStreamManager {
 
       this.verifyPublishedEncodings("camera", publication, target);
     } else {
-      if (!participant.isCameraEnabled) {
-        await participant.setCameraEnabled(true);
-      }
+      // No stream to publish. This used to fall through to
+      // setCameraEnabled(true), which captures with publishDefaults only —
+      // ignoring the ladder buildVideoPublishPlan exists to supply — so a
+      // reconnect silently downgraded the publish. Capture belongs to
+      // use-camera-controls; drop the intent instead of inventing one.
+      logLiveKitDebug("stream-manager", "camera-desired-without-stream", {});
+      this.desiredCameraEnabled = false;
     }
   }
 
@@ -1354,13 +1400,16 @@ export class LiveKitStreamManager {
             dtx: false,
             red: true,
             forceStereo: true,
-            audioPreset: AudioPresets.musicHighQualityStereo,
+            // 64 kbps stereo, not 128. Screen audio never goes silent (dtx is
+            // off on purpose, so a quiet passage is not cut), so this is a
+            // constant cost sitting next to the share's own video budget.
+            audioPreset: AudioPresets.musicStereo,
           });
           logLiveKitDebug("stream-manager", "screen-audio-published-success", {
             trackId: audioTrack.id,
           });
         } catch (err) {
-          console.error("[LiveKitStreamManager] Screen audio publish failed:", err);
+          console.error("[LiveKitMediaSession] Screen audio publish failed:", err);
           logLiveKitDebug("stream-manager", "screen-audio-published-error", {
             error: err instanceof Error ? err.message : String(err),
           });
@@ -1371,9 +1420,12 @@ export class LiveKitStreamManager {
         });
       }
     } else {
-      if (!participant.isScreenShareEnabled) {
-        await participant.setScreenShareEnabled(true);
-      }
+      // Same as the camera branch above, and worse: setScreenShareEnabled(true)
+      // calls getDisplayMedia, so this popped an OS source picker in the middle
+      // of a call, and published at LiveKit's h1080fps15 default — the exact
+      // profile video-profiles.ts documents as the bug it was written to fix.
+      logLiveKitDebug("stream-manager", "screen-desired-without-stream", {});
+      this.desiredScreenEnabled = false;
     }
   }
 
@@ -1711,7 +1763,8 @@ export class LiveKitStreamManager {
       dtx: false,
       red: true,
       forceStereo: true,
-      audioPreset: AudioPresets.musicHighQualityStereo,
+      // Same budget as the publish path above; see the note there.
+      audioPreset: AudioPresets.musicStereo,
     });
     logLiveKitDebug("stream-manager", "screen-audio-added", {
       trackId: track.id,
@@ -1731,4 +1784,3 @@ export class LiveKitStreamManager {
   public getParticipantMedia(): ParticipantMediaMap { return this.mediaMap; }
 }
 
-export class LiveKitMediaSession extends LiveKitStreamManager {}
