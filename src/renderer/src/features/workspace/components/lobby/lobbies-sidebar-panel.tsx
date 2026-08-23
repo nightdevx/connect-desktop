@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dropdown,
@@ -6,6 +6,7 @@ import {
   Input,
   Switch,
   Select,
+  Tag,
   message,
 } from "antd";
 import {
@@ -17,6 +18,7 @@ import {
   VideoCameraOutlined,
   DesktopOutlined,
   TeamOutlined,
+  KeyOutlined,
   LockOutlined,
   CrownOutlined,
   MessageOutlined,
@@ -36,7 +38,7 @@ import {
 } from "../user/user-profile-card";
 import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
 import { LobbyMemberAvatar } from "./parts/LobbyMemberAvatar";
-import { fetchUserCard } from "../../hooks/user/use-user-cards";
+import { fetchUserCard, useUserCards } from "../../hooks/user/use-user-cards";
 import {
   DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE,
   isRemoteParticipantMuted,
@@ -219,6 +221,19 @@ export function LobbiesSidebarPanel({
       setLookupUsername("");
     }
   }, [editingLobby]);
+
+  // The allow-list as it is STORED, for the read-only block at the top of the
+  // settings modal — not editAllowedUsers, which moves while you edit. Empty
+  // whenever the modal is shut, so the card queries cost nothing until it opens.
+  const allowedUserIds = useMemo(
+    () =>
+      editingLobby?.allowedUsers
+        ?.split(",")
+        .map((id) => id.trim())
+        .filter(Boolean) ?? [],
+    [editingLobby],
+  );
+  const allowedUserCards = useUserCards(allowedUserIds);
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
@@ -528,6 +543,16 @@ export function LobbiesSidebarPanel({
                 />
               )}
 
+              {/* The password used to be readable only from inside the
+                  settings modal, so the row said nothing about the prompt
+                  waiting behind the click. */}
+              {lobby.hasPassword && (
+                <KeyOutlined
+                  className="ct-lobby-row-flag warn"
+                  title="Şifre korumalı oda"
+                />
+              )}
+
               {creatorPresent && (
                 <CrownOutlined
                   className="ct-lobby-row-flag ok"
@@ -545,9 +570,16 @@ export function LobbiesSidebarPanel({
               )}
 
               {!lobby.isTextOnly && members.length > 0 && (
-                <span className="ct-lobby-row-count">
+                <span
+                  className="ct-lobby-row-count"
+                  title={
+                    lobby.capacity ? "Üye sayısı / kapasite" : "Üye sayısı"
+                  }
+                >
                   <TeamOutlined />
-                  {members.length}
+                  {lobby.capacity
+                    ? `${members.length} / ${lobby.capacity}`
+                    : members.length}
                 </span>
               )}
             </button>
@@ -1014,6 +1046,97 @@ export function LobbiesSidebarPanel({
         }}
       >
         <div className="ct-modal-form">
+          {/* Read-only, above the knobs: who made the room, when, how full it
+              is and who its rules actually let in. An admin sees every room in
+              this list, and none of this was rendered anywhere in the
+              workspace before — the owner's name least of all. */}
+          {editingLobby && (
+            <section className="ct-lobby-info">
+              <div className="ct-lobby-info-head">
+                <strong>{editingLobby.name}</strong>
+                <code className="ct-lobby-info-id">{editingLobby.id}</code>
+              </div>
+
+              <div className="ct-lobby-info-row">
+                <span>Sahibi</span>
+                <span>
+                  {editingLobby.createdByUsername
+                    ? `@${editingLobby.createdByUsername}`
+                    : editingLobby.createdBy}
+                </span>
+              </div>
+
+              <div className="ct-lobby-info-row">
+                <span>Oluşturulma</span>
+                <span>
+                  {new Date(editingLobby.createdAt).toLocaleString("tr-TR")}
+                </span>
+              </div>
+
+              <div className="ct-lobby-info-row">
+                <span>Kapasite</span>
+                <span>
+                  {editingLobby.capacity
+                    ? `${editingLobby.memberCount} / ${editingLobby.capacity}`
+                    : // No ceiling reported: an occupancy count under a
+                      // "Kapasite" label reads as one.
+                      "—"}
+                </span>
+              </div>
+
+              <div className="ct-lobby-info-row">
+                <span>Gizlilik</span>
+                <span>
+                  {editingLobby.isLocked ? (
+                    <Tag color="orange" icon={<LockOutlined />}>
+                      Kilitli
+                    </Tag>
+                  ) : (
+                    <Tag color="green">Herkese açık</Tag>
+                  )}
+                  {editingLobby.hasPassword && (
+                    <Tag color="gold" icon={<KeyOutlined />}>
+                      Şifre korumalı
+                    </Tag>
+                  )}
+                  {editingLobby.isTextOnly && (
+                    <Tag color="blue" icon={<MessageOutlined />}>
+                      Metin odası
+                    </Tag>
+                  )}
+                </span>
+              </div>
+
+              <div className="ct-lobby-info-row">
+                <span>Erişimi olanlar</span>
+                <span>
+                  {allowedUserIds.length === 0 ? (
+                    <Tag color="default">Liste boş</Tag>
+                  ) : (
+                    // The raw id until its card lands, and permanently for an
+                    // account the server will not name.
+                    allowedUserIds.map((userId) => (
+                      <Tag color="blue" key={userId}>
+                        {allowedUserCards[userId]
+                          ? `@${allowedUserCards[userId].username}`
+                          : userId}
+                      </Tag>
+                    ))
+                  )}
+                </span>
+              </div>
+
+              {/* A text room refuses every voice join before any privilege
+                  check, so the "always gets in" line only holds for voice
+                  rooms; access to the room itself still follows the list. */}
+              <p className="ct-field-hint">
+                {editingLobby.isTextOnly
+                  ? "Bu bir metin odası: kimse sesli katılamaz, yöneticiler dahil. Listenin dışında oda sahibi ve yöneticiler odayı yine de açabilir."
+                  : "Bu listenin dışında oda sahibi ve tüm yöneticiler her zaman girebilir; oda şifreliyse doğru şifreyi bilen herkes de girer."}
+              </p>
+            </section>
+          )}
+
           <label className="ct-field" htmlFor="edit-lobby-name">
             <span>Lobi Adı</span>
             <Input
@@ -1066,10 +1189,6 @@ export function LobbiesSidebarPanel({
                   })),
                 ]}
               />
-              {/* ponytail: an already-allowed non-friend from an earlier edit
-                  still renders as a bare id — there is no lookup-by-id route,
-                  only this by-username one. Add names to the descriptor's
-                  allowedUsers if that reads badly. */}
               <Input.Search
                 placeholder="Kullanıcı adıyla ekle"
                 enterButton="Ekle"

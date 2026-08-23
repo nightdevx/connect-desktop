@@ -24,28 +24,65 @@ const {
   scaleBitrateToResolution,
   SCREEN_SHARE_MAX_ENCODINGS,
   CAMERA_MAX_ENCODINGS,
+  CAMERA_MAX_ENCODINGS_WHILE_SHARING,
 } = mod;
 
-assert.equal(SCREEN_SHARE_MAX_ENCODINGS, 2);
+assert.equal(SCREEN_SHARE_MAX_ENCODINGS, 3);
 assert.equal(CAMERA_MAX_ENCODINGS, 3);
+assert.equal(CAMERA_MAX_ENCODINGS_WHILE_SHARING, 2);
 
-// --- 1440p60 screen share --------------------------------------------------
-// One extra layer, not two: at 1440p and up a third encoding costs a hardware
-// encoder session for a 640x360 layer the 1280x720 one already covers.
-const sharp = buildSimulcastLayerSpecs({
+const target1440p60 = {
   width: 2560,
   height: 1440,
   maxBitrateBps: 9_000_000,
   maxFramerate: 60,
-});
+};
 
-assert.equal(sharp.length, 1, "1440p gets one extra layer, so two encodings");
+// --- 1440p60 CAMERA --------------------------------------------------------
+// One extra layer, not two: a camera frame this large is rare, and a third
+// encoding costs a hardware encoder session for a layer the half one covers.
+const sharp = buildSimulcastLayerSpecs(target1440p60);
+
+assert.equal(sharp.length, 1, "1440p camera gets one extra layer");
 assert.deepEqual(
   sharp.map((layer) => [layer.width, layer.height]),
   [[1280, 720]],
   "the surviving layer is the half one",
 );
 assert.equal(sharp[0].maxFramerate, 30, "half layer is capped at 30fps");
+
+// --- 1440p60 SCREEN SHARE --------------------------------------------------
+// The opposite call, for the opposite reason: the half layer is still 1280x720,
+// which no grid tile, rail slot or picture-in-picture window can use. Without a
+// quarter layer adaptiveStream has nothing to ask for and the viewer gets a
+// stalled top layer. dynacast pauses the extra encode whenever nobody wants it.
+const sharpScreen = buildSimulcastLayerSpecs(
+  target1440p60,
+  SCREEN_SHARE_MAX_ENCODINGS,
+  true,
+);
+assert.equal(sharpScreen.length, 2, "1440p screen share gets three encodings");
+assert.deepEqual(
+  sharpScreen.map((layer) => [layer.width, layer.height]),
+  [
+    [640, 360],
+    [1280, 720],
+  ],
+  "the ladder reaches a tile-sized layer, lowest first",
+);
+
+// --- 2160p screen share ----------------------------------------------------
+const uhdScreen = buildSimulcastLayerSpecs(
+  { width: 3840, height: 2160, maxBitrateBps: 14_000_000, maxFramerate: 30 },
+  SCREEN_SHARE_MAX_ENCODINGS,
+  true,
+);
+assert.equal(uhdScreen.length, 2, "2160p screen share gets three encodings");
+assert.deepEqual(
+  [uhdScreen[0].width, uhdScreen[0].height],
+  [960, 540],
+  "the quarter layer of a 4K share is still tile-sized",
+);
 // Sanity against LiveKit's own ladder: 1440p @ 9M -> 720p should land near 2-3M.
 assert.ok(
   sharp[0].maxBitrateBps > 2_000_000 && sharp[0].maxBitrateBps < 4_000_000,
@@ -80,13 +117,35 @@ assert.ok(
 );
 assert.equal(high[0].maxFramerate, 15, "quarter layer is capped at 15fps");
 
-// Screen share drops the quarter layer: a 480x270 desktop is unreadable, and
-// the uplink is spent on the sum of the ladder, not on the top layer alone.
+// A 1080p share still drops the quarter layer: 480x270 of a desktop is
+// unreadable, so nobody would rather have it than a paused stream, and the
+// uplink is spent on the sum of the ladder rather than the top layer alone.
+// Only 1440p and above earn the third encoding.
 const highScreen = buildSimulcastLayerSpecs(
   target1080p60,
   SCREEN_SHARE_MAX_ENCODINGS,
+  true,
 );
 assert.equal(highScreen.length, 1, "1080p screen share gets two encodings");
+
+// --- the camera gives up a layer while a share is live ---------------------
+// Three camera layers plus three screen layers is six concurrent encoder
+// sessions, which is past what consumer hardware takes before falling back to
+// software and degrading both streams.
+const cameraWhileSharing = buildSimulcastLayerSpecs(
+  target1080p60,
+  CAMERA_MAX_ENCODINGS_WHILE_SHARING,
+);
+assert.equal(
+  cameraWhileSharing.length,
+  1,
+  "the camera drops to two encodings while a screen share is live",
+);
+assert.deepEqual(
+  [cameraWhileSharing[0].width, cameraWhileSharing[0].height],
+  [960, 540],
+  "and keeps the half layer, not the quarter one",
+);
 assert.deepEqual(
   [highScreen[0].width, highScreen[0].height],
   [960, 540],
@@ -101,6 +160,7 @@ const cameraCost = estimateLadderBitrateBps(
 const screenCost = estimateLadderBitrateBps(
   target1080p60,
   SCREEN_SHARE_MAX_ENCODINGS,
+  true,
 );
 assert.ok(
   cameraCost > 5_000_000,

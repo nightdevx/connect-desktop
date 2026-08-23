@@ -97,8 +97,14 @@ export const useAudioControls = ({
   const syncLobbyAudioState = useCallback(
     async (lobbyId: string): Promise<void> => {
       // Ensure the LiveKit session reflects the current UI state immediately.
+      //
+      // Deafen only. The microphone is owned by the join path (the token ->
+      // mic -> connect chain in performPostJoinSynchronization) and re-applied
+      // by restorePublishingState after connect; firing a second, identical
+      // setMicrophoneEnabled here queued a full redundant apply behind — or in
+      // front of — the real one in the serialised mic queue, and left a dropped
+      // promise on every join.
       liveKitSessionRef.current?.setDeafened(!headphoneEnabled);
-      void liveKitSessionRef.current?.setMicrophoneEnabled(micEnabled);
 
       await declareAudioState(lobbyId, micEnabled, headphoneEnabled);
     },

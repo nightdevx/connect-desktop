@@ -89,6 +89,13 @@ export const useScreenShareControls = ({
   const [selectedScreenShareContentMode, setSelectedScreenShareContentMode] =
     useState<ScreenShareContentMode>("auto");
   const [captureSystemAudio, setCaptureSystemAudio] = useState(() => streamPreferences.captureSystemAudio);
+  // The live value, for the code that runs after an await — same reason as the
+  // camera hook's: the post-join sync runs several awaits after
+  // resetLocalMediaCapture turned sharing off, and the render closure still said
+  // it was on, so the new room got a screen-share badge with a dead "watch"
+  // affordance behind it.
+  const screenEnabledRef = useRef(false);
+  screenEnabledRef.current = screenEnabled;
   const liveShareRef = useRef<LiveScreenShareState | null>(null);
   // Two overlapping swaps would both read the same "previous" stream and the
   // loser would stop a track the winner had just published.
@@ -135,7 +142,7 @@ export const useScreenShareControls = ({
   const syncLobbyMediaState = useCallback(
     async (lobbyId: string): Promise<void> => {
       if (lobbyId.startsWith("call_")) return;
-      if (screenEnabled) {
+      if (screenEnabledRef.current) {
         const result = await workspaceService.setLobbyScreenSharing({
           lobbyId,
           enabled: true,
@@ -148,7 +155,7 @@ export const useScreenShareControls = ({
         }
       }
     },
-    [screenEnabled, setStatus]
+    [setStatus]
   );
 
   // Shared by the share dialog and the toolbar's "ekran değiştir" menu: both

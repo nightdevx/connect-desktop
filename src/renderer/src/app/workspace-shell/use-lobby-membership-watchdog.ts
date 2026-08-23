@@ -32,17 +32,6 @@ import type { LobbyStateMember } from "@shared/desktop-api-types";
 // Anything not listed here — a network failure, a 5xx, LOBBY_FULL, an access
 // token that expired mid-refresh — is a failed probe, not a verdict, and must
 // leave the user exactly where they are.
-const DEPARTURE_MESSAGE_FOR_CODE: Record<string, string> = {
-  LOBBY_KICKED: "Odadan atıldınız.",
-  LOBBY_BANNED: "Bu odadan yasaklandınız.",
-  LOBBY_NOT_FOUND: "Oda kapatıldı.",
-  LOBBY_LOCKED: "Odaya erişim izniniz kaldırıldı.",
-  LOBBY_PASSWORD_REQUIRED: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
-  LOBBY_PASSWORD_INCORRECT: "Oda şifresi değişti, tekrar katılmanız gerekiyor.",
-  LOBBY_TEXT_ONLY: "Oda mesajlaşma odasına dönüştürüldü.",
-  FORBIDDEN: "Odaya erişim izniniz kaldırıldı.",
-};
-
 // Consecutive absent observations before we challenge the server. Snapshots
 // arrive about once a second while the stream is healthy, so this is ~4s of real
 // evidence — and zero seconds of evidence when the stream is down, which is the
@@ -59,8 +48,6 @@ export interface LobbyMembershipWatchdogOptions {
   /** The password the user actually entered, so a silent re-join can present it. */
   activeLobbyPasswordRef: MutableRefObject<string | null>;
   lobbyTransitionRef: MutableRefObject<LobbyTransitionState>;
-  /** Re-declares mic/camera/screen and brings the media room back up. */
-  performPostJoinSyncRef: MutableRefObject<(lobbyId: string) => Promise<void>>;
   leaveActiveLobby: (reason?: "kicked" | "user") => Promise<void> | void;
   /**
    * Follows a moderator's move into the room they put this account in.
@@ -70,6 +57,29 @@ export interface LobbyMembershipWatchdogOptions {
    * the removal listener on every render of it would drop frames.
    */
   followModeratorMoveRef: MutableRefObject<(lobbyId: string) => void>;
+  /**
+   * Recovery, delegated.
+   *
+   * This hook used to POST /lobby/join itself, in parallel with the reconnect
+   * scheduler in use-workspace-lobbies doing the same thing with different stop
+   * conditions, different interlocks and different backoff — two unattended join
+   * loops that could land on top of each other and pull the user back into a
+   * room they had just left. Now there is one, and this asks it to run.
+   */
+  scheduleActiveLobbyReconnect: (
+    reason: "membership-lost",
+    immediate?: boolean,
+  ) => void;
+  /**
+   * Where the scheduler reports a refusal that will never stop being true.
+   *
+   * The hook publishes departFromLobby into it, so a ban discovered by the
+   * background re-join ends the same way a ban announced over the socket does:
+   * one message, one proper leave.
+   */
+  membershipDepartureRef: MutableRefObject<
+    ((lobbyId: string, reason: string) => void) | null
+  >;
 }
 
 export function useLobbyMembershipWatchdog({
@@ -80,9 +90,10 @@ export function useLobbyMembershipWatchdog({
   kickedLobbyIdRef,
   activeLobbyPasswordRef,
   lobbyTransitionRef,
-  performPostJoinSyncRef,
   leaveActiveLobby,
   followModeratorMoveRef,
+  scheduleActiveLobbyReconnect,
+  membershipDepartureRef,
 }: LobbyMembershipWatchdogOptions): void {
   const hasSeenActiveLobbyStateRef = useRef<Record<string, boolean>>({});
   const hasSeenCurrentUserInLobbyRef = useRef(false);
@@ -93,7 +104,6 @@ export function useLobbyMembershipWatchdog({
   // identity per push, so comparing references is what makes the effect
   // snapshot-driven instead of render-driven.
   const judgedRosterRef = useRef<unknown>(null);
-  const membershipRecoveryInFlightRef = useRef(false);
 
   const leaveActiveLobbyRef = useRef(leaveActiveLobby);
   useEffect(() => {
@@ -131,58 +141,34 @@ export function useLobbyMembershipWatchdog({
     [activeLobbyPasswordRef, kickedLobbyIdRef],
   );
 
+  // Publish the departure handler for the scheduler, which is created earlier
+  // in the shell and cannot see this closure directly.
+  useEffect(() => {
+    membershipDepartureRef.current = departFromLobby;
+    return () => {
+      membershipDepartureRef.current = null;
+    };
+  }, [departFromLobby, membershipDepartureRef]);
+
   const recoverMembership = useCallback(
     (lobbyId: string, why: string): void => {
-      if (membershipRecoveryInFlightRef.current) return;
       // A deliberate join/leave is already changing rooms; it owns the outcome.
+      // The scheduler re-checks this when its timer fires too, but checking here
+      // as well keeps a burst of absent snapshots from arming it repeatedly.
       if (isLobbyTransitionBusy(lobbyTransitionRef.current)) return;
-      membershipRecoveryInFlightRef.current = true;
+
       console.log(
-        `[membership-watchdog] ${why} — re-joining ${lobbyId} to find out why`,
+        `[membership-watchdog] ${why} — asking the reconnect scheduler to re-join ${lobbyId}`,
       );
 
-      void workspaceService
-        .joinLobby({
-          lobbyId,
-          password: activeLobbyPasswordRef.current ?? undefined,
-        })
-        .then(async (result) => {
-          // Moved on while the probe was in flight; its answer is about a room
-          // the user is no longer standing in.
-          if (activeLobbyRef.current !== lobbyId) return;
-
-          if (result.ok) {
-            // Back on the roster. Re-declare mic/camera/screen and make sure the
-            // media room is up, then say nothing: the user saw no interruption.
-            absentRosterObservationsRef.current = 0;
-            await performPostJoinSyncRef.current(lobbyId).catch(() => undefined);
-            return;
-          }
-
-          const departure = DEPARTURE_MESSAGE_FOR_CODE[result.error?.code ?? ""];
-          if (departure) {
-            departFromLobby(lobbyId, departure);
-            return;
-          }
-
-          // Inconclusive. Keep the user where they are and try again on the
-          // next absent observation.
-          absentRosterObservationsRef.current = 0;
-        })
-        .catch(() => {
-          absentRosterObservationsRef.current = 0;
-        })
-        .finally(() => {
-          membershipRecoveryInFlightRef.current = false;
-        });
+      // Everything this used to do by hand — the password replay, the "did we
+      // move rooms mid-flight" check, the backoff, the post-join sync, and now
+      // the departure table — lives in scheduleActiveLobbyReconnect. All that is
+      // left here is noticing.
+      absentRosterObservationsRef.current = 0;
+      scheduleActiveLobbyReconnect("membership-lost", true);
     },
-    [
-      activeLobbyPasswordRef,
-      activeLobbyRef,
-      departFromLobby,
-      lobbyTransitionRef,
-      performPostJoinSyncRef,
-    ],
+    [lobbyTransitionRef, scheduleActiveLobbyReconnect],
   );
 
   // (1) The server said so. No waiting, no counting, no inference.

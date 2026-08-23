@@ -31,11 +31,12 @@ import {
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
-  AdminLobbyMember,
   AdminLobbySnapshot,
   AdminUserDetail,
+  LobbyDescriptor,
   LobbyTimeout,
 } from "@shared/auth-contracts";
+import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { AdminPageHeader } from "./admin-primitives";
 
 interface EditLobbyFormValues {
@@ -48,6 +49,37 @@ interface EditLobbyFormValues {
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
 const DEFAULT_PAGE_SIZE = 10;
+
+// The three privacy flags are independent — a room can be locked and password
+// protected at once — so they stack, and "Herkese açık" is the empty case
+// rather than a fourth flag.
+const privacyTags = (lobby: LobbyDescriptor) => {
+  const tags = [
+    lobby.isLocked ? (
+      <Tag key="locked" color="orange" icon={<LockOutlined />}>
+        Kilitli
+      </Tag>
+    ) : null,
+    lobby.hasPassword ? (
+      <Tag key="password" color="volcano">
+        Şifreli
+      </Tag>
+    ) : null,
+    lobby.isTextOnly ? (
+      <Tag key="text" color="purple">
+        Metin odası
+      </Tag>
+    ) : null,
+  ].filter(Boolean);
+
+  return tags.length > 0 ? (
+    <Space size={4} wrap>
+      {tags}
+    </Space>
+  ) : (
+    <Tag color="green">Herkese açık</Tag>
+  );
+};
 
 export default function AdminLobbies() {
   const [lobbies, setLobbies] = useState<AdminLobbySnapshot[]>([]);
@@ -258,12 +290,22 @@ export default function AdminLobbies() {
       },
     },
     {
+      title: "Gizlilik",
+      key: "privacy",
+      width: 190,
+      render: (_value: unknown, record: AdminLobbySnapshot) => privacyTags(record.lobby),
+    },
+    {
       title: "Üye Sayısı",
       dataIndex: "size",
       key: "size",
       width: 130,
-      render: (size: number) => (
-        <Tag color={size > 0 ? "green" : "default"}>{size} aktif üye</Tag>
+      // The ceiling only shows when the server sent one; an older server omits
+      // capacity and "3 / undefined" is worse than no ceiling at all.
+      render: (size: number, record: AdminLobbySnapshot) => (
+        <Tag color={size > 0 ? "green" : "default"}>
+          {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : `${size} aktif üye`}
+        </Tag>
       ),
     },
     {
@@ -312,10 +354,63 @@ export default function AdminLobbies() {
 
   // Render sub table listing live participants in a lobby
   const expandedRowRender = (record: AdminLobbySnapshot) => {
+    // Ids and usernames come as parallel arrays on the admin envelope; the CSV
+    // of ids on the descriptor is the fallback for a server that has not
+    // shipped them yet, and then the id is all a tag can show.
+    const allowedIds =
+      record.allowedUserIds ??
+      record.lobby.allowedUsers?.split(",").filter(Boolean) ??
+      [];
+    const allowedUsers =
+      record.allowedUsernames && record.allowedUsernames.length > 0
+        ? record.allowedUsernames.map((username, index) => ({
+            id: allowedIds[index] ?? username,
+            username,
+          }))
+        : allowedIds.map((id) => ({ id, username: id }));
+
+    const details = (
+      <div className="ct-admin-kv-grid mb-3">
+        <div className="ct-admin-kv">
+          <span>Oda sahibi</span>
+          <strong>@{record.lobby.createdByUsername || record.lobby.createdBy}</strong>
+        </div>
+        <div className="ct-admin-kv">
+          <span>Oluşturulma tarihi</span>
+          <strong>{new Date(record.lobby.createdAt).toLocaleString("tr-TR")}</strong>
+        </div>
+        <div className="ct-admin-kv">
+          <span>Erişim listesi</span>
+          <strong>
+            {allowedUsers.length > 0 ? (
+              <Space size={4} wrap>
+                {allowedUsers.map((allowed) => (
+                  <Tag key={allowed.id} color="blue" title={allowed.id}>
+                    @{allowed.username}
+                  </Tag>
+                ))}
+              </Space>
+            ) : record.lobby.isLocked ? (
+              "Liste boş — yalnızca odayı kuran kişi girebilir"
+            ) : (
+              "Herkes katılabilir"
+            )}
+          </strong>
+        </div>
+        {record.lobby.hasPassword ? (
+          <div className="ct-admin-kv">
+            <span>Şifre</span>
+            <strong>Şifreyi bilen herkes de girebilir</strong>
+          </div>
+        ) : null}
+      </div>
+    );
+
     if (record.members.length === 0) {
       return (
-        <div className="ct-admin-empty">
-          Odada şu anda kimse yok.
+        <div className="ct-admin-subtable">
+          {details}
+          <div className="ct-admin-empty">Odada şu anda kimse yok.</div>
         </div>
       );
     }
@@ -343,9 +438,9 @@ export default function AdminLobbies() {
       {
         title: "Ses / Mikrofon",
         key: "audioStatus",
-        render: (_value: unknown, member: AdminLobbyMember) => (
+        render: (_value: unknown, member: LobbyStateMember) => (
           <Space size={4} wrap>
-            {member.muted ? (
+            {member.muted || member.serverMuted ? (
               <Tag color="red" icon={<AudioMutedOutlined />}>
                 Sessiz
               </Tag>
@@ -353,6 +448,11 @@ export default function AdminLobbies() {
               <Tag color="green" icon={<SoundOutlined />}>
                 Ses açık
               </Tag>
+            )}
+            {/* A moderator mute the user cannot lift themselves — without its
+                own tag it looked exactly like a self mute. */}
+            {member.serverMuted && (
+              <Tag color="volcano">Yönetici susturdu</Tag>
             )}
             {member.deafened && (
               <Tag color="volcano">Sağırlaştırılmış</Tag>
@@ -363,7 +463,7 @@ export default function AdminLobbies() {
       {
         title: "Kamera / Ekran",
         key: "mediaStatus",
-        render: (_value: unknown, member: AdminLobbyMember) => (
+        render: (_value: unknown, member: LobbyStateMember) => (
           <Space size={4} wrap>
             {member.cameraEnabled ? (
               <Tag color="purple" icon={<VideoCameraOutlined />}>
@@ -384,7 +484,7 @@ export default function AdminLobbies() {
         title: "İşlemler",
         key: "actions",
         align: "right" as const,
-        render: (_value: unknown, member: AdminLobbyMember) => (
+        render: (_value: unknown, member: LobbyStateMember) => (
           <Popconfirm
             title="Kullanıcıyı odadan atmak istediğinize emin misiniz?"
             onConfirm={() => handleKickUser(record.lobby.id, member.userId)}
@@ -405,6 +505,7 @@ export default function AdminLobbies() {
     // which rendered a live table in muted text at that message's padding.
     return (
       <div className="ct-admin-subtable">
+        {details}
         <Table
           columns={memberColumns}
           dataSource={record.members}

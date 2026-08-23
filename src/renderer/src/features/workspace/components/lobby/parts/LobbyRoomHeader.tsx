@@ -1,5 +1,6 @@
 import { Tooltip } from "antd";
 import {
+  KeyOutlined,
   LockOutlined,
   MessageOutlined,
   RightOutlined,
@@ -71,6 +72,12 @@ export function LobbyRoomHeader({
             <LockOutlined className="ct-lobby-room-flag warn" />
           </Tooltip>
         )}
+
+        {lobby.hasPassword && (
+          <Tooltip title="Şifre korumalı oda">
+            <KeyOutlined className="ct-lobby-room-flag warn" />
+          </Tooltip>
+        )}
       </div>
 
       <div className="ct-lobby-room-meta">
@@ -78,9 +85,12 @@ export function LobbyRoomHeader({
           <span className="ct-lobby-room-meta-item">Mesaj odası</span>
         ) : (
           <>
-            <span className="ct-lobby-room-meta-item">
+            <span
+              className="ct-lobby-room-meta-item"
+              title={lobby.capacity ? "Üye sayısı / kapasite" : "Üye sayısı"}
+            >
               <TeamOutlined />
-              {memberCount}
+              {lobby.capacity ? `${memberCount} / ${lobby.capacity}` : memberCount}
             </span>
 
             <span

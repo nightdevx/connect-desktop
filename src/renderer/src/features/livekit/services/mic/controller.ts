@@ -22,6 +22,12 @@ import {
   type MicrophoneProcessingPreferences,
 } from "./types";
 
+// How long one setProcessor attempt may take before the browser's own noise
+// suppression is used instead. Every microphone operation is serialised behind
+// this one, so the budget is a hard ceiling on how long a wedged worklet load
+// can hold up a mute, an unmute, or leaving a room.
+const PROCESSOR_ATTACH_TIMEOUT_MS = 2_000;
+
 export class LiveKitMicrophoneController {
   private operationQueue: Promise<void> = Promise.resolve();
   private readonly audioContextManager: AudioContextManager;
@@ -50,6 +56,65 @@ export class LiveKitMicrophoneController {
 
   public getOrCreateAudioContext(): AudioContext | null {
     return this.audioContextManager.getOrCreateAudioContext();
+  }
+
+  /**
+   * Build the room-independent half of the microphone chain ahead of time.
+   *
+   * The AudioContext, two AudioWorklet module loads and the RNNoise WASM
+   * compile do not depend on a room, a participant or a track — but they only
+   * ran on the way to publishing, i.e. AFTER room.connect() had resolved. That
+   * put 250-700ms of pure setup between "connected" and "they can hear me" on a
+   * cold join, and 60-160ms on every room switch, because the worklet
+   * registration is cached per AudioContext and the context used to be closed
+   * on every teardown.
+   *
+   * Idempotent: the context is reused and prewarm caches its own work, so
+   * calling this once per session and again on a preference change is free.
+   */
+  public warmUp(enhancedNoiseSuppressionEnabled: boolean): Promise<void> {
+    return this.enqueue(async () => {
+      const context = this.getOrCreateAudioContext();
+      if (!context) {
+        logLiveKitDebug("mic-controller", "warmup-no-context");
+        return;
+      }
+
+      if (context.state === "suspended") {
+        try {
+          await context.resume();
+        } catch {
+          // A context that cannot resume yet (no user gesture) still registers
+          // its worklets; the resume happens later on the real publish path.
+        }
+      }
+
+      await this.processorManager.prewarm(context, enhancedNoiseSuppressionEnabled);
+      logLiveKitDebug("mic-controller", "warmup-finished", {
+        enhancedNoiseSuppressionEnabled,
+      });
+    });
+  }
+
+  /**
+   * Per-room teardown: forget what was applied and drop the processor, but keep
+   * the AudioContext and everything registered on it.
+   *
+   * dispose() closes the context, which throws away the worklet registration
+   * cache with it — that is correct when the session itself is going away, and
+   * pure waste between two rooms.
+   */
+  public releaseForRoomChange(): Promise<void> {
+    return this.enqueue(async () => {
+      logLiveKitDebug("mic-controller", "release-for-room-change");
+      this.lastAppliedParticipantIdentity = null;
+      this.lastAppliedEnabled = null;
+      this.lastAppliedDeviceId = null;
+      this.lastAppliedNoiseSuppression = null;
+      this.lastAppliedPreset = null;
+      await this.processorManager.destroyActiveProcessor();
+      this.noiseSuppressionRuntime.markDisabled();
+    });
   }
 
   public prepareParticipantAudioContext(participant: LocalParticipant): void {
@@ -216,25 +281,21 @@ export class LiveKitMicrophoneController {
 
     if (!enabled) {
       logLiveKitDebug("mic-controller", "apply-disable-start");
-      const publication = participant.getTrackPublication(Track.Source.Microphone);
-      const track = publication?.track as LocalAudioTrack | undefined;
-      if (track) {
-        try {
-          logLiveKitDebug("mic-controller", "stopping-track-processor");
-          await track.stopProcessor();
-        } catch (err) {
-          console.warn("[LiveKitMicrophoneController] Failed to stop track processor:", err);
-        }
-        try {
-          logLiveKitDebug("mic-controller", "stopping-local-track-explicitly");
-          track.stop();
-        } catch (err) {
-          console.warn("[LiveKitMicrophoneController] Failed to stop track:", err);
-        }
-      }
+
+      // Mute, do not dismantle.
+      //
+      // This used to stop the processor, stop the track and destroy the
+      // processor on every disable — with stopMicTrackOnMute doing the same
+      // thing again underneath it. Push-to-talk drives this path on every key
+      // release, so every single unmute then re-ran getUserMedia, rebuilt the
+      // AudioContext graph, re-registered two audioWorklets and recompiled the
+      // RNNoise WASM: 200-600ms, which is the first syllable of the sentence.
+      //
+      // LiveKit mutes the sender, so nothing leaves the machine while it is off,
+      // and the OS microphone indicator staying lit is the honest signal — the
+      // app still holds the device, and it is about to send again.
+      // The full teardown lives in releaseForRoomChange() and dispose().
       await participant.setMicrophoneEnabled(false);
-      this.noiseSuppressionRuntime.markDisabled();
-      await this.processorManager.destroyActiveProcessor();
 
       this.lastAppliedParticipantIdentity = participantIdentity;
       this.lastAppliedEnabled = false;
@@ -544,44 +605,35 @@ export class LiveKitMicrophoneController {
 
     track.setAudioContext(context);
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      try {
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("RNNoise initialization timeout")), 5000);
-        });
+    // One attempt, bounded. This used to be three attempts raced against 5s
+    // each with backoff between them — 15.45s worst case — inside the single
+    // serialised operation queue, so a wedged worklet load blocked every later
+    // microphone operation behind it, including the mute that disconnect()
+    // waits on. Failing here is not fatal: the caller falls back to the
+    // browser's own noise suppression and warns.
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("RNNoise initialization timeout")),
+          PROCESSOR_ATTACH_TIMEOUT_MS,
+        );
+      });
 
-        await Promise.race([
-          track.setProcessor(processor),
-          timeoutPromise
-        ]);
-        
-        clearTimeout(timeoutId);
+      await Promise.race([track.setProcessor(processor), timeoutPromise]);
 
-        logLiveKitDebug("mic-controller", "processor-attach-success", {
-          trackId: track.mediaStreamTrack.id,
-          attempt,
-        });
-        return true;
-      } catch (error) {
-        if (timeoutId) clearTimeout(timeoutId);
-        logLiveKitDebug("mic-controller", "processor-attach-attempt-failed", {
-          attempt,
-          error,
-        });
+      clearTimeout(timeoutId);
 
-        if (attempt < 2) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 150 * (attempt + 1)),
-          );
-        } else {
-          logLiveKitDebug("mic-controller", "processor-attach-final-failure", {
-            error,
-          });
-        }
-      }
+      logLiveKitDebug("mic-controller", "processor-attach-success", {
+        trackId: track.mediaStreamTrack.id,
+      });
+      return true;
+    } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+      logLiveKitDebug("mic-controller", "processor-attach-final-failure", {
+        error,
+      });
     }
-
     return false;
   }
 

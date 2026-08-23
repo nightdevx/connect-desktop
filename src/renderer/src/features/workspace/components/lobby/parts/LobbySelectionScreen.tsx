@@ -1,5 +1,6 @@
 import { Button, Tooltip } from "antd";
 import {
+  KeyOutlined,
   LoadingOutlined,
   LockOutlined,
   MessageOutlined,
@@ -95,6 +96,15 @@ export function LobbySelectionScreen({
                         <LockOutlined className="ct-lobby-select-card-flag warn" />
                       </Tooltip>
                     )}
+
+                    {/* A password was invisible everywhere until now: a
+                        protected room drew exactly like an open one and you
+                        only learned about it from the prompt after clicking. */}
+                    {lobby.hasPassword && (
+                      <Tooltip title="Şifre korumalı oda">
+                        <KeyOutlined className="ct-lobby-select-card-flag warn" />
+                      </Tooltip>
+                    )}
                   </div>
 
                   {/* Nobody is ever "in" a message room, so an occupancy count
@@ -106,7 +116,9 @@ export function LobbySelectionScreen({
                     ) : (
                       <>
                         <TeamOutlined />
-                        {lobby.memberCount} kişi
+                        {lobby.capacity
+                          ? `${lobby.memberCount} / ${lobby.capacity} kişi`
+                          : `${lobby.memberCount} kişi`}
                       </>
                     )}
                   </span>

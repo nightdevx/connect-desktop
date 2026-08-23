@@ -46,6 +46,9 @@ const PRESENCE_OPTIONS: Array<{
   { value: "online", label: "Çevrimiçi" },
   { value: "idle", label: "Boşta" },
   { value: "dnd", label: "Rahatsız etmeyin" },
+  // Invisible. The connection stays up and everything keeps working; the server
+  // simply tells everyone else this account is offline.
+  { value: "offline", label: "Çevrimdışı görün" },
 ];
 
 export function UsersSidebarPanel({
