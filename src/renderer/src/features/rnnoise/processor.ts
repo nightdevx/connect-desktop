@@ -65,25 +65,34 @@ const RNNOISE_PROCESSING_PROFILES: Record<
   NoiseSuppressionPreset,
   RnnoiseProcessingProfile
 > = {
+  // The gate thresholds are deliberately well below speech now.
+  //
+  // It runs AFTER RNNoise, which has already removed the stationary noise the
+  // gate was there for, and it decides open/closed from a single 128-sample
+  // block (2.67ms) with no attack or release ramp — so a threshold anywhere near
+  // a talker's level cuts the start of words and steps to silence between them.
+  // Balanced sat at -52/-58 and aggressive at -46/-52, which is inside normal
+  // speech onsets; both are now floor values that only catch true silence, and
+  // the longer hold keeps the gate from chattering between syllables.
   natural: {
     inputHighPassHz: 80,
     outputLowPassHz: 16_000,
-    gateOpenThresholdDb: -60,
-    gateCloseThresholdDb: -66,
-    gateHoldMs: 110,
+    gateOpenThresholdDb: -62,
+    gateCloseThresholdDb: -68,
+    gateHoldMs: 140,
   },
   balanced: {
     inputHighPassHz: 100,
     outputLowPassHz: 15_000,
-    gateOpenThresholdDb: -52,
-    gateCloseThresholdDb: -58,
-    gateHoldMs: 140,
+    gateOpenThresholdDb: -62,
+    gateCloseThresholdDb: -68,
+    gateHoldMs: 160,
   },
   aggressive: {
     inputHighPassHz: 120,
     outputLowPassHz: 13_000,
-    gateOpenThresholdDb: -46,
-    gateCloseThresholdDb: -52,
+    gateOpenThresholdDb: -58,
+    gateCloseThresholdDb: -64,
     gateHoldMs: 190,
   },
 };

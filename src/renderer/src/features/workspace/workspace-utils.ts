@@ -23,6 +23,10 @@ export const getUserStatusLabel = (
       return "Boşta";
     case "dnd":
       return "Rahatsız etmeyin";
+    // Only ever seen by the person who chose it: the server reports appOnline
+    // false for them, so everyone else takes the branch above.
+    case "offline":
+      return "Çevrimdışı görünüyorsun";
     default:
       return "Çevrimiçi";
   }

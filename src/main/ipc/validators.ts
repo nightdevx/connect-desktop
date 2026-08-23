@@ -486,7 +486,7 @@ export const adminListUsersSchema = z
 export const adminListLobbiesSchema = z
   .object({
     search: z.string().max(256).optional(),
-    locked: z.enum(["all", "locked", "open"]).optional(),
+    locked: z.enum(["all", "true", "false"]).optional(),
     limit: z.number().int().min(1).max(200).optional(),
     offset: z.number().int().min(0).optional(),
   })

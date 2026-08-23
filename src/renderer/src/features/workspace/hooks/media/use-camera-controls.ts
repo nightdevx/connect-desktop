@@ -36,6 +36,15 @@ export const useCameraControls = ({
   const [cameraShareModalError, setCameraShareModalError] = useState<string | null>(null);
   const [cameraPreviewStream, setCameraPreviewStream] = useState<MediaStream | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
+  // The live value, for the code that runs after an await.
+  //
+  // syncLobbyMediaState is called from the post-join chain, several awaits after
+  // resetLocalMediaCapture has already turned the camera off. Reading the state
+  // through the render closure it was created in meant it still saw "on" and
+  // announced a camera to the new room for a track that had been stopped and
+  // unpublished — a phantom badge until the reconciler corrected it.
+  const cameraEnabledRef = useRef(false);
+  cameraEnabledRef.current = cameraEnabled;
 
   useEffect(() => {
     if (!cameraPreviewRef.current) return;
@@ -45,7 +54,7 @@ export const useCameraControls = ({
   const syncLobbyMediaState = useCallback(
     async (lobbyId: string): Promise<void> => {
       if (lobbyId.startsWith("call_")) return;
-      if (cameraEnabled) {
+      if (cameraEnabledRef.current) {
         const result = await workspaceService.setLobbyCameraEnabled({
           lobbyId,
           enabled: true,
@@ -58,7 +67,7 @@ export const useCameraControls = ({
         }
       }
     },
-    [cameraEnabled, setStatus]
+    [setStatus]
   );
 
   const stopCameraPreview = useCallback((): void => {

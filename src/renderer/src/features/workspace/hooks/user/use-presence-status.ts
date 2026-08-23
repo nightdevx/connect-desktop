@@ -25,10 +25,15 @@ export const usePresenceStatus = (
   const lastActivityRef = useRef(Date.now());
   const publishedRef = useRef<SelectablePresenceStatus | null>(null);
 
-  // Do-not-disturb is a deliberate statement; going idle must not silently
-  // downgrade it to "away".
+  // Do-not-disturb and invisible are both deliberate statements; going idle
+  // must not silently downgrade either of them. "Boşta" on top of "Çevrimdışı"
+  // would be worse than wrong — it would put the user back on the map.
   const effectiveStatus: SelectablePresenceStatus =
-    selectedStatus === "dnd" ? "dnd" : isIdle ? "idle" : selectedStatus;
+    selectedStatus === "dnd" || selectedStatus === "offline"
+      ? selectedStatus
+      : isIdle
+        ? "idle"
+        : selectedStatus;
 
   useEffect(() => {
     if (!enabled) {

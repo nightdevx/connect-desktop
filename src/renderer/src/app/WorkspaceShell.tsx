@@ -276,6 +276,12 @@ function WorkspaceShell({
   const activeLobbyReconnectProxyRef = useRef<ScheduleActiveLobbyReconnect | null>(
     null,
   );
+  // Filled in by the membership watchdog further down. The reconnect scheduler
+  // calls it when a background re-join is refused for good — a ban, a deleted
+  // room — so the loop stops and the user is told once, properly.
+  const membershipDepartureRef = useRef<
+    ((lobbyId: string, reason: string) => void) | null
+  >(null);
   const scheduleActiveLobbyReconnectProxy = useCallback<ScheduleActiveLobbyReconnect>(
     (reason, immediate) => {
       activeLobbyReconnectProxyRef.current?.(reason, immediate);
@@ -757,6 +763,7 @@ function WorkspaceShell({
     kickedLobbyIdRef,
     activeLobbyPasswordRef,
     onLobbyStreamLiveChange: setIsLobbyStreamLive,
+    membershipDepartureRef,
   });
 
   useEffect(() => {
@@ -942,6 +949,7 @@ function WorkspaceShell({
     setStatus,
     performPostJoinSynchronization,
     clearActiveLobbyReconnectTimer,
+    scheduleActiveLobbyReconnect,
     activeLobbyReconnectAttemptRef,
     activeLobbyReconnectInFlightRef,
     resetLocalMediaCapture,
@@ -953,7 +961,11 @@ function WorkspaceShell({
   });
 
   // ----- AUTOMATIC CALL ROOM LIVEKIT CONNECTION -----
-  const performPostJoinSyncRef = useCallRoomSync({
+  // The ref it returns is no longer read here: the membership watchdog used to
+  // take it to re-run the sync after its own re-join probe, and that probe is
+  // gone — the reconnect scheduler owns both halves now. The hook itself still
+  // earns its place, it is what brings a 1:1 call room up.
+  useCallRoomSync({
     activeLobbyId,
     performPostJoinSynchronization,
   });
@@ -967,9 +979,10 @@ function WorkspaceShell({
     kickedLobbyIdRef,
     activeLobbyPasswordRef,
     lobbyTransitionRef,
-    performPostJoinSyncRef,
     leaveActiveLobby,
     followModeratorMoveRef,
+    scheduleActiveLobbyReconnect,
+    membershipDepartureRef,
   });
 
   useLobbyEmotePlayback(

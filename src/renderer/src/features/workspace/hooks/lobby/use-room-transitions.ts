@@ -4,6 +4,7 @@ import type {
   LiveKitMediaSession,
   ParticipantMediaMap,
 } from "@/features/livekit";
+import { resolveRoomTransition } from "./lobby-transition";
 
 // Mutual exclusion between rooms: a user is in at most one lobby or one 1:1
 // call at a time. Every entry point has to tear the previous room down first,
@@ -60,20 +61,22 @@ export const useRoomTransitions = ({
     }
   }, [endActiveCall, isPeerInRoom, resetLocalMediaCapture, liveKitSessionRef]);
 
+  // The decision itself is pure and lives in lobby-transition.ts, where
+  // scripts/check-room-transition.cjs can hold it to the matrix. This is only
+  // the acting on it.
   const ensureCleanRoomTransition = useCallback(
     async (nextRoomId: string | null): Promise<void> => {
-      const currentRoomId = activeLobbyRef.current;
-      if (!currentRoomId || currentRoomId === nextRoomId) {
-        return;
+      switch (resolveRoomTransition(activeLobbyRef.current, nextRoomId)) {
+        case "teardown-call":
+          // Switching context deliberately, so the peer should be told.
+          await teardownCall();
+          return;
+        case "leave-lobby":
+          await leaveActiveLobby();
+          return;
+        default:
+          return;
       }
-
-      if (currentRoomId.startsWith("call_")) {
-        // Switching context deliberately, so the peer should be told.
-        await teardownCall();
-        return;
-      }
-
-      await leaveActiveLobby();
     },
     [activeLobbyRef, teardownCall, leaveActiveLobby],
   );

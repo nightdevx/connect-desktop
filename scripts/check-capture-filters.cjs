@@ -123,39 +123,38 @@ const main = async () => {
         }
 
         // --- gain control is never left to nobody ----------------------------
-        // Browser AGC is only switched off when RNNoise's own gate takes over
-        // the level; off with nothing replacing it is a microphone at raw
-        // hardware level, which is half of what the room heard.
-        if (!decision.browserAutoGainControl) {
-          assert.equal(
-            decision.rnnoise,
-            true,
-            `${label}: browser AGC was switched off with no RNNoise to replace it`,
-          );
-        }
+        // Nothing in the graph controls level except the browser's AGC. RNNoise
+        // removes stationary noise and the gate only mutes — neither one raises
+        // a quiet talker. Switching AGC off used to be justified as "the
+        // stronger presets leave gain to RNNoise's own gate"; that was not true
+        // of any preset, and it made Dengeli and Agresif quieter than Doğal for
+        // exactly the people who need the help.
+        assert.equal(
+          decision.browserAutoGainControl,
+          true,
+          `${label}: automatic gain control must stay on — nothing else sets level`,
+        );
       }
     }
   }
 
-  // --- the presets really do differ ----------------------------------------
-  // Without this the whole matrix above would still pass if every preset
-  // collapsed to the same answer, which would silently drop "natural"'s gentler
-  // level handling.
-  if (presets.includes("natural")) {
-    const natural = resolveCaptureFilters(true, true, "natural");
+  // --- the presets differ where they actually differ -----------------------
+  // Not in the capture constraints: every preset captures the same way and the
+  // difference lives in the processing profile (high-pass, low-pass, gate) in
+  // features/rnnoise/processor.ts. Asserting a constraint-level difference here
+  // is what pinned the AGC bug in place.
+  for (const preset of presets) {
+    const decision = resolveCaptureFilters(true, true, preset);
     assert.equal(
-      natural.browserAutoGainControl,
+      decision.browserAutoGainControl,
       true,
-      "the natural preset keeps the browser's gain control",
+      `the ${preset} preset keeps the browser's gain control`,
     );
-    const stronger = presets.find((preset) => preset !== "natural");
-    if (stronger) {
-      assert.equal(
-        resolveCaptureFilters(true, true, stronger).browserAutoGainControl,
-        false,
-        `the ${stronger} preset leaves gain to RNNoise's gate`,
-      );
-    }
+    assert.equal(
+      decision.browserNoiseSuppression,
+      false,
+      `the ${preset} preset hands noise suppression to RNNoise`,
+    );
   }
 
   fs.rmSync(outDir, { recursive: true, force: true });

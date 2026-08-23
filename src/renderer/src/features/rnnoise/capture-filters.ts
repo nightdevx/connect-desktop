@@ -35,7 +35,11 @@ export interface CaptureFilterDecision {
 export const resolveCaptureFilters = (
   wantsEnhancedSuppression: boolean,
   rnnoiseReady: boolean,
-  preset: NoiseSuppressionPreset,
+  // Kept in the signature although the capture constraints no longer vary by
+  // preset: the preset still decides the PROCESSING profile (high-pass,
+  // low-pass, gate) in processor.ts, and callers pass it here as the one place
+  // that answers "how should this microphone be opened".
+  _preset: NoiseSuppressionPreset,
 ): CaptureFilterDecision => {
   // Not asked for, or asked for and unavailable: the browser is the only
   // denoiser there is, so it stays on. The processing graph is still built —
@@ -51,10 +55,14 @@ export const resolveCaptureFilters = (
 
   return {
     browserNoiseSuppression: false,
-    // "natural" keeps the browser's gain control for a gentler level; the
-    // stronger presets leave gain to RNNoise's own gate, so that the two do not
-    // fight each other over the same signal.
-    browserAutoGainControl: preset === "natural",
+    // Gain control stays on for every preset. It used to be limited to
+    // "natural" on the grounds that the stronger presets "leave gain to
+    // RNNoise's own gate" — but RNNoise has no gain control at all, and the gate
+    // only mutes. So Dengeli (the default) and Agresif ran with no automatic
+    // level at all, and a soft talker who switched off Doğal simply became
+    // quieter for everyone. AGC and the denoiser do not fight: they act on
+    // different things, one on level and one on stationary noise.
+    browserAutoGainControl: true,
     rnnoise: true,
   };
 };

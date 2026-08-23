@@ -4,6 +4,7 @@ import {
   Menu,
   Tray,
   nativeImage,
+  powerMonitor,
   session,
   shell,
 } from "electron";
@@ -68,6 +69,13 @@ let unsubscribePreferencesListener: (() => void) | null = null;
 
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
+// Waking from sleep and moving between networks both leave every socket dead
+// with nothing to notice it: the renderer's only OS signal is window
+// online/offline, which does not fire for either. Recovery was incidental — a
+// parked watchdog and whatever timer happened to be next — against a 45s
+// server-side member TTL, so a laptop lid reopened at the wrong moment cost the
+// user their seat in the room.
+const SYSTEM_RESUMED_EVENT_CHANNEL = "desktop:system-resumed";
 const isLinux = process.platform === "linux";
 const APP_ICON_PATH = join(
   __dirname,
@@ -113,6 +121,16 @@ if (!isUpdaterHelperMode && !hasSingleInstanceLock) {
 if (isUpdaterHelperMode) {
   runUpdaterHelperMode();
 }
+
+const emitSystemResumed = (): void => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(SYSTEM_RESUMED_EVENT_CHANNEL, {
+    at: Date.now(),
+  });
+};
 
 const emitWindowState = (win: BrowserWindow): void => {
   if (win.isDestroyed()) {
@@ -383,6 +401,13 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     );
 
     installPermissionHandlers();
+
+    // Every socket the renderer holds is dead after a suspend, and nothing in
+    // the page can tell: window "online" does not fire on wake, and neither does
+    // it on a wifi-to-LTE handoff. Hand the renderer the one signal only the
+    // main process gets, and let its existing reconnect scheduler decide what to
+    // do with it.
+    powerMonitor.on("resume", emitSystemResumed);
 
     initializeModularUpdater({
       beforeInstall: cleanupBeforeAppQuit,
