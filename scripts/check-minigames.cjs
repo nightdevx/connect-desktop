@@ -91,6 +91,7 @@ const main = async () => {
     createSnake,
     stepSnake,
     turnSnake,
+    SNAKE_TURN_QUEUE,
     shuffle,
     SNAKE_COLUMNS,
     SNAKE_ROWS,
@@ -382,25 +383,54 @@ const main = async () => {
 
     // Reversing into your own neck is refused. The snake is heading right, so
     // "left" must be ignored -- accepting it is instant death by fat finger.
-    assert.deepEqual(turnSnake(start, { x: -1, y: 0 }).direction, { x: 1, y: 0 });
-    assert.deepEqual(turnSnake(start, { x: 0, y: -1 }).direction, { x: 0, y: -1 });
-
-    // Two turns between two ticks must not COMPOSE into a reversal. Right, then
-    // up, then left, all before the tick: the third is checked against the
-    // direction the snake has actually MOVED -- still right -- so it is
-    // refused. Checked against the pending "up" instead, it would be allowed,
-    // and the next tick would drive the head straight into the neck.
+    assert.deepEqual(turnSnake(start, { x: -1, y: 0 }).pending, [], "a reversal was queued");
+    // A legal turn is QUEUED, not applied: the snake keeps moving the way it is
+    // moving until the tick that walks the turn.
     const turnedUp = turnSnake(start, { x: 0, y: -1 });
+    assert.deepEqual(turnedUp.pending, [{ x: 0, y: -1 }]);
+    assert.deepEqual(turnedUp.direction, { x: 1, y: 0 }, "a turn moved the snake before its tick");
+    assert.deepEqual(stepSnake(turnedUp, SNAKE_BOARD, seededRng(3)).direction, { x: 0, y: -1 });
+
+    // THE CORNER. Right, then up, then left, all inside one tick. Both turns
+    // must survive and be walked one per tick -- this is the input players
+    // reported as being swallowed, and measuring the second press against the
+    // direction the body had MOVED is what swallowed it.
+    const corner = turnSnake(turnedUp, { x: -1, y: 0 });
     assert.deepEqual(
-      turnSnake(turnedUp, { x: -1, y: 0 }).direction,
-      { x: 0, y: -1 },
-      "two turns in one tick composed into a reversal",
+      corner.pending,
+      [
+        { x: 0, y: -1 },
+        { x: -1, y: 0 },
+      ],
+      "the second turn of a corner was dropped",
     );
 
-    // One turn per tick, not a permanent ban: once the snake has actually moved
-    // up, turning left is legal again.
-    const afterUp = stepSnake(turnedUp, SNAKE_BOARD, seededRng(3));
-    assert.deepEqual(turnSnake(afterUp, { x: -1, y: 0 }).direction, { x: -1, y: 0 });
+    const cornerUp = stepSnake(corner, SNAKE_BOARD, seededRng(3));
+    assert.deepEqual(cornerUp.direction, { x: 0, y: -1 });
+    assert.equal(cornerUp.alive, true);
+    const cornerLeft = stepSnake(cornerUp, SNAKE_BOARD, seededRng(3));
+    assert.deepEqual(cornerLeft.direction, { x: -1, y: 0 });
+    assert.equal(cornerLeft.alive, true, "the queued corner drove the snake into its own neck");
+    assert.deepEqual(cornerLeft.pending, []);
+
+    // A queued turn is still checked for a reversal, against the turn ahead of
+    // it rather than against the body: up then down is a reversal wherever it
+    // sits in the queue.
+    assert.deepEqual(
+      turnSnake(turnedUp, { x: 0, y: 1 }).pending,
+      [{ x: 0, y: -1 }],
+      "a reversal against a queued turn was allowed",
+    );
+
+    // Pressing the way you are already going is not a turn and must not eat a
+    // slot -- a held key would otherwise fill the queue with nothing.
+    assert.deepEqual(turnSnake(start, { x: 1, y: 0 }).pending, []);
+    assert.deepEqual(turnSnake(turnedUp, { x: 0, y: -1 }).pending, [{ x: 0, y: -1 }]);
+
+    // The queue is bounded. Past the cap the snake would be playing out a queue
+    // the player has stopped meaning.
+    assert.equal(SNAKE_TURN_QUEUE, 2);
+    assert.equal(turnSnake(corner, { x: 0, y: 1 }).pending.length, SNAKE_TURN_QUEUE);
   }
 
   // TAIL CHASE. A snake curled into a square moving onto the square its tail is

@@ -297,10 +297,25 @@ export interface SnakeState {
   /** Head first. */
   body: Point[];
   direction: Point;
+  /**
+   * Turns taken but not yet walked, oldest first, at most SNAKE_TURN_QUEUE of
+   * them. A tick consumes one.
+   */
+  pending: Point[];
   food: Point;
   alive: boolean;
   score: number;
 }
+
+/**
+ * How many turns may be held between two ticks.
+ *
+ * Two, because two is what a corner is: at 210ms a tick the player is already
+ * pressing the second key before the first has been walked, and one slot means
+ * the corner is thrown away. Deeper than two and the snake stops answering the
+ * keyboard -- it plays out a queue the player has stopped meaning.
+ */
+export const SNAKE_TURN_QUEUE = 2;
 
 /** The normal board, and the default the functions below fall back to. */
 export const SNAKE_COLUMNS = 17;
@@ -357,32 +372,55 @@ export function createSnake(
   return {
     body,
     direction: { x: 1, y: 0 },
+    pending: [],
     food: spawnFood(body, board, rng),
     alive: true,
     score: 0,
   };
 }
 
+/** The direction the body actually moved, which is not always the pending one. */
+function snakeHeading(state: SnakeState): Point {
+  return state.body.length > 1
+    ? {
+        x: state.body[0].x - state.body[1].x,
+        y: state.body[0].y - state.body[1].y,
+      }
+    : state.direction;
+}
+
 /**
- * Compared against the direction the snake actually MOVED, not against the
- * pending one. Two key presses between two ticks -- right, then up, then left --
- * would otherwise pass both checks individually and reverse the snake into its
- * own neck, which reads as dying for no reason.
+ * Queues a turn rather than overwriting the direction.
+ *
+ * The board ticks as slowly as 210ms, and a corner is two key presses. Both
+ * land inside one tick, and the old rule -- check every press against the
+ * direction the body has MOVED -- refused the second one: right, then up, then
+ * left saw "left" measured against "right", called it a reversal, and dropped
+ * it. Nothing said so, so it read as the game ignoring the keyboard, which is
+ * exactly what players reported.
+ *
+ * Each press is checked against what will be moving when it is its turn -- the
+ * last queued direction, or the heading if nothing is queued. That still
+ * refuses a real reversal (right then left is a reversal wherever it sits in
+ * the queue) while keeping the corner, and the two turns are walked one per
+ * tick instead of one of them being lost.
  */
 export function turnSnake(state: SnakeState, direction: Point): SnakeState {
-  const moved =
-    state.body.length > 1
-      ? {
-          x: state.body[0].x - state.body[1].x,
-          y: state.body[0].y - state.body[1].y,
-        }
-      : state.direction;
+  const pending = state.pending ?? [];
+  const last = pending.length > 0 ? pending[pending.length - 1] : snakeHeading(state);
 
-  if (moved.x + direction.x === 0 && moved.y + direction.y === 0) {
+  // Already going that way, or already queued to: the press is not a turn.
+  if (last.x === direction.x && last.y === direction.y) {
+    return state;
+  }
+  if (last.x + direction.x === 0 && last.y + direction.y === 0) {
+    return state;
+  }
+  if (pending.length >= SNAKE_TURN_QUEUE) {
     return state;
   }
 
-  return { ...state, direction };
+  return { ...state, pending: [...pending, direction] };
 }
 
 export function stepSnake(
@@ -394,9 +432,13 @@ export function stepSnake(
     return state;
   }
 
+  const pending = state.pending ?? [];
+  const direction = pending.length > 0 ? pending[0] : state.direction;
+  const queued = pending.slice(1);
+
   const head = {
-    x: state.body[0].x + state.direction.x,
-    y: state.body[0].y + state.direction.y,
+    x: state.body[0].x + direction.x,
+    y: state.body[0].y + direction.y,
   };
 
   const ate = head.x === state.food.x && head.y === state.food.y;
@@ -416,7 +458,8 @@ export function stepSnake(
 
   return {
     body,
-    direction: state.direction,
+    direction,
+    pending: queued,
     food: ate ? spawnFood(body, board, rng) : state.food,
     alive: true,
     score: ate ? state.score + 1 : state.score,
