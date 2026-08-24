@@ -56,7 +56,7 @@ export default defineConfig({
           if (pkg === "livekit-client") {
             return "vendor-livekit";
           }
-          if (pkg === "emoji-picker-react") {
+          if (pkg === "emoji-picker-react" || pkg === "three") {
             return;
           }
           return "vendor";

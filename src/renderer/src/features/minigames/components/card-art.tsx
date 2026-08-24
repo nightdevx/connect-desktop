@@ -327,17 +327,17 @@ function UnoGlyph({ kind }: { kind: string }) {
     case "draw2":
       return (
         <g className="ct-uno-cards">
-          <rect x="22" y="26" width="34" height="48" rx="5" transform="rotate(-12 39 50)" />
-          <rect x="44" y="26" width="34" height="48" rx="5" transform="rotate(12 61 50)" />
+          <rect x="18" y="22" width="36" height="56" rx="5" transform="rotate(-12 36 50)" />
+          <rect x="46" y="22" width="36" height="56" rx="5" transform="rotate(12 64 50)" />
         </g>
       );
     case "wild4":
       return (
         <g className="ct-uno-cards">
-          <rect x="20" y="24" width="30" height="42" rx="4" data-wedge="r" />
-          <rect x="50" y="24" width="30" height="42" rx="4" data-wedge="y" />
-          <rect x="20" y="60" width="30" height="42" rx="4" data-wedge="g" />
-          <rect x="50" y="60" width="30" height="42" rx="4" data-wedge="b" />
+          <rect x="16" y="12" width="33" height="37" rx="4" data-wedge="r" />
+          <rect x="51" y="12" width="33" height="37" rx="4" data-wedge="y" />
+          <rect x="16" y="51" width="33" height="37" rx="4" data-wedge="g" />
+          <rect x="51" y="51" width="33" height="37" rx="4" data-wedge="b" />
         </g>
       );
     case "wild":
@@ -370,69 +370,84 @@ export interface UnoCardArtProps {
  * under its own name (see minigames-catalog.tsx).
  */
 export function UnoCardArt({ card, facedown, className }: UnoCardArtProps) {
-  if (facedown) {
-    return (
-      <span
-        className={`ct-uno-card ct-uno-card-back ${className ?? ""}`}
-        role="img"
-        aria-label="Kapalı kart"
-      >
-        <svg viewBox="0 0 100 150" aria-hidden="true">
-          <ellipse className="ct-uno-oval" cx="50" cy="75" rx="42" ry="26" />
-          {/* The back carries our own mark -- the four-colour pinwheel the wild
-              card already uses -- and not a wordmark. The retail deck's name and
-              the lettering on its back are somebody's trademark; the rules of a
-              shedding game are not. Reusing the wild's wedges also means the
-              back and the wild read as one deck, which a wordmark never did. */}
-          <g className="ct-uno-backmark">
-            <svg x="34" y="59" width="32" height="32" viewBox="0 0 100 100">
-              <UnoGlyph kind="wild" />
-            </svg>
-          </g>
-        </svg>
-      </span>
-    );
-  }
-
-  const isNumber = /^\d$/.test(card.kind);
-
   return (
     <span
-      className={`ct-uno-card ${className ?? ""}`}
-      data-color={card.color}
-      data-kind={card.kind}
+      className={`ct-uno-card ${facedown ? "ct-uno-card-back " : ""}${className ?? ""}`}
+      data-color={facedown ? undefined : card.color}
+      data-kind={facedown ? undefined : card.kind}
       role="img"
-      aria-label={`${UNO_COLOR_NAMES[card.color] ?? ""} ${card.kind}`}
+      aria-label={
+        facedown ? "Kapalı kart" : `${UNO_COLOR_NAMES[card.color] ?? ""} ${card.kind}`
+      }
     >
       <svg viewBox="0 0 100 150" aria-hidden="true">
-        <ellipse className="ct-uno-oval" cx="50" cy="75" rx="42" ry="26" />
-
-        {isNumber ? (
-          <text className="ct-uno-numeral" x="50" y="98" textAnchor="middle">
-            {card.kind}
-          </text>
-        ) : (
-          <svg x="25" y="50" width="50" height="50" viewBox="0 0 100 100">
-            <UnoGlyph kind={card.kind} />
-          </svg>
-        )}
-
-        {/* The small corner marks. Real cards have them so a fanned hand can be
-            read, and a fanned hand is exactly how this is drawn. */}
-        <text className="ct-uno-corner" x="12" y="24" textAnchor="middle">
-          {isNumber ? card.kind : shortKind(card.kind)}
-        </text>
-        <text
-          className="ct-uno-corner"
-          x="88"
-          y="132"
-          textAnchor="middle"
-          transform="rotate(180 88 126)"
-        >
-          {isNumber ? card.kind : shortKind(card.kind)}
-        </text>
+        <UnoCardFace card={card} facedown={facedown} />
       </svg>
     </span>
+  );
+}
+
+export function UnoCardFace({ card, facedown }: UnoCardArtProps) {
+  const sheenId = facedown ? "uno-sheen-back" : `uno-sheen-${card.color}-${card.kind}`;
+  const isNumber = !facedown && /^\d$/.test(card.kind);
+
+  return (
+    <>
+      <defs>
+        <linearGradient id={sheenId} x1="0.1" y1="0" x2="0.75" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.3" />
+          <stop offset="0.42" stopColor="#ffffff" stopOpacity="0.06" />
+          <stop offset="0.66" stopColor="#000000" stopOpacity="0.03" />
+          <stop offset="1" stopColor="#000000" stopOpacity="0.24" />
+        </linearGradient>
+      </defs>
+
+      <rect className="ct-uno-shell" x="0" y="0" width="100" height="150" rx="10" ry="10" />
+      <rect className="ct-uno-body" x="6" y="6" width="88" height="138" rx="7" ry="7" />
+      <rect x="6" y="6" width="88" height="138" rx="7" ry="7" fill={`url(#${sheenId})`} />
+      <rect className="ct-uno-keyline" x="6" y="6" width="88" height="138" rx="7" ry="7" />
+
+      <ellipse className="ct-uno-oval" cx="50" cy="75" rx="44" ry="27" />
+
+      {facedown ? (
+        // The back carries our own mark -- the four-colour pinwheel the wild
+        // card already uses -- and not a wordmark. The retail deck's name and
+        // the lettering on its back are somebody's trademark; the rules of a
+        // shedding game are not.
+        <g className="ct-uno-backmark">
+          <svg x="26" y="51" width="48" height="48" viewBox="0 0 100 100">
+            <UnoGlyph kind="wild" />
+          </svg>
+        </g>
+      ) : (
+        <>
+          {isNumber ? (
+            <text className="ct-uno-numeral" x="50" y="100" textAnchor="middle">
+              {card.kind}
+            </text>
+          ) : (
+            <svg x="20" y="45" width="60" height="60" viewBox="0 0 100 100">
+              <UnoGlyph kind={card.kind} />
+            </svg>
+          )}
+
+          {/* The small corner marks. Real cards have them so a fanned hand can be
+              read, and a fanned hand is exactly how this is drawn. */}
+          <text className="ct-uno-corner" x="13" y="29" textAnchor="start">
+            {isNumber ? card.kind : shortKind(card.kind)}
+          </text>
+          <text
+            className="ct-uno-corner"
+            x="87"
+            y="127"
+            textAnchor="start"
+            transform="rotate(180 87 121)"
+          >
+            {isNumber ? card.kind : shortKind(card.kind)}
+          </text>
+        </>
+      )}
+    </>
   );
 }
 

@@ -121,7 +121,7 @@ export const VERSUS_VIEWS: Record<MultiplayerGameId, VersusView> = {
   uno: {
     Board: UnoBoard,
     Aside: UnoAside,
-    shape: () => ({ columns: 12, rows: 12 }),
+    shape: () => ({ columns: 16, rows: 11 }),
   },
 
   battleship: {

@@ -66,12 +66,12 @@
 
   /* --- uno ----------------------------------------------------------------- */
 
-  --ct-uno-r: #d7262b;
-  --ct-uno-y: #e8b011;
-  --ct-uno-g: #199a4b;
-  --ct-uno-b: #1667c4;
-  --ct-uno-w: #1a1a1a;
-  --ct-uno-shell: #f4f2ee;
+  --ct-uno-r: #ee1c25;
+  --ct-uno-y: #ffc900;
+  --ct-uno-g: #00a94f;
+  --ct-uno-b: #0077d4;
+  --ct-uno-w: #17171c;
+  --ct-uno-shell: #f8f6f1;
 
   /* --- okey tiles ---------------------------------------------------------- */
 
@@ -254,35 +254,28 @@
   position: relative;
   display: block;
   aspect-ratio: 2 / 3;
-  border-radius: 10%;
-  /* The thick white shell every uno card has, painted as a border rather than
-     an inset ring so the coloured body keeps its own rounded corner inside it. */
-  background: var(--ct-uno-shell);
-  padding: 7%;
-  box-shadow:
-    0 2px 6px rgb(0 0 0 / 0.4),
-    inset 0 1px 2px rgb(255 255 255 / 0.8);
+  color: var(--ct-uno-w);
+  filter: drop-shadow(0 2px 5px rgb(0 0 0 / 0.45));
 }
 
 .ct-uno-card svg {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 8%;
-  background: var(--ct-uno-w);
 }
 
-.ct-uno-card[data-color="r"] svg {
-  background: var(--ct-uno-r);
+.ct-uno-shell {
+  fill: var(--ct-uno-shell);
 }
-.ct-uno-card[data-color="y"] svg {
-  background: var(--ct-uno-y);
+
+.ct-uno-body {
+  fill: currentColor;
 }
-.ct-uno-card[data-color="g"] svg {
-  background: var(--ct-uno-g);
-}
-.ct-uno-card[data-color="b"] svg {
-  background: var(--ct-uno-b);
+
+.ct-uno-keyline {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.22);
+  stroke-width: 1.4;
 }
 
 /* The slanted white oval. Rotating it is the single detail that makes a
@@ -295,35 +288,38 @@
 
 .ct-uno-numeral {
   font-family: var(--ct-font-sans);
-  font-size: 62px;
+  font-size: 72px;
   font-weight: 700;
   fill: currentColor;
   paint-order: stroke;
   stroke: var(--ct-uno-shell);
-  stroke-width: 6;
+  stroke-width: 7;
 }
 
-.ct-uno-card[data-color="r"] .ct-uno-numeral {
+.ct-uno-card[data-color="r"] {
   color: var(--ct-uno-r);
 }
-.ct-uno-card[data-color="y"] .ct-uno-numeral {
+.ct-uno-card[data-color="y"] {
   color: var(--ct-uno-y);
 }
-.ct-uno-card[data-color="g"] .ct-uno-numeral {
+.ct-uno-card[data-color="g"] {
   color: var(--ct-uno-g);
 }
-.ct-uno-card[data-color="b"] .ct-uno-numeral {
+.ct-uno-card[data-color="b"] {
   color: var(--ct-uno-b);
 }
-.ct-uno-card[data-color="w"] .ct-uno-numeral {
+.ct-uno-card[data-color="w"] {
   color: var(--ct-uno-w);
 }
 
 .ct-uno-corner {
   font-family: var(--ct-font-sans);
-  font-size: 20px;
+  font-size: 25px;
   font-weight: 700;
   fill: var(--ct-uno-shell);
+  paint-order: stroke;
+  stroke: rgb(0 0 0 / 0.4);
+  stroke-width: 4;
 }
 
 /* The mark on the back, tilted onto the same axis as the oval under it so the
@@ -334,14 +330,19 @@
 }
 
 .ct-uno-glyph {
-  fill: var(--ct-uno-shell);
-  stroke: var(--ct-uno-shell);
+  fill: currentColor;
+  stroke: currentColor;
+  paint-order: stroke;
+}
+
+.ct-uno-glyph [fill="none"] {
+  fill: none;
 }
 
 .ct-uno-cards rect {
-  fill: var(--ct-uno-shell);
-  stroke: rgb(0 0 0 / 0.25);
-  stroke-width: 2;
+  fill: currentColor;
+  stroke: var(--ct-uno-shell);
+  stroke-width: 4;
 }
 
 .ct-uno-cards rect[data-wedge="r"],
@@ -361,8 +362,8 @@
   fill: var(--ct-uno-b);
 }
 
-.ct-uno-card-back svg {
-  background: var(--ct-uno-w);
+.ct-uno-card-back {
+  color: var(--ct-uno-w);
 }
 
 /* --- okey tiles ----------------------------------------------------------- */

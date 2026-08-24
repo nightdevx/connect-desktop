@@ -1284,143 +1284,66 @@
  */
 
 .ct-uno-board {
-  @apply flex flex-col items-center justify-between gap-3 p-4;
+  @apply relative flex flex-col items-center gap-2 p-2;
   display: flex;
 }
 
-.ct-uno-opponents {
-  @apply flex w-full flex-wrap items-start justify-center gap-6;
+.ct-uno-stage {
+  @apply relative w-full flex-1 overflow-hidden rounded-lg;
+  min-height: 0;
 }
 
-.ct-uno-opponent {
-  @apply flex flex-col items-center gap-1;
-}
-
-.ct-uno-opponent-name {
-  @apply flex items-center gap-1.5 text-xs font-semibold;
-  color: var(--ct-text-secondary);
-}
-
-/* The same fan as the player's own hand, smaller and face-down. */
-.ct-uno-fan {
-  @apply flex items-end;
-  perspective: 600px;
-}
-
-.ct-uno-mini {
-  --mid: calc((var(--card-count) - 1) / 2);
-  --offset: calc(var(--card-index) - var(--mid));
+.ct-uno-canvas {
+  @apply absolute inset-0 h-full w-full;
   display: block;
-  width: 1.6rem;
-  flex: 0 0 auto;
-  margin-left: -0.9rem;
-  transform-origin: 50% 300%;
-  transform: rotate(calc(var(--offset) * 5deg));
 }
 
-.ct-uno-fan > *:first-child {
-  margin-left: 0;
+.ct-uno-seats {
+  @apply pointer-events-none absolute inset-0;
+  z-index: 2;
 }
 
-.ct-uno-opponent-count {
-  @apply rounded-full px-2 py-0.5 text-xs font-bold tabular-nums;
+.ct-uno-seat {
+  @apply absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-panel-solid);
+  color: var(--ct-text-secondary);
+  box-shadow: var(--ct-shadow-md);
+  white-space: nowrap;
+}
+
+.ct-uno-seat-name {
+  @apply truncate;
+  max-width: 9rem;
+}
+
+.ct-uno-seat-count {
+  @apply rounded-full px-1.5 font-bold tabular-nums;
   background: var(--ct-alpha-12);
   color: var(--ct-text-primary);
 }
 
-.ct-uno-opponent-count[data-alert="true"] {
+.ct-uno-seat[data-alert="true"] {
+  border-color: var(--ct-danger);
+}
+
+.ct-uno-seat[data-alert="true"] .ct-uno-seat-count {
   background: var(--ct-danger);
   color: var(--ct-on-danger);
 }
 
-.ct-uno-table {
-  @apply flex items-center justify-center gap-8;
-}
-
-/* The deck. Two drawn silhouettes behind the top card, offset and darkened, so
-   it has thickness -- the server only ever sends a count, so the depth is
-   painted rather than stacked out of real elements. */
-.ct-uno-pile {
-  @apply relative flex flex-col items-center;
-  width: 4.5rem;
-}
-
-.ct-uno-pile::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  width: 4.5rem;
-  aspect-ratio: 2 / 3;
-  border-radius: 10%;
-  transform: translateX(-50%);
-  background: rgb(0 0 0 / 0.5);
-  box-shadow:
-    3px 3px 0 -1px rgb(0 0 0 / 0.35),
-    6px 6px 0 -2px rgb(0 0 0 / 0.25);
-}
-
-.ct-uno-pile .ct-uno-card {
-  position: relative;
-  z-index: 1;
-  transition: transform var(--ct-duration-fast) var(--ct-ease-premium);
-}
-
-.ct-uno-pile:not(:disabled):hover .ct-uno-card {
-  transform: translateY(-6%);
-}
-
-.ct-uno-pile-count {
-  @apply relative mt-1 rounded-full px-2 text-[10px] font-semibold;
-  background: var(--ct-alpha-12);
-  color: var(--ct-text-secondary);
-  z-index: 1;
-}
-
-.ct-uno-discard {
-  @apply relative flex flex-col items-center;
-  width: 5.5rem;
-  perspective: 900px;
-}
-
-/* What is already buried, drawn the same way as the deck's thickness and lying
-   crooked, because a discard pile is not a neat stack. */
-.ct-uno-discard::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  width: 5.5rem;
-  aspect-ratio: 2 / 3;
-  border-radius: 10%;
-  transform: translateX(-50%) rotate(-7deg);
-  background: rgb(0 0 0 / 0.3);
-  box-shadow: 5px 4px 0 -2px rgb(0 0 0 / 0.22);
-}
-
-.ct-uno-thrown {
-  position: relative;
-  display: block;
-  width: 100%;
-  z-index: 1;
-  transform: rotate(var(--throw-rot));
-  animation: ct-uno-throw var(--ct-duration-slow) var(--ct-ease-spring) backwards;
-}
-
-/* Thrown from above and settling into the angle it will keep. The end state is
-   the element's own transform, so the card lands on its own lie rather than
-   snapping to square when the animation finishes. */
-@keyframes ct-uno-throw {
-  from {
-    transform: translate3d(0, -3.5rem, 0) rotate(calc(var(--throw-rot) - 26deg))
-      scale(1.14);
-    opacity: 0;
-  }
-}
-
 .ct-uno-color {
-  @apply mt-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide;
+  @apply absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-extrabold uppercase tracking-widest;
+  border-color: rgb(255 255 255 / 0.4);
   color: #fff;
+  box-shadow: var(--ct-shadow-lg);
+  z-index: 3;
+}
+
+.ct-uno-color-dot {
+  @apply h-3.5 w-3.5 shrink-0 rounded-full;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.2);
 }
 
 .ct-uno-color[data-color="r"] {
@@ -1437,75 +1360,73 @@
   background: var(--ct-uno-b);
 }
 
-.ct-uno-direction {
-  @apply text-3xl;
+.ct-uno-pile-count {
+  @apply absolute bottom-3 left-3 rounded-full px-2 py-0.5 text-[10px] font-semibold;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-secondary);
+  z-index: 3;
+}
+
+.ct-uno-fallback {
+  @apply absolute inset-x-0 top-6 m-0 flex flex-col items-center gap-3 px-6 text-center text-xs;
   color: var(--ct-text-muted);
+  z-index: 3;
 }
 
-.ct-uno-direction[data-direction="-1"] {
-  color: var(--ct-warning);
+.ct-uno-fallback .ct-uno-card {
+  width: 4.5rem;
 }
 
-/* --- the hand -------------------------------------------------------------- */
-
-.ct-uno-hand {
-  @apply flex w-full items-end justify-center pb-2 pt-6;
-  min-height: 8rem;
-  perspective: 1000px;
-  perspective-origin: 50% 130%;
+.ct-uno-keys {
+  @apply pointer-events-none absolute bottom-12 left-1/2 flex -translate-x-1/2 items-end gap-1 rounded-xl border p-1.5 opacity-0;
+  border-color: transparent;
+  z-index: 4;
+  transition: opacity var(--ct-duration-fast) var(--ct-ease-premium);
 }
 
-.ct-uno-card-button {
-  --mid: calc((var(--card-count) - 1) / 2);
-  --offset: calc(var(--card-index) - var(--mid));
-  /* Degrees per card, and visible width per card. Both shrink with the hand, so
-     a two-card hand is barely fanned and a twenty-card hand still fits.
-     ponytail: the hand holds itself to ~29rem up to about thirty cards, past
-     which the slice floor wins and it overflows the panel rather than scrolling.
-     A scroller was the alternative and it is worse: overflow-x forces overflow-y
-     with it, which clips the top of the arc off every card. If a hand that big
-     ever turns up in practice, wrap to a second row rather than adding a
-     scrollbar. */
-  --spread: clamp(2.2deg, calc(52deg / var(--card-count)), 6.5deg);
-  --slice: clamp(0.85rem, calc(26rem / var(--card-count)), 2.8rem);
-  width: 4.2rem;
+.ct-uno-keys:focus-within,
+.ct-uno-keys[data-fallback="true"] {
+  @apply pointer-events-auto opacity-100;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-panel-solid);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ct-uno-keys[data-fallback="true"] {
+  @apply static bottom-auto left-auto max-w-full translate-x-0 flex-wrap justify-center;
+}
+
+.ct-uno-hint {
+  @apply absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-medium;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-secondary);
+  z-index: 3;
+}
+
+.ct-uno-key-deck {
+  @apply shrink-0 self-center rounded-lg border px-3 py-2 text-xs font-semibold;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+}
+
+.ct-uno-key-deck:disabled {
+  opacity: 0.5;
+}
+
+.ct-uno-key {
+  width: 3.1rem;
   flex: 0 0 auto;
-  margin-left: calc(var(--slice) - 4.2rem);
-  transform-origin: 50% 340%;
-  transform: rotate(calc(var(--offset) * var(--spread))) rotateX(14deg);
-  transition: transform var(--ct-duration-base) var(--ct-ease-premium);
-  /* Dealt one at a time. Runs on MOUNT, so it plays when the hand arrives and
-     not every time somebody else moves. */
-  animation: ct-uno-deal 460ms var(--ct-ease-spring) backwards;
-  animation-delay: calc(var(--card-index) * 45ms);
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
 }
 
-.ct-uno-card-button:first-child {
-  margin-left: 0;
+.ct-uno-key:hover:not(:disabled),
+.ct-uno-key:focus-visible {
+  transform: translateY(-12%) scale(1.06);
 }
 
-@keyframes ct-uno-deal {
-  from {
-    transform: translate3d(-12rem, -8rem, 0) rotate(-38deg) scale(0.72);
-    opacity: 0;
-  }
-}
-
-/* Straightens, lifts, and comes toward the viewer -- the motion of a card being
-   pulled out of a hand rather than a rectangle sliding up a page. */
-.ct-uno-card-button:hover:not(:disabled),
-.ct-uno-card-button:focus-visible {
-  transform: rotate(calc(var(--offset) * var(--spread))) rotateX(0deg)
-    translateY(-14%) translateZ(46px);
-  z-index: 2;
-}
-
-.ct-uno-card-button:disabled {
-  opacity: 0.75;
-}
-
-.ct-uno-actions {
-  @apply flex items-center gap-2;
+.ct-uno-key:disabled {
+  opacity: 0.6;
 }
 
 .ct-uno-spectating,
@@ -1520,7 +1441,7 @@
   border-color: var(--ct-border-strong);
   background: var(--ct-panel-solid);
   box-shadow: var(--ct-shadow-lg);
-  z-index: 3;
+  z-index: 5;
 }
 
 .ct-uno-picker-title {
@@ -1533,12 +1454,21 @@
 }
 
 .ct-uno-swatch {
-  @apply h-10 w-10 rounded-lg;
+  @apply flex h-16 w-24 items-end justify-center rounded-lg border p-2 text-xs font-bold uppercase tracking-wide;
+  border-color: rgb(255 255 255 / 0.25);
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
   transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
 }
 
-.ct-uno-swatch:hover {
-  transform: scale(1.08);
+.ct-uno-swatch-name {
+  pointer-events: none;
+}
+
+.ct-uno-swatch:hover,
+.ct-uno-swatch:focus-visible {
+  transform: scale(1.06);
+  border-color: #fff;
 }
 
 .ct-uno-swatch[data-color="r"] {
@@ -1552,15 +1482,6 @@
 }
 .ct-uno-swatch[data-color="b"] {
   background: var(--ct-uno-b);
-}
-
-/* The fan itself stays -- it is the layout, not the motion. Only the dealing and
-   the throw are turned off. */
-@media (prefers-reduced-motion: reduce) {
-  .ct-uno-card-button,
-  .ct-uno-thrown {
-    animation: none;
-  }
 }
 
 /* --- battleship ------------------------------------------------------------ */
