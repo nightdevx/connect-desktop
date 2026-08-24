@@ -58,6 +58,9 @@ async function main() {
     lowestCorner,
     opponentPlacement,
     opponentReach,
+    arrowYaw,
+    ringShowsDirection,
+    ringSpin,
     seatAngle,
     seatPosition,
     seatYaw,
@@ -245,6 +248,51 @@ async function main() {
         "an opponent's fan stays over its own seat",
       );
       assert.ok(placement.scale < 1, "an opponent's cards are drawn smaller than your own");
+    }
+  }
+
+  const shortWay = (from, to) =>
+    ((to - from + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+
+  assert.equal(
+    ringShowsDirection(2),
+    false,
+    "two players sit opposite each other, so there is no direction to draw",
+  );
+
+  for (const direction of [1, -1]) {
+    for (const total of [3, 4]) {
+      assert.ok(ringShowsDirection(total), `${total} seats do have a direction`);
+      const mine = seatAngle(0, total);
+      const next = seatAngle(direction > 0 ? 1 : total - 1, total);
+      const toward = shortWay(mine, next);
+
+      const spin = ringSpin(direction, 0.016);
+      assert.notEqual(spin, 0, "the ring must actually turn");
+      assert.equal(
+        Math.sign(-spin),
+        Math.sign(toward),
+        `with ${total} seats and direction ${direction} the ring turns away from the ` +
+          "player who moves next -- rotating by +phi puts a marker at theta - phi, so " +
+          "the spin has to be subtracted from the angle play travels toward",
+      );
+    }
+
+    for (const angle of [0, Math.PI / 3, (2 * Math.PI) / 3, Math.PI, 4.7]) {
+      const yaw = arrowYaw(angle, direction);
+      // A cone tipped flat by Rx(PI/2) has its apex along +z, and a yaw of psi
+      // swings that to (sin psi, cos psi) in the xz plane.
+      const apex = { x: Math.sin(yaw), z: Math.cos(yaw) };
+      // Where the next player is, from a marker sitting at this angle.
+      const travel = {
+        x: -Math.sin(angle) * direction,
+        z: Math.cos(angle) * direction,
+      };
+      assert.ok(
+        Math.abs(apex.x * travel.x + apex.z * travel.z - 1) < 1e-9,
+        `an arrowhead at ${angle.toFixed(2)} rad points off the ring instead of along ` +
+          "it -- the yaw is not the tangent",
+      );
     }
   }
 
@@ -437,7 +485,7 @@ async function main() {
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    `uno table self-check passed (fan, felt, seats, piles, lie, geometry, ${deck.length + 1} card faces)`,
+    `uno table self-check passed (fan, felt, seats, piles, lie, ring, geometry, ${deck.length + 1} card faces)`,
   );
 }
 

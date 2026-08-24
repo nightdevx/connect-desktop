@@ -48,12 +48,16 @@ import {
   HAND_HOVER_TILT,
   HAND_LIFT,
   HAND_PULL,
+  RING_RADIUS,
   TABLE_RADIUS,
+  arrowYaw,
   cardLie,
   discardPlacement,
   drawPlacement,
   handPlacement,
   opponentPlacement,
+  ringShowsDirection,
+  ringSpin,
   seatAngle,
   seatPosition,
   seatYaw,
@@ -210,6 +214,8 @@ export class UnoTableScene {
   private readonly discardFaces: Array<MinigameUnoCard | null> = [];
 
   private readonly directionRing = new Group();
+  private readonly directionArrows: Mesh[] = [];
+  private ringTurns = true;
   private readonly ringMaterial: MeshStandardMaterial;
   private readonly haloMaterials: MeshBasicMaterial[] = [];
   private readonly colorLight = new PointLight(0xffffff, 0, 7.5, 2);
@@ -292,6 +298,7 @@ export class UnoTableScene {
     this.syncDraw();
     this.syncSeats();
     this.applyActiveColor(next.activeColor);
+    this.applyDirection(next.direction, next.totalSeats);
     this.emitLabels();
     this.start();
   }
@@ -388,21 +395,28 @@ export class UnoTableScene {
   }
 
   private buildDirectionRing(): void {
-    const ringGeometry = new TorusGeometry(1.72, 0.038, 10, 96);
+    const ringGeometry = new TorusGeometry(RING_RADIUS, 0.038, 10, 96);
     const ring = new Mesh(ringGeometry, this.ringMaterial);
     ring.rotation.x = -Math.PI / 2;
     this.directionRing.add(ring);
     this.disposables.push(ringGeometry);
 
-    const arrowGeometry = new ConeGeometry(0.09, 0.24, 12);
+    const arrowGeometry = new ConeGeometry(0.1, 0.28, 14);
     this.disposables.push(arrowGeometry);
     for (let index = 0; index < 3; index += 1) {
       const angle = (index * 2 * Math.PI) / 3;
       const arrow = new Mesh(arrowGeometry, this.ringMaterial);
-      arrow.position.set(Math.cos(angle) * 1.72, 0.02, Math.sin(angle) * 1.72);
-      arrow.rotation.set(Math.PI / 2, 0, -angle);
+      arrow.position.set(
+        Math.cos(angle) * RING_RADIUS,
+        0.02,
+        Math.sin(angle) * RING_RADIUS,
+      );
+      arrow.rotation.order = "YXZ";
+      arrow.userData.ringAngle = angle;
       this.directionRing.add(arrow);
+      this.directionArrows.push(arrow);
     }
+    this.applyDirection(1, 4);
 
     this.directionRing.position.y = 0.012;
     this.scene.add(this.directionRing);
@@ -642,6 +656,16 @@ export class UnoTableScene {
     }
   }
 
+  private applyDirection(direction: number, totalSeats: number): void {
+    this.ringTurns = ringShowsDirection(totalSeats);
+
+    for (const arrow of this.directionArrows) {
+      arrow.visible = this.ringTurns;
+      const angle = (arrow.userData.ringAngle as number) ?? 0;
+      arrow.rotation.set(Math.PI / 2, arrowYaw(angle, direction), 0);
+    }
+  }
+
   private applyActiveColor(color: string): void {
     const hex = COLOR_HEX[color] ?? 0xf2f2f2;
     this.ringMaterial.color.setHex(hex);
@@ -776,8 +800,8 @@ export class UnoTableScene {
 
     const settled = this.advance(delta);
 
-    if (!this.reducedMotion) {
-      this.directionRing.rotation.y += delta * 0.26 * (this.state?.direction ?? 1);
+    if (!this.reducedMotion && this.ringTurns) {
+      this.directionRing.rotation.y += ringSpin(this.state?.direction ?? 1, delta);
     }
 
     this.idleTick += 1;

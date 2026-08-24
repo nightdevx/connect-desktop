@@ -120,6 +120,49 @@ export function seatAngle(offset: number, total: number): number {
   return Math.PI / 2 + (offset * 2 * Math.PI) / Math.max(total, 1);
 }
 
+export const RING_RADIUS = 1.72;
+export const RING_SPEED = 0.26;
+
+/**
+ * How far the direction ring turns in `delta` seconds, as a delta on its
+ * rotation.y.
+ *
+ * Negative for the +1 direction, and that sign is the whole point. Play moves
+ * to the seat at the NEXT angle -- seatAngle rises with the offset -- but a
+ * rotation of +phi about Y maps a point at angle theta to theta - phi. Adding
+ * the spin, which is what the ring used to do, ran it backwards against the
+ * order of play in every game.
+ */
+/**
+ * Whether a table has a direction worth drawing.
+ *
+ * Two players do not. They sit opposite each other, so "next" is the same seat
+ * whichever way round the table you go -- and the server agrees: a reverse
+ * played at a two-handed table is resolved as a skip, because passing the
+ * direction on would hand the turn straight back. An arrow spinning on that
+ * table is decoration claiming to be information.
+ */
+export function ringShowsDirection(totalSeats: number): boolean {
+  return totalSeats > 2;
+}
+
+export function ringSpin(direction: number, delta: number): number {
+  return -delta * RING_SPEED * (direction < 0 ? -1 : 1);
+}
+
+/**
+ * The yaw that points a cone lying flat (already tipped by Rx(PI/2), so its
+ * apex is +z) along the ring at `angle`, in the travelling direction.
+ *
+ * The arrowheads used to be built once with a yaw of -angle whatever the
+ * direction was, so they never flipped on a reverse, and the yaw was not even
+ * the tangent: it read correctly at angle 0 and pointed across the ring by the
+ * time it reached the third arrow.
+ */
+export function arrowYaw(angle: number, direction: number): number {
+  return direction < 0 ? Math.PI - angle : -angle;
+}
+
 export function seatYaw(angle: number): number {
   return Math.PI / 2 - angle;
 }
