@@ -793,9 +793,26 @@ const main = async () => {
   // asserted is that the two agree -- including the DEFAULT, which is where
   // this would go wrong: a row that says nothing about seats means two, and a
   // reader that forgets that reads every duel as a four-hander.
-  {
+  // Both cross-repo blocks below read the Go backend, which is a SIBLING
+  // CHECKOUT and not part of this repository. It is there on a developer's
+  // machine and absent in this repo's CI, where the workflow clones only this
+  // one -- so they are skipped rather than fatal when it is missing, and the
+  // skip is announced. A silent skip would read as a passing check.
+  const backendRoot = path.join(projectRoot, "..", "backend-go");
+  const backendFile = (...parts) => path.join(backendRoot, ...parts);
+  const backendPresent = fs.existsSync(
+    backendFile("internal", "minigame", "hub.go"),
+  );
+  if (!backendPresent) {
+    console.log(
+      "check-minigames: backend-go is not checked out beside this repo — " +
+        "the seat-count and score-bound cross-checks were SKIPPED",
+    );
+  }
+
+  if (backendPresent) {
     const hub = fs.readFileSync(
-      path.join(projectRoot, "..", "backend-go", "internal", "minigame", "hub.go"),
+      backendFile("internal", "minigame", "hub.go"),
       "utf8",
     );
 
@@ -847,9 +864,9 @@ const main = async () => {
   // visible: the game plays, the run finishes, and the record submission comes
   // back 400 with "this game keeps no score" -- which the player reads as their
   // best game of the night vanishing.
-  {
+  if (backendPresent) {
     const score = fs.readFileSync(
-      path.join(projectRoot, "..", "backend-go", "internal", "minigame", "score.go"),
+      backendFile("internal", "minigame", "score.go"),
       "utf8",
     );
 
