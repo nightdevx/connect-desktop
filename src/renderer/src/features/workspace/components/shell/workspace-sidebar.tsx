@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Switch, Modal, Select, Input, message } from "antd";
+import { Switch, Modal, Select, Input, InputNumber, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type {
   FriendEntry,
@@ -75,6 +75,7 @@ interface WorkspaceSidebarProps {
       allowedUsers?: string[],
       password?: string,
       isTextOnly?: boolean,
+      capacity?: number,
     ) => Promise<boolean>;
     onUpdateLobby: (
       lobbyId: string,
@@ -82,6 +83,7 @@ interface WorkspaceSidebarProps {
       isLocked?: boolean,
       allowedUsers?: string[],
       password?: string | null,
+      capacity?: number,
     ) => Promise<boolean>;
     onDeleteLobby: (lobbyId: string) => Promise<boolean>;
     isCreatingLobby: boolean;
@@ -133,6 +135,9 @@ export function WorkspaceSidebar({
   const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
   const [newLobbyPassword, setNewLobbyPassword] = useState("");
   const [isTextOnly, setIsTextOnly] = useState(false);
+  // Empty means "whatever the server's default is", which is what every room
+  // used to get with no way to say otherwise.
+  const [newLobbyCapacity, setNewLobbyCapacity] = useState<number | null>(null);
   // allUsers is friends + self now, so the select alone can never reach a
   // stranger. These are the ones pulled in by exact username while this modal
   // is open — kept only so their tag renders a name instead of a bare id.
@@ -261,6 +266,8 @@ export function WorkspaceSidebar({
       allowedUsers,
       newLobbyPassword.trim() || undefined,
       isTextOnly,
+      // A text room has no roster to limit, so its ceiling is never sent.
+      isTextOnly ? undefined : (newLobbyCapacity ?? undefined),
     );
     if (!created) {
       return;
@@ -271,6 +278,7 @@ export function WorkspaceSidebar({
     setAllowedUsers([]);
     setNewLobbyPassword("");
     setIsTextOnly(false);
+    setNewLobbyCapacity(null);
     setLookedUpUsers([]);
     setLookupUsername("");
     setIsCreateLobbyOpen(false);
@@ -418,6 +426,25 @@ export function WorkspaceSidebar({
               Mesaj odasında sesli bağlantı kurulmaz, sadece sohbet edilir.
             </small>
           </label>
+
+          {/* Voice only: nobody is ever on a text room's roster, so a limit
+              there would be a number that never applies to anything. */}
+          {!isTextOnly && (
+            <label className="ct-field">
+              <span>Kişi Sınırı</span>
+              <InputNumber
+                className="ct-input-number"
+                min={2}
+                max={100}
+                value={newLobbyCapacity}
+                onChange={(value) => setNewLobbyCapacity(value ?? null)}
+                placeholder="Sunucu varsayılanı"
+              />
+              <small className="ct-field-hint">
+                Boş bırakırsan sunucunun varsayılan sınırı geçerli olur.
+              </small>
+            </label>
+          )}
 
           <div className="ct-field-row">
             <div className="ct-field-row-text">

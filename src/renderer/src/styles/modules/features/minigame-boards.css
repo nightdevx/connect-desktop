@@ -1,0 +1,2365 @@
+/* The boards added after the first seven games.
+ *
+ * A second file rather than four hundred more lines in minigames.css, which is
+ * already the longest stylesheet in the app. The split is by AGE and not by
+ * kind, which is the honest description: everything here follows the same rules
+ * as the file next door -- the shell owns the layout, .ct-board fills the frame,
+ * and every colour is a token.
+ *
+ * Two things about the layout system are worth knowing before adding a board.
+ *
+ * .ct-board is a GRID sized from --board-columns and --board-rows, which the
+ * shell sets from the registry's `shape`. That is right for anything that is
+ * literally a grid of cells and wrong for a card table, so the boards that are
+ * not grids reset display and let the aspect-ratio on the frame do the work.
+ *
+ * .ct-arcade-frame is a container, so `cqw` inside a board resolves against the
+ * BOARD and not the window. Every glyph size below is in cqw for that reason: a
+ * 20x20 blokus grid and a 3x3 tic-tac-toe get proportionate type without any
+ * component measuring anything.
+ */
+
+/* --- shared: the panel beside a board -------------------------------------- */
+
+.ct-versus-panel {
+  @apply flex flex-col gap-2 rounded-xl border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+}
+
+.ct-versus-panel-title {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-panel-note {
+  @apply m-0 text-xs leading-relaxed;
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-scorelist {
+  @apply m-0 flex list-none flex-col gap-1 p-0;
+}
+
+.ct-versus-scorerow {
+  @apply flex items-center gap-2 rounded-lg px-2 py-1 text-sm;
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-secondary);
+}
+
+.ct-versus-scorerow[data-out="true"] {
+  opacity: 0.45;
+}
+
+.ct-versus-scorerow[data-alert="true"] {
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+}
+
+.ct-versus-scorename {
+  @apply flex-1 truncate;
+}
+
+.ct-versus-scorenote {
+  @apply text-[10px] font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-browser-seats {
+  @apply ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+.ct-minigames-tab-seats {
+  @apply ml-1.5 rounded px-1 py-0 text-[10px] font-semibold;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+/* --- sudoku ---------------------------------------------------------------- */
+
+.ct-sudoku-board {
+  @apply gap-px;
+  background: var(--ct-border-strong);
+  border-radius: var(--ct-radius-md);
+  overflow: hidden;
+}
+
+.ct-sudoku-cell {
+  @apply flex items-center justify-center text-[4.4cqw] font-semibold;
+  background: var(--ct-board-cell);
+  color: var(--ct-info);
+  transition: background var(--ct-duration-fast) linear;
+}
+
+/* A given is ink; anything the player wrote is pencil, in the accent. Telling
+   them apart is the difference between reviewing your own work and rereading
+   the puzzle. */
+.ct-sudoku-cell[data-fixed="true"] {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+  cursor: default;
+}
+
+.ct-sudoku-cell[data-peer="true"] {
+  background: var(--ct-alpha-12);
+}
+
+.ct-sudoku-cell[data-selected="true"] {
+  background: var(--ct-accent-strong);
+  color: var(--ct-text-primary);
+}
+
+.ct-sudoku-cell[data-conflict="true"] {
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 18%, transparent);
+}
+
+/* The heavier line every third cell, which is what makes the 3x3 boxes
+   readable. Drawn as a box-shadow so it costs no extra element and does not
+   disturb the grid. */
+.ct-sudoku-cell[data-box-x="true"] {
+  box-shadow: 2px 0 0 var(--ct-border-strong);
+}
+
+.ct-sudoku-cell[data-box-y="true"] {
+  box-shadow: 0 2px 0 var(--ct-border-strong);
+}
+
+.ct-sudoku-cell[data-box-x="true"][data-box-y="true"] {
+  box-shadow:
+    2px 0 0 var(--ct-border-strong),
+    0 2px 0 var(--ct-border-strong);
+}
+
+.ct-sudoku-pad {
+  @apply grid grid-cols-3 gap-1.5;
+}
+
+.ct-sudoku-key {
+  @apply flex aspect-square items-center justify-center rounded-lg border text-base font-semibold;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+  color: var(--ct-text-primary);
+}
+
+.ct-sudoku-key:hover:not(:disabled) {
+  background: var(--ct-alpha-12);
+}
+
+.ct-sudoku-key:disabled {
+  opacity: 0.4;
+}
+
+.ct-sudoku-key[data-clear="true"] {
+  @apply col-span-3 aspect-auto py-1.5 text-xs;
+}
+
+/* --- sliding puzzle -------------------------------------------------------- */
+
+.ct-puzzle-board {
+  @apply gap-1.5;
+}
+
+.ct-puzzle-tile {
+  @apply flex items-center justify-center rounded-lg text-[7cqw] font-bold;
+  background: linear-gradient(160deg, var(--ct-surface-4), var(--ct-surface-3));
+  color: var(--ct-text-primary);
+  box-shadow:
+    inset 0 1px 0 var(--ct-alpha-20),
+    var(--ct-shadow-sm);
+  transition:
+    transform var(--ct-duration-fast) var(--ct-ease-premium),
+    background var(--ct-duration-fast) linear;
+}
+
+.ct-puzzle-tile[data-empty="true"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ct-border);
+}
+
+.ct-puzzle-tile[data-movable="true"]:hover {
+  background: linear-gradient(160deg, var(--ct-surface-4), var(--ct-surface-4));
+  transform: scale(1.03);
+}
+
+/* A tile already in its final place. Turns the endgame into something you can
+   see rather than something you have to check. */
+.ct-puzzle-tile[data-home="true"] {
+  color: var(--ct-success);
+}
+
+.ct-puzzle-board[data-state="won"] .ct-puzzle-tile[data-home="true"] {
+  background: color-mix(in srgb, var(--ct-success) 22%, var(--ct-surface-3));
+}
+
+/* --- lights out ------------------------------------------------------------ */
+
+.ct-lights-board {
+  @apply gap-2;
+}
+
+.ct-lights-cell {
+  @apply rounded-full;
+  background: var(--ct-surface-3);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.5);
+  transition:
+    background var(--ct-duration-fast) linear,
+    box-shadow var(--ct-duration-fast) linear;
+}
+
+.ct-lights-cell[data-lit="true"] {
+  background: radial-gradient(circle at 38% 32%, #fff8c2, var(--ct-warning) 62%);
+  box-shadow:
+    inset 0 1px 2px rgb(255 255 255 / 0.7),
+    0 0 12px color-mix(in srgb, var(--ct-warning) 55%, transparent);
+}
+
+.ct-lights-board[data-state="won"] .ct-lights-cell {
+  box-shadow: inset 0 0 0 2px var(--ct-success);
+}
+
+/* --- tetris ---------------------------------------------------------------- */
+
+.ct-tetris-board {
+  @apply gap-px;
+  background: var(--ct-board-bed);
+}
+
+.ct-tetris-cell {
+  @apply rounded-[2px];
+  background: var(--ct-alpha-04);
+}
+
+/* The seven pieces. Every one is the same treatment -- a flat body with a lit
+   top edge -- so the well reads as one material in seven colours. */
+.ct-tetris-cell[data-tone] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    inset 0 -1px 0 rgb(0 0 0 / 0.3);
+}
+
+.ct-tetris-cell[data-tone="1"] {
+  background: var(--ct-info);
+}
+.ct-tetris-cell[data-tone="2"] {
+  background: var(--ct-tile-b);
+}
+.ct-tetris-cell[data-tone="3"] {
+  background: var(--ct-warning);
+}
+.ct-tetris-cell[data-tone="4"] {
+  background: var(--ct-chip-1000);
+}
+.ct-tetris-cell[data-tone="5"] {
+  background: var(--ct-seat-2);
+}
+.ct-tetris-cell[data-tone="6"] {
+  background: var(--ct-seat-3);
+}
+.ct-tetris-cell[data-tone="7"] {
+  background: var(--ct-danger);
+}
+
+.ct-tetris-next {
+  @apply flex flex-col gap-2 rounded-xl border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+}
+
+.ct-tetris-next-label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-tetris-preview {
+  @apply grid gap-px;
+  width: 5rem;
+  aspect-ratio: 1;
+}
+
+/* --- simon ----------------------------------------------------------------- */
+
+.ct-simon-board {
+  @apply gap-3;
+  border-radius: 50%;
+  padding: 6%;
+  background: var(--ct-surface-1);
+  box-shadow: inset 0 0 0 2px var(--ct-border-strong);
+}
+
+.ct-simon-board[data-pads="6"] {
+  border-radius: var(--ct-radius-2xl);
+}
+
+.ct-simon-pad {
+  border-radius: var(--ct-radius-lg);
+  opacity: 0.42;
+  transition:
+    opacity var(--ct-duration-fast) linear,
+    filter var(--ct-duration-fast) linear,
+    transform var(--ct-duration-fast) var(--ct-ease-spring);
+}
+
+.ct-simon-pad[data-active="true"] {
+  opacity: 1;
+  transform: scale(1.04);
+  filter: brightness(1.35);
+}
+
+.ct-simon-pad[data-pad="0"] {
+  background: var(--ct-danger);
+}
+.ct-simon-pad[data-pad="1"] {
+  background: var(--ct-info);
+}
+.ct-simon-pad[data-pad="2"] {
+  background: var(--ct-success);
+}
+.ct-simon-pad[data-pad="3"] {
+  background: var(--ct-warning);
+}
+.ct-simon-pad[data-pad="4"] {
+  background: var(--ct-seat-3);
+}
+.ct-simon-pad[data-pad="5"] {
+  background: var(--ct-chip-1000);
+}
+
+/* --- flood it -------------------------------------------------------------- */
+
+.ct-flood-board {
+  @apply gap-px overflow-hidden;
+  border-radius: var(--ct-radius-md);
+}
+
+.ct-flood-cell {
+  transition: background var(--ct-duration-fast) linear;
+}
+
+/* Six palettes, shared by the board and the swatches so a swatch is literally
+   the colour it paints. */
+.ct-flood-cell[data-color="0"],
+.ct-flood-swatch[data-color="0"] {
+  background: var(--ct-danger);
+}
+.ct-flood-cell[data-color="1"],
+.ct-flood-swatch[data-color="1"] {
+  background: var(--ct-info);
+}
+.ct-flood-cell[data-color="2"],
+.ct-flood-swatch[data-color="2"] {
+  background: var(--ct-success);
+}
+.ct-flood-cell[data-color="3"],
+.ct-flood-swatch[data-color="3"] {
+  background: var(--ct-warning);
+}
+.ct-flood-cell[data-color="4"],
+.ct-flood-swatch[data-color="4"] {
+  background: var(--ct-seat-3);
+}
+.ct-flood-cell[data-color="5"],
+.ct-flood-swatch[data-color="5"] {
+  background: var(--ct-tile-b);
+}
+
+.ct-flood-palette {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.ct-flood-swatch {
+  @apply aspect-square rounded-lg border-2;
+  border-color: transparent;
+}
+
+.ct-flood-swatch[data-current="true"] {
+  border-color: var(--ct-accent);
+  opacity: 0.4;
+}
+
+/* --- nonogram -------------------------------------------------------------- */
+
+/* Four areas: an empty corner, the column clues, the row clues and the grid.
+   The clue gutters have to line up with the cells exactly, so they are tracks
+   of the same grid rather than separate boxes beside it. */
+.ct-nonogram {
+  @apply grid h-full w-full gap-1;
+  grid-template-columns: minmax(2.5rem, 18%) 1fr;
+  grid-template-rows: minmax(2.5rem, 18%) 1fr;
+}
+
+.ct-nonogram-corner {
+  grid-area: 1 / 1;
+}
+
+.ct-nonogram-columns {
+  @apply grid gap-px;
+  grid-area: 1 / 2;
+  grid-template-columns: repeat(var(--nonogram-size), minmax(0, 1fr));
+}
+
+.ct-nonogram-rows {
+  @apply grid gap-px;
+  grid-area: 2 / 1;
+  grid-template-rows: repeat(var(--nonogram-size), minmax(0, 1fr));
+}
+
+.ct-nonogram-clue {
+  @apply flex flex-col items-center justify-end gap-0.5 text-[2.2cqw] font-semibold leading-none;
+  color: var(--ct-text-secondary);
+}
+
+.ct-nonogram-clue[data-row="true"] {
+  @apply flex-row items-center justify-end gap-1;
+}
+
+/* A satisfied line goes quiet. It says nothing the player could not work out by
+   counting -- it just saves them counting it again after every mark. */
+.ct-nonogram-clue[data-done="true"] {
+  color: var(--ct-text-muted);
+  opacity: 0.4;
+}
+
+.ct-nonogram-board {
+  @apply gap-px;
+  grid-area: 2 / 2;
+  grid-template-columns: repeat(var(--nonogram-size), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--nonogram-size), minmax(0, 1fr));
+  background: var(--ct-border);
+}
+
+.ct-nonogram-cell {
+  @apply relative;
+  background: var(--ct-board-cell);
+}
+
+.ct-nonogram-cell[data-mark="1"] {
+  background: var(--ct-text-primary);
+}
+
+/* The cross is two lines rather than a glyph, so it stays a cross at any cell
+   size -- a 15x15 grid draws these very small. */
+.ct-nonogram-cell[data-mark="2"]::before,
+.ct-nonogram-cell[data-mark="2"]::after {
+  content: "";
+  position: absolute;
+  inset: 30% 45%;
+  background: var(--ct-text-muted);
+}
+
+.ct-nonogram-cell[data-mark="2"]::before {
+  transform: rotate(45deg);
+}
+
+.ct-nonogram-cell[data-mark="2"]::after {
+  transform: rotate(-45deg);
+}
+
+/* The every-fifth heavier rule, which is what lets somebody count along a row
+   of fifteen without losing their place. */
+.ct-nonogram-cell[data-block-x="true"] {
+  box-shadow: 2px 0 0 var(--ct-border-strong);
+}
+
+.ct-nonogram-cell[data-block-y="true"] {
+  box-shadow: 0 2px 0 var(--ct-border-strong);
+}
+
+.ct-nonogram-cell[data-block-x="true"][data-block-y="true"] {
+  box-shadow:
+    2px 0 0 var(--ct-border-strong),
+    0 2px 0 var(--ct-border-strong);
+}
+
+.ct-nonogram[data-state="won"] .ct-nonogram-cell[data-mark="1"] {
+  background: var(--ct-success);
+}
+
+/* --- typing ---------------------------------------------------------------- */
+
+.ct-typing-board {
+  @apply relative flex flex-col items-center justify-center p-6;
+  /* Not a grid of cells: the shell's template would put every character in its
+     own track. */
+  display: flex;
+  cursor: text;
+}
+
+.ct-typing-passage {
+  @apply m-0 max-w-[62ch] text-[2.6cqw] leading-relaxed;
+  font-family: var(--ct-font-mono);
+  color: var(--ct-text-muted);
+  word-break: break-word;
+}
+
+.ct-typing-char {
+  position: relative;
+  white-space: pre-wrap;
+}
+
+.ct-typing-char[data-state="hit"] {
+  color: var(--ct-text-primary);
+}
+
+/* A wrong character keeps its place and goes red, rather than being refused: a
+   test that will not accept the keystroke is measuring the backspace key. */
+.ct-typing-char[data-state="miss"] {
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 20%, transparent);
+  border-radius: 2px;
+}
+
+.ct-typing-char[data-caret="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ct-accent);
+  animation: ct-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes ct-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* The field that actually receives the keystrokes. Off-screen rather than
+   display:none, because a hidden input cannot hold focus. */
+.ct-typing-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* --- mental arithmetic ----------------------------------------------------- */
+
+.ct-math-board {
+  @apply flex flex-col items-center justify-center gap-4 rounded-xl p-6;
+  display: flex;
+  background: var(--ct-panel);
+  transition: background var(--ct-duration-fast) linear;
+}
+
+.ct-math-board[data-flash="hit"] {
+  background: color-mix(in srgb, var(--ct-success) 18%, var(--ct-panel));
+}
+
+.ct-math-board[data-flash="miss"] {
+  background: color-mix(in srgb, var(--ct-danger) 18%, var(--ct-panel));
+}
+
+.ct-math-question {
+  @apply text-[7cqw] font-bold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-math-input {
+  @apply w-40 rounded-lg border px-3 py-2 text-center text-2xl font-semibold tabular-nums;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-surface-2);
+  color: var(--ct-text-primary);
+}
+
+.ct-math-input:focus {
+  outline: none;
+  border-color: var(--ct-accent);
+}
+
+.ct-math-hint {
+  @apply text-xs;
+  color: var(--ct-text-muted);
+}
+
+/* --- dots and boxes -------------------------------------------------------- */
+
+/* Alternating tracks: a dot column, an edge column, a dot column, and so on.
+   One grid rather than four stacked layers, so nothing has to stay aligned with
+   anything. */
+.ct-boxes-board {
+  grid-template-columns: repeat(var(--boxes-tracks), auto 1fr) auto;
+  grid-template-rows: repeat(var(--boxes-tracks), auto 1fr) auto;
+  grid-auto-flow: row;
+  place-items: stretch;
+  gap: 0;
+  padding: 4%;
+}
+
+.ct-boxes-dot {
+  @apply rounded-full;
+  width: 1.6cqw;
+  height: 1.6cqw;
+  place-self: center;
+  background: var(--ct-text-muted);
+}
+
+.ct-boxes-edge {
+  @apply rounded-full;
+  place-self: center;
+  background: var(--ct-alpha-08);
+  transition:
+    background var(--ct-duration-fast) linear,
+    transform var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-boxes-edge[data-kind="h"] {
+  width: 100%;
+  height: 1.1cqw;
+}
+
+.ct-boxes-edge[data-kind="v"] {
+  width: 1.1cqw;
+  height: 100%;
+}
+
+.ct-boxes-edge:not(:disabled):hover {
+  background: var(--ct-accent-strong);
+  transform: scale(1.08);
+}
+
+.ct-boxes-edge[data-owner="0"] {
+  background: var(--ct-info);
+}
+.ct-boxes-edge[data-owner="1"] {
+  background: var(--ct-warning);
+}
+.ct-boxes-edge[data-owner="2"] {
+  background: var(--ct-seat-2);
+}
+.ct-boxes-edge[data-owner="3"] {
+  background: var(--ct-seat-3);
+}
+
+.ct-boxes-edge[data-last="true"] {
+  box-shadow: 0 0 8px var(--ct-accent-glow);
+}
+
+.ct-boxes-cell {
+  place-self: stretch;
+  margin: 8%;
+  border-radius: var(--ct-radius-sm);
+  background: transparent;
+  transition: background var(--ct-duration-base) linear;
+}
+
+.ct-boxes-cell[data-owner="0"] {
+  background: color-mix(in srgb, var(--ct-info) 32%, transparent);
+}
+.ct-boxes-cell[data-owner="1"] {
+  background: color-mix(in srgb, var(--ct-warning) 32%, transparent);
+}
+.ct-boxes-cell[data-owner="2"] {
+  background: color-mix(in srgb, var(--ct-seat-2) 32%, transparent);
+}
+.ct-boxes-cell[data-owner="3"] {
+  background: color-mix(in srgb, var(--ct-seat-3) 32%, transparent);
+}
+
+/* --- reversi --------------------------------------------------------------- */
+
+.ct-reversi-board {
+  @apply gap-px overflow-hidden;
+  border-radius: var(--ct-radius-md);
+  background: color-mix(in srgb, var(--ct-felt-base) 82%, #000);
+  padding: 1.5%;
+}
+
+.ct-reversi-cell {
+  @apply flex items-center justify-center;
+  background: var(--ct-felt-base);
+  transition: background var(--ct-duration-fast) linear;
+}
+
+.ct-reversi-cell[data-playable="true"] {
+  background: var(--ct-felt-lift);
+}
+
+/* The legal-move dot. A hint the server computed, drawn small so it reads as a
+   suggestion rather than as a piece. */
+.ct-reversi-cell[data-playable="true"]::after {
+  content: "";
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+}
+
+.ct-reversi-cell[data-last="true"] {
+  box-shadow: inset 0 0 0 2px var(--ct-accent);
+}
+
+.ct-reversi-disc {
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(155deg, #4a4a52, #101014);
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.25),
+    0 2px 4px rgb(0 0 0 / 0.5);
+  animation: ct-reversi-drop var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+.ct-reversi-disc[data-owner="1"] {
+  background: linear-gradient(155deg, #ffffff, #cfcbc2);
+  box-shadow:
+    inset 0 -2px 2px rgb(0 0 0 / 0.18),
+    0 2px 4px rgb(0 0 0 / 0.5);
+}
+
+.ct-reversi-disc[data-flipped="true"] {
+  animation: ct-reversi-flip var(--ct-duration-slow) var(--ct-ease-premium);
+}
+
+@keyframes ct-reversi-drop {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes ct-reversi-flip {
+  from {
+    transform: rotateY(180deg);
+  }
+}
+
+/* --- blokus ---------------------------------------------------------------- */
+
+.ct-blokus {
+  @apply flex h-full w-full flex-col gap-2;
+}
+
+.ct-blokus-board {
+  @apply gap-px;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--ct-border);
+  border-radius: var(--ct-radius-sm);
+  overflow: hidden;
+}
+
+.ct-blokus-cell {
+  background: var(--ct-board-cell);
+  transition: background var(--ct-duration-fast) linear;
+}
+
+/* The four starting corners, marked before anything is on them -- otherwise the
+   first move of the game is a rule nobody can see. */
+.ct-blokus-cell[data-corner="0"] {
+  box-shadow: inset 0 0 0 2px var(--ct-info);
+}
+.ct-blokus-cell[data-corner="1"] {
+  box-shadow: inset 0 0 0 2px var(--ct-warning);
+}
+.ct-blokus-cell[data-corner="2"] {
+  box-shadow: inset 0 0 0 2px var(--ct-seat-2);
+}
+.ct-blokus-cell[data-corner="3"] {
+  box-shadow: inset 0 0 0 2px var(--ct-seat-3);
+}
+
+.ct-blokus-cell[data-owner="0"],
+.ct-blokus-glyph-cell[data-owner="0"] {
+  background: var(--ct-info);
+}
+.ct-blokus-cell[data-owner="1"],
+.ct-blokus-glyph-cell[data-owner="1"] {
+  background: var(--ct-warning);
+}
+.ct-blokus-cell[data-owner="2"],
+.ct-blokus-glyph-cell[data-owner="2"] {
+  background: var(--ct-seat-2);
+}
+.ct-blokus-cell[data-owner="3"],
+.ct-blokus-glyph-cell[data-owner="3"] {
+  background: var(--ct-seat-3);
+}
+
+.ct-blokus-cell[data-last="true"] {
+  box-shadow: inset 0 0 0 2px var(--ct-accent);
+}
+
+/* The placement ghost, in the placing player's own colour at half strength: the
+   question it answers is "does this fit", and a neutral highlight would not. */
+.ct-blokus-cell[data-preview="true"] {
+  opacity: 0.55;
+}
+
+.ct-blokus-cell[data-preview-seat="0"] {
+  background: var(--ct-info);
+}
+.ct-blokus-cell[data-preview-seat="1"] {
+  background: var(--ct-warning);
+}
+.ct-blokus-cell[data-preview-seat="2"] {
+  background: var(--ct-seat-2);
+}
+.ct-blokus-cell[data-preview-seat="3"] {
+  background: var(--ct-seat-3);
+}
+
+.ct-blokus-controls {
+  @apply flex shrink-0 flex-wrap items-center gap-2;
+}
+
+.ct-blokus-tray {
+  @apply flex shrink-0 flex-wrap content-start gap-1.5 overflow-y-auto rounded-lg border p-2;
+  max-height: 26%;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+}
+
+.ct-blokus-piece {
+  @apply flex items-center justify-center rounded border p-1;
+  border-color: transparent;
+  background: var(--ct-alpha-04);
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+}
+
+.ct-blokus-piece:hover:not(:disabled) {
+  background: var(--ct-alpha-12);
+}
+
+.ct-blokus-piece[data-selected="true"] {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
+}
+
+.ct-blokus-glyph {
+  @apply grid gap-px;
+}
+
+.ct-blokus-glyph-cell {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+}
+
+.ct-blokus-tray-empty {
+  @apply px-2 py-1 text-xs;
+  color: var(--ct-text-muted);
+}
+
+/* --- backgammon ------------------------------------------------------------ */
+
+.ct-gammon {
+  @apply flex h-full w-full flex-col gap-2;
+}
+
+.ct-gammon-board {
+  @apply flex flex-1 flex-col;
+  display: flex;
+  min-height: 0;
+  border-radius: var(--ct-radius-md);
+  padding: 1.5%;
+  background: linear-gradient(160deg, #3a2515, var(--ct-felt-rail));
+  box-shadow: inset 0 0 0 2px var(--ct-felt-rail-edge);
+}
+
+.ct-gammon-row {
+  @apply flex flex-1;
+  min-height: 0;
+  gap: 2px;
+}
+
+/* The two halves point at each other, so the bottom row's triangles are flipped
+   -- which is what a real board looks like and what makes the direction of
+   travel readable. */
+.ct-gammon-row[data-half="bottom"] .ct-gammon-point {
+  flex-direction: column-reverse;
+}
+
+.ct-gammon-point {
+  @apply relative flex flex-1 flex-col items-center gap-px pt-1;
+  min-width: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ct-felt-base) 90%, #fff) 0%,
+    transparent 92%
+  );
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transition: filter var(--ct-duration-fast) linear;
+}
+
+.ct-gammon-row[data-half="bottom"] .ct-gammon-point {
+  clip-path: polygon(0 100%, 100% 100%, 50% 0);
+}
+
+.ct-gammon-point[data-parity="1"] {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ct-felt-rail-edge) 85%, #fff) 0%,
+    transparent 92%
+  );
+}
+
+.ct-gammon-point[data-from="true"] {
+  filter: brightness(1.5);
+}
+
+.ct-gammon-point[data-target="true"]::after {
+  content: "";
+  position: absolute;
+  top: 6%;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ct-accent-glow);
+}
+
+.ct-gammon-point[data-last="true"] {
+  filter: brightness(1.3);
+}
+
+.ct-gammon-checker {
+  width: 82%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(155deg, #f6f3ec, #c3bcae);
+  box-shadow:
+    inset 0 -2px 2px rgb(0 0 0 / 0.25),
+    inset 0 2px 2px rgb(255 255 255 / 0.7),
+    0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.ct-gammon-checker[data-owner="1"] {
+  background: linear-gradient(155deg, #55565e, #1a1a1f);
+}
+
+.ct-gammon-overflow {
+  @apply absolute text-[2cqw] font-bold;
+  top: 40%;
+  color: var(--ct-text-primary);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+}
+
+.ct-gammon-bar {
+  @apply flex shrink-0 items-center justify-center gap-3 py-1;
+  background: color-mix(in srgb, var(--ct-felt-rail) 60%, #000);
+}
+
+.ct-gammon-barslot {
+  @apply flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-bold;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+}
+
+.ct-gammon-barslot[data-owner="1"] {
+  background: var(--ct-alpha-32);
+}
+
+.ct-gammon-barslot[data-from="true"] {
+  box-shadow: 0 0 0 2px var(--ct-accent);
+}
+
+.ct-gammon-actions {
+  @apply flex shrink-0 flex-wrap items-center gap-3;
+}
+
+.ct-gammon-dice {
+  @apply flex items-center gap-1;
+}
+
+.ct-gammon-die {
+  @apply flex h-7 w-7 items-center justify-center rounded text-lg;
+  background: var(--ct-die-body);
+  color: var(--ct-die-pip);
+  box-shadow: var(--ct-shadow-sm);
+}
+
+.ct-gammon-die[data-spent="true"] {
+  opacity: 0.3;
+}
+
+/* --- yahtzee --------------------------------------------------------------- */
+
+.ct-yahtzee {
+  @apply flex h-full w-full flex-col items-center justify-center gap-5;
+  display: flex;
+}
+
+.ct-yahtzee-cup {
+  @apply flex items-center justify-center gap-3;
+  display: flex;
+}
+
+.ct-yahtzee-die {
+  @apply flex items-center justify-center rounded-xl text-[3.4rem] leading-none;
+  width: 4.5rem;
+  height: 4.5rem;
+  background: linear-gradient(150deg, #fff, var(--ct-die-body) 45%, #e6e0d2);
+  color: var(--ct-die-pip);
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.95),
+    inset 0 -3px 4px var(--ct-die-edge),
+    0 3px 5px rgb(0 0 0 / 0.4);
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
+}
+
+.ct-yahtzee-die[data-held="true"] {
+  transform: translateY(-10%);
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.95),
+    0 0 0 3px var(--ct-accent),
+    0 8px 10px rgb(0 0 0 / 0.45);
+}
+
+.ct-yahtzee-die[data-empty="true"] {
+  opacity: 0.35;
+}
+
+.ct-yahtzee-actions {
+  @apply flex flex-col items-center gap-2;
+}
+
+.ct-yahtzee-hint {
+  @apply text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-yahtzee-sheet {
+  @apply overflow-y-auto;
+  max-height: 100%;
+}
+
+.ct-yahtzee-table {
+  @apply w-full border-collapse text-xs;
+}
+
+.ct-yahtzee-table th,
+.ct-yahtzee-table td {
+  @apply px-1.5 py-1 text-right;
+  border-bottom: 1px solid var(--ct-border);
+}
+
+.ct-yahtzee-table th[scope="row"] {
+  @apply text-left font-normal;
+  color: var(--ct-text-muted);
+}
+
+.ct-yahtzee-table th[scope="col"] {
+  @apply truncate text-right text-[10px] font-semibold uppercase;
+  color: var(--ct-text-muted);
+  max-width: 5rem;
+}
+
+.ct-yahtzee-table [data-me="true"] {
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-primary);
+}
+
+.ct-yahtzee-written {
+  @apply font-semibold tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-yahtzee-blank {
+  color: var(--ct-text-muted);
+}
+
+/* The preview IS the button. A separate "write here" control per row would be
+   thirteen more buttons saying what the number already says. */
+.ct-yahtzee-write {
+  @apply w-full rounded px-1 text-right font-semibold tabular-nums;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
+}
+
+.ct-yahtzee-write:hover:not(:disabled) {
+  background: var(--ct-accent-strong);
+}
+
+/* --- ludo ------------------------------------------------------------------ */
+
+.ct-ludo {
+  @apply flex h-full w-full flex-col gap-2;
+}
+
+.ct-ludo-board {
+  @apply gap-px;
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 1;
+  align-self: center;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  grid-template-rows: repeat(15, minmax(0, 1fr));
+  background: var(--ct-border);
+  border-radius: var(--ct-radius-md);
+  overflow: hidden;
+}
+
+.ct-ludo-cell {
+  @apply relative flex items-center justify-center;
+  background: var(--ct-surface-1);
+}
+
+.ct-ludo-cell[data-role="track"],
+.ct-ludo-cell[data-role="entry"] {
+  background: var(--ct-board-cell);
+}
+
+.ct-ludo-cell[data-safe="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  border: 1px solid var(--ct-text-muted);
+  opacity: 0.5;
+}
+
+/* A quarter's colour marks its entry square, its home column and its base -- the
+   three places that belong to one player. */
+.ct-ludo-cell[data-seat="0"] {
+  background: color-mix(in srgb, var(--ct-info) 45%, var(--ct-surface-1));
+}
+.ct-ludo-cell[data-seat="1"] {
+  background: color-mix(in srgb, var(--ct-warning) 45%, var(--ct-surface-1));
+}
+.ct-ludo-cell[data-seat="2"] {
+  background: color-mix(in srgb, var(--ct-seat-2) 45%, var(--ct-surface-1));
+}
+.ct-ludo-cell[data-seat="3"] {
+  background: color-mix(in srgb, var(--ct-seat-3) 45%, var(--ct-surface-1));
+}
+
+.ct-ludo-cell[data-role="centre"] {
+  background: var(--ct-accent-soft);
+}
+
+.ct-ludo-token {
+  position: absolute;
+  width: 74%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgb(0 0 0 / 0.35);
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.5);
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
+}
+
+/* Stacked tokens fan out. Four in a base otherwise draw exactly on top of each
+   other and read as one. */
+.ct-ludo-token[data-stack="1"] {
+  transform: translate(18%, 18%);
+}
+.ct-ludo-token[data-stack="2"] {
+  transform: translate(-18%, 18%);
+}
+.ct-ludo-token[data-stack="3"] {
+  transform: translate(0, -18%);
+}
+
+.ct-ludo-token[data-owner="0"] {
+  background: var(--ct-info);
+}
+.ct-ludo-token[data-owner="1"] {
+  background: var(--ct-warning);
+}
+.ct-ludo-token[data-owner="2"] {
+  background: var(--ct-seat-2);
+}
+.ct-ludo-token[data-owner="3"] {
+  background: var(--ct-seat-3);
+}
+
+.ct-ludo-token[data-movable="true"] {
+  box-shadow:
+    0 0 0 2px var(--ct-accent),
+    0 0 10px var(--ct-accent-glow);
+}
+
+.ct-ludo-actions {
+  @apply flex shrink-0 flex-wrap items-center gap-3;
+}
+
+.ct-ludo-die {
+  @apply flex h-10 w-10 items-center justify-center rounded-lg text-3xl leading-none;
+  background: var(--ct-die-body);
+  color: var(--ct-die-pip);
+  box-shadow: var(--ct-shadow-sm);
+}
+
+.ct-ludo-die[data-rolled="true"] {
+  animation: ct-die-throw var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+@keyframes ct-die-throw {
+  from {
+    transform: rotate(-25deg) scale(0.7);
+  }
+}
+
+.ct-ludo-hint {
+  @apply text-xs;
+  color: var(--ct-text-muted);
+}
+
+/* --- quiz ------------------------------------------------------------------ */
+
+.ct-quiz-board {
+  @apply flex flex-col items-center justify-center gap-5 p-6;
+  display: flex;
+}
+
+.ct-quiz-counter {
+  @apply rounded-full px-3 py-0.5 text-xs font-semibold;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+.ct-quiz-question {
+  @apply m-0 max-w-[46ch] text-center text-[3.2cqw] font-semibold leading-snug;
+  color: var(--ct-text-primary);
+}
+
+.ct-quiz-options {
+  @apply grid w-full max-w-2xl gap-2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ct-quiz-option {
+  @apply flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm;
+  border-color: var(--ct-border);
+  background: var(--ct-panel);
+  color: var(--ct-text-secondary);
+  transition:
+    background var(--ct-duration-fast) linear,
+    border-color var(--ct-duration-fast) linear;
+}
+
+.ct-quiz-option:hover:not(:disabled) {
+  background: var(--ct-alpha-08);
+  border-color: var(--ct-border-strong);
+}
+
+.ct-quiz-option[data-state="right"] {
+  border-color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 20%, transparent);
+  color: var(--ct-text-primary);
+}
+
+.ct-quiz-option[data-state="wrong"] {
+  border-color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 20%, transparent);
+  color: var(--ct-text-primary);
+}
+
+.ct-quiz-letter {
+  @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+}
+
+/* --- uno ------------------------------------------------------------------- */
+
+/* A hand of cards is a FAN, and a fan is the one thing a row of overlapped
+ * rectangles never looks like.
+ *
+ * The whole geometry is two custom properties -- the card's index and how many
+ * cards there are -- and the arithmetic happens in CSS, so nothing in the board
+ * component measures or positions anything:
+ *
+ *   --offset  how far this card sits from the middle of the hand, signed
+ *   --spread  degrees per card, SHRINKING as the hand grows, so twenty cards
+ *             occupy the same arc that five do instead of wrapping round the
+ *             player's head
+ *   --slice   how much of each card stays visible, likewise shrinking, so a big
+ *             hand still fits the panel without a scrollbar
+ *
+ * The pivot is far below the card (transform-origin 50% 340%), which is what
+ * makes the rotation read as a fan held in one hand rather than as each card
+ * spinning about its own middle.
+ *
+ * There is real perspective on the container, and it earns its keep on hover:
+ * the card straightens up and comes toward the viewer on Z, which is the motion
+ * of a card being pulled out of a hand. Everything animated here is transform
+ * and opacity only -- both composite, neither repaints -- because this game runs
+ * inside a call and the GPU is already busy.
+ */
+
+.ct-uno-board {
+  @apply flex flex-col items-center justify-between gap-3 p-4;
+  display: flex;
+}
+
+.ct-uno-opponents {
+  @apply flex w-full flex-wrap items-start justify-center gap-6;
+}
+
+.ct-uno-opponent {
+  @apply flex flex-col items-center gap-1;
+}
+
+.ct-uno-opponent-name {
+  @apply flex items-center gap-1.5 text-xs font-semibold;
+  color: var(--ct-text-secondary);
+}
+
+/* The same fan as the player's own hand, smaller and face-down. */
+.ct-uno-fan {
+  @apply flex items-end;
+  perspective: 600px;
+}
+
+.ct-uno-mini {
+  --mid: calc((var(--card-count) - 1) / 2);
+  --offset: calc(var(--card-index) - var(--mid));
+  display: block;
+  width: 1.6rem;
+  flex: 0 0 auto;
+  margin-left: -0.9rem;
+  transform-origin: 50% 300%;
+  transform: rotate(calc(var(--offset) * 5deg));
+}
+
+.ct-uno-fan > *:first-child {
+  margin-left: 0;
+}
+
+.ct-uno-opponent-count {
+  @apply rounded-full px-2 py-0.5 text-xs font-bold tabular-nums;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-primary);
+}
+
+.ct-uno-opponent-count[data-alert="true"] {
+  background: var(--ct-danger);
+  color: var(--ct-on-danger);
+}
+
+.ct-uno-table {
+  @apply flex items-center justify-center gap-8;
+}
+
+/* The deck. Two drawn silhouettes behind the top card, offset and darkened, so
+   it has thickness -- the server only ever sends a count, so the depth is
+   painted rather than stacked out of real elements. */
+.ct-uno-pile {
+  @apply relative flex flex-col items-center;
+  width: 4.5rem;
+}
+
+.ct-uno-pile::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 4.5rem;
+  aspect-ratio: 2 / 3;
+  border-radius: 10%;
+  transform: translateX(-50%);
+  background: rgb(0 0 0 / 0.5);
+  box-shadow:
+    3px 3px 0 -1px rgb(0 0 0 / 0.35),
+    6px 6px 0 -2px rgb(0 0 0 / 0.25);
+}
+
+.ct-uno-pile .ct-uno-card {
+  position: relative;
+  z-index: 1;
+  transition: transform var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-uno-pile:not(:disabled):hover .ct-uno-card {
+  transform: translateY(-6%);
+}
+
+.ct-uno-pile-count {
+  @apply relative mt-1 rounded-full px-2 text-[10px] font-semibold;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-secondary);
+  z-index: 1;
+}
+
+.ct-uno-discard {
+  @apply relative flex flex-col items-center;
+  width: 5.5rem;
+  perspective: 900px;
+}
+
+/* What is already buried, drawn the same way as the deck's thickness and lying
+   crooked, because a discard pile is not a neat stack. */
+.ct-uno-discard::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 5.5rem;
+  aspect-ratio: 2 / 3;
+  border-radius: 10%;
+  transform: translateX(-50%) rotate(-7deg);
+  background: rgb(0 0 0 / 0.3);
+  box-shadow: 5px 4px 0 -2px rgb(0 0 0 / 0.22);
+}
+
+.ct-uno-thrown {
+  position: relative;
+  display: block;
+  width: 100%;
+  z-index: 1;
+  transform: rotate(var(--throw-rot));
+  animation: ct-uno-throw var(--ct-duration-slow) var(--ct-ease-spring) backwards;
+}
+
+/* Thrown from above and settling into the angle it will keep. The end state is
+   the element's own transform, so the card lands on its own lie rather than
+   snapping to square when the animation finishes. */
+@keyframes ct-uno-throw {
+  from {
+    transform: translate3d(0, -3.5rem, 0) rotate(calc(var(--throw-rot) - 26deg))
+      scale(1.14);
+    opacity: 0;
+  }
+}
+
+.ct-uno-color {
+  @apply mt-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide;
+  color: #fff;
+}
+
+.ct-uno-color[data-color="r"] {
+  background: var(--ct-uno-r);
+}
+.ct-uno-color[data-color="y"] {
+  background: var(--ct-uno-y);
+  color: #201a05;
+}
+.ct-uno-color[data-color="g"] {
+  background: var(--ct-uno-g);
+}
+.ct-uno-color[data-color="b"] {
+  background: var(--ct-uno-b);
+}
+
+.ct-uno-direction {
+  @apply text-3xl;
+  color: var(--ct-text-muted);
+}
+
+.ct-uno-direction[data-direction="-1"] {
+  color: var(--ct-warning);
+}
+
+/* --- the hand -------------------------------------------------------------- */
+
+.ct-uno-hand {
+  @apply flex w-full items-end justify-center pb-2 pt-6;
+  min-height: 8rem;
+  perspective: 1000px;
+  perspective-origin: 50% 130%;
+}
+
+.ct-uno-card-button {
+  --mid: calc((var(--card-count) - 1) / 2);
+  --offset: calc(var(--card-index) - var(--mid));
+  /* Degrees per card, and visible width per card. Both shrink with the hand, so
+     a two-card hand is barely fanned and a twenty-card hand still fits.
+     ponytail: the hand holds itself to ~29rem up to about thirty cards, past
+     which the slice floor wins and it overflows the panel rather than scrolling.
+     A scroller was the alternative and it is worse: overflow-x forces overflow-y
+     with it, which clips the top of the arc off every card. If a hand that big
+     ever turns up in practice, wrap to a second row rather than adding a
+     scrollbar. */
+  --spread: clamp(2.2deg, calc(52deg / var(--card-count)), 6.5deg);
+  --slice: clamp(0.85rem, calc(26rem / var(--card-count)), 2.8rem);
+  width: 4.2rem;
+  flex: 0 0 auto;
+  margin-left: calc(var(--slice) - 4.2rem);
+  transform-origin: 50% 340%;
+  transform: rotate(calc(var(--offset) * var(--spread))) rotateX(14deg);
+  transition: transform var(--ct-duration-base) var(--ct-ease-premium);
+  /* Dealt one at a time. Runs on MOUNT, so it plays when the hand arrives and
+     not every time somebody else moves. */
+  animation: ct-uno-deal 460ms var(--ct-ease-spring) backwards;
+  animation-delay: calc(var(--card-index) * 45ms);
+}
+
+.ct-uno-card-button:first-child {
+  margin-left: 0;
+}
+
+@keyframes ct-uno-deal {
+  from {
+    transform: translate3d(-12rem, -8rem, 0) rotate(-38deg) scale(0.72);
+    opacity: 0;
+  }
+}
+
+/* Straightens, lifts, and comes toward the viewer -- the motion of a card being
+   pulled out of a hand rather than a rectangle sliding up a page. */
+.ct-uno-card-button:hover:not(:disabled),
+.ct-uno-card-button:focus-visible {
+  transform: rotate(calc(var(--offset) * var(--spread))) rotateX(0deg)
+    translateY(-14%) translateZ(46px);
+  z-index: 2;
+}
+
+.ct-uno-card-button:disabled {
+  opacity: 0.75;
+}
+
+.ct-uno-actions {
+  @apply flex items-center gap-2;
+}
+
+.ct-uno-spectating,
+.ct-poker-spectating,
+.ct-rummy-spectating {
+  @apply m-0 text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-uno-picker {
+  @apply absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 rounded-xl border p-4;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-panel-solid);
+  box-shadow: var(--ct-shadow-lg);
+  z-index: 3;
+}
+
+.ct-uno-picker-title {
+  @apply text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-uno-picker-colors {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.ct-uno-swatch {
+  @apply h-10 w-10 rounded-lg;
+  transition: transform var(--ct-duration-fast) var(--ct-ease-spring);
+}
+
+.ct-uno-swatch:hover {
+  transform: scale(1.08);
+}
+
+.ct-uno-swatch[data-color="r"] {
+  background: var(--ct-uno-r);
+}
+.ct-uno-swatch[data-color="y"] {
+  background: var(--ct-uno-y);
+}
+.ct-uno-swatch[data-color="g"] {
+  background: var(--ct-uno-g);
+}
+.ct-uno-swatch[data-color="b"] {
+  background: var(--ct-uno-b);
+}
+
+/* The fan itself stays -- it is the layout, not the motion. Only the dealing and
+   the throw are turned off. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-uno-card-button,
+  .ct-uno-thrown {
+    animation: none;
+  }
+}
+
+/* --- battleship ------------------------------------------------------------ */
+
+/* The board is ONE sheet of water with a chart drawn over it, not a hundred
+ * coloured squares side by side.
+ *
+ * That is the whole difference between "a grid" and "a sea", and the cost of it
+ * is a gradient stack on the container plus a 1px inset line per cell. The old
+ * version painted every square its own shade of blue and separated them with a
+ * 1px gap showing the page through, which is exactly how a spreadsheet is drawn.
+ *
+ * The swell is ONE animated element -- the container's ::before, a repeating
+ * gradient translated by exactly one period so it loops seamlessly. Not one
+ * animation per cell: this app is running a video call behind the game, and a
+ * hundred independently animated layers is the kind of thing that costs frames
+ * in the call rather than in the game.
+ */
+
+.ct-fleet-board {
+  @apply flex flex-col items-center justify-center gap-4 p-3;
+  display: flex;
+}
+
+.ct-fleet-grids {
+  @apply flex w-full items-start justify-center gap-6;
+}
+
+/* The chart table the water sits in. Fixed steel rather than --ct-surface, for
+   the reason the whole materials sheet is fixed: this is an object, and an
+   object does not change colour when the app does. */
+.ct-fleet-grid {
+  @apply flex flex-1 flex-col gap-1 rounded-lg p-2;
+  max-width: 26rem;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--ct-sea-frame) 78%, #fff) 0%,
+    var(--ct-sea-frame) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    inset 0 -2px 6px rgb(0 0 0 / 0.5),
+    var(--ct-shadow-md);
+}
+
+.ct-fleet-grid-title {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: rgb(190 226 255 / 0.62);
+}
+
+.ct-fleet-labels {
+  @apply grid text-[10px];
+  grid-template-columns: 1.2rem repeat(10, minmax(0, 1fr));
+  color: rgb(190 226 255 / 0.5);
+}
+
+.ct-fleet-labels span {
+  @apply text-center;
+}
+
+.ct-fleet-body {
+  @apply flex gap-0;
+}
+
+.ct-fleet-rownumbers {
+  @apply grid w-[1.2rem] text-[10px];
+  grid-template-rows: repeat(10, minmax(0, 1fr));
+  color: rgb(190 226 255 / 0.5);
+}
+
+.ct-fleet-rownumbers span {
+  @apply flex items-center justify-center;
+}
+
+/* The water itself. No gap between cells any more -- the chart lines are drawn
+   INSIDE each square as an inset shadow, so the surface underneath stays
+   continuous and a five-square hull is not cut into five pieces by the page
+   showing through the gaps. */
+.ct-fleet-cells {
+  @apply relative grid flex-1 overflow-hidden;
+  aspect-ratio: 1;
+  border-radius: var(--ct-radius-sm);
+  background:
+    radial-gradient(
+      ellipse 80% 70% at 50% 38%,
+      var(--ct-sea-crest) 0%,
+      var(--ct-sea-mid) 55%,
+      var(--ct-sea-deep) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.55),
+    inset 0 8px 22px rgb(0 0 0 / 0.5);
+}
+
+/* The swell: a single sheet of faint diagonal crests drifting across the whole
+   board. Inset past the edges so nothing enters or leaves frame, and translated
+   by exactly one gradient period (26px along the -22deg axis) so the loop has
+   no seam. transform only -- it composites, it does not repaint. */
+.ct-fleet-cells::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    -22deg,
+    rgb(255 255 255 / 0.07) 0 2px,
+    transparent 2px 26px
+  );
+  animation: ct-fleet-swell 15s linear infinite;
+}
+
+@keyframes ct-fleet-swell {
+  to {
+    transform: translate3d(-9.74px, -24.11px, 0);
+  }
+}
+
+.ct-fleet-cell {
+  @apply relative;
+  background: transparent;
+  /* The chart, not a border: two hairlines inside the square's own box. */
+  box-shadow:
+    inset -1px 0 0 var(--ct-sea-grid),
+    inset 0 -1px 0 var(--ct-sea-grid);
+  transition: box-shadow var(--ct-duration-fast) linear;
+}
+
+/* --- hulls ----------------------------------------------------------------- */
+
+/* Five squares of one grey read as five squares. Given a bow, a stern and a run
+   of deck plating between them, the same five squares read as one ship -- and
+   that is the entire trick here, because it is all border-radius and gradients
+   on cells that were being drawn anyway. */
+.ct-fleet-cell[data-ship="true"] {
+  z-index: 1;
+  background:
+    /* deck plating, across the beam */
+    repeating-linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.14) 0 1px,
+      transparent 1px 9px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--ct-hull-rail) 0%,
+      var(--ct-hull-deck) 34%,
+      var(--ct-hull-plate) 72%,
+      var(--ct-hull-dark) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 -2px 4px rgb(0 0 0 / 0.55),
+    0 2px 5px rgb(0 0 0 / 0.45);
+}
+
+/* A hull running down the board is lit across its beam the other way, and its
+   plating runs the other way with it. */
+.ct-fleet-cell[data-ship="true"][data-hull-axis="v"] {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgb(0 0 0 / 0.14) 0 1px,
+      transparent 1px 9px
+    ),
+    linear-gradient(
+      to right,
+      var(--ct-hull-rail) 0%,
+      var(--ct-hull-deck) 34%,
+      var(--ct-hull-plate) 72%,
+      var(--ct-hull-dark) 100%
+    );
+}
+
+/* The bow is pointed, the stern is blunt. Elliptical radii rather than round
+   ones, so the point stays a point at any cell size. */
+.ct-fleet-cell[data-hull="bow"][data-hull-axis="h"] {
+  border-radius: 62% 3px 3px 62% / 50% 3px 3px 50%;
+}
+
+.ct-fleet-cell[data-hull="stern"][data-hull-axis="h"] {
+  border-radius: 3px 26% 26% 3px / 3px 46% 46% 3px;
+}
+
+.ct-fleet-cell[data-hull="bow"][data-hull-axis="v"] {
+  border-radius: 62% 62% 3px 3px / 50% 50% 3px 3px;
+}
+
+.ct-fleet-cell[data-hull="stern"][data-hull-axis="v"] {
+  border-radius: 26% 26% 3px 3px / 46% 46% 3px 3px;
+}
+
+.ct-fleet-cell[data-hull="solo"] {
+  border-radius: 42%;
+}
+
+/* Sunk: still a hull, but a burnt one. Kept as a hull rather than recoloured to
+   flat red, because "which ship was that" is the thing a player reads off the
+   board after it goes down. */
+.ct-fleet-cell[data-sunk="true"] {
+  filter: brightness(0.52) saturate(0.5) sepia(0.35) hue-rotate(-18deg);
+}
+
+/* --- ordnance -------------------------------------------------------------- */
+
+/* A miss is a splash: one ring that expands and dies, leaving a white dot. A
+   hit is a burst that leaves a scorch and a red cross. Both marks survive in
+   greyscale -- dot versus cross -- so the board is readable without colour, and
+   both animations run exactly once, on the frame the attribute first matches. */
+
+.ct-fleet-cell[data-shot="1"]::after {
+  content: "";
+  position: absolute;
+  inset: 40%;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: 0 0 6px rgb(255 255 255 / 0.45);
+}
+
+.ct-fleet-cell[data-shot="1"]::before {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.8);
+  animation: ct-fleet-splash 700ms var(--ct-ease-premium) forwards;
+  pointer-events: none;
+}
+
+@keyframes ct-fleet-splash {
+  from {
+    transform: scale(0.15);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* The scorch. Replaces the chart hairlines on this square on purpose: the
+   square has stopped being water or deck and started being a hole. */
+.ct-fleet-cell[data-shot="2"] {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ct-danger) 60%, transparent),
+    inset 0 0 12px rgb(0 0 0 / 0.7);
+}
+
+.ct-fleet-cell[data-shot="2"]::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--ct-fire) 85%, #fff) 0%,
+    var(--ct-fire) 32%,
+    transparent 68%
+  );
+  animation: ct-fleet-burst 620ms var(--ct-ease-premium) forwards;
+}
+
+@keyframes ct-fleet-burst {
+  from {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* The cross, as one element rather than two rotated bars. */
+.ct-fleet-cell[data-shot="2"]::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  z-index: 3;
+  background-image:
+    linear-gradient(45deg, transparent 43%, var(--ct-danger) 43% 57%, transparent 57%),
+    linear-gradient(-45deg, transparent 43%, var(--ct-danger) 43% 57%, transparent 57%);
+}
+
+/* --- aiming ---------------------------------------------------------------- */
+
+.ct-fleet-cell[data-ghost="true"] {
+  background: color-mix(in srgb, var(--ct-accent) 45%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ct-accent);
+}
+
+.ct-fleet-cell[data-ghost="bad"] {
+  background: color-mix(in srgb, var(--ct-danger) 45%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ct-danger);
+}
+
+/* The reticle. Only on a square that can still be fired at -- a fired one is
+   disabled, and a square under the placement ghost is already saying something
+   about itself. */
+.ct-fleet-cell:not(:disabled):not([data-ghost]):hover::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border: 1px solid var(--ct-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ct-accent) 45%, transparent);
+  pointer-events: none;
+}
+
+.ct-fleet-tray {
+  @apply flex w-full flex-wrap items-center justify-center gap-4;
+}
+
+.ct-fleet-waiting {
+  @apply m-0 text-sm;
+  color: var(--ct-text-muted);
+}
+
+.ct-fleet-ships {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.ct-fleet-shipbutton {
+  @apply flex items-center gap-px rounded border p-1;
+  border-color: transparent;
+  background: var(--ct-alpha-04);
+  transition: transform var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-fleet-shipbutton[data-selected="true"] {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
+  transform: translateY(-2px);
+}
+
+/* A ship already on the board goes quiet in the tray, so "what is left to
+   place" is something you can see. */
+.ct-fleet-shipbutton[data-placed="true"] {
+  opacity: 0.45;
+}
+
+/* The tray and the legend draw the same steel as the board, so a ship in the
+   tray is recognisably the thing that ends up on the water. */
+.ct-fleet-shipcell {
+  @apply h-3 w-3;
+  background: linear-gradient(
+    to bottom,
+    var(--ct-hull-rail) 0%,
+    var(--ct-hull-deck) 40%,
+    var(--ct-hull-plate) 100%
+  );
+  box-shadow: inset 0 -1px 2px rgb(0 0 0 / 0.45);
+}
+
+.ct-fleet-shipbutton .ct-fleet-shipcell:first-child,
+.ct-fleet-legend-row .ct-fleet-shipcell:first-child {
+  border-radius: 60% 2px 2px 60% / 50% 2px 2px 50%;
+}
+
+.ct-fleet-shipbutton .ct-fleet-shipcell:last-of-type,
+.ct-fleet-legend-row .ct-fleet-shipcell:last-of-type {
+  border-radius: 2px 26% 26% 2px / 2px 46% 46% 2px;
+}
+
+.ct-fleet-controls {
+  @apply flex items-center gap-2;
+}
+
+.ct-fleet-legend {
+  @apply flex flex-col gap-1;
+}
+
+.ct-fleet-legend-row {
+  @apply flex items-center gap-px text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-fleet-legend-row > span:last-child {
+  @apply ml-1.5;
+}
+
+.ct-fleet-legend-row[data-sunk="true"] {
+  opacity: 0.4;
+}
+
+.ct-fleet-legend-row[data-sunk="true"] .ct-fleet-shipcell {
+  filter: brightness(0.5) sepia(0.4) hue-rotate(-18deg);
+}
+
+/* The sea stops moving and the ordnance stops animating; the marks themselves
+   stay, because they are information rather than decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-fleet-cells::before,
+  .ct-fleet-cell[data-shot="1"]::before,
+  .ct-fleet-cell[data-shot="2"]::before {
+    animation: none;
+  }
+
+  .ct-fleet-cell[data-shot="1"]::before,
+  .ct-fleet-cell[data-shot="2"]::before {
+    opacity: 0;
+  }
+}
+
+/* --- okey ------------------------------------------------------------------ */
+
+.ct-rummy-board {
+  @apply flex flex-col items-center justify-between gap-3 p-4;
+  display: flex;
+}
+
+.ct-rummy-centre {
+  @apply flex items-end justify-center gap-6;
+}
+
+.ct-rummy-slot {
+  @apply flex flex-col items-center gap-1;
+  width: 3rem;
+}
+
+.ct-rummy-slot-label {
+  @apply text-[10px] font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-rummy-pile-count {
+  @apply rounded-full px-2 text-[10px] font-semibold;
+  background: var(--ct-alpha-12);
+  color: var(--ct-text-secondary);
+}
+
+.ct-rummy-pile:not(:disabled):hover .ct-tile {
+  transform: translateY(-8%);
+}
+
+.ct-rummy-discards {
+  @apply flex flex-wrap items-start justify-center gap-3;
+}
+
+.ct-rummy-discard {
+  @apply flex flex-col items-center gap-1 rounded-lg border p-1.5;
+  width: 4rem;
+  border-color: transparent;
+  background: var(--ct-alpha-04);
+}
+
+/* The one pile you may take from. Marked, because "the seat before you" is a
+   rule the board should say rather than expect people to work out. */
+.ct-rummy-discard[data-source="true"] {
+  border-color: var(--ct-accent);
+  background: var(--ct-accent-soft);
+}
+
+.ct-rummy-discard-name {
+  @apply flex items-center gap-1 truncate text-[10px];
+  max-width: 100%;
+  color: var(--ct-text-muted);
+}
+
+.ct-rummy-discard-count {
+  @apply text-[10px] tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-rummy-empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  border-radius: 12%;
+  border: 1px dashed var(--ct-border-strong);
+}
+
+/* The rack -- the istaka -- and the single most important object in the game,
+ * because okey is mostly the act of arranging tiles on it.
+ *
+ * Three things make it read as a piece of wood holding objects rather than a
+ * brown box behind some rectangles, and all three are cheap:
+ *
+ *   GRAIN  a pair of repeating gradients at very low alpha, the same trick the
+ *          felt uses. Wood without a photograph.
+ *   RAIL   a real lip along the front, drawn as ::after and stacked ABOVE the
+ *          tiles so it overlaps their bottom edge. Tiles that stand in front of
+ *          the rail are tiles lying on a table; tiles behind it are tiles
+ *          standing in a rack.
+ *   LEAN   the rows have perspective and the tiles are tipped back a few
+ *          degrees, which is the angle you actually see your own rack at. A
+ *          tile picked up straightens and comes forward.
+ */
+.ct-rummy-rack {
+  @apply relative flex w-full flex-col gap-1 rounded-lg p-2 pb-3;
+  background:
+    repeating-linear-gradient(
+      92deg,
+      rgb(255 255 255 / 0.035) 0 1px,
+      transparent 1px 7px
+    ),
+    repeating-linear-gradient(
+      88deg,
+      rgb(0 0 0 / 0.07) 0 2px,
+      transparent 2px 13px
+    ),
+    linear-gradient(160deg, var(--ct-tile-rack-lip), var(--ct-tile-rack));
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.14),
+    inset 0 -4px 8px rgb(0 0 0 / 0.45),
+    var(--ct-shadow-md);
+}
+
+.ct-rummy-rack::after {
+  content: "";
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0;
+  left: 0.35rem;
+  height: 0.55rem;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 0 0 var(--ct-radius-md) var(--ct-radius-md);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ct-tile-rack-lip) 92%, #fff) 0%,
+    var(--ct-tile-rack) 55%,
+    color-mix(in srgb, var(--ct-tile-rack) 65%, #000) 100%
+  );
+  box-shadow:
+    0 -3px 6px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.ct-rummy-rack-row {
+  @apply flex items-end justify-center gap-1;
+  min-height: 3.6rem;
+  perspective: 700px;
+  perspective-origin: 50% 140%;
+}
+
+.ct-rummy-rack-slot {
+  width: 2.4rem;
+  flex: 0 0 auto;
+  cursor: grab;
+  transform: rotateX(9deg);
+  transition: transform var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-rummy-rack-slot:hover,
+.ct-rummy-rack-slot:focus-visible {
+  transform: rotateX(0deg) translateZ(18px);
+  z-index: 1;
+}
+
+.ct-rummy-rack-slot[data-dragging="true"] {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.ct-rummy-actions {
+  @apply flex flex-wrap items-center justify-center gap-2;
+}
+
+.ct-rummy-hint {
+  @apply m-0 text-center text-xs;
+  color: var(--ct-text-muted);
+}
+
+/* --- poker ----------------------------------------------------------------- */
+
+.ct-poker-board {
+  @apply flex flex-col items-center justify-between gap-4 p-4;
+  display: flex;
+}
+
+.ct-poker-seats {
+  @apply flex w-full flex-wrap items-start justify-center gap-5;
+}
+
+.ct-poker-seat {
+  @apply flex flex-col items-center gap-1 rounded-xl border px-3 py-2;
+  border-color: transparent;
+  background: rgb(0 0 0 / 0.22);
+  transition:
+    border-color var(--ct-duration-fast) linear,
+    opacity var(--ct-duration-fast) linear;
+}
+
+.ct-poker-seat[data-turn="true"] {
+  border-color: var(--ct-accent);
+  box-shadow: 0 0 12px var(--ct-accent-glow);
+}
+
+.ct-poker-seat[data-folded="true"] {
+  opacity: 0.45;
+}
+
+.ct-poker-seat[data-allin="true"] {
+  border-color: var(--ct-warning);
+}
+
+.ct-poker-hand {
+  @apply flex gap-1;
+}
+
+.ct-poker-hole {
+  width: 2.6rem;
+}
+
+.ct-poker-name {
+  @apply flex items-center gap-1.5 text-xs font-semibold;
+  color: #f2f2f2;
+}
+
+/* The dealer button, which is how anybody works out where the blinds are. */
+.ct-poker-button {
+  @apply flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold;
+  background: var(--ct-chip-1);
+  color: #111;
+}
+
+.ct-poker-bet {
+  @apply mt-1;
+}
+
+.ct-poker-result {
+  @apply rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  background: rgb(0 0 0 / 0.35);
+  color: #e9e9e9;
+}
+
+.ct-poker-centre {
+  @apply flex flex-col items-center gap-2;
+}
+
+.ct-poker-stage {
+  @apply text-[10px] font-semibold uppercase tracking-widest;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.ct-poker-community {
+  @apply flex items-center gap-2;
+}
+
+.ct-poker-community-card {
+  width: 3.4rem;
+  animation: ct-card-deal var(--ct-duration-base) var(--ct-ease-spring);
+}
+
+@keyframes ct-card-deal {
+  from {
+    transform: translateY(-30%) rotate(-8deg);
+    opacity: 0;
+  }
+}
+
+/* An empty community slot is an outline rather than nothing, so the board does
+   not jump as the flop, turn and river arrive. */
+.ct-poker-slot {
+  display: block;
+  width: 3.4rem;
+  aspect-ratio: 5 / 7;
+  border-radius: 8%;
+  border: 1px dashed rgb(255 255 255 / 0.22);
+}
+
+.ct-poker-pot {
+  @apply flex items-center gap-2;
+}
+
+.ct-poker-pot-label {
+  @apply text-[10px] font-semibold uppercase tracking-widest;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.ct-poker-actions {
+  @apply flex flex-wrap items-center justify-center gap-2;
+}
+
+.ct-poker-raise {
+  @apply flex items-center gap-2;
+  min-width: 14rem;
+}
+
+.ct-poker-slider {
+  flex: 1 1 auto;
+  min-width: 7rem;
+}
+
+/* --- 101 okey --------------------------------------------------------------- */
+
+.ct-okey101-board {
+  @apply flex flex-col items-center justify-between gap-2 p-3;
+  display: flex;
+}
+
+.ct-okey101-melds {
+  @apply flex w-full flex-wrap items-start justify-center gap-2 overflow-y-auto rounded-lg p-2;
+  max-height: 11rem;
+  min-height: 4rem;
+  background: rgb(0 0 0 / 0.18);
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / 0.35);
+}
+
+.ct-okey101-melds-empty {
+  @apply m-0 self-center text-center text-xs;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.ct-okey101-meld {
+  @apply flex flex-col items-center gap-1 rounded-lg border p-1.5;
+  border-color: transparent;
+  background: rgb(255 255 255 / 0.06);
+  transition:
+    border-color var(--ct-duration-fast) linear,
+    transform var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-okey101-meld:not(:disabled):hover {
+  border-color: var(--ct-accent);
+  transform: translateY(-2px);
+}
+
+.ct-okey101-meld-owner {
+  @apply flex items-center gap-1 text-[10px];
+  color: rgb(255 255 255 / 0.6);
+}
+
+.ct-okey101-meld-tiles {
+  @apply flex items-end gap-0.5;
+}
+
+.ct-okey101-meld-tiles > * {
+  width: 1.7rem;
+}
+
+.ct-okey101-staging {
+  @apply flex w-full flex-col gap-2 rounded-lg p-2;
+  background: rgb(0 0 0 / 0.22);
+}
+
+.ct-okey101-staging-head {
+  @apply flex items-center justify-between gap-2 text-xs;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.ct-okey101-staging-head strong {
+  @apply tabular-nums;
+  color: var(--ct-warning);
+}
+
+.ct-okey101-staging-head strong[data-enough="true"] {
+  color: var(--ct-success);
+}
+
+.ct-okey101-staging-hint {
+  @apply m-0 text-[11px];
+  color: rgb(255 255 255 / 0.5);
+}
+
+.ct-okey101-staged {
+  @apply m-0 flex list-none flex-wrap gap-2 p-0;
+}
+
+.ct-okey101-staged-group {
+  @apply flex items-center gap-1.5 rounded-md border px-1.5 py-1;
+  border-color: rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.05);
+}
+
+.ct-okey101-staged-group[data-bad="true"] {
+  border-color: var(--ct-danger);
+}
+
+.ct-okey101-staged-tiles {
+  @apply flex items-end gap-0.5;
+}
+
+.ct-okey101-staged-tiles > * {
+  width: 1.5rem;
+}
+
+.ct-okey101-staged-value {
+  @apply text-xs font-semibold tabular-nums;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.ct-okey101-opened {
+  @apply m-0 rounded-md px-2 py-1 text-xs;
+  background: rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.75);
+}
+
+.ct-okey101-legend {
+  @apply flex flex-wrap gap-1;
+}
+
+.ct-rummy-rack-slot[data-staged="true"] {
+  opacity: 0.35;
+  pointer-events: none;
+}

@@ -803,3 +803,42 @@
 .ct-admin-action-list .ant-btn {
   @apply w-full justify-start text-left;
 }
+
+.ct-admin-minigames-loading {
+  @apply flex items-center justify-center py-10;
+}
+
+.ct-admin-minigames-none {
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-minigames-toggles {
+  @apply m-0 grid list-none gap-2 p-0;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+}
+
+.ct-admin-minigames-toggle {
+  @apply flex items-center gap-3 rounded-lg border p-3;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-04);
+}
+
+.ct-admin-minigames-icon {
+  @apply flex h-8 w-8 flex-none items-center justify-center rounded-md text-base;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+}
+
+.ct-admin-minigames-label {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.ct-admin-minigames-label strong {
+  @apply truncate text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-minigames-label span {
+  @apply truncate text-xs;
+  color: var(--ct-text-muted);
+}

@@ -45,6 +45,12 @@ color: var(--ct-text-secondary);
 color: var(--ct-text-muted);
 }
 
+/* antd sizes a number input to its own idea of a width, which in a stacked
+   .ct-field column reads as a stray narrow box next to full-width siblings. */
+.ct-input-number {
+@apply w-full;
+}
+
 .ct-field-inline-toggle {
 @apply mt-1 inline-flex items-center gap-2 text-xs;
 color: var(--ct-text-secondary);

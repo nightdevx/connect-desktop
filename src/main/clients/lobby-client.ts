@@ -23,6 +23,7 @@ export class LobbyClient {
     allowedUsers?: string[],
     password?: string,
     isTextOnly?: boolean,
+    capacity?: number,
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
@@ -31,7 +32,7 @@ export class LobbyClient {
       },
       // isTextOnly is create-only: there is no edit path for it, so updateLobby
       // deliberately does not carry it.
-      body: JSON.stringify({ name, isLocked, allowedUsers, password, isTextOnly }),
+      body: JSON.stringify({ name, isLocked, allowedUsers, password, isTextOnly, capacity }),
     });
   }
 
@@ -42,12 +43,18 @@ export class LobbyClient {
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string | null,
+    capacity?: number,
   ): Promise<{ lobby: LobbyDescriptor }> {
     const encodedLobbyID = encodeURIComponent(lobbyId);
     // password: undefined -> omit (keep current); string ("" clears) -> send.
     const body: Record<string, unknown> = { name, isLocked, allowedUsers };
     if (password !== undefined) {
       body.password = password;
+    }
+    // Same rule as password: an omitted key leaves the room's ceiling alone, and
+    // 0 hands it back to the server default.
+    if (capacity !== undefined) {
+      body.capacity = capacity;
     }
     return this.baseClient.request<{ lobby: LobbyDescriptor }>(
       `/lobby/rooms/${encodedLobbyID}`,

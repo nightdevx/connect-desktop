@@ -1,6 +1,12 @@
 import { Button, Spin } from "antd";
 import { EyeOutlined, WifiOutlined } from "@ant-design/icons";
-import { isTableFinished, seatOf, type MinigameTable } from "@shared/minigames";
+import {
+  isTableFinished,
+  isTableOpen,
+  seatOf,
+  spectatorsOf,
+  type MinigameTable,
+} from "@shared/minigames";
 import { useUiStore } from "@/store/ui-store";
 import { findMinigame } from "../minigames-catalog";
 import { useMultiplayerTables } from "../use-multiplayer-tables";
@@ -72,7 +78,7 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
         </div>
       ) : tables.length === 0 ? (
         <p className="ct-live-tables-empty">
-          Şu anda açık masa yok. İki kişilik bir oyun seçip masa açarsan herkesin
+          Şu anda açık masa yok. Çok kişilik bir oyun seçip masa açarsan herkesin
           listesinde görünür.
         </p>
       ) : (
@@ -80,7 +86,9 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
           {tables.map((table) => {
             const entry = findMinigame(table.game);
             const isMine = seatOf(table, currentUserId) >= 0;
-            const isFull = table.players.length >= 2;
+            // "Full" is not "two people": a table that seats four is full at four,
+            // and any started table is closed whatever its seat count says.
+            const isFull = !isTableOpen(table);
             const isWatched = table.id === watchedTableId;
 
             return (
@@ -98,6 +106,17 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
                   <span className="ct-live-table-state" data-state={stateOf(table)}>
                     {STATE_LABELS[stateOf(table)]}
                   </span>
+                  {spectatorsOf(table).length > 0 ? (
+                    <span
+                      className="ct-live-table-audience"
+                      title={spectatorsOf(table)
+                        .map((watcher) => watcher.username)
+                        .join(", ")}
+                    >
+                      <EyeOutlined aria-hidden="true" />
+                      {spectatorsOf(table).length}
+                    </span>
+                  ) : null}
                 </span>
 
                 <span className="ct-live-table-players">
@@ -169,7 +188,9 @@ function stateOf(table: MinigameTable): TableState {
   if (isTableFinished(table)) {
     return "finished";
   }
-  return table.players.length >= 2 ? "playing" : "waiting";
+  // Started, not "two people are here". A four-handed table with three
+  // players is still waiting for somebody to press Baslat.
+  return table.started ? "playing" : "waiting";
 }
 
 const RANK: Record<TableState, number> = { playing: 0, waiting: 1, finished: 2 };

@@ -17,6 +17,7 @@ import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { ConfirmActionModal } from "../common";
+import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import {
   getDisplayInitials,
   getPresenceColor,
@@ -204,6 +205,7 @@ export function FriendsHomePanel({
   onAddFriend,
   onInitiateCall,
 }: FriendsHomePanelProps) {
+  const gameActivityByUser = useGameActivityByUser();
   // Çevrimiçi first, not the full list. Opening "Arkadaşlar" is almost always
   // about who is around right now — the full roster is one click away and does
   // not answer that question, it buries it under everyone who is asleep.
@@ -385,6 +387,7 @@ export function FriendsHomePanel({
 
     return visibleFriends.map((user) => {
       const name = user.displayName || user.username;
+      const activity = gameActivityByUser.get(user.userId);
       const isPending = friends.pendingUserIds.includes(user.userId);
       const asRow: RequestRow = {
         userId: user.userId,
@@ -396,7 +399,11 @@ export function FriendsHomePanel({
       const row = (
         <PersonRow
           name={name}
-          subtitle={getUserStatusLabel(user.appOnline, user.presence)}
+          subtitle={
+            activity
+              ? gameActivityLabel(activity)
+              : getUserStatusLabel(user.appOnline, user.presence)
+          }
           avatarUrl={user.avatarUrl}
           presenceDot={getPresenceColor(user.appOnline, user.presence)}
           onActivate={() => onOpenConversation(toPeer(user))}

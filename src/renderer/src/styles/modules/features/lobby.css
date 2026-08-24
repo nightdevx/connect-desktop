@@ -214,6 +214,24 @@
   color: var(--ct-text-muted);
 }
 
+/* The hash is the glyph, so it is set like one rather than like an icon:
+   an icon font would render it at icon weight and it would read as a
+   decoration next to the name instead of part of the channel's name. */
+.ct-lobby-row-hash {
+  @apply text-sm font-semibold leading-none;
+}
+
+/* A text room is not a lobby with the sound off. Nobody is in one, nothing
+   is joined, and the row should not carry a room's weight: it sits quieter
+   until it is the one on screen, which is exactly how a channel list reads. */
+.ct-lobby-row.text-room .ct-lobby-row-name {
+  @apply font-medium;
+}
+
+.ct-lobby-row.text-room:not(.active) .ct-lobby-row-name {
+  color: var(--ct-text-muted);
+}
+
 .ct-lobby-row-name {
   @apply min-w-0 flex-1 truncate text-sm font-semibold;
   color: inherit;
@@ -425,6 +443,51 @@
 .ct-lobby-selection-grid {
   @apply m-0 grid list-none gap-3 p-0;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+/* Text rooms on the selection screen.
+
+   They used to be drawn as room cards with an occupancy line reading
+   "Sohbet kanalı" where a member count would go and a button that said
+   "Aç" where every neighbour said "Katıl" — a room card apologising for
+   not being a room. A channel is a line you click, so this is a list. */
+.ct-lobby-channel-list {
+  @apply flex flex-col gap-0.5;
+}
+
+.ct-lobby-channel {
+  @apply flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left;
+  color: var(--ct-text-muted);
+  transition:
+    background var(--ct-duration-base) var(--ct-ease-premium),
+    color var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+.ct-lobby-channel:hover {
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-primary);
+}
+
+.ct-lobby-channel-hash {
+  @apply shrink-0 text-sm font-semibold leading-none;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-channel-name {
+  @apply min-w-0 flex-1 truncate text-sm font-medium;
+}
+
+.ct-lobby-channel-flag {
+  @apply shrink-0;
+  font-size: var(--ct-icon-sm);
+  color: var(--ct-warning);
+}
+
+/* Said once per section rather than as an empty card, so an empty half of
+   the screen does not look like something failed to load. */
+.ct-lobby-selection-none {
+  @apply m-0 text-xs;
+  color: var(--ct-text-muted);
 }
 
 .ct-lobby-select-card {

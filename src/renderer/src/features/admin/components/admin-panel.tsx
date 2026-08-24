@@ -7,6 +7,7 @@ import AdminActivity from "./admin-activity";
 import AdminSounds from "./admin-sounds";
 import AdminModeration from "./admin-moderation";
 import AdminSettings from "./admin-settings";
+import AdminMinigames from "./admin-minigames";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -29,6 +30,8 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminSounds />;
       case "moderation":
         return <AdminModeration />;
+      case "minigames":
+        return <AdminMinigames />;
       case "settings":
         return <AdminSettings />;
       default:

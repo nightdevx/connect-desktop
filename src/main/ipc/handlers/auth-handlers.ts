@@ -600,6 +600,17 @@ export function registerAuthHandlers(): void {
     }
   });
 
+  ipcMain.handle("desktop:admin-list-minigames", async () => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.adminListMinigames(accessToken),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:admin-update-settings", async (_event, payload: unknown) => {
     try {
       const parsed = adminSettingsPatchSchema.parse(payload);

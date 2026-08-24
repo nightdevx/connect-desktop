@@ -30,10 +30,15 @@ export interface MultiplayerTablesController {
   dismissError: () => void;
   open: () => void;
   join: (tableId: string) => void;
-  /** A grid game's move: the cell that was clicked. */
+  /** A grid game`s move: the cell that was clicked. */
   move: (cell: number) => void;
-  /** Chess: the move in UCI, taken straight from the server's legal-move list. */
-  chessMove: (uci: string) => void;
+  /**
+   * Everything else: a verb and its colon-separated arguments. Chess sends its
+   * UCI through here too, taken straight from the server`s own legal-move list.
+   */
+  sendMove: (move: string) => void;
+  /** Begins a game at a table that is not full. */
+  start: () => void;
   restart: () => void;
   leave: () => void;
 }
@@ -164,6 +169,33 @@ export function useMultiplayerTables(
     }
   }, [watchedTableId, tables, isLoading, setWatchedTable]);
 
+  // The audience is server-side now, and this is the ONE place the local id is
+  // pushed to it. Only the rail instance (`game === null`) does it: the page
+  // mounts two registries off the same socket, and both syncing would send every
+  // watch twice.
+  const ownsWatchSync = game === null;
+  useEffect(() => {
+    if (!ownsWatchSync) {
+      return;
+    }
+    if (watchedTableId) {
+      void multiplayerService.watch(watchedTableId);
+    } else {
+      void multiplayerService.unwatch();
+    }
+  }, [ownsWatchSync, watchedTableId]);
+
+  // Leaving the page is leaving the audience. Without this the server keeps
+  // listing a spectator who closed the tab until the table itself is reaped.
+  useEffect(() => {
+    if (!ownsWatchSync) {
+      return;
+    }
+    return () => {
+      void multiplayerService.unwatch();
+    };
+  }, [ownsWatchSync]);
+
   // Read inside the action callbacks so they do not have to be rebuilt — and so
   // a click cannot act on the table that was on screen two renders ago.
   const myTableRef = useRef<MinigameTable | null>(null);
@@ -241,8 +273,13 @@ export function useMultiplayerTables(
     [withMyTable],
   );
 
-  const chessMove = useCallback(
-    (uci: string) => withMyTable((tableId) => multiplayerService.chessMove(tableId, uci)),
+  const sendMove = useCallback(
+    (move: string) => withMyTable((tableId) => multiplayerService.sendMove(tableId, move)),
+    [withMyTable],
+  );
+
+  const start = useCallback(
+    () => withMyTable((tableId) => multiplayerService.start(tableId)),
     [withMyTable],
   );
 
@@ -268,8 +305,9 @@ export function useMultiplayerTables(
     dismissError,
     open,
     join,
+    start,
     move,
-    chessMove,
+    sendMove,
     restart,
     leave,
   };

@@ -6,6 +6,7 @@ import {
   AdminStats,
 } from "@shared/auth-contracts";
 import { AdminEmoteLibrary } from "@shared/desktop-api-types";
+import type { MinigameTableOverview } from "@shared/minigames";
 import {
   AdminLobbyTimeout,
   AdminRuntimeSettings,
@@ -43,6 +44,15 @@ class AdminService {
     const res = await window.desktopApi.adminGetSettings();
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Ayarlar yüklenemedi");
     return res.data.settings;
+  }
+
+  public async listMinigames(): Promise<{
+    tables: MinigameTableOverview[];
+    disabledGames: string[];
+  }> {
+    const res = await window.desktopApi.adminListMinigames();
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "Masalar yüklenemedi");
+    return res.data;
   }
 
   public async updateSettings(patch: AdminRuntimeSettingsPatch): Promise<AdminRuntimeSettings> {
@@ -123,7 +133,7 @@ class AdminService {
     return res.data;
   }
 
-  public async listLobbies(params?: { search?: string; locked?: string; limit?: number; offset?: number }): Promise<{ lobbies: AdminLobbySnapshot[]; total: number }> {
+  public async listLobbies(params?: { search?: string; locked?: string; kind?: string; limit?: number; offset?: number }): Promise<{ lobbies: AdminLobbySnapshot[]; total: number }> {
     const res = await window.desktopApi.adminListLobbies(params);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Lobiler yüklenemedi");
     return res.data;

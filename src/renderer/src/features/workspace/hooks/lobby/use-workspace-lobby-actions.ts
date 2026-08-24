@@ -186,6 +186,9 @@ export const useWorkspaceLobbyActions = ({
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string | null,
+    // Undefined keeps the room ceiling where it is; 0 returns it to the server
+    // default. Same shape as password, for the same reason.
+    capacity?: number,
   ): Promise<boolean> => {
     const trimmedName = nextName.trim();
     if (trimmedName.length < 2) {
@@ -201,6 +204,7 @@ export const useWorkspaceLobbyActions = ({
         isLocked,
         allowedUsers,
         password,
+        capacity,
       });
 
       if (!result.ok) {

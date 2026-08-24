@@ -37,6 +37,7 @@ import type {
   MinigameLeaderboard,
   MinigameScoreMap,
   MinigameTable,
+  MinigameTableOverview,
   MultiplayerGameId,
 } from "./minigames";
 
@@ -558,6 +559,8 @@ export interface DesktopApi {
     password?: string;
     // Chat-only room. Create-only: updateLobby has no counterpart.
     isTextOnly?: boolean;
+    // The room's own member ceiling; omitted takes the server default.
+    capacity?: number;
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   updateLobby: (payload: {
     lobbyId: string;
@@ -565,6 +568,8 @@ export interface DesktopApi {
     isLocked?: boolean;
     allowedUsers?: string[];
     password?: string | null;
+    // undefined keeps the room's ceiling, 0 returns it to the server default.
+    capacity?: number;
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   deleteLobby: (payload: {
     lobbyId: string;
@@ -636,21 +641,34 @@ export interface DesktopApi {
   // arrives on the lobby stream as a minigame-table frame, so this is a
   // starting point and not a poll.
   listMinigameTables: () => Promise<
-    DesktopResult<{ tables: MinigameTable[] }>
+    DesktopResult<{ tables: MinigameTable[]; disabledGames?: string[] }>
   >;
-  // Open, join, move, restart and leave, behind one call. The reply carries the
-  // resulting table so the clicker repaints without waiting for its own
-  // broadcast to come back round; everyone else is what the stream is for.
+  // Open, join, start, move, restart and leave, behind one call. The reply
+  // carries the resulting table so the clicker repaints without waiting for its
+  // own broadcast to come back round; everyone else is what the stream is for.
   //
   // `cell` under a gravity game names a COLUMN's worth of target — the server
   // takes the column and drops the mark itself, because a client cannot know
   // the landing row without racing the opponent.
+  //
+  // `start` only means anything at a table that seats more than two: a
+  // two-player table starts the moment the second chair is taken.
   playMinigame: (payload: {
-    action: "open" | "join" | "move" | "restart" | "leave";
+    action:
+      | "open"
+      | "join"
+      | "start"
+      | "move"
+      | "restart"
+      | "leave"
+      | "watch"
+      | "unwatch";
     game?: MultiplayerGameId;
     tableId?: string;
-    // A grid game sends `cell`; chess sends `move` in UCI. The server reads
-    // whichever its table's engine wants and ignores the other.
+    // A grid game sends `cell`; everything else sends `move` — a verb and its
+    // colon-separated arguments ("roll", "keep:1,3,5", "place:12:4,5,6"), with
+    // chess's UCI as the degenerate case of a verb with no arguments. The
+    // server reads whichever its table's engine wants and ignores the other.
     cell?: number;
     move?: string;
   }) => Promise<DesktopResult<{ table: MinigameTable | null }>>;
@@ -886,6 +904,9 @@ export interface DesktopApi {
     userId: string;
   }) => Promise<DesktopResult<{ cleared: boolean }>>;
   adminGetSettings: () => Promise<DesktopResult<{ settings: AdminRuntimeSettings }>>;
+  adminListMinigames: () => Promise<
+    DesktopResult<{ tables: MinigameTableOverview[]; disabledGames: string[] }>
+  >;
   adminUpdateSettings: (
     patch: AdminRuntimeSettingsPatch,
   ) => Promise<DesktopResult<{ settings: AdminRuntimeSettings }>>;
@@ -896,7 +917,7 @@ export interface DesktopApi {
   }) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminCancelDeletion: (userId: string) => Promise<DesktopResult<{ cancelled: boolean }>>;
   adminUnbanUser: (userId: string) => Promise<DesktopResult<{ unbanned: boolean }>>;
-  adminListLobbies: (params?: { search?: string; locked?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[]; total: number }>>;
+  adminListLobbies: (params?: { search?: string; locked?: string; kind?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ lobbies: AdminLobbySnapshot[]; total: number }>>;
   adminListLobbyEvents: (payload: { limit?: number; offset?: number; lobbyId?: string; userId?: string; eventType?: string; search?: string }) => Promise<DesktopResult<{ events: AdminLobbyEvent[]; total: number }>>;
   adminGetStats: () => Promise<DesktopResult<{ stats: AdminStats }>>;
   adminKickUser: (lobbyId: string, userId: string) => Promise<DesktopResult<{ kicked: boolean }>>;

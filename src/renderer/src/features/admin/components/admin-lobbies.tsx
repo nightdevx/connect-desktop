@@ -10,7 +10,9 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
+  Segmented,
   Select,
   Switch,
   Tooltip,
@@ -28,6 +30,7 @@ import {
   SearchOutlined,
   StopOutlined,
   LockOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
@@ -43,6 +46,9 @@ interface EditLobbyFormValues {
   name: string;
   isLocked?: boolean;
   allowedUsers?: string[];
+  // The room's own member ceiling. Cleared (null/undefined) hands the room back
+  // to the server default rather than pinning it at today's value.
+  capacity?: number | null;
 }
 
 
@@ -94,6 +100,11 @@ export default function AdminLobbies() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [lockedFilter, setLockedFilter] = useState("all");
+  // Voice rooms and text channels are different things to operate: one has a
+  // live roster and an SFU room behind it, the other is a channel nobody joins,
+  // so half this table's columns say nothing for the wrong kind. Filtered
+  // server-side, because the table is paged there.
+  const [kindFilter, setKindFilter] = useState<"voice" | "text">("voice");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -115,6 +126,7 @@ export default function AdminLobbies() {
         // disagree for one render on every keystroke.
         search: debouncedSearchText || undefined,
         locked: lockedFilter !== "all" ? lockedFilter : undefined,
+        kind: kindFilter,
         limit: size,
         offset,
       });
@@ -126,7 +138,7 @@ export default function AdminLobbies() {
       setLoading(false);
     }
     },
-    [currentPage, pageSize, debouncedSearchText, lockedFilter],
+    [currentPage, pageSize, debouncedSearchText, lockedFilter, kindFilter],
   );
 
   // The allow-list picker's options. This is the whole user table — avatars
@@ -154,7 +166,7 @@ export default function AdminLobbies() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchText, lockedFilter]);
+  }, [debouncedSearchText, lockedFilter, kindFilter]);
 
   // One effect owns the fetching. The filter effect used to fetch page 1 and
   // this one fetched again a render later, so every filter change issued two
@@ -180,6 +192,7 @@ export default function AdminLobbies() {
       name: record.lobby.name,
       isLocked: record.lobby.isLocked,
       allowedUsers: record.lobby.allowedUsers ? record.lobby.allowedUsers.split(",").filter(Boolean) : [],
+      capacity: record.lobby.capacity ?? null,
     });
     setIsEditOpen(true);
   };
@@ -192,6 +205,10 @@ export default function AdminLobbies() {
         name: values.name,
         isLocked: values.isLocked,
         allowedUsers: values.allowedUsers || [],
+        // 0, not undefined: undefined keeps whatever the room has, and clearing
+        // the field means "follow the server default again". A text room has no
+        // roster to limit, so it never sends one.
+        capacity: editingLobby.lobby.isTextOnly ? undefined : (values.capacity ?? 0),
       });
       if (res.ok) {
         message.success("Oda güncellendi");
@@ -295,19 +312,25 @@ export default function AdminLobbies() {
       width: 190,
       render: (_value: unknown, record: AdminLobbySnapshot) => privacyTags(record.lobby),
     },
-    {
-      title: "Üye Sayısı",
-      dataIndex: "size",
-      key: "size",
-      width: 130,
-      // The ceiling only shows when the server sent one; an older server omits
-      // capacity and "3 / undefined" is worse than no ceiling at all.
-      render: (size: number, record: AdminLobbySnapshot) => (
-        <Tag color={size > 0 ? "green" : "default"}>
-          {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : `${size} aktif üye`}
-        </Tag>
-      ),
-    },
+    // Voice only. A text channel has no roster, so this column would read
+    // "0 aktif üye" on every row of it, forever.
+    ...(kindFilter === "voice"
+      ? [
+          {
+            title: "Üye Sayısı",
+            dataIndex: "size",
+            key: "size",
+            width: 130,
+            // The ceiling only shows when the server sent one; an older server
+            // omits capacity and "3 / undefined" is worse than no ceiling.
+            render: (size: number, record: AdminLobbySnapshot) => (
+              <Tag color={size > 0 ? "green" : "default"}>
+                {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : `${size} aktif üye`}
+              </Tag>
+            ),
+          },
+        ]
+      : []),
     {
       title: "Kurulma Tarihi",
       dataIndex: ["lobby", "createdAt"],
@@ -546,6 +569,15 @@ export default function AdminLobbies() {
           className="ct-admin-toolbar-search"
         />
 
+        <Segmented
+          value={kindFilter}
+          onChange={(value) => setKindFilter(value as "voice" | "text")}
+          options={[
+            { value: "voice", label: "Sesli Odalar", icon: <SoundOutlined /> },
+            { value: "text", label: "Yazılı Sohbetler", icon: <MessageOutlined /> },
+          ]}
+        />
+
         <Select
           value={lockedFilter}
           onChange={setLockedFilter}
@@ -563,12 +595,17 @@ export default function AdminLobbies() {
         columns={columns}
         rowKey={(record) => record.lobby.id}
         loading={loading}
-        expandable={{ expandedRowRender, defaultExpandAllRows: true }}
+        expandable={{
+          expandedRowRender,
+          defaultExpandAllRows: kindFilter === "voice",
+        }}
         onChange={handleTableChange}
         locale={{
           emptyText: searchText
             ? "Bu aramayla eşleşen oda yok."
-            : "Şu anda açık oda yok.",
+            : kindFilter === "voice"
+              ? "Şu anda açık sesli oda yok."
+              : "Şu anda yazılı sohbet yok.",
         }}
         pagination={{
           current: currentPage,
@@ -667,6 +704,18 @@ export default function AdminLobbies() {
           >
             <Input />
           </Form.Item>
+
+          {/* Voice only: nobody is ever on a text room roster, so a limit there
+              is a number that never applies. */}
+          {!editingLobby?.lobby.isTextOnly && (
+            <Form.Item
+              name="capacity"
+              label="Kişi Sınırı"
+              extra="Boş bırakılırsa sunucunun varsayılan sınırı geçerli olur. Sınırı düşürmek kimseyi odadan çıkarmaz, yalnızca yeni katılımları durdurur."
+            >
+              <InputNumber min={2} max={100} placeholder="Sunucu varsayılanı" className="ct-input-number" />
+            </Form.Item>
+          )}
 
           <Form.Item
             name="isLocked"

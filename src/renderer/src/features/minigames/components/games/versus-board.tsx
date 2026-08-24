@@ -1,16 +1,19 @@
-import { useState, type CSSProperties } from "react";
 import { Alert, Button, Spin } from "antd";
 import { EyeOutlined, UserAddOutlined } from "@ant-design/icons";
 import {
+  MULTIPLAYER_SEATS,
+  canStartTable,
   isTableFinished,
+  isTableOpen,
   seatOf,
-  type MinigameGridBoard,
+  spectatorsOf,
   type MinigameTable,
   type MultiplayerGameId,
 } from "@shared/minigames";
-import { ChessBoardView, ChessSheet, ChessTicker } from "./chess-board-view";
 import { GameShell, type StatusTone } from "../game-shell";
 import { useMultiplayerTables } from "../../use-multiplayer-tables";
+import { findVersusView } from "../../versus-views";
+import type { VersusViewProps } from "../../versus-view";
 
 interface VersusBoardProps {
   game: MultiplayerGameId;
@@ -18,22 +21,22 @@ interface VersusBoardProps {
 }
 
 /**
- * The table browser and one board, for all three two-player games.
+ * The table browser and one board, for every multiplayer game.
  *
  * A table is its own lobby: open one and it appears in everybody's list, join
  * one and you are playing, or take a seat in the audience and watch it without
  * touching it. No voice room is involved and none is required.
  *
- * It implements no rules. Whose turn it is, whether a cell is free, who won and
- * which cells made the line all arrive inside the table — the server decides
+ * It implements no rules. Whose turn it is, whether a move is legal, who won
+ * and what a hand contains all arrive inside the table — the server decides
  * every one of them, and a second opinion here is a second thing to get wrong.
- * What is local is presentation only: which column the cursor is over, and
- * which seat gets which colour.
+ * What is local is presentation only: which column the cursor is over, which
+ * way a blokus piece is turned, and how a rack is sorted.
  *
- * Watching costs the server nothing and needs nothing new from it: every table
- * change is already broadcast to every signed-in client, because a table is
- * public by design. The audience is a client-side reading of a frame the socket
- * was sending anyway.
+ * Which BOARD gets drawn is a registry lookup rather than a branch, so this
+ * file did not grow by fifteen conditionals when fifteen games arrived. What it
+ * still owns is everything the games share: seats, turn indicator, result line,
+ * rematch and the audience view.
  */
 export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
   const {
@@ -48,8 +51,9 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
     dismissError,
     open,
     join,
+    start,
     move,
-    chessMove,
+    sendMove,
     restart,
     leave,
   } = useMultiplayerTables(game, currentUserId);
@@ -90,8 +94,9 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
           table={watching}
           currentUserId={currentUserId}
           isBusy={isBusy}
-          onCellMove={move}
-          onChessMove={chessMove}
+          onCell={move}
+          onMove={sendMove}
+          onStart={start}
           onRestart={restart}
           onLeave={leave}
           onStopWatching={stopWatching}
@@ -100,7 +105,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
     );
   }
 
-  // Seated somewhere else — including at a table for the OTHER game. An account
+  // Seated somewhere else — including at a table for another game. An account
   // holds one seat at a time, so saying which is more useful than offering a
   // second table the server would refuse to give.
   if (myTable && myTable.game !== game) {
@@ -126,6 +131,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
       <div className="ct-versus">
         {errorBanner}
         <TableBrowser
+          game={game}
           tables={otherTables}
           isBusy={isBusy}
           onOpen={open}
@@ -143,8 +149,9 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
         table={myTable}
         currentUserId={currentUserId}
         isBusy={isBusy}
-        onCellMove={move}
-        onChessMove={chessMove}
+        onCell={move}
+        onMove={sendMove}
+        onStart={start}
         onRestart={restart}
         onLeave={leave}
         onStopWatching={stopWatching}
@@ -154,23 +161,32 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
 }
 
 function TableBrowser({
+  game,
   tables,
   isBusy,
   onOpen,
   onJoin,
   onWatch,
 }: {
+  game: MultiplayerGameId;
   tables: readonly MinigameTable[];
   isBusy: boolean;
   onOpen: () => void;
   onJoin: (tableId: string) => void;
   onWatch: (tableId: string) => void;
 }) {
+  const seats = MULTIPLAYER_SEATS[game];
+
   return (
     <div className="ct-versus-browser">
       <div className="ct-versus-browser-head">
         <span className="ct-versus-browser-count">
           {tables.length > 0 ? `${tables.length} açık masa` : "Açık masa yok"}
+          <span className="ct-versus-browser-seats">
+            {seats.min === seats.max
+              ? `${seats.max} kişilik`
+              : `${seats.min}-${seats.max} kişilik`}
+          </span>
         </span>
         <Button type="primary" onClick={onOpen} loading={isBusy}>
           Masa aç
@@ -191,7 +207,7 @@ function TableBrowser({
       ) : (
         <ul className="ct-versus-table-list">
           {tables.map((table) => {
-            const isFull = table.players.length >= 2;
+            const canJoin = isTableOpen(table);
 
             return (
               <li key={table.id} className="ct-versus-table-row">
@@ -210,24 +226,18 @@ function TableBrowser({
 
                 <span
                   className="ct-versus-table-state"
-                  data-full={isFull ? "true" : undefined}
+                  data-full={canJoin ? undefined : "true"}
                 >
-                  {isFull ? "Oynanıyor" : "Rakip bekliyor"}
+                  {table.started
+                    ? "Oynanıyor"
+                    : `${table.players.length}/${seats.max} — bekliyor`}
                 </span>
 
-                {/* A full table is listed rather than hidden, and now it is
-                    listed with something to press: seeing that the game is being
-                    played was the answer to "is anyone here", and İzle is the
-                    answer to "then let me see it". */}
-                {isFull ? (
-                  <Button
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => onWatch(table.id)}
-                  >
-                    İzle
-                  </Button>
-                ) : (
+                {/* A table that is full or already playing is listed rather than
+                    hidden, and it is listed with something to press: seeing that
+                    the game is being played was the answer to "is anyone here",
+                    and İzle is the answer to "then let me see it". */}
+                {canJoin ? (
                   <Button
                     size="small"
                     type="primary"
@@ -235,6 +245,14 @@ function TableBrowser({
                     onClick={() => onJoin(table.id)}
                   >
                     Katıl
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => onWatch(table.id)}
+                  >
+                    İzle
                   </Button>
                 )}
               </li>
@@ -249,23 +267,22 @@ function TableBrowser({
 /**
  * The seats, one board and the buttons, in the shell every game shares.
  *
- * Everything except the board itself is identical across the three, which is
+ * Everything except the board itself is identical across all eighteen, which is
  * why the split is here: a new game brings a board and inherits the turn
  * indicator, the result line and the rematch button.
  *
  * It draws the audience view too, and takes no flag for it. A spectator is
  * simply somebody whose seat index is -1, and every branch that separates the
  * two reads that one number — so there is no second code path that can be given
- * a live board by mistake. The cells are disabled for the same reason: the
- * server refuses a move from an unseated account regardless, and a UI that
- * offers one is a UI that lies.
+ * a live board by mistake.
  */
 function Board({
   table,
   currentUserId,
   isBusy,
-  onCellMove,
-  onChessMove,
+  onCell,
+  onMove,
+  onStart,
   onRestart,
   onLeave,
   onStopWatching,
@@ -273,19 +290,39 @@ function Board({
   table: MinigameTable;
   currentUserId: string;
   isBusy: boolean;
-  onCellMove: (cell: number) => void;
-  onChessMove: (uci: string) => void;
+  onCell: (cell: number) => void;
+  onMove: (move: string) => void;
+  onStart: () => void;
   onRestart: () => void;
   onLeave: () => void;
   onStopWatching: () => void;
 }) {
+  const view = findVersusView(table.game);
+  const seats = MULTIPLAYER_SEATS[table.game];
+
   const mySeat = seatOf(table, currentUserId);
   const isSpectating = mySeat < 0;
+  const audience = spectatorsOf(table);
   const isFinished = isTableFinished(table);
-  const isWaiting = table.players.length < 2;
-  const isMyTurn = !isFinished && !isWaiting && table.turn === mySeat;
+  const isWaiting = !table.started;
+  // Turn -1 is a simultaneous phase: everybody seated may move at once. It is
+  // Battleship's fleet placement and nothing else, and it reads here as "it is
+  // your turn", because it is.
+  const isMyTurn =
+    !isFinished && !isWaiting && !isSpectating && (table.turn < 0 || table.turn === mySeat);
 
-  const seats = (
+  const viewProps: VersusViewProps = {
+    table,
+    mySeat,
+    isMyTurn,
+    isBusy,
+    onCell,
+    onMove,
+  };
+
+  const { columns, rows } = view.shape(table);
+
+  const seatRow = (
     <div className="ct-versus-seats">
       {/* Said out loud, and IN the seat row rather than above it. The board
           refuses every click while watching, and a disabled board with nothing
@@ -297,6 +334,7 @@ function Board({
           İzliyorsun
         </span>
       ) : null}
+
       {table.players.map((player, seat) => (
         <span
           key={player.userId}
@@ -304,7 +342,11 @@ function Board({
           data-seat={seat}
           // Only while the game is live: leaving it on after a win would pulse
           // the loser's name if they happened to be next in turn.
-          data-active={!isFinished && !isWaiting && table.turn === seat ? "true" : undefined}
+          data-active={
+            !isFinished && !isWaiting && (table.turn < 0 || table.turn === seat)
+              ? "true"
+              : undefined
+          }
         >
           <span className="ct-versus-mark" data-seat={seat} aria-hidden="true" />
           <span className="ct-versus-seat-name">
@@ -319,10 +361,37 @@ function Board({
           ) : null}
         </span>
       ))}
-      {isWaiting ? (
-        <span className="ct-versus-seat ct-versus-seat-empty">
-          <Spin size="small" />
-          Rakip bekleniyor…
+
+      {/* One empty chair per seat still free, so "we need one more" is a thing
+          you can see rather than a number you have to subtract. */}
+      {isWaiting
+        ? Array.from(
+            { length: Math.max(0, seats.max - table.players.length) },
+            (_, slot) => (
+              <span key={`empty-${slot}`} className="ct-versus-seat ct-versus-seat-empty">
+                {slot === 0 ? <Spin size="small" /> : null}
+                {slot === 0 ? "Bekleniyor…" : "Boş"}
+              </span>
+            ),
+          )
+        : null}
+
+      {audience.length > 0 ? (
+        <span
+          className="ct-versus-audience"
+          title={audience.map((watcher) => watcher.username).join(", ")}
+        >
+          <EyeOutlined aria-hidden="true" />
+          <span className="ct-versus-audience-count">{audience.length}</span>
+          <span className="ct-versus-audience-names">
+            {audience
+              .slice(0, 3)
+              .map((watcher) =>
+                watcher.userId === currentUserId ? "sen" : watcher.username,
+              )
+              .join(", ")}
+            {audience.length > 3 ? ` +${audience.length - 3}` : ""}
+          </span>
         </span>
       ) : null}
     </div>
@@ -337,30 +406,29 @@ function Board({
       }
     : isWaiting
       ? {
-          text: isSpectating
-            ? "Masa rakip bekliyor. Biri oturunca oyun başlar."
-            : "Masan listede görünüyor. Biri oturunca oyun başlar.",
+          text: waitingText(table, seats, isSpectating),
           tone: "wait",
         }
       : isSpectating
         ? {
-            text: `Sıra ${table.players[table.turn]?.username ?? "rakipte"}.`,
+            text:
+              table.turn < 0
+                ? "İkisi de aynı anda oynuyor."
+                : `Sıra ${table.players[table.turn]?.username ?? "rakipte"}.`,
             tone: "them",
           }
         : isMyTurn
-          ? { text: "Sıra sende.", tone: "you" }
+          ? { text: table.turn < 0 ? "Sıra beklemeden oyna." : "Sıra sende.", tone: "you" }
           : { text: "Rakibin oynuyor.", tone: "them" };
-
-  const board = table.grid ?? { columns: 8, rows: 8 };
 
   return (
     <GameShell
-      columns={board.columns}
-      rows={board.rows}
+      columns={columns}
+      rows={rows}
       header={
         <>
-          {seats}
-          {table.chess ? <ChessTicker board={table.chess} mySeat={mySeat} /> : null}
+          {seatRow}
+          {view.Header ? <view.Header {...viewProps} /> : null}
         </>
       }
       actions={
@@ -370,6 +438,13 @@ function Board({
           </Button>
         ) : (
           <>
+            {/* Only for the games that seat more than two, and only once enough
+                people are here. A two-player table starts itself. */}
+            {canStartTable(table) ? (
+              <Button size="small" type="primary" onClick={onStart} loading={isBusy}>
+                Başlat ({table.players.length}/{seats.max})
+              </Button>
+            ) : null}
             {/* Only once there is somebody to have a rematch with. On an empty
                 table it would deal a fresh board nobody has played on. */}
             {!isWaiting ? (
@@ -384,49 +459,27 @@ function Board({
         )
       }
       status={status}
-      aside={table.chess ? <ChessSheet board={table.chess} /> : undefined}
+      aside={view.Aside ? <view.Aside {...viewProps} /> : undefined}
     >
-      {table.grid ? (
-        <GridBoardView
-          board={table.grid}
-          game={table.game}
-          state={boardState(table, mySeat)}
-          isMyTurn={isMyTurn}
-          isBusy={isBusy}
-          onMove={onCellMove}
-        />
-      ) : null}
-
-      {table.chess ? (
-        <ChessBoardView
-          board={table.chess}
-          mySeat={mySeat}
-          isMyTurn={isMyTurn}
-          isBusy={isBusy}
-          onMove={onChessMove}
-        />
-      ) : null}
+      <view.Board {...viewProps} />
     </GameShell>
   );
 }
 
-// The board wears the result too, not only the line under it: a win that is
-// only written down is a win somebody misses.
-//
-// From the AUDIENCE there is no loss to wear. A spectator's seat is -1, which is
-// nobody's winning seat, so reading the result through `mySeat` alone would
-// shake the board red at somebody who was not playing.
-function boardState(table: MinigameTable, mySeat: number): string | undefined {
-  if (table.draw) {
-    return "draw";
+function waitingText(
+  table: MinigameTable,
+  seats: { min: number; max: number },
+  isSpectating: boolean,
+): string {
+  const here = table.players.length;
+
+  if (isSpectating) {
+    return `Masa oyuncu bekliyor (${here}/${seats.max}).`;
   }
-  if (table.winner === null) {
-    return undefined;
+  if (here < seats.min) {
+    return `Masan listede görünüyor. Başlamak için en az ${seats.min} kişi gerekiyor (${here}/${seats.max}).`;
   }
-  if (mySeat < 0) {
-    return "won";
-  }
-  return table.winner === mySeat ? "won" : "lost";
+  return `${here}/${seats.max} kişi hazır. Başlat'a basınca oyun başlar ve masa kapanır.`;
 }
 
 function resultText(table: MinigameTable, mySeat: number): string {
@@ -437,86 +490,4 @@ function resultText(table: MinigameTable, mySeat: number): string {
     return "Kazandın.";
   }
   return `${table.players[table.winner ?? 0]?.username ?? "Rakip"} kazandı.`;
-}
-
-/** XOX and Connect Four. Driven entirely off the board's own dimensions. */
-function GridBoardView({
-  board,
-  game,
-  state,
-  isMyTurn,
-  isBusy,
-  onMove,
-}: {
-  board: MinigameGridBoard;
-  game: MinigameTable["game"];
-  /** "won", "lost", "draw" or undefined while it is still being played. */
-  state: string | undefined;
-  isMyTurn: boolean;
-  isBusy: boolean;
-  onMove: (cell: number) => void;
-}) {
-  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
-
-  // Presentation, not a rule: under gravity a whole column is one target, so the
-  // hover highlight follows the column rather than the cell. The server still
-  // decides where the mark lands.
-  const hasGravity = game === "connect4";
-
-  return (
-    <div
-      className="ct-board ct-versus-board"
-      data-game={game}
-      data-state={state}
-      aria-label="Oyun tahtası"
-      onMouseLeave={() => setHoveredColumn(null)}
-    >
-      {board.cells.map((owner, index) => {
-        const column = index % board.columns;
-        const row = Math.floor(index / board.columns);
-        const isPlayable = isMyTurn && owner === -1;
-        const isLanded = board.lastCell === index;
-
-        return (
-          <button
-            key={index}
-            type="button"
-            className="ct-versus-cell"
-            data-last={isLanded ? "true" : undefined}
-            data-winning={(board.winningCells ?? []).includes(index) ? "true" : undefined}
-            data-target={
-              isPlayable && hasGravity && hoveredColumn === column ? "true" : undefined
-            }
-            // Disabled rather than merely ignored, so the cursor says so before
-            // the click and the server never sees a doomed move.
-            disabled={!isPlayable || isBusy}
-            onMouseEnter={() => setHoveredColumn(column)}
-            onClick={() => onMove(index)}
-            aria-label={`${column + 1}. sütun, ${row + 1}. sıra`}
-          >
-            {/* The mark is a child rather than the slot itself, so it can move
-                into an empty hole that stays put. Keyed on the owner so a mark
-                landing in a slot is a mount, which is what replays the drop. */}
-            {owner === -1 ? null : (
-              <span
-                key={owner}
-                className="ct-versus-disc"
-                data-owner={owner}
-                data-landed={isLanded ? "true" : undefined}
-                // How far it fell, in rows, for the gravity game. Under Connect
-                // Four a disc enters at the top of its column and stops where it
-                // stops; a pop in place would say nothing about which column it
-                // went down.
-                style={
-                  isLanded && hasGravity
-                    ? ({ "--drop": String(row + 1) } as CSSProperties)
-                    : undefined
-                }
-              />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
 }

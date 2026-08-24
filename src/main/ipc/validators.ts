@@ -137,6 +137,10 @@ export const createLobbySchema = z.object({
   password: z.string().max(128).optional(),
   // Immutable after creation, so it has no counterpart in updateLobbySchema.
   isTextOnly: z.boolean().optional(),
+  // The room's own member ceiling. Omitted means "use the server's default";
+  // the server clamps the rest, so the bounds here only keep obvious nonsense
+  // off the wire.
+  capacity: z.number().int().min(2).max(100).optional(),
 });
 
 export const updateLobbySchema = z.object({
@@ -146,6 +150,8 @@ export const updateLobbySchema = z.object({
   allowedUsers: z.array(z.string()).optional(),
   // undefined = keep current, "" = clear, string = set new password.
   password: z.string().max(128).nullable().optional(),
+  // undefined = keep current, 0 = follow the server default, a number = set it.
+  capacity: z.number().int().min(0).max(100).optional(),
 });
 
 export const deleteLobbySchema = z.object({
@@ -209,6 +215,7 @@ export const adminSettingsPatchSchema = z.object({
   maxLobbies: z.number().int().min(1).max(1000).optional(),
   maxLobbiesPerUser: z.number().int().min(1).max(200).optional(),
   lobbyCapacity: z.number().int().min(2).max(100).optional(),
+  disabledMinigames: z.array(z.string().min(1).max(32)).max(64).optional(),
 });
 
 export const lobbyBansSchema = z.object({
@@ -276,18 +283,35 @@ export const lobbyEmoteSchema = z.object({
 //
 // No lobby id: a game table is its own lobby and belongs to no room.
 export const minigameActionSchema = z.object({
-  action: z.enum(["open", "join", "move", "restart", "leave"]),
+  action: z.enum([
+    "open",
+    "join",
+    "start",
+    "move",
+    "restart",
+    "leave",
+    "watch",
+    "unwatch",
+  ]),
   // Validated against the catalogue server-side; this bound only stops an
   // unbounded string.
   game: z.string().min(1).max(32).optional(),
   tableId: z.string().min(1).max(64).optional(),
-  // The largest board in the catalogue is 7x6, but the ceiling is deliberately
-  // loose: a tighter one here would have to be edited every time a bigger board
-  // is added, and the server rejects an out-of-range cell anyway.
+  // The largest board in the catalogue is 20x20, but the ceiling is
+  // deliberately loose: a tighter one here would have to be edited every time a
+  // bigger board is added, and the server rejects an out-of-range cell anyway.
   cell: z.number().int().min(0).max(4096).optional(),
-  // Chess, in UCI: four characters plus an optional promotion letter. The
-  // server decodes it against the real position, so this is only a shape bound.
-  move: z.string().min(4).max(5).optional(),
+  // Every non-grid move: a verb and its colon-separated arguments ("roll",
+  // "keep:1,3,5", "place:12:4,5,6"), with chess's UCI as the degenerate case of
+  // a verb with no arguments.
+  //
+  // It used to be min(4).max(5), which was exactly UCI and nothing else — a
+  // bound that was correct while chess was the only game with a move string and
+  // that silently refused every dice roll the moment one was not. The ceiling
+  // is now the longest real move, a five-square blokus placement on a 20x20
+  // board, with room to spare. The server parses it and rejects anything it
+  // does not recognise, so this is a shape bound and not a rule.
+  move: z.string().min(1).max(256).optional(),
 });
 
 // The real bounds are per game and live in internal/minigame/score.go, which
@@ -487,6 +511,10 @@ export const adminListLobbiesSchema = z
   .object({
     search: z.string().max(256).optional(),
     locked: z.enum(["all", "true", "false"]).optional(),
+    // Voice rooms and text channels are listed apart in the panel: they are
+    // different things to operate and half the columns mean nothing for the
+    // other kind.
+    kind: z.enum(["all", "voice", "text"]).optional(),
     limit: z.number().int().min(1).max(200).optional(),
     offset: z.number().int().min(0).optional(),
   })

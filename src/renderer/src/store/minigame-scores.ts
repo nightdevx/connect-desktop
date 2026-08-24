@@ -20,22 +20,77 @@
  * feature it only stores a number for.
  */
 export type MinigameId =
+  // Solo: these keep a personal best per difficulty.
   | "2048"
   | "minesweeper"
   | "snake"
   | "memory"
+  | "sudoku"
+  | "puzzle15"
+  | "lightsout"
+  | "tetris"
+  | "simon"
+  | "floodit"
+  | "nonogram"
+  | "typing"
+  | "mathsprint"
+  // Versus: a table on the server, and no record anywhere.
   | "xox"
   | "connect4"
-  | "chess";
+  | "gomoku"
+  | "connect5"
+  | "connect4trio"
+  | "chess"
+  | "reversi"
+  | "boxes"
+  | "blokus"
+  | "backgammon"
+  | "yahtzee"
+  | "ludo"
+  | "quiz"
+  | "uno"
+  | "battleship"
+  | "okey"
+  | "rummy1"
+  | "poker";
 
+/**
+ * Sidebar order, and the only place it is decided. Grouped the way the sidebar
+ * groups them so the list reads as it is drawn: the solo games first, then the
+ * two-player ones, then the ones that seat a crowd.
+ */
 export const MINIGAME_IDS: readonly MinigameId[] = [
   "2048",
   "minesweeper",
   "snake",
   "memory",
+  "sudoku",
+  "puzzle15",
+  "lightsout",
+  "tetris",
+  "simon",
+  "floodit",
+  "nonogram",
+  "typing",
+  "mathsprint",
   "xox",
   "connect4",
+  "gomoku",
+  "connect5",
   "chess",
+  "reversi",
+  "backgammon",
+  "battleship",
+  "connect4trio",
+  "boxes",
+  "blokus",
+  "yahtzee",
+  "ludo",
+  "quiz",
+  "uno",
+  "okey",
+  "rummy1",
+  "poker",
 ];
 
 export const DIFFICULTY_IDS = ["easy", "normal", "hard"] as const;
@@ -69,6 +124,15 @@ const HIGHER_IS_BETTER: Partial<Record<MinigameId, boolean>> = {
   minesweeper: false,
   snake: true,
   memory: false,
+  sudoku: false,
+  puzzle15: false,
+  lightsout: false,
+  tetris: true,
+  simon: true,
+  floodit: false,
+  nonogram: false,
+  typing: true,
+  mathsprint: true,
 };
 
 /**

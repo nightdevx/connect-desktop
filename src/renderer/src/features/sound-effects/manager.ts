@@ -49,6 +49,52 @@ const EMOTE_PATTERNS: Record<string, OscillatorTone[]> = {
   ],
 };
 
+/**
+ * The table sounds: a card thrown, a tile put down, a shell landing.
+ *
+ * Deliberately NOT in cues.ts, and the reason is worth writing down. The UI cue
+ * palette is a set of musical notifications: check-sound-cues.cjs holds it to a
+ * pentatonic scale, a minimum tail on every note, and a distinctness rule across
+ * the whole set, all so that two cues overlapping in a busy room stay consonant
+ * and tellable apart. These are not notifications. A card sliding onto a pile is
+ * a NOISE -- short, tuneless, and it must stop dead rather than ring, which is
+ * the exact opposite of every rule that palette enforces.
+ *
+ * Synthesised for the same reason the emotes are: nothing to download, nothing
+ * to cache, no CSP hole for a media host, no licence to honour, and no asset in
+ * the installer. A stylised knock is the right side of the fidelity trade for a
+ * sound that fires several times a minute.
+ *
+ * Quiet on purpose. These fire on every move at the table, including other
+ * people's; anything at emote level would be unbearable inside twenty minutes.
+ */
+const MINIGAME_PATTERNS = {
+  // A card landing: a short filtered rasp with a click on the end of it. Two
+  // notes rather than one, because a single tone reads as a beep however dry it
+  // is, and the slide-then-stop is what says "paper".
+  cardThrow: [
+    { frequency: 320, glideToFrequency: 210, glideMs: 42, durationMs: 46, gain: 0.05, type: "triangle", filterFrequency: 1500, overtoneGainRatio: 0.06, attackMs: 3, releaseMs: 34, pauseAfterMs: 4 },
+    { frequency: 900, durationMs: 16, gain: 0.036, type: "square", filterFrequency: 3400, overtoneGainRatio: 0.05, attackMs: 2, releaseMs: 26 },
+  ],
+  // Bone on wood. Low, woody, over almost before it starts -- an okey tile put
+  // down on an istaka is a click, not a note.
+  tileClack: [
+    { frequency: 240, glideToFrequency: 168, glideMs: 26, durationMs: 30, gain: 0.058, type: "triangle", filterFrequency: 1100, overtoneGainRatio: 0.1, attackMs: 2, releaseMs: 46 },
+  ],
+  // A shell into open water: a dull low thud that falls away.
+  splash: [
+    { frequency: 300, glideToFrequency: 130, glideMs: 130, durationMs: 130, gain: 0.05, type: "sine", filterFrequency: 800, overtoneGainRatio: 0.08, attackMs: 4, releaseMs: 180 },
+  ],
+  // A shell into a hull. Starts on the same thud so the pair sound like the same
+  // gun, then adds the crack the miss does not have.
+  blast: [
+    { frequency: 190, glideToFrequency: 70, glideMs: 150, durationMs: 150, gain: 0.075, type: "sawtooth", filterFrequency: 620, overtoneGainRatio: 0.3, attackMs: 2, releaseMs: 260, pauseAfterMs: 0 },
+    { frequency: 1200, glideToFrequency: 480, glideMs: 90, durationMs: 60, gain: 0.05, type: "square", filterFrequency: 2600, overtoneGainRatio: 0.2, attackMs: 2, releaseMs: 150 },
+  ],
+} satisfies Record<string, OscillatorTone[]>;
+
+export type MinigameCue = keyof typeof MINIGAME_PATTERNS;
+
 // How far ahead of the audio clock a cue is scheduled. Small enough that
 // nobody perceives it, large enough that the ramps are never behind the audio
 // thread by the time it reads them.
@@ -495,6 +541,19 @@ class SoundEffectManager {
    *  sound out of the cache. */
   public forgetSample(emoteId: string): void {
     this.sampleCache.delete(emoteId);
+  }
+
+  /**
+   * A sound from the table: a card thrown, a tile put down, a shell landing.
+   *
+   * Routed as a "cue" rather than through the soundboard gain, because this is
+   * feedback about the game in front of you and not somebody else's noise.
+   * Keyed, so a snapshot that lands two of the same event on the same
+   * millisecond -- which the table hub does when a turn resolves several
+   * things at once -- is one sound rather than a smeared double.
+   */
+  public playMinigameCue(cue: MinigameCue): void {
+    this.playPattern(MINIGAME_PATTERNS[cue], "cue", `minigame:${cue}`);
   }
 
   public playHeadphoneToggle(enabled: boolean): void {

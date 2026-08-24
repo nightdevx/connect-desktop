@@ -24,6 +24,7 @@ import {
   type MinigameId,
   type MinigameScores,
 } from "./minigame-scores";
+import { readSeenMinigameRules, writeSeenMinigameRules } from "./minigame-seen";
 import {
   readViewPreferences,
   saveViewPreferences,
@@ -51,6 +52,7 @@ export type AdminSection =
   | "activity"
   | "sounds"
   | "moderation"
+  | "minigames"
   | "settings";
 export type SettingsSection =
   | "profile"
@@ -104,6 +106,8 @@ interface UiState {
    */
   watchedTableId: string | null;
   setWatchedTable: (tableId: string | null) => void;
+  seenMinigameRules: Set<MinigameId>;
+  markMinigameRulesSeen: (game: MinigameId) => void;
   /**
    * Personal bests, keyed "game:difficulty" and mirrored into localStorage on
    * every write. A time on a 9x9 field is not a time on a 30x16 one, so they
@@ -159,6 +163,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   freeGamesStore: "all",
   selectedMinigame: "2048",
   watchedTableId: null,
+  seenMinigameRules: readSeenMinigameRules(),
   minigameBestScores: readMinigameScores(),
   minigameDifficulty: readMinigameDifficulties(),
   settingsSection: "profile",
@@ -244,6 +249,16 @@ export const useUiStore = create<UiState>((set, get) => ({
         : { selectedMinigame: game, watchedTableId: null },
     ),
   setWatchedTable: (tableId) => set({ watchedTableId: tableId }),
+  markMinigameRulesSeen: (game) => {
+    const current = get().seenMinigameRules;
+    if (current.has(game)) {
+      return;
+    }
+    const next = new Set(current);
+    next.add(game);
+    writeSeenMinigameRules(next);
+    set({ seenMinigameRules: next });
+  },
   setMinigameDifficulty: (game, difficulty) => {
     const next = { ...get().minigameDifficulty, [game]: difficulty };
     saveMinigameDifficulties(next);

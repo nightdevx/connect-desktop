@@ -1,0 +1,588 @@
+/* The physical objects: felt, card stock, ivory, clay and bone.
+ *
+ * Split from minigames.css because it is a different kind of stylesheet. That
+ * file lays out a page; this one describes MATERIALS, and every rule in it is
+ * about how light falls on a surface rather than about where the surface goes.
+ *
+ * Two decisions worth knowing before editing anything here.
+ *
+ * NO ASSETS. Every surface is built from gradients, inset shadows and a
+ * repeating micro-pattern. Not because images are forbidden -- the CSP allows
+ * `img-src 'self'`, so a bundled texture would load fine -- but because vector
+ * and gradient stay sharp at every size these boards are laid out at, which
+ * ranges from a 20x20 blokus grid to a five-card poker board. Every material
+ * below reads through one custom property, so swapping in a photographic
+ * texture later is one line per surface and touches no component.
+ *
+ * NOT THEME-AWARE, on purpose. A playing card is white in a dark room. Felt is
+ * green under any lamp. These are the only surfaces in the app that do not
+ * follow --ct-surface, and following it would mean a black playing card, which
+ * is not a playing card. What DOES follow the theme is everything around
+ * them -- panels, text, borders -- so the objects sit on the page correctly in
+ * both.
+ */
+
+:root {
+  /* --- felt ---------------------------------------------------------------- */
+
+  /* The table. A radial lift in the middle so the centre reads as nearer, over
+     a flat base -- which is what a real cloth does under a hanging lamp. */
+  --ct-felt-base: #164a34;
+  --ct-felt-lift: #1e6045;
+  --ct-felt-rail: #4a2f1c;
+  --ct-felt-rail-edge: #6b4527;
+
+  /* --- the sea ------------------------------------------------------------- */
+
+  /* Open water seen from above: dark at the edges where the chart table shades
+     it, lighter in the middle. Same idea as the felt -- a single lit surface
+     rather than a hundred coloured squares -- and it is what turns a grid into
+     a sea without one pixel of artwork. */
+  --ct-sea-deep: #08243b;
+  --ct-sea-mid: #10456d;
+  --ct-sea-crest: #2f83b4;
+  /* The chart lines ON the water. Light, thin and low-contrast: a chart is
+     drawn over the sea, it does not cut it into tiles. */
+  --ct-sea-grid: rgb(190 226 255 / 0.14);
+  --ct-sea-frame: #12212c;
+
+  /* --- warships ------------------------------------------------------------ */
+
+  --ct-hull-rail: #b3bdc7;
+  --ct-hull-deck: #7b8794;
+  --ct-hull-plate: #57616c;
+  --ct-hull-dark: #262c33;
+  /* What a hit looks like before it is a scorch mark. */
+  --ct-fire: #ff8a2b;
+
+  /* --- card stock ---------------------------------------------------------- */
+
+  --ct-card-stock: #fbfaf7;
+  --ct-card-stock-edge: #d8d4ca;
+  --ct-card-ink: #16161a;
+  --ct-card-red: #c62828;
+  --ct-card-back: #1c3f8f;
+  --ct-card-back-line: #2f5cc4;
+
+  /* --- uno ----------------------------------------------------------------- */
+
+  --ct-uno-r: #d7262b;
+  --ct-uno-y: #e8b011;
+  --ct-uno-g: #199a4b;
+  --ct-uno-b: #1667c4;
+  --ct-uno-w: #1a1a1a;
+  --ct-uno-shell: #f4f2ee;
+
+  /* --- okey tiles ---------------------------------------------------------- */
+
+  /* Bone, with a warmer top edge and a cooler shadow line, which is what makes
+     the tile read as a solid thing rather than a rectangle. */
+  --ct-tile-body: #f0e9db;
+  --ct-tile-top: #fffdf7;
+  --ct-tile-shade: #c9bfab;
+  /* The tile's THICKNESS, drawn as a solid offset shadow under the face rather
+     than as a 3D box. A real okey tile is several millimetres deep and that
+     depth is most of what makes it read as an object; a hard-edged band of the
+     side colour under the face buys it for one shadow layer, with no extra
+     element and no transform-style: preserve-3d on a hundred and six tiles. */
+  --ct-tile-edge: #b6a98f;
+  --ct-tile-r: #c3271f;
+  --ct-tile-y: #c98a06;
+  --ct-tile-b: #17529e;
+  --ct-tile-k: #23241f;
+  --ct-tile-rack: #5a3a20;
+  --ct-tile-rack-lip: #7d5230;
+
+  /* --- dice ---------------------------------------------------------------- */
+
+  --ct-die-body: #f7f4ec;
+  --ct-die-edge: #cfc7b6;
+  --ct-die-pip: #1b1b1b;
+
+  /* --- chips --------------------------------------------------------------- */
+
+  --ct-chip-1: #e8e6e1;
+  --ct-chip-5: #c0392b;
+  --ct-chip-25: #1e8449;
+  --ct-chip-100: #1b1b1f;
+  --ct-chip-500: #6c3483;
+  --ct-chip-1000: #d4ac0d;
+
+  /* --- extra seats --------------------------------------------------------- */
+
+  /* Seats 0 and 1 are --ct-info and --ct-warning, set in minigames.css back
+     when a table had two chairs. Three and four are new, and they are picked to
+     stay apart from those two AND from each other for the two commonest colour
+     deficiencies -- which rules out the obvious red/green pair. */
+  --ct-seat-2: #22c55e;
+  --ct-seat-3: #c084fc;
+}
+
+/* --- the table surface ---------------------------------------------------- */
+
+.ct-felt {
+  position: relative;
+  border-radius: var(--ct-radius-lg);
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% 42%,
+      var(--ct-felt-lift) 0%,
+      var(--ct-felt-base) 68%,
+      color-mix(in srgb, var(--ct-felt-base) 78%, #000) 100%
+    );
+  box-shadow:
+    inset 0 0 0 6px var(--ct-felt-rail),
+    inset 0 0 0 7px var(--ct-felt-rail-edge),
+    inset 0 8px 28px rgb(0 0 0 / 0.45),
+    var(--ct-shadow-lg);
+}
+
+/* The weave. A pair of crossed repeating gradients at very low alpha: at the
+   size a board is drawn it reads as cloth grain, and it costs no asset and no
+   extra element. */
+.ct-felt::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgb(255 255 255 / 0.025) 0 1px,
+      transparent 1px 3px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgb(0 0 0 / 0.05) 0 1px,
+      transparent 1px 3px
+    );
+}
+
+/* --- playing cards -------------------------------------------------------- */
+
+.ct-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 7;
+  border-radius: 8%;
+  background: linear-gradient(160deg, #fff 0%, var(--ct-card-stock) 42%, #f1eee7 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--ct-card-stock-edge),
+    /* The specular streak that makes it read as coated stock rather than paper. */
+    inset 0 2px 3px rgb(255 255 255 / 0.9),
+    inset 0 -2px 4px rgb(0 0 0 / 0.07),
+    0 2px 5px rgb(0 0 0 / 0.35);
+}
+
+.ct-card[data-muted="true"] {
+  filter: grayscale(0.6) brightness(0.72);
+}
+
+.ct-card-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ct-card-index text {
+  font-family: var(--ct-font-sans);
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--ct-card-ink);
+}
+
+.ct-card[data-red="true"] .ct-card-index text,
+.ct-card[data-red="true"] .ct-card-court-letter {
+  fill: var(--ct-card-red);
+}
+
+.ct-card-suit {
+  fill: var(--ct-card-ink);
+}
+
+.ct-card[data-red="true"] .ct-card-suit {
+  fill: var(--ct-card-red);
+}
+
+.ct-card-court-frame {
+  fill: none;
+  stroke: var(--ct-card-stock-edge);
+  stroke-width: 1.5;
+}
+
+.ct-card-court-fill {
+  fill: color-mix(in srgb, var(--ct-card-stock) 70%, #e7e2d6);
+}
+
+.ct-card-court-letter {
+  font-family: var(--ct-font-sans);
+  font-size: 34px;
+  font-weight: 700;
+  fill: var(--ct-card-ink);
+}
+
+/* The back. A woven lattice on a deep blue, in the shape every deck's back has:
+   a printed panel with a plain margin around it. */
+.ct-card-back {
+  background: linear-gradient(160deg, #fff 0%, var(--ct-card-stock) 100%);
+}
+
+.ct-card-back-pattern {
+  position: absolute;
+  inset: 7%;
+  border-radius: 4%;
+  background-color: var(--ct-card-back);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--ct-card-back-line) 0 2px,
+      transparent 2px 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--ct-card-back-line) 0 2px,
+      transparent 2px 6px
+    );
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35);
+}
+
+/* --- uno cards ------------------------------------------------------------ */
+
+.ct-uno-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 3;
+  border-radius: 10%;
+  /* The thick white shell every uno card has, painted as a border rather than
+     an inset ring so the coloured body keeps its own rounded corner inside it. */
+  background: var(--ct-uno-shell);
+  padding: 7%;
+  box-shadow:
+    0 2px 6px rgb(0 0 0 / 0.4),
+    inset 0 1px 2px rgb(255 255 255 / 0.8);
+}
+
+.ct-uno-card svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 8%;
+  background: var(--ct-uno-w);
+}
+
+.ct-uno-card[data-color="r"] svg {
+  background: var(--ct-uno-r);
+}
+.ct-uno-card[data-color="y"] svg {
+  background: var(--ct-uno-y);
+}
+.ct-uno-card[data-color="g"] svg {
+  background: var(--ct-uno-g);
+}
+.ct-uno-card[data-color="b"] svg {
+  background: var(--ct-uno-b);
+}
+
+/* The slanted white oval. Rotating it is the single detail that makes a
+   rectangle read as an Uno card. */
+.ct-uno-oval {
+  fill: var(--ct-uno-shell);
+  transform: rotate(-20deg);
+  transform-origin: 50px 75px;
+}
+
+.ct-uno-numeral {
+  font-family: var(--ct-font-sans);
+  font-size: 62px;
+  font-weight: 700;
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: var(--ct-uno-shell);
+  stroke-width: 6;
+}
+
+.ct-uno-card[data-color="r"] .ct-uno-numeral {
+  color: var(--ct-uno-r);
+}
+.ct-uno-card[data-color="y"] .ct-uno-numeral {
+  color: var(--ct-uno-y);
+}
+.ct-uno-card[data-color="g"] .ct-uno-numeral {
+  color: var(--ct-uno-g);
+}
+.ct-uno-card[data-color="b"] .ct-uno-numeral {
+  color: var(--ct-uno-b);
+}
+.ct-uno-card[data-color="w"] .ct-uno-numeral {
+  color: var(--ct-uno-w);
+}
+
+.ct-uno-corner {
+  font-family: var(--ct-font-sans);
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--ct-uno-shell);
+}
+
+/* The mark on the back, tilted onto the same axis as the oval under it so the
+   two read as one printed panel rather than a sticker on a shape. */
+.ct-uno-backmark {
+  transform: rotate(-20deg);
+  transform-origin: 50px 75px;
+}
+
+.ct-uno-glyph {
+  fill: var(--ct-uno-shell);
+  stroke: var(--ct-uno-shell);
+}
+
+.ct-uno-cards rect {
+  fill: var(--ct-uno-shell);
+  stroke: rgb(0 0 0 / 0.25);
+  stroke-width: 2;
+}
+
+.ct-uno-cards rect[data-wedge="r"],
+.ct-uno-wedges path[data-wedge="r"] {
+  fill: var(--ct-uno-r);
+}
+.ct-uno-cards rect[data-wedge="y"],
+.ct-uno-wedges path[data-wedge="y"] {
+  fill: var(--ct-uno-y);
+}
+.ct-uno-cards rect[data-wedge="g"],
+.ct-uno-wedges path[data-wedge="g"] {
+  fill: var(--ct-uno-g);
+}
+.ct-uno-cards rect[data-wedge="b"],
+.ct-uno-wedges path[data-wedge="b"] {
+  fill: var(--ct-uno-b);
+}
+
+.ct-uno-card-back svg {
+  background: var(--ct-uno-w);
+}
+
+/* --- okey tiles ----------------------------------------------------------- */
+
+.ct-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 7;
+  border-radius: 12%;
+  background: linear-gradient(
+    to bottom,
+    var(--ct-tile-top) 0%,
+    var(--ct-tile-body) 38%,
+    color-mix(in srgb, var(--ct-tile-body) 88%, #000) 100%
+  );
+  box-shadow:
+    /* The moulded lip: bright along the top, dark along the bottom. */
+    inset 0 2px 1px rgb(255 255 255 / 0.95),
+    inset 0 -3px 3px var(--ct-tile-shade),
+    inset 0 0 0 1px color-mix(in srgb, var(--ct-tile-shade) 70%, transparent),
+    /* the side of the tile, then the shadow it casts */
+    0 3px 0 var(--ct-tile-edge),
+    0 5px 7px rgb(0 0 0 / 0.5);
+  transition:
+    transform var(--ct-duration-fast) var(--ct-ease-premium),
+    box-shadow var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+/* Lifted off the rack: it keeps its thickness, and the shadow it casts falls
+   further away -- which is what tells the eye it went UP rather than just moved.
+   A lifted tile with the same shadow reads as a sticker sliding on glass. */
+.ct-tile[data-selected="true"] {
+  transform: translateY(-16%);
+  box-shadow:
+    inset 0 2px 1px rgb(255 255 255 / 0.95),
+    inset 0 -3px 3px var(--ct-tile-shade),
+    0 0 0 2px var(--ct-accent),
+    0 3px 0 var(--ct-tile-edge),
+    0 11px 12px rgb(0 0 0 / 0.55);
+}
+
+/* The okey wears a ring rather than a different colour: it is a normal tile
+   that happens to be wild this hand, and recolouring it would hide its rank. */
+.ct-tile[data-okey="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: 10%;
+  border: 2px dashed var(--ct-success);
+  pointer-events: none;
+}
+
+.ct-tile-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ct-tile-numeral {
+  font-family: var(--ct-font-sans);
+  font-size: 40px;
+  font-weight: 700;
+  fill: currentColor;
+}
+
+.ct-tile[data-color="r"] .ct-tile-face {
+  color: var(--ct-tile-r);
+}
+.ct-tile[data-color="y"] .ct-tile-face {
+  color: var(--ct-tile-y);
+}
+.ct-tile[data-color="b"] .ct-tile-face {
+  color: var(--ct-tile-b);
+}
+.ct-tile[data-color="k"] .ct-tile-face {
+  color: var(--ct-tile-k);
+}
+.ct-tile[data-color="j"] .ct-tile-face {
+  color: var(--ct-tile-r);
+}
+
+.ct-tile-underline {
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.ct-tile-joker {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+/* The moulding dimple, and the only part of the face that is not ink. */
+.ct-tile-dimple {
+  fill: var(--ct-tile-shade);
+  opacity: 0.55;
+}
+
+.ct-tile-back {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ct-tile-rack-lip) 82%, #fff) 0%,
+    var(--ct-tile-rack) 100%
+  );
+  box-shadow:
+    inset 0 2px 1px rgb(255 255 255 / 0.2),
+    inset 0 -3px 3px rgb(0 0 0 / 0.4),
+    0 3px 0 color-mix(in srgb, var(--ct-tile-rack) 70%, #000),
+    0 5px 7px rgb(0 0 0 / 0.5);
+}
+
+/* --- dice ----------------------------------------------------------------- */
+
+.ct-die {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 22%;
+  background: linear-gradient(150deg, #fff 0%, var(--ct-die-body) 45%, #e6e0d2 100%);
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.95),
+    inset 0 -3px 4px var(--ct-die-edge),
+    inset 0 0 0 1px color-mix(in srgb, var(--ct-die-edge) 80%, transparent),
+    0 3px 5px rgb(0 0 0 / 0.4);
+  transition:
+    transform var(--ct-duration-fast) var(--ct-ease-spring),
+    opacity var(--ct-duration-fast) linear;
+}
+
+.ct-die svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Recessed rather than printed: a dark pip with a bright rim under it reads as
+   a hole, which is what a pip is. */
+.ct-die-pip {
+  fill: var(--ct-die-pip);
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.7));
+}
+
+.ct-die[data-empty="true"] {
+  opacity: 0.4;
+}
+
+.ct-die[data-held="true"] {
+  transform: translateY(-12%);
+  box-shadow:
+    inset 0 2px 2px rgb(255 255 255 / 0.95),
+    inset 0 -3px 4px var(--ct-die-edge),
+    0 0 0 2px var(--ct-accent),
+    0 8px 10px rgb(0 0 0 / 0.45);
+}
+
+.ct-die[data-spent="true"] {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+/* --- chips ---------------------------------------------------------------- */
+
+.ct-chips {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 1.6rem;
+  padding-left: 1.4rem;
+}
+
+/* Each chip sits a little above the one under it, so a stack has height. */
+.ct-chip {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--chip-index) * 3px);
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--ct-chip-1);
+  /* The edge spots every casino chip has, as a conic gradient rather than eight
+     elements. */
+  background-image: repeating-conic-gradient(
+    rgb(255 255 255 / 0.85) 0deg 18deg,
+    transparent 18deg 45deg
+  );
+  box-shadow:
+    inset 0 0 0 3px rgb(255 255 255 / 0.55),
+    inset 0 0 0 4px rgb(0 0 0 / 0.15),
+    0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.ct-chip[data-value="5"] {
+  background-color: var(--ct-chip-5);
+}
+.ct-chip[data-value="25"] {
+  background-color: var(--ct-chip-25);
+}
+.ct-chip[data-value="100"] {
+  background-color: var(--ct-chip-100);
+}
+.ct-chip[data-value="500"] {
+  background-color: var(--ct-chip-500);
+}
+.ct-chip[data-value="1000"] {
+  background-color: var(--ct-chip-1000);
+}
+
+.ct-chips-amount {
+  @apply ml-1 text-xs font-semibold tabular-nums;
+  color: var(--ct-text-secondary);
+}
+
+/* --- the third and fourth seats ------------------------------------------- */
+
+.ct-versus-mark[data-seat="2"],
+.ct-versus-disc[data-owner="2"] {
+  background: var(--ct-seat-2);
+}
+
+.ct-versus-mark[data-seat="3"],
+.ct-versus-disc[data-owner="3"] {
+  background: var(--ct-seat-3);
+}

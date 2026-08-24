@@ -8,6 +8,7 @@ import {
   SoundOutlined,
   StopOutlined,
   SettingOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 
 // Seven flat entries in one column was a list to read top to bottom. Grouped by
@@ -31,6 +32,7 @@ const NAV_GROUPS = [
       { key: "users", label: "Kullanıcılar", icon: <UserOutlined /> },
       { key: "lobbies", label: "Odalar", icon: <HomeOutlined /> },
       { key: "sounds", label: "Sesler", icon: <SoundOutlined /> },
+      { key: "minigames", label: "Oyunlar", icon: <PlayCircleOutlined /> },
     ],
   },
   {

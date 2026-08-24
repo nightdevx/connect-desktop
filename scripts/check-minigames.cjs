@@ -105,6 +105,12 @@ const main = async () => {
     RULES_MINES,
     RULES_SNAKE,
     RULES_MEMORY,
+    RULES_SUDOKU,
+    RULES_PUZZLE,
+    RULES_LIGHTS,
+    RULES_TETRIS,
+    RULES_FLOOD,
+    RULES_NONOGRAM,
     SOLO_GAME_IDS,
     describeDifficulty,
     difficultyOptions,
@@ -116,6 +122,48 @@ const main = async () => {
   const { scoreKey, splitScoreKey, DIFFICULTY_IDS, DEFAULT_DIFFICULTY } = await bundle(
     "src/renderer/src/store/minigame-scores.ts",
     "minigame-scores.mjs",
+  );
+
+  const {
+    createSudoku,
+    isSudokuSolved,
+    sudokuAccepts,
+    sudokuConflicts,
+    createSlidePuzzle,
+    isSlideSolved,
+    slideTile,
+    slideNeighbours,
+    createLights,
+    pressLight,
+    isLightsOut,
+    TETROMINOES,
+    pieceCells,
+    tetrisCollides,
+    clearLines,
+    tetrisLineScore,
+    createFlood,
+    floodFill,
+    isFlooded,
+    floodedCount,
+    createNonogram,
+    runsOf,
+    isNonogramSolved,
+    buildPassage,
+    wordsPerMinute,
+    typingAccuracy,
+    buildQuestion,
+  } = await bundle(
+    "src/renderer/src/features/minigames/solo-logic.ts",
+    "solo-logic.mjs",
+  );
+
+  // "minigames.mjs" and not "shared-minigames.mjs": this vite writes the output
+  // under the ENTRY's basename and ignores the fileName it is handed, which
+  // every other call above gets away with only because their names already
+  // agree with their entries.
+  const { MULTIPLAYER_GAME_IDS, MULTIPLAYER_SEATS } = await bundle(
+    "src/shared/minigames.ts",
+    "minigames.mjs",
   );
 
   const {
@@ -732,6 +780,398 @@ const main = async () => {
       game: "2048:brutal",
       difficulty: DEFAULT_DIFFICULTY,
     });
+  }
+
+  // --- the seat counts, against the server's own catalogue --------------------
+
+  // @shared/minigames states how many chairs each table has, and so does
+  // internal/minigame/hub.go. Two statements of the same fact, and this is what
+  // keeps them one fact: the browser has to draw "2/4 kişi" and decide whether
+  // to offer a Başlat button before it has ever seen a table, so it cannot ask.
+  //
+  // Parsed out of the Go rather than duplicated here a third time. What is
+  // asserted is that the two agree -- including the DEFAULT, which is where
+  // this would go wrong: a row that says nothing about seats means two, and a
+  // reader that forgets that reads every duel as a four-hander.
+  {
+    const hub = fs.readFileSync(
+      path.join(projectRoot, "..", "backend-go", "internal", "minigame", "hub.go"),
+      "utf8",
+    );
+
+    const catalogue = hub.slice(
+      hub.indexOf("var catalog = map[string]gameSpec{"),
+      hub.indexOf("\n}", hub.indexOf("var catalog = map[string]gameSpec{")),
+    );
+    assert.ok(catalogue.length > 0, "could not find the catalogue in hub.go");
+
+    const serverSeats = {};
+    // Each row is `"id": {…}`, possibly spread over several lines, so the body
+    // is taken up to the matching brace rather than to the end of the line.
+    const row = /"([a-z0-9]+)":\s*\{([^}]*)\}/g;
+    let match = row.exec(catalogue);
+    while (match) {
+      const [, id, body] = match;
+      const min = /minSeats:\s*(\d+)/.exec(body);
+      const max = /maxSeats:\s*(\d+)/.exec(body);
+      serverSeats[id] = {
+        min: min ? Number(min[1]) : 2,
+        max: max ? Number(max[1]) : 2,
+      };
+      match = row.exec(catalogue);
+    }
+
+    assert.deepEqual(
+      [...MULTIPLAYER_GAME_IDS].sort(),
+      Object.keys(serverSeats).sort(),
+      "the desktop's game ids and the server's catalogue are different sets",
+    );
+
+    for (const id of MULTIPLAYER_GAME_IDS) {
+      assert.deepEqual(
+        MULTIPLAYER_SEATS[id],
+        serverSeats[id],
+        `${id}: the desktop says ${JSON.stringify(MULTIPLAYER_SEATS[id])} seats, the server says ${JSON.stringify(serverSeats[id])}`,
+      );
+      assert.ok(
+        MULTIPLAYER_SEATS[id].min <= MULTIPLAYER_SEATS[id].max,
+        `${id}: needs more players to start than it has chairs`,
+      );
+    }
+  }
+
+  // --- the scored games, against the server's own bounds -----------------------
+
+  // Every solo game the desktop offers has to have a bound on the server, at
+  // every difficulty. A board that ships without one does not fail anywhere
+  // visible: the game plays, the run finishes, and the record submission comes
+  // back 400 with "this game keeps no score" -- which the player reads as their
+  // best game of the night vanishing.
+  {
+    const score = fs.readFileSync(
+      path.join(projectRoot, "..", "backend-go", "internal", "minigame", "score.go"),
+      "utf8",
+    );
+
+    const start = score.indexOf("var scoreCatalog = map[string]scoreRules{");
+    const serverKeys = new Set();
+    const key = /"([a-z0-9]+):(easy|normal|hard)"/g;
+    let match = key.exec(score.slice(start, score.indexOf("\n}", start)));
+    while (match) {
+      serverKeys.add(`${match[1]}:${match[2]}`);
+      match = key.exec(score.slice(start, score.indexOf("\n}", start)));
+    }
+
+    const desktopKeys = new Set();
+    for (const game of SOLO_GAME_IDS) {
+      for (const id of DIFFICULTY_IDS) {
+        desktopKeys.add(scoreKey(game, id));
+      }
+    }
+
+    assert.deepEqual(
+      [...desktopKeys].sort(),
+      [...serverKeys].sort(),
+      "the solo games the desktop scores and the ones the server accepts are different sets",
+    );
+
+    // And the other direction, which is the one that would be silent: a
+    // multiplayer id must never acquire a score bound, because a win against
+    // another person is not a personal best.
+    for (const id of MULTIPLAYER_GAME_IDS) {
+      for (const difficulty of DIFFICULTY_IDS) {
+        assert.ok(
+          !serverKeys.has(`${id}:${difficulty}`),
+          `${id} is a table game and must keep no record`,
+        );
+      }
+    }
+  }
+
+  // --- sudoku -----------------------------------------------------------------
+
+  {
+    // GENERATED FROM A SOLUTION, not solved from a puzzle. That is what makes
+    // the grid guaranteed answerable, and it is asserted rather than trusted
+    // because an unsolvable sudoku looks exactly like a hard one.
+    for (const id of DIFFICULTY_IDS) {
+      const rng = seededRng(id.length * 31 + 7);
+      const { puzzle, solution, fixed } = createSudoku(RULES_SUDOKU[id].clues, rng);
+
+      assert.equal(puzzle.length, 81, `sudoku:${id} board length`);
+      assert.ok(isSudokuSolved(solution), `sudoku:${id} generated an invalid solution`);
+      assert.equal(
+        puzzle.filter((value) => value !== 0).length,
+        RULES_SUDOKU[id].clues,
+        `sudoku:${id} did not leave the number of clues it was asked for`,
+      );
+
+      // Every given has to be part of the answer, or the puzzle contradicts
+      // itself and the player is asked to solve something that is not true.
+      puzzle.forEach((value, index) => {
+        if (value !== 0) {
+          assert.equal(value, solution[index], `sudoku:${id} clue disagrees with its solution`);
+          assert.ok(fixed[index], `sudoku:${id} clue is editable`);
+        }
+      });
+
+      assert.ok(!isSudokuSolved(puzzle), `sudoku:${id} was dealt already solved`);
+    }
+
+    // The rule itself: a value already in the row, the column or the box is
+    // refused, and the cell being tested does not count against itself.
+    // A five in the top-left corner. Every index below is named by its column
+    // and row so the three rules are tested one at a time rather than by
+    // whichever happens to fire first.
+    const grid = new Array(81).fill(0);
+    grid[0] = 5;
+    assert.equal(sudokuAccepts(grid, 5, 5), false, "column 5, row 0: same row must be refused");
+    assert.equal(sudokuAccepts(grid, 27, 5), false, "column 0, row 3: same column must be refused");
+    assert.equal(sudokuAccepts(grid, 10, 5), false, "column 1, row 1: same box must be refused");
+    assert.equal(
+      sudokuAccepts(grid, 40, 5),
+      true,
+      "column 4, row 4: a different row, column and box is fine",
+    );
+    assert.equal(sudokuAccepts(grid, 0, 5), true, "a cell must not clash with itself");
+
+    // Both ends of a clash are marked. Marking one of them tells the player
+    // half the truth about which number is wrong.
+    grid[1] = 5;
+    assert.deepEqual([...sudokuConflicts(grid)].sort(), [0, 1]);
+  }
+
+  // --- sliding puzzle ---------------------------------------------------------
+
+  {
+    // SCRAMBLED BY MOVING, not by shuffling. Half of all permutations of a
+    // sliding puzzle cannot be reached from the solved board, so a shuffled
+    // array is a coin flip on whether the puzzle can be finished at all -- and
+    // the player finds out twenty minutes in.
+    for (const id of DIFFICULTY_IDS) {
+      const { size, shuffle: scrambles } = RULES_PUZZLE[id];
+      const puzzle = createSlidePuzzle(size, scrambles, seededRng(size * 977));
+
+      assert.equal(puzzle.tiles.length, size * size, `puzzle15:${id} board length`);
+      assert.deepEqual(
+        [...puzzle.tiles].sort((a, b) => a - b),
+        Array.from({ length: size * size }, (_, index) => index),
+        `puzzle15:${id} is not a permutation of its own tiles`,
+      );
+      assert.ok(!isSlideSolved(puzzle), `puzzle15:${id} was dealt already solved`);
+    }
+
+    // A move next to the hole swaps; a move that is not next to it returns the
+    // SAME object, which is what lets the board count moves by identity.
+    const three = createSlidePuzzle(3, 40, seededRng(11));
+    const hole = three.tiles.indexOf(0);
+    const neighbour = slideNeighbours(hole, 3)[0];
+    const moved = slideTile(three, neighbour);
+    assert.notEqual(moved, three, "a legal slide must produce a new board");
+    assert.equal(moved.tiles[hole], three.tiles[neighbour]);
+    assert.equal(moved.tiles[neighbour], 0);
+
+    const far = three.tiles.findIndex(
+      (_, index) => index !== hole && !slideNeighbours(hole, 3).includes(index),
+    );
+    assert.equal(
+      slideTile(three, far),
+      three,
+      "a slide that is not next to the hole must return the same object",
+    );
+
+    // Neighbours never wrap: the hole in the left column has no neighbour to
+    // its left, whatever the flat index arithmetic says.
+    assert.deepEqual(slideNeighbours(3, 3).sort((a, b) => a - b), [0, 4, 6]);
+  }
+
+  // --- lights out -------------------------------------------------------------
+
+  {
+    // BUILT BY PRESSING a solved board, which is the only cheap way to hand
+    // somebody a puzzle that can be finished: only about a quarter of 5x5 light
+    // configurations have any solution at all.
+    for (const id of DIFFICULTY_IDS) {
+      const { size, presses } = RULES_LIGHTS[id];
+      const board = createLights(size, presses, seededRng(size * 313));
+
+      assert.equal(board.length, size * size, `lightsout:${id} board length`);
+      assert.ok(!isLightsOut(board), `lightsout:${id} was dealt already solved`);
+    }
+
+    // A press flips the cell and its four orthogonal neighbours -- and nothing
+    // diagonal, and nothing across an edge.
+    const dark = new Array(9).fill(false);
+    const centre = pressLight(dark, 4, 3);
+    assert.deepEqual(centre, [false, true, false, true, true, true, false, true, false]);
+
+    const corner = pressLight(dark, 0, 3);
+    assert.deepEqual(corner, [true, true, false, true, false, false, false, false, false]);
+
+    // Pressing the same cell twice is a no-op, which is the property the
+    // generator relies on.
+    assert.deepEqual(pressLight(centre, 4, 3), dark);
+  }
+
+  // --- tetris -----------------------------------------------------------------
+
+  {
+    assert.equal(TETROMINOES.length, 7, "there are seven tetrominoes");
+    for (const piece of TETROMINOES) {
+      assert.equal(piece.cells.length, 4, "a tetromino is four squares");
+    }
+
+    const { columns, rows } = RULES_TETRIS.normal;
+
+    // ROTATION STAYS INSIDE THE BOX. The O piece is symmetric, so all four
+    // turns are the same four squares -- if the box arithmetic is wrong, this
+    // is where it shows up as a piece that walks sideways as it spins.
+    const square = TETROMINOES.findIndex((piece) => piece.box === 2);
+    const at = (rotation) =>
+      pieceCells({ piece: square, rotation, x: 3, y: 3 })
+        .map(({ x, y }) => `${x},${y}`)
+        .sort()
+        .join(" ");
+    assert.equal(at(0), at(1), "the O piece must not move when it turns");
+    assert.equal(at(0), at(2));
+    assert.equal(at(0), at(3));
+
+    // Collision: the walls and the floor, and NOT the ceiling. A piece spawns
+    // partly above the well and is only in trouble once it cannot fall.
+    const empty = new Array(columns * rows).fill(0);
+    assert.equal(tetrisCollides(empty, columns, rows, { piece: 0, rotation: 0, x: 0, y: -1 }), false);
+    assert.equal(tetrisCollides(empty, columns, rows, { piece: 0, rotation: 0, x: -1, y: 0 }), true);
+    assert.equal(tetrisCollides(empty, columns, rows, { piece: 0, rotation: 0, x: 0, y: rows }), true);
+
+    // A full row clears and everything above it falls by one; a row with a gap
+    // in it does not.
+    const well = new Array(columns * rows).fill(0);
+    for (let column = 0; column < columns; column += 1) {
+      well[(rows - 1) * columns + column] = 1;
+    }
+    well[(rows - 2) * columns] = 2;
+    const cleared = clearLines(well, columns, rows);
+    assert.equal(cleared.cleared, 1, "the full row clears");
+    assert.equal(cleared.well[(rows - 1) * columns], 2, "what was above it fell by one");
+    assert.equal(cleared.well.filter((cell) => cell !== 0).length, 1);
+
+    // Four at once is worth far more than four singles, which is the whole
+    // reason anybody stacks nine deep and waits for an I.
+    assert.ok(tetrisLineScore(4, 1) > tetrisLineScore(1, 1) * 4);
+    assert.equal(tetrisLineScore(0, 5), 0);
+    assert.equal(tetrisLineScore(2, 3), tetrisLineScore(2, 1) * 3);
+  }
+
+  // --- flood it ---------------------------------------------------------------
+
+  {
+    for (const id of DIFFICULTY_IDS) {
+      const { size, colors } = RULES_FLOOD[id];
+      const board = createFlood(size, colors, seededRng(size * 71));
+      assert.equal(board.length, size * size, `floodit:${id} board length`);
+      assert.ok(
+        board.every((cell) => cell >= 0 && cell < colors),
+        `floodit:${id} produced a colour outside its palette`,
+      );
+    }
+
+    // The flood takes the region CONNECTED to the corner, and nothing else --
+    // an island of the same colour elsewhere on the board is not yours yet.
+    //   0 0 1
+    //   1 1 1
+    //   0 1 1
+    const board = [0, 0, 1, 1, 1, 1, 0, 1, 1];
+    assert.equal(floodedCount(board, 3), 2, "the corner region is the two 0s in the top row");
+
+    // The 0 at index 6 is the SAME COLOUR as the corner and is not connected to
+    // it, so it must survive the flood. A fill that recoloured every matching
+    // cell rather than every reachable one is the classic version of this bug,
+    // and it makes the game trivially winnable.
+    const filled = floodFill(board, 3, 1);
+    assert.deepEqual(filled, [1, 1, 1, 1, 1, 1, 0, 1, 1]);
+    assert.ok(!isFlooded(filled), "one stranded cell is not a finished board");
+    assert.equal(floodedCount(filled, 3), 8);
+
+    // One more move takes it: the region is now everything except that cell,
+    // and painting it back reaches the cell too.
+    const done = floodFill(filled, 3, 0);
+    assert.deepEqual(done, new Array(9).fill(0));
+    assert.ok(isFlooded(done));
+
+    // Painting the colour you already are changes nothing, and must not be
+    // charged as a move -- so it has to be recognisable as a no-op.
+    assert.deepEqual(floodFill(board, 3, 0), board);
+  }
+
+  // --- nonogram ---------------------------------------------------------------
+
+  {
+    // The clues describe the picture. If runsOf and the generator ever disagree,
+    // the puzzle is unsolvable and looks merely hard.
+    assert.deepEqual(runsOf([true, true, false, true]), [2, 1]);
+    assert.deepEqual(runsOf([false, false]), [0], "an empty line is [0], not []");
+    assert.deepEqual(runsOf([true, true, true]), [3]);
+    assert.deepEqual(runsOf([false, true, false, true, false]), [1, 1]);
+
+    for (const id of DIFFICULTY_IDS) {
+      const { size, density } = RULES_NONOGRAM[id];
+      const puzzle = createNonogram(size, density, seededRng(size * 149));
+
+      assert.equal(puzzle.rowClues.length, size, `nonogram:${id} row clue count`);
+      assert.equal(puzzle.columnClues.length, size, `nonogram:${id} column clue count`);
+
+      // Every clue read back off the solution has to match the clue that was
+      // published with it.
+      for (let row = 0; row < size; row += 1) {
+        assert.deepEqual(
+          runsOf(puzzle.solution.slice(row * size, row * size + size)),
+          puzzle.rowClues[row],
+          `nonogram:${id} row ${row} clue does not describe its own solution`,
+        );
+      }
+
+      // The solution solves it, and the empty grid does not.
+      const marks = puzzle.solution.map((filled) => (filled ? 1 : 0));
+      assert.ok(isNonogramSolved(marks, puzzle), `nonogram:${id} rejects its own solution`);
+      assert.ok(!isNonogramSolved(new Array(size * size).fill(0), puzzle));
+
+      // CROSSES ARE NOTES. Marking a blank cell with a cross is how people
+      // think, and grading it would be marking them wrong for how they thought.
+      const withCrosses = marks.map((mark) => (mark === 1 ? 1 : 2));
+      assert.ok(
+        isNonogramSolved(withCrosses, puzzle),
+        `nonogram:${id} counted the player's own crosses against them`,
+      );
+    }
+  }
+
+  // --- typing and arithmetic ---------------------------------------------------
+
+  {
+    const passage = buildPassage(30, seededRng(5));
+    assert.equal(passage.length, 30);
+    assert.ok(passage.every((word) => typeof word === "string" && word.length > 0));
+
+    // Five characters is a word, which is what every typing test has counted
+    // since the typewriter. Counting actual words would reward a passage of
+    // short ones and punish a passage of long ones.
+    assert.equal(wordsPerMinute(250, 60_000), 50);
+    assert.equal(wordsPerMinute(0, 60_000), 0);
+    assert.equal(wordsPerMinute(100, 0), 0, "a zero clock must not divide by zero");
+
+    assert.equal(typingAccuracy("", "abc"), 100, "nothing typed is nothing wrong");
+    assert.equal(typingAccuracy("abc", "abc"), 100);
+    assert.equal(typingAccuracy("abd", "abc"), 67);
+
+    // Subtraction never goes negative and division always divides exactly: a
+    // sprint is a test of speed, and a remainder is a test of patience.
+    const rng = seededRng(3);
+    for (let index = 0; index < 400; index += 1) {
+      const question = buildQuestion(25, true, rng);
+      assert.ok(Number.isInteger(question.answer), `${question.text} has a fractional answer`);
+      assert.ok(question.answer >= 0, `${question.text} has a negative answer`);
+      assert.match(question.text, /^\d+ [-+x:] \d+$/, `${question.text} is malformed`);
+    }
   }
 
   // --- the parameterised boards ------------------------------------------------

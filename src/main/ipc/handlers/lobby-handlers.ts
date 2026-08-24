@@ -72,6 +72,7 @@ export function registerLobbyHandlers(): void {
           parsed.allowedUsers,
           parsed.password,
           parsed.isTextOnly,
+          parsed.capacity,
         );
       });
       return ok(result);
@@ -91,6 +92,7 @@ export function registerLobbyHandlers(): void {
           parsed.isLocked,
           parsed.allowedUsers,
           parsed.password,
+          parsed.capacity,
         );
       });
       return ok(result);

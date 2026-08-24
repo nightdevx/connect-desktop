@@ -4,6 +4,7 @@ import {
   Dropdown,
   Modal,
   Input,
+  InputNumber,
   Switch,
   Select,
   Tag,
@@ -48,6 +49,7 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
 import { useUiStore } from "@/store/ui-store";
+import { GameActivityBadge, useGameActivityByUser } from "@/features/minigames";
 import type { ViewPreferences } from "@/store/view-preferences";
 import workspaceService from "../../services";
 import { describeDuration } from "./parts/moderation-durations";
@@ -82,6 +84,7 @@ interface LobbiesSidebarPanelProps {
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string | null,
+    capacity?: number,
   ) => Promise<boolean>;
   onDeleteLobby: (lobbyId: string) => Promise<boolean>;
   renamingLobbyId: string | null;
@@ -125,6 +128,7 @@ export function LobbiesSidebarPanel({
   participantAudio,
 }: LobbiesSidebarPanelProps) {
   const queryClient = useQueryClient();
+  const gameActivityByUser = useGameActivityByUser();
   // Persisted, like every other fold in this app: the panel is unmounted the
   // moment the workspace switches section, so a useState here would forget which
   // categories were closed on the way back from Ayarlar.
@@ -197,6 +201,9 @@ export function LobbiesSidebarPanel({
   const [editIsLocked, setEditIsLocked] = useState(false);
   const [editAllowedUsers, setEditAllowedUsers] = useState<string[]>([]);
   const [editPassword, setEditPassword] = useState("");
+  // null means "follow the server default", which is what a room that never
+  // chose a limit does.
+  const [editCapacity, setEditCapacity] = useState<number | null>(null);
   const [editRemovePassword, setEditRemovePassword] = useState(false);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
@@ -217,6 +224,9 @@ export function LobbiesSidebarPanel({
       setEditAllowedUsers(users);
       setEditPassword("");
       setEditRemovePassword(false);
+      // The room reports its live ceiling, so the field opens on what is
+      // actually enforced rather than on an empty box.
+      setEditCapacity(editingLobby.capacity ?? null);
       setLookedUpUsers([]);
       setLookupUsername("");
     }
@@ -392,6 +402,9 @@ export function LobbiesSidebarPanel({
       editIsLocked,
       editAllowedUsers,
       passwordArg,
+      // 0 rather than undefined when the field is cleared: undefined would keep
+      // whatever the room has, and clearing it means "go back to the default".
+      editingLobby.isTextOnly ? undefined : (editCapacity ?? 0),
     );
     if (!updated) {
       return;
@@ -403,6 +416,7 @@ export function LobbiesSidebarPanel({
     setEditAllowedUsers([]);
     setEditPassword("");
     setEditRemovePassword(false);
+    setEditCapacity(null);
   };
 
   // The room on screen — the same answer `isDisplayed` computes per row, hoisted
@@ -506,6 +520,10 @@ export function LobbiesSidebarPanel({
               type="button"
               className={[
                 "ct-lobby-row",
+                // A channel, not a room with the sound off: the modifier is what
+                // lets the stylesheet drop the room affordances (the occupancy
+                // slot, the heavier hover) for something nobody joins.
+                lobby.isTextOnly ? "text-room" : "",
                 isDisplayed ? "active" : "",
                 isJoined ? "joined" : "",
                 isDisabled ? "busy" : "",
@@ -527,11 +545,20 @@ export function LobbiesSidebarPanel({
                 className="ct-lobby-row-icon"
                 title={
                   lobby.isTextOnly
-                    ? "Mesaj odası — sesli bağlantı yok"
+                    ? "Yazılı sohbet — sesli bağlantı yok"
                     : "Sesli lobi"
                 }
               >
-                {lobby.isTextOnly ? <MessageOutlined /> : <SoundOutlined />}
+                {/* "#" for a channel, a speaker for a room. The hash used to be
+                    on both, which made it decoration; on one of them it is the
+                    thing that says which is which. */}
+                {lobby.isTextOnly ? (
+                  <span className="ct-lobby-row-hash" aria-hidden="true">
+                    #
+                  </span>
+                ) : (
+                  <SoundOutlined />
+                )}
               </span>
 
               <span className="ct-lobby-row-name">{lobby.name}</span>
@@ -763,6 +790,10 @@ export function LobbiesSidebarPanel({
                           </UserProfileCardPopover>
 
                           <div className="ct-lobby-member-icons">
+                            <GameActivityBadge
+                              activity={gameActivityByUser.get(member.userId)}
+                            />
+
                             {/* Your own mute wins the icon: it is the only one
                                 of the three states you can act on, and it holds
                                 whether or not their microphone is open. Amber
@@ -1203,6 +1234,27 @@ export function LobbiesSidebarPanel({
                 Listede olmayan birini tam kullanıcı adıyla ekleyebilirsin.
               </p>
             </div>
+          )}
+
+          {/* Sesli odalara özel, aynı sebeple: mesaj odasının rosteri yok, bir
+              kişi sınırı orada hiçbir şeye uygulanmaz. */}
+          {!editingLobby?.isTextOnly && (
+            <label className="ct-field">
+              <span>Kişi Sınırı</span>
+              <InputNumber
+                className="ct-input-number"
+                min={2}
+                max={100}
+                value={editCapacity}
+                onChange={(value) => setEditCapacity(value ?? null)}
+                placeholder="Sunucu varsayılanı"
+              />
+              <small className="ct-field-hint">
+                Boş bırakırsan sunucunun varsayılan sınırı geçerli olur. Sınırı
+                düşürmek kimseyi odadan çıkarmaz, yalnızca yeni katılımları
+                durdurur.
+              </small>
+            </label>
           )}
 
           {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur, mesaj

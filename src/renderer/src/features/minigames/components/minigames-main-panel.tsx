@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
+import { QuestionCircleOutlined } from "@ant-design/icons";
 import { scoreKey } from "@/store/minigame-scores";
 import { useUiStore } from "@/store/ui-store";
 import { describeDifficulty, isSoloGameId } from "../difficulty";
-import { findMinigame } from "../minigames-catalog";
+import { findMinigame, seatsOf } from "../minigames-catalog";
 import { useScoreSync } from "../use-score-sync";
 import { DifficultyPicker } from "./difficulty-picker";
+import { GameInfoDialog } from "./game-info-dialog";
 import { LiveTables } from "./live-tables";
 import { MinigameLeaderboard } from "./minigame-leaderboard";
 
@@ -53,9 +56,21 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
       ],
   );
 
+  const [infoOpen, setInfoOpen] = useState(false);
+
   const entry = findMinigame(selected);
   const { Component } = entry;
   const isSolo = isSoloGameId(selected);
+
+  useEffect(() => {
+    const { seenMinigameRules, markMinigameRulesSeen } = useUiStore.getState();
+    if (seenMinigameRules.has(selected)) {
+      setInfoOpen(false);
+      return;
+    }
+    setInfoOpen(true);
+    markMinigameRulesSeen(selected);
+  }, [selected]);
 
   // Mounted HERE rather than per game: it reconciles every record at once, and
   // one sync that runs while the page is open beats four that each run when
@@ -102,6 +117,16 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
               onChange={(next) => setDifficulty(selected, next)}
             />
           ) : null}
+
+          <button
+            type="button"
+            className="ct-minigames-info-button"
+            onClick={() => setInfoOpen(true)}
+            aria-label={`${entry.label} nasıl oynanır`}
+            title="Nasıl oynanır"
+          >
+            <QuestionCircleOutlined />
+          </button>
         </header>
 
         <Component
@@ -131,6 +156,14 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
           )}
         </div>
       </div>
+
+      {infoOpen ? (
+        <GameInfoDialog
+          entry={entry}
+          seats={seatsOf(selected)}
+          onClose={() => setInfoOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

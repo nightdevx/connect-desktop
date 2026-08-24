@@ -37,6 +37,12 @@ export function LobbySelectionScreen({
   joiningLobbyId,
   onJoinLobby,
 }: LobbySelectionScreenProps) {
+  // Split rather than filtered in place: the two are different objects to the
+  // user — one is a room you join, the other a channel you open — and mixing
+  // them in one grid was the whole of "the text rooms look like lobbies".
+  const voiceLobbies = lobbies.filter((lobby) => !lobby.isTextOnly);
+  const textRooms = lobbies.filter((lobby) => lobby.isTextOnly);
+
   return (
     <article
       className={`ct-lobby-main-layer selection ct-lobby-selection ${activeLobbyId ? "hidden-layer" : ""}`}
@@ -59,14 +65,19 @@ export function LobbySelectionScreen({
           </p>
         </div>
       ) : (
+        <>
         <section className="ct-lobby-selection-rooms">
           <h3>
-            Aktif Odalar
-            <span className="ct-lobby-selection-count">{lobbiesCount}</span>
+            Sesli Odalar
+            <span className="ct-lobby-selection-count">{voiceLobbies.length}</span>
           </h3>
 
+          {voiceLobbies.length === 0 && (
+            <p className="ct-lobby-selection-none">Açık sesli oda yok.</p>
+          )}
+
           <ul className="ct-lobby-selection-grid">
-            {lobbies.map((lobby) => {
+            {voiceLobbies.map((lobby) => {
               const isJoining = joiningLobbyId === lobby.id;
 
               return (
@@ -107,20 +118,11 @@ export function LobbySelectionScreen({
                     )}
                   </div>
 
-                  {/* Nobody is ever "in" a message room, so an occupancy count
-                      there would always read 0 and a "Katıl" button would
-                      promise a connection this click does not make. */}
                   <span className="ct-lobby-select-card-meta">
-                    {lobby.isTextOnly ? (
-                      "Sohbet kanalı"
-                    ) : (
-                      <>
-                        <TeamOutlined />
-                        {lobby.capacity
-                          ? `${lobby.memberCount} / ${lobby.capacity} kişi`
-                          : `${lobby.memberCount} kişi`}
-                      </>
-                    )}
+                    <TeamOutlined />
+                    {lobby.capacity
+                      ? `${lobby.memberCount} / ${lobby.capacity} kişi`
+                      : `${lobby.memberCount} kişi`}
                   </span>
 
                   <Button
@@ -129,13 +131,54 @@ export function LobbySelectionScreen({
                     disabled={joiningLobbyId !== null}
                     icon={isJoining ? <LoadingOutlined /> : undefined}
                   >
-                    {isJoining ? "Katılıyor…" : lobby.isTextOnly ? "Aç" : "Katıl"}
+                    {isJoining ? "Katılıyor…" : "Katıl"}
                   </Button>
                 </li>
               );
             })}
           </ul>
         </section>
+
+        {/* Text rooms are not lobbies with the sound turned off.
+
+            Nobody is ever "in" one, there is nothing to join and no occupancy to
+            report, so drawing them as room cards promised a connection the click
+            does not make and left a "0 kişi" that could never be anything else.
+            They read as what they are: a list of channels you open. */}
+        {textRooms.length > 0 && (
+          <section className="ct-lobby-selection-rooms">
+            <h3>
+              Yazılı Sohbetler
+              <span className="ct-lobby-selection-count">{textRooms.length}</span>
+            </h3>
+
+            <ul className="ct-lobby-channel-list">
+              {textRooms.map((room) => (
+                <li key={room.id}>
+                  <button
+                    type="button"
+                    className="ct-lobby-channel"
+                    onClick={() => onJoinLobby(room.id)}
+                  >
+                    <span className="ct-lobby-channel-hash" aria-hidden="true">
+                      #
+                    </span>
+                    <span className="ct-lobby-channel-name" title={room.name}>
+                      {room.name}
+                    </span>
+
+                    {room.isLocked && (
+                      <Tooltip title="Yalnızca izin verilenler görebilir">
+                        <LockOutlined className="ct-lobby-channel-flag" />
+                      </Tooltip>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        </>
       )}
     </article>
   );

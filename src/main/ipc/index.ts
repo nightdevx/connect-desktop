@@ -73,6 +73,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:admin-list-timeouts",
   "desktop:admin-clear-timeout",
   "desktop:admin-get-settings",
+  "desktop:admin-list-minigames",
   "desktop:admin-update-settings",
   "desktop:admin-clear-profile-media",
   "desktop:admin-set-email-verified",

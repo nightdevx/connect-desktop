@@ -55,6 +55,7 @@ import { useCallRoomSync } from "./workspace-shell/use-call-room-sync";
 import { useAudioPreferenceSync } from "./workspace-shell/use-audio-preference-sync";
 import { useDesktopPreferences } from "./workspace-shell/use-desktop-preferences";
 import { useLobbyEmotePlayback } from "./workspace-shell/use-lobby-emote-playback";
+import { useGameActivitySync } from "@/features/minigames";
 
 // A Record over the union rather than a chain of ifs ending in a fallback.
 // The chain was, in its own words, "the one failure the type system cannot
@@ -990,6 +991,8 @@ function WorkspaceShell({
     queryClient,
     remoteParticipantAudioPreferencesRef,
   );
+
+  useGameActivitySync(Boolean(currentUserId));
 
   // ----- MUTUAL EXCLUSION & TRANSITIONS -----
   const {

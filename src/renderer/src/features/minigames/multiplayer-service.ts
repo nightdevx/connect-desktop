@@ -25,7 +25,10 @@ const desktopBridgeOutdatedError = {
 } satisfies DesktopResult<never>;
 
 type TableResult = DesktopResult<{ table: MinigameTable | null }>;
-type TableListResult = DesktopResult<{ tables: MinigameTable[] }>;
+type TableListResult = DesktopResult<{
+  tables: MinigameTable[];
+  disabledGames?: string[];
+}>;
 
 export const multiplayerService = {
   /** Every open table. Each later change arrives on the stream below. */
@@ -42,6 +45,16 @@ export const multiplayerService = {
   join: (tableId: string): Promise<TableResult> => play({ action: "join", tableId }),
 
   /**
+   * Begins a game at a table that is not full.
+   *
+   * Only the games that seat more than two ever need it — a two-player table
+   * starts the moment the second chair is taken. What it buys the others is the
+   * difference between "we are four" and "we are three and Ali is not coming",
+   * which is a decision no rule can make.
+   */
+  start: (tableId: string): Promise<TableResult> => play({ action: "start", tableId }),
+
+  /**
    * `cell` under a gravity game names a target the server reduces to a column.
    * The landing row is not sent because a client cannot know it without racing
    * the opponent.
@@ -50,18 +63,27 @@ export const multiplayerService = {
     play({ action: "move", tableId, cell }),
 
   /**
-   * Chess. The UCI string is taken verbatim from the server's own legal-move
-   * list, so the client never composes one it has not been offered — and the
-   * server re-checks it regardless.
+   * Everything that is not a bare cell: a verb and its colon-separated
+   * arguments ("roll", "keep:1,3,5", "place:12:4,5,6"), with chess's UCI as the
+   * degenerate case of a verb with no arguments.
+   *
+   * ONE method rather than one per game. A method per game would be a preload
+   * method, an IPC channel and a zod schema per game, for what is one string
+   * the server parses — and the server has to re-check every one of them
+   * regardless, because a client may send anything.
    */
-  chessMove: (tableId: string, uci: string): Promise<TableResult> =>
-    play({ action: "move", tableId, move: uci }),
+  sendMove: (tableId: string, move: string): Promise<TableResult> =>
+    play({ action: "move", tableId, move }),
 
   /** A rematch at the same table, keeping both seats. */
   restart: (tableId: string): Promise<TableResult> => play({ action: "restart", tableId }),
 
   /** Stands up from whatever table this account is at. Takes no id. */
   leave: (): Promise<TableResult> => play({ action: "leave" }),
+
+  watch: (tableId: string): Promise<TableResult> => play({ action: "watch", tableId }),
+
+  unwatch: (): Promise<TableResult> => play({ action: "unwatch" }),
 
   /** Pushes from the lobby socket. Returns an unsubscribe. */
   onLobbyStreamEvent: (

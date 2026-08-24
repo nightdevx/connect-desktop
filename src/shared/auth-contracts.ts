@@ -198,6 +198,7 @@ export interface AdminRuntimeSettings {
   maxLobbies: number;
   maxLobbiesPerUser: number;
   lobbyCapacity: number;
+  disabledMinigames: string[];
 }
 
 // Every field optional: omitted means "leave unchanged", so the panel can send
@@ -207,6 +208,7 @@ export interface AdminRuntimeSettingsPatch {
   maxLobbies?: number;
   maxLobbiesPerUser?: number;
   lobbyCapacity?: number;
+  disabledMinigames?: string[];
 }
 
 // A voice mute as the admin panel sees it: the username resolved, because the

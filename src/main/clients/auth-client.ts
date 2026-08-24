@@ -27,6 +27,7 @@ import type {
   UpdatePrivacyRequest,
 } from "../../shared/auth-contracts";
 import type { AdminEmoteLibrary } from "../../shared/desktop-api-types";
+import type { MinigameTableOverview } from "../../shared/minigames";
 import type { BaseClient } from "./base-client";
 
 export class AuthClient {
@@ -488,6 +489,18 @@ export class AuthClient {
     });
   }
 
+  public async adminListMinigames(
+    accessToken: string,
+  ): Promise<{ tables: MinigameTableOverview[]; disabledGames: string[] }> {
+    return this.baseClient.request<{
+      tables: MinigameTableOverview[];
+      disabledGames: string[];
+    }>("/admin/minigames", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
   public async adminUpdateSettings(
     accessToken: string,
     patch: AdminRuntimeSettingsPatch,
@@ -548,11 +561,12 @@ export class AuthClient {
 
   public async adminListLobbies(
     accessToken: string,
-    params?: { search?: string; locked?: string; limit?: number; offset?: number }
+    params?: { search?: string; locked?: string; kind?: string; limit?: number; offset?: number }
   ): Promise<{ lobbies: AdminLobbySnapshot[]; total: number }> {
     const query = new URLSearchParams();
     if (params?.search) query.append("search", params.search);
     if (params?.locked && params.locked !== "all") query.append("locked", params.locked);
+    if (params?.kind && params.kind !== "all") query.append("kind", params.kind);
     if (params?.limit != null) query.append("limit", String(params.limit));
     if (params?.offset != null) query.append("offset", String(params.offset));
 

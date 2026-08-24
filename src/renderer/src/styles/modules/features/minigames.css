@@ -1845,3 +1845,188 @@
     animation: none !important;
   }
 }
+
+.ct-minigames-info-button {
+  @apply flex h-8 w-8 flex-none items-center justify-center rounded-full text-base;
+  border: 1px solid var(--ct-border);
+  background: var(--ct-alpha-04);
+  color: var(--ct-text-secondary);
+  transition:
+    transform var(--ct-duration-fast) var(--ct-ease-spring),
+    background var(--ct-duration-fast) linear,
+    color var(--ct-duration-fast) linear;
+}
+
+.ct-minigames-info-button:hover {
+  background: var(--ct-accent-soft);
+  color: var(--ct-text-primary);
+  transform: scale(1.08);
+}
+
+.ct-gameinfo-backdrop {
+  @apply fixed inset-0 flex items-center justify-center p-6;
+  z-index: 60;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(2px);
+  animation: ct-gameinfo-fade var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+@keyframes ct-gameinfo-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.ct-gameinfo {
+  @apply flex w-full flex-col gap-4 rounded-xl border p-5;
+  max-width: 34rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-color: var(--ct-border-strong);
+  background: var(--ct-panel-solid);
+  box-shadow: var(--ct-shadow-lg);
+  animation: ct-gameinfo-rise var(--ct-duration-slow) var(--ct-ease-spring);
+}
+
+@keyframes ct-gameinfo-rise {
+  from {
+    transform: translateY(14px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+.ct-gameinfo-header {
+  @apply flex items-start gap-3;
+}
+
+.ct-gameinfo-icon {
+  @apply flex h-11 w-11 flex-none items-center justify-center rounded-lg text-xl;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-primary);
+}
+
+.ct-gameinfo-title {
+  @apply flex min-w-0 flex-1 flex-col gap-0.5;
+}
+
+.ct-gameinfo-title h4 {
+  @apply m-0 text-lg font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-gameinfo-title p {
+  @apply m-0 text-sm;
+  color: var(--ct-text-muted);
+}
+
+.ct-gameinfo-close {
+  @apply flex h-8 w-8 flex-none items-center justify-center rounded-full;
+  color: var(--ct-text-muted);
+  transition: background var(--ct-duration-fast) linear;
+}
+
+.ct-gameinfo-close:hover {
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-primary);
+}
+
+.ct-gameinfo-meta {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.ct-gameinfo-chip {
+  @apply rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+}
+
+.ct-gameinfo-subtitle {
+  @apply m-0 text-xs font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-gameinfo-rules {
+  @apply m-0 flex list-none flex-col gap-2 p-0;
+  counter-reset: ct-gameinfo-rule;
+}
+
+.ct-gameinfo-rules li {
+  @apply relative pl-8 text-sm leading-relaxed;
+  color: var(--ct-text-secondary);
+  counter-increment: ct-gameinfo-rule;
+}
+
+.ct-gameinfo-rules li::before {
+  content: counter(ct-gameinfo-rule);
+  position: absolute;
+  left: 0;
+  top: 0.1rem;
+  display: flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--ct-accent-soft);
+  color: var(--ct-text-primary);
+}
+
+.ct-gameinfo-footer {
+  @apply flex justify-end;
+}
+
+.ct-game-activity-chip {
+  @apply inline-flex max-w-[9rem] items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+}
+
+.ct-game-activity-chip[data-role="watching"] {
+  color: var(--ct-info);
+}
+
+.ct-game-activity-icon {
+  @apply flex flex-none items-center text-[11px];
+}
+
+.ct-game-activity-name {
+  @apply truncate;
+}
+
+.ct-game-activity-text {
+  color: var(--ct-info);
+}
+
+.ct-versus-audience {
+  @apply ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-audience-count {
+  @apply font-semibold tabular-nums;
+  color: var(--ct-text-secondary);
+}
+
+.ct-versus-audience-names {
+  @apply max-w-[12rem] truncate;
+}
+
+.ct-live-table-audience {
+  @apply inline-flex items-center gap-1 rounded-full px-1.5 text-[10px] font-semibold tabular-nums;
+  background: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-gameinfo-backdrop,
+  .ct-gameinfo {
+    animation: none;
+  }
+
+  .ct-minigames-info-button:hover {
+    transform: none;
+  }
+}

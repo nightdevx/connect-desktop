@@ -353,6 +353,7 @@ const desktopApi: DesktopApi = {
   adminClearTimeout: async (payload) =>
     ipcRenderer.invoke("desktop:admin-clear-timeout", payload),
   adminGetSettings: async () => ipcRenderer.invoke("desktop:admin-get-settings"),
+  adminListMinigames: async () => ipcRenderer.invoke("desktop:admin-list-minigames"),
   adminUpdateSettings: async (patch) =>
     ipcRenderer.invoke("desktop:admin-update-settings", patch),
   adminClearProfileMedia: async (userId) =>
