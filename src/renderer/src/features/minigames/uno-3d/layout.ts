@@ -36,6 +36,19 @@ const OPPONENT_MAX_SPREAD = 0.16;
 const OPPONENT_FAN_RADIUS = 1.9;
 const OPPONENT_CURVE = 0.55;
 
+/**
+ * How wide an opponent's whole fan is at scale 1, across the table.
+ *
+ * Derived from the fan's own numbers rather than measured by hand, so it cannot
+ * drift out of step with them: the outermost card of the widest fan sits at
+ * sin(half the arc) times the fan radius, and the card itself adds its width.
+ */
+const OPPONENT_FAN_SPAN =
+  2 * Math.sin(OPPONENT_MAX_ARC / 2) * OPPONENT_FAN_RADIUS + CARD_WIDTH;
+
+/** How much of the gap between two chairs a fan is allowed to fill. */
+const SEAT_CLEARANCE = 0.94;
+
 export const DRAW_PILE = { x: -1.62, z: 0.15 };
 export const DISCARD_PILE = { x: 0.62, z: 0.15 };
 export const DISCARD_DEPTH = 6;
@@ -100,24 +113,56 @@ const SEAT_LEFT = Math.PI * 1.06;
 const SEAT_FAR = Math.PI * 1.5;
 const SEAT_RIGHT = Math.PI * 1.94;
 
-const SEAT_SLOTS: Record<number, number[]> = {
-  1: [SEAT_FAR],
-  2: [SEAT_LEFT, SEAT_RIGHT],
-  3: [SEAT_LEFT, SEAT_FAR, SEAT_RIGHT],
-};
-
+/**
+ * Where the seat `offset` places away from the viewer sits, in table angles.
+ *
+ * Everybody else is spread evenly along the arc from the left chair to the
+ * right one, going the long way round the far side. Never the whole circle:
+ * the near quarter is where the viewer's own hand is, and a table that put an
+ * opponent there sat somebody in the player's lap.
+ *
+ * The arc reproduces the three-seat table it replaced -- one opponent lands on
+ * the midpoint, which is the far chair; two land on the ends, which are left
+ * and right; three land on left, far and right -- so the small tables did not
+ * move when this grew to ten.
+ */
 export function seatAngle(offset: number, total: number): number {
-  if (offset === 0) {
+  if (offset <= 0) {
     return Math.PI / 2;
   }
 
   const opponents = Math.max(total - 1, 1);
-  const slots = SEAT_SLOTS[opponents];
-  if (slots) {
-    return slots[(offset - 1) % slots.length];
+  if (opponents === 1) {
+    return SEAT_FAR;
   }
 
-  return Math.PI / 2 + (offset * 2 * Math.PI) / Math.max(total, 1);
+  const step = (SEAT_RIGHT - SEAT_LEFT) / (opponents - 1);
+  return SEAT_LEFT + step * (offset - 1);
+}
+
+/**
+ * How big an opponent's cards are drawn, which is a function of how many
+ * opponents there are.
+ *
+ * Ten chairs on the same arc that held three leaves each one a third of the
+ * room, and a fan drawn at the old size would sit in its neighbour. So the fan
+ * is scaled to the gap between chairs: the same drawing, smaller, rather than a
+ * different layout past some threshold.
+ *
+ * Capped at the size a small table uses, so two players do not get enormous
+ * cards for having elbow room.
+ */
+export function opponentScale(total: number): number {
+  const opponents = Math.max(total - 1, 1);
+  if (opponents < 2) {
+    return OPPONENT_SCALE;
+  }
+
+  const spacing = (SEAT_RIGHT - SEAT_LEFT) / (opponents - 1);
+  // The straight-line gap between two neighbouring chairs.
+  const gap = 2 * OPPONENT_RADIUS * Math.sin(spacing / 2);
+
+  return Math.min(OPPONENT_SCALE, (gap * SEAT_CLEARANCE) / OPPONENT_FAN_SPAN);
 }
 
 export const RING_RADIUS = 1.72;
@@ -201,32 +246,26 @@ export function handPlacement(index: number, count: number): Placement {
   return lift > 0 ? { ...placement, y: placement.y + lift } : placement;
 }
 
-function rawOpponentPlacement(index: number, count: number): Placement {
+function rawOpponentPlacement(index: number, count: number, total: number): Placement {
+  const scale = opponentScale(total);
+  const radius = OPPONENT_FAN_RADIUS * scale;
   const angle = fanAngle(index, count, OPPONENT_MAX_SPREAD, OPPONENT_MAX_ARC);
-  const offset = fanOffset(
-    OPPONENT_TILT,
-    OPPONENT_FAN_RADIUS,
-    OPPONENT_CURVE,
-    angle,
-    index,
-    count,
-    OPPONENT_SCALE,
-  );
+  const offset = fanOffset(OPPONENT_TILT, radius, OPPONENT_CURVE, angle, index, count, scale);
 
   return {
-    x: Math.sin(angle) * OPPONENT_FAN_RADIUS,
+    x: Math.sin(angle) * radius,
     y: 0.02 + offset.y,
     z: offset.z,
     tilt: OPPONENT_TILT,
     yaw: 0,
     roll: -angle,
-    scale: OPPONENT_SCALE,
+    scale,
   };
 }
 
-export function opponentPlacement(index: number, count: number): Placement {
-  const placement = rawOpponentPlacement(index, count);
-  const lift = feltLift((at) => rawOpponentPlacement(at, count), count);
+export function opponentPlacement(index: number, count: number, total: number): Placement {
+  const placement = rawOpponentPlacement(index, count, total);
+  const lift = feltLift((at) => rawOpponentPlacement(at, count, total), count);
 
   return lift > 0 ? { ...placement, y: placement.y + lift } : placement;
 }
@@ -266,12 +305,27 @@ export function cardLie(color: string, kind: string): number {
   return (Math.abs(hash) % 13) - 6;
 }
 
-export function opponentReach(count: number): number {
+export function opponentReach(count: number, total: number): number {
   if (count < 1) {
     return 0;
   }
-  const edge = opponentPlacement(0, count);
+  const edge = opponentPlacement(0, count, total);
   return Math.hypot(edge.x, edge.z) + (Math.hypot(CARD_WIDTH, CARD_HEIGHT) / 2) * edge.scale;
+}
+
+/** The straight-line gap between two neighbouring chairs. */
+export function seatGap(total: number): number {
+  const opponents = Math.max(total - 1, 1);
+  if (opponents < 2) {
+    return 2 * OPPONENT_RADIUS;
+  }
+  const spacing = (SEAT_RIGHT - SEAT_LEFT) / (opponents - 1);
+  return 2 * OPPONENT_RADIUS * Math.sin(spacing / 2);
+}
+
+/** How wide one opponent's fan is drawn at a table of this size. */
+export function opponentFanSpan(total: number): number {
+  return OPPONENT_FAN_SPAN * opponentScale(total);
 }
 
 export function handReach(count: number): number {

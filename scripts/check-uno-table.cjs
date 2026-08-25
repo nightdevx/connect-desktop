@@ -56,8 +56,11 @@ async function main() {
     handPlacement,
     handReach,
     lowestCorner,
+    opponentFanSpan,
     opponentPlacement,
     opponentReach,
+    opponentScale,
+    seatGap,
     arrowYaw,
     ringShowsDirection,
     ringSpin,
@@ -87,8 +90,8 @@ async function main() {
   }
 
   for (const [place, counts, what] of [
-    [handPlacement, [1, 2, 5, 8, 12, 20, 30, 50], "a hand card"],
-    [opponentPlacement, [1, 2, 5, 8, 12], "an opponent's card"],
+    [(index, count) => handPlacement(index, count), [1, 2, 5, 8, 12, 20, 30, 50], "a hand card"],
+    [(index, count) => opponentPlacement(index, count, 10), [1, 2, 5, 8, 12], "an opponent's card"],
   ]) {
     for (const count of counts) {
       for (let index = 0; index < count; index += 1) {
@@ -115,8 +118,8 @@ async function main() {
   );
 
   for (const [place, count, what] of [
-    [handPlacement, 20, "the hand"],
-    [opponentPlacement, 12, "an opponent's fan"],
+    [(index, size) => handPlacement(index, size), 20, "the hand"],
+    [(index, size) => opponentPlacement(index, size, 10), 12, "an opponent's fan"],
   ]) {
     for (let index = 1; index < count; index += 1) {
       const behind = place(index - 1, count);
@@ -173,17 +176,43 @@ async function main() {
     }
   }
 
-  for (const total of [2, 3, 4]) {
+  const TABLE_SIZES = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+  for (const total of TABLE_SIZES) {
     for (let offset = 1; offset < total; offset += 1) {
       const spot = seatPosition(seatAngle(offset, total));
-      inFrame(spot.x, 0.06, spot.z, opponentReach(12), `seat ${offset} of ${total}`);
+      inFrame(
+        spot.x,
+        0.06,
+        spot.z,
+        opponentReach(12, total),
+        `seat ${offset} of ${total}`,
+      );
     }
   }
 
   assert.ok(
-    OPPONENT_RADIUS + opponentReach(12) > TABLE_RADIUS - 1.2,
+    OPPONENT_RADIUS + opponentReach(12, 4) > TABLE_RADIUS - 1.2,
     "the opponents sit out at the rail, not huddled around the piles",
   );
+
+  // Ten chairs on the arc that held three: each fan has to fit the room it now
+  // gets, or an opponent is drawn inside their neighbour.
+  for (const total of TABLE_SIZES) {
+    assert.ok(
+      opponentFanSpan(total) <= seatGap(total),
+      `at ${total} seats a fan is ${opponentFanSpan(total).toFixed(2)} wide in a ` +
+        `${seatGap(total).toFixed(2)} gap -- neighbouring hands overlap`,
+    );
+    assert.ok(
+      opponentScale(total) > 0.2,
+      `at ${total} seats an opponent's cards shrink to ${opponentScale(total).toFixed(2)}`,
+    );
+  }
+
+  // A small table must not have moved when this grew: one opponent still sits
+  // across, two still sit left and right, three still left, far and right.
+  assert.ok(Math.abs(opponentScale(4) - opponentScale(2)) < 1e-9, "small tables changed size");
 
   assert.ok(
     Math.abs(DRAW_PILE.x - DISCARD_PILE.x) > CARD_WIDTH,
@@ -207,7 +236,7 @@ async function main() {
   const chairs = (total) =>
     Array.from({ length: total - 1 }, (_, index) => seatPosition(seatAngle(index + 1, total)));
 
-  for (const total of [2, 3, 4]) {
+  for (const total of TABLE_SIZES) {
     const mine = seatPosition(seatAngle(0, total));
     assert.ok(mine.z > 0 && Math.abs(mine.x) < 1e-9, "the viewer sits at the bottom");
     assert.ok(
@@ -220,7 +249,7 @@ async function main() {
       assert.ok(spot.z < 0, "nobody sits in front of the viewer, between them and their own hand");
       for (const other of seen) {
         assert.ok(
-          Math.hypot(spot.x - other.x, spot.z - other.z) > CARD_WIDTH,
+          Math.hypot(spot.x - other.x, spot.z - other.z) > opponentFanSpan(total) * 0.9,
           `two of ${total} seats land on the same chair`,
         );
       }
@@ -240,14 +269,19 @@ async function main() {
   assert.ok(Math.abs(trio[1].x) < 0.6, "with three opponents the second sits across");
   assert.ok(trio[2].x > 1.5, "with three opponents the third sits on the right");
 
-  for (const count of [1, 5, 12]) {
-    for (let index = 0; index < count; index += 1) {
-      const placement = opponentPlacement(index, count);
-      assert.ok(
-        Math.hypot(placement.x, placement.z) < 1.4,
-        "an opponent's fan stays over its own seat",
-      );
-      assert.ok(placement.scale < 1, "an opponent's cards are drawn smaller than your own");
+  for (const total of TABLE_SIZES) {
+    for (const count of [1, 5, 12]) {
+      for (let index = 0; index < count; index += 1) {
+        const placement = opponentPlacement(index, count, total);
+        assert.ok(
+          Math.hypot(placement.x, placement.z) <= opponentFanSpan(total),
+          `an opponent's fan at ${total} seats reaches outside its own chair`,
+        );
+        assert.ok(
+          placement.scale < 1,
+          "an opponent's cards are drawn smaller than your own",
+        );
+      }
     }
   }
 

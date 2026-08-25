@@ -650,7 +650,7 @@ export class UnoTableScene {
           entry.mesh.quaternion.setFromEuler(new Euler(FACE_DOWN, 0, 0.9, "YXZ"));
           entry.mesh.scale.setScalar(1);
         }
-        this.aim(entry, opponentPlacement(index, shown), false);
+        this.aim(entry, opponentPlacement(index, shown, state.totalSeats), false);
       });
       this.seatCards.set(seat.seat, pool);
     }

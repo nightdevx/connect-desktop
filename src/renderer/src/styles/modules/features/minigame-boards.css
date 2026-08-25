@@ -1312,6 +1312,14 @@
   white-space: nowrap;
 }
 
+.ct-uno-seats[data-dense="true"] .ct-uno-seat {
+  @apply gap-1 px-1.5 py-0.5;
+}
+
+.ct-uno-seats[data-dense="true"] .ct-uno-seat-name {
+  display: none;
+}
+
 .ct-uno-seat-name {
   @apply truncate;
   max-width: 9rem;

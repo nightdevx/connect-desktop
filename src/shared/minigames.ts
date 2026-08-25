@@ -77,7 +77,7 @@ export const MULTIPLAYER_SEATS: Record<
   yahtzee: { min: 2, max: 4 },
   ludo: { min: 2, max: 4 },
   quiz: { min: 2, max: 4 },
-  uno: { min: 2, max: 4 },
+  uno: { min: 2, max: 10 },
   battleship: { min: 2, max: 2 },
   okey: { min: 2, max: 4 },
   rummy1: { min: 2, max: 4 },

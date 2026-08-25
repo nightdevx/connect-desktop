@@ -19,7 +19,7 @@ function isPlayable(card: MinigameUnoCard, board: MinigameUnoBoard): boolean {
 }
 
 /**
- * Son Kart, two to four, drawn as a real table in WebGL.
+ * Son Kart, two to ten, drawn as a real table in WebGL.
  *
  * The other players' hands arrive EMPTY -- the server cuts each snapshot for
  * the account reading it -- so there is nothing here that could leak a card.
@@ -203,7 +203,15 @@ export function UnoBoard({ table, mySeat, isMyTurn, isBusy, onMove }: VersusView
       <div className="ct-uno-stage" data-failed={failed ? "true" : undefined}>
         <canvas ref={canvasRef} className="ct-uno-canvas" />
 
-        <div className="ct-uno-seats" aria-hidden="true">
+        {/* Ten chairs put ten labels round the same arc, and a name plus a
+            count in each is more text than the space holds. Past five the name
+            goes and the coloured mark carries the identity -- the aside panel
+            still lists every name against its count. */}
+        <div
+          className="ct-uno-seats"
+          data-dense={labels.length > 5 ? "true" : undefined}
+          aria-hidden="true"
+        >
           {labels.map((label) => {
             const count = board.counts[label.seat] ?? 0;
             return (

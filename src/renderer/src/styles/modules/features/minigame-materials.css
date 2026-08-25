@@ -116,6 +116,15 @@
      deficiencies -- which rules out the obvious red/green pair. */
   --ct-seat-2: #22c55e;
   --ct-seat-3: #c084fc;
+  /* Five more, because Uno seats ten. Spread round the hue circle and kept out
+     of the four already spoken for, so ten names in a row are ten different
+     dots rather than five pairs somebody has to read the label to tell apart. */
+  --ct-seat-4: #f97316;
+  --ct-seat-5: #06b6d4;
+  --ct-seat-6: #ec4899;
+  --ct-seat-7: #a3e635;
+  --ct-seat-8: #8b5cf6;
+  --ct-seat-9: #14b8a6;
 }
 
 /* --- the table surface ---------------------------------------------------- */
@@ -586,4 +595,30 @@
 .ct-versus-mark[data-seat="3"],
 .ct-versus-disc[data-owner="3"] {
   background: var(--ct-seat-3);
+}
+
+/* Only a mark, not a disc: no board here has ten pieces on it. Uno is the one
+   game that seats this many and it draws its own cards. */
+.ct-versus-mark[data-seat="4"] {
+  background: var(--ct-seat-4);
+}
+
+.ct-versus-mark[data-seat="5"] {
+  background: var(--ct-seat-5);
+}
+
+.ct-versus-mark[data-seat="6"] {
+  background: var(--ct-seat-6);
+}
+
+.ct-versus-mark[data-seat="7"] {
+  background: var(--ct-seat-7);
+}
+
+.ct-versus-mark[data-seat="8"] {
+  background: var(--ct-seat-8);
+}
+
+.ct-versus-mark[data-seat="9"] {
+  background: var(--ct-seat-9);
 }
