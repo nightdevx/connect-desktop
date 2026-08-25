@@ -162,10 +162,8 @@ const main = async () => {
   // under the ENTRY's basename and ignores the fileName it is handed, which
   // every other call above gets away with only because their names already
   // agree with their entries.
-  const { MULTIPLAYER_GAME_IDS, MULTIPLAYER_SEATS } = await bundle(
-    "src/shared/minigames.ts",
-    "minigames.mjs",
-  );
+  const { MULTIPLAYER_GAME_IDS, MULTIPLAYER_SEATS, isSeatedAt, seatOf, tableSeats } =
+    await bundle("src/shared/minigames.ts", "minigames.mjs");
 
   const {
     parseFenPieces,
@@ -885,6 +883,51 @@ const main = async () => {
         `${id}: needs more players to start than it has chairs`,
       );
     }
+  }
+
+  // --- a seat you have left is not a seat you are in --------------------------
+
+  // The server keeps a vacated chair in `players` -- every board indexes its
+  // per-seat state by position, so renumbering a dealt board would hand one
+  // player another's cards. That makes "is this my table" a different question
+  // from "am I in this list", and answering it with the second one left the
+  // player who had just stood up still looking at the table, still being
+  // offered "Masadan kalk".
+  {
+    const table = {
+      id: "t",
+      game: "uno",
+      hostUserId: "ada",
+      players: [
+        { userId: "ada", username: "Ada" },
+        { userId: "linus", username: "Linus", left: true },
+      ],
+      spectators: [],
+      options: { handSize: 7, maxSeats: 4 },
+      turn: 0,
+      started: true,
+      winner: null,
+      draw: false,
+    };
+
+    assert.equal(isSeatedAt(table, "ada"), true, "somebody still at the table is seated");
+    assert.equal(
+      isSeatedAt(table, "linus"),
+      false,
+      "a seat that was walked out of still reads as occupied",
+    );
+    assert.equal(isSeatedAt(table, "grace"), false, "a stranger is not seated");
+
+    // The index is still there, because the board is still indexed by it.
+    assert.equal(seatOf(table, "linus"), 1, "the vacated chair lost its place in the board");
+
+    // A table narrowed by its host is narrower than its game.
+    assert.deepEqual(tableSeats(table), { min: 2, max: 4 });
+    assert.deepEqual(
+      tableSeats({ game: "uno", options: { handSize: 7, maxSeats: 10 } }),
+      MULTIPLAYER_SEATS.uno,
+      "a table at the catalogue maximum is the catalogue",
+    );
   }
 
   // --- the scored games, against the server's own bounds -----------------------

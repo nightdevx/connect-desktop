@@ -460,6 +460,21 @@ export function seatOf(table: MinigameTable, userId: string): number {
   return table.players.findIndex((player) => player.userId === userId);
 }
 
+/**
+ * Whether this account is actually AT the table.
+ *
+ * Not the same question as seatOf >= 0, and that is the whole reason it exists.
+ * A seat vacated mid-game keeps its place in `players` -- every board indexes
+ * its per-seat state by position, so the server holds the chair rather than
+ * renumbering a dealt board -- which means the person who walked out is still
+ * found there. Asking seatOf left them looking at the table they had just left,
+ * still being offered "Masadan kalk".
+ */
+export function isSeatedAt(table: MinigameTable, userId: string): boolean {
+  const seat = seatOf(table, userId);
+  return seat >= 0 && !table.players[seat]?.left;
+}
+
 export function spectatorsOf(table: MinigameTable): MinigamePlayer[] {
   return table.spectators ?? [];
 }

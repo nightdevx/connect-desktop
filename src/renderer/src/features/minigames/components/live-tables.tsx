@@ -3,7 +3,7 @@ import { EyeOutlined, WifiOutlined } from "@ant-design/icons";
 import {
   isTableFinished,
   isTableOpen,
-  seatOf,
+  isSeatedAt,
   spectatorsOf,
   type MinigameTable,
 } from "@shared/minigames";
@@ -85,7 +85,7 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
         <ul className="ct-live-tables-list">
           {tables.map((table) => {
             const entry = findMinigame(table.game);
-            const isMine = seatOf(table, currentUserId) >= 0;
+            const isMine = isSeatedAt(table, currentUserId);
             // "Full" is not "two people": a table that seats four is full at four,
             // and any started table is closed whatever its seat count says.
             const isFull = !isTableOpen(table);

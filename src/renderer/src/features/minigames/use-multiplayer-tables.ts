@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toErrorMessage } from "@shared/error-message";
-import { seatOf, type MinigameTable, type MultiplayerGameId } from "@shared/minigames";
+import { isSeatedAt, type MinigameTable, type MultiplayerGameId } from "@shared/minigames";
 import { useUiStore } from "@/store/ui-store";
 import { multiplayerService } from "./multiplayer-service";
 
@@ -138,7 +138,7 @@ export function useMultiplayerTables(
     // Across EVERY game, not just this one: an account can only be seated at a
     // single table, and finding it under the game the page is not showing is
     // what lets the page say so instead of silently offering to open a second.
-    const mine = all.find((table) => seatOf(table, currentUserId) >= 0) ?? null;
+    const mine = all.find((table) => isSeatedAt(table, currentUserId)) ?? null;
 
     const others = all.filter(
       (table) => table.game === game && table.id !== mine?.id,
@@ -159,7 +159,7 @@ export function useMultiplayerTables(
     const table = tables.get(watchedTableId);
     // Seated at it means playing it, and a player is not in the audience. This
     // is what makes joining the table you were watching a clean handover.
-    if (!table || seatOf(table, currentUserId) >= 0) {
+    if (!table || isSeatedAt(table, currentUserId)) {
       return null;
     }
     return table;

@@ -302,7 +302,12 @@ export const minigameActionSchema = z.object({
   // reaching the wire -- the server owns the real range and re-checks it,
   // because a client may send anything.
   handSize: z.number().int().min(1).max(64).optional(),
-  maxSeats: z.number().int().min(2).max(8).optional(),
+  // Loose on purpose, and looser than any game in the catalogue: this is here
+  // to stop nonsense reaching the wire, not to be the rule. It WAS the rule by
+  // accident -- an 8 written when the biggest table seated four -- and it
+  // refused nine and ten seats at Uno before the server ever saw them, which
+  // reads as the game rejecting a number it offers.
+  maxSeats: z.number().int().min(2).max(32).optional(),
   // The largest board in the catalogue is 20x20, but the ceiling is
   // deliberately loose: a tighter one here would have to be edited every time a
   // bigger board is added, and the server rejects an out-of-range cell anyway.
