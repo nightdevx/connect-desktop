@@ -39,6 +39,11 @@ export interface MultiplayerTablesController {
   sendMove: (move: string) => void;
   /** Begins a game at a table that is not full. */
   start: () => void;
+  /**
+   * The host shaping the table before it is dealt. Anything left out is left
+   * alone, so setting the seat count does not reset a hand size somebody chose.
+   */
+  configure: (settings: { handSize?: number; maxSeats?: number }) => void;
   restart: () => void;
   leave: () => void;
 }
@@ -283,6 +288,12 @@ export function useMultiplayerTables(
     [withMyTable],
   );
 
+  const configure = useCallback(
+    (settings: { handSize?: number; maxSeats?: number }) =>
+      withMyTable((tableId) => multiplayerService.configure(tableId, settings)),
+    [withMyTable],
+  );
+
   const restart = useCallback(
     () => withMyTable((tableId) => multiplayerService.restart(tableId)),
     [withMyTable],
@@ -306,6 +317,7 @@ export function useMultiplayerTables(
     open,
     join,
     start,
+    configure,
     move,
     sendMove,
     restart,

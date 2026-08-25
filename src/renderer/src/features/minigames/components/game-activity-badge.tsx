@@ -42,3 +42,8 @@ export function GameActivityBadge({
     </span>
   );
 }
+
+/** The game's own name, for a sentence that is not about who is playing it. */
+export function minigameLabel(game: GameActivity["game"]): string {
+  return findMinigame(game as MinigameId).label;
+}

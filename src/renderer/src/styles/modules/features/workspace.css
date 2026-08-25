@@ -796,6 +796,17 @@
 
 /* One tile per fact. It used to be a single "Katılım / date" row, which is a
    third of a line of information taking a full row of the card. */
+.ct-profile-card-game {
+  @apply flex items-center justify-between gap-2 rounded-lg border px-3 py-2;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-04);
+}
+
+.ct-profile-card-game-label {
+  @apply truncate text-xs font-semibold;
+  color: var(--ct-text-secondary);
+}
+
 .ct-profile-card-stats {
   @apply grid gap-1.5;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));

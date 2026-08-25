@@ -17,6 +17,8 @@ import type {
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
+import { MusicPanel } from "@/features/music";
+import { musicBotIdentity } from "@shared/music";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -528,6 +530,17 @@ export function LobbiesMainPanel({
     onSetRemoteParticipantVolume(contextMenuParticipantId, volumePercent);
   };
 
+  const musicBotId = activeLobbyId ? musicBotIdentity(activeLobbyId) : null;
+  const musicVolumePercent =
+    musicBotId !== null
+      ? (remoteParticipantAudioPreferences[musicBotId]?.volumePercent ?? 100)
+      : 100;
+
+  const handleMusicVolumeChange = (volumePercent: number): void => {
+    if (!musicBotId) return;
+    onSetRemoteParticipantVolume(musicBotId, volumePercent);
+  };
+
   const handleEmoteMute = (muted: boolean): void => {
     if (!contextMenuParticipantId) return;
     onSetRemoteParticipantEmoteMuted(contextMenuParticipantId, muted);
@@ -654,6 +667,13 @@ export function LobbiesMainPanel({
           )}
 
           <aside className={`ct-lobby-chat-slot ${isTextOnly || isLobbyChatOpen ? "open" : ""}`}>
+            {isTextOnly ? null : (
+              <MusicPanel
+                lobbyId={activeLobbyId}
+                volumePercent={musicVolumePercent}
+                onVolumeChange={handleMusicVolumeChange}
+              />
+            )}
             <LobbyChatPanel
               currentUserId={currentUserId}
               currentUsername={currentUsername}

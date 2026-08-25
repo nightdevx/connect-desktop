@@ -7,6 +7,7 @@ import {
 } from "@shared/auth-contracts";
 import { AdminEmoteLibrary } from "@shared/desktop-api-types";
 import type { MinigameTableOverview } from "@shared/minigames";
+import type { MusicDJ } from "@shared/music";
 import {
   AdminLobbyTimeout,
   AdminRuntimeSettings,
@@ -191,6 +192,25 @@ class AdminService {
     const res = await window.desktopApi.adminKickUser(lobbyId, userId);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Kullanıcı odadan atılamadı");
     return res.data;
+  }
+
+  public async listMusicDJs(): Promise<{ djs: MusicDJ[]; spotifyEnabled: boolean }> {
+    const res = await window.desktopApi.adminListMusicDJs();
+    if (!res.ok || !res.data) {
+      throw new Error(res.error?.message || "DJ listesi alınamadı");
+    }
+    return res.data;
+  }
+
+  public async grantMusicDJ(userId: string): Promise<MusicDJ> {
+    const res = await window.desktopApi.adminGrantMusicDJ(userId);
+    if (!res.ok || !res.data) throw new Error(res.error?.message || "DJ yetkisi verilemedi");
+    return res.data.dj;
+  }
+
+  public async revokeMusicDJ(userId: string): Promise<void> {
+    const res = await window.desktopApi.adminRevokeMusicDJ(userId);
+    if (!res.ok) throw new Error(res.error?.message || "DJ yetkisi alınamadı");
   }
 }
 

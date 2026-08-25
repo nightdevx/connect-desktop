@@ -84,10 +84,36 @@ export const MULTIPLAYER_SEATS: Record<
   poker: { min: 2, max: 4 },
 };
 
+/**
+ * What the host set this table to, before it was dealt.
+ *
+ * Always sent, and always real numbers rather than zeroes to be interpreted:
+ * the server fills it from its own catalogue at open time, so the settings can
+ * be drawn from the table in front of you instead of from a second copy of the
+ * defaults kept in step by hand. A game that deals no hand carries handSize 0,
+ * and that is how a client knows there is no control to draw.
+ *
+ * Optional on the type only because an older server does not send it.
+ */
+export interface MinigameTableOptions {
+  /** Cards dealt to each player at the start. 0 for a game that deals none. */
+  handSize: number;
+  /** Chairs this table has, at most the catalogue maximum for the game. */
+  maxSeats: number;
+}
+
 export interface MinigamePlayer {
   userId: string;
   /** Carried on the wire so a name can be drawn without a directory lookup. */
   username: string;
+  /**
+   * Whether this seat was vacated mid-game.
+   *
+   * The seat stays in the list: every board indexes its per-seat state by
+   * position, so the server keeps the chair to hold those indices still. Absent
+   * rather than false on a seat somebody is still in.
+   */
+  left?: boolean;
 }
 
 /** Drop a mark on a grid: XOX, Connect Four, Gomoku and the two bigger boards. */
@@ -382,6 +408,8 @@ export interface MinigameTable {
    * Optional because an older server does not send it.
    */
   spectators?: MinigamePlayer[];
+  /** See MinigameTableOptions. Absent from an older server. */
+  options?: MinigameTableOptions;
   /**
    * Index into players -- or -1, which means "anybody seated may move".
    *
@@ -446,6 +474,7 @@ export interface MinigameTableOverview {
   hostUserId: string;
   players: MinigamePlayer[];
   spectators: MinigamePlayer[];
+  options?: MinigameTableOptions;
   started: boolean;
   finished: boolean;
   createdAt: string;
@@ -460,13 +489,36 @@ export interface MinigameTableOverview {
  * tricks in.
  */
 export function isTableOpen(table: MinigameTable): boolean {
-  return !table.started && table.players.length < MULTIPLAYER_SEATS[table.game].max;
+  return !table.started && table.players.length < tableSeats(table).max;
 }
 
 /** Whether enough people are seated for somebody to press Başlat. */
 export function canStartTable(table: MinigameTable): boolean {
-  return !table.started && table.players.length >= MULTIPLAYER_SEATS[table.game].min;
+  return !table.started && table.players.length >= tableSeats(table).min;
 }
+
+/**
+ * The seats THIS table has, which is not always what the game allows.
+ *
+ * A host may narrow a table before it is dealt -- three-handed Uno at a
+ * four-handed game -- so the catalogue is the ceiling and the table is the
+ * truth. Falls back to the catalogue for a table from a server too old to send
+ * its settings.
+ */
+export function tableSeats(table: {
+  game: MultiplayerGameId;
+  options?: MinigameTableOptions;
+}): { min: number; max: number } {
+  const catalogue = MULTIPLAYER_SEATS[table.game];
+  const asked = table.options?.maxSeats ?? 0;
+  if (asked <= 0 || asked >= catalogue.max) {
+    return catalogue;
+  }
+  return { min: Math.min(catalogue.min, asked), max: asked };
+}
+
+/** The bounds the server will accept for a hand. Mirrors internal/minigame. */
+export const MINIGAME_HAND_SIZE = { min: 1, max: 15 } as const;
 
 /**
  * Personal bests, and the board that ranks them.

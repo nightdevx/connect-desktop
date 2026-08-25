@@ -1525,7 +1525,7 @@
    ========================================================================== */
 
 .ct-lobby-chat-slot {
-  @apply relative h-full min-h-0;
+  @apply relative flex h-full min-h-0 flex-col;
   grid-area: chat;
   border-left: 1px solid var(--ct-border);
   background: var(--ct-panel-soft);
@@ -1559,7 +1559,7 @@
 }
 
 .ct-lobby-chat-panel {
-  @apply h-full min-h-0;
+  @apply h-full min-h-0 flex-1;
   /* One gutter for the whole column. The search field paid 16px, the thread
      16px and the composer 12px, so a message, the box it is typed in and the
      field that searches it all started on different vertical lines. */

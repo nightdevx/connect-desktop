@@ -1,8 +1,10 @@
-import { Alert, Button, Spin } from "antd";
+import { Alert, Button, InputNumber, Select, Spin } from "antd";
 import { EyeOutlined, UserAddOutlined } from "@ant-design/icons";
 import {
   MULTIPLAYER_SEATS,
   canStartTable,
+  tableSeats,
+  MINIGAME_HAND_SIZE,
   isTableFinished,
   isTableOpen,
   seatOf,
@@ -52,6 +54,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
     open,
     join,
     start,
+    configure,
     move,
     sendMove,
     restart,
@@ -97,6 +100,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
           onCell={move}
           onMove={sendMove}
           onStart={start}
+          onConfigure={configure}
           onRestart={restart}
           onLeave={leave}
           onStopWatching={stopWatching}
@@ -152,6 +156,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
         onCell={move}
         onMove={sendMove}
         onStart={start}
+        onConfigure={configure}
         onRestart={restart}
         onLeave={leave}
         onStopWatching={stopWatching}
@@ -283,6 +288,7 @@ function Board({
   onCell,
   onMove,
   onStart,
+  onConfigure,
   onRestart,
   onLeave,
   onStopWatching,
@@ -293,12 +299,13 @@ function Board({
   onCell: (cell: number) => void;
   onMove: (move: string) => void;
   onStart: () => void;
+  onConfigure: (settings: { handSize?: number; maxSeats?: number }) => void;
   onRestart: () => void;
   onLeave: () => void;
   onStopWatching: () => void;
 }) {
   const view = findVersusView(table.game);
-  const seats = MULTIPLAYER_SEATS[table.game];
+  const seats = tableSeats(table);
 
   const mySeat = seatOf(table, currentUserId);
   const isSpectating = mySeat < 0;
@@ -340,10 +347,14 @@ function Board({
           key={player.userId}
           className="ct-versus-seat"
           data-seat={seat}
+          // The chair is still in the list because the board counts on its
+          // index; saying so is what stops the others waiting for a turn that
+          // is never coming back.
+          data-left={player.left ? "true" : undefined}
           // Only while the game is live: leaving it on after a win would pulse
           // the loser's name if they happened to be next in turn.
           data-active={
-            !isFinished && !isWaiting && (table.turn < 0 || table.turn === seat)
+            !isFinished && !isWaiting && !player.left && (table.turn < 0 || table.turn === seat)
               ? "true"
               : undefined
           }
@@ -353,6 +364,7 @@ function Board({
             {player.username}
             {player.userId === currentUserId ? " (sen)" : ""}
           </span>
+          {player.left ? <span className="ct-versus-seat-left">ayrıldı</span> : null}
           {/* Seat 0 is white by definition, so the seat colour already says
               this — spelling it out saves the player working it out from a
               swatch they have not learnt yet. */}
@@ -428,6 +440,13 @@ function Board({
       header={
         <>
           {seatRow}
+          {!isSpectating && !table.started && table.hostUserId === currentUserId ? (
+            <TableSettings
+              table={table}
+              isBusy={isBusy}
+              onConfigure={onConfigure}
+            />
+          ) : null}
           {view.Header ? <view.Header {...viewProps} /> : null}
         </>
       }
@@ -490,4 +509,84 @@ function resultText(table: MinigameTable, mySeat: number): string {
     return "Kazandın.";
   }
   return `${table.players[table.winner ?? 0]?.username ?? "Rakip"} kazandı.`;
+}
+
+/**
+ * The table's shape, for the person who opened it.
+ *
+ * Only while it is still a lobby, and only for the host: both numbers decide
+ * how the board is dealt, so the server refuses them once the cards are out.
+ * The values come off the table rather than out of a local default, which is
+ * what keeps this honest when a second client changes one.
+ *
+ * A game that deals no hand carries handSize 0, and that is how the card
+ * control disappears without this file keeping a list of which games deal.
+ */
+function TableSettings({
+  table,
+  isBusy,
+  onConfigure,
+}: {
+  table: MinigameTable;
+  isBusy: boolean;
+  onConfigure: (settings: { handSize?: number; maxSeats?: number }) => void;
+}) {
+  const catalogue = MULTIPLAYER_SEATS[table.game];
+  const options = table.options;
+  const seated = table.players.length;
+
+  if (!options) {
+    return null;
+  }
+
+  const seatChoices: number[] = [];
+  for (let count = catalogue.min; count <= catalogue.max; count += 1) {
+    seatChoices.push(count);
+  }
+
+  return (
+    <div className="ct-versus-settings">
+      <span className="ct-versus-settings-title">Masa ayarları</span>
+
+      {seatChoices.length > 1 ? (
+        <label className="ct-versus-setting">
+          <span className="ct-versus-setting-label">Oyuncu</span>
+          <Select
+            size="small"
+            value={options.maxSeats}
+            disabled={isBusy}
+            onChange={(maxSeats: number) => onConfigure({ maxSeats })}
+            options={seatChoices.map((count) => ({
+              value: count,
+              label: `${count} kişi`,
+              // A chair somebody is already sitting in cannot be taken away.
+              disabled: count < seated,
+            }))}
+          />
+        </label>
+      ) : null}
+
+      {options.handSize > 0 ? (
+        <label className="ct-versus-setting">
+          <span className="ct-versus-setting-label">Kart</span>
+          <InputNumber
+            size="small"
+            min={MINIGAME_HAND_SIZE.min}
+            max={MINIGAME_HAND_SIZE.max}
+            value={options.handSize}
+            disabled={isBusy}
+            onChange={(handSize) => {
+              if (typeof handSize === "number") {
+                onConfigure({ handSize });
+              }
+            }}
+          />
+        </label>
+      ) : null}
+
+      <span className="ct-versus-settings-note">
+        Oyun başlayınca kilitlenir.
+      </span>
+    </div>
+  );
 }

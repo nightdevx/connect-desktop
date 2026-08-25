@@ -6,10 +6,19 @@ import {
   ClockCircleOutlined,
   CopyOutlined,
   CrownOutlined,
+  PlayCircleOutlined,
   SendOutlined,
+  UsergroupAddOutlined,
   TeamOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
+import {
+  gameActivityLabel,
+  joinMinigameTable,
+  minigameLabel,
+  useGameActivityByUser,
+} from "@/features/minigames";
+import { useUiStore } from "@/store/ui-store";
 import { useUserCard } from "../../hooks/user/use-user-cards";
 import { useUserPresence } from "../../hooks/user/use-user-presence";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -94,6 +103,71 @@ export function UserProfileCard({
 
   const isSelf = userId === currentUserId;
   const isFriend = friends.friendIds.includes(userId);
+
+  const gameActivity = useGameActivityByUser();
+  const activity = gameActivity.get(userId) ?? null;
+  // My own table, for the invite. Offered only while it is still a lobby --
+  // asking somebody to a game that has been dealt is asking them to a chair
+  // that no longer exists.
+  const myTable = gameActivity.get(currentUserId) ?? null;
+  const canInvite =
+    !isSelf && !activity && myTable?.role === "playing" && myTable.joinable;
+
+  const setSelectedMinigame = useUiStore((state) => state.setSelectedMinigame);
+  const setWorkspaceSection = useUiStore((state) => state.setWorkspaceSection);
+  const [joining, setJoining] = useState(false);
+  const [inviting, setInviting] = useState(false);
+
+  const handleJoinGame = useCallback((): void => {
+    if (!activity || joining) {
+      return;
+    }
+
+    setJoining(true);
+    void joinMinigameTable(activity.tableId)
+      .then((joined) => {
+        if (!joined) {
+          message.error("Masaya oturulamadı. Oyun başlamış olabilir.");
+          return;
+        }
+        // The page opens on whatever game was last looked at, so the table
+        // would otherwise be joined behind a board nobody asked for.
+        setSelectedMinigame(activity.game);
+        setWorkspaceSection("minigames");
+      })
+      .finally(() => setJoining(false));
+  }, [activity, joining, setSelectedMinigame, setWorkspaceSection]);
+
+  /**
+   * Asks somebody to the table this account is at.
+   *
+   * Sent as a direct message rather than as a new kind of notification, because
+   * a DM is already delivered live, already survives being offline, and already
+   * shows up in a place people look. The other half of the invite is the button
+   * above: whoever gets this opens the sender's card and joins from it, which
+   * is the same path a stranger takes.
+   */
+  const handleInviteToGame = useCallback((): void => {
+    if (!myTable || inviting) {
+      return;
+    }
+
+    const game = minigameLabel(myTable.game);
+    setInviting(true);
+    void workspaceService
+      .sendDirectMessage({
+        peerUserId: userId,
+        body: `Seni ${game} masama çağırıyorum — profilimden "Oyuna katıl" ile gelebilirsin.`,
+      })
+      .then((result) => {
+        if (!result.ok) {
+          message.error(`Davet gönderilemedi: ${getApiErrorMessage(result.error)}`);
+          return;
+        }
+        message.success(`${game} daveti gönderildi`);
+      })
+      .finally(() => setInviting(false));
+  }, [inviting, myTable, userId]);
   const hasOutgoingRequest = friends.outgoingRequests.some(
     (entry) => entry.userId === userId,
   );
@@ -317,6 +391,40 @@ export function UserProfileCard({
           </Tag>
         )}
       </div>
+
+      {activity || canInvite ? (
+        <div className="ct-profile-card-game">
+          <span className="ct-profile-card-game-label">
+            {activity
+              ? gameActivityLabel(activity)
+              : `${minigameLabel(myTable!.game)} masandasın`}
+          </span>
+          {/* Offered only while the table is still a lobby. A game already
+              dealt has no chair to give, and a button that fails is worse than
+              no button. */}
+          {activity && !isSelf && activity.joinable ? (
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              loading={joining}
+              onClick={handleJoinGame}
+            >
+              Oyuna katıl
+            </Button>
+          ) : null}
+          {canInvite ? (
+            <Button
+              size="small"
+              icon={<UsergroupAddOutlined />}
+              loading={inviting}
+              onClick={handleInviteToGame}
+            >
+              Oyuna davet et
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Two facts from one field. A date alone cannot be ranked — "14.03.2024"
           says nothing about whether this is a founding member or somebody who

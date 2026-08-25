@@ -53,6 +53,7 @@ export type AdminSection =
   | "sounds"
   | "moderation"
   | "minigames"
+  | "music"
   | "settings";
 export type SettingsSection =
   | "profile"

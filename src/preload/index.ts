@@ -181,6 +181,16 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:call-reject", payload),
   cancelCall: async (payload) =>
     ipcRenderer.invoke("desktop:call-cancel", payload),
+  getMusicCatalog: async () => ipcRenderer.invoke("desktop:music-catalog"),
+  getMusicState: async (payload) =>
+    ipcRenderer.invoke("desktop:music-state", payload),
+  sendMusicCommand: async (payload) =>
+    ipcRenderer.invoke("desktop:music-command", payload),
+  adminListMusicDJs: async () => ipcRenderer.invoke("desktop:admin-list-music-djs"),
+  adminGrantMusicDJ: async (userId) =>
+    ipcRenderer.invoke("desktop:admin-grant-music-dj", { userId }),
+  adminRevokeMusicDJ: async (userId) =>
+    ipcRenderer.invoke("desktop:admin-revoke-music-dj", { userId }),
   listScreenCaptureSources: async () =>
     ipcRenderer.invoke("desktop:screen-capture-sources"),
   getLobbyState: async (payload) =>

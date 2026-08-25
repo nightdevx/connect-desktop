@@ -4,6 +4,7 @@ import { ChatClient } from "./clients/chat-client";
 import { LobbyClient } from "./clients/lobby-client";
 import { MediaClient } from "./clients/media-client";
 import { MinigameClient } from "./clients/minigame-client";
+import { MusicClient } from "./clients/music-client";
 
 export class BackendClient {
   public readonly base: BaseClient;
@@ -12,6 +13,7 @@ export class BackendClient {
   public readonly media: MediaClient;
   public readonly chat: ChatClient;
   public readonly minigame: MinigameClient;
+  public readonly music: MusicClient;
 
   public constructor(baseUrl: string) {
     this.base = new BaseClient(baseUrl);
@@ -20,6 +22,7 @@ export class BackendClient {
     this.media = new MediaClient(this.base);
     this.chat = new ChatClient(this.base);
     this.minigame = new MinigameClient(this.base);
+    this.music = new MusicClient(this.base);
   }
 }
 

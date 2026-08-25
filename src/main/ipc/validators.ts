@@ -285,6 +285,7 @@ export const lobbyEmoteSchema = z.object({
 export const minigameActionSchema = z.object({
   action: z.enum([
     "open",
+    "configure",
     "join",
     "start",
     "move",
@@ -297,6 +298,11 @@ export const minigameActionSchema = z.object({
   // unbounded string.
   game: z.string().min(1).max(32).optional(),
   tableId: z.string().min(1).max(64).optional(),
+  // Table settings, for "configure". Bounded here only to stop nonsense
+  // reaching the wire -- the server owns the real range and re-checks it,
+  // because a client may send anything.
+  handSize: z.number().int().min(1).max(64).optional(),
+  maxSeats: z.number().int().min(2).max(8).optional(),
   // The largest board in the catalogue is 20x20, but the ceiling is
   // deliberately loose: a tighter one here would have to be edited every time a
   // bigger board is added, and the server rejects an out-of-range cell anyway.
@@ -520,3 +526,16 @@ export const adminListLobbiesSchema = z
   })
   .optional()
   .default({});
+
+export const musicLobbySchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+});
+
+export const musicCommandSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  command: z.string().min(1).max(332),
+});
+
+export const musicUserSchema = z.object({
+  userId: z.string().min(1).max(128),
+});

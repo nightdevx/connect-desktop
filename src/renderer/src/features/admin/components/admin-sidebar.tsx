@@ -9,6 +9,7 @@ import {
   StopOutlined,
   SettingOutlined,
   PlayCircleOutlined,
+  CustomerServiceOutlined,
 } from "@ant-design/icons";
 
 // Seven flat entries in one column was a list to read top to bottom. Grouped by
@@ -33,6 +34,7 @@ const NAV_GROUPS = [
       { key: "lobbies", label: "Odalar", icon: <HomeOutlined /> },
       { key: "sounds", label: "Sesler", icon: <SoundOutlined /> },
       { key: "minigames", label: "Oyunlar", icon: <PlayCircleOutlined /> },
+      { key: "music", label: "Müzik", icon: <CustomerServiceOutlined /> },
     ],
   },
   {

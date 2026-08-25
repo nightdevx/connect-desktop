@@ -45,6 +45,17 @@ export const multiplayerService = {
   join: (tableId: string): Promise<TableResult> => play({ action: "join", tableId }),
 
   /**
+   * The host shaping the table before it is dealt.
+   *
+   * One field at a time is fine: anything left out is left alone, so changing
+   * the seat count does not quietly reset the hand somebody already set.
+   */
+  configure: (
+    tableId: string,
+    settings: { handSize?: number; maxSeats?: number },
+  ): Promise<TableResult> => play({ action: "configure", tableId, ...settings }),
+
+  /**
    * Begins a game at a table that is not full.
    *
    * Only the games that seat more than two ever need it — a two-player table

@@ -3,6 +3,7 @@ import { registerAuthHandlers } from "./handlers/auth-handlers";
 import { registerLobbyHandlers } from "./handlers/lobby-handlers";
 import { registerDMHandlers } from "./handlers/dm-handlers";
 import { registerAppHandlers } from "./handlers/app-handlers";
+import { registerMusicHandlers } from "./handlers/music-handlers";
 import {
   directMessagesStreamManager,
   lobbyStreamManager,
@@ -140,6 +141,12 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:call-accept",
   "desktop:call-reject",
   "desktop:call-cancel",
+  "desktop:music-catalog",
+  "desktop:music-state",
+  "desktop:music-command",
+  "desktop:admin-list-music-djs",
+  "desktop:admin-grant-music-dj",
+  "desktop:admin-revoke-music-dj",
 ] as const;
 
 const clearIpcInvokeHandlers = (): void => {
@@ -176,4 +183,5 @@ export function registerIpcHandlers(): void {
   registerAuthHandlers();
   registerLobbyHandlers();
   registerDMHandlers();
+  registerMusicHandlers();
 }

@@ -28,14 +28,15 @@ export class MinigameClient {
     });
   }
 
-  // One POST for open, join, start, move, restart and leave. Every rule —
-  // seating, turn order, move legality — is enforced server-side, so nothing
-  // here has to know what the games are.
+  // One POST for open, configure, join, start, move, restart and leave. Every
+  // rule — seating, turn order, move legality, who may change a setting — is
+  // enforced server-side, so nothing here has to know what the games are.
   public async play(
     accessToken: string,
     body: {
       action:
         | "open"
+        | "configure"
         | "join"
         | "start"
         | "move"
@@ -45,6 +46,8 @@ export class MinigameClient {
         | "unwatch";
       game?: string;
       tableId?: string;
+      handSize?: number;
+      maxSeats?: number;
       cell?: number;
       move?: string;
     },

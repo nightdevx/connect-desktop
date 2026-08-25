@@ -1,0 +1,141 @@
+/* ==========================================================================
+   MUSIC
+
+   The room's music bot, docked above the lobby chat. It is a command surface
+   first and a player second: the queue and the log are what the room reads,
+   the transport buttons are shorthand for commands anyone could type.
+
+   It never grows past a third of the chat column. A long queue scrolls inside
+   itself rather than pushing the conversation off the screen — the panel is a
+   guest in that column, not the point of it.
+   ========================================================================== */
+
+.ct-music-panel {
+  @apply flex shrink-0 flex-col;
+  border-bottom: 1px solid var(--ct-border);
+  background: var(--ct-panel);
+  max-height: 34%;
+}
+
+.ct-music-header {
+  @apply flex shrink-0 items-center gap-2 px-3 py-2;
+}
+
+.ct-music-header-icon {
+  color: var(--ct-accent);
+  font-size: var(--ct-icon-sm);
+}
+
+.ct-music-headline {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.ct-music-title {
+  @apply truncate text-xs font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-music-subtitle {
+  @apply truncate text-[11px];
+  color: var(--ct-text-muted);
+  font-family: var(--ct-font-mono);
+}
+
+.ct-music-progress {
+  @apply h-0.5 w-full shrink-0;
+  background: var(--ct-alpha-08);
+}
+
+.ct-music-progress-fill {
+  @apply block h-full;
+  background: var(--ct-accent);
+  transition: width var(--ct-duration-base) linear;
+}
+
+.ct-music-body {
+  @apply flex min-h-0 flex-1 flex-col gap-2 px-3 pb-2 pt-2;
+}
+
+.ct-music-controls {
+  @apply flex shrink-0 items-center gap-1;
+}
+
+/* The slider takes whatever the buttons leave. Ant Design gives it no intrinsic
+   width, so without the flex child it collapses to zero and the handle sits on
+   top of the speaker icon. */
+.ct-music-volume {
+  @apply flex min-w-0 flex-1 items-center gap-2 pl-2;
+  color: var(--ct-text-muted);
+}
+
+.ct-music-volume .ant-slider {
+  @apply my-0 min-w-0 flex-1;
+}
+
+.ct-music-queue {
+  @apply m-0 flex min-h-0 shrink flex-col gap-0.5 overflow-y-auto p-0;
+  list-style: none;
+}
+
+.ct-music-queue-row {
+  @apply flex items-center gap-2 rounded px-1.5 py-1;
+}
+
+.ct-music-queue-row:hover {
+  background: var(--ct-alpha-04);
+}
+
+.ct-music-queue-index {
+  @apply w-4 shrink-0 text-right text-[11px];
+  color: var(--ct-text-muted);
+  font-family: var(--ct-font-mono);
+}
+
+.ct-music-queue-title {
+  @apply min-w-0 flex-1 truncate text-xs;
+  color: var(--ct-text-secondary);
+}
+
+.ct-music-queue-meta {
+  @apply shrink-0 text-[11px];
+  color: var(--ct-text-muted);
+  font-family: var(--ct-font-mono);
+}
+
+.ct-music-empty {
+  @apply m-0 px-1.5 text-[11px];
+  color: var(--ct-text-muted);
+}
+
+.ct-music-log {
+  @apply flex min-h-0 shrink flex-col gap-0.5 overflow-y-auto rounded px-2 py-1.5;
+  background: var(--ct-surface-1);
+  max-height: 6.5rem;
+}
+
+.ct-music-log-line {
+  @apply m-0 break-words text-[11px] leading-snug;
+  color: var(--ct-text-muted);
+  font-family: var(--ct-font-mono);
+}
+
+.ct-music-log-line.command {
+  color: var(--ct-text-secondary);
+}
+
+.ct-music-log-line.error {
+  color: var(--ct-danger);
+}
+
+.ct-music-feedback {
+  @apply m-0 truncate text-[11px];
+  color: var(--ct-text-secondary);
+}
+
+.ct-music-feedback.error {
+  color: var(--ct-danger);
+}
+
+.ct-music-composer {
+  @apply flex shrink-0 items-center gap-1.5;
+}

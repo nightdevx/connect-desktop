@@ -13,9 +13,11 @@ export {
   useGameActivitySync,
   useGameActivityByUser,
   useDisabledGames,
+  joinMinigameTable,
   type GameActivity,
 } from "./use-game-activity";
 export {
   GameActivityBadge,
   gameActivityLabel,
+  minigameLabel,
 } from "./components/game-activity-badge";

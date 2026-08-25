@@ -40,6 +40,7 @@ import type {
   MinigameTableOverview,
   MultiplayerGameId,
 } from "./minigames";
+import type { MusicCatalog, MusicDJ, MusicState } from "./music";
 
 export interface ApiErrorPayload {
   code: string;
@@ -311,6 +312,12 @@ export type LobbyStreamEvent =
       type: "minigame-table";
       tableId: string;
       table: MinigameTable | null;
+      at?: string;
+    }
+  | {
+      type: "music-state";
+      lobbyId: string;
+      state: MusicState;
       at?: string;
     }
   | {
@@ -656,6 +663,7 @@ export interface DesktopApi {
   playMinigame: (payload: {
     action:
       | "open"
+      | "configure"
       | "join"
       | "start"
       | "move"
@@ -665,6 +673,10 @@ export interface DesktopApi {
       | "unwatch";
     game?: MultiplayerGameId;
     tableId?: string;
+    // Table settings, for `configure`. The host only, and only before the
+    // table is dealt. Anything left out is left alone.
+    handSize?: number;
+    maxSeats?: number;
     // A grid game sends `cell`; everything else sends `move` — a verb and its
     // colon-separated arguments ("roll", "keep:1,3,5", "place:12:4,5,6"), with
     // chess's UCI as the degenerate case of a verb with no arguments. The
@@ -927,4 +939,15 @@ export interface DesktopApi {
   adminSetEmoteQuota: (payload: { userId?: string; quota: number | null }) => Promise<
     DesktopResult<{ globalQuota: number; userQuotas: Record<string, number> }>
   >;
+  getMusicCatalog: () => Promise<DesktopResult<MusicCatalog>>;
+  getMusicState: (payload: {
+    lobbyId: string;
+  }) => Promise<DesktopResult<{ state: MusicState; isDj: boolean }>>;
+  sendMusicCommand: (payload: {
+    lobbyId: string;
+    command: string;
+  }) => Promise<DesktopResult<{ state: MusicState; reply: string; isDj: boolean }>>;
+  adminListMusicDJs: () => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
+  adminGrantMusicDJ: (userId: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
+  adminRevokeMusicDJ: (userId: string) => Promise<DesktopResult<{ revoked: boolean }>>;
 }

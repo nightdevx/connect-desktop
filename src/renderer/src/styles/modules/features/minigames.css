@@ -804,6 +804,47 @@
   background: var(--ct-alpha-08);
 }
 
+.ct-versus-settings {
+  @apply flex flex-wrap items-center justify-center gap-3 rounded-lg border px-3 py-2;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-04);
+}
+
+.ct-versus-settings-title {
+  @apply text-3xs font-bold uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-setting {
+  @apply flex items-center gap-1.5 text-xs;
+  color: var(--ct-text-secondary);
+}
+
+.ct-versus-setting-label {
+  @apply font-semibold;
+}
+
+.ct-versus-settings-note {
+  @apply text-3xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-versus-seat-left {
+  @apply rounded px-1.5 py-px text-3xs font-bold uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+}
+
+.ct-versus-seat[data-left="true"] {
+  opacity: 0.55;
+}
+
+.ct-versus-seat[data-left="true"] .ct-versus-seat-name {
+  text-decoration: line-through;
+}
+
 .ct-versus-seat-empty {
   color: var(--ct-text-muted);
   border-style: dashed;
