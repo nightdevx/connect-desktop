@@ -16,7 +16,10 @@ import {
   onDesktopAppPreferencesChanged,
   peekDesktopAppPreferences,
 } from "./app-preferences";
-import { applyMediaEngineSwitches } from "./media-engine-flags";
+import {
+  applyMediaEngineSwitches,
+  logMediaEngineStatus,
+} from "./media-engine-flags";
 import { backendConfig } from "./config";
 import { KLIPY_API_HOSTNAME } from "./clients/klipy-client";
 
@@ -399,6 +402,8 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     console.info(
       `[Connect] Backend: ${backendConfig.url} (source=${backendConfig.source}, env=${envPathLabel})`,
     );
+
+    logMediaEngineStatus(peekDesktopAppPreferences().hardwareAcceleration);
 
     installPermissionHandlers();
 

@@ -67,7 +67,9 @@ const AUDIO_LEVEL_SAMPLE_INTERVAL_MS = 100;
 const DISCONNECT_MIC_MUTE_BUDGET_MS = 300;
 // Stats tick once a second; only warn after the limitation has persisted, so a
 // momentary spike while a share starts up does not fire a scary message.
-const QUALITY_LIMITATION_TICKS = 8;
+// Stats ticks, not seconds. Halved when the sampling interval doubled, so the
+// warning still needs about eight seconds of sustained limiting behind it.
+const QUALITY_LIMITATION_TICKS = 4;
 
 // A publication that exists and is not muted. Covers a self-mute and a
 // moderator's force-mute identically, which is what we want: either way nothing

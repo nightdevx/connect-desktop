@@ -20,6 +20,9 @@ try {
 const {
   computeBitrateBps,
   computePacketLossPct,
+  packetWindow,
+  poolPacketLossPct,
+  MIN_LOSS_WINDOW_PACKETS,
   isHardwareImplementation,
   summarizeSenderReport,
   summarizeReceiverReport,
@@ -61,10 +64,71 @@ assert.equal(
   0,
   "old burst does not persist",
 );
+// An unmeasurable window is not a good one. A track that carried nothing must
+// report null so the badge skips it, rather than 0 so the badge calls it clean.
 assert.equal(
   computePacketLossPct(sample(1000, 0, 0, 0), sample(2000, 0, 0, 0)),
-  0,
+  null,
   "no traffic at all",
+);
+
+// The DTX trap, and the reason MIN_LOSS_WINDOW_PACKETS exists. A silent
+// participant sends a handful of comfort-noise packets per second; one gap in
+// three is not a 33% connection problem, it is an unmeasurable window. This is
+// the arithmetic that kept the lobby badge red in a busy room.
+assert.equal(
+  computePacketLossPct(sample(1000, 0, 100, 0), sample(2000, 0, 102, 1)),
+  null,
+  "a three-packet window says nothing",
+);
+// One packet over the floor is measurable, and reported honestly.
+assert.equal(
+  computePacketLossPct(
+    sample(1000, 0, 0, 0),
+    sample(2000, 0, MIN_LOSS_WINDOW_PACKETS - 1, 1),
+  ),
+  5,
+  "at the floor the window counts",
+);
+assert.ok(
+  MIN_LOSS_WINDOW_PACKETS >= 10,
+  "a floor this low lets a two-packet window through again",
+);
+
+// --- pooled loss -----------------------------------------------------------
+// The badge pools a direction instead of taking its worst track. Nine healthy
+// streams and one thin noisy one is a healthy connection, and used to read as a
+// broken one.
+const thin = { packets: 21, packetsLost: 7 };
+const healthy = { packets: 500, packetsLost: 1 };
+// The thin track on its own reads as 25%, which is what the badge used to show.
+assert.equal(poolPacketLossPct([thin]), 25, "the thin track really is noisy");
+assert.equal(
+  poolPacketLossPct([healthy, healthy, thin]),
+  0.9,
+  "one thin track must not describe the whole direction",
+);
+assert.equal(poolPacketLossPct([]), null, "nothing to pool");
+assert.equal(poolPacketLossPct([{ packets: 3, packetsLost: 1 }]), null, "pool below the floor");
+assert.equal(
+  poolPacketLossPct([{ packets: 90, packetsLost: 10 }]),
+  10,
+  "a real 10% still reads as 10%",
+);
+
+// --- window counters -------------------------------------------------------
+// Pooling needs the raw counts even when the ratio is unmeasurable, so the
+// window has to survive where computePacketLossPct returns null.
+assert.deepEqual(
+  packetWindow(sample(1000, 0, 100, 0), sample(2000, 0, 102, 1)),
+  { packets: 2, packetsLost: 1 },
+  "the counts outlive the ratio",
+);
+assert.equal(packetWindow(undefined, sample(1000, 0, 100, 0)), null, "no baseline");
+assert.equal(
+  packetWindow(sample(1000, 0, 900, 0), sample(2000, 0, 10, 0)),
+  null,
+  "a counter reset is not a window",
 );
 
 // --- encoder classification ------------------------------------------------
@@ -86,6 +150,111 @@ assert.equal(
   true,
   "powerEfficientEncoder overrides the name heuristic",
 );
+
+// --- simulcast: which layer describes the encoder --------------------------
+// A simulcast send is several outbound-rtp entries and they do not have to
+// agree. Hardware encoders have minimum-resolution and instance limits, so
+// Chromium routinely encodes the big layer on the GPU and the thumbnail in
+// libvpx. The panel must describe the layer carrying the picture, not whichever
+// entry Chromium happened to emit last.
+const mixedSimulcast = (order) => [
+  { id: "C1", type: "codec", timestamp: 1000, mimeType: "video/H264" },
+  ...order.map((layer) => ({
+    id: layer.id,
+    type: "outbound-rtp",
+    timestamp: 1000,
+    kind: "video",
+    codecId: "C1",
+    bytesSent: 1000,
+    packetsSent: 10,
+    frameWidth: layer.width,
+    frameHeight: layer.height,
+    framesPerSecond: 30,
+    encoderImplementation: layer.implementation,
+    powerEfficientEncoder: layer.powerEfficient,
+    qualityLimitationReason: "none",
+  })),
+];
+
+const bigHardware = {
+  id: "O-high",
+  width: 2560,
+  height: 1440,
+  implementation: "MediaFoundationVideoEncodeAccelerator",
+  powerEfficient: true,
+};
+const smallSoftware = {
+  id: "O-low",
+  width: 640,
+  height: 360,
+  implementation: "libvpx",
+  powerEfficient: false,
+};
+
+// The regression: the software thumbnail emitted LAST used to decide the
+// verdict, and the panel told users with hardware acceleration ON that their
+// video was software-encoded.
+const thumbnailLast = summarizeSenderReport(
+  mixedSimulcast([bigHardware, smallSoftware]),
+  new Map(),
+  "mixed-a",
+);
+assert.equal(
+  thumbnailLast.hardwareEncoder,
+  true,
+  "a software thumbnail emitted last must not describe the whole send",
+);
+assert.equal(
+  thumbnailLast.encoderImplementation,
+  "MediaFoundationVideoEncodeAccelerator",
+  "the implementation shown must be the top layer's",
+);
+assert.equal(thumbnailLast.frameHeight, 1440, "resolution still comes from the top layer");
+
+// Order must not change the answer.
+const thumbnailFirst = summarizeSenderReport(
+  mixedSimulcast([smallSoftware, bigHardware]),
+  new Map(),
+  "mixed-b",
+);
+assert.equal(
+  thumbnailFirst.hardwareEncoder,
+  true,
+  "layer order must not decide the encoder verdict",
+);
+
+// All-software really is software, whichever way round it is emitted.
+const allSoftware = summarizeSenderReport(
+  mixedSimulcast([
+    { ...bigHardware, implementation: "libvpx", powerEfficient: false },
+    smallSoftware,
+  ]),
+  new Map(),
+  "mixed-c",
+);
+assert.equal(allSoftware.hardwareEncoder, false, "every layer software is software");
+assert.equal(allSoftware.encoderImplementation, "libvpx", "and it says so by name");
+
+// Audio has no frame dimensions, so there is no top layer to read. It must
+// still report rather than crash on an empty pick.
+const audioOnly = summarizeSenderReport(
+  [
+    { id: "C2", type: "codec", timestamp: 1000, mimeType: "audio/opus" },
+    {
+      id: "OA",
+      type: "outbound-rtp",
+      timestamp: 1000,
+      kind: "audio",
+      codecId: "C2",
+      bytesSent: 500,
+      packetsSent: 25,
+    },
+  ],
+  new Map(),
+  "mic",
+);
+assert.equal(audioOnly.kind, "audio", "audio stays audio");
+assert.equal(audioOnly.hardwareEncoder, null, "audio makes no hardware claim");
 
 // --- sender report ---------------------------------------------------------
 const senderEntries = (timestamp, bytesSent, packetsSent, packetsLost) => [

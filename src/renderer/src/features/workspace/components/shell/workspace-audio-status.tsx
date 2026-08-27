@@ -210,6 +210,8 @@ export function WorkspaceAudioStatus({
                           ? " · yazılım"
                           : ""}
                       {` · ${videoQualityProps.outgoing.layerCount} katman`}
+                      {videoQualityProps.outgoing.implementation !== null &&
+                        ` · ${videoQualityProps.outgoing.implementation}`}
                     </dd>
                   </div>
                   {videoQualityProps.headroomMbps !== null && (

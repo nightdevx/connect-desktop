@@ -60,3 +60,37 @@ export const applyMediaEngineSwitches = (
     app.commandLine.appendSwitch("disable-features", disableFeatures.join(","));
   }
 };
+
+/**
+ * What Chromium actually decided about the GPU, logged once after ready.
+ *
+ * The switches above only say what this app ASKED for. Whether a hardware video
+ * encoder exists is Chromium's call, made from the driver allowlist and what
+ * MediaFoundation offers, and until now nothing recorded that answer anywhere —
+ * so a stats panel reporting a software encoder with hardware acceleration
+ * switched on had no next question to ask.
+ *
+ * `video_encode` is the field that matters. "enabled" means Chromium has a
+ * hardware encoder and a software encoder in the stats is a WebRTC-level
+ * fallback (an unsupported profile, a simulcast layer count the encoder will not
+ * take). Anything else means there was never a hardware encoder to pick.
+ */
+export const logMediaEngineStatus = (hardwareAcceleration: boolean): void => {
+  let status: Record<string, string> = {};
+  try {
+    status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
+  } catch {
+    console.info("[Media] GPU feature status unavailable");
+    return;
+  }
+
+  console.info(
+    `[Media] hardwareAcceleration=${hardwareAcceleration} video_encode=${status.video_encode ?? "unknown"} video_decode=${status.video_decode ?? "unknown"} gpu_compositing=${status.gpu_compositing ?? "unknown"}`,
+  );
+
+  if (hardwareAcceleration && status.video_encode && status.video_encode !== "enabled") {
+    console.info(
+      "[Media] Hardware video encode is unavailable, so WebRTC will fall back to a software encoder (OpenH264 for H.264, libvpx for VP8/VP9) no matter what the setting says.",
+    );
+  }
+};

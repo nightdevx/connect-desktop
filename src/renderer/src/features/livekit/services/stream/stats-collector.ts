@@ -25,7 +25,24 @@ export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
   inbound: [],
 };
 
-const DEFAULT_INTERVAL_MS = 1_000;
+/**
+ * How often the media path is measured.
+ *
+ * Every sample calls getRTCStatsReport() once per publication, and each of
+ * those walks the peer connection's whole stats graph. In a ten-person room
+ * that was ten-plus full stats collections a second on the renderer's main
+ * thread -- the same thread drawing the game board, and the one that must not
+ * stall while audio is being captured.
+ *
+ * Two seconds costs the badge nothing it was really delivering. Loss and
+ * bitrate are already window averages, and the round-trip time is smoothed by
+ * an EMA on top. The wider window is a small bonus of its own: more packets per
+ * window means fewer of them are too thin to divide by.
+ *
+ * QUALITY_LIMITATION_TICKS in stream-manager.ts counts these, so it moved with
+ * this number.
+ */
+const DEFAULT_INTERVAL_MS = 2_000;
 
 // getRTCStatsReport lives on LocalTrack / RemoteTrack, not on the Track base
 // class, and publication.track is typed as the base — so narrow it here rather
@@ -111,34 +128,51 @@ export class MediaStatsCollector {
       const outbound: OutboundTrackStats[] = [];
       const inbound: InboundTrackStats[] = [];
 
-      for (const publication of this.room.localParticipant.trackPublications.values()) {
-        const key = `local:${publication.source}`;
-        liveKeys.add(key);
-        const entries = await readReport(publication);
-        if (!entries) {
+      // Read every report concurrently rather than awaiting each in turn. The
+      // reads do not touch each other -- one publication per key -- and doing
+      // them one after another meant a room's worth of round trips stacked end
+      // to end inside a single tick, which on a busy room could outlast the
+      // interval itself and silently skip samples.
+      const [localReports, remoteReports] = await Promise.all([
+        Promise.all(
+          Array.from(this.room.localParticipant.trackPublications.values()).map(
+            async (publication) => ({
+              key: `local:${publication.source}`,
+              entries: await readReport(publication),
+            }),
+          ),
+        ),
+        Promise.all(
+          Array.from(this.room.remoteParticipants.values()).flatMap((participant) =>
+            Array.from(participant.trackPublications.values())
+              .filter((publication) => publication.isSubscribed)
+              .map(async (publication) => ({
+                key: `${participant.identity}:${publication.source}`,
+                entries: await readReport(publication),
+              })),
+          ),
+        ),
+      ]);
+
+      for (const report of localReports) {
+        liveKeys.add(report.key);
+        if (!report.entries) {
           continue;
         }
-        const summary = summarizeSenderReport(entries, this.cache, key);
+        const summary = summarizeSenderReport(report.entries, this.cache, report.key);
         if (summary) {
           outbound.push(summary);
         }
       }
 
-      for (const participant of this.room.remoteParticipants.values()) {
-        for (const publication of participant.trackPublications.values()) {
-          if (!publication.isSubscribed) {
-            continue;
-          }
-          const key = `${participant.identity}:${publication.source}`;
-          liveKeys.add(key);
-          const entries = await readReport(publication);
-          if (!entries) {
-            continue;
-          }
-          const summary = summarizeReceiverReport(entries, this.cache, key);
-          if (summary) {
-            inbound.push(summary);
-          }
+      for (const report of remoteReports) {
+        liveKeys.add(report.key);
+        if (!report.entries) {
+          continue;
+        }
+        const summary = summarizeReceiverReport(report.entries, this.cache, report.key);
+        if (summary) {
+          inbound.push(summary);
         }
       }
 

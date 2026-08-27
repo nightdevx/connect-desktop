@@ -38,6 +38,14 @@ export interface OutboundTrackStats {
   /** Number of active simulcast/SVC layers actually being sent. */
   layerCount: number;
   availableOutgoingBitrateBps: number | null;
+  /**
+   * Packets counted in the LAST sampling window, so several tracks can be
+   * pooled into one figure. packetLossPct is this window's ratio and is null
+   * when the window is too small to divide by; the counts stay either way, and
+   * pooling them is how a room full of near-silent tracks still produces one
+   * honest number. Null until there is a previous sample to subtract.
+   */
+  window: { packets: number; packetsLost: number } | null;
 }
 
 export interface InboundTrackStats {
@@ -53,6 +61,14 @@ export interface InboundTrackStats {
   jitterBufferDelayMs: number | null;
   freezeCount: number | null;
   decoderImplementation: string | null;
+  /**
+   * Packets counted in the LAST sampling window, so several tracks can be
+   * pooled into one figure. packetLossPct is this window's ratio and is null
+   * when the window is too small to divide by; the counts stay either way, and
+   * pooling them is how a room full of near-silent tracks still produces one
+   * honest number. Null until there is a previous sample to subtract.
+   */
+  window: { packets: number; packetsLost: number } | null;
 }
 
 const num = (value: unknown): number | null => {
@@ -109,8 +125,30 @@ export const computeBitrateBps = (
 };
 
 /**
- * Loss percentage over the interval, not since the session began — a burst of
+ * Fewest packets in a window before a loss ratio means anything.
+ *
+ * A ratio needs a denominator, and DTX gives audio a tiny one: a participant
+ * who is not speaking sends comfort noise every few hundred milliseconds, so a
+ * one-second window can hold three packets. Lose one of them to ordinary jitter
+ * and the arithmetic says 33% loss -- for a track carrying silence.
+ *
+ * That is the bug behind "the lobby is always dropping packets". The badge takes
+ * the worst track in the room, so in a ten-person voice room there is
+ * essentially always some silent participant whose two-packet window had a gap
+ * in it, and the badge stays red while every real stream is fine.
+ *
+ * 20 is roughly 0.4s of actual speech at Opus's 50 packets/second. A window
+ * below it is reported as unknown, not as zero: a track nobody can measure must
+ * not be allowed to say the connection is good either.
+ */
+export const MIN_LOSS_WINDOW_PACKETS = 20;
+
+/**
+ * Loss percentage over the interval, not since the session began -- a burst of
  * loss two minutes ago must not keep the badge red forever.
+ *
+ * Null means "not measurable in this window", which is a different answer from
+ * zero and has to stay different. See MIN_LOSS_WINDOW_PACKETS.
  */
 export const computePacketLossPct = (
   previous: RateSample | undefined,
@@ -124,11 +162,62 @@ export const computePacketLossPct = (
   if (deltaLost < 0 || deltaReceived < 0) {
     return null;
   }
-  const total = deltaLost + deltaReceived;
-  if (total <= 0) {
-    return 0;
+  if (deltaLost + deltaReceived < MIN_LOSS_WINDOW_PACKETS) {
+    return null;
   }
-  return Math.round((deltaLost / total) * 1000) / 10;
+  return Math.round((deltaLost / (deltaLost + deltaReceived)) * 1000) / 10;
+};
+
+/**
+ * One loss figure for a whole direction, pooled rather than picked.
+ *
+ * The badge used to take the maximum across every audio track in the room,
+ * which is the wrong shape twice over: it lets one participant's bad uplink --
+ * which the person reading the badge can do nothing about -- describe the whole
+ * call, and it promotes any single unmeasurable track to the headline. Pooling
+ * the counters answers the question the badge is actually asking: of everything
+ * sent to this machine in this window, how much arrived.
+ *
+ * Null when the pooled window is still too small to divide by.
+ */
+/**
+ * The packet counters for one sampling window, or null when there is nothing to
+ * subtract from yet. A counter that went backwards is a renegotiation reset and
+ * is reported as no window rather than as a negative one.
+ */
+export const packetWindow = (
+  previous: RateSample | undefined,
+  current: RateSample,
+): { packets: number; packetsLost: number } | null => {
+  if (!previous) {
+    return null;
+  }
+  const packets = current.packets - previous.packets;
+  const packetsLost = current.packetsLost - previous.packetsLost;
+  if (packets < 0 || packetsLost < 0) {
+    return null;
+  }
+  return { packets, packetsLost };
+};
+
+export const poolPacketLossPct = (
+  samples: { packetsLost: number; packets: number }[],
+): number | null => {
+  let lost = 0;
+  let received = 0;
+
+  for (const sample of samples) {
+    if (sample.packetsLost < 0 || sample.packets < 0) {
+      continue;
+    }
+    lost += sample.packetsLost;
+    received += sample.packets;
+  }
+
+  if (lost + received < MIN_LOSS_WINDOW_PACKETS) {
+    return null;
+  }
+  return Math.round((lost / (lost + received)) * 1000) / 10;
 };
 
 export type QualityLimitationKind = "bandwidth" | "cpu" | "other";
@@ -228,10 +317,11 @@ export const summarizeSenderReport = (
   let frameHeight: number | null = null;
   let framesPerSecond: number | null = null;
   let codec: string | null = null;
-  let encoderImplementation: string | null = null;
-  let powerEfficient: unknown;
   let qualityLimitationReason: string | null = null;
   let kind: "audio" | "video" = "video";
+  // The entry the reported frame size came from. Everything about the ENCODER
+  // is read off this one entry rather than whichever happened to be last.
+  let topLayer: RawStatEntry | null = null;
 
   for (const entry of outbound) {
     bytesSent += num(entry.bytesSent) ?? 0;
@@ -248,11 +338,6 @@ export const summarizeSenderReport = (
       codec = codecs.get(codecId) ?? codec;
     }
 
-    encoderImplementation =
-      str(entry.encoderImplementation) ?? encoderImplementation;
-    if (typeof entry.powerEfficientEncoder === "boolean") {
-      powerEfficient = entry.powerEfficientEncoder;
-    }
     qualityLimitationReason =
       str(entry.qualityLimitationReason) ?? qualityLimitationReason;
 
@@ -265,8 +350,31 @@ export const summarizeSenderReport = (
       frameWidth = width;
       frameHeight = height;
       framesPerSecond = num(entry.framesPerSecond);
+      topLayer = entry;
     }
   }
+
+  // Read the encoder off the top layer, not off whichever entry came last.
+  //
+  // A simulcast send is several outbound-rtp entries and they do NOT have to
+  // agree: hardware encoders have minimum-resolution and instance limits, so
+  // Chromium routinely encodes the 1440p layer on the GPU and the 360p thumbnail
+  // in libvpx. Both report their own encoderImplementation and
+  // powerEfficientEncoder. Taking the last one meant the answer depended on the
+  // order Chromium happened to emit the layers in, and when a software thumbnail
+  // landed last the panel told a user with hardware acceleration ON that their
+  // video was being encoded in software.
+  //
+  // The top layer is the honest answer: it is the one carrying the picture, the
+  // one whose cost matters, and the one the resolution shown beside it came from.
+  // Audio (and video before its first frame) has no dimensions and so no top
+  // layer; fall back to the last entry, which is all there is.
+  const encoderSource = topLayer ?? outbound[outbound.length - 1];
+  const encoderImplementation = str(encoderSource.encoderImplementation);
+  const powerEfficient =
+    typeof encoderSource.powerEfficientEncoder === "boolean"
+      ? encoderSource.powerEfficientEncoder
+      : undefined;
 
   let packetsLost = 0;
   let rttMs: number | null = null;
@@ -316,6 +424,7 @@ export const summarizeSenderReport = (
       encoderImplementation,
       powerEfficient,
     ),
+    window: packetWindow(previous, sample),
     layerCount: outbound.length,
     availableOutgoingBitrateBps: candidatePair
       ? num(candidatePair.availableOutgoingBitrate)
@@ -370,5 +479,6 @@ export const summarizeReceiverReport = (
     jitterBufferDelayMs,
     freezeCount: num(inbound.freezeCount),
     decoderImplementation: str(inbound.decoderImplementation),
+    window: packetWindow(previous, sample),
   };
 };

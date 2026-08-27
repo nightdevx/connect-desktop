@@ -16,6 +16,14 @@ export interface VideoQualitySnapshot {
     codec: string | null;
     /** null when Chromium reports nothing usable. */
     hardware: boolean | null;
+    /**
+     * Chromium's own name for the encoder in use, verbatim.
+     *
+     * Shown because "yazılım" on its own is not diagnosable: libvpx means the
+     * codec has no GPU encoder on this machine, while a MediaFoundation name
+     * next to a software verdict means something else is wrong.
+     */
+    implementation: string | null;
     layerCount: number;
     limitation: string | null;
   } | null;
@@ -98,7 +106,11 @@ export const useVideoQuality = (
       // Not an error on its own — software encode is fine at 720p30 — but it
       // is the first thing to check when the stream stutters.
       tone = "warn";
-      problem = "Video yazılımla kodlanıyor (donanım hızlandırma kapalı).";
+      // Deliberately does NOT claim the setting is off. Software encode happens
+      // with hardware acceleration fully enabled whenever the chosen codec has
+      // no GPU encoder on this machine (VP9 and AV1 on most GPUs), so the old
+      // wording sent people to a switch that was already on.
+      problem = "Video yazılımla kodlanıyor.";
     } else if (out?.qualityLimitationReason) {
       tone = "warn";
       problem = `Kodlayıcı sınırlı: ${out.qualityLimitationReason}`;
@@ -115,6 +127,7 @@ export const useVideoQuality = (
             bitrateMbps: mbps(out.bitrateBps),
             codec: out.codec,
             hardware: out.hardwareEncoder,
+            implementation: out.encoderImplementation,
             layerCount: out.layerCount,
             limitation: out.qualityLimitationReason,
           }

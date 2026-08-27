@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { poolPacketLossPct } from "@shared/media-stats";
 import type {
   LiveKitConnectionStatus,
   MediaStatsSnapshot,
@@ -93,6 +94,18 @@ const createIdleAudioSnapshot = (): AudioConnectionSnapshot => {
   };
 };
 
+const windowsOf = (
+  tracks: { window: { packets: number; packetsLost: number } | null }[],
+): { packets: number; packetsLost: number }[] => {
+  const windows: { packets: number; packetsLost: number }[] = [];
+  for (const track of tracks) {
+    if (track.window) {
+      windows.push(track.window);
+    }
+  }
+  return windows;
+};
+
 const maxOrNull = (values: (number | null)[]): number | null => {
   let best: number | null = null;
   for (const value of values) {
@@ -155,10 +168,23 @@ export const useWorkspaceAudioConnection = ({
     }
 
     const effectivePingMs = smoothedPingRef.current;
+    // Pooled per direction, then the worse of the two -- not the worst single
+    // track in the room.
+    //
+    // Taking the maximum over every track made the badge a function of how many
+    // people were in the lobby: every extra participant is another chance for
+    // one thin window to read high, and with ten people something always did.
+    // That is the whole of the "lobide surekli paket kaybi" report, and it got
+    // worse in the multiplayer games for the obvious reason -- that is where the
+    // rooms are full. Both directions still count, because both are this
+    // machine's own link: uplink is what it sends, and inbound loss is measured
+    // on what the SFU already forwarded to it.
     const packetLossPct = maxOrNull([
-      ...audioOut.map((entry) => entry.packetLossPct),
-      ...audioIn.map((entry) => entry.packetLossPct),
+      poolPacketLossPct(windowsOf(audioOut)),
+      poolPacketLossPct(windowsOf(audioIn)),
     ]);
+    // Jitter stays a maximum: it is a delay, not a ratio, so a quiet track
+    // cannot inflate it and the worst one is what the user actually hears.
     const jitterMs = maxOrNull(audioIn.map((entry) => entry.jitterMs));
 
     const pingDisplay =
