@@ -23,6 +23,7 @@ export * from "./media/use-camera-controls";
 export * from "./media/use-screen-share-controls";
 export * from "./media/use-remote-participant-audio";
 export * from "./core/use-workspace-preferences";
+export * from "./core/use-backend-recovery";
 export * from "./core/use-network-reconnect";
 export * from "./core/use-workspace-audio-cues";
 

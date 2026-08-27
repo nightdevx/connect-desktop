@@ -29,6 +29,7 @@ import {
   useLobbyRoom,
   useLobbyUnread,
   useMediaDevices,
+  useBackendRecovery,
   useNetworkReconnect,
   useOpenConversations,
   usePresenceStatus,
@@ -176,6 +177,7 @@ function WorkspaceShell({
   const kickedLobbyIdRef = useRef<string | null>(null);
 
   const { isOnline, shouldEmitReconnectStatus } = useNetworkReconnect();
+  useBackendRecovery(Boolean(currentUserId));
   const { audioInputDevices, audioOutputDevices } = useMediaDevices();
 
   // ----- PREFERENCES -----
