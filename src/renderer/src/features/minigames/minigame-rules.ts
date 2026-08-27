@@ -74,6 +74,12 @@ export const MINIGAME_RULES: Record<MinigameId, readonly string[]> = {
     "Zorluk arttıkça sayılar büyür.",
   ],
 
+  gunline: [
+    "Müfreze hep ön hatta durur; fareyle sağa sola kaydırırsın, ateş kendiliğinden.",
+    "Kapılara ateş ettikçe üzerlerindeki sayı büyür. İçinden geçtiğin kapı birliğine uygulanır.",
+    "Alt çizgiyi geçen düşman bir askerini götürür; asker biterse oyun biter.",
+    "Her dalga sonunda üç yükseltmeden birini seçersin. Beşinci dalgalarda boss gelir.",
+  ],
   xox: [
     "Sırayla 3x3 tahtaya işaret koyarsınız.",
     "Yatay, dikey ya da çapraz üçü tutturan kazanır.",

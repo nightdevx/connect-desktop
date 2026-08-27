@@ -34,6 +34,7 @@ export type MinigameId =
   | "nonogram"
   | "typing"
   | "mathsprint"
+  | "gunline"
   // Versus: a table on the server, and no record anywhere.
   | "xox"
   | "connect4"
@@ -73,6 +74,7 @@ export const MINIGAME_IDS: readonly MinigameId[] = [
   "nonogram",
   "typing",
   "mathsprint",
+  "gunline",
   "xox",
   "connect4",
   "gomoku",
@@ -133,6 +135,7 @@ const HIGHER_IS_BETTER: Partial<Record<MinigameId, boolean>> = {
   nonogram: false,
   typing: true,
   mathsprint: true,
+  gunline: true,
 };
 
 /**

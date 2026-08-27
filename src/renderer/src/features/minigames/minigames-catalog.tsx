@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import {
+  AimOutlined,
   AppstoreAddOutlined,
   AppstoreOutlined,
   BgColorsOutlined,
@@ -41,6 +42,7 @@ import { MINIGAME_IDS, type MinigameId } from "@/store/minigame-scores";
 import type { MinigameBoardProps } from "./board-props";
 import { FloodIt } from "./components/games/flood-it";
 import { Game2048 } from "./components/games/game-2048";
+import { Gunline } from "./components/games/gunline";
 import { LightsOut } from "./components/games/lights-out";
 import { MathSprint } from "./components/games/math-sprint";
 import { Memory } from "./components/games/memory";
@@ -234,6 +236,15 @@ const BY_ID: Record<MinigameId, MinigameEntry> = {
     mode: "solo",
     formatScore: (score) => `${score} doğru`,
     Component: MathSprint,
+  },
+  gunline: {
+    id: "gunline",
+    label: "Nişan Hattı",
+    description: "Müfrezeni büyüt, gelen dalgayı durdur.",
+    icon: <AimOutlined />,
+    mode: "solo",
+    formatScore: (score) => `${score} puan`,
+    Component: Gunline,
   },
 
   // --- two players -----------------------------------------------------------

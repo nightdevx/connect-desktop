@@ -112,12 +112,33 @@ const main = async () => {
     RULES_TETRIS,
     RULES_FLOOD,
     RULES_NONOGRAM,
+    RULES_GUNLINE,
     SOLO_GAME_IDS,
     describeDifficulty,
     difficultyOptions,
   } = await bundle(
     "src/renderer/src/features/minigames/difficulty.ts",
     "difficulty.mjs",
+  );
+
+  const {
+    createGunline,
+    startGunline,
+    stepGunline,
+    chooseUpgrade,
+    gateHit,
+    GATE_ADD_HITS,
+    GATE_MUL_HITS,
+    GATE_ADD_CAP,
+    unitOffsets,
+    waveHealth,
+    waveSizeOf,
+    spawnIntervalOf,
+    MAX_UNITS,
+    LEAK_Z,
+  } = await bundle(
+    "src/renderer/src/features/minigames/gunline-logic.ts",
+    "gunline-logic.mjs",
   );
 
   const { scoreKey, splitScoreKey, DIFFICULTY_IDS, DEFAULT_DIFFICULTY } = await bundle(
@@ -808,6 +829,157 @@ const main = async () => {
       game: "2048:brutal",
       difficulty: DEFAULT_DIFFICULTY,
     });
+  }
+
+
+  // --- gunline ----------------------------------------------------------------
+
+  {
+    for (const asset of [
+      "character-a.glb",
+      "texture-a.png",
+      "colormap.png",
+      "blaster-a.glb",
+      "blaster-e.glb",
+      "blaster-j.glb",
+      "blaster-p.glb",
+      "texture-c.png",
+      "texture-e.png",
+      "texture-h.png",
+      "texture-k.png",
+      "texture-n.png",
+      "texture-r.png",
+      "LICENSE.md",
+    ]) {
+      assert.ok(
+        fs.existsSync(path.join(projectRoot, "src/renderer/src/assets/gunline", asset)),
+        `gunline is missing ${asset}`,
+      );
+    }
+
+    for (let wave = 1; wave < 30; wave += 1) {
+      assert.ok(
+        waveHealth(wave + 1, RULES_GUNLINE.normal) > waveHealth(wave, RULES_GUNLINE.normal),
+        `gunline health does not grow at wave ${wave}`,
+      );
+      assert.ok(
+        waveSizeOf(wave + 1) > waveSizeOf(wave),
+        `gunline wave ${wave} is not smaller than the next`,
+      );
+      assert.ok(
+        spawnIntervalOf(wave + 1, RULES_GUNLINE.normal) <=
+          spawnIntervalOf(wave, RULES_GUNLINE.normal),
+        `gunline spawn interval grows at wave ${wave}`,
+      );
+    }
+    assert.ok(
+      spawnIntervalOf(999, RULES_GUNLINE.normal) > 0,
+      "gunline spawn interval must have a floor, or a late wave spawns every frame",
+    );
+
+    const startUnits = DIFFICULTY_IDS.map((id) => RULES_GUNLINE[id].startUnits);
+    const health = DIFFICULTY_IDS.map((id) => RULES_GUNLINE[id].enemyHealth);
+    assert.equal(new Set(health).size, 3, "gunline difficulties share an enemy health scale");
+    assert.ok(
+      startUnits[0] >= startUnits[1] && startUnits[1] >= startUnits[2],
+      "gunline hands out more starting units on the harder settings",
+    );
+
+    assert.equal(unitOffsets(0).length, 0);
+    assert.equal(unitOffsets(3).length, 3);
+    assert.equal(unitOffsets(MAX_UNITS).length, 24, "the formation must cap what it draws");
+    for (const count of [1, 4, 5, 9, 24]) {
+      const spread = unitOffsets(count).reduce((total, offset) => total + offset.x, 0);
+      assert.ok(Math.abs(spread) < 1e-9, `gunline formation of ${count} is not centred`);
+    }
+
+    const badAdd = { id: 1, x: 0, z: 0, kind: "add", value: -3, charge: 0, good: false };
+    for (let shot = 0; shot < 4 * GATE_ADD_HITS; shot += 1) {
+      gateHit(badAdd);
+    }
+    assert.equal(badAdd.value, 1);
+    assert.equal(badAdd.good, true);
+
+    const generous = { id: 2, x: 0, z: 0, kind: "add", value: 4, charge: 0, good: true };
+    for (let shot = 0; shot < 200 * GATE_ADD_HITS; shot += 1) {
+      gateHit(generous);
+    }
+    assert.equal(generous.value, GATE_ADD_CAP, "an add gate has to stop growing somewhere");
+
+    const halving = { id: 3, x: 0, z: 0, kind: "mul", value: 0.5, charge: 0, good: false };
+    for (let shot = 0; shot < 5 * GATE_MUL_HITS; shot += 1) {
+      gateHit(halving);
+    }
+    assert.equal(halving.value, 1);
+    assert.equal(halving.good, true);
+
+    {
+      const state = createGunline(RULES_GUNLINE.hard, 4242);
+      startGunline(state);
+      let ticks = 0;
+      while (state.phase !== "over" && ticks < 60 * 60 * 4) {
+        if (state.phase === "upgrade") {
+          chooseUpgrade(state, state.offer[0].id);
+          continue;
+        }
+        stepGunline(state, 1 / 60, 0);
+        state.effects.length = 0;
+        ticks += 1;
+      }
+      assert.equal(state.phase, "over", "a motionless gunline run never ended");
+      assert.equal(state.units, 0);
+    }
+
+    {
+      const state = createGunline(RULES_GUNLINE.normal, 90210);
+      startGunline(state);
+      let ticks = 0;
+      let offers = 0;
+      while (state.phase !== "over" && ticks < 60 * 60 * 12) {
+        if (state.phase === "upgrade") {
+          assert.equal(state.offer.length, 3, "an upgrade screen has to offer three cards");
+          assert.equal(
+            new Set(state.offer.map((card) => card.id)).size,
+            3,
+            "the same upgrade was offered twice in one draw",
+          );
+          offers += 1;
+          chooseUpgrade(state, state.offer[0].id);
+          continue;
+        }
+
+        let aim = 0;
+        let nearest = -Infinity;
+        for (const enemy of state.enemies) {
+          if (enemy.dyingAt === 0 && enemy.z > nearest) {
+            nearest = enemy.z;
+            aim = enemy.x;
+          }
+        }
+        for (const gate of state.gates) {
+          if (gate.good) {
+            aim = gate.x;
+          }
+        }
+        stepGunline(state, 1 / 60, aim);
+        state.effects.length = 0;
+        ticks += 1;
+
+        assert.ok(Number.isFinite(state.score), "gunline score went non-finite");
+        assert.ok(Number.isFinite(state.playerX), "gunline aim went non-finite");
+        assert.ok(state.units <= MAX_UNITS, "gunline let the squad past its own cap");
+        for (const enemy of state.enemies) {
+          assert.ok(enemy.z <= LEAK_Z + 1, "an enemy walked past the line without leaking");
+        }
+      }
+
+      assert.ok(offers >= 6, `gunline only reached ${offers} upgrade screens`);
+      assert.ok(state.score > 0, "a played gunline run scored nothing");
+      assert.ok(
+        state.score < 5_000_000,
+        `gunline scored ${state.score}, which score.go would reject`,
+      );
+    }
   }
 
   // --- the seat counts, against the server's own catalogue --------------------

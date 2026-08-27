@@ -34,7 +34,8 @@ export type SoloGameId =
   | "floodit"
   | "nonogram"
   | "typing"
-  | "mathsprint";
+  | "mathsprint"
+  | "gunline";
 
 export const SOLO_GAME_IDS: readonly SoloGameId[] = [
   "2048",
@@ -50,6 +51,7 @@ export const SOLO_GAME_IDS: readonly SoloGameId[] = [
   "nonogram",
   "typing",
   "mathsprint",
+  "gunline",
 ];
 
 export function isSoloGameId(game: MinigameId): game is SoloGameId {
@@ -180,6 +182,12 @@ export interface RulesTyping {
   words: number;
 }
 
+export interface RulesGunline {
+  startUnits: number;
+  enemyHealth: number;
+  spawnRate: number;
+}
+
 export interface RulesMath {
   /** Seconds on the clock. */
   seconds: number;
@@ -266,6 +274,12 @@ export const RULES_MATH: Record<DifficultyId, RulesMath> = {
   hard: { seconds: 45, ceiling: 50, multiply: true },
 };
 
+export const RULES_GUNLINE: Record<DifficultyId, RulesGunline> = {
+  easy: { startUnits: 4, enemyHealth: 0.7, spawnRate: 0.75 },
+  normal: { startUnits: 3, enemyHealth: 1, spawnRate: 1 },
+  hard: { startUnits: 2, enemyHealth: 1.8, spawnRate: 1.35 },
+};
+
 /**
  * A one-line summary of what a difficulty means, for the picker's tooltip and
  * for the page header. Written from the rules rather than typed out twice, so
@@ -324,6 +338,10 @@ export function describeDifficulty(game: SoloGameId, difficulty: DifficultyId): 
     case "mathsprint": {
       const { seconds, ceiling } = RULES_MATH[difficulty];
       return `${seconds} saniye, ${ceiling}'e kadar`;
+    }
+    case "gunline": {
+      const { startUnits, enemyHealth } = RULES_GUNLINE[difficulty];
+      return `${startUnits} birim, x${enemyHealth.toFixed(1)} düşman canı`;
     }
   }
 }
