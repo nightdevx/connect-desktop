@@ -1,5 +1,7 @@
 import { app } from "electron";
 
+const GPU_REPORT_DEADLINE_MS = 8000;
+
 // GPU / WebRTC command-line switches. MUST be applied before app.whenReady().
 //
 // These were previously applied unconditionally on every platform, including
@@ -74,23 +76,44 @@ export const applyMediaEngineSwitches = (
  * hardware encoder and a software encoder in the stats is a WebRTC-level
  * fallback (an unsupported profile, a simulcast layer count the encoder will not
  * take). Anything else means there was never a hardware encoder to pick.
+ *
+ * Read on "gpu-info-update", never straight after "ready". The GPU process has
+ * not reported yet at ready and every field answers "disabled_software" — this
+ * machine says that at 44ms and "enabled" at 311ms — so logging at ready
+ * accused a working NVENC of not existing.
  */
 export const logMediaEngineStatus = (hardwareAcceleration: boolean): void => {
-  let status: Record<string, string> = {};
-  try {
-    status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
-  } catch {
-    console.info("[Media] GPU feature status unavailable");
-    return;
-  }
+  let reported = false;
 
-  console.info(
-    `[Media] hardwareAcceleration=${hardwareAcceleration} video_encode=${status.video_encode ?? "unknown"} video_decode=${status.video_decode ?? "unknown"} gpu_compositing=${status.gpu_compositing ?? "unknown"}`,
-  );
+  const report = (): void => {
+    if (reported) {
+      return;
+    }
+    reported = true;
 
-  if (hardwareAcceleration && status.video_encode && status.video_encode !== "enabled") {
+    let status: Record<string, string> = {};
+    try {
+      status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
+    } catch {
+      console.info("[Media] GPU feature status unavailable");
+      return;
+    }
+
     console.info(
-      "[Media] Hardware video encode is unavailable, so WebRTC will fall back to a software encoder (OpenH264 for H.264, libvpx for VP8/VP9) no matter what the setting says.",
+      `[Media] hardwareAcceleration=${hardwareAcceleration} video_encode=${status.video_encode ?? "unknown"} video_decode=${status.video_decode ?? "unknown"} gpu_compositing=${status.gpu_compositing ?? "unknown"}`,
     );
-  }
+
+    if (
+      hardwareAcceleration &&
+      status.video_encode &&
+      status.video_encode !== "enabled"
+    ) {
+      console.info(
+        "[Media] Hardware video encode is unavailable, so WebRTC will fall back to a software encoder (OpenH264 for H.264, libvpx for VP8/VP9) no matter what the setting says.",
+      );
+    }
+  };
+
+  app.once("gpu-info-update", report);
+  setTimeout(report, GPU_REPORT_DEADLINE_MS).unref?.();
 };
