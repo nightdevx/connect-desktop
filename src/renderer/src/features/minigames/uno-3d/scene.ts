@@ -227,6 +227,7 @@ export class UnoTableScene {
   private state: UnoSceneState | null = null;
   private hovered = -1;
   private frame = 0;
+  private shadowsStale = true;
   private lastTime = 0;
   private idleTick = 0;
   private running = false;
@@ -244,6 +245,12 @@ export class UnoTableScene {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
+    // A shadow map is a second full pass over every caster, from the light's
+    // point of view, and three.js redoes it on every render by default. Nothing
+    // that casts one moves while the cards are settled -- the direction ring
+    // does not cast -- so the map is frozen until something actually does. See
+    // start(), which is the one funnel for "something changed".
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.toneMapping = NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.02;
@@ -781,6 +788,10 @@ export class UnoTableScene {
   }
 
   private start(): void {
+    // Before the guard, not after: the loop may already be running, and the
+    // change still has to reach the shadow map.
+    this.shadowsStale = true;
+
     if (this.running || document.visibilityState === "hidden") {
       return;
     }
@@ -799,17 +810,29 @@ export class UnoTableScene {
     this.lastTime = now;
 
     const settled = this.advance(delta);
+    const spinning = !this.reducedMotion && this.ringTurns;
 
-    if (!this.reducedMotion && this.ringTurns) {
+    if (spinning) {
       this.directionRing.rotation.y += ringSpin(this.state?.direction ?? 1, delta);
     }
 
+    // Nothing is moving and nothing is going to: the cards have arrived and
+    // there is no ring to turn. A two-seat table hides the ring entirely, so
+    // that board used to hold the GPU at 30fps forever for a picture that never
+    // changed -- next to a video call and a microphone, on the same machine.
+    const finished = settled && !spinning;
+
     this.idleTick += 1;
-    if (!settled || this.reducedMotion || this.idleTick % 2 === 0) {
+    // Idle is what this board is almost all of the time: the cards have landed
+    // and only the ring is turning. Half rate on a slow rotation is invisible;
+    // the frames it does not draw are the point.
+    if (!settled || finished || this.idleTick % 3 === 0) {
+      this.renderer.shadowMap.needsUpdate = !settled || this.shadowsStale;
+      this.shadowsStale = !settled;
       this.renderer.render(this.scene, this.camera);
     }
 
-    if (settled && this.reducedMotion) {
+    if (finished) {
       this.running = false;
       return;
     }
