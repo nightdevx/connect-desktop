@@ -81,6 +81,7 @@ const readStoredParticipantAudio = (): Record<
           entry.screenAudioVolumePercent,
           100,
         ),
+        emoteMuted: entry.emoteMuted === true,
       };
     }
 
@@ -92,6 +93,16 @@ const readStoredParticipantAudio = (): Record<
 
 // Everything at its default is not worth a row: a lobby the user never touched
 // would otherwise grow the blob by one entry per person they have ever sat with.
+//
+// EVERY field of RemoteParticipantAudioPreference has to be tested here, and
+// every field has to be rebuilt in readStoredParticipantAudio above.
+//
+// emoteMuted was in neither. Silencing a person's soundboard therefore counted
+// as "no preference at all": the row was dropped on the way out, and would have
+// been dropped again on the way back in. The mute held for the rest of the
+// session and was silently gone at the next launch — which is what was reported
+// as "muting their emotes does nothing". check-participant-audio.cjs now fails
+// if a field is added to the type and missed in either half.
 const isDefaultPreference = (
   preference: RemoteParticipantAudioPreference,
 ): boolean =>
@@ -99,7 +110,8 @@ const isDefaultPreference = (
   preference.volumePercent === 100 &&
   !preference.cameraHidden &&
   !preference.screenAudioMuted &&
-  (preference.screenAudioVolumePercent ?? 100) === 100;
+  (preference.screenAudioVolumePercent ?? 100) === 100 &&
+  !preference.emoteMuted;
 
 const saveStoredParticipantAudio = (
   preferences: Record<string, RemoteParticipantAudioPreference>,

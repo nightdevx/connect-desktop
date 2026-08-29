@@ -187,6 +187,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:admin-upload-emote",
   "desktop:admin-list-ip-bans",
   "desktop:admin-ban-ip",
+  "desktop:admin-ban-user-ip",
   "desktop:admin-unban-ip",
   "desktop:admin-list-invites",
   "desktop:admin-create-invite",

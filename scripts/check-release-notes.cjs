@@ -83,6 +83,7 @@ const main = async () => {
     RELEASE_HIGHLIGHT_LABELS,
     compareVersions,
     notesSince,
+    notesUpTo,
     readLastSeenVersion,
     saveLastSeenVersion,
   } = await import(pathToFileURL(bundle).href);
@@ -199,6 +200,26 @@ const main = async () => {
 
   assert.deepEqual(notesSince(null, null), [], "no version, no dialog");
   assert.deepEqual(notesSince(undefined, null), [], "no version, no dialog");
+
+  // --- reopening it by hand -------------------------------------------------
+  // The question-mark button beside the version reads the whole changelog
+  // rather than only what is new, but it is bounded the same way: a note
+  // written before its release goes out must not be readable from a build that
+  // has not reached it.
+  assert.deepEqual(
+    notesUpTo(newest).map((n) => n.version),
+    RELEASE_NOTES.map((n) => n.version),
+    "the newest build can read every note",
+  );
+
+  assert.deepEqual(
+    notesUpTo(oldest).map((n) => n.version),
+    [oldest],
+    "an older build must not read a note for a release it has not reached",
+  );
+
+  assert.deepEqual(notesUpTo(null), [], "no version, nothing to reopen");
+  assert.deepEqual(notesUpTo(undefined), [], "no version, nothing to reopen");
 
   // --- the seen-marker ------------------------------------------------------
   storage.clear();

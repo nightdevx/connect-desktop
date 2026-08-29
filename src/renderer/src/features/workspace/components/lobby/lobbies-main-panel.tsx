@@ -18,8 +18,13 @@ import type {
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
-import { MusicPanel } from "@/features/music";
+import { MusicModal, useMusicRoom } from "@/features/music";
 import { musicBotIdentity } from "@shared/music";
+
+// Matches music.BotDisplayName on the server, which is what LiveKit carries as
+// the participant name. Written here as well because the stage builds its tile
+// from the lobby roster, and the bot is not on it.
+const MUSIC_BOT_NAME = "Müzik Botu";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -211,6 +216,7 @@ export function LobbiesMainPanel({
   const [contextMenuParticipantId, setContextMenuParticipantId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
+  const [isMusicOpen, setIsMusicOpen] = useState(false);
   // use-friends deliberately keeps no pending marker for sendRequest — it is
   // keyed by username and there is no user id to hang one on until the server
   // answers — so the caller owns it, and here it is what stops a second click
@@ -247,12 +253,45 @@ export function LobbiesMainPanel({
     for (const member of lobbyMembers) {
       names[member.userId] = member.username;
     }
+    if (activeLobbyId) {
+      names[musicBotIdentity(activeLobbyId)] = MUSIC_BOT_NAME;
+    }
     return names;
-  }, [lobbyMembers]);
+  }, [activeLobbyId, lobbyMembers]);
+
+  // The bot is a real LiveKit participant — it holds a published audio track in
+  // this room — but it is not on the lobby roster, so the stage never drew it.
+  // Music arrived from nobody: no tile, no name, and no indication which room
+  // was even playing. Injected here rather than on the server roster because it
+  // occupies no seat, cannot be kicked and must not count against capacity.
+  const { state: musicState, available: musicAvailable } =
+    useMusicRoom(activeLobbyId);
+
+  const stageParticipants = useMemo<LobbyParticipantView[]>(() => {
+    if (!activeLobbyId || !musicState.connected) {
+      return lobbyParticipants;
+    }
+
+    return [
+      ...lobbyParticipants,
+      {
+        userId: musicBotIdentity(activeLobbyId),
+        username: MUSIC_BOT_NAME,
+        joinedAt: new Date().toISOString(),
+        muted: false,
+        serverMuted: false,
+        deafened: false,
+        cameraEnabled: false,
+        screenSharing: false,
+        isLocalUser: false,
+        speaking: musicState.nowPlaying !== null && !musicState.paused,
+      },
+    ];
+  }, [activeLobbyId, lobbyParticipants, musicState.connected, musicState.nowPlaying, musicState.paused]);
 
   // 2. Stage Slots Hook
   const { stageParticipantSlots } = useLobbyStageSlots({
-    lobbyParticipants,
+    lobbyParticipants: stageParticipants,
     activeLobbyId,
   });
 
@@ -480,6 +519,17 @@ export function LobbiesMainPanel({
   );
 
   // Handlers
+  const musicBotId = activeLobbyId ? musicBotIdentity(activeLobbyId) : null;
+  const musicVolumePercent =
+    musicBotId !== null
+      ? (remoteParticipantAudioPreferences[musicBotId]?.volumePercent ?? 100)
+      : 100;
+
+  const handleMusicVolumeChange = (volumePercent: number): void => {
+    if (!musicBotId) return;
+    onSetRemoteParticipantVolume(musicBotId, volumePercent);
+  };
+
   const handleParticipantFocus = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.stopPropagation();
@@ -500,6 +550,9 @@ export function LobbiesMainPanel({
 
   const handleParticipantContextMenu = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
+    // Every entry in that menu is a moderation action on an account, and the
+    // bot has none. Its volume lives in the music dialog.
+    if (participant.userId === musicBotId) return;
     event.preventDefault();
     event.stopPropagation();
     setContextMenuParticipantId(participant.userId);
@@ -529,17 +582,6 @@ export function LobbiesMainPanel({
   const handleVolume = (volumePercent: number): void => {
     if (!contextMenuParticipantId) return;
     onSetRemoteParticipantVolume(contextMenuParticipantId, volumePercent);
-  };
-
-  const musicBotId = activeLobbyId ? musicBotIdentity(activeLobbyId) : null;
-  const musicVolumePercent =
-    musicBotId !== null
-      ? (remoteParticipantAudioPreferences[musicBotId]?.volumePercent ?? 100)
-      : 100;
-
-  const handleMusicVolumeChange = (volumePercent: number): void => {
-    if (!musicBotId) return;
-    onSetRemoteParticipantVolume(musicBotId, volumePercent);
   };
 
   const handleEmoteMute = (muted: boolean): void => {
@@ -672,18 +714,15 @@ export function LobbiesMainPanel({
               screenDisabled={
                 !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "screenShare")
               }
+              onOpenMusic={musicAvailable ? () => setIsMusicOpen(true) : undefined}
+              musicDisabled={
+                !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "music")
+              }
             />
           </section>
           )}
 
           <aside className={`ct-lobby-chat-slot ${isTextOnly || isLobbyChatOpen ? "open" : ""}`}>
-            {isTextOnly ? null : (
-              <MusicPanel
-                lobbyId={activeLobbyId}
-                volumePercent={musicVolumePercent}
-                onVolumeChange={handleMusicVolumeChange}
-              />
-            )}
             <LobbyChatPanel
               currentUserId={currentUserId}
               currentUsername={currentUsername}
@@ -711,6 +750,14 @@ export function LobbiesMainPanel({
           </aside>
         </div>
       </article>
+
+      <MusicModal
+        lobbyId={activeLobbyId}
+        open={isMusicOpen}
+        onClose={() => setIsMusicOpen(false)}
+        volumePercent={musicVolumePercent}
+        onVolumeChange={handleMusicVolumeChange}
+      />
 
       {/* Floating Context Menu - Rendered at root to avoid transform offsets */}
       {contextMenuParticipantId && contextMenuPosition && (

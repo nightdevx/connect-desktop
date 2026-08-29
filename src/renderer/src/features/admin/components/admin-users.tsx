@@ -30,7 +30,13 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
-import type { AdminUserDetail, PrivacyAudience, UserRole } from "@shared/auth-contracts";
+import type {
+  AdminUserDetail,
+  PrivacyAudience,
+  UserRestriction,
+  UserRole,
+} from "@shared/auth-contracts";
+import { USER_RESTRICTIONS } from "@shared/auth-contracts";
 import { AdminUserRelationsPanel, AdminUserSessions } from "./admin-user-panels";
 import type { TablePaginationConfig } from "antd";
 import { AdminPageHeader } from "./admin-primitives";
@@ -46,6 +52,7 @@ interface EditUserFormValues {
   allowDmFrom?: PrivacyAudience;
   allowCallsFrom?: PrivacyAudience;
   allowFriendRequests?: boolean;
+  restrictions?: UserRestriction[];
   reason?: string;
   banned?: boolean;
 }
@@ -171,6 +178,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       allowDmFrom: user.allowDmFrom,
       allowCallsFrom: user.allowCallsFrom,
       allowFriendRequests: user.allowFriendRequests,
+      restrictions: user.restrictions ?? [],
     });
     setIsEditOpen(true);
   };
@@ -189,6 +197,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         allowDmFrom: values.allowDmFrom,
         allowCallsFrom: values.allowCallsFrom,
         allowFriendRequests: values.allowFriendRequests,
+        restrictions: values.restrictions ?? [],
         reason: values.reason,
       });
       message.success("Kullanıcı başarıyla güncellendi");
@@ -249,6 +258,25 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       await fetchUsers();
     } catch (error) {
       message.error(toErrorMessage(error, "Görseller kaldırılamadı"));
+    }
+  };
+
+  // The address comes from the account's last sign-in, so this needs no CIDR
+  // typed from somewhere else. Sessions are ended with it: an IP ban that only
+  // takes effect at the next reconnect is not a ban anybody notices.
+  const handleBanUserIp = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      const result = await adminService.ops.banUserIp({
+        userId: user.id,
+        reason: `@${user.username} hesabının adresi yasaklandı`,
+      });
+      if (!result.ok || !result.data) {
+        throw new Error(result.error?.message || "IP yasaklanamadı");
+      }
+      message.success(`${result.data.ban.cidr} yasaklandı`);
+      await fetchUsers();
+    } catch (error) {
+      message.error(toErrorMessage(error, "IP yasaklanamadı"));
     }
   };
 
@@ -654,6 +682,25 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             <Switch />
           </Form.Item>
 
+          {/* A ban was the only tool for "stop changing your name every ten
+              minutes", and it is far too big for that. Each switch here closes
+              one field on the account's own settings screen and nothing else. */}
+          <Form.Item
+            name="restrictions"
+            label="Kapatılan Düzenlemeler"
+            extra="Seçilen alanları kullanıcı kendi ayarlarından değiştiremez. Yöneticiler yine değiştirebilir."
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="Kısıtlama yok"
+              options={USER_RESTRICTIONS.map((entry) => ({
+                value: entry.id,
+                label: entry.label,
+              }))}
+            />
+          </Form.Item>
+
           <Form.Item name="adminNote" label="Yönetici Notu" extra="Yalnızca yöneticiler görür.">
             <Input.TextArea rows={2} maxLength={2000} />
           </Form.Item>
@@ -713,6 +760,24 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 cancelText="Hayır"
               >
                 <Button icon={<AudioMutedOutlined />}>Sunucuda Sustur</Button>
+              </Popconfirm>
+
+              <Popconfirm
+                title={
+                  editingUser.lastIp
+                    ? `${editingUser.lastIp} adresi yasaklansın ve oturumları kapatılsın mı?`
+                    : "Bu hesabın kayıtlı bir adresi yok."
+                }
+                onConfirm={() => void handleBanUserIp(editingUser)}
+                okText="Evet"
+                cancelText="Hayır"
+                disabled={!editingUser.lastIp}
+              >
+                <Button icon={<StopOutlined />} danger disabled={!editingUser.lastIp}>
+                  {editingUser.lastIp
+                    ? `IP'sini Yasakla (${editingUser.lastIp})`
+                    : "IP'si Bilinmiyor"}
+                </Button>
               </Popconfirm>
 
               {editingUser.deletionScheduledAt ? (

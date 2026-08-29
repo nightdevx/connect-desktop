@@ -1,48 +1,38 @@
 /* ==========================================================================
    MUSIC
 
-   The room's music bot, docked above the lobby chat. It is a command surface
-   first and a player second: the queue and the log are what the room reads,
-   the transport buttons are shorthand for commands anyone could type.
+   The room's music bot, in a dialog off the lobby toolbar.
 
-   It never grows past a third of the chat column. A long queue scrolls inside
-   itself rather than pushing the conversation off the screen — the panel is a
-   guest in that column, not the point of it.
+   It used to be a strip docked above the lobby chat, collapsed by default and
+   only rendered while the chat column was open — so the transport buttons and
+   the volume slider were two clicks and one open column away from anybody who
+   wanted them. The dialog owns its own width, so the queue and the log get room
+   to be read instead of a third of a 280px sidebar.
    ========================================================================== */
 
-.ct-music-panel {
-  @apply flex shrink-0 flex-col;
-  border-bottom: 1px solid var(--ct-border);
-  background: var(--ct-panel);
-  max-height: 34%;
+.ct-music-body {
+  @apply flex flex-col gap-3;
 }
 
-.ct-music-header {
-  @apply flex shrink-0 items-center gap-2 px-3 py-2;
-}
-
-.ct-music-header-icon {
-  color: var(--ct-accent);
-  font-size: var(--ct-icon-sm);
-}
-
-.ct-music-headline {
-  @apply flex min-w-0 flex-1 flex-col;
+/* What is playing, above everything that acts on it. */
+.ct-music-now {
+  @apply flex flex-col gap-1 rounded-lg p-3;
+  background: var(--ct-surface-1);
 }
 
 .ct-music-title {
-  @apply truncate text-xs font-semibold;
+  @apply truncate text-sm font-semibold;
   color: var(--ct-text-primary);
 }
 
 .ct-music-subtitle {
-  @apply truncate text-[11px];
+  @apply truncate text-xs;
   color: var(--ct-text-muted);
   font-family: var(--ct-font-mono);
 }
 
 .ct-music-progress {
-  @apply h-0.5 w-full shrink-0;
+  @apply mt-1 block h-0.5 w-full overflow-hidden rounded-full;
   background: var(--ct-alpha-08);
 }
 
@@ -52,12 +42,20 @@
   transition: width var(--ct-duration-base) linear;
 }
 
-.ct-music-body {
-  @apply flex min-h-0 flex-1 flex-col gap-2 px-3 pb-2 pt-2;
+/* A link goes in, a track comes out. The queue button carries a label rather
+   than an icon alone: it is the one control in here somebody uses on their
+   first visit, and an unlabelled plus is a guess. */
+.ct-music-composer {
+  @apply flex items-center gap-2;
+}
+
+.ct-music-composer .ant-input-affix-wrapper,
+.ct-music-composer .ant-input {
+  @apply min-w-0 flex-1;
 }
 
 .ct-music-controls {
-  @apply flex shrink-0 items-center gap-1;
+  @apply flex items-center gap-1.5;
 }
 
 /* The slider takes whatever the buttons leave. Ant Design gives it no intrinsic
@@ -73,7 +71,7 @@
 }
 
 .ct-music-queue {
-  @apply m-0 flex min-h-0 shrink flex-col gap-0.5 overflow-y-auto p-0;
+  @apply m-0 flex max-h-52 flex-col gap-0.5 overflow-y-auto p-0;
   list-style: none;
 }
 
@@ -86,7 +84,7 @@
 }
 
 .ct-music-queue-index {
-  @apply w-4 shrink-0 text-right text-[11px];
+  @apply w-4 shrink-0 text-right text-xs;
   color: var(--ct-text-muted);
   font-family: var(--ct-font-mono);
 }
@@ -97,24 +95,23 @@
 }
 
 .ct-music-queue-meta {
-  @apply shrink-0 text-[11px];
+  @apply shrink-0 text-xs;
   color: var(--ct-text-muted);
   font-family: var(--ct-font-mono);
 }
 
 .ct-music-empty {
-  @apply m-0 px-1.5 text-[11px];
+  @apply m-0 px-1.5 text-xs;
   color: var(--ct-text-muted);
 }
 
 .ct-music-log {
-  @apply flex min-h-0 shrink flex-col gap-0.5 overflow-y-auto rounded px-2 py-1.5;
+  @apply flex max-h-28 flex-col gap-0.5 overflow-y-auto rounded px-2 py-1.5;
   background: var(--ct-surface-1);
-  max-height: 6.5rem;
 }
 
 .ct-music-log-line {
-  @apply m-0 break-words text-[11px] leading-snug;
+  @apply m-0 break-words text-xs leading-snug;
   color: var(--ct-text-muted);
   font-family: var(--ct-font-mono);
 }
@@ -128,14 +125,10 @@
 }
 
 .ct-music-feedback {
-  @apply m-0 truncate text-[11px];
+  @apply m-0 truncate text-xs;
   color: var(--ct-text-secondary);
 }
 
 .ct-music-feedback.error {
   color: var(--ct-danger);
-}
-
-.ct-music-composer {
-  @apply flex shrink-0 items-center gap-1.5;
 }

@@ -402,6 +402,7 @@ const desktopApi: DesktopApi = {
     uploadEmote: async (payload) => ipcRenderer.invoke("desktop:admin-upload-emote", payload),
     listIpBans: async () => ipcRenderer.invoke("desktop:admin-list-ip-bans", {}),
     banIp: async (payload) => ipcRenderer.invoke("desktop:admin-ban-ip", payload),
+    banUserIp: async (payload) => ipcRenderer.invoke("desktop:admin-ban-user-ip", payload),
     unbanIp: async (payload) => ipcRenderer.invoke("desktop:admin-unban-ip", payload),
     listInvites: async () => ipcRenderer.invoke("desktop:admin-list-invites", {}),
     createInvite: async (payload) => ipcRenderer.invoke("desktop:admin-create-invite", payload),

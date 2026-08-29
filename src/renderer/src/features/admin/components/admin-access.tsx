@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { Button, Input, InputNumber, Segmented, Table, message } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, Input, InputNumber, Segmented, Select, Table, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { AdminInviteCode, AdminIpBan } from "@shared/desktop-api-types";
+import type { AdminUserDetail } from "@shared/auth-contracts";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
 
@@ -14,6 +15,14 @@ export default function AdminAccess() {
   const [invites, setInvites] = useState<AdminInviteCode[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Banning by account is the primary path: an operator knows WHO is causing
+  // trouble, and had no way to find out what address that person was on. The
+  // raw CIDR box is kept for the case the account form cannot express — a whole
+  // block, or somebody who never got as far as signing in.
+  const [banBy, setBanBy] = useState<"user" | "cidr">("user");
+  const [banUserId, setBanUserId] = useState<string | null>(null);
+  const [users, setUsers] = useState<AdminUserDetail[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [newCidr, setNewCidr] = useState("");
   const [newBanReason, setNewBanReason] = useState("");
   const [newCode, setNewCode] = useState("");
@@ -40,18 +49,63 @@ export default function AdminAccess() {
     void load();
   }, [load]);
 
+  // Only once the IP pane is actually open, and only in the account mode that
+  // needs it: this is a full user listing, and the invite pane has no use for it.
+  useEffect(() => {
+    if (pane !== "ips" || banBy !== "user" || users.length > 0) {
+      return;
+    }
+    setUsersLoading(true);
+    void adminService
+      .listUsers({ limit: 500 })
+      .then((data) => setUsers(data.users))
+      .catch((error) => message.error(toErrorMessage(error, "Kullanıcılar yüklenemedi")))
+      .finally(() => setUsersLoading(false));
+  }, [banBy, pane, users.length]);
+
+  const selectedUser = useMemo(
+    () => users.find((user) => user.id === banUserId) ?? null,
+    [banUserId, users],
+  );
+
+  const userOptions = useMemo(
+    () =>
+      users.map((user) => ({
+        value: user.id,
+        label: user.lastIp
+          ? `@${user.username} — ${user.lastIp}`
+          : `@${user.username} — adres yok`,
+        // Nothing to ban, so the row says why rather than failing on submit.
+        disabled: !user.lastIp,
+      })),
+    [users],
+  );
+
   const addBan = async (): Promise<void> => {
     if (newBanReason.trim().length < 3) {
       message.warning("Gerekçe en az 3 karakter olmalı.");
       return;
     }
     try {
-      await adminService.unwrap(
-        adminService.ops.banIp({ cidr: newCidr.trim(), reason: newBanReason.trim() }),
-        "IP yasaklanamadı",
-      );
-      message.success("IP yasaklandı");
-      setNewCidr("");
+      if (banBy === "user") {
+        if (!banUserId) {
+          message.warning("Bir kullanıcı seçin.");
+          return;
+        }
+        const data = await adminService.unwrap(
+          adminService.ops.banUserIp({ userId: banUserId, reason: newBanReason.trim() }),
+          "IP yasaklanamadı",
+        );
+        message.success(`${data.ban.cidr} yasaklandı ve oturumları kapatıldı`);
+        setBanUserId(null);
+      } else {
+        await adminService.unwrap(
+          adminService.ops.banIp({ cidr: newCidr.trim(), reason: newBanReason.trim() }),
+          "IP yasaklanamadı",
+        );
+        message.success("IP yasaklandı");
+        setNewCidr("");
+      }
       setNewBanReason("");
       void load();
     } catch (error) {
@@ -171,12 +225,36 @@ export default function AdminAccess() {
       {pane === "ips" ? (
         <>
           <div className="ct-admin-filters">
-            <Input
-              placeholder="1.2.3.4 veya 1.2.3.0/24"
-              value={newCidr}
-              onChange={(event) => setNewCidr(event.target.value)}
-              style={{ maxWidth: 220 }}
+            <Segmented
+              value={banBy}
+              onChange={(value) => setBanBy(value as "user" | "cidr")}
+              options={[
+                { value: "user", label: "Kullanıcıdan" },
+                { value: "cidr", label: "Adres / blok" },
+              ]}
             />
+
+            {banBy === "user" ? (
+              <Select
+                showSearch
+                allowClear
+                loading={usersLoading}
+                value={banUserId}
+                onChange={(value) => setBanUserId(value ?? null)}
+                placeholder="Kullanıcı seç"
+                optionFilterProp="label"
+                options={userOptions}
+                style={{ minWidth: 300 }}
+              />
+            ) : (
+              <Input
+                placeholder="1.2.3.4 veya 1.2.3.0/24"
+                value={newCidr}
+                onChange={(event) => setNewCidr(event.target.value)}
+                style={{ maxWidth: 220 }}
+              />
+            )}
+
             <Input
               placeholder="Gerekçe"
               value={newBanReason}
@@ -184,10 +262,25 @@ export default function AdminAccess() {
               maxLength={280}
               style={{ maxWidth: 320 }}
             />
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => void addBan()} disabled={!newCidr.trim()}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => void addBan()}
+              disabled={banBy === "user" ? !selectedUser?.lastIp : !newCidr.trim()}
+            >
               Yasakla
             </Button>
           </div>
+
+          {banBy === "user" ? (
+            <p className="ct-field-hint">
+              {selectedUser
+                ? selectedUser.lastIp
+                  ? `Son giriş adresi ${selectedUser.lastIp} yasaklanır ve açık oturumları kapatılır.`
+                  : "Bu hesap hiç giriş yapmamış, yasaklanacak bir adres yok."
+                : "Adres, kişinin son girişinden alınır. Hiç giriş yapmamış hesaplarda kayıtlı adres olmaz."}
+            </p>
+          ) : null}
           <Table rowKey="cidr" size="small" loading={loading} dataSource={bans} columns={banColumns} pagination={false} />
         </>
       ) : (

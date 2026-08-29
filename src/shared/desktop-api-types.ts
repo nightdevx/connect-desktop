@@ -1033,6 +1033,9 @@ export interface DesktopApi {
     uploadEmote: (payload: { name: string; dataUrl: string }) => Promise<DesktopResult<{ emote: AdminEmoteRow }>>;
     listIpBans: () => Promise<DesktopResult<{ bans: AdminIpBan[] }>>;
     banIp: (payload: { cidr: string; reason: string; expiresAt?: string | null }) => Promise<DesktopResult<{ ban: AdminIpBan }>>;
+    // Bans the address the account last signed in from and ends its sessions.
+    // An operator knows who is causing trouble, not what their address is.
+    banUserIp: (payload: { userId: string; reason: string; expiresAt?: string | null }) => Promise<DesktopResult<{ ban: AdminIpBan }>>;
     unbanIp: (payload: { cidr: string }) => Promise<DesktopResult<{ removed: boolean }>>;
     listInvites: () => Promise<DesktopResult<{ invites: AdminInviteCode[] }>>;
     createInvite: (payload: { code: string; maxUses?: number; expiresAt?: string | null }) => Promise<DesktopResult<{ invite: AdminInviteCode }>>;

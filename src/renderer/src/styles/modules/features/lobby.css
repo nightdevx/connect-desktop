@@ -840,15 +840,27 @@
   align-self: center;
 }
 
+/* Wrapping flex, not a grid, and the difference is the last row.
+
+   CSS Grid places the leftover tiles of an incomplete final row into the
+   leading columns: five people in a three-column fit drew three tiles centred
+   and then two tiles hard against the left edge, under a gap of empty stage.
+   Every room whose headcount is not a multiple of the column count looked
+   broken, which is most of them. Grid has no way to centre that row.
+
+   The wrap points do not become a browser guess: the container is set to
+   exactly the width useLobbyStageLayout fitted (N tiles plus N-1 gaps), so the
+   line breaks land on the same column count the fit computed, and the short
+   final row is centred by justify-content like every other. */
 .ct-lobby-stage-grid {
-  @apply grid;
+  @apply flex flex-wrap;
   --ct-stage-columns: 2;
   --ct-stage-gap: 14px;
   --ct-stage-tile-width: 320px;
   gap: var(--ct-stage-gap);
-  grid-template-columns: repeat(
-    var(--ct-stage-columns),
-    minmax(0, var(--ct-stage-tile-width))
+  width: calc(
+    var(--ct-stage-columns) * var(--ct-stage-tile-width) +
+      (var(--ct-stage-columns) - 1) * var(--ct-stage-gap)
   );
   justify-self: center;
   align-self: center;
@@ -856,6 +868,16 @@
   align-content: center;
   max-width: 100%;
   max-height: 100%;
+}
+
+/* The tile's own `width: 100%` resolves against the flex line rather than a
+   grid track, so the fitted width has to be the flex basis. `0 0` because the
+   fit is already the answer: letting a tile grow into the slack of a short row
+   would draw the last row's tiles larger than the rows above it. */
+.ct-lobby-stage-grid > .ct-lobby-participant-tile {
+  flex: 0 0 var(--ct-stage-tile-width);
+  width: var(--ct-stage-tile-width);
+  max-width: 100%;
 }
 
 /* The focused layout is a column, not a grid, and it takes the whole area.
@@ -866,6 +888,9 @@
 .ct-lobby-stage-grid.focused-layout {
   display: flex;
   flex-direction: column;
+  /* The base rule wraps; a column that wraps would break the rail off into a
+     second column the moment the stage runs short of height. */
+  flex-wrap: nowrap;
   align-items: center;
   justify-self: stretch;
   align-self: stretch;

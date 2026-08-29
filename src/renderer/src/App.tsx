@@ -5,6 +5,7 @@ import {
   CompressOutlined,
   ExpandOutlined,
   MinusOutlined,
+  QuestionCircleOutlined,
   ReloadOutlined,
   WifiOutlined,
 } from "@ant-design/icons";
@@ -35,6 +36,7 @@ function App() {
 
   const isAuthenticated = Boolean(session.authenticated && session.user);
   const [windowIsMaximized, setWindowIsMaximized] = useState(false);
+  const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(null);
 
   // setStatus() is called from around fifty places -- device removed, mic
@@ -146,6 +148,8 @@ function App() {
       <WhatsNewModal
         version={appVersion}
         enabled={isAuthenticated && !isBooting}
+        manualOpen={isReleaseNotesOpen}
+        onManualOpenChange={setIsReleaseNotesOpen}
       />
 
       <div className="ct-app-content">
@@ -187,6 +191,16 @@ function App() {
             )}
 
             <span className="ct-titlebar-version">v{appVersion}</span>
+
+            <button
+              type="button"
+              className="ct-titlebar-notes"
+              onClick={() => setIsReleaseNotesOpen(true)}
+              title="Yenilikler"
+              aria-label="Yama notlarını aç"
+            >
+              <QuestionCircleOutlined />
+            </button>
 
             <div className="ct-window-controls" aria-label="Pencere kontrolleri">
               <button

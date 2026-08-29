@@ -9,7 +9,8 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import { authErrorToast, authService } from "@/features/auth";
-import { OTP_CODE_LENGTH } from "@shared/auth-contracts";
+import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
+import type { UserRestriction } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import { useStillImage } from "../../hooks/media/use-still-image";
 
@@ -46,6 +47,8 @@ const SUPPORTED_AVATAR_MIME_TYPES = new Set([
 ]);
 
 const isAnimatableType = (mimeType: string): boolean => mimeType === "image/gif";
+
+const RESTRICTED_HINT = "Bir yetkili bu alanı değiştirmene kapattı.";
 
 /**
  * Validates a chosen file and turns it into the data URL that will be sent.
@@ -206,6 +209,10 @@ export function SettingsProfile({
     bannerUrl: null,
   });
 
+  // Which of these fields an operator has locked. Enforced on the server; held
+  // here so a locked control is greyed out with a reason rather than accepting
+  // a change and failing on save.
+  const [restrictions, setRestrictions] = useState<UserRestriction[]>([]);
   const [savedEmail, setSavedEmail] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
@@ -272,6 +279,7 @@ export function SettingsProfile({
           avatarUrl: profile.avatarUrl ?? null,
           bannerUrl: profile.bannerUrl ?? null,
         });
+        setRestrictions(profile.restrictions ?? []);
         setSavedEmail(profile.email ?? "");
       })
       .catch((error) => {
@@ -611,7 +619,11 @@ export function SettingsProfile({
                   <Button
                     icon={<UploadOutlined />}
                     onClick={() => avatarInputRef.current?.click()}
-                    disabled={isProfileLoading || isSavingProfile}
+                    disabled={
+                      isProfileLoading ||
+                      isSavingProfile ||
+                      isRestricted(restrictions, "avatar")
+                    }
                   >
                     Profil Resmi Yükle
                   </Button>
@@ -622,7 +634,11 @@ export function SettingsProfile({
                       type="text"
                       icon={<DeleteOutlined />}
                       onClick={() => void handleImageClear("avatarUrl")}
-                      disabled={isProfileLoading || isSavingProfile}
+                      disabled={
+                        isProfileLoading ||
+                        isSavingProfile ||
+                        isRestricted(restrictions, "avatar")
+                      }
                     >
                       Kaldır
                     </Button>
@@ -649,7 +665,11 @@ export function SettingsProfile({
                   <Button
                     icon={<UploadOutlined />}
                     onClick={() => bannerInputRef.current?.click()}
-                    disabled={isProfileLoading || isSavingProfile}
+                    disabled={
+                      isProfileLoading ||
+                      isSavingProfile ||
+                      isRestricted(restrictions, "banner")
+                    }
                   >
                     Afiş Yükle
                   </Button>
@@ -660,7 +680,11 @@ export function SettingsProfile({
                       type="text"
                       icon={<DeleteOutlined />}
                       onClick={() => void handleImageClear("bannerUrl")}
-                      disabled={isProfileLoading || isSavingProfile}
+                      disabled={
+                        isProfileLoading ||
+                        isSavingProfile ||
+                        isRestricted(restrictions, "banner")
+                      }
                     >
                       Afişi Kaldır
                     </Button>
@@ -690,8 +714,15 @@ export function SettingsProfile({
                   }))
                 }
                 maxLength={40}
-                disabled={isProfileLoading || isSavingProfile}
+                disabled={
+                  isProfileLoading ||
+                  isSavingProfile ||
+                  isRestricted(restrictions, "displayName")
+                }
               />
+              {isRestricted(restrictions, "displayName") && (
+                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
+              )}
             </div>
 
             <div className="ct-settings-field">
@@ -709,8 +740,15 @@ export function SettingsProfile({
                 }
                 maxLength={220}
                 rows={4}
-                disabled={isProfileLoading || isSavingProfile}
+                disabled={
+                  isProfileLoading ||
+                  isSavingProfile ||
+                  isRestricted(restrictions, "bio")
+                }
               />
+              {isRestricted(restrictions, "bio") && (
+                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
+              )}
             </div>
           </div>
         </div>
@@ -752,8 +790,15 @@ export function SettingsProfile({
                   }))
                 }
                 placeholder="örnek@mail.com"
-                disabled={isProfileLoading || isSavingProfile}
+                disabled={
+                  isProfileLoading ||
+                  isSavingProfile ||
+                  isRestricted(restrictions, "email")
+                }
               />
+              {isRestricted(restrictions, "email") && (
+                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
+              )}
             </div>
 
             {profileSettings.email && profileSettings.email !== savedEmail && (

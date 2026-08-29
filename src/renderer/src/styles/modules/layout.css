@@ -45,6 +45,29 @@
   color: var(--ct-text-muted);
 }
 
+/* Sits against the version it belongs to, so the pair reads as one control.
+   no-drag like every other titlebar button: the bar itself is the window drag
+   handle, and a button inside it does not receive clicks without this. */
+.ct-titlebar-notes {
+  @apply grid h-6 w-6 shrink-0 place-items-center rounded-md;
+  -webkit-app-region: no-drag;
+  color: var(--ct-text-muted);
+  font-size: var(--ct-icon-sm);
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.ct-titlebar-notes:hover {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+}
+
+.ct-titlebar-notes:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 1px;
+}
+
 /* Update status chip. `tone` picks the colour; the geometry never changes, so
    the bar does not reflow as the update state moves through its phases. */
 .ct-update-chip {

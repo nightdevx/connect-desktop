@@ -228,6 +228,10 @@ export class AdminOpsClient {
     return this.call<{ ban: unknown }>(token, "POST", "/admin/network/ip-bans", body);
   }
 
+  public banUserIp(token: string, userId: string, body: { reason: string; expiresAt?: string | null }) {
+    return this.call<{ ban: unknown }>(token, "POST", `/admin/users/${encodeURIComponent(userId)}/ban-ip`, body);
+  }
+
   public unbanIp(token: string, cidr: string) {
     return this.call<{ removed: boolean }>(token, "DELETE", `/admin/network/ip-bans/${encodeURIComponent(cidr)}`);
   }

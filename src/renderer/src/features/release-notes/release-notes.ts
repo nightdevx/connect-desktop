@@ -34,6 +34,92 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.1.92",
+    date: "2026-08-29",
+    summary: "Müzik yeni bir pencereye taşındı, emote susturma artık kalıcı.",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Birinin sesli emotelerini susturduğunda bu ayar artık kalıcı. Eskiden uygulamayı kapatınca susturma sessizce siliniyordu, bir sonraki açılışta o kişinin emoteleri yeniden duyuluyordu.",
+      },
+      {
+        kind: "new",
+        text: "Müzik artık lobi altındaki müzik butonundan açılan bir pencerede. Bağlantıyı kutuya yapıştırıp Sıraya Ekle demen yeterli; duraklat, geç, kuyruğu temizle ve durdur için butonlar var. Komut yazmaya gerek yok.",
+      },
+      {
+        kind: "fixed",
+        text: "Müzik sesi düzeltildi. Parçalar konuşma sesinden çok daha yüksek geliyordu, bu yüzden ses ayarını kısmak da işe yaramıyordu. Artık her parça aynı ve konuşmanın altında bir seviyede çalıyor.",
+      },
+      {
+        kind: "new",
+        text: "Müzik çalarken bot da odada bir katılımcı gibi görünüyor, böylece sesin nereden geldiği belli oluyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Sesli ve görüntülü ekranda kişi sayısı sıraya tam bölünmediğinde son sıradaki kareler sola yapışıyordu. Artık her sıra ortalanıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Ana lobiye sağ tıklayınca ayarlar açılıyor. Ana lobi yine silinemiyor, ama adı, kişi sınırı, şifresi ve özellikleri artık değiştirilebiliyor ve bu ayarlar kalıcı.",
+      },
+      {
+        kind: "new",
+        text: "Sağ tık menüsündeki oda ayarlarının tamamı yönetim panelinden de yapılabiliyor: oda şifresi ve kapatılan özellikler dahil.",
+      },
+      {
+        kind: "new",
+        text: "Yönetim panelinde bir kişiyi seçip IP'sini doğrudan yasaklayabilirsin; adres son girişinden alınır ve açık oturumları da kapatılır.",
+      },
+      {
+        kind: "new",
+        text: "Yönetici, bir hesabın görünen adını, profil resmini, afişini, hakkında yazısını veya e-postasını değiştirmesini tek tek kapatabiliyor. Kapatılan alan kullanıcının ayarlarında gerekçesiyle birlikte soluk görünür.",
+      },
+      {
+        kind: "fixed",
+        text: "Yönetim panelinde Sohbet bölümündeki Ekler sekmesi açılmıyordu, düzeltildi.",
+      },
+    ],
+  },
+  {
+    version: "0.1.91",
+    date: "2026-08-29",
+    summary: "Şifre sıfırlama düzeldi, sesli emote basan artık belli oluyor.",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "“Şifremi unuttum” ve e-posta doğrulama artık çalışıyor. E-postaya gelen kod 8 haneliydi ama kutucuk 6 haneden fazlasını kabul etmiyordu — yani kodu yazmanın imkânı yoktu. Kutucuk düzeltildi; kopyalarken araya karışan boşluklar da otomatik temizleniyor.",
+      },
+      {
+        kind: "improved",
+        text: "Şifre sıfırlama ve doğrulama ekranlarındaki hatalar artık Türkçe ve ne yapman gerektiğini söylüyor: kodun süresi mi dolmuş, yanlış mı yazılmış, yoksa yeni bir kod mu istemelisin.",
+      },
+      {
+        kind: "new",
+        text: "Sesli emote basan kişi belli oluyor. Bastığı sesin adı, o kişinin karesinin üstünde birkaç saniye beliriyor ve karesi bir kez vurgulanıyor. Birinin soundboard'ını susturmuş olsan bile rozeti görürsün.",
+      },
+      {
+        kind: "improved",
+        text: "Sesli emote'lara bekleme süresi eklendi, böylece kimse arka arkaya basarak odayı sese boğamıyor. Çok hızlı bastığında kaç saniye beklemen gerektiği yazıyor.",
+      },
+      {
+        kind: "new",
+        text: "Oda ayarlarından, o odada nelerin kullanılabileceğini tek tek açıp kapatabilirsin: sesli emote, yüklenen emoteler, oda sohbeti, dosya eki, kamera, ekran paylaşımı ve müzik. Kapattığın özellik yalnızca o odada kapanır, diğer odalar etkilenmez.",
+      },
+      {
+        kind: "new",
+        text: "Bir hesap yasaklandığında artık gerekçeyi ve varsa bitiş tarihini görüyor. Süreli yasaklar, süresi dolduğunda kendiliğinden kalkıyor.",
+      },
+      {
+        kind: "new",
+        text: "Yönetim paneline yeni bölümler eklendi: sohbet moderasyonu (mesaj arama, şikâyet kuyruğu, dosya ekleri), yönetici işlem geçmişi, o an yayında olanların listesi ve erişim denetimi.",
+      },
+      {
+        kind: "new",
+        text: "Bu pencereyi istediğin zaman tekrar açabilirsin: sağ üstte sürüm numarasının yanındaki soru işaretine bas.",
+      },
+    ],
+  },
+  {
     version: "0.1.75",
     date: "2026-08-20",
     summary: "Yan panel yenilendi, lobiler kategorilere ayrıldı.",
@@ -135,6 +221,26 @@ export const notesSince = (
 
     return compareVersions(note.version, lastSeenVersion) > 0;
   });
+};
+
+/**
+ * Every note this build is allowed to show, newest first.
+ *
+ * What the question-mark button next to the version opens. It is not
+ * `RELEASE_NOTES` verbatim for the same reason `notesSince` filters: a note
+ * written before its release goes out must not be readable from a build that
+ * has not reached it.
+ */
+export const notesUpTo = (
+  currentVersion: string | null | undefined,
+): ReleaseNote[] => {
+  if (!currentVersion) {
+    return [];
+  }
+
+  return RELEASE_NOTES.filter(
+    (note) => compareVersions(note.version, currentVersion) <= 0,
+  );
 };
 
 /* -------------------------------------------------------------------------

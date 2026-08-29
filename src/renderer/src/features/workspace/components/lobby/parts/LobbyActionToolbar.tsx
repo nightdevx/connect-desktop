@@ -5,6 +5,7 @@ import {
   CloseOutlined,
   CustomerServiceOutlined,
   DesktopOutlined,
+  PlayCircleOutlined,
   VideoCameraOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
@@ -41,6 +42,10 @@ interface LobbyActionToolbarProps {
   emotesDisabled?: boolean;
   cameraDisabled?: boolean;
   screenDisabled?: boolean;
+  // The music dialog. Absent when the server runs no bot, so the toolbar does
+  // not grow a button that can only ever answer "kapalı".
+  onOpenMusic?: () => void;
+  musicDisabled?: boolean;
 }
 
 export function LobbyActionToolbar({
@@ -67,6 +72,8 @@ export function LobbyActionToolbar({
   emotesDisabled,
   cameraDisabled,
   screenDisabled,
+  onOpenMusic,
+  musicDisabled,
 }: LobbyActionToolbarProps) {
   return (
     // Three groups, not one run of six. "Lobiden Ayrıl" used to sit flush
@@ -162,6 +169,18 @@ export function LobbyActionToolbar({
       </Tooltip>
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />
+
+      {onOpenMusic ? (
+        <Tooltip title={musicDisabled ? "Müzik bu odada kapalı" : "Müzik"}>
+          <Button
+            size="large"
+            className="ct-lobby-action-btn"
+            icon={<PlayCircleOutlined />}
+            onClick={onOpenMusic}
+            disabled={musicDisabled}
+          />
+        </Tooltip>
+      ) : null}
 
       <SoundEmoteMenu
         onSend={onSendEmote}

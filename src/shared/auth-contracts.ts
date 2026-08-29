@@ -100,6 +100,10 @@ export interface UserSettingsProfile {
   // Read-only here; writes go to PATCH /auth/privacy. Optional so a client
   // talking to a backend without the field still parses.
   privacy?: PrivacySettings;
+  // Which of the fields above an operator has locked. The server refuses the
+  // write either way; this is so the control is greyed out instead of the save
+  // failing after the fact.
+  restrictions?: UserRestriction[];
 }
 
 // The region of the cover picture that gets kept, as fractions of the source.
@@ -344,7 +348,36 @@ export interface AdminUserDetail {
   deletionScheduledAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  // The address the account last signed in from. Empty for an account that has
+  // not signed in since the column existed, which is what makes "ban this
+  // person's IP" refusable rather than a guess.
+  lastIp?: string;
+  restrictions?: UserRestriction[];
 }
+
+// Profile fields an operator can lock an account out of editing.
+//
+// A ban was the only tool for "stop changing your display name every ten
+// minutes", and it is far too big for it. Kept as a const array so the panel
+// renders a switch per entry without a second list to keep in step.
+export const USER_RESTRICTIONS = [
+  { id: "displayName", label: "Görünen ad" },
+  { id: "avatar", label: "Profil resmi" },
+  { id: "banner", label: "Afiş" },
+  { id: "bio", label: "Hakkında" },
+  { id: "email", label: "E-posta" },
+] as const;
+
+export type UserRestriction = (typeof USER_RESTRICTIONS)[number]["id"];
+
+export const USER_RESTRICTION_IDS: UserRestriction[] = USER_RESTRICTIONS.map(
+  (entry) => entry.id,
+);
+
+export const isRestricted = (
+  restrictions: UserRestriction[] | undefined,
+  restriction: UserRestriction,
+): boolean => (restrictions ?? []).includes(restriction);
 
 export interface AdminUpdateUserRequest {
   username?: string;
@@ -359,6 +392,8 @@ export interface AdminUpdateUserRequest {
   allowCallsFrom?: PrivacyAudience;
   allowFriendRequests?: boolean;
   adminNote?: string;
+  // Omitted leaves the locks alone; an empty array clears them.
+  restrictions?: UserRestriction[];
   reason?: string;
 }
 

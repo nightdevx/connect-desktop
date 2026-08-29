@@ -39,7 +39,8 @@ import type {
   LobbyDescriptor,
   LobbyTimeout,
 } from "@shared/auth-contracts";
-import type { LobbyStateMember } from "@shared/desktop-api-types";
+import type { LobbyFeatureId, LobbyStateMember } from "@shared/desktop-api-types";
+import { LOBBY_FEATURES } from "@shared/desktop-api-types";
 import { AdminPageHeader } from "./admin-primitives";
 
 interface EditLobbyFormValues {
@@ -49,6 +50,12 @@ interface EditLobbyFormValues {
   // The room's own member ceiling. Cleared (null/undefined) hands the room back
   // to the server default rather than pinning it at today's value.
   capacity?: number | null;
+  // Blank leaves the room's password alone; removePassword clears it. The same
+  // contract the room owner's own settings dialog uses, because it is the same
+  // endpoint underneath.
+  password?: string;
+  removePassword?: boolean;
+  disabledFeatures?: LobbyFeatureId[];
 }
 
 
@@ -193,6 +200,9 @@ export default function AdminLobbies() {
       isLocked: record.lobby.isLocked,
       allowedUsers: record.lobby.allowedUsers ? record.lobby.allowedUsers.split(",").filter(Boolean) : [],
       capacity: record.lobby.capacity ?? null,
+      password: "",
+      removePassword: false,
+      disabledFeatures: record.lobby.disabledFeatures ?? [],
     });
     setIsEditOpen(true);
   };
@@ -209,6 +219,14 @@ export default function AdminLobbies() {
         // the field means "follow the server default again". A text room has no
         // roster to limit, so it never sends one.
         capacity: editingLobby.lobby.isTextOnly ? undefined : (values.capacity ?? 0),
+        // undefined leaves it, null clears it, a string sets it — so an
+        // untouched password box must not send an empty string.
+        password: values.removePassword
+          ? null
+          : values.password && values.password.trim() !== ""
+            ? values.password
+            : undefined,
+        disabledFeatures: values.disabledFeatures ?? [],
       });
       if (res.ok) {
         message.success("Oda güncellendi");
@@ -724,6 +742,48 @@ export default function AdminLobbies() {
             extra="Kilitliyken yalnızca aşağıdaki listedeki kullanıcılar ve odayı kuran kişi girebilir."
           >
             <Switch />
+          </Form.Item>
+
+          {/* Voice only, for the same reason the sidebar dialog hides it: a
+              password is asked for at join, and nobody joins a text room. */}
+          {!editingLobby?.lobby.isTextOnly && (
+            <>
+              <Form.Item
+                name="password"
+                label="Oda Şifresi"
+                extra={
+                  editingLobby?.lobby.hasPassword
+                    ? "Boş bırakılırsa mevcut şifre korunur."
+                    : "Boş bırakılırsa oda şifresiz kalır."
+                }
+              >
+                <Input.Password maxLength={128} placeholder="Yeni şifre" />
+              </Form.Item>
+
+              {editingLobby?.lobby.hasPassword ? (
+                <Form.Item name="removePassword" valuePropName="checked" label="Şifreyi Kaldır">
+                  <Switch />
+                </Form.Item>
+              ) : null}
+            </>
+          )}
+
+          <Form.Item
+            name="disabledFeatures"
+            label="Kapalı Özellikler"
+            extra="Seçilen özellikler yalnızca bu odada kullanılamaz. Diğer odalar etkilenmez."
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="Hepsi açık"
+              options={LOBBY_FEATURES.filter(
+                (feature) =>
+                  !editingLobby?.lobby.isTextOnly ||
+                  feature.id === "chat" ||
+                  feature.id === "attachments",
+              ).map((feature) => ({ value: feature.id, label: feature.label }))}
+            />
           </Form.Item>
 
           <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.isLocked !== currentValues.isLocked}>

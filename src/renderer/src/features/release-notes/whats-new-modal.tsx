@@ -4,6 +4,7 @@ import { GiftOutlined } from "@ant-design/icons";
 import {
   RELEASE_HIGHLIGHT_LABELS,
   notesSince,
+  notesUpTo,
   readLastSeenVersion,
   saveLastSeenVersion,
   type ReleaseNote,
@@ -21,6 +22,13 @@ interface WhatsNewModalProps {
    * this could possibly open.
    */
   enabled: boolean;
+  /**
+   * Opened by hand from the question-mark button beside the version, which
+   * shows the whole changelog rather than only what is new. Kept in the parent
+   * so the button and the dialog are not two components apart from each other.
+   */
+  manualOpen?: boolean;
+  onManualOpenChange?: (open: boolean) => void;
 }
 
 const DATE_FORMAT = new Intl.DateTimeFormat("tr-TR", {
@@ -47,7 +55,12 @@ const formatDate = (iso: string): string => {
  * can crash, the updater can restart it — and every one of those used to be a
  * way to be shown the same notes again on the next launch.
  */
-export function WhatsNewModal({ version, enabled }: WhatsNewModalProps) {
+export function WhatsNewModal({
+  version,
+  enabled,
+  manualOpen = false,
+  onManualOpenChange,
+}: WhatsNewModalProps) {
   const [notes, setNotes] = useState<ReleaseNote[] | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isDecided, setIsDecided] = useState(false);
@@ -76,7 +89,20 @@ export function WhatsNewModal({ version, enabled }: WhatsNewModalProps) {
     setIsOpen(true);
   }, [enabled, version, isDecided]);
 
-  if (!notes) {
+  // Opening it by hand reads the whole changelog; the automatic one reads only
+  // what arrived since the last launch. Neither writes the seen-marker again:
+  // the automatic path already moved it, and re-reading old notes on purpose
+  // must not change what the next update is compared against.
+  const shown = manualOpen ? notesUpTo(version) : notes;
+  const close = (): void => {
+    if (manualOpen) {
+      onManualOpenChange?.(false);
+      return;
+    }
+    setIsOpen(false);
+  };
+
+  if (!shown || shown.length === 0) {
     return null;
   }
 
@@ -89,16 +115,16 @@ export function WhatsNewModal({ version, enabled }: WhatsNewModalProps) {
           Yenilikler
         </span>
       }
-      open={isOpen}
-      onCancel={() => setIsOpen(false)}
-      onOk={() => setIsOpen(false)}
-      okText="Anladım"
+      open={manualOpen || isOpen}
+      onCancel={close}
+      onOk={close}
+      okText={manualOpen ? "Kapat" : "Anladım"}
       cancelButtonProps={{ style: { display: "none" } }}
       width={560}
       destroyOnHidden
     >
       <div className="ct-whats-new-body">
-        {notes.map((note) => (
+        {shown.map((note) => (
           <section key={note.version} className="ct-whats-new-release">
             <header className="ct-whats-new-release-head">
               <span className="ct-whats-new-version">v{note.version}</span>

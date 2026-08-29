@@ -497,6 +497,10 @@ export function LobbiesSidebarPanel({
             onJoinLobby(lobby.id);
           };
 
+          // The main lobby is settable but not deletable. It used to have no
+          // menu at all, which meant the one room everybody lands in was the
+          // one room whose name, capacity and feature switches nothing could
+          // reach — the panel refused it and so did the server.
           const contextMenuItems = [
             {
               key: "settings",
@@ -506,15 +510,19 @@ export function LobbiesSidebarPanel({
                 setEditingLobby(lobby);
               },
             },
-            {
-              key: "delete",
-              label: "Lobiyi Sil",
-              icon: <DeleteOutlined />,
-              danger: true,
-              onClick: () => {
-                setPendingDeleteLobby(lobby);
-              },
-            },
+            ...(isDefaultLobby(lobby)
+              ? []
+              : [
+                  {
+                    key: "delete",
+                    label: "Lobiyi Sil",
+                    icon: <DeleteOutlined />,
+                    danger: true,
+                    onClick: () => {
+                      setPendingDeleteLobby(lobby);
+                    },
+                  },
+                ]),
           ];
 
           // The row itself is a real button now. It used to be a <li
@@ -623,7 +631,7 @@ export function LobbiesSidebarPanel({
             currentUserId,
             currentUserRole,
           );
-          const hasLobbyMenu = !isDefaultLobby(lobby) && isOwner;
+          const hasLobbyMenu = isOwner;
 
           return (
             <li

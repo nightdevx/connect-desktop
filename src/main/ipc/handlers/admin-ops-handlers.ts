@@ -78,6 +78,7 @@ const schemas = {
   renameEmote: z.object({ emoteId: z.string().min(1).max(128), name: z.string().min(1).max(48) }),
   uploadEmote: z.object({ name: z.string().min(1).max(48), dataUrl: z.string().min(16).max(2_000_000) }),
   banIp: z.object({ cidr: z.string().min(3).max(64), reason, expiresAt: isoDate }),
+  banUserIp: z.object({ userId, reason, expiresAt: isoDate }),
   cidr: z.object({ cidr: z.string().min(3).max(64) }),
   createInvite: z.object({
     code: z.string().min(3).max(64),
@@ -158,6 +159,7 @@ export function registerAdminOpsHandlers(): void {
 
   ipcMain.handle("desktop:admin-list-ip-bans", bind(z.object({}), (_p, t) => ops().listIpBans(t)));
   ipcMain.handle("desktop:admin-ban-ip", bind(schemas.banIp, (p, t) => ops().banIp(t, { cidr: p.cidr, reason: p.reason, expiresAt: p.expiresAt ?? null })));
+  ipcMain.handle("desktop:admin-ban-user-ip", bind(schemas.banUserIp, (p, t) => ops().banUserIp(t, p.userId, { reason: p.reason, expiresAt: p.expiresAt ?? null })));
   ipcMain.handle("desktop:admin-unban-ip", bind(schemas.cidr, (p, t) => ops().unbanIp(t, p.cidr)));
 
   ipcMain.handle("desktop:admin-list-invites", bind(z.object({}), (_p, t) => ops().listInvites(t)));
