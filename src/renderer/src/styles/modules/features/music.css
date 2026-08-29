@@ -132,3 +132,9 @@
 .ct-music-feedback.error {
   color: var(--ct-danger);
 }
+
+.ct-music-diagnostics {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+}

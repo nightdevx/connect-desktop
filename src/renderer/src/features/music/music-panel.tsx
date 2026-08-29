@@ -15,12 +15,20 @@ import {
 import { formatMusicDuration, type MusicLogLine } from "@shared/music";
 import { useMusicRoom } from "./use-music-room";
 
+export interface MusicBotAudioDiagnostics {
+  seen: boolean;
+  publishing: boolean;
+  subscribed: boolean;
+  muted: boolean;
+}
+
 interface MusicModalProps {
   lobbyId: string | null;
   open: boolean;
   onClose: () => void;
   volumePercent: number;
   onVolumeChange: (volumePercent: number) => void;
+  diagnostics: MusicBotAudioDiagnostics | null;
 }
 
 const logToneClass = (line: MusicLogLine): string => {
@@ -52,6 +60,7 @@ export function MusicModal({
   onClose,
   volumePercent,
   onVolumeChange,
+  diagnostics,
 }: MusicModalProps): JSX.Element | null {
   const { state, isDj, available, isSending, lastReply, lastError, send } =
     useMusicRoom(lobbyId);
@@ -229,6 +238,20 @@ export function MusicModal({
             />
           </span>
         </div>
+
+        {state.connected && diagnostics ? (
+          <p className="ct-music-diagnostics">
+            {!diagnostics.seen
+              ? "Bot bu istemcide görünmüyor — ses odaya ulaşmıyor."
+              : !diagnostics.publishing
+                ? "Bot görünüyor ama ses yayını yok."
+                : diagnostics.muted
+                  ? "Bot yayını susturulmuş görünüyor."
+                  : !diagnostics.subscribed
+                    ? "Bot yayınlıyor ama bu istemci abone değil."
+                    : `Ses alınıyor · %${volumePercent}`}
+          </p>
+        ) : null}
 
         {state.queue.length > 0 ? (
           <ol className="ct-music-queue">

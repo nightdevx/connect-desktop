@@ -21,6 +21,7 @@ import { canManageLobby } from "@/features/auth";
 import { MusicModal, useMusicRoom } from "@/features/music";
 import { WatchModal } from "@/features/watch";
 import { musicBotIdentity } from "@shared/music";
+import { Track } from "livekit-client";
 
 // Matches music.BotDisplayName on the server, which is what LiveKit carries as
 // the participant name. Written here as well because the stage builds its tile
@@ -536,6 +537,25 @@ export function LobbiesMainPanel({
   const isBotContextTarget =
     musicBotId !== null && contextMenuParticipantId === musicBotId;
 
+  const musicBotDiagnostics = useMemo(() => {
+    if (!musicBotId) {
+      return null;
+    }
+    const media = remoteParticipantStreams[musicBotId];
+    if (!media) {
+      return { seen: false, publishing: false, subscribed: false, muted: false };
+    }
+    const publication = media.participant.getTrackPublication(
+      Track.Source.Microphone,
+    );
+    return {
+      seen: true,
+      publishing: publication !== undefined,
+      subscribed: publication?.isSubscribed === true,
+      muted: publication?.isMuted === true,
+    };
+  }, [musicBotId, remoteParticipantStreams]);
+
   const handleParticipantFocus = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.stopPropagation();
@@ -764,6 +784,7 @@ export function LobbiesMainPanel({
         onClose={() => setIsMusicOpen(false)}
         volumePercent={musicVolumePercent}
         onVolumeChange={handleMusicVolumeChange}
+        diagnostics={musicBotDiagnostics}
       />
 
       <WatchModal

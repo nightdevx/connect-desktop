@@ -428,8 +428,14 @@ export class RemoteMediaHandler {
 
   public dispose() {
     for (const key of Array.from(this.inputs.keys())) {
-      const [identity, kind] = key.split(":");
-      this.detachAudioTrack(identity, kind as InputKind);
+      const separator = key.lastIndexOf(":");
+      if (separator < 0) {
+        continue;
+      }
+      this.detachAudioTrack(
+        key.slice(0, separator),
+        key.slice(separator + 1) as InputKind,
+      );
     }
 
     if (this.sinkElement) {

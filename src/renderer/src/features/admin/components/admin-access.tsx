@@ -9,6 +9,8 @@ import { adminService } from "../services/admin-service";
 
 type Pane = "ips" | "invites";
 
+const USER_PAGE_SIZE = 200;
+
 export default function AdminAccess() {
   const [pane, setPane] = useState<Pane>("ips");
   const [bans, setBans] = useState<AdminIpBan[]>([]);
@@ -56,11 +58,26 @@ export default function AdminAccess() {
       return;
     }
     setUsersLoading(true);
-    void adminService
-      .listUsers({ limit: 500 })
-      .then((data) => setUsers(data.users))
-      .catch((error) => message.error(toErrorMessage(error, "Kullanıcılar yüklenemedi")))
-      .finally(() => setUsersLoading(false));
+    void (async () => {
+      try {
+        const collected: AdminUserDetail[] = [];
+        for (;;) {
+          const page = await adminService.listUsers({
+            limit: USER_PAGE_SIZE,
+            offset: collected.length,
+          });
+          collected.push(...page.users);
+          if (page.users.length === 0 || collected.length >= page.total) {
+            break;
+          }
+        }
+        setUsers(collected);
+      } catch (error) {
+        message.error(toErrorMessage(error, "Kullanıcılar yüklenemedi"));
+      } finally {
+        setUsersLoading(false);
+      }
+    })();
   }, [banBy, pane, users.length]);
 
   const selectedUser = useMemo(
