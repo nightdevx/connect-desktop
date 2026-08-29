@@ -63,6 +63,7 @@ interface ParticipantContextMenuProps {
   // Opens the profile card. The roster carries a display name and nothing else,
   // so this is the only way to see who someone actually is from the stage.
   onShowProfile?: () => void;
+  isBot?: boolean;
 }
 
 export function ParticipantContextMenu({
@@ -91,6 +92,7 @@ export function ParticipantContextMenu({
   onAddFriend,
   onRemoveFriend,
   onShowProfile,
+  isBot = false,
 }: ParticipantContextMenuProps) {
   const locallyMuted = isRemoteParticipantMuted(preference);
 
@@ -99,7 +101,7 @@ export function ParticipantContextMenu({
       key: 'title',
       label: (
         <div className="ct-participant-context-menu-title">
-          Katılımcı Ayarları
+          {isBot ? 'Müzik Botu Ayarları' : 'Katılımcı Ayarları'}
         </div>
       ),
       disabled: true,
@@ -178,16 +180,20 @@ export function ParticipantContextMenu({
           },
         ]
       : []),
-    {
-      key: 'camera',
-      label: preference.cameraHidden ? 'Kamerayı Göster' : 'Kamerayı Gizle',
-      icon: preference.cameraHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />,
-      className: 'ct-participant-context-menu-button',
-      onClick: () => {
-        onToggleCameraHidden(!preference.cameraHidden);
-        onClose();
-      },
-    },
+    ...(isBot
+      ? []
+      : [
+          {
+            key: 'camera',
+            label: preference.cameraHidden ? 'Kamerayı Göster' : 'Kamerayı Gizle',
+            icon: preference.cameraHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />,
+            className: 'ct-participant-context-menu-button',
+            onClick: () => {
+              onToggleCameraHidden(!preference.cameraHidden);
+              onClose();
+            },
+          },
+        ]),
     {
       type: 'divider',
     },
@@ -197,7 +203,7 @@ export function ParticipantContextMenu({
         <div className="ct-participant-context-menu-hint">
           <SoundOutlined />
           <span>
-            Mikrofon Sesi: %{preference.volumePercent}
+            {isBot ? 'Müzik Sesi' : 'Mikrofon Sesi'}: %{preference.volumePercent}
             {locallyMuted && " · susturuldu"}
           </span>
         </div>

@@ -533,6 +533,9 @@ export function LobbiesMainPanel({
     onSetRemoteParticipantVolume(musicBotId, volumePercent);
   };
 
+  const isBotContextTarget =
+    musicBotId !== null && contextMenuParticipantId === musicBotId;
+
   const handleParticipantFocus = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.stopPropagation();
@@ -553,9 +556,6 @@ export function LobbiesMainPanel({
 
   const handleParticipantContextMenu = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
-    // Every entry in that menu is a moderation action on an account, and the
-    // bot has none. Its volume lives in the music dialog.
-    if (participant.userId === musicBotId) return;
     event.preventDefault();
     event.stopPropagation();
     setContextMenuParticipantId(participant.userId);
@@ -790,31 +790,36 @@ export function LobbiesMainPanel({
             setContextMenuPosition(null);
           }}
           onMute={handleMute}
-          onEmoteMute={handleEmoteMute}
           onVolume={handleVolume}
           onToggleCameraHidden={handleToggleCameraHidden}
           onScreenAudioMute={handleScreenAudioMute}
           onScreenAudioVolume={handleScreenAudioVolume}
+          isBot={isBotContextTarget}
+          onEmoteMute={isBotContextTarget ? undefined : handleEmoteMute}
           isWatchingScreen={contextMenuParticipantId ? isWatchingScreen(contextMenuParticipantId) : false}
           onSetScreenWatching={(watch) => {
             if (!contextMenuParticipantId) return;
             if (watch) onWatchScreen(contextMenuParticipantId);
             else onStopWatchingScreen(contextMenuParticipantId);
           }}
-          canModerate={canModerate}
-          onServerMute={handleServerMuteParticipant}
-          onKick={handleKickParticipant}
-          onTimeout={handleTimeoutParticipant}
+          canModerate={canModerate && !isBotContextTarget}
+          onServerMute={isBotContextTarget ? undefined : handleServerMuteParticipant}
+          onKick={isBotContextTarget ? undefined : handleKickParticipant}
+          onTimeout={isBotContextTarget ? undefined : handleTimeoutParticipant}
           // Only rooms this moderator may also moderate: the server checks the
           // destination too, so anything else is an offer that answers 403.
-          moveTargets={buildMoveTargets(
-            lobbies.filter((candidate) =>
-              canManageLobby(candidate.createdBy, currentUserId, currentUserRole),
-            ),
-            activeLobbyId ?? "",
-          )}
-          onMove={handleMoveParticipant}
-          friendState={contextMenuFriendState}
+          moveTargets={
+            isBotContextTarget
+              ? undefined
+              : buildMoveTargets(
+                  lobbies.filter((candidate) =>
+                    canManageLobby(candidate.createdBy, currentUserId, currentUserRole),
+                  ),
+                  activeLobbyId ?? "",
+                )
+          }
+          onMove={isBotContextTarget ? undefined : handleMoveParticipant}
+          friendState={isBotContextTarget ? undefined : contextMenuFriendState}
           isFriendActionPending={
             contextMenuParticipantId !== null &&
             (friends.pendingUserIds.includes(contextMenuParticipantId) ||
@@ -822,15 +827,19 @@ export function LobbiesMainPanel({
           }
           onAddFriend={handleAddParticipantFriend}
           onRemoveFriend={handleRemoveParticipantFriend}
-          onShowProfile={() => {
-            if (!contextMenuParticipant || !contextMenuPosition) return;
-            setProfileCardTarget({
-              userId: contextMenuParticipant.userId,
-              name: contextMenuParticipant.username,
-              x: contextMenuPosition.x,
-              y: contextMenuPosition.y,
-            });
-          }}
+          onShowProfile={
+            isBotContextTarget
+              ? undefined
+              : () => {
+                  if (!contextMenuParticipant || !contextMenuPosition) return;
+                  setProfileCardTarget({
+                    userId: contextMenuParticipant.userId,
+                    name: contextMenuParticipant.username,
+                    x: contextMenuPosition.x,
+                    y: contextMenuPosition.y,
+                  });
+                }
+          }
         />
       )}
 

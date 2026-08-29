@@ -143,70 +143,60 @@ export function LobbyActionToolbar({
           </Tooltip>
           <StreamControlMenu />
         </div>
-      ) : (
-        <Tooltip title={screenDisabled ? "Ekran paylaşımı bu odada kapalı" : "Ekranı Paylaş"}>
+      ) : screenDisabled ? null : (
+        <Tooltip title="Ekranı Paylaş">
           <Button
             size="large"
             className="ct-lobby-action-btn"
             icon={<DesktopOutlined />}
             onClick={onToggleScreen}
-            disabled={screenDisabled}
           />
         </Tooltip>
       )}
 
-      <Tooltip
-        title={
-          cameraDisabled
-            ? "Kamera bu odada kapalı"
-            : cameraEnabled
-              ? "Kamerayı Kapat"
-              : "Kamerayı Aç"
-        }
-      >
-        <Button
-          size="large"
-          className={`ct-lobby-action-btn `}
-          icon={<VideoCameraOutlined />}
-          onClick={onToggleCamera}
-          disabled={cameraDisabled && !cameraEnabled}
-        />
-      </Tooltip>
+      {cameraDisabled && !cameraEnabled ? null : (
+        <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
+          <Button
+            size="large"
+            className={`ct-lobby-action-btn `}
+            icon={<VideoCameraOutlined />}
+            onClick={onToggleCamera}
+          />
+        </Tooltip>
+      )}
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />
 
-      {onOpenMusic ? (
-        <Tooltip title={musicDisabled ? "Müzik bu odada kapalı" : "Müzik"}>
+      {onOpenMusic && !musicDisabled ? (
+        <Tooltip title="Müzik">
           <Button
             size="large"
             className="ct-lobby-action-btn"
             icon={<PlayCircleOutlined />}
             onClick={onOpenMusic}
-            disabled={musicDisabled}
           />
         </Tooltip>
       ) : null}
 
-      {onOpenWatch ? (
-        <Tooltip
-          title={watchDisabled ? "Birlikte izleme bu odada kapalı" : "Birlikte İzle"}
-        >
+      {onOpenWatch && !watchDisabled ? (
+        <Tooltip title="Birlikte İzle">
           <Button
             size="large"
             className="ct-lobby-action-btn"
             icon={<YoutubeOutlined />}
             onClick={onOpenWatch}
-            disabled={watchDisabled}
           />
         </Tooltip>
       ) : null}
 
-      <SoundEmoteMenu
-        onSend={onSendEmote}
-        currentUserId={currentUserId}
-        currentUserRole={currentUserRole}
-        disabled={isLeavingLobby || emotesDisabled}
-      />
+      {emotesDisabled ? null : (
+        <SoundEmoteMenu
+          onSend={onSendEmote}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          disabled={isLeavingLobby}
+        />
+      )}
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />
 

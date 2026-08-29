@@ -545,6 +545,7 @@ export function useWorkspaceLobbies({
             // Same trap once more: drop it and every "3 / 10" collapses to "3"
             // on the first push after the REST seed.
             capacity: snapshot.capacity,
+            disabledFeatures: snapshot.disabledFeatures,
           };
         });
 
