@@ -1,4 +1,20 @@
-export type UserRole = "admin" | "member";
+export type UserRole = "owner" | "admin" | "moderator" | "member";
+
+export const USER_ROLES: readonly UserRole[] = ["owner", "admin", "moderator", "member"];
+
+const ROLE_RANK: Record<UserRole, number> = { owner: 40, admin: 30, moderator: 20, member: 10 };
+
+export const roleRank = (role: string): number => ROLE_RANK[role as UserRole] ?? 0;
+
+export const rankAtLeast = (role: string, minimum: UserRole): boolean =>
+  roleRank(role) >= ROLE_RANK[minimum];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  owner: "Sahip",
+  admin: "Yönetici",
+  moderator: "Moderatör",
+  member: "Üye",
+};
 
 export interface UserProfile {
   id: string;
@@ -108,6 +124,8 @@ export interface UpdateProfileRequest {
   bannerCrop?: ImageCropRect;
 }
 
+export const OTP_CODE_LENGTH = 8;
+
 export interface ForgotPasswordRequest {
   email: string;
 }
@@ -168,6 +186,7 @@ export interface LobbyDescriptor {
   isTextOnly?: boolean;
   // The room's member ceiling. Optional: an older server omits it.
   capacity?: number;
+  disabledFeatures?: string[];
 }
 
 // Server-reported lobby membership. Deliberately has no `speaking` flag: the
@@ -199,6 +218,14 @@ export interface AdminRuntimeSettings {
   maxLobbiesPerUser: number;
   lobbyCapacity: number;
   disabledMinigames: string[];
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  readOnly: boolean;
+  inviteOnly: boolean;
+  emailDomains: string[];
+  chatRetentionDays: number;
+  maxQueuePerUser: number;
+  musicSources: string[];
 }
 
 // Every field optional: omitted means "leave unchanged", so the panel can send
@@ -209,6 +236,14 @@ export interface AdminRuntimeSettingsPatch {
   maxLobbiesPerUser?: number;
   lobbyCapacity?: number;
   disabledMinigames?: string[];
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
+  readOnly?: boolean;
+  inviteOnly?: boolean;
+  emailDomains?: string[];
+  chatRetentionDays?: number;
+  maxQueuePerUser?: number;
+  musicSources?: string[];
 }
 
 // A voice mute as the admin panel sees it: the username resolved, because the
@@ -295,8 +330,16 @@ export interface AdminUserDetail {
   emailVerified: boolean;
   bio: string | null;
   avatarUrl: string | null;
+  bannerUrl?: string | null;
   role: UserRole;
   bannedAt: string | null;
+  bannedUntil?: string | null;
+  banReason?: string;
+  bannedBy?: string;
+  adminNote?: string;
+  allowDmFrom?: PrivacyAudience;
+  allowCallsFrom?: PrivacyAudience;
+  allowFriendRequests?: boolean;
   // Non-null while the account is inside its self-service deletion window.
   deletionScheduledAt?: string | null;
   createdAt: string;
@@ -304,10 +347,19 @@ export interface AdminUserDetail {
 }
 
 export interface AdminUpdateUserRequest {
+  username?: string;
   displayName?: string;
   email?: string | null;
+  emailVerified?: boolean;
   bio?: string | null;
+  avatarUrl?: string | null;
+  bannerUrl?: string | null;
   role?: UserRole;
+  allowDmFrom?: PrivacyAudience;
+  allowCallsFrom?: PrivacyAudience;
+  allowFriendRequests?: boolean;
+  adminNote?: string;
+  reason?: string;
 }
 
 export interface AdminLobbySnapshot {

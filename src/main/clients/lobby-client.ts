@@ -44,6 +44,7 @@ export class LobbyClient {
     allowedUsers?: string[],
     password?: string | null,
     capacity?: number,
+    disabledFeatures?: string[],
   ): Promise<{ lobby: LobbyDescriptor }> {
     const encodedLobbyID = encodeURIComponent(lobbyId);
     // password: undefined -> omit (keep current); string ("" clears) -> send.
@@ -55,6 +56,9 @@ export class LobbyClient {
     // 0 hands it back to the server default.
     if (capacity !== undefined) {
       body.capacity = capacity;
+    }
+    if (disabledFeatures !== undefined) {
+      body.disabledFeatures = disabledFeatures;
     }
     return this.baseClient.request<{ lobby: LobbyDescriptor }>(
       `/lobby/rooms/${encodedLobbyID}`,

@@ -9,6 +9,10 @@ import AdminModeration from "./admin-moderation";
 import AdminSettings from "./admin-settings";
 import AdminMinigames from "./admin-minigames";
 import AdminMusic from "./admin-music";
+import AdminChat from "./admin-chat";
+import AdminAudit from "./admin-audit";
+import AdminMedia from "./admin-media";
+import AdminAccess from "./admin-access";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -35,6 +39,14 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminMinigames />;
       case "music":
         return <AdminMusic />;
+      case "chat":
+        return <AdminChat />;
+      case "audit":
+        return <AdminAudit />;
+      case "media":
+        return <AdminMedia />;
+      case "access":
+        return <AdminAccess />;
       case "settings":
         return <AdminSettings />;
       default:

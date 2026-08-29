@@ -1,3 +1,4 @@
+import { LOBBY_FEATURES, type LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -85,6 +86,7 @@ interface LobbiesSidebarPanelProps {
     allowedUsers?: string[],
     password?: string | null,
     capacity?: number,
+    disabledFeatures?: LobbyFeatureId[],
   ) => Promise<boolean>;
   onDeleteLobby: (lobbyId: string) => Promise<boolean>;
   renamingLobbyId: string | null;
@@ -204,6 +206,7 @@ export function LobbiesSidebarPanel({
   // null means "follow the server default", which is what a room that never
   // chose a limit does.
   const [editCapacity, setEditCapacity] = useState<number | null>(null);
+  const [editDisabledFeatures, setEditDisabledFeatures] = useState<LobbyFeatureId[]>([]);
   const [editRemovePassword, setEditRemovePassword] = useState(false);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
@@ -227,6 +230,7 @@ export function LobbiesSidebarPanel({
       // The room reports its live ceiling, so the field opens on what is
       // actually enforced rather than on an empty box.
       setEditCapacity(editingLobby.capacity ?? null);
+      setEditDisabledFeatures((editingLobby.disabledFeatures ?? []) as LobbyFeatureId[]);
       setLookedUpUsers([]);
       setLookupUsername("");
     }
@@ -405,6 +409,7 @@ export function LobbiesSidebarPanel({
       // 0 rather than undefined when the field is cleared: undefined would keep
       // whatever the room has, and clearing it means "go back to the default".
       editingLobby.isTextOnly ? undefined : (editCapacity ?? 0),
+      editDisabledFeatures,
     );
     if (!updated) {
       return;
@@ -417,6 +422,7 @@ export function LobbiesSidebarPanel({
     setEditPassword("");
     setEditRemovePassword(false);
     setEditCapacity(null);
+    setEditDisabledFeatures([]);
   };
 
   // The room on screen — the same answer `isDisplayed` computes per row, hoisted
@@ -1286,6 +1292,40 @@ export function LobbiesSidebarPanel({
               )}
             </label>
           )}
+
+          <div className="ct-field">
+            <span>Oda Özellikleri</span>
+            <small className="ct-field-hint">
+              Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer
+              odalar etkilenmez.
+            </small>
+            <div className="ct-lobby-feature-grid">
+              {LOBBY_FEATURES.filter(
+                (feature) =>
+                  !editingLobby?.isTextOnly ||
+                  feature.id === "chat" ||
+                  feature.id === "attachments",
+              ).map((feature) => {
+                const enabled = !editDisabledFeatures.includes(feature.id);
+                return (
+                  <label key={feature.id} className="ct-lobby-feature-row">
+                    <Switch
+                      size="small"
+                      checked={enabled}
+                      onChange={(next) =>
+                        setEditDisabledFeatures((previous) =>
+                          next
+                            ? previous.filter((id) => id !== feature.id)
+                            : [...previous, feature.id],
+                        )
+                      }
+                    />
+                    <span>{feature.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </Modal>
 

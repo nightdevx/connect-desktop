@@ -5,6 +5,7 @@ import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import { playCustomEmote, workspaceService } from "@/features/workspace";
 import { soundEffectManager } from "@/features/sound-effects";
 import { useUiStore } from "@/store/ui-store";
+import { useLobbyEmoteFlashStore } from "@/store/lobby-emote-flash";
 
 /**
  * Plays sound emotes for the room the user is in.
@@ -44,6 +45,16 @@ export function useLobbyEmotePlayback(
       if (!activeLobbyRef.current || activeLobbyRef.current !== event.lobbyId) {
         return;
       }
+      useLobbyEmoteFlashStore.getState().flash(
+        event.userId,
+        {
+          label: event.label || event.emote,
+          emote: event.emote,
+          at: event.sentAt ?? Date.now(),
+        },
+        event.holdMs ?? 0,
+      );
+
       // Per-person soundboard mute. Applied here rather than in the media path
       // because an emote never enters it: no audio crosses the wire, only the
       // id does, so LiveKit's own participant volume cannot reach this.

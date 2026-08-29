@@ -1824,3 +1824,51 @@
 .ct-sound-emote-delete.ant-btn:focus-visible {
   @apply opacity-100;
 }
+
+.ct-lobby-tile-emote-flash {
+  @apply absolute inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-semibold;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  background: color-mix(in srgb, var(--ct-accent) 90%, transparent);
+  color: var(--ct-text-inverse);
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px var(--ct-shadow-color);
+  pointer-events: none;
+  animation: ct-emote-flash-in 180ms ease-out;
+}
+
+.ct-lobby-participant-tile.emoting {
+  box-shadow: 0 0 0 2px var(--ct-accent), 0 8px 24px var(--ct-shadow-color);
+}
+
+@keyframes ct-emote-flash-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-lobby-tile-emote-flash {
+    animation: none;
+  }
+}
+
+.ct-lobby-feature-grid {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  margin-top: 0.5rem;
+}
+
+.ct-lobby-feature-row {
+  @apply flex items-center gap-2 rounded-md px-2 py-1.5 text-sm;
+  background: var(--ct-surface-2);
+  border: 1px solid var(--ct-border);
+  cursor: pointer;
+}

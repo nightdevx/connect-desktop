@@ -31,6 +31,22 @@ import type {
   PrivacySettings,
   UpdatePrivacyRequest,
 } from "./auth-contracts";
+import type {
+  AdminAttachmentStats,
+  AdminAttachmentSummary,
+  AdminAuditEntry,
+  AdminAuditQuery,
+  AdminChatQuery,
+  AdminChatReport,
+  AdminEmoteRow,
+  AdminInviteCode,
+  AdminIpBan,
+  AdminLivePublisher,
+  AdminPurgeQuery,
+  AdminReportStatus,
+  AdminSessionSummary,
+  AdminUserRelations,
+} from "./admin-ops-types";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 import type { FreeGamesSnapshot } from "./free-games";
 import type {
@@ -158,6 +174,7 @@ export interface LobbyRealtimeSnapshot {
   isTextOnly?: boolean;
   // The room's member ceiling. Optional: an older server omits it.
   capacity?: number;
+  disabledFeatures?: LobbyFeatureId[];
 }
 
 // Inline file upload carried in the same payload as the message. mimeType is a
@@ -214,6 +231,28 @@ export type LobbySoundEmote = (typeof LOBBY_SOUND_EMOTES)[number];
 
 /** Marks an emote id as an upload rather than one of the synthesised set. */
 export const CUSTOM_EMOTE_PREFIX = "custom:";
+
+export const LOBBY_FEATURES = [
+  { id: "soundEmotes", label: "Sesli emote" },
+  { id: "customEmotes", label: "Yüklenen emoteler" },
+  { id: "chat", label: "Oda sohbeti" },
+  { id: "attachments", label: "Dosya eki" },
+  { id: "camera", label: "Kamera" },
+  { id: "screenShare", label: "Ekran paylaşımı" },
+  { id: "music", label: "Müzik botu" },
+] as const;
+
+export type LobbyFeatureId = (typeof LOBBY_FEATURES)[number]["id"];
+
+export const LOBBY_FEATURE_IDS = LOBBY_FEATURES.map((feature) => feature.id) as readonly LobbyFeatureId[];
+
+export const lobbyFeatureLabel = (id: string): string =>
+  LOBBY_FEATURES.find((feature) => feature.id === id)?.label ?? id;
+
+export const isLobbyFeatureEnabled = (
+  disabled: readonly string[] | undefined,
+  feature: LobbyFeatureId,
+): boolean => !disabled?.includes(feature);
 
 /**
  * An uploaded sound, without the sound. The sample is fetched per id and cached
@@ -288,6 +327,9 @@ export type LobbyStreamEvent =
       userId: string;
       username: string;
       emote: LobbySoundEmote;
+      label?: string;
+      holdMs?: number;
+      sentAt?: number;
       at?: string;
     }
   | {
@@ -577,6 +619,7 @@ export interface DesktopApi {
     password?: string | null;
     // undefined keeps the room's ceiling, 0 returns it to the server default.
     capacity?: number;
+    disabledFeatures?: LobbyFeatureId[];
   }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
   deleteLobby: (payload: {
     lobbyId: string;
@@ -950,4 +993,51 @@ export interface DesktopApi {
   adminListMusicDJs: () => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
   adminGrantMusicDJ: (userId: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
   adminRevokeMusicDJ: (userId: string) => Promise<DesktopResult<{ revoked: boolean }>>;
+  adminOps: {
+    userSessions: (payload: { userId: string }) => Promise<DesktopResult<{ sessions: AdminSessionSummary[] }>>;
+    revokeSession: (payload: { userId: string; sessionId: string }) => Promise<DesktopResult<{ revoked: boolean }>>;
+    userRelations: (payload: { userId: string }) => Promise<DesktopResult<{ relations: AdminUserRelations }>>;
+    removeFriend: (payload: { userId: string; peerId: string }) => Promise<DesktopResult<{ removed: boolean }>>;
+    setBlock: (payload: { userId: string; peerId: string; blocked: boolean }) => Promise<DesktopResult<{ blocked: boolean }>>;
+    sendPasswordReset: (payload: { userId: string }) => Promise<DesktopResult<{ sent: boolean }>>;
+    sendVerification: (payload: { userId: string }) => Promise<DesktopResult<{ sent: boolean }>>;
+    banUser: (payload: { userId: string; reason: string; until?: string | null }) => Promise<DesktopResult<{ banned: boolean }>>;
+    setDeletion: (payload: { userId: string; cancel?: boolean; requestedAt?: string | null; reason?: string }) => Promise<DesktopResult<{ scheduled: boolean }>>;
+    listAudit: (payload: AdminAuditQuery) => Promise<DesktopResult<{ entries: AdminAuditEntry[]; total: number }>>;
+    searchChat: (payload: AdminChatQuery) => Promise<DesktopResult<{ messages: ChatMessage[]; total: number }>>;
+    deleteChatMessage: (payload: { messageId: string; reason: string }) => Promise<DesktopResult<{ deleted: boolean }>>;
+    redactChatMessage: (payload: { messageId: string; reason: string }) => Promise<DesktopResult<{ message: ChatMessage }>>;
+    purgeChat: (payload: AdminPurgeQuery) => Promise<DesktopResult<{ deleted: number; matched: number }>>;
+    removeChatReaction: (payload: { messageId: string; emoji: string }) => Promise<DesktopResult<{ message: ChatMessage }>>;
+    listAttachments: (payload: { limit?: number; offset?: number }) => Promise<DesktopResult<{ attachments: AdminAttachmentSummary[]; total: number; stats: AdminAttachmentStats }>>;
+    deleteAttachment: (payload: { attachmentId: string; reason: string }) => Promise<DesktopResult<{ deleted: boolean }>>;
+    listReports: (payload: { status?: AdminReportStatus; limit?: number; offset?: number }) => Promise<DesktopResult<{ reports: AdminChatReport[]; total: number }>>;
+    updateReport: (payload: { reportId: string; status: AdminReportStatus; reason?: string }) => Promise<DesktopResult<{ updated: boolean }>>;
+    lobbyFeatures: () => Promise<DesktopResult<{ features: Array<{ id: LobbyFeatureId; label: string }> }>>;
+    createLobby: (payload: { name: string; isTextOnly?: boolean; capacity?: number }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
+    deleteLobby: (payload: { lobbyId: string; reason: string }) => Promise<DesktopResult<{ deleted: boolean }>>;
+    transferLobby: (payload: { lobbyId: string; userId: string }) => Promise<DesktopResult<{ lobby: LobbyDescriptor }>>;
+    moveMember: (payload: { lobbyId: string; userId: string }) => Promise<DesktopResult<{ moved: boolean }>>;
+    announce: (payload: { lobbyId?: string; body: string }) => Promise<DesktopResult<{ delivered: number }>>;
+    disconnectMedia: (payload: { userId: string }) => Promise<DesktopResult<{ disconnected: boolean }>>;
+    forceTrackOff: (payload: { userId: string; kind: "camera" | "screen" | "microphone"; reason?: string }) => Promise<DesktopResult<{ stopped: boolean }>>;
+    liveMedia: () => Promise<DesktopResult<{ publishers: AdminLivePublisher[] }>>;
+    closeTable: (payload: { tableId: string }) => Promise<DesktopResult<{ closed: boolean }>>;
+    removeTablePlayer: (payload: { tableId: string; userId: string }) => Promise<DesktopResult<{ removed: boolean }>>;
+    deleteScore: (payload: { game: string; userId: string }) => Promise<DesktopResult<{ deleted: boolean }>>;
+    resetLeaderboard: (payload: { game: string; reason: string }) => Promise<DesktopResult<{ removed: number }>>;
+    musicQueue: (payload: { lobbyId: string }) => Promise<DesktopResult<{ state: MusicState }>>;
+    clearMusicQueue: (payload: { lobbyId: string }) => Promise<DesktopResult<{ state: MusicState; reply: string }>>;
+    removeMusicTrack: (payload: { lobbyId: string; index: number }) => Promise<DesktopResult<{ state: MusicState; reply: string }>>;
+    renameEmote: (payload: { emoteId: string; name: string }) => Promise<DesktopResult<{ emote: AdminEmoteRow }>>;
+    uploadEmote: (payload: { name: string; dataUrl: string }) => Promise<DesktopResult<{ emote: AdminEmoteRow }>>;
+    listIpBans: () => Promise<DesktopResult<{ bans: AdminIpBan[] }>>;
+    banIp: (payload: { cidr: string; reason: string; expiresAt?: string | null }) => Promise<DesktopResult<{ ban: AdminIpBan }>>;
+    unbanIp: (payload: { cidr: string }) => Promise<DesktopResult<{ removed: boolean }>>;
+    listInvites: () => Promise<DesktopResult<{ invites: AdminInviteCode[] }>>;
+    createInvite: (payload: { code: string; maxUses?: number; expiresAt?: string | null }) => Promise<DesktopResult<{ invite: AdminInviteCode }>>;
+    deleteInvite: (payload: { code: string }) => Promise<DesktopResult<{ removed: boolean }>>;
+  };
+
 }
+export * from "./admin-ops-types";

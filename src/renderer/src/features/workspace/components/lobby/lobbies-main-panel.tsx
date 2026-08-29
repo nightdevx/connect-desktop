@@ -1,3 +1,4 @@
+import { isLobbyFeatureEnabled } from "@shared/desktop-api-types";
 import {
   useCallback,
   useEffect,
@@ -662,6 +663,15 @@ export function LobbiesMainPanel({
               onSendEmote={handleSendEmote}
               currentUserId={currentUserId}
               currentUserRole={currentUserRole}
+              emotesDisabled={
+                !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "soundEmotes")
+              }
+              cameraDisabled={
+                !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "camera")
+              }
+              screenDisabled={
+                !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "screenShare")
+              }
             />
           </section>
           )}

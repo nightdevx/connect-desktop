@@ -1,3 +1,4 @@
+import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useState } from "react";
 import { Switch, Modal, Select, Input, InputNumber, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
@@ -84,6 +85,7 @@ interface WorkspaceSidebarProps {
       allowedUsers?: string[],
       password?: string | null,
       capacity?: number,
+      disabledFeatures?: LobbyFeatureId[],
     ) => Promise<boolean>;
     onDeleteLobby: (lobbyId: string) => Promise<boolean>;
     isCreatingLobby: boolean;

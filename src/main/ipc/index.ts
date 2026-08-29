@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { registerAdminOpsHandlers } from "./handlers/admin-ops-handlers";
 import { registerAuthHandlers } from "./handlers/auth-handlers";
 import { registerLobbyHandlers } from "./handlers/lobby-handlers";
 import { registerDMHandlers } from "./handlers/dm-handlers";
@@ -147,6 +148,49 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:admin-list-music-djs",
   "desktop:admin-grant-music-dj",
   "desktop:admin-revoke-music-dj",
+  "desktop:admin-user-sessions",
+  "desktop:admin-revoke-session",
+  "desktop:admin-user-relations",
+  "desktop:admin-remove-friend",
+  "desktop:admin-set-block",
+  "desktop:admin-send-password-reset",
+  "desktop:admin-send-verification",
+  "desktop:admin-ban-user-detailed",
+  "desktop:admin-set-deletion",
+  "desktop:admin-list-audit",
+  "desktop:admin-search-chat",
+  "desktop:admin-delete-chat-message",
+  "desktop:admin-redact-chat-message",
+  "desktop:admin-purge-chat",
+  "desktop:admin-remove-chat-reaction",
+  "desktop:admin-list-attachments",
+  "desktop:admin-delete-attachment",
+  "desktop:admin-list-reports",
+  "desktop:admin-update-report",
+  "desktop:admin-lobby-features",
+  "desktop:admin-create-lobby",
+  "desktop:admin-delete-lobby",
+  "desktop:admin-transfer-lobby",
+  "desktop:admin-move-member",
+  "desktop:admin-announce",
+  "desktop:admin-disconnect-media",
+  "desktop:admin-force-track-off",
+  "desktop:admin-live-media",
+  "desktop:admin-close-table",
+  "desktop:admin-remove-table-player",
+  "desktop:admin-delete-score",
+  "desktop:admin-reset-leaderboard",
+  "desktop:admin-music-queue",
+  "desktop:admin-clear-music-queue",
+  "desktop:admin-remove-music-track",
+  "desktop:admin-rename-emote",
+  "desktop:admin-upload-emote",
+  "desktop:admin-list-ip-bans",
+  "desktop:admin-ban-ip",
+  "desktop:admin-unban-ip",
+  "desktop:admin-list-invites",
+  "desktop:admin-create-invite",
+  "desktop:admin-delete-invite",
 ] as const;
 
 const clearIpcInvokeHandlers = (): void => {
@@ -181,6 +225,7 @@ export function registerIpcHandlers(): void {
 
   registerAppHandlers();
   registerAuthHandlers();
+  registerAdminOpsHandlers();
   registerLobbyHandlers();
   registerDMHandlers();
   registerMusicHandlers();

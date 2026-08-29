@@ -23,6 +23,7 @@ import {
   usePipKey,
 } from "../../hooks/media/pip-stream";
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
+import { useLobbyEmoteFlash } from "@/store/lobby-emote-flash";
 
 // useWindowActive reports whether this app window is in the foreground.
 //
@@ -308,12 +309,15 @@ function LobbyParticipantTileImpl({
     });
   }, [previewSuspended, previewStream]);
 
+  const emoteFlash = useLobbyEmoteFlash(participant.userId);
+
   return (
     <article
       className={[
         "ct-lobby-participant-tile",
         "ct-stagger-entry",
         participant.speaking ? "speaking" : "",
+        emoteFlash ? "emoting" : "",
         participant.isLocalUser ? "local-user" : "",
         isSelected ? "selected" : "",
         isFocusedLayout ? "focused" : "",
@@ -335,6 +339,13 @@ function LobbyParticipantTileImpl({
           : "Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
       }
     >
+      {emoteFlash && (
+        <span className="ct-lobby-tile-emote-flash" aria-live="polite">
+          <span aria-hidden="true">🔊</span>
+          <span>{emoteFlash.label}</span>
+        </span>
+      )}
+
       {/* Both chips sit in one top-LEFT strip. The audience badge used to be
           parked top-right at the same 12px inset as the fullscreen button,
           which is drawn a layer above it — so hovering a screen tile covered

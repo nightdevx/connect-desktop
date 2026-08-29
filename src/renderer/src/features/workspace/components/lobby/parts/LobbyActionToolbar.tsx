@@ -38,6 +38,9 @@ interface LobbyActionToolbarProps {
   onSendEmote: (emote: string) => void;
   currentUserId: string;
   currentUserRole: string;
+  emotesDisabled?: boolean;
+  cameraDisabled?: boolean;
+  screenDisabled?: boolean;
 }
 
 export function LobbyActionToolbar({
@@ -61,6 +64,9 @@ export function LobbyActionToolbar({
   onSendEmote,
   currentUserId,
   currentUserRole,
+  emotesDisabled,
+  cameraDisabled,
+  screenDisabled,
 }: LobbyActionToolbarProps) {
   return (
     // Three groups, not one run of six. "Lobiden Ayrıl" used to sit flush
@@ -126,22 +132,32 @@ export function LobbyActionToolbar({
           <StreamControlMenu />
         </div>
       ) : (
-        <Tooltip title="Ekranı Paylaş">
+        <Tooltip title={screenDisabled ? "Ekran paylaşımı bu odada kapalı" : "Ekranı Paylaş"}>
           <Button
             size="large"
             className="ct-lobby-action-btn"
             icon={<DesktopOutlined />}
             onClick={onToggleScreen}
+            disabled={screenDisabled}
           />
         </Tooltip>
       )}
 
-      <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
+      <Tooltip
+        title={
+          cameraDisabled
+            ? "Kamera bu odada kapalı"
+            : cameraEnabled
+              ? "Kamerayı Kapat"
+              : "Kamerayı Aç"
+        }
+      >
         <Button
           size="large"
-          className={`ct-lobby-action-btn ${cameraEnabled ? "active" : ""}`}
+          className={`ct-lobby-action-btn `}
           icon={<VideoCameraOutlined />}
           onClick={onToggleCamera}
+          disabled={cameraDisabled && !cameraEnabled}
         />
       </Tooltip>
 
@@ -151,7 +167,7 @@ export function LobbyActionToolbar({
         onSend={onSendEmote}
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
-        disabled={isLeavingLobby}
+        disabled={isLeavingLobby || emotesDisabled}
       />
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />

@@ -1,3 +1,4 @@
+import { AdminOpsClient } from "./clients/admin-ops-client";
 import { AuthClient } from "./clients/auth-client";
 import { BaseClient, DesktopApiError } from "./clients/base-client";
 import { ChatClient } from "./clients/chat-client";
@@ -14,6 +15,7 @@ export class BackendClient {
   public readonly chat: ChatClient;
   public readonly minigame: MinigameClient;
   public readonly music: MusicClient;
+  public readonly adminOps: AdminOpsClient;
 
   public constructor(baseUrl: string) {
     this.base = new BaseClient(baseUrl);
@@ -23,6 +25,7 @@ export class BackendClient {
     this.chat = new ChatClient(this.base);
     this.minigame = new MinigameClient(this.base);
     this.music = new MusicClient(this.base);
+    this.adminOps = new AdminOpsClient(this.base);
   }
 }
 

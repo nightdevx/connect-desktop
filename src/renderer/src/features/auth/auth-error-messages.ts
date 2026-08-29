@@ -133,6 +133,36 @@ const REGISTER: Record<string, AuthErrorInfo> = {
   },
 };
 
+const RECOVERY: Record<string, AuthErrorInfo> = {
+  INVALID_OTP: {
+    title: "Kod geçersiz veya süresi dolmuş",
+    detail: "Kod yanlış yazıldı, daha önce kullanıldı ya da süresi geçti.",
+    hint: "Yeni bir kod isteyin ve e-postadaki 8 haneyi olduğu gibi girin.",
+    retryable: true,
+  },
+  INVALID_PASSWORD: {
+    title: "Yeni şifre geçersiz",
+    detail: "En az 8, en fazla 72 karakter olmalı.",
+    hint: "Türkçe karakter ve emoji fazladan yer kaplar.",
+    field: "password",
+    retryable: true,
+  },
+  USER_NOT_FOUND: {
+    title: "Hesap bulunamadı",
+    detail: "Bu e-posta adresine bağlı bir hesap yok.",
+    hint: "Adresi kontrol edin.",
+    field: "email",
+    retryable: true,
+  },
+  EMAIL_ALREADY_EXISTS: {
+    title: "Bu e-posta başkasına ait",
+    detail: "Adres başka bir hesapta kayıtlı.",
+    hint: "Farklı bir adres girin.",
+    field: "email",
+    retryable: true,
+  },
+};
+
 // Distinct 5xx codes, one message: the cause is on the server and the user can
 // do exactly the same thing about all of them. The code still reaches the
 // screen so it can be reported.
@@ -141,9 +171,13 @@ const SERVER_FAULT_CODES = new Set([
   "HASH_FAILED",
   "USER_CREATE_FAILED",
   "USER_LOOKUP_FAILED",
+  "USER_UPDATE_FAILED",
   "TOKEN_ISSUE_FAILED",
   "TOKEN_STORE_FAILED",
   "OTP_CREATE_FAILED",
+  "OTP_VERIFICATION_FAILED",
+  "PASSWORD_UPDATE_FAILED",
+  "EMAIL_CONFIRMATION_FAILED",
   "EMAIL_SEND_FAILED",
 ]);
 
@@ -181,9 +215,17 @@ const UNKNOWN: AuthErrorInfo = {
  * `context` picks the right table when a code means different things on the two
  * forms; unknown codes still get a usable message rather than a raw English one.
  */
+export type AuthErrorContext = "login" | "register" | "recovery";
+
+const TABLE_ORDER: Record<AuthErrorContext, Array<Record<string, AuthErrorInfo>>> = {
+  login: [LOGIN, REGISTER, RECOVERY],
+  register: [REGISTER, LOGIN, RECOVERY],
+  recovery: [RECOVERY, REGISTER, LOGIN],
+};
+
 export const describeAuthError = (
   error: ApiErrorPayload | undefined,
-  context: "login" | "register",
+  context: AuthErrorContext,
 ): AuthErrorInfo => {
   const code = error?.code?.trim();
 
@@ -199,17 +241,13 @@ export const describeAuthError = (
     return TOO_MANY_REQUESTS;
   }
 
-  const table = context === "login" ? LOGIN : REGISTER;
-  if (table[code]) {
-    return table[code];
-  }
-
   // A register-only code can still arrive on the login form (and the reverse)
   // — for example a stale client hitting a reworked endpoint. Better the right
-  // explanation from the other table than "bilinmeyen hata".
-  const other = context === "login" ? REGISTER : LOGIN;
-  if (other[code]) {
-    return other[code];
+  // explanation from another table than "bilinmeyen hata".
+  for (const table of TABLE_ORDER[context]) {
+    if (table[code]) {
+      return table[code];
+    }
   }
 
   if (SERVER_FAULT_CODES.has(code) || (error?.statusCode ?? 0) >= 500) {
@@ -229,5 +267,18 @@ export const describeAuthError = (
  */
 export const summarizeAuthError = (
   error: ApiErrorPayload | undefined,
-  context: "login" | "register",
+  context: AuthErrorContext,
 ): string => describeAuthError(error, context).title;
+
+/**
+ * One line for a toast: what happened, then what to do about it. Used by the
+ * recovery and e-mail verification flows, which have no form-level alert to
+ * render the full explanation in.
+ */
+export const authErrorToast = (
+  error: ApiErrorPayload | undefined,
+  context: AuthErrorContext,
+): string => {
+  const info = describeAuthError(error, context);
+  return `${info.title}. ${info.hint ?? info.detail}`;
+};

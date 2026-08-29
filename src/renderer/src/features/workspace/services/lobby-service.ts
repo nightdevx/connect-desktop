@@ -1,3 +1,4 @@
+import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import type {
   CustomEmoteSummary,
   DesktopResult,
@@ -110,7 +111,7 @@ export const lobbyService = {
   }): Promise<DesktopResult<{ lobby: LobbyDescriptor }>> => {
     return window.desktopApi.createLobby(payload);
   },
-  updateLobby: (payload: { lobbyId: string; name: string; isLocked?: boolean; allowedUsers?: string[]; password?: string | null; capacity?: number }) => {
+  updateLobby: (payload: { lobbyId: string; name: string; isLocked?: boolean; allowedUsers?: string[]; password?: string | null; capacity?: number; disabledFeatures?: LobbyFeatureId[] }) => {
     if (typeof window.desktopApi.updateLobby !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{ lobby: LobbyDescriptor }>,

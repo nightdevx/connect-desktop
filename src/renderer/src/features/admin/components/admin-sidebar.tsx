@@ -10,6 +10,10 @@ import {
   SettingOutlined,
   PlayCircleOutlined,
   CustomerServiceOutlined,
+  MessageOutlined,
+  VideoCameraOutlined,
+  FileProtectOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 
 // Seven flat entries in one column was a list to read top to bottom. Grouped by
@@ -41,13 +45,17 @@ const NAV_GROUPS = [
     label: "Denetim",
     items: [
       { key: "moderation", label: "Moderasyon", icon: <StopOutlined /> },
+      { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
+      { key: "media", label: "Ses ve Video", icon: <VideoCameraOutlined /> },
       { key: "activity", label: "Aktivite Logları", icon: <HistoryOutlined /> },
+      { key: "audit", label: "Denetim Kaydı", icon: <FileProtectOutlined /> },
     ],
   },
   {
     label: "Sistem",
     items: [
       { key: "settings", label: "Sunucu Ayarları", icon: <SettingOutlined /> },
+      { key: "access", label: "Erişim Denetimi", icon: <SafetyCertificateOutlined /> },
     ],
   },
 ] as const;

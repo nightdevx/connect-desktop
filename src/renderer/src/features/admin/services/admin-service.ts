@@ -212,6 +212,21 @@ class AdminService {
     const res = await window.desktopApi.adminRevokeMusicDJ(userId);
     if (!res.ok) throw new Error(res.error?.message || "DJ yetkisi alınamadı");
   }
+
+  public get ops() {
+    return window.desktopApi.adminOps;
+  }
+
+  public async unwrap<T>(
+    promise: Promise<{ ok: boolean; data?: T; error?: { message: string } }>,
+    fallback: string,
+  ): Promise<T> {
+    const res = await promise;
+    if (!res.ok || !res.data) {
+      throw new Error(res.error?.message || fallback);
+    }
+    return res.data;
+  }
 }
 
 export const adminService = new AdminService();

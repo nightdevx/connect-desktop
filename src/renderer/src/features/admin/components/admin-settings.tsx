@@ -1,7 +1,7 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { InputNumber, Spin, Switch, message } from "antd";
-import { LockOutlined, TeamOutlined } from "@ant-design/icons";
+import { Input, InputNumber, Spin, Switch, message } from "antd";
+import { LockOutlined, MessageOutlined, TeamOutlined, ToolOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminRuntimeSettings, AdminRuntimeSettingsPatch } from "@shared/auth-contracts";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
@@ -81,6 +81,59 @@ export default function AdminSettings() {
         description="Değişiklikler anında geçerli olur; sunucuyu yeniden başlatmak gerekmez."
       />
 
+      <AdminSection title="Bakım" icon={<ToolOutlined />} flush>
+        <div className="ct-settings-card">
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Bakım Modu</strong>
+              <span>
+                Açıkken yöneticiler dışında kimse giremez; giriş, çıkış ve
+                yenileme açık kalır.
+              </span>
+            </div>
+            <Switch
+              checked={settings.maintenanceMode}
+              disabled={saving}
+              onChange={(maintenanceMode) => void apply({ maintenanceMode })}
+            />
+          </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Bakım Mesajı</strong>
+              <span>Bakım modundayken kullanıcıya gösterilen açıklama.</span>
+            </div>
+            <Input
+              defaultValue={settings.maintenanceMessage}
+              maxLength={280}
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value && value !== settings.maintenanceMessage) {
+                  void apply({ maintenanceMessage: value });
+                }
+              }}
+              style={{ maxWidth: 320 }}
+            />
+          </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Salt Okunur Mod</strong>
+              <span>
+                Açıkken yöneticiler dışında hiçbir yazma işlemi kabul edilmez;
+                okuma serbesttir.
+              </span>
+            </div>
+            <Switch
+              checked={settings.readOnly}
+              disabled={saving}
+              onChange={(readOnly) => void apply({ readOnly })}
+            />
+          </div>
+        </div>
+      </AdminSection>
+
       <AdminSection title="Erişim" icon={<LockOutlined />} flush>
         <div className="ct-settings-card">
           <div className="ct-settings-row">
@@ -95,6 +148,81 @@ export default function AdminSettings() {
               checked={settings.registrationOpen}
               disabled={saving}
               onChange={(registrationOpen) => void apply({ registrationOpen })}
+            />
+          </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Yalnızca Davetle</strong>
+              <span>
+                Açıkken kayıt için geçerli bir davet kodu gerekir. Kodlar Erişim
+                Denetimi ekranından yönetilir.
+              </span>
+            </div>
+            <Switch
+              checked={settings.inviteOnly}
+              disabled={saving}
+              onChange={(inviteOnly) => void apply({ inviteOnly })}
+            />
+          </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>İzinli E-posta Alan Adları</strong>
+              <span>
+                Virgülle ayır. Boş bırakılırsa her alan adı kabul edilir.
+              </span>
+            </div>
+            <Input
+              defaultValue={settings.emailDomains.join(", ")}
+              placeholder="ornek.com, sirket.com.tr"
+              disabled={saving}
+              onBlur={(event) => {
+                const next = event.target.value
+                  .split(",")
+                  .map((part) => part.trim().toLowerCase())
+                  .filter(Boolean);
+                if (next.join(",") !== settings.emailDomains.join(",")) {
+                  void apply({ emailDomains: next });
+                }
+              }}
+              style={{ maxWidth: 320 }}
+            />
+          </div>
+        </div>
+      </AdminSection>
+
+      <AdminSection title="Sohbet ve Müzik" icon={<MessageOutlined />} flush>
+        <div className="ct-settings-card">
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Mesaj Saklama Süresi</strong>
+              <span>Gün cinsinden. 0 = süresiz sakla.</span>
+            </div>
+            <InputNumber
+              min={0}
+              max={3650}
+              value={settings.chatRetentionDays}
+              disabled={saving}
+              onChange={(value) =>
+                typeof value === "number" && void apply({ chatRetentionDays: value })
+              }
+            />
+          </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Kişi Başına Kuyruk</strong>
+              <span>Bir kullanıcının müzik kuyruğuna aynı anda ekleyebileceği parça sayısı.</span>
+            </div>
+            <InputNumber
+              min={1}
+              max={500}
+              value={settings.maxQueuePerUser}
+              disabled={saving}
+              onChange={(value) =>
+                typeof value === "number" && void apply({ maxQueuePerUser: value })
+              }
             />
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { LOBBY_FEATURE_IDS, type LobbyFeatureId } from "../../shared/desktop-api-types";
+
 export const loginSchema = z.object({
   username: z.string().min(3).max(64),
   password: z.string().min(8).max(256),
@@ -152,6 +154,9 @@ export const updateLobbySchema = z.object({
   password: z.string().max(128).nullable().optional(),
   // undefined = keep current, 0 = follow the server default, a number = set it.
   capacity: z.number().int().min(0).max(100).optional(),
+  // The WHOLE list of features this room has switched off. undefined leaves it
+  // alone; [] turns everything back on.
+  disabledFeatures: z.array(z.enum(LOBBY_FEATURE_IDS as [LobbyFeatureId, ...LobbyFeatureId[]])).optional(),
 });
 
 export const deleteLobbySchema = z.object({

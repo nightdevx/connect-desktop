@@ -14,6 +14,7 @@ import {
   Avatar,
   Popconfirm,
   Tooltip,
+  Switch,
 } from "antd";
 import {
   SearchOutlined,
@@ -29,15 +30,23 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
-import type { AdminUserDetail, UserRole } from "@shared/auth-contracts";
+import type { AdminUserDetail, PrivacyAudience, UserRole } from "@shared/auth-contracts";
+import { AdminUserRelationsPanel, AdminUserSessions } from "./admin-user-panels";
 import type { TablePaginationConfig } from "antd";
 import { AdminPageHeader } from "./admin-primitives";
 
 interface EditUserFormValues {
+  username: string;
   displayName: string;
   email?: string | null;
+  emailVerified?: boolean;
   bio?: string | null;
   role: UserRole;
+  adminNote?: string;
+  allowDmFrom?: PrivacyAudience;
+  allowCallsFrom?: PrivacyAudience;
+  allowFriendRequests?: boolean;
+  reason?: string;
   banned?: boolean;
 }
 
@@ -152,10 +161,16 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const handleEditClick = (user: AdminUserDetail) => {
     setEditingUser(user);
     editForm.setFieldsValue({
+      username: user.username,
       displayName: user.displayName,
       email: user.email,
+      emailVerified: user.emailVerified,
       bio: user.bio,
       role: user.role,
+      adminNote: user.adminNote,
+      allowDmFrom: user.allowDmFrom,
+      allowCallsFrom: user.allowCallsFrom,
+      allowFriendRequests: user.allowFriendRequests,
     });
     setIsEditOpen(true);
   };
@@ -164,10 +179,17 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     if (!editingUser) return;
     try {
       await adminService.updateUser(editingUser.id, {
+        username: values.username,
         displayName: values.displayName,
         email: values.email || null,
+        emailVerified: values.emailVerified,
         bio: values.bio || null,
         role: values.role,
+        adminNote: values.adminNote ?? "",
+        allowDmFrom: values.allowDmFrom,
+        allowCallsFrom: values.allowCallsFrom,
+        allowFriendRequests: values.allowFriendRequests,
+        reason: values.reason,
       });
       message.success("Kullanıcı başarıyla güncellendi");
       setIsEditOpen(false);
@@ -562,6 +584,20 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       >
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
+            name="username"
+            label="Kullanıcı Adı"
+            rules={[
+              { required: true, message: "Kullanıcı adı girilmelidir" },
+              {
+                pattern: /^[a-z0-9._-]{3,32}$/,
+                message: "3-32 karakter; küçük harf, rakam, _ - . olabilir",
+              },
+            ]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
             name="displayName"
             label="Görünen Ad"
             rules={[{ required: true, message: "Görünen ad girilmelidir" }]}
@@ -577,26 +613,58 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             <Input />
           </Form.Item>
 
-          <Form.Item name="bio" label="Biyografi">
-            <Input.TextArea rows={4} />
+          <Form.Item name="emailVerified" label="E-posta Doğrulanmış" valuePropName="checked">
+            <Switch />
           </Form.Item>
 
-          <Form.Item
-            name="role"
-            label="Sistem Rolü"
-            rules={[{ required: true }]}
-            // The last field in the form; the account actions below own the
-            // space under it.
-            className="!mb-0"
-          >
+          <Form.Item name="bio" label="Biyografi">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+
+          <Form.Item name="role" label="Sistem Rolü" rules={[{ required: true }]}>
             <Select
               options={[
+                { value: "owner", label: "Sahip (Owner)" },
                 { value: "admin", label: "Yönetici (Admin)" },
+                { value: "moderator", label: "Moderatör" },
                 { value: "member", label: "Üye (Member)" },
               ]}
             />
           </Form.Item>
+
+          <Form.Item name="allowDmFrom" label="Özel Mesaj İzni">
+            <Select
+              options={[
+                { value: "everyone", label: "Herkes" },
+                { value: "friends", label: "Yalnızca arkadaşlar" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item name="allowCallsFrom" label="Arama İzni">
+            <Select
+              options={[
+                { value: "everyone", label: "Herkes" },
+                { value: "friends", label: "Yalnızca arkadaşlar" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item name="allowFriendRequests" label="Arkadaşlık İsteği Alır" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+
+          <Form.Item name="adminNote" label="Yönetici Notu" extra="Yalnızca yöneticiler görür.">
+            <Input.TextArea rows={2} maxLength={2000} />
+          </Form.Item>
+
+          <Form.Item name="reason" label="Gerekçe" className="!mb-0">
+            <Input placeholder="Bu düzenlemenin gerekçesi (denetim kaydına yazılır)" maxLength={280} />
+          </Form.Item>
         </Form>
+
+        {editingUser && <AdminUserSessions user={editingUser} />}
+        {editingUser && <AdminUserRelationsPanel user={editingUser} />}
 
         {/* The five operations that used to be unlabelled icons in the table
             row. Here each one says what it does, sits under the profile it acts

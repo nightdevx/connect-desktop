@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
 import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
-import type { LoginRequest } from "@shared/auth-contracts";
+import { OTP_CODE_LENGTH, type LoginRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
-import { describeAuthError } from "../auth-error-messages";
+import { authErrorToast, describeAuthError } from "../auth-error-messages";
 import { AuthErrorAlert } from "../components/AuthErrorAlert";
-import { toErrorMessage } from "@shared/error-message";
 
 // antd Form hands its callback an untyped object; naming the fields here is
 // what makes a renamed <Form.Item name> a compile error rather than an
@@ -27,6 +26,11 @@ interface ResetPasswordFormValues {
 
 
 const mutedIconStyle = { color: "var(--ct-text-muted)" };
+
+const OTP_PLACEHOLDER = "0".repeat(OTP_CODE_LENGTH);
+
+const normalizeOtp = (value: string | undefined): string =>
+  (value ?? "").replace(/\D/g, "").slice(0, OTP_CODE_LENGTH);
 
 interface LoginPageProps {
   loading: boolean;
@@ -62,17 +66,27 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     }
   };
 
+  // Every manual jump between the three panes clears the remembered address as
+  // well as the fields. Leaving it behind hid the e-mail input on a second trip
+  // through "Kodum Var", which then submitted the address from the first trip.
+  const goToMode = (next: "login" | "forgot" | "reset"): void => {
+    setResetEmail("");
+    setMode(next);
+    form.resetFields();
+  };
+
   const handleForgotPassword = async (values: ForgotPasswordFormValues): Promise<void> => {
     setActionLoading(true);
     try {
-      const result = await window.desktopApi.forgotPassword({ email: values.email });
+      const email = values.email.trim();
+      const result = await window.desktopApi.forgotPassword({ email });
       if (result.ok) {
         message.success("Şifre sıfırlama kodu e-postanıza gönderildi!");
-        setResetEmail(values.email);
+        setResetEmail(email);
         setMode("reset");
         form.resetFields();
       } else {
-        message.error(toErrorMessage(result.error, "Kod gönderilemedi!"));
+        message.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
       message.error("Bir hata oluştu!");
@@ -85,16 +99,15 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     setActionLoading(true);
     try {
       const result = await window.desktopApi.resetPassword({
-        email: resetEmail || values.email || "",
-        code: values.code,
+        email: (resetEmail || values.email || "").trim(),
+        code: normalizeOtp(values.code),
         newPassword: values.newPassword,
       });
       if (result.ok) {
         message.success("Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.");
-        setMode("login");
-        form.resetFields();
+        goToMode("login");
       } else {
-        message.error(toErrorMessage(result.error, "Şifre sıfırlanamadı!"));
+        message.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
       message.error("Bir hata oluştu!");
@@ -154,10 +167,10 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         </Form>
 
         <div className="mt-4 flex justify-between items-center text-sm">
-          <button type="button" className="ct-link" onClick={() => { setMode("login"); form.resetFields(); }}>
+          <button type="button" className="ct-link" onClick={() => goToMode("login")}>
             Giriş Ekranına Dön
           </button>
-          <button type="button" className="ct-link" onClick={() => { setMode("reset"); form.resetFields(); }}>
+          <button type="button" className="ct-link" onClick={() => goToMode("reset")}>
             Kodum Var
           </button>
         </div>
@@ -171,7 +184,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         <div className="mb-8">
           <h2 className="ct-auth-title text-center">Yeni Şifre Belirle</h2>
           <p className="ct-auth-subtitle text-center mx-auto">
-            E-postanıza gönderilen 6 haneli kodu ve yeni şifrenizi girin.
+            E-postanıza gönderilen {OTP_CODE_LENGTH} haneli kodu ve yeni şifrenizi girin.
           </p>
         </div>
 
@@ -206,16 +219,17 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           <Form.Item
             label="Doğrulama Kodu"
             name="code"
+            normalize={normalizeOtp}
             rules={[
               { required: true, message: "Lütfen doğrulama kodunu girin!" },
-              { len: 6, message: "Kod 6 haneli olmalıdır!" }
+              { len: OTP_CODE_LENGTH, message: `Kod ${OTP_CODE_LENGTH} haneli olmalıdır!` }
             ]}
           >
             <Input
               size="large"
-              placeholder="000000"
+              placeholder={OTP_PLACEHOLDER}
               className="ct-input-premium ct-code-input"
-              maxLength={6}
+              maxLength={OTP_CODE_LENGTH}
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus={!!resetEmail}
@@ -255,7 +269,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         </Form>
 
         <p className="mt-4 text-sm">
-          <button type="button" className="ct-link" onClick={() => { setMode("login"); form.resetFields(); }}>
+          <button type="button" className="ct-link" onClick={() => goToMode("login")}>
             Giriş Ekranına Dön
           </button>
         </p>
@@ -313,7 +327,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
               <span>Şifre</span>
               <button
                 type="button"
-                onClick={() => { setMode("forgot"); form.resetFields(); }}
+                onClick={() => goToMode("forgot")}
                 className="ct-link-button"
               >
                 Şifremi Unuttum

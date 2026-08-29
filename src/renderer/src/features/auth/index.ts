@@ -4,6 +4,7 @@ export * from "./services/service";
 // barrel to ./permissions to do it — the one module every feature needs and the
 // only one the feature's own entry point did not name.
 export * from "./permissions";
+export * from "./auth-error-messages";
 export * from "./hooks/use-auth-actions";
 export * from "./hooks/use-auth-session";
 export * from "./hooks/use-auth-controller";

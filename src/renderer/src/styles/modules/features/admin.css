@@ -842,3 +842,75 @@
   @apply truncate text-xs;
   color: var(--ct-text-muted);
 }
+
+.ct-admin-section-header h3 {
+  @apply m-0 text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-section-header p {
+  @apply m-0 mt-1 text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-section-actions {
+  @apply ml-auto flex shrink-0 items-center gap-2;
+}
+
+.ct-admin-filters {
+  @apply flex flex-wrap items-center gap-2 px-4 py-3;
+}
+
+.ct-admin-row-actions {
+  @apply flex flex-wrap items-center gap-1;
+}
+
+.ct-admin-track-tags {
+  @apply inline-flex flex-wrap items-center gap-1;
+}
+
+.ct-audit-action {
+  font-family: var(--ct-font-mono);
+  @apply text-micro;
+}
+
+.ct-muted {
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-drawer-block {
+  @apply mt-6 flex flex-col gap-2 border-t pt-4;
+  border-color: var(--ct-border);
+}
+
+.ct-admin-drawer-block header {
+  @apply flex items-center justify-between gap-2;
+}
+
+.ct-admin-drawer-block h4 {
+  @apply m-0 text-xs font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}
+
+.ct-admin-plain-list {
+  @apply m-0 flex list-none flex-col gap-1 p-0;
+}
+
+.ct-admin-plain-list li {
+  @apply flex items-center gap-2 rounded-md px-2 py-1.5 text-xs;
+  background: var(--ct-surface-2);
+}
+
+.ct-admin-plain-list-main {
+  @apply flex min-w-0 flex-1 items-center gap-1.5 truncate;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-relation-group {
+  @apply flex flex-col gap-1;
+}
+
+.ct-admin-relation-title {
+  @apply text-micro font-semibold uppercase tracking-wide;
+  color: var(--ct-text-muted);
+}

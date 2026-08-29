@@ -8,7 +8,8 @@ import {
   SaveOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
-import { authService } from "@/features/auth";
+import { authErrorToast, authService } from "@/features/auth";
+import { OTP_CODE_LENGTH } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import { useStillImage } from "../../hooks/media/use-still-image";
 
@@ -393,11 +394,10 @@ export function SettingsProfile({
       });
       if (result.ok) {
         setVerificationSent(true);
+        setVerificationCode("");
         messageApi.success("Doğrulama kodu e-posta adresinize gönderildi!");
       } else {
-        messageApi.error(
-          `Kod gönderilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`
-        );
+        messageApi.error(authErrorToast(result.error, "recovery"));
       }
     } catch (error) {
       messageApi.error(
@@ -409,8 +409,8 @@ export function SettingsProfile({
   };
 
   const handleVerifyEmailCode = async (): Promise<void> => {
-    if (verificationCode.length !== 6) {
-      messageApi.warning("Lütfen 6 haneli doğrulama kodunu girin.");
+    if (verificationCode.length !== OTP_CODE_LENGTH) {
+      messageApi.warning(`Lütfen ${OTP_CODE_LENGTH} haneli doğrulama kodunu girin.`);
       return;
     }
 
@@ -430,9 +430,7 @@ export function SettingsProfile({
         setVerificationSent(false);
         setVerificationCode("");
       } else {
-        messageApi.error(
-          `Doğrulama başarısız: ${result.error?.message ?? "Bilinmeyen hata"}`
-        );
+        messageApi.error(authErrorToast(result.error, "recovery"));
       }
     } catch (error) {
       messageApi.error(
@@ -789,12 +787,16 @@ export function SettingsProfile({
                   {verificationSent && (
                     <div className="ct-inset-panel-row">
                       <Input
-                        placeholder="000000"
+                        placeholder={"0".repeat(OTP_CODE_LENGTH)}
                         value={verificationCode}
                         onChange={(e) =>
-                          setVerificationCode(e.target.value.trim())
+                          setVerificationCode(
+                            e.target.value.replace(/\D/g, "").slice(0, OTP_CODE_LENGTH),
+                          )
                         }
-                        maxLength={6}
+                        maxLength={OTP_CODE_LENGTH}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
                         className="ct-code-input"
                       />
                       <Button
@@ -803,7 +805,7 @@ export function SettingsProfile({
                           void handleVerifyEmailCode();
                         }}
                         loading={isVerifyingCode}
-                        disabled={verificationCode.length !== 6}
+                        disabled={verificationCode.length !== OTP_CODE_LENGTH}
                       >
                         Doğrula
                       </Button>

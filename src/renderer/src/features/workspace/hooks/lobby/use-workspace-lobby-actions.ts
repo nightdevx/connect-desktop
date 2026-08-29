@@ -1,3 +1,4 @@
+import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import {
   useState,
   type Dispatch,
@@ -70,6 +71,8 @@ export interface WorkspaceLobbyActionsState {
     isLocked?: boolean,
     allowedUsers?: string[],
     password?: string | null,
+    capacity?: number,
+    disabledFeatures?: LobbyFeatureId[],
   ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
   joinLobby: (lobbyId: string, password?: string) => Promise<void>;
@@ -189,6 +192,7 @@ export const useWorkspaceLobbyActions = ({
     // Undefined keeps the room ceiling where it is; 0 returns it to the server
     // default. Same shape as password, for the same reason.
     capacity?: number,
+    disabledFeatures?: LobbyFeatureId[],
   ): Promise<boolean> => {
     const trimmedName = nextName.trim();
     if (trimmedName.length < 2) {
@@ -205,6 +209,7 @@ export const useWorkspaceLobbyActions = ({
         allowedUsers,
         password,
         capacity,
+        disabledFeatures,
       });
 
       if (!result.ok) {
