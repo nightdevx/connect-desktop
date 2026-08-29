@@ -6,6 +6,7 @@ import {
   CustomerServiceOutlined,
   DesktopOutlined,
   PlayCircleOutlined,
+  YoutubeOutlined,
   VideoCameraOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
@@ -46,6 +47,8 @@ interface LobbyActionToolbarProps {
   // not grow a button that can only ever answer "kapalı".
   onOpenMusic?: () => void;
   musicDisabled?: boolean;
+  onOpenWatch?: () => void;
+  watchDisabled?: boolean;
 }
 
 export function LobbyActionToolbar({
@@ -74,6 +77,8 @@ export function LobbyActionToolbar({
   screenDisabled,
   onOpenMusic,
   musicDisabled,
+  onOpenWatch,
+  watchDisabled,
 }: LobbyActionToolbarProps) {
   return (
     // Three groups, not one run of six. "Lobiden Ayrıl" used to sit flush
@@ -178,6 +183,20 @@ export function LobbyActionToolbar({
             icon={<PlayCircleOutlined />}
             onClick={onOpenMusic}
             disabled={musicDisabled}
+          />
+        </Tooltip>
+      ) : null}
+
+      {onOpenWatch ? (
+        <Tooltip
+          title={watchDisabled ? "Birlikte izleme bu odada kapalı" : "Birlikte İzle"}
+        >
+          <Button
+            size="large"
+            className="ct-lobby-action-btn"
+            icon={<YoutubeOutlined />}
+            onClick={onOpenWatch}
+            disabled={watchDisabled}
           />
         </Tooltip>
       ) : null}

@@ -5,6 +5,7 @@ import { registerLobbyHandlers } from "./handlers/lobby-handlers";
 import { registerDMHandlers } from "./handlers/dm-handlers";
 import { registerAppHandlers } from "./handlers/app-handlers";
 import { registerMusicHandlers } from "./handlers/music-handlers";
+import { registerWatchHandlers } from "./handlers/watch-handlers";
 import {
   directMessagesStreamManager,
   lobbyStreamManager,
@@ -230,4 +231,5 @@ export function registerIpcHandlers(): void {
   registerLobbyHandlers();
   registerDMHandlers();
   registerMusicHandlers();
+  registerWatchHandlers();
 }

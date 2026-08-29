@@ -1,0 +1,136 @@
+.ct-watch-modal .ant-modal-body {
+  padding: 0;
+}
+
+.watch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.watch-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watch-panel__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.watch-panel__close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.watch-panel__close:hover {
+  opacity: 1;
+}
+
+/* 16:9, held by the padding trick so the frame never collapses while the
+   player is still loading and the modal does not jump when it arrives. */
+.watch-player {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.watch-player--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 56.25%;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}
+
+.watch-player__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.watch-player__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 14px;
+}
+
+.watch-panel__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.watch-panel__video-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-panel__started-by {
+  flex-shrink: 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.watch-panel__controls,
+.watch-panel__volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.watch-panel__scrub {
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-panel__time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.watch-panel__form {
+  display: flex;
+  gap: 8px;
+}
+
+.watch-panel__form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-panel__empty {
+  padding: 32px 0;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.watch-panel__error {
+  margin: 0;
+  color: #ff7875;
+  font-size: 13px;
+}

@@ -549,3 +549,33 @@ export const musicCommandSchema = z.object({
 export const musicUserSchema = z.object({
   userId: z.string().min(1).max(128),
 });
+
+export const watchLobbySchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+});
+
+export const watchStartSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  // The server does the real parsing; this only keeps something absurd off the
+  // wire. Matches watch.maxLinkLength.
+  link: z.string().min(1).max(500),
+});
+
+// position is optional for play/pause — absent means "resume from wherever the
+// server thinks we are" — and required for seek, which the handler enforces.
+export const watchPositionSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  position: z.number().finite().min(0).max(36000).optional(),
+});
+
+export const watchSeekSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  position: z.number().finite().min(0).max(36000),
+});
+
+export const watchDescribeSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  videoId: z.string().min(1).max(64),
+  title: z.string().max(200),
+  durationSeconds: z.number().int().min(0).max(36000),
+});

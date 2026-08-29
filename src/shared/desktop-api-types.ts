@@ -57,6 +57,7 @@ import type {
   MultiplayerGameId,
 } from "./minigames";
 import type { MusicCatalog, MusicDJ, MusicState } from "./music";
+import type { WatchSnapshot, WatchState } from "./watch";
 
 export interface ApiErrorPayload {
   code: string;
@@ -240,6 +241,7 @@ export const LOBBY_FEATURES = [
   { id: "camera", label: "Kamera" },
   { id: "screenShare", label: "Ekran paylaşımı" },
   { id: "music", label: "Müzik botu" },
+  { id: "watchTogether", label: "Birlikte izleme" },
 ] as const;
 
 export type LobbyFeatureId = (typeof LOBBY_FEATURES)[number]["id"];
@@ -360,6 +362,12 @@ export type LobbyStreamEvent =
       type: "music-state";
       lobbyId: string;
       state: MusicState;
+      at?: string;
+    }
+  | {
+      type: "watch-state";
+      lobbyId: string;
+      state: WatchState;
       at?: string;
     }
   | {
@@ -993,6 +1001,31 @@ export interface DesktopApi {
   adminListMusicDJs: () => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
   adminGrantMusicDJ: (userId: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
   adminRevokeMusicDJ: (userId: string) => Promise<DesktopResult<{ revoked: boolean }>>;
+  getWatchPlayerUrl: () => Promise<DesktopResult<{ url: string }>>;
+  getWatchState: (payload: { lobbyId: string }) => Promise<DesktopResult<WatchSnapshot>>;
+  startWatch: (payload: {
+    lobbyId: string;
+    link: string;
+  }) => Promise<DesktopResult<WatchSnapshot>>;
+  playWatch: (payload: {
+    lobbyId: string;
+    position?: number;
+  }) => Promise<DesktopResult<WatchSnapshot>>;
+  pauseWatch: (payload: {
+    lobbyId: string;
+    position?: number;
+  }) => Promise<DesktopResult<WatchSnapshot>>;
+  seekWatch: (payload: {
+    lobbyId: string;
+    position: number;
+  }) => Promise<DesktopResult<WatchSnapshot>>;
+  describeWatch: (payload: {
+    lobbyId: string;
+    videoId: string;
+    title: string;
+    durationSeconds: number;
+  }) => Promise<DesktopResult<WatchSnapshot>>;
+  stopWatch: (payload: { lobbyId: string }) => Promise<DesktopResult<WatchSnapshot>>;
   adminOps: {
     userSessions: (payload: { userId: string }) => Promise<DesktopResult<{ sessions: AdminSessionSummary[] }>>;
     revokeSession: (payload: { userId: string; sessionId: string }) => Promise<DesktopResult<{ revoked: boolean }>>;

@@ -191,6 +191,14 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:admin-grant-music-dj", { userId }),
   adminRevokeMusicDJ: async (userId) =>
     ipcRenderer.invoke("desktop:admin-revoke-music-dj", { userId }),
+  getWatchPlayerUrl: async () => ipcRenderer.invoke("desktop:watch-player-url"),
+  getWatchState: async (payload) => ipcRenderer.invoke("desktop:watch-state", payload),
+  startWatch: async (payload) => ipcRenderer.invoke("desktop:watch-start", payload),
+  playWatch: async (payload) => ipcRenderer.invoke("desktop:watch-play", payload),
+  pauseWatch: async (payload) => ipcRenderer.invoke("desktop:watch-pause", payload),
+  seekWatch: async (payload) => ipcRenderer.invoke("desktop:watch-seek", payload),
+  describeWatch: async (payload) => ipcRenderer.invoke("desktop:watch-describe", payload),
+  stopWatch: async (payload) => ipcRenderer.invoke("desktop:watch-stop", payload),
   listScreenCaptureSources: async () =>
     ipcRenderer.invoke("desktop:screen-capture-sources"),
   getLobbyState: async (payload) =>

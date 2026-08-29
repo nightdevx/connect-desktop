@@ -19,6 +19,7 @@ import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/fe
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
 import { MusicModal, useMusicRoom } from "@/features/music";
+import { WatchModal } from "@/features/watch";
 import { musicBotIdentity } from "@shared/music";
 
 // Matches music.BotDisplayName on the server, which is what LiveKit carries as
@@ -217,6 +218,8 @@ export function LobbiesMainPanel({
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [localFallbackJoinedAt, setLocalFallbackJoinedAt] = useState<string>(() => new Date().toISOString());
   const [isMusicOpen, setIsMusicOpen] = useState(false);
+  // Per viewer, like the music dialog: see WatchModal.open.
+  const [isWatchOpen, setIsWatchOpen] = useState(false);
   // use-friends deliberately keeps no pending marker for sendRequest — it is
   // keyed by username and there is no user id to hang one on until the server
   // answers — so the caller owns it, and here it is what stops a second click
@@ -715,6 +718,10 @@ export function LobbiesMainPanel({
                 !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "screenShare")
               }
               onOpenMusic={musicAvailable ? () => setIsMusicOpen(true) : undefined}
+              onOpenWatch={() => setIsWatchOpen(true)}
+              watchDisabled={
+                !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "watchTogether")
+              }
               musicDisabled={
                 !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "music")
               }
@@ -757,6 +764,12 @@ export function LobbiesMainPanel({
         onClose={() => setIsMusicOpen(false)}
         volumePercent={musicVolumePercent}
         onVolumeChange={handleMusicVolumeChange}
+      />
+
+      <WatchModal
+        lobbyId={activeLobbyId}
+        open={isWatchOpen}
+        onClose={() => setIsWatchOpen(false)}
       />
 
       {/* Floating Context Menu - Rendered at root to avoid transform offsets */}
