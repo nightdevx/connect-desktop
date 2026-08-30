@@ -127,7 +127,7 @@ export function MusicModal({
     setDraft("");
     // A link OR a search phrase: the resolver decides which it got, so the box
     // needs neither a mode switch nor a typed command prefix.
-    void send("!play " + trimmed).then(() => inputRef.current?.focus());
+    void send("play " + trimmed).then(() => inputRef.current?.focus());
   };
 
   const headline = state.nowPlaying
@@ -200,21 +200,21 @@ export function MusicModal({
               icon={
                 state.paused ? <PlayCircleOutlined /> : <PauseCircleOutlined />
               }
-              onClick={() => runCommand(state.paused ? "!resume" : "!pause")}
+              onClick={() => runCommand(state.paused ? "resume" : "pause")}
             />
           </Tooltip>
           <Tooltip title="Sonraki parça">
             <Button
               disabled={!isDj || !state.nowPlaying || isSending}
               icon={<StepForwardOutlined />}
-              onClick={() => runCommand("!skip")}
+              onClick={() => runCommand("skip")}
             />
           </Tooltip>
           <Tooltip title="Kuyruğu temizle">
             <Button
               disabled={!isDj || state.queue.length === 0 || isSending}
               icon={<ClearOutlined />}
-              onClick={() => runCommand("!clear")}
+              onClick={() => runCommand("clear")}
             />
           </Tooltip>
           <Tooltip title="Durdur ve botu odadan çıkar">
@@ -222,7 +222,7 @@ export function MusicModal({
               danger
               disabled={!isDj || isSending}
               icon={<StopOutlined />}
-              onClick={() => runCommand("!stop")}
+              onClick={() => runCommand("stop")}
             />
           </Tooltip>
 
@@ -272,7 +272,7 @@ export function MusicModal({
                     aria-label="Kuyruktan çıkar"
                     icon={<DeleteOutlined />}
                     disabled={isSending}
-                    onClick={() => runCommand(`!remove ${index + 1}`)}
+                    onClick={() => runCommand(`remove ${index + 1}`)}
                   />
                 ) : null}
               </li>

@@ -20,13 +20,8 @@ import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
 import { MusicModal, useMusicRoom } from "@/features/music";
 import { WatchModal } from "@/features/watch";
-import { musicBotIdentity } from "@shared/music";
+import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
-
-// Matches music.BotDisplayName on the server, which is what LiveKit carries as
-// the participant name. Written here as well because the stage builds its tile
-// from the lobby roster, and the bot is not on it.
-const MUSIC_BOT_NAME = "Müzik Botu";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -330,17 +325,21 @@ export function LobbiesMainPanel({
     setLocalFallbackJoinedAt(new Date().toISOString());
   }, [activeLobbyId]);
 
+  // stageParticipants, NOT lobbyParticipants: the music bot is a tile on the
+  // stage and is deliberately absent from the lobby roster, so checking the
+  // roster answered "gone" for it on the very next render. Focusing the bot
+  // snapped straight back out, and its context menu closed before it drew.
   useEffect(() => {
     if (!focusedParticipantId && !contextMenuParticipantId) return;
     if (focusedParticipantId) {
-      const focusedStillPresent = lobbyParticipants.some((p) => !p.isLocalUser && p.userId === focusedParticipantId);
+      const focusedStillPresent = stageParticipants.some((p) => !p.isLocalUser && p.userId === focusedParticipantId);
       if (!focusedStillPresent) setFocusedParticipantId(null);
     }
     if (contextMenuParticipantId) {
-      const stillPresent = lobbyParticipants.some((p) => !p.isLocalUser && p.userId === contextMenuParticipantId);
+      const stillPresent = stageParticipants.some((p) => !p.isLocalUser && p.userId === contextMenuParticipantId);
       if (!stillPresent) setContextMenuParticipantId(null);
     }
-  }, [contextMenuParticipantId, focusedParticipantId, lobbyParticipants]);
+  }, [contextMenuParticipantId, focusedParticipantId, stageParticipants]);
 
   // Derived Values
   const selectedPreference = contextMenuParticipantId
@@ -450,8 +449,8 @@ export function LobbiesMainPanel({
   };
 
   const contextMenuParticipant = useMemo(
-    () => lobbyParticipants.find((p) => p.userId === contextMenuParticipantId) ?? null,
-    [contextMenuParticipantId, lobbyParticipants],
+    () => stageParticipants.find((p) => p.userId === contextMenuParticipantId) ?? null,
+    [contextMenuParticipantId, stageParticipants],
   );
 
   const contextMenuFriendState = useMemo<

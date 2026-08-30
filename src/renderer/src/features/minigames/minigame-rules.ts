@@ -75,10 +75,14 @@ export const MINIGAME_RULES: Record<MinigameId, readonly string[]> = {
   ],
 
   gunline: [
-    "Müfreze hep ön hatta durur; fareyle sağa sola kaydırırsın, ateş kendiliğinden.",
-    "Kapılara ateş ettikçe üzerlerindeki sayı büyür. İçinden geçtiğin kapı birliğine uygulanır.",
-    "Alt çizgiyi geçen düşman bir askerini götürür; asker biterse oyun biter.",
-    "Her dalga sonunda üç yükseltmeden birini seçersin. Beşinci dalgalarda boss gelir.",
+    "Dikey telefon ekranı gibi oynanır: ekranı sürükle, müfreze o şeride kayar, ateş kendiliğinden.",
+    "Bölüm başında duvar boyunca dizili kapı merdiveninden geçersin; ateş ettikçe üzerlerindeki sayı büyür.",
+    "Kapılar er katar, sınıf verir, silah yükseltir ya da zırh bırakır. Kırmızı olan hepsini geri alır.",
+    "Alt çizgiyi geçen düşman asker götürür; zırhın varsa önce o erir, asker biterse görev başarısız.",
+    "1-4 tuşları destek çağırır: hava desteği, havan, sis, takviye, adrenalin.",
+    "Her dalga sonunda üç yükseltmeden birini seçersin. Beşinci bölümlerde komutan çıkar.",
+    "Kampanya 60 bölüm, 6 bölge. Kazandığın erzak, mühimmat ve künyeyi kışlada kalıcı yükseltmeye harcarsın.",
+    "Sonsuz mod teçhizat ve kışla bonusu tanımaz; rekor tablosu onunla tutulur.",
   ],
   xox: [
     "Sırayla 3x3 tahtaya işaret koyarsınız.",

@@ -12,9 +12,11 @@
  *      participant is not a person. Change one side and the slider moves the
  *      volume of nobody.
  *
- *   2. THE COMMAND PREFIX and the commands the UI's buttons send. The transport
- *      buttons are shorthand for typed commands — "!skip", "!pause" — so a
- *      renamed command turns a button into a 400 nobody sees the reason for.
+ *   2. THE COMMAND NAMES the UI's buttons send. Every transport button is one
+ *      name on the wire — "skip", "pause" — so a renamed command turns a button
+ *      into a 400 nobody sees the reason for. They are sent bare: the prefix is
+ *      gone from the UI, and the backend's leniency about a leading ! is for
+ *      older builds, not a contract this may drift back onto.
  *
  *   3. THE RECONCILER AND WEBHOOK GUARDS. Without music.IsBotIdentity in both,
  *      the bot is an unrostered participant: admit() looks it up as a user,
@@ -49,8 +51,8 @@ const literal = (source, name) => {
   return match[1];
 };
 
-const sharedPrefix = literal(sharedSource, "MUSIC_COMMAND_PREFIX");
 const sharedBotPrefix = literal(sharedSource, "MUSIC_BOT_IDENTITY_PREFIX");
+const sharedBotName = literal(sharedSource, "MUSIC_BOT_NAME");
 
 // Every command string the panel actually sends, including the ones built with
 // a template (`!remove ${n}`).
@@ -93,12 +95,12 @@ if (!backendPresent) {
     "utf8",
   );
 
-  const goPrefix = commandsGo.match(/const CommandPrefix = "([^"]*)"/);
-  assert.ok(goPrefix, "music.CommandPrefix not found in commands.go");
+  const goBotName = modelsGo.match(/const BotDisplayName = "([^"]*)"/);
+  assert.ok(goBotName, "music.BotDisplayName not found in models.go");
   assert.equal(
-    sharedPrefix,
-    goPrefix[1],
-    `MUSIC_COMMAND_PREFIX (${sharedPrefix}) disagrees with music.CommandPrefix (${goPrefix[1]})`,
+    sharedBotName,
+    goBotName[1],
+    `MUSIC_BOT_NAME (${sharedBotName}) disagrees with music.BotDisplayName (${goBotName[1]})`,
   );
 
   const goBotPrefix = modelsGo.match(/const BotIdentityPrefix = "([^"]*)"/);
@@ -123,6 +125,16 @@ if (!backendPresent) {
     unknown,
     [],
     `the music panel sends commands the backend does not declare: ${unknown.join(", ")}`,
+  );
+
+  // The panel sends BARE names. The ! prefix is gone from the UI; the backend
+  // still strips one so an older desktop build keeps working, and that
+  // leniency is what this asserts has not been mistaken for the contract.
+  const prefixed = [...panelSource.matchAll(/runCommand\(\s*[`"']([!/])/g)];
+  assert.deepEqual(
+    prefixed.map((match) => match[1]),
+    [],
+    "the music panel is sending prefixed commands again; the prefix was removed",
   );
 
   // The two guards that keep the bot from being evicted as a ghost user.

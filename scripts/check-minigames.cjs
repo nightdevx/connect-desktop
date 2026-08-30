@@ -122,23 +122,42 @@ const main = async () => {
   );
 
   const {
-    createGunline,
-    startGunline,
-    stepGunline,
+    createRun,
+    createEndlessRun,
+    startRun,
+    stepRun,
     chooseUpgrade,
     gateHit,
+    squadSize,
+    baseBonus,
     GATE_ADD_HITS,
     GATE_MUL_HITS,
     GATE_ADD_CAP,
+    GATE_MUL_CAP,
     unitOffsets,
     waveHealth,
     waveSizeOf,
     spawnIntervalOf,
     MAX_UNITS,
     LEAK_Z,
+    CAMPAIGN_LEVELS,
+    allLevels,
+    levelById,
+    levelScoreCeiling,
+    enemyRoster,
+    levelReward,
+    ENEMY_SPECS,
+    ENEMY_KINDS,
+    ABILITIES,
+    ABILITY_ORDER,
+    META_NODES,
+    createProfile,
+    recordRun,
+    normaliseProfile,
+    purchaseNode,
   } = await bundle(
-    "src/renderer/src/features/minigames/gunline-logic.ts",
-    "gunline-logic.mjs",
+    "src/renderer/src/features/minigames/gunline/index.ts",
+    "index.mjs",
   );
 
   const { scoreKey, splitScoreKey, DIFFICULTY_IDS, DEFAULT_DIFFICULTY } = await bundle(
@@ -913,26 +932,143 @@ const main = async () => {
     assert.equal(halving.value, 1);
     assert.equal(halving.good, true);
 
+    const runaway = { id: 4, x: 0, z: 0, kind: "mul", value: 1.2, charge: 0, good: true };
+    for (let shot = 0; shot < 400 * GATE_MUL_HITS; shot += 1) {
+      gateHit(runaway);
+    }
+    assert.ok(
+      runaway.value <= GATE_MUL_CAP,
+      `a mul gate reached x${runaway.value}, which no squad cap survives`,
+    );
+
+    // --- campaign shape -------------------------------------------------------
+
+    const levels = allLevels();
+    assert.equal(levels.length, CAMPAIGN_LEVELS, "the campaign is not the length it claims");
+    for (let index = 0; index < levels.length; index += 1) {
+      assert.equal(levels[index].id, index + 1, "the level chain has a hole in it");
+      assert.ok(levelById(index + 1), `level ${index + 1} is unreachable by id`);
+      assert.ok(levels[index].waves.length > 0, `level ${index + 1} has no waves`);
+    }
+
+    for (const level of levels) {
+      const ceiling = levelScoreCeiling(level);
+      assert.ok(
+        level.stars.three < ceiling,
+        `level ${level.id} asks for ${level.stars.three} points out of a possible ${ceiling}`,
+      );
+      assert.ok(
+        level.stars.two < level.stars.three,
+        `level ${level.id} has two-star at or above three-star`,
+      );
+    }
+
+    // Every enemy has to turn up somewhere, or it is a spec nobody ever meets.
+    const met = new Set();
+    for (const level of levels) {
+      for (const kind of enemyRoster(level)) {
+        met.add(kind);
+      }
+    }
+    for (const kind of ENEMY_KINDS) {
+      assert.ok(met.has(kind), `no campaign level ever spawns a ${kind}`);
+      assert.ok(ENEMY_SPECS[kind].leakCost >= 1, `${kind} costs nothing when it leaks`);
+    }
+
+    // The reward curve has to grow, and has to stop growing.
+    for (let id = 1; id < CAMPAIGN_LEVELS; id += 1) {
+      assert.ok(
+        levelReward(id + 1).supplies > levelReward(id).supplies,
+        `the reward for level ${id + 1} does not beat level ${id}`,
+      );
+    }
+    assert.ok(
+      levelReward(CAMPAIGN_LEVELS).supplies < levelReward(1).supplies * 25,
+      "the reward curve inflates faster than the upgrade costs can absorb",
+    );
+
+    // --- abilities and the upgrade tree ---------------------------------------
+
+    for (const id of ABILITY_ORDER) {
+      const spec = ABILITIES[id];
+      assert.ok(spec.cooldown > 0, `${id} has no cooldown`);
+      assert.ok(spec.duration < spec.cooldown, `${id} lasts longer than it takes to recharge`);
+    }
+
+    const nodeIds = new Set(META_NODES.map((node) => node.id));
+    for (const node of META_NODES) {
+      assert.ok(node.max >= 1, `${node.id} cannot be bought at all`);
+      if (node.requires) {
+        assert.ok(nodeIds.has(node.requires), `${node.id} requires a node that does not exist`);
+        assert.notEqual(node.requires, node.id, `${node.id} requires itself`);
+      }
+      const first = node.cost(0);
+      const second = node.cost(1);
+      assert.ok(
+        second.supplies > first.supplies,
+        `${node.id} does not get more expensive as it levels`,
+      );
+    }
+
+    // --- the profile survives what a browser hands back -----------------------
+
+    assert.deepEqual(normaliseProfile(null), createProfile());
+    assert.deepEqual(normaliseProfile("not a profile"), createProfile());
+    const rescued = normaliseProfile({ xp: -5, supplies: "many", upgrades: { "fp-damage": 2 } });
+    assert.equal(rescued.xp, 0);
+    assert.equal(rescued.supplies, 0);
+    assert.equal(rescued.upgrades["fp-damage"], 2);
+
     {
-      const state = createGunline(RULES_GUNLINE.hard, 4242);
-      startGunline(state);
+      const rich = { ...createProfile(), supplies: 1_000_000, ammo: 1_000_000, credits: 10_000 };
+      const bought = purchaseNode(rich, "fp-damage");
+      assert.equal(bought.upgrades["fp-damage"], 1, "a paid-for upgrade did not land");
+      assert.ok(bought.supplies < rich.supplies, "an upgrade was free");
+      const blocked = purchaseNode(createProfile(), "fp-rate");
+      assert.equal(blocked.upgrades["fp-rate"], undefined, "a locked node was bought anyway");
+    }
+
+    // --- a motionless endless run ends ----------------------------------------
+
+    {
+      const state = createEndlessRun(RULES_GUNLINE.hard, 4242);
+      startRun(state);
       let ticks = 0;
       while (state.phase !== "over" && ticks < 60 * 60 * 4) {
         if (state.phase === "upgrade") {
           chooseUpgrade(state, state.offer[0].id);
           continue;
         }
-        stepGunline(state, 1 / 60, 0);
+        stepRun(state, 1 / 60, 0);
         state.effects.length = 0;
         ticks += 1;
       }
       assert.equal(state.phase, "over", "a motionless gunline run never ended");
-      assert.equal(state.units, 0);
+      assert.equal(squadSize(state.roster), 0);
     }
 
+    // --- a played endless run stays inside its own bounds ----------------------
+
+    const aimAt = (state) => {
+      let aim = 0;
+      let nearest = -Infinity;
+      for (const enemy of state.enemies) {
+        if (enemy.dyingAt === 0 && enemy.z > nearest) {
+          nearest = enemy.z;
+          aim = enemy.x;
+        }
+      }
+      for (const gate of state.gates) {
+        if (gate.good) {
+          aim = gate.x;
+        }
+      }
+      return aim;
+    };
+
     {
-      const state = createGunline(RULES_GUNLINE.normal, 90210);
-      startGunline(state);
+      const state = createEndlessRun(RULES_GUNLINE.normal, 90210);
+      startRun(state);
       let ticks = 0;
       let offers = 0;
       while (state.phase !== "over" && ticks < 60 * 60 * 12) {
@@ -948,26 +1084,13 @@ const main = async () => {
           continue;
         }
 
-        let aim = 0;
-        let nearest = -Infinity;
-        for (const enemy of state.enemies) {
-          if (enemy.dyingAt === 0 && enemy.z > nearest) {
-            nearest = enemy.z;
-            aim = enemy.x;
-          }
-        }
-        for (const gate of state.gates) {
-          if (gate.good) {
-            aim = gate.x;
-          }
-        }
-        stepGunline(state, 1 / 60, aim);
+        stepRun(state, 1 / 60, aimAt(state));
         state.effects.length = 0;
         ticks += 1;
 
         assert.ok(Number.isFinite(state.score), "gunline score went non-finite");
         assert.ok(Number.isFinite(state.playerX), "gunline aim went non-finite");
-        assert.ok(state.units <= MAX_UNITS, "gunline let the squad past its own cap");
+        assert.ok(squadSize(state.roster) <= MAX_UNITS, "gunline let the squad past its own cap");
         for (const enemy of state.enemies) {
           assert.ok(enemy.z <= LEAK_Z + 1, "an enemy walked past the line without leaking");
         }
@@ -979,6 +1102,55 @@ const main = async () => {
         state.score < 5_000_000,
         `gunline scored ${state.score}, which score.go would reject`,
       );
+    }
+
+    // --- three campaign levels, played to a verdict ---------------------------
+
+    for (const id of [1, 12, 30]) {
+      const level = levelById(id);
+      const state = createRun({
+        mode: "campaign",
+        rules: RULES_GUNLINE.easy,
+        level,
+        loadout: { weapon: "rifle", attachments: [], abilities: ["airstrike", "reinforce"] },
+        bonus: baseBonus(),
+        seed: 1337 + id,
+      });
+      startRun(state);
+
+      let ticks = 0;
+      while (state.phase !== "over" && state.phase !== "won" && ticks < 60 * 60 * 15) {
+        if (state.phase === "upgrade") {
+          chooseUpgrade(state, state.offer[0].id);
+          continue;
+        }
+        stepRun(state, 1 / 60, aimAt(state));
+        state.effects.length = 0;
+        ticks += 1;
+      }
+
+      assert.ok(
+        state.phase === "over" || state.phase === "won",
+        `campaign level ${id} never reached a verdict in fifteen minutes`,
+      );
+      assert.ok(state.score >= 0 && state.score < 5_000_000, `level ${id} scored out of bounds`);
+
+      const summary = {
+        levelId: id,
+        won: state.phase === "won",
+        score: state.score,
+        kills: state.kills,
+        leaks: state.leaks,
+        bosses: state.bosses,
+        units: squadSize(state.roster),
+        seconds: Math.round(state.time),
+        stars: state.phase === "won" ? 1 : 0,
+        goodGates: state.goodGates,
+        reward: level.reward,
+      };
+      const after = recordRun(createProfile(), summary, "2026-01-01");
+      assert.ok(after.profile.totals.runs === 1, "a finished run was not recorded");
+      assert.ok(after.profile.xp >= 0, "a run handed out negative xp");
     }
   }
 

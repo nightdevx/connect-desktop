@@ -56,6 +56,9 @@ interface LobbyMemberContextMenuProps {
    *  a playback preference for anyone else would control nothing. */
   audio?: LobbyMemberMenuAudio;
   canModerate: boolean;
+  /** The music bot: an audio source with a name, not a person. Nothing to open
+   *  a profile on, befriend, message, moderate or silence a soundboard for. */
+  isBot?: boolean;
   isServerMuted: boolean;
   onServerMute: (muted: boolean, durationSeconds?: number) => void;
   onKick: () => void;
@@ -77,6 +80,7 @@ export function LobbyMemberContextMenu({
   onRemoveFriend,
   audio,
   canModerate,
+  isBot = false,
   isServerMuted,
   onServerMute,
   onKick,
@@ -89,17 +93,25 @@ export function LobbyMemberContextMenu({
   const items: MenuProps["items"] = [
     {
       key: "title",
-      label: <div className="ct-participant-context-menu-title">@{username}</div>,
+      label: (
+        <div className="ct-participant-context-menu-title">
+          {isBot ? "Müzik Botu Ayarları" : `@${username}`}
+        </div>
+      ),
       disabled: true,
     },
-    {
-      key: "profile",
-      label: "Profili Gör",
-      icon: <IdcardOutlined />,
-      className: "ct-participant-context-menu-button",
-      onClick: onShowProfile,
-    },
-    ...(isSelf
+    ...(isBot
+      ? []
+      : [
+          {
+            key: "profile",
+            label: "Profili Gör",
+            icon: <IdcardOutlined />,
+            className: "ct-participant-context-menu-button",
+            onClick: onShowProfile,
+          },
+        ]),
+    ...(isSelf || isBot
       ? []
       : [
           {
@@ -180,22 +192,27 @@ export function LobbyMemberContextMenu({
               </div>
             ),
           },
-          {
-            key: "emote-mute",
-            // Separate from "Sustur" because they are separate annoyances: a
-            // person can be worth listening to and still be leaning on the
-            // soundboard, and silencing them entirely is the wrong answer to it.
-            label: audio.preference.emoteMuted
-              ? "Emote Seslerini Aç"
-              : "Emote Seslerini Sustur",
-            icon: audio.preference.emoteMuted ? (
-              <NotificationOutlined />
-            ) : (
-              <MutedOutlined />
-            ),
-            className: "ct-participant-context-menu-button",
-            onClick: () => audio.onEmoteMute(!audio.preference.emoteMuted),
-          },
+          ...(isBot
+            ? []
+            : [
+                {
+                  key: "emote-mute",
+                  // Separate from "Sustur" because they are separate annoyances:
+                  // a person can be worth listening to and still be leaning on
+                  // the soundboard, and silencing them entirely is the wrong
+                  // answer to it.
+                  label: audio.preference.emoteMuted
+                    ? "Emote Seslerini Aç"
+                    : "Emote Seslerini Sustur",
+                  icon: audio.preference.emoteMuted ? (
+                    <NotificationOutlined />
+                  ) : (
+                    <MutedOutlined />
+                  ),
+                  className: "ct-participant-context-menu-button",
+                  onClick: () => audio.onEmoteMute(!audio.preference.emoteMuted),
+                },
+              ]),
         ]
       : []),
     ...(canModerate && !isSelf

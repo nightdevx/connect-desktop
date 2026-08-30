@@ -186,6 +186,25 @@
   container-type: size;
 }
 
+/* Fullscreen is this same page with the whole display to size from, and nothing
+   else has to know: the size container is on THIS element, so 100cqh becomes
+   the screen's height and the board grows out of the existing arithmetic.
+
+   Promoting the board alone would not work — a fullscreen .ct-arcade is still a
+   container-query descendant of this element, so it would keep sizing itself
+   from the window-sized page behind it and come out no bigger.
+
+   The background is painted because the browser's default backdrop behind a
+   fullscreen element is black, and this page is not. */
+.ct-minigames-page:fullscreen {
+  padding: 16px;
+  background: var(--ct-surface-1);
+}
+
+.ct-minigames-page:fullscreen .ct-arcade-stage {
+  --board-ceiling: 1400px;
+}
+
 .ct-minigames-panel {
   --ct-minigames-rail: 244px;
   @apply grid min-h-0 gap-x-4 gap-y-3;
@@ -351,10 +370,14 @@
      a few pixels of board; underestimating overflows a row that does not clip,
      so the board would sit over the page header. */
   --arcade-chrome: 104px;
+  /* The ceiling exists so a board does not become a wall on a tall window.
+     Fullscreen raises it: there the whole display IS the board's window, and
+     720px would leave a third of the screen empty. */
+  --board-ceiling: 720px;
   --board-max-height: clamp(
     180px,
     calc(100cqh - var(--arcade-page-chrome) - var(--arcade-chrome)),
-    720px
+    var(--board-ceiling)
   );
   flex: 0 1 auto;
   width: calc(

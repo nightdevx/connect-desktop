@@ -1,6 +1,9 @@
-export const MUSIC_COMMAND_PREFIX = "!";
-
 export const MUSIC_BOT_IDENTITY_PREFIX = "bot:music:";
+
+// music.BotDisplayName on the server, which is what LiveKit carries as the
+// participant name. Written down here as well because both the stage tile and
+// the sidebar row are built without a roster entry to read it from.
+export const MUSIC_BOT_NAME = "Müzik Botu";
 
 export const musicBotIdentity = (lobbyId: string): string =>
   `${MUSIC_BOT_IDENTITY_PREFIX}${lobbyId}`;
@@ -55,7 +58,6 @@ export interface MusicCommandSpec {
 export interface MusicCatalog {
   enabled: boolean;
   spotifyEnabled: boolean;
-  prefix: string;
   commands: MusicCommandSpec[];
 }
 

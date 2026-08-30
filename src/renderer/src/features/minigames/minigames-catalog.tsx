@@ -239,8 +239,8 @@ const BY_ID: Record<MinigameId, MinigameEntry> = {
   },
   gunline: {
     id: "gunline",
-    label: "Nişan Hattı",
-    description: "Müfrezeni büyüt, gelen dalgayı durdur.",
+    label: "Cephe Hattı",
+    description: "60 bölümlük askeri kampanya. Müfrezeni büyüt, hattı tut.",
     icon: <AimOutlined />,
     mode: "solo",
     formatScore: (score) => `${score} puan`,

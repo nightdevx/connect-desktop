@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import { QuestionCircleOutlined } from "@ant-design/icons";
+import { useEffect, useRef, useState } from "react";
+import {
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+  QuestionCircleOutlined,
+} from "@ant-design/icons";
 import { scoreKey } from "@/store/minigame-scores";
 import { useUiStore } from "@/store/ui-store";
 import { describeDifficulty, isSoloGameId } from "../difficulty";
@@ -58,6 +62,30 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 
   const [infoOpen, setInfoOpen] = useState(false);
 
+  // The whole page goes fullscreen, not the board: the board is sized off this
+  // element's container query, so promoting it on its own would leave it
+  // measuring the window-sized page behind it. Taking the page takes the header
+  // and the rail with it, which is also what keeps the leaderboard readable.
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const sync = (): void => {
+      setIsFullscreen(document.fullscreenElement === pageRef.current);
+    };
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggleFullscreen = (): void => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    void pageRef.current?.requestFullscreen().catch(() => undefined);
+  };
+
   const entry = findMinigame(selected);
   const { Component } = entry;
   const isSolo = isSoloGameId(selected);
@@ -84,7 +112,7 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
     // knows that height is one the grid does not have to measure -- a container
     // on the grid item itself is size-CONTAINED, so it reports a zero width to
     // the auto track and the column collapses around the page header.
-    <div className="ct-minigames-page">
+    <div className="ct-minigames-page" ref={pageRef}>
       <div className="ct-minigames-panel">
         <header className="ct-minigames-header">
           <span className="ct-minigames-header-icon" aria-hidden="true">
@@ -117,6 +145,16 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
               onChange={(next) => setDifficulty(selected, next)}
             />
           ) : null}
+
+          <button
+            type="button"
+            className="ct-minigames-info-button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+            title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+          >
+            {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+          </button>
 
           <button
             type="button"

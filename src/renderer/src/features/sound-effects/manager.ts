@@ -91,6 +91,17 @@ const MINIGAME_PATTERNS = {
     { frequency: 190, glideToFrequency: 70, glideMs: 150, durationMs: 150, gain: 0.075, type: "sawtooth", filterFrequency: 620, overtoneGainRatio: 0.3, attackMs: 2, releaseMs: 260, pauseAfterMs: 0 },
     { frequency: 1200, glideToFrequency: 480, glideMs: 90, durationMs: 60, gain: 0.05, type: "square", filterFrequency: 2600, overtoneGainRatio: 0.2, attackMs: 2, releaseMs: 150 },
   ],
+  rifleCrack: [
+    { frequency: 1600, glideToFrequency: 600, glideMs: 22, durationMs: 34, gain: 0.046, type: "square", filterFrequency: 4200, overtoneGainRatio: 0.12, attackMs: 1, releaseMs: 60 },
+  ],
+  gateDing: [
+    { frequency: 620, durationMs: 44, gain: 0.042, type: "triangle", filterFrequency: 2600, attackMs: 2, releaseMs: 50, pauseAfterMs: 12 },
+    { frequency: 930, durationMs: 70, gain: 0.04, type: "triangle", filterFrequency: 3000, attackMs: 2, releaseMs: 90 },
+  ],
+  alarm: [
+    { frequency: 440, durationMs: 110, gain: 0.04, type: "sawtooth", filterFrequency: 1400, attackMs: 4, releaseMs: 40, pauseAfterMs: 30 },
+    { frequency: 330, durationMs: 140, gain: 0.04, type: "sawtooth", filterFrequency: 1200, attackMs: 4, releaseMs: 60 },
+  ],
 } satisfies Record<string, OscillatorTone[]>;
 
 export type MinigameCue = keyof typeof MINIGAME_PATTERNS;

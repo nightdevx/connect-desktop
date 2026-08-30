@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cephe Hattı önizleme</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0f1218;
+      }
+      #root {
+        height: 100%;
+      }
+      .ct-minigames-grid {
+        height: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, auto);
+        grid-template-rows: minmax(0, 1fr);
+        grid-template-areas: "game";
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/preview.tsx"></script>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import {
   AnimationMixer,
   Box3,
+  CanvasTexture,
   Group,
   LoadingManager,
   LoopOnce,
@@ -31,7 +32,7 @@ import textureTankUrl from "@/assets/gunline/texture-n.png";
 import textureShooterUrl from "@/assets/gunline/texture-k.png";
 import textureSplitterUrl from "@/assets/gunline/texture-c.png";
 import textureBossUrl from "@/assets/gunline/texture-r.png";
-import type { EnemyKind, WeaponId } from "../gunline-logic";
+import type { EnemyKind, TerrainId, WeaponId } from "../gunline";
 
 export type SoldierSkin = "unit" | EnemyKind;
 
@@ -43,13 +44,19 @@ export type SoldierPose =
   | "holding-both"
   | "holding-both-shoot";
 
-const SKIN_TEXTURES: Partial<Record<SoldierSkin, string>> = {
-  runner: textureRunnerUrl,
-  grunt: textureGruntUrl,
-  tank: textureTankUrl,
-  shooter: textureShooterUrl,
-  splitter: textureSplitterUrl,
-  boss: textureBossUrl,
+const ENEMY_TEXTURES: Record<EnemyKind, string> = {
+  militia: textureRunnerUrl,
+  infantry: textureGruntUrl,
+  heavy: textureTankUrl,
+  marksman: textureShooterUrl,
+  sapper: textureSplitterUrl,
+  drone: textureBossUrl,
+  apc: textureTankUrl,
+  mortar: textureShooterUrl,
+  medic: textureSplitterUrl,
+  shield: textureGruntUrl,
+  jammer: textureBossUrl,
+  commander: textureBossUrl,
 };
 
 const WEAPON_MODELS: Record<WeaponId, string> = {
@@ -57,7 +64,22 @@ const WEAPON_MODELS: Record<WeaponId, string> = {
   smg: blasterSmgUrl,
   shotgun: blasterShotgunUrl,
   rifle: blasterRifleUrl,
+  lmg: blasterSmgUrl,
+  dmr: blasterRifleUrl,
+  launcher: blasterShotgunUrl,
+  rail: blasterRifleUrl,
 };
+
+const CAMO_TINTS: Record<TerrainId, [string, string]> = {
+  range: ["#8d9c73", "#5c6b4a"],
+  desert: ["#d9c08a", "#a9884f"],
+  urban: ["#9aa3ad", "#5f6771"],
+  forest: ["#7c9a6a", "#43603a"],
+  snow: ["#e6edf5", "#a9b8c8"],
+  industrial: ["#9a958c", "#5f5b53"],
+};
+
+const ENEMY_TINTS: [string, string] = ["#d8443a", "#7d1f18"];
 
 const EXTERNAL_TEXTURES: Record<string, string> = {
   "texture-a.png": textureBaseUrl,
@@ -74,8 +96,9 @@ export interface Soldier {
 
 export interface GunlineAssets {
   characterHeight: number;
-  createSoldier: (skin: SoldierSkin) => Soldier;
+  createSoldier: (skin: SoldierSkin, terrain: TerrainId) => Soldier;
   createGun: (weapon: WeaponId) => Object3D;
+  dispose: () => void;
 }
 
 let pending: Promise<GunlineAssets> | null = null;
@@ -122,6 +145,50 @@ function matchTransform(source: Texture | null, target: Texture): Texture {
   return target;
 }
 
+function tintTexture(source: Texture, tints: [string, string]): CanvasTexture | null {
+  const image = source.image as HTMLImageElement | HTMLCanvasElement | undefined;
+  if (!image || !("width" in image) || !image.width) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.drawImage(image as CanvasImageSource, 0, 0);
+
+  const [light, dark] = tints;
+  context.globalCompositeOperation = "source-atop";
+  context.globalAlpha = 0.45;
+  context.fillStyle = light;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  const blotches = 26;
+  context.globalAlpha = 0.36;
+  context.fillStyle = dark;
+  for (let index = 0; index < blotches; index += 1) {
+    const angle = (index / blotches) * Math.PI * 2;
+    const x = (Math.sin(angle * 3.1) * 0.5 + 0.5) * canvas.width;
+    const y = (Math.cos(angle * 2.3) * 0.5 + 0.5) * canvas.height;
+    const size = (canvas.width / 16) * (0.6 + (index % 4) * 0.2);
+    context.beginPath();
+    context.ellipse(x, y, size, size * 0.62, angle, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.globalAlpha = 1;
+  context.globalCompositeOperation = "source-over";
+
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = NearestFilter;
+  return matchTransform(source, texture) as CanvasTexture;
+}
+
 async function build(): Promise<GunlineAssets> {
   const manager = new LoadingManager();
   manager.setURLModifier((url) => {
@@ -134,25 +201,27 @@ async function build(): Promise<GunlineAssets> {
 
   const [character, ...guns] = await Promise.all([
     gltfLoader.loadAsync(characterUrl),
-    gltfLoader.loadAsync(WEAPON_MODELS.pistol),
-    gltfLoader.loadAsync(WEAPON_MODELS.smg),
-    gltfLoader.loadAsync(WEAPON_MODELS.shotgun),
-    gltfLoader.loadAsync(WEAPON_MODELS.rifle),
+    gltfLoader.loadAsync(blasterPistolUrl),
+    gltfLoader.loadAsync(blasterSmgUrl),
+    gltfLoader.loadAsync(blasterShotgunUrl),
+    gltfLoader.loadAsync(blasterRifleUrl),
   ]);
 
   const source = character.scene;
   const baseMap = textureOf(source);
 
-  const alternates = await Promise.all(
-    Object.entries(SKIN_TEXTURES).map(async ([skin, url]) => {
+  const uniqueEnemyUrls = [...new Set(Object.values(ENEMY_TEXTURES))];
+  const loaded = await Promise.all(
+    uniqueEnemyUrls.map(async (url) => {
       const texture = await textureLoader.loadAsync(url);
       texture.colorSpace = SRGBColorSpace;
       texture.flipY = false;
       texture.magFilter = NearestFilter;
-      return [skin as SoldierSkin, matchTransform(baseMap, texture)] as const;
+      const tinted = tintTexture(texture, ENEMY_TINTS);
+      return [url, matchTransform(baseMap, tinted ?? texture)] as const;
     }),
   );
-  const textures = new Map<SoldierSkin, Texture>(alternates);
+  const byUrl = new Map(loaded);
 
   const clips = new Map<string, AnimationClip>(
     character.animations.map((clip) => [clip.name, clip]),
@@ -161,37 +230,51 @@ async function build(): Promise<GunlineAssets> {
   const size = new Box3().setFromObject(source).getSize(new Vector3());
   const characterHeight = size.y || 1;
 
-  const materials = new Map<SoldierSkin, MeshStandardMaterial>();
-  const materialFor = (skin: SoldierSkin): MeshStandardMaterial => {
-    const cached = materials.get(skin);
+  const camo = new Map<TerrainId, Texture | null>();
+  const camoFor = (terrain: TerrainId): Texture | null => {
+    if (camo.has(terrain)) {
+      return camo.get(terrain) ?? null;
+    }
+    const made = baseMap ? tintTexture(baseMap, CAMO_TINTS[terrain]) : null;
+    camo.set(terrain, made ?? baseMap);
+    return made ?? baseMap;
+  };
+
+  const materials = new Map<string, MeshStandardMaterial>();
+  const materialFor = (skin: SoldierSkin, terrain: TerrainId): MeshStandardMaterial => {
+    const key = skin === "unit" ? `unit:${terrain}` : `enemy:${skin}`;
+    const cached = materials.get(key);
     if (cached) {
       return cached;
     }
-    const made = litMaterial(textures.get(skin) ?? baseMap);
-    materials.set(skin, made);
+    const map = skin === "unit"
+      ? camoFor(terrain)
+      : byUrl.get(ENEMY_TEXTURES[skin]) ?? baseMap;
+    const made = litMaterial(map);
+    materials.set(key, made);
     return made;
   };
 
-  const gunScenes: Record<WeaponId, Object3D> = {
-    pistol: guns[0].scene,
-    smg: guns[1].scene,
-    shotgun: guns[2].scene,
-    rifle: guns[3].scene,
+  const gunScenes: Record<string, Object3D> = {
+    [blasterPistolUrl]: guns[0].scene,
+    [blasterSmgUrl]: guns[1].scene,
+    [blasterShotgunUrl]: guns[2].scene,
+    [blasterRifleUrl]: guns[3].scene,
   };
-  const gunMaterials = new Map<WeaponId, MeshStandardMaterial>();
-  const gunMaterialFor = (weapon: WeaponId): MeshStandardMaterial => {
-    const cached = gunMaterials.get(weapon);
+  const gunMaterials = new Map<string, MeshStandardMaterial>();
+  const gunMaterialFor = (url: string): MeshStandardMaterial => {
+    const cached = gunMaterials.get(url);
     if (cached) {
       return cached;
     }
-    const made = litMaterial(textureOf(gunScenes[weapon]));
-    gunMaterials.set(weapon, made);
+    const made = litMaterial(textureOf(gunScenes[url]));
+    gunMaterials.set(url, made);
     return made;
   };
 
-  const createSoldier = (skin: SoldierSkin): Soldier => {
+  const createSoldier = (skin: SoldierSkin, terrain: TerrainId): Soldier => {
     const root = cloneHierarchy(source) as Group;
-    const material = materialFor(skin);
+    const material = materialFor(skin, terrain);
 
     root.traverse((child) => {
       if (child instanceof Mesh) {
@@ -247,8 +330,9 @@ async function build(): Promise<GunlineAssets> {
   };
 
   const createGun = (weapon: WeaponId): Object3D => {
-    const gun = gunScenes[weapon].clone(true);
-    const material = gunMaterialFor(weapon);
+    const url = WEAPON_MODELS[weapon] ?? blasterPistolUrl;
+    const gun = gunScenes[url].clone(true);
+    const material = gunMaterialFor(url);
     gun.traverse((child) => {
       if (child instanceof Mesh) {
         child.material = material;
@@ -260,7 +344,21 @@ async function build(): Promise<GunlineAssets> {
     return gun;
   };
 
-  return { characterHeight, createSoldier, createGun };
+  const dispose = (): void => {
+    for (const material of materials.values()) {
+      material.dispose();
+    }
+    for (const material of gunMaterials.values()) {
+      material.dispose();
+    }
+    for (const texture of camo.values()) {
+      if (texture && texture !== baseMap) {
+        texture.dispose();
+      }
+    }
+  };
+
+  return { characterHeight, createSoldier, createGun, dispose };
 }
 
 export function loadGunlineAssets(): Promise<GunlineAssets> {

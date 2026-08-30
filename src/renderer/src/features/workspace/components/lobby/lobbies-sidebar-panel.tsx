@@ -50,6 +50,8 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
 import { useUiStore } from "@/store/ui-store";
+import { useMusicRoom } from "@/features/music";
+import { MUSIC_BOT_NAME, isMusicBotIdentity } from "@shared/music";
 import { GameActivityBadge, useGameActivityByUser } from "@/features/minigames";
 import type { ViewPreferences } from "@/store/view-preferences";
 import workspaceService from "../../services";
@@ -161,6 +163,33 @@ export function LobbiesSidebarPanel({
     x: number;
     y: number;
   } | null>(null);
+
+  // The music bot holds no seat on the server roster — it occupies no slot,
+  // cannot be kicked and must not count against capacity — so the sidebar never
+  // listed it. It is a real participant in the room with a real audio track,
+  // and the one surface that says who is in a lobby was the one place it was
+  // invisible. Only the room this client is in: musicState covers that one.
+  const { state: musicState } = useMusicRoom(activeLobbyId);
+
+  const membersOf = (lobbyId: string): LobbyStateMember[] => {
+    const roster = lobbyMembersById[lobbyId] ?? [];
+    if (lobbyId !== activeLobbyId || !musicState.connected) {
+      return roster;
+    }
+    return [
+      ...roster,
+      {
+        userId: musicState.botIdentity,
+        username: MUSIC_BOT_NAME,
+        joinedAt: roster[0]?.joinedAt ?? new Date(0).toISOString(),
+        muted: false,
+        serverMuted: false,
+        deafened: false,
+        cameraEnabled: false,
+        screenSharing: false,
+      },
+    ];
+  };
 
   const friendStateOf = (userId: string): "friend" | "requested" | "none" => {
     if (friends.friendIds.includes(userId)) {
@@ -465,7 +494,10 @@ export function LobbiesSidebarPanel({
   const renderLobby = (lobby: LobbyDescriptor) => {
           const isEditing = renamingLobbyId === lobby.id;
           const isDeleting = deletingLobbyId === lobby.id;
-          const members = lobbyMembersById[lobby.id] ?? [];
+          const members = membersOf(lobby.id);
+          // The seat count is the SERVER's roster: the bot takes no seat, so
+          // counting it would show 4/10 in a room four people are sitting in.
+          const seatCount = (lobbyMembersById[lobby.id] ?? []).length;
           // Two different kinds of "current", and they used to be drawn with
           // the same highlight: connected to a voice lobby, and reading a room.
           // They can be true of two different rows at once — sitting in voice
@@ -610,7 +642,7 @@ export function LobbiesSidebarPanel({
                 </span>
               )}
 
-              {!lobby.isTextOnly && members.length > 0 && (
+              {!lobby.isTextOnly && seatCount > 0 && (
                 <span
                   className="ct-lobby-row-count"
                   title={
@@ -619,8 +651,8 @@ export function LobbiesSidebarPanel({
                 >
                   <TeamOutlined />
                   {lobby.capacity
-                    ? `${members.length} / ${lobby.capacity}`
-                    : members.length}
+                    ? `${seatCount} / ${lobby.capacity}`
+                    : seatCount}
                 </span>
               )}
             </button>
@@ -703,6 +735,7 @@ export function LobbiesSidebarPanel({
                       const micOpen = !member.muted && !member.serverMuted;
                       const headphoneOpen = !member.deafened;
                       const isSelf = member.userId === currentUserId;
+                      const isBot = isMusicBotIdentity(member.userId);
                       // Read for every row, not just the active room's: the
                       // preference is keyed by person and survives lobbies, so
                       // a row that does not show it is hiding the reason this
@@ -713,6 +746,7 @@ export function LobbiesSidebarPanel({
                           participantAudio?.preferences[member.userId],
                         );
                       const canModerate =
+                        !isBot &&
                         canManageLobby(lobby.createdBy, currentUserId, currentUserRole) &&
                         member.userId !== currentUserId;
 
@@ -773,6 +807,21 @@ export function LobbiesSidebarPanel({
                               hugging the text. A 60px-wide target inside a
                               240px row meant most clicks aimed at a person
                               missed and hit the lobby underneath. */}
+                          {isBot ? (
+                            // No profile behind it: the bot has no account, and
+                            // a card that asks the server for one answers 404.
+                            <span className="ct-lobby-member-identity">
+                              <LobbyMemberAvatar
+                                userId={member.userId}
+                                username={member.username}
+                                avatarUrl={null}
+                              />
+
+                              <span className="ct-lobby-member-name">
+                                {member.username}
+                              </span>
+                            </span>
+                          ) : (
                           <UserProfileCardPopover
                             userId={member.userId}
                             fallbackName={member.username}
@@ -802,6 +851,7 @@ export function LobbiesSidebarPanel({
                               )}
                             </button>
                           </UserProfileCardPopover>
+                          )}
 
                           <div className="ct-lobby-member-icons">
                             <GameActivityBadge
@@ -836,15 +886,19 @@ export function LobbiesSidebarPanel({
 
                             {/* Same glyph in both states, struck through when
                                 off. It used to become MutedOutlined, which is a
-                                crossed-out speaker -- a different device. */}
-                            <CustomerServiceOutlined
-                              className={`ct-lobby-member-flag ${
-                                headphoneOpen ? "on" : "off ct-icon-slashed"
-                              }`}
-                              title={
-                                headphoneOpen ? "Kulaklık açık" : "Kulaklık kapalı"
-                              }
-                            />
+                                crossed-out speaker -- a different device. The
+                                bot has no ears; only the speaker icon above
+                                says anything true about it. */}
+                            {!isBot && (
+                              <CustomerServiceOutlined
+                                className={`ct-lobby-member-flag ${
+                                  headphoneOpen ? "on" : "off ct-icon-slashed"
+                                }`}
+                                title={
+                                  headphoneOpen ? "Kulaklık açık" : "Kulaklık kapalı"
+                                }
+                              />
+                            )}
 
                             {member.cameraEnabled && (
                               <VideoCameraOutlined
@@ -912,6 +966,7 @@ export function LobbiesSidebarPanel({
                           }
                           audio={audio}
                           canModerate={canModerate}
+                          isBot={isBot}
                           isServerMuted={Boolean(member.serverMuted)}
                           onServerMute={(muted, durationSeconds) =>
                             void handleMuteMember(
