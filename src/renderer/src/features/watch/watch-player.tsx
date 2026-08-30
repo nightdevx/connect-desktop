@@ -91,6 +91,29 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
     };
   }, []);
 
+  // The frame cannot say anything until it knows this window's origin, and it
+  // learns that only by receiving a message. Both loopback pages stay silent
+  // until then, so the first word has to come from here — repeated, because the
+  // frame may still be loading when the first one is sent.
+  useEffect(() => {
+    if (frameReady) {
+      return;
+    }
+    const hello = (): void => send({ type: "hello" });
+    hello();
+    const timer = window.setInterval(hello, 400);
+    return () => window.clearInterval(timer);
+  }, [frameReady, playerUrl, directUrl, send]);
+
+  // Switching between a YouTube video and a direct page swaps the frame's src,
+  // which loads a fresh document that has heard nothing. Without this the
+  // handshake is skipped and every command is posted into the old frame's grave.
+  useEffect(() => {
+    setFrameReady(false);
+    setPlayable(false);
+    loadedVideoRef.current = "";
+  }, [isDirect]);
+
   // Everything the frame says arrives here. The origin check is the only thing
   // separating it from any other page that might postMessage at this window.
   useEffect(() => {

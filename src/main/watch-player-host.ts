@@ -76,6 +76,7 @@ const PLAYER_HTML = `<!doctype html>
   // whatever embedded us, captured once from the first message and never
   // widened; every reply goes back to exactly that.
   var parentOrigin = null;
+  var parentTarget = null;
   var player = null;
   var ready = false;
   var pending = null;
@@ -86,9 +87,21 @@ const PLAYER_HTML = `<!doctype html>
   var VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
   function post(message) {
-    if (parentOrigin) {
-      parent.postMessage(message, parentOrigin);
+    if (parentTarget) {
+      parent.postMessage(message, parentTarget);
     }
+  }
+
+  // The player becomes ready on its own schedule and the parent speaks on its
+  // own; whichever happens second is what announces. Announcing from onReady
+  // alone loses the message when the API loads before the first hello arrives.
+  var announced = false;
+  function announce() {
+    if (announced || !ready || !parentTarget) {
+      return;
+    }
+    announced = true;
+    post({ type: "ready" });
   }
 
   function apply(command) {
@@ -147,6 +160,11 @@ const PLAYER_HTML = `<!doctype html>
     }
     if (parentOrigin === null) {
       parentOrigin = event.origin;
+      // A packaged renderer is loaded with loadFile, so its origin arrives as
+      // the string "null", which postMessage cannot parse as a target. The
+      // parent checks our origin on every message it receives regardless.
+      parentTarget = event.origin === "null" ? "*" : event.origin;
+      announce();
     } else if (event.origin !== parentOrigin) {
       return;
     }
@@ -202,7 +220,7 @@ const PLAYER_HTML = `<!doctype html>
       events: {
         onReady: function () {
           ready = true;
-          post({ type: "ready" });
+          announce();
           if (pending) {
             var command = pending;
             pending = null;
@@ -293,14 +311,27 @@ const DIRECT_HTML = `<!doctype html>
   "use strict";
 
   var parentOrigin = null;
+  var parentTarget = null;
+  var announced = false;
   var video = document.getElementById("v");
   var hls = null;
   var loadedSrc = "";
 
   function post(message) {
-    if (parentOrigin) {
-      parent.postMessage(message, parentOrigin);
+    if (parentTarget) {
+      parent.postMessage(message, parentTarget);
     }
+  }
+
+  // Announced only once the parent has spoken, never at load: nothing can be
+  // posted before its origin is known, so a "ready" sent from this script's own
+  // top level is written to nowhere and the renderer waits for it forever.
+  function announce() {
+    if (announced || !parentTarget) {
+      return;
+    }
+    announced = true;
+    post({ type: "ready" });
   }
 
   // The renderer's drift loop reads these as YouTube player states, so they are
@@ -399,6 +430,11 @@ const DIRECT_HTML = `<!doctype html>
     }
     if (parentOrigin === null) {
       parentOrigin = event.origin;
+      // A packaged renderer is loaded with loadFile, so its origin arrives as
+      // the string "null", which postMessage cannot parse as a target. The
+      // parent checks our origin on every message it receives regardless.
+      parentTarget = event.origin === "null" ? "*" : event.origin;
+      announce();
     } else if (event.origin !== parentOrigin) {
       return;
     }
@@ -425,8 +461,6 @@ const DIRECT_HTML = `<!doctype html>
       // A player mid-load has nothing to report; the next tick is 250ms away.
     }
   }, 250);
-
-  post({ type: "ready" });
 }());
 </script>
 </body>
