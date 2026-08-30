@@ -135,7 +135,7 @@ export function WatchPanel({ lobbyId, onClose }: WatchPanelProps): JSX.Element |
               <input
                 type="text"
                 value={link}
-                placeholder="YouTube bağlantısı yapıştır"
+                placeholder="Bağlantı yapıştır (YouTube ya da dizi sitesi)"
                 onChange={(event) => setLink(event.target.value)}
               />
               <button type="submit" disabled={isSending || !link.trim()}>

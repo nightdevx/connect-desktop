@@ -1,8 +1,9 @@
-export type WatchSource = "youtube";
+export type WatchSource = "youtube" | "direct";
 
 export interface WatchVideo {
   videoId: string;
   source: WatchSource;
+  pageUrl?: string;
   title?: string;
   durationSeconds?: number;
   startedBy: string;
@@ -44,6 +45,13 @@ export const emptyWatchState = (lobbyId: string): WatchState => ({
   serverTime: new Date(0).toISOString(),
   revision: 0,
 });
+
+export const watchVideoRef = (video: WatchVideo | null): string => {
+  if (!video) {
+    return "";
+  }
+  return video.source === "direct" ? (video.pageUrl ?? "") : video.videoId;
+};
 
 /**
  * How far this machine's clock is ahead of the server's, in milliseconds.

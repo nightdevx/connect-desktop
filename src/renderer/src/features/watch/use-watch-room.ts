@@ -36,8 +36,10 @@ const errorMessage = (error?: { code: string; message: string }): string => {
     case "WATCH_NOT_A_MEMBER":
       return "Önce odaya katıl.";
     case "WATCH_HOST_NOT_ALLOWED":
+      return "Bu adres paylaşılamaz.";
     case "WATCH_INVALID_LINK":
-      return "Geçerli bir YouTube bağlantısı yapıştır.";
+    case "WATCH_EMPTY_LINK":
+      return "Geçerli bir bağlantı yapıştır.";
     case "FEATURE_DISABLED":
       return "Birlikte izleme bu odada kapalı.";
     default:

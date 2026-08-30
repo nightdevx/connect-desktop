@@ -147,6 +147,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:music-state",
   "desktop:music-command",
   "desktop:watch-player-url",
+  "desktop:watch-resolve",
   "desktop:watch-state",
   "desktop:watch-start",
   "desktop:watch-play",

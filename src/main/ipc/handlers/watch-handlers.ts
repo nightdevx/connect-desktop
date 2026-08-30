@@ -1,10 +1,17 @@
 import { ipcMain } from "electron";
-import { watchPlayerURL } from "../../watch-player-host";
+import {
+  registerStreamSession,
+  watchDirectPlayerURL,
+  watchPlayerURL,
+} from "../../watch-player-host";
+import { streamProxyPath } from "../../watch-stream-url";
+import { resolveWatchSource } from "../../watch-resolver";
 import { backendClient, ok, fail, withAccessToken } from "../context";
 import {
   watchDescribeSchema,
   watchLobbySchema,
   watchPositionSchema,
+  watchResolveSchema,
   watchSeekSchema,
   watchStartSchema,
 } from "../validators";
@@ -14,7 +21,26 @@ export function registerWatchHandlers(): void {
   // why the player cannot simply live in the renderer document.
   ipcMain.handle("desktop:watch-player-url", async () => {
     try {
-      return ok({ url: await watchPlayerURL() });
+      return ok({ url: await watchPlayerURL(), directUrl: await watchDirectPlayerURL() });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // Runs on THIS machine, for this viewer alone. The server holds only the page
+  // address; every client opens it in a hidden window, finds the stream and
+  // plays it through the local proxy — so a signed or IP-bound URL is resolved
+  // by the machine that will actually fetch it.
+  ipcMain.handle("desktop:watch-resolve", async (_event, payload: unknown) => {
+    try {
+      const { pageUrl } = watchResolveSchema.parse(payload);
+      const resolved = await resolveWatchSource(pageUrl);
+      const sid = registerStreamSession(resolved.headers);
+      return ok({
+        src: streamProxyPath(resolved.streamUrl, sid),
+        kind: resolved.kind,
+        title: resolved.pageTitle,
+      });
     } catch (error) {
       return fail(error);
     }

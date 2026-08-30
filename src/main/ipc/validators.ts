@@ -573,6 +573,10 @@ export const watchSeekSchema = z.object({
   position: z.number().finite().min(0).max(36000),
 });
 
+export const watchResolveSchema = z.object({
+  pageUrl: z.string().min(1).max(500),
+});
+
 export const watchDescribeSchema = z.object({
   lobbyId: z.string().min(2).max(128),
   videoId: z.string().min(1).max(64),

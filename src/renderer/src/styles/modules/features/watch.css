@@ -74,6 +74,33 @@
   font-size: 14px;
 }
 
+.watch-player__overlay--busy {
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.watch-player__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 255, 255, 0.16);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: watch-player-spin 0.9s linear infinite;
+}
+
+@keyframes watch-player-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-player__spinner {
+    animation-duration: 2.4s;
+  }
+}
+
 .watch-panel__meta {
   display: flex;
   align-items: baseline;

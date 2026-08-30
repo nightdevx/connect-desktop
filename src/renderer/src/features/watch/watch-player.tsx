@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { watchVideoRef } from "@shared/watch";
 import type { WatchRoom } from "./use-watch-room";
 
 /**
@@ -45,8 +46,13 @@ interface WatchPlayerProps {
 
 export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Element {
   const [playerUrl, setPlayerUrl] = useState("");
+  const [directUrl, setDirectUrl] = useState("");
   const [frameReady, setFrameReady] = useState(false);
   const [embedRefused, setEmbedRefused] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [resolveStatus, setResolveStatus] = useState("");
+  const [resolveError, setResolveError] = useState("");
+  const [playable, setPlayable] = useState(false);
 
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const frameOriginRef = useRef("");
@@ -60,6 +66,7 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
 
   const { state, describe, positionNow, seekTolerance } = room;
   const video = state.video;
+  const isDirect = video?.source === "direct";
 
   const send = useCallback((message: Record<string, unknown>) => {
     const frame = frameRef.current;
@@ -76,6 +83,7 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
         return;
       }
       setPlayerUrl(result.data.url);
+      setDirectUrl(result.data.directUrl ?? "");
       frameOriginRef.current = new URL(result.data.url).origin;
     });
     return () => {
@@ -109,6 +117,10 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
       }
 
       if (message.type === "tick") {
+        if (message.state === PLAYING || message.state === PAUSED) {
+          setPlayable(true);
+        }
+
         // The server resolves nothing: it knows the video id and nothing else,
         // deliberately, because learning the title and the length server-side
         // would mean a yt-dlp subprocess on the one path whose whole appeal is
@@ -118,7 +130,8 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
         // Sent once per video. describedRef is what stops a 4Hz tick becoming a
         // 4Hz POST, and the server drops a report for a video that has since
         // been replaced.
-        if (!video || describedRef.current === video.videoId) {
+        const ref = watchVideoRef(video);
+        if (!video || !ref || describedRef.current === ref) {
           return;
         }
 
@@ -129,12 +142,12 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
         }
         // Nothing left to add.
         if ((video.durationSeconds ?? 0) > 0 && (video.title ?? "").length > 0) {
-          describedRef.current = video.videoId;
+          describedRef.current = ref;
           return;
         }
 
-        describedRef.current = video.videoId;
-        void describe(video.videoId, message.title, Math.round(message.duration));
+        describedRef.current = ref;
+        void describe(ref, message.title, Math.round(message.duration));
       }
     };
 
@@ -143,31 +156,81 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
   }, [describe, video]);
 
   // Load, or switch to, whatever the room is watching.
+  //
+  // A YouTube video is an id the frame can load by itself. A direct page is not:
+  // the stream behind it has to be found first, and that happens HERE, on this
+  // machine, for this viewer alone. See watch-resolver in the main process.
   useEffect(() => {
-    if (!frameReady || !video) {
+    const ref = watchVideoRef(video);
+    if (!frameReady || !video || !ref) {
       return;
     }
-    if (loadedVideoRef.current === video.videoId) {
+    if (loadedVideoRef.current === ref) {
       return;
     }
 
-    loadedVideoRef.current = video.videoId;
+    loadedVideoRef.current = ref;
     describedRef.current = "";
     setEmbedRefused(false);
+    setResolveError("");
+    setPlayable(false);
     correctedAtRef.current = Date.now();
 
-    send({
-      type: "load",
-      videoId: video.videoId,
-      position: positionNow(),
-      playing: state.playing,
-    });
-  }, [frameReady, video, state.playing, positionNow, send]);
+    if (video.source !== "direct") {
+      send({
+        type: "load",
+        videoId: video.videoId,
+        position: positionNow(),
+        playing: state.playing,
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setResolving(true);
+    setResolveStatus("Sayfa açılıyor, video aranıyor…");
+
+    void window.desktopApi
+      .resolveWatchSource?.({ pageUrl: video.pageUrl ?? "" })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if (!result.ok || !result.data) {
+          // Cleared so the next render retries rather than sitting on a video
+          // it has decided it already loaded.
+          loadedVideoRef.current = "";
+          setResolveError(result.error?.message ?? "Video bulunamadı.");
+          return;
+        }
+        correctedAtRef.current = Date.now();
+        send({
+          type: "load",
+          src: result.data.src,
+          kind: result.data.kind,
+          position: positionNow(),
+          playing: state.playing,
+        });
+        if (result.data.title) {
+          void describe(ref, result.data.title, 0);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setResolving(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [frameReady, video, state.playing, positionNow, send, describe]);
 
   // Follow play/pause. Separate from the drift loop because it is a state match
   // rather than a measurement: the room paused, so this player pauses, now.
   useEffect(() => {
-    if (!frameReady || !video || loadedVideoRef.current !== video.videoId) {
+    const ref = watchVideoRef(video);
+    if (!frameReady || !video || loadedVideoRef.current !== ref) {
       return;
     }
     correctedAtRef.current = Date.now();
@@ -236,15 +299,18 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
     send({ type: "volume", volume });
   }, [frameReady, muted, volume, send]);
 
-  if (!playerUrl) {
+  const frameSrc = isDirect ? directUrl : playerUrl;
+  if (!frameSrc) {
     return <div className="watch-player watch-player--loading">Oynatıcı hazırlanıyor…</div>;
   }
+
+  const busy = !embedRefused && !resolveError && (resolving || !playable);
 
   return (
     <div className="watch-player">
       <iframe
         ref={frameRef}
-        src={playerUrl}
+        src={frameSrc}
         className="watch-player__frame"
         title="Birlikte izleme"
         // The frame is our own loopback page; it needs to run scripts and play
@@ -252,9 +318,18 @@ export function WatchPlayer({ room, muted, volume }: WatchPlayerProps): JSX.Elem
         sandbox="allow-scripts allow-same-origin allow-presentation"
         allow="autoplay; encrypted-media"
       />
+      {busy ? (
+        <div className="watch-player__overlay watch-player__overlay--busy">
+          <span className="watch-player__spinner" aria-hidden="true" />
+          <span>{resolving ? resolveStatus : "Video yükleniyor…"}</span>
+        </div>
+      ) : null}
+      {resolveError ? (
+        <div className="watch-player__overlay">{resolveError}</div>
+      ) : null}
       {embedRefused ? (
         <div className="watch-player__overlay">
-          Bu video gömülü oynatmaya kapalı. Başka bir bağlantı deneyin.
+          Bu video oynatılamadı. Başka bir bağlantı deneyin.
         </div>
       ) : null}
     </div>

@@ -192,6 +192,7 @@ const desktopApi: DesktopApi = {
   adminRevokeMusicDJ: async (userId) =>
     ipcRenderer.invoke("desktop:admin-revoke-music-dj", { userId }),
   getWatchPlayerUrl: async () => ipcRenderer.invoke("desktop:watch-player-url"),
+  resolveWatchSource: async (payload) => ipcRenderer.invoke("desktop:watch-resolve", payload),
   getWatchState: async (payload) => ipcRenderer.invoke("desktop:watch-state", payload),
   startWatch: async (payload) => ipcRenderer.invoke("desktop:watch-start", payload),
   playWatch: async (payload) => ipcRenderer.invoke("desktop:watch-play", payload),

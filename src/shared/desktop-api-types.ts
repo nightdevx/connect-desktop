@@ -1001,7 +1001,12 @@ export interface DesktopApi {
   adminListMusicDJs: () => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
   adminGrantMusicDJ: (userId: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
   adminRevokeMusicDJ: (userId: string) => Promise<DesktopResult<{ revoked: boolean }>>;
-  getWatchPlayerUrl: () => Promise<DesktopResult<{ url: string }>>;
+  getWatchPlayerUrl: () => Promise<DesktopResult<{ url: string; directUrl: string }>>;
+  resolveWatchSource: (payload: {
+    pageUrl: string;
+  }) => Promise<
+    DesktopResult<{ src: string; kind: "hls" | "dash" | "mp4" | "webm"; title: string }>
+  >;
   getWatchState: (payload: { lobbyId: string }) => Promise<DesktopResult<WatchSnapshot>>;
   startWatch: (payload: {
     lobbyId: string;
