@@ -71,6 +71,11 @@ const DISCONNECT_MIC_MUTE_BUDGET_MS = 300;
 // warning still needs about eight seconds of sustained limiting behind it.
 const QUALITY_LIMITATION_TICKS = 4;
 
+const MICROPHONE_BITRATE_BPS = 64_000;
+
+const SCREEN_ENCODER_RELIEF_STEPS = 2;
+const SCREEN_ENCODER_RELIEF_MAX_ENCODINGS = 2;
+
 // A publication that exists and is not muted. Covers a self-mute and a
 // moderator's force-mute identically, which is what we want: either way nothing
 // is on the wire, so nobody can be speaking.
@@ -95,7 +100,6 @@ const isSameParticipantMediaState = (
     // "unchanged", updateMediaMap skipped the callback, and the viewer's React
     // state never learned that anyone had started broadcasting.
     left.screenAvailable === right.screenAvailable &&
-    left.isSpeaking === right.isSpeaking &&
     left.camera === right.camera &&
     left.screen === right.screen &&
     left.cameraStream === right.cameraStream &&
@@ -177,6 +181,9 @@ export class LiveKitMediaSession {
 
   private limitedTicks = 0;
   private limitationNotified = false;
+  // 0 = full ladder, 1 = two encodings, 2 = two encodings on VP9 SVC.
+  private screenEncoderRelief = 0;
+  private reliefInFlight = false;
   private videoQueue: Promise<void> = Promise.resolve();
 
   public constructor(
@@ -292,8 +299,14 @@ export class LiveKitMediaSession {
     }
 
     if (changed) {
-      this.updateMediaMap();
+      this.emitSpeakingIdentities();
     }
+  }
+
+  private emitSpeakingIdentities(): void {
+    this.callbacks.onSpeakingChanged?.(
+      Array.from(this.speakingByIdentity.keys()).sort(),
+    );
   }
 
   private async updateLocalAudioSource(stream: MediaStream | null) {
@@ -340,6 +353,7 @@ export class LiveKitMediaSession {
     url: string,
     token: string,
     lobbyId: string,
+    iceServers?: RTCIceServer[],
   ): Promise<void> {
     // Single-flight. Without it, a second connect() landing while the first was
     // still awaiting room.connect() took the `if (this.room)` branch and ran
@@ -351,7 +365,12 @@ export class LiveKitMediaSession {
     }
 
     this.connectingLobbyId = lobbyId;
-    this.connectPromise = this.connectInternal(url, token, lobbyId).finally(() => {
+    this.connectPromise = this.connectInternal(
+      url,
+      token,
+      lobbyId,
+      iceServers,
+    ).finally(() => {
       this.connectPromise = null;
       this.connectingLobbyId = null;
     });
@@ -363,6 +382,7 @@ export class LiveKitMediaSession {
     url: string,
     token: string,
     lobbyId: string,
+    iceServers?: RTCIceServer[],
   ): Promise<void> {
     // Idempotent when the existing room for this lobby is alive — and
     // Reconnecting counts as alive.
@@ -435,7 +455,10 @@ export class LiveKitMediaSession {
     // silently got the whole room back at 100% one second after any socket
     // blip, with the UI still showing the old state. Ordered before
     // registerEvents so the first subscribe pass sees the right deafen flag.
-    this.remoteMediaHandler.setMasterVolume(this.audioProcessingPreferences.masterVolume ?? 1);
+    this.remoteMediaHandler.setMasterVolume(
+      this.audioProcessingPreferences.masterVolume ??
+        DEFAULT_AUDIO_PROCESSING_PREFERENCES.masterVolume,
+    );
     this.remoteMediaHandler.setDeafened(this.desiredDeafened);
     for (const [participantId, preference] of this.remoteAudioPreferences) {
       this.applyRemoteParticipantAudioPreference(participantId, preference);
@@ -481,6 +504,9 @@ export class LiveKitMediaSession {
       // autoSubscribe and connectTimeout are ConnectOptions
       await room.connect(url, token, {
         autoSubscribe: false,
+        ...(iceServers && iceServers.length > 0
+          ? { rtcConfig: { iceServers } }
+          : {}),
       });
 
       // Another connect replaced this room while we were awaiting. Drop ours
@@ -678,6 +704,9 @@ export class LiveKitMediaSession {
     mode: ScreenShareMode = "slides",
     quality: VideoPublishQuality | null = null,
   ): Promise<void> {
+    if (!enabled || stream !== this.desiredScreenStream) {
+      this.screenEncoderRelief = 0;
+    }
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
     this.desiredScreenMode = mode;
@@ -919,6 +948,9 @@ export class LiveKitMediaSession {
     this.limitationNotified = true;
 
     if (limitation.softwareEncoderAtFault) {
+      if (this.relieveScreenEncoder()) {
+        return;
+      }
       this.callbacks.onWarning?.(
         "Video yazılımla kodlanıyor ve işlemci yetişemiyor. Ayarlar → Uygulama'dan donanım hızlandırmayı açın.",
       );
@@ -937,28 +969,86 @@ export class LiveKitMediaSession {
     );
   }
 
+  private relieveScreenEncoder(): boolean {
+    if (
+      !this.desiredScreenEnabled ||
+      !this.desiredScreenStream ||
+      this.reliefInFlight ||
+      this.screenEncoderRelief >= SCREEN_ENCODER_RELIEF_STEPS
+    ) {
+      return false;
+    }
+
+    this.screenEncoderRelief += 1;
+    this.reliefInFlight = true;
+    const step = this.screenEncoderRelief;
+
+    logLiveKitDebug("stream-manager", "screen-encoder-relief", { step });
+    this.callbacks.onWarning?.(
+      step === 1
+        ? "İşlemci yayına yetişemiyor; katman sayısı düşürüldü."
+        : "İşlemci hâlâ yetişemiyor; yayın VP9'a geçiriliyor.",
+    );
+
+    void this.enqueueVideo(async () => {
+      try {
+        await this.unpublishScreenTracks();
+        await this.applyScreenStateInternal();
+      } catch (error) {
+        logLiveKitDebug("stream-manager", "screen-encoder-relief-failed", {
+          step,
+          error,
+        });
+      } finally {
+        this.reliefInFlight = false;
+        this.limitedTicks = 0;
+        this.limitationNotified = false;
+      }
+    });
+
+    return true;
+  }
+
+  private async unpublishScreenTracks(): Promise<void> {
+    const participant = this.room?.localParticipant;
+    if (!participant) {
+      return;
+    }
+    const publications = Array.from(participant.trackPublications.values()).filter(
+      (publication) =>
+        publication.source === Track.Source.ScreenShare ||
+        publication.source === Track.Source.ScreenShareAudio,
+    );
+    for (const publication of publications) {
+      if (publication.track) {
+        await participant.unpublishTrack(publication.track);
+      }
+    }
+  }
+
+  private resolveScreenCodec(): VideoCodec {
+    return this.screenEncoderRelief >= SCREEN_ENCODER_RELIEF_STEPS
+      ? "vp9"
+      : this.resolvedVideoCodec;
+  }
+
   private buildMicrophonePreferences(
     source: LiveKitAudioProcessingPreferences = this.audioProcessingPreferences,
   ): MicrophoneProcessingPreferences {
     return {
       enhancedNoiseSuppressionEnabled: source.enhancedNoiseSuppressionEnabled,
+      echoCancellationEnabled: source.echoCancellationEnabled,
       noiseSuppressionPreset: source.noiseSuppressionPreset,
       selectedAudioInputDeviceId: source.selectedAudioInputDeviceId,
       microphoneVolume: source.microphoneVolume,
     };
   }
 
-  // 48 kbps mono Opus (AudioPresets.music), with RED for packet-loss
-  // redundancy. This used to be musicHighQuality, which the comment described as
-  // 64 kbps and is actually 96 kbps in livekit-client 2.18 — with RED that is
-  // ~190 kbps per talking participant, permanently, competing with a video
-  // ladder that can ask for megabits. Speech is indistinguishable at 48; the win
-  // is voice no longer crowding out the encoder on a constrained uplink.
   private buildMicrophonePublishOptions(): TrackPublishOptions {
     return {
       dtx: true,
       red: true,
-      audioPreset: AudioPresets.music,
+      audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS },
     };
   }
 
@@ -1351,9 +1441,13 @@ export class LiveKitMediaSession {
       const target = this.resolveScreenTarget(screenTrack);
       const plan = buildVideoPublishPlan({
         target,
-        codec: this.resolvedVideoCodec,
+        codec: this.resolveScreenCodec(),
         contentMode,
         isScreenShare: true,
+        maxEncodingsOverride:
+          this.screenEncoderRelief > 0
+            ? SCREEN_ENCODER_RELIEF_MAX_ENCODINGS
+            : undefined,
       });
 
       logLiveKitDebug("stream-manager", "publish-screen", {
@@ -1364,6 +1458,7 @@ export class LiveKitMediaSession {
         simulcast: plan.simulcast,
         layers: plan.screenShareSimulcastLayers?.length ?? 0,
         scalabilityMode: plan.scalabilityMode ?? null,
+        encoderRelief: this.screenEncoderRelief,
       });
 
       const publication = await participant.publishTrack(screenTrack, {
@@ -1602,11 +1697,6 @@ export class LiveKitMediaSession {
       cameraEnabled: !!(cameraPub?.isSubscribed && !cameraPub?.isMuted) || (p instanceof LocalParticipant && p.isCameraEnabled),
       screenEnabled: !!(screenPub?.isSubscribed && !screenPub?.isMuted) || (p instanceof LocalParticipant && p.isScreenShareEnabled),
       screenAvailable,
-      // Already resolved by the sampler: measured from this person's own audio
-      // when we have it, the server's flag when we do not, mute-gated and held
-      // either way. Reading p.isSpeaking here instead would put the coarse remote
-      // estimate back in the one place the UI actually reads.
-      isSpeaking: this.speakingByIdentity.get(p.identity)?.speaking ?? false,
       camera: cameraTrack || cameraStream,
       screen: screenTrack || screenStream,
       cameraStream,

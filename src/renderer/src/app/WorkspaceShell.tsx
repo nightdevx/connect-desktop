@@ -682,9 +682,14 @@ function WorkspaceShell({
             throw new Error(result.error?.message ?? "Token alinamadi");
           }
 
-          const { token, serverUrl: url } = result.data;
+          const { token, serverUrl: url, iceServers } = result.data;
           await liveKitSessionRef.current?.setMicrophoneEnabled(micEnabled);
-          await liveKitSessionRef.current?.connect(url, token, lobbyId);
+          await liveKitSessionRef.current?.connect(
+            url,
+            token,
+            lobbyId,
+            iceServers,
+          );
         } catch (error) {
           setStatus(
             `LiveKit bağlantısı kurulamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,

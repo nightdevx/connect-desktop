@@ -146,6 +146,12 @@ export interface ScreenCaptureSourceDescriptor {
 
 
 
+export interface LiveKitIceServer {
+  urls: string[];
+  username?: string;
+  credential?: string;
+}
+
 export interface LiveKitTokenPayload {
   serverUrl: string;
   room: string;
@@ -153,6 +159,7 @@ export interface LiveKitTokenPayload {
   name: string;
   token: string;
   expiresAt: string;
+  iceServers?: LiveKitIceServer[];
 }
 
 // The lobby list is rebuilt from each snapshot, so this must carry everything

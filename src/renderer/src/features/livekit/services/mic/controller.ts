@@ -460,7 +460,8 @@ export class LiveKitMicrophoneController {
   ): Promise<AudioCaptureOptions> {
     // One decision, shared with the graph that gets built afterwards, so the two
     // cannot disagree about which denoiser is running. echoCancellation is not
-    // part of it: it is always on and nothing in the chain replaces it.
+    // part of it: it is the user's own setting and nothing in the chain replaces
+    // it.
     const filters = resolveCaptureFilters(
       preferences.enhancedNoiseSuppressionEnabled,
       rnnoiseReady,
@@ -468,7 +469,7 @@ export class LiveKitMicrophoneController {
     );
 
     const options: AudioCaptureOptions = {
-      echoCancellation: true,
+      echoCancellation: preferences.echoCancellationEnabled,
       noiseSuppression: filters.browserNoiseSuppression,
       autoGainControl: filters.browserAutoGainControl,
       channelCount: 1,

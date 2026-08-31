@@ -35,8 +35,7 @@ export interface ParticipantMediaState {
   // "watch" button.
   screenEnabled: boolean;
   screenAvailable: boolean;
-  isSpeaking: boolean;
-  // No audioLevel here on purpose.
+  // No audioLevel or isSpeaking here on purpose.
   //
   // It was published at 10Hz and read by nobody but a `> 0.01` test that was
   // wrong anyway (see use-lobby-participants). Carrying a continuously changing
@@ -72,6 +71,7 @@ export interface LiveKitStreamManagerCallbacks {
   onRemoteStreamsChanged?: (media: ParticipantMediaMap) => void;
   onConnectionStateChanged?: (status: LiveKitConnectionStatus) => void;
   onActiveSpeakersChanged?: (speakerIds: string[]) => void;
+  onSpeakingChanged?: (identities: string[]) => void;
   onWarning?: (message: string) => void;
   onNoiseSuppressionModeChanged?: (mode: ActiveNoiseSuppressionMode) => void;
   /** Real WebRTC stats, sampled once per second while connected. */
@@ -94,10 +94,12 @@ export interface LiveKitStreamManagerCallbacks {
    * as open and had no way to tell why nobody could hear them.
    */
   onMicrophonePermissionChanged?: (allowed: boolean) => void;
+  onConnectionQualityChanged?: (identity: string, quality: string) => void;
 }
 
 export interface LiveKitAudioProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
+  echoCancellationEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;

@@ -9,6 +9,7 @@ export type { ActiveNoiseSuppressionMode };
 
 export interface MicrophoneProcessingPreferences {
   enhancedNoiseSuppressionEnabled: boolean;
+  echoCancellationEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   /** 0-200. Applied inside the publish chain, not just the level meter. */

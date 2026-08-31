@@ -3,3 +3,4 @@ export * from "./hooks/use-livekit-session";
 export * from "./store/media-stats-store";
 export * from "./store/screen-watchers-store";
 export * from "./store/speaking-store";
+export * from "./store/connection-quality-store";

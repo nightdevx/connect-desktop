@@ -251,6 +251,23 @@ export function WorkspaceAudioStatus({
                   </div>
                 </dl>
               )}
+
+              {videoQualityProps.audioConcealmentPct !== null && (
+                <dl className="ct-video-quality-rows">
+                  <div>
+                    <dt>Ses kaybı</dt>
+                    <dd
+                      className={
+                        videoQualityProps.audioConcealmentPct >= 3
+                          ? "alarm"
+                          : undefined
+                      }
+                    >
+                      %{videoQualityProps.audioConcealmentPct} tamamlanan örnek
+                    </dd>
+                  </div>
+                </dl>
+              )}
             </section>
           )}
 

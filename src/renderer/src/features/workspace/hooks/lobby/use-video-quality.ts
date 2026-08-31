@@ -36,6 +36,7 @@ export interface VideoQualitySnapshot {
     jitterBufferMs: number | null;
   } | null;
   headroomMbps: number | null;
+  audioConcealmentPct: number | null;
 }
 
 const IDLE: VideoQualitySnapshot = {
@@ -45,6 +46,24 @@ const IDLE: VideoQualitySnapshot = {
   outgoing: null,
   incoming: null,
   headroomMbps: null,
+  audioConcealmentPct: null,
+};
+
+const WORRYING_CONCEALMENT_PCT = 3;
+
+const worstAudioConcealment = (
+  inbound: { kind: "audio" | "video"; concealmentPct: number | null }[],
+): number | null => {
+  let worst: number | null = null;
+  for (const entry of inbound) {
+    if (entry.kind !== "audio" || entry.concealmentPct === null) {
+      continue;
+    }
+    if (worst === null || entry.concealmentPct > worst) {
+      worst = entry.concealmentPct;
+    }
+  }
+  return worst;
 };
 
 const mbps = (bps: number | null): number | null => {
@@ -86,7 +105,9 @@ export const useVideoQuality = (
           (a.frameWidth ?? 0) * (a.frameHeight ?? 0),
       )[0];
 
-    if (!out && !inbound) {
+    const audioConcealmentPct = worstAudioConcealment(mediaStats.inbound);
+
+    if (!out && !inbound && audioConcealmentPct === null) {
       return IDLE;
     }
 
@@ -114,6 +135,15 @@ export const useVideoQuality = (
     } else if (out?.qualityLimitationReason) {
       tone = "warn";
       problem = `Kodlayıcı sınırlı: ${out.qualityLimitationReason}`;
+    }
+
+    if (
+      problem === null &&
+      audioConcealmentPct !== null &&
+      audioConcealmentPct >= WORRYING_CONCEALMENT_PCT
+    ) {
+      tone = "warn";
+      problem = `Ses kesintili geliyor (%${audioConcealmentPct} örnek tamamlandı).`;
     }
 
     return {
@@ -148,6 +178,7 @@ export const useVideoQuality = (
           }
         : null,
       headroomMbps: mbps(mediaStats.availableOutgoingBitrateBps),
+      audioConcealmentPct,
     };
   }, [mediaStats]);
 };

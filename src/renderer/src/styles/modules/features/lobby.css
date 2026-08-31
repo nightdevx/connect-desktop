@@ -1458,6 +1458,34 @@
   background: color-mix(in srgb, var(--ct-accent) 10%, var(--ct-panel-strong));
 }
 
+/* Connection quality, straight off LiveKit's per-participant signal. Only the
+   bad states are drawn: a chip on everyone all the time is noise, and the whole
+   point is answering "is it them or is it me" at a glance. "good" is amber
+   rather than green for the same reason — it only appears when quality has
+   already dropped off excellent. */
+.ct-lobby-flag.ct-quality-good {
+  border-color: color-mix(in srgb, var(--ct-warning) 30%, transparent);
+  color: var(--ct-warning);
+  background: color-mix(in srgb, var(--ct-warning) 10%, var(--ct-panel-strong));
+}
+
+.ct-lobby-flag.ct-quality-poor {
+  border-color: color-mix(in srgb, var(--ct-warning) 44%, transparent);
+  color: var(--ct-warning);
+  background: color-mix(in srgb, var(--ct-warning) 18%, var(--ct-panel-strong));
+}
+
+.ct-lobby-flag.ct-quality-lost {
+  border-color: color-mix(in srgb, var(--ct-danger) 46%, transparent);
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 18%, var(--ct-panel-strong));
+}
+
+.ct-lobby-flag.ct-quality-unknown,
+.ct-lobby-flag.ct-quality-excellent {
+  display: none;
+}
+
 /* ==========================================================================
    ACTION TOOLBAR
 

@@ -53,8 +53,12 @@ assert.ok(
 
 // --- the always-on bitrates ------------------------------------------------
 assert.ok(
-  source.includes("audioPreset: AudioPresets.music,"),
-  "the microphone publishes at AudioPresets.music (48 kbps); musicHighQuality is 96 kbps in livekit-client 2.18, not the 64 its old comment claimed",
+  source.includes("const MICROPHONE_BITRATE_BPS = 64_000;"),
+  "the microphone publishes at 64 kbps: 96 (musicHighQuality) is wasteful and 48 (music) overshot the correction downward",
+);
+assert.ok(
+  source.includes("audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS }"),
+  "the microphone bitrate must come from the named constant, so it cannot drift from the number this check asserts",
 );
 assert.ok(
   !source.includes("AudioPresets.musicHighQuality"),

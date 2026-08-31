@@ -1,3 +1,4 @@
+import type { LiveKitTokenPayload } from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
 export class MediaClient {
@@ -6,23 +7,9 @@ export class MediaClient {
   public async createLiveKitToken(
     accessToken: string,
     room?: string,
-  ): Promise<{
-    serverUrl: string;
-    room: string;
-    identity: string;
-    name: string;
-    token: string;
-    expiresAt: string;
-  }> {
+  ): Promise<LiveKitTokenPayload> {
     const payload = room ? { room } : {};
-    return this.baseClient.request<{
-      serverUrl: string;
-      room: string;
-      identity: string;
-      name: string;
-      token: string;
-      expiresAt: string;
-    }>("/media/livekit/token", {
+    return this.baseClient.request<LiveKitTokenPayload>("/media/livekit/token", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,

@@ -91,6 +91,7 @@ export const resolveMicrophonePermission = (
 export const DEFAULT_AUDIO_PROCESSING_PREFERENCES: LiveKitAudioProcessingPreferences =
   {
     enhancedNoiseSuppressionEnabled: true,
+    echoCancellationEnabled: true,
     noiseSuppressionPreset: "balanced",
     selectedAudioInputDeviceId: null,
     selectedAudioOutputDeviceId: null,

@@ -66,12 +66,20 @@ const SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH = 2560;
  * Encoding budget for a screen share.
  *
  * Uplink is spent on the SUM of the ladder, not on the top layer: a 1080p60
- * share with three encodings asks for 5 + 1.8 + 0.6 = 7.4 Mbps, which does not
- * fit the ~7 Mbps uplink the preset was sized for. Screen video is also the one
- * source where the bottom layer is close to useless — a 480x270 desktop is
- * unreadable, so nobody watching would rather have it than a paused stream.
- * Two encodings put the budget where it is actually seen. Camera keeps three:
- * those frames are small, and a 320x180 face in a grid tile is perfectly usable.
+ * share asks for 5 Mbps at the top and roughly 1.8 more for the half layer.
+ * Screen video is also the one source where a bottom layer can be useless — a
+ * 480x270 desktop is unreadable, so nobody watching would rather have it than a
+ * paused stream.
+ *
+ * The budget is three, but SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH is what decides
+ * whether the third rung is ever built: below 1440p a screen share gets two
+ * encodings and the quarter layer is skipped as unreadable, at 1440p and above
+ * it is built because the half rung is still 720p or 1080p and no grid tile can
+ * use one. Dynacast pauses it whenever nobody is watching at that size, so the
+ * third encoder only runs when somebody actually asked for it.
+ *
+ * Camera keeps three for a different reason: those frames are small, and a
+ * 320x180 face in a grid tile is perfectly usable.
  */
 export const SCREEN_SHARE_MAX_ENCODINGS = 3;
 export const CAMERA_MAX_ENCODINGS = 3;

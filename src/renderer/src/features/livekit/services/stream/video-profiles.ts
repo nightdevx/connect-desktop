@@ -138,8 +138,16 @@ export const buildVideoPublishPlan = (params: {
   // a layer then, so the two sources together stay inside what a hardware
   // encoder will take — see CAMERA_MAX_ENCODINGS_WHILE_SHARING.
   isSharingScreen?: boolean;
+  maxEncodingsOverride?: number;
 }): VideoPublishPlan => {
-  const { target, codec, contentMode, isScreenShare, isSharingScreen } = params;
+  const {
+    target,
+    codec,
+    contentMode,
+    isScreenShare,
+    isSharingScreen,
+    maxEncodingsOverride,
+  } = params;
   const cameraMaxEncodings = isSharingScreen
     ? CAMERA_MAX_ENCODINGS_WHILE_SHARING
     : CAMERA_MAX_ENCODINGS;
@@ -152,11 +160,13 @@ export const buildVideoPublishPlan = (params: {
     maxFramerate: target.maxFramerate,
   };
 
-  const layers = buildSimulcastLayerSpecs(
-    target,
-    isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : cameraMaxEncodings,
-    isScreenShare,
+  const maxEncodings = Math.max(
+    1,
+    maxEncodingsOverride ??
+      (isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : cameraMaxEncodings),
   );
+
+  const layers = buildSimulcastLayerSpecs(target, maxEncodings, isScreenShare);
 
   if (isSvcCodec(codec)) {
     return applySourceKeyedEncoding(

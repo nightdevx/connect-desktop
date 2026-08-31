@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import type { ParticipantMediaMap } from "@/features/livekit";
+import { useSpeakingStore } from "@/features/livekit";
 import type { LobbyParticipantView } from "../lobby-participant-tile";
 import { resolveMappedTracks } from "../lobby-view-utils";
 
@@ -31,6 +32,8 @@ export function useLobbyParticipants({
   screenEnabled,
   localFallbackJoinedAt,
 }: UseLobbyParticipantsProps) {
+  const speakingUserIds = useSpeakingStore((state) => state.speakingUserIds);
+
   const lobbyParticipants = useMemo<LobbyParticipantView[]>(() => {
     // Whether this person is talking right now.
     //
@@ -60,7 +63,9 @@ export function useLobbyParticipants({
 
       // No media-map entry means this roster member has not reached LiveKit yet,
       // which is the one window the server's list can cover and the map cannot.
-      return mapped ? mapped.isSpeaking : activeSpeakerIds.includes(userId);
+      return mapped
+        ? speakingUserIds.includes(userId)
+        : activeSpeakerIds.includes(userId);
     };
 
     const merged = lobbyMembers.map((member) => {
@@ -144,6 +149,7 @@ export function useLobbyParticipants({
     micEnabled,
     screenEnabled,
     remoteParticipantStreams,
+    speakingUserIds,
   ]);
 
   return { lobbyParticipants };

@@ -34,6 +34,53 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.1.99",
+    date: "2026-08-31",
+    summary: "Ses yolu baştan sona elden geçti; bağlantı sorunları için relay eklendi.",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Kulaklıkta birkaç saniyede bir gelen tık sesi giderildi. Sistem varsayılanı dışında bir çıkış cihazı seçtiğinde ses iki farklı saate göre çalışıyordu; artık tek yoldan çıkıyor ve gecikme de bir miktar azaldı.",
+      },
+      {
+        kind: "improved",
+        text: "Herkesin sesi artık ayrı ayrı dengeleniyor. Eskiden mikrofonu yüksek olan tek bir kişi ya da yüksek sesli bir yayın, odadaki diğer herkesin sesini birlikte kısıyordu.",
+      },
+      {
+        kind: "improved",
+        text: "Mikrofon kalitesi 48'den 64 kbps'e çıkarıldı. Özellikle gürültü engelleme açıkken ses daha dolgun duyuluyor.",
+      },
+      {
+        kind: "new",
+        text: "Ayarlar → Ses altına yankı iptali anahtarı eklendi. Kulaklık kullanıyorsan kapatmak sesini daha doğal yapar; hoparlör kullananlar açık bırakmalı.",
+      },
+      {
+        kind: "new",
+        text: "Bağlantısı zayıflayan kişinin yanında uyarı simgesi çıkıyor, böylece sorunun kimde olduğu belli oluyor. Bağlantı panelinde ses kaybı oranı da görünüyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Bas-konuş tuşuna her basışta odadaki tüm ses bağlantıları gereksiz yere yenileniyordu. Kaldırıldı; konuşma sırasında kopmalar azaldı.",
+      },
+      {
+        kind: "improved",
+        text: "Konuşan kişi göstergesi artık uygulamanın tamamını yeniden çizdirmiyor. Sohbet sırasında ekran paylaşımı gözle görülür şekilde daha akıcı.",
+      },
+      {
+        kind: "improved",
+        text: "İşlemci ekran paylaşımına yetişemediğinde yayın kendini otomatik olarak hafifletiyor: önce katman sayısını düşürüyor, gerekirse kodeği değiştiriyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Kısıtlı ağlardan bağlanamayan kullanıcılar için relay sunucusu desteği eklendi. Kurumsal ağ ya da bazı mobil bağlantılarda görüntü ve ses artık kopmadan çalışıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Çıkış cihazı test sesi yanlış cihazdan çalıyordu; artık seçtiğin cihazdan çalıyor.",
+      },
+    ],
+  },
+  {
     version: "0.1.92",
     date: "2026-08-29",
     summary: "Müzik yeni bir pencereye taşındı, emote susturma artık kalıcı.",

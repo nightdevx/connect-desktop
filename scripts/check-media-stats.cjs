@@ -26,6 +26,8 @@ const {
   isHardwareImplementation,
   summarizeSenderReport,
   summarizeReceiverReport,
+  computeConcealmentPct,
+  MIN_CONCEALMENT_WINDOW_SAMPLES,
 } = stats;
 
 // --- bitrate ---------------------------------------------------------------
@@ -414,6 +416,66 @@ assert.equal(
 assert.equal(
   findQualityLimitation([videoTrack({ qualityLimitationReason: "other" })]).kind,
   "other",
+);
+
+// --- audio concealment ------------------------------------------------------
+//
+// The receive-side number that says whether it actually SOUNDED bad. Packet
+// loss and concealment come apart in both directions -- a deep jitter buffer
+// hides real loss, and clock drift conceals samples with no loss at all -- so
+// this has its own window math and its own floor.
+const audioSample = (timestampMs, concealedSamples, totalSamplesReceived) => ({
+  timestampMs,
+  bytes: 0,
+  packets: 0,
+  packetsLost: 0,
+  frames: 0,
+  concealedSamples,
+  totalSamplesReceived,
+});
+
+assert.equal(
+  computeConcealmentPct(undefined, audioSample(1000, 0, 48_000)),
+  null,
+  "no previous sample",
+);
+
+// 480 concealed out of 48000 in the window = 1.0%
+assert.equal(
+  computeConcealmentPct(audioSample(1000, 0, 0), audioSample(2000, 480, 48_000)),
+  1,
+  "1% concealment",
+);
+
+assert.equal(
+  computeConcealmentPct(audioSample(1000, 100, 48_000), audioSample(2000, 100, 96_000)),
+  0,
+  "nothing concealed in this window",
+);
+
+// A renegotiation resets the counters; a negative delta must not become a rate.
+assert.equal(
+  computeConcealmentPct(audioSample(1000, 9_000, 480_000), audioSample(2000, 10, 48_000)),
+  null,
+  "counter reset",
+);
+
+// Too few samples to divide by: one Opus frame is 960 samples, so a window
+// holding a handful of them makes any single concealed frame look catastrophic.
+assert.equal(
+  computeConcealmentPct(
+    audioSample(1000, 0, 0),
+    audioSample(2000, 480, MIN_CONCEALMENT_WINDOW_SAMPLES - 1),
+  ),
+  null,
+  "window below the floor",
+);
+
+// Video tracks report neither field, and must not produce a fake zero.
+assert.equal(
+  computeConcealmentPct(sample(1000, 0), sample(2000, 100)),
+  null,
+  "video inbound has no concealment fields",
 );
 
 console.log("media-stats self-check passed");

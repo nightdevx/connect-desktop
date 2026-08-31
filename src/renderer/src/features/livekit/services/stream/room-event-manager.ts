@@ -6,6 +6,7 @@ import {
   RemoteTrack,
   RemoteTrackPublication,
   DisconnectReason,
+  type ConnectionQuality,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
@@ -59,8 +60,16 @@ export class RoomEventManager {
       .on(RoomEvent.LocalTrackUnpublished, this.updateMediaMap)
       .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged)
       .on(RoomEvent.ParticipantPermissionsChanged, this.handlePermissionsChanged)
+      .on(RoomEvent.ConnectionQualityChanged, this.handleConnectionQualityChanged)
       .on(RoomEvent.DataReceived, this.handleDataReceived);
   }
+
+  private readonly handleConnectionQualityChanged = (
+    quality: ConnectionQuality,
+    participant: Participant,
+  ) => {
+    this.callbacks.onConnectionQualityChanged?.(participant.identity, quality);
+  };
 
   private readonly handleConnected = () => {
     logLiveKitDebug("stream-manager", "room-connected");

@@ -43,12 +43,14 @@ export function useAudioPreferenceSync({
       micEnabled &&
       (next.enhancedNoiseSuppressionEnabled !==
         previous.enhancedNoiseSuppressionEnabled ||
+        next.echoCancellationEnabled !== previous.echoCancellationEnabled ||
         next.noiseSuppressionPreset !== previous.noiseSuppressionPreset ||
         next.selectedAudioInputDeviceId !== previous.selectedAudioInputDeviceId);
 
     if (activeLobbyId && liveKitSessionRef.current) {
       liveKitSessionRef.current.setAudioProcessingPreferences({
         enhancedNoiseSuppressionEnabled: next.enhancedNoiseSuppressionEnabled,
+        echoCancellationEnabled: next.echoCancellationEnabled,
         noiseSuppressionPreset: next.noiseSuppressionPreset,
         selectedAudioInputDeviceId: next.selectedAudioInputDeviceId,
         selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,

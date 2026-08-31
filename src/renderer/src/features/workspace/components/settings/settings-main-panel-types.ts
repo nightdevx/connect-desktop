@@ -10,6 +10,7 @@ export interface AudioPreferences {
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  echoCancellationEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;

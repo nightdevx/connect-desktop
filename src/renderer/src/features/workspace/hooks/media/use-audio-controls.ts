@@ -54,11 +54,12 @@ export const useAudioControls = ({
 
   // 0. Continuous state synchronization with the active LiveKit session
   useEffect(() => {
-    if (liveKitSessionRef.current) {
-      void liveKitSessionRef.current.setMicrophoneEnabled(micEnabled);
-      liveKitSessionRef.current.setDeafened(!headphoneEnabled);
-    }
-  }, [liveKitSessionRef, micEnabled, headphoneEnabled]);
+    void liveKitSessionRef.current?.setMicrophoneEnabled(micEnabled);
+  }, [liveKitSessionRef, micEnabled]);
+
+  useEffect(() => {
+    liveKitSessionRef.current?.setDeafened(!headphoneEnabled);
+  }, [liveKitSessionRef, headphoneEnabled]);
 
   // declareAudioState pushes BOTH flags, always.
   //

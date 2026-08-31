@@ -317,6 +317,19 @@ export function SettingsAudio({
         await audioContext.resume();
       }
 
+      const sinkTarget = audioContext as AudioContext & {
+        setSinkId?: (sinkId: string) => Promise<void>;
+      };
+      if (typeof sinkTarget.setSinkId === "function") {
+        await sinkTarget
+          .setSinkId(draftAudioPreferences.selectedAudioOutputDeviceId ?? "")
+          .catch(() => {
+            messageApi.warning(
+              "Seçili çıkış cihazı kullanılamadı, test sesi varsayılan cihazdan çalınıyor.",
+            );
+          });
+      }
+
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       oscillator.type = "sine";
@@ -482,6 +495,28 @@ export function SettingsAudio({
           <h5>Ses İşleme</h5>
 
           <div className="ct-settings-card">
+            {/* Kulaklık kullanan biri için yankı iptali saf kayıptır: geri
+                besleyecek hoparlör yokken bile Chromium'un AEC'si sesi işler,
+                spektral olarak zayıflatır ve konuşmayı inceltir. Hoparlör
+                kullananlarda ise kapatmak odayı yankıya boğar, o yüzden
+                varsayılan açık kalıyor ve bu bilinçli bir tercih. */}
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
+                <strong>Yankı iptali (AEC)</strong>
+                <span>
+                  Hoparlörden çıkan sesin mikrofona geri dönmesini engeller.
+                  Kulaklık kullanıyorsanız kapatmak sesinizi daha doğal ve
+                  dolgun yapar.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.echoCancellationEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange("echoCancellationEnabled", checked)
+                }
+              />
+            </div>
+
             <div className="ct-settings-row">
               <div className="ct-settings-row-text">
                 <strong>Gelişmiş gürültü bastırma (RNNoise) kullan</strong>

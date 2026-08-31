@@ -72,6 +72,7 @@ export const readAudioPreferences = (): {
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
   enhancedNoiseSuppressionEnabled: boolean;
+  echoCancellationEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;
   selectedAudioInputDeviceId: string | null;
   selectedAudioOutputDeviceId: string | null;
@@ -86,6 +87,7 @@ export const readAudioPreferences = (): {
         defaultHeadphoneEnabled: true,
         notificationSoundsEnabled: true,
         enhancedNoiseSuppressionEnabled: true,
+        echoCancellationEnabled: true,
         noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
         selectedAudioInputDeviceId: null,
         selectedAudioOutputDeviceId: null,
@@ -99,6 +101,7 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled?: boolean;
       notificationSoundsEnabled?: boolean;
       enhancedNoiseSuppressionEnabled?: boolean;
+      echoCancellationEnabled?: boolean;
       noiseSuppressionPreset?: NoiseSuppressionPreset;
       selectedAudioInputDeviceId?: string | null;
       selectedAudioOutputDeviceId?: string | null;
@@ -117,6 +120,7 @@ export const readAudioPreferences = (): {
       notificationSoundsEnabled: parsed.notificationSoundsEnabled !== false,
       enhancedNoiseSuppressionEnabled:
         parsed.enhancedNoiseSuppressionEnabled !== false,
+      echoCancellationEnabled: parsed.echoCancellationEnabled !== false,
       noiseSuppressionPreset: normalizeNoiseSuppressionPreset(
         parsed.noiseSuppressionPreset,
       ),
@@ -139,6 +143,7 @@ export const readAudioPreferences = (): {
       defaultHeadphoneEnabled: true,
       notificationSoundsEnabled: true,
       enhancedNoiseSuppressionEnabled: true,
+      echoCancellationEnabled: true,
       noiseSuppressionPreset: DEFAULT_NOISE_SUPPRESSION_PRESET,
       selectedAudioInputDeviceId: null,
       selectedAudioOutputDeviceId: null,

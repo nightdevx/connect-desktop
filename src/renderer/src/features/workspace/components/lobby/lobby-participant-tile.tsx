@@ -9,6 +9,7 @@ import {
   FullscreenOutlined,
   FullscreenExitOutlined,
   PicRightOutlined,
+  SignalFilled,
 } from "@ant-design/icons";
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
@@ -22,6 +23,10 @@ import {
   pipKeyFor,
   usePipKey,
 } from "../../hooks/media/pip-stream";
+import {
+  useConnectionQuality,
+  type ParticipantConnectionQuality,
+} from "@/features/livekit";
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
 import { useLobbyEmoteFlash } from "@/store/lobby-emote-flash";
 
@@ -33,6 +38,25 @@ import { useLobbyEmoteFlash } from "@/store/lobby-emote-flash";
 // to capture and encode the stream. Remote streams are deliberately NOT paused
 // — watching one is now an explicit choice, and stopping it because the viewer
 // alt-tabbed would undo that choice for them.
+const CONNECTION_QUALITY_LABEL: Record<ParticipantConnectionQuality, string> = {
+  excellent: "Bağlantı iyi",
+  good: "Bağlantı iyi",
+  poor: "Bağlantısı zayıf",
+  lost: "Bağlantısı koptu",
+  unknown: "Bağlantı durumu bilinmiyor",
+};
+
+// Written out rather than interpolated so the class names stay greppable —
+// scripts/check-css-classes.cjs matches literals, and a built-up name is
+// exactly the kind that survives a stylesheet rename with nothing to show it.
+const CONNECTION_QUALITY_CLASS: Record<ParticipantConnectionQuality, string> = {
+  excellent: "ct-quality-excellent",
+  good: "ct-quality-good",
+  poor: "ct-quality-poor",
+  lost: "ct-quality-lost",
+  unknown: "ct-quality-unknown",
+};
+
 export interface LobbyParticipantView extends LobbyStateMember {
   isLocalUser: boolean;
   isPlaceholder?: boolean;
@@ -109,6 +133,7 @@ function LobbyParticipantTileImpl({
     !previewStream &&
     Boolean(onWatchScreen);
   const micOpen = !participant.muted && !participant.serverMuted;
+  const connectionQuality = useConnectionQuality(participant.userId);
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -541,6 +566,17 @@ function LobbyParticipantTileImpl({
               </span>
             </Tooltip>
           )}
+
+          {connectionQuality !== "unknown" &&
+            connectionQuality !== "excellent" && (
+              <Tooltip title={CONNECTION_QUALITY_LABEL[connectionQuality]}>
+                <span
+                  className={`ct-lobby-flag ${CONNECTION_QUALITY_CLASS[connectionQuality]}`}
+                >
+                  <SignalFilled />
+                </span>
+              </Tooltip>
+            )}
         </div>
       </footer>
     </article>

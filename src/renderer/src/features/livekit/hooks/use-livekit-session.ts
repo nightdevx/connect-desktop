@@ -14,6 +14,10 @@ import type { ActiveNoiseSuppressionMode } from "../services/mic";
 import { useMediaStatsStore } from "../store/media-stats-store";
 import { useScreenWatchersStore } from "../store/screen-watchers-store";
 import { useSpeakingStore } from "../store/speaking-store";
+import {
+  useConnectionQualityStore,
+  type ParticipantConnectionQuality,
+} from "../store/connection-quality-store";
 import { useUiStore } from "@/store/ui-store";
 
 // Deliberately NOT imported from the workspace feature's reconnect hook, which
@@ -170,6 +174,7 @@ export function useLivekitSession(
   // can fire on its own and the answer needs both.
   const remoteStreamsRef = useRef<ParticipantMediaMap>({});
   const activeSpeakersRef = useRef<string[]>([]);
+  const measuredSpeakingRef = useRef<string[]>([]);
 
   useEffect(() => {
     remoteParticipantAudioPreferencesRef.current =
@@ -189,13 +194,7 @@ export function useLivekitSession(
     // surfaces cannot start disagreeing about who is talking.
     const publishSpeakingUserIds = (): void => {
       const streams = remoteStreamsRef.current;
-      const speaking = new Set<string>();
-
-      for (const [userId, state] of Object.entries(streams)) {
-        if (state.isSpeaking) {
-          speaking.add(userId);
-        }
-      }
+      const speaking = new Set<string>(measuredSpeakingRef.current);
 
       for (const userId of activeSpeakersRef.current) {
         if (!streams[userId]) {
@@ -212,6 +211,10 @@ export function useLivekitSession(
       onRemoteStreamsChanged: (nextStreams: ParticipantMediaMap) => {
         remoteStreamsRef.current = nextStreams;
         setRemoteParticipantStreams(nextStreams);
+        publishSpeakingUserIds();
+      },
+      onSpeakingChanged: (identities: string[]) => {
+        measuredSpeakingRef.current = identities;
         publishSpeakingUserIds();
       },
       onActiveSpeakersChanged: (speakerIds: string[]) => {
@@ -303,6 +306,11 @@ export function useLivekitSession(
       onScreenWatchersChanged: (watchers: ScreenWatcherMap) => {
         useScreenWatchersStore.getState().setWatchers(watchers);
       },
+      onConnectionQualityChanged: (identity: string, quality: string) => {
+        useConnectionQualityStore
+          .getState()
+          .setQuality(identity, quality as ParticipantConnectionQuality);
+      },
     });
 
     liveKitSessionRef.current = session;
@@ -313,6 +321,7 @@ export function useLivekitSession(
     session.setAudioProcessingPreferences({
       enhancedNoiseSuppressionEnabled:
         audioPreferences.enhancedNoiseSuppressionEnabled,
+      echoCancellationEnabled: audioPreferences.echoCancellationEnabled,
       noiseSuppressionPreset: audioPreferences.noiseSuppressionPreset,
       selectedAudioInputDeviceId: audioPreferences.selectedAudioInputDeviceId,
       selectedAudioOutputDeviceId: audioPreferences.selectedAudioOutputDeviceId,
@@ -343,9 +352,11 @@ export function useLivekitSession(
       setActiveSpeakerIds([]);
       remoteStreamsRef.current = {};
       activeSpeakersRef.current = [];
+      measuredSpeakingRef.current = [];
       useMediaStatsStore.getState().setSnapshot(EMPTY_MEDIA_STATS);
       useScreenWatchersStore.getState().setWatchers({});
       useSpeakingStore.getState().setSpeakingUserIds([]);
+      useConnectionQualityStore.getState().reset();
       void session.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,6 +384,7 @@ export function useLivekitSession(
       liveKitSessionRef.current.setAudioProcessingPreferences({
         enhancedNoiseSuppressionEnabled:
           audioPreferences.enhancedNoiseSuppressionEnabled,
+        echoCancellationEnabled: audioPreferences.echoCancellationEnabled,
         noiseSuppressionPreset: audioPreferences.noiseSuppressionPreset,
         selectedAudioInputDeviceId: audioPreferences.selectedAudioInputDeviceId,
         selectedAudioOutputDeviceId:
@@ -383,6 +395,7 @@ export function useLivekitSession(
     }
   }, [
     audioPreferences.enhancedNoiseSuppressionEnabled,
+    audioPreferences.echoCancellationEnabled,
     audioPreferences.noiseSuppressionPreset,
     audioPreferences.selectedAudioInputDeviceId,
     audioPreferences.selectedAudioOutputDeviceId,

@@ -17,6 +17,8 @@ export interface RateSample {
   packets: number;
   packetsLost: number;
   frames: number;
+  concealedSamples?: number;
+  totalSamplesReceived?: number;
 }
 
 export type RateCache = Map<string, RateSample>;
@@ -60,6 +62,8 @@ export interface InboundTrackStats {
   jitterMs: number | null;
   jitterBufferDelayMs: number | null;
   freezeCount: number | null;
+  concealmentPct: number | null;
+  concealmentEvents: number | null;
   decoderImplementation: string | null;
   /**
    * Packets counted in the LAST sampling window, so several tracks can be
@@ -198,6 +202,34 @@ export const packetWindow = (
     return null;
   }
   return { packets, packetsLost };
+};
+
+export const MIN_CONCEALMENT_WINDOW_SAMPLES = 4800;
+
+export const computeConcealmentPct = (
+  previous: RateSample | undefined,
+  current: RateSample,
+): number | null => {
+  if (!previous) {
+    return null;
+  }
+  if (
+    typeof previous.concealedSamples !== "number" ||
+    typeof current.concealedSamples !== "number" ||
+    typeof previous.totalSamplesReceived !== "number" ||
+    typeof current.totalSamplesReceived !== "number"
+  ) {
+    return null;
+  }
+
+  const deltaConcealed = current.concealedSamples - previous.concealedSamples;
+  const deltaTotal =
+    current.totalSamplesReceived - previous.totalSamplesReceived;
+  if (deltaConcealed < 0 || deltaTotal < MIN_CONCEALMENT_WINDOW_SAMPLES) {
+    return null;
+  }
+
+  return Math.round((deltaConcealed / deltaTotal) * 1000) / 10;
 };
 
 export const poolPacketLossPct = (
@@ -454,12 +486,17 @@ export const summarizeReceiverReport = (
       ? Math.round((jitterBufferDelay / jitterBufferEmittedCount) * 1000)
       : null;
 
+  const concealedSamples = num(inbound.concealedSamples);
+  const totalSamplesReceived = num(inbound.totalSamplesReceived);
+
   const sample: RateSample = {
     timestampMs: inbound.timestamp,
     bytes: num(inbound.bytesReceived) ?? 0,
     packets: num(inbound.packetsReceived) ?? 0,
     packetsLost: num(inbound.packetsLost) ?? 0,
     frames: num(inbound.framesDecoded) ?? 0,
+    ...(concealedSamples !== null ? { concealedSamples } : {}),
+    ...(totalSamplesReceived !== null ? { totalSamplesReceived } : {}),
   };
   const previous = cache.get(trackKey);
   cache.set(trackKey, sample);
@@ -478,6 +515,8 @@ export const summarizeReceiverReport = (
     jitterMs: jitter === null ? null : Math.round(jitter * 1000),
     jitterBufferDelayMs,
     freezeCount: num(inbound.freezeCount),
+    concealmentPct: computeConcealmentPct(previous, sample),
+    concealmentEvents: num(inbound.concealmentEvents),
     decoderImplementation: str(inbound.decoderImplementation),
     window: packetWindow(previous, sample),
   };

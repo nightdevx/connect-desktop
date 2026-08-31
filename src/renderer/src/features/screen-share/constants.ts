@@ -90,6 +90,7 @@ export const estimateScreenShareUplinkBps = (
       maxFramerate: option.frameRate,
     },
     SCREEN_SHARE_MAX_ENCODINGS,
+    true,
   );
 };
 

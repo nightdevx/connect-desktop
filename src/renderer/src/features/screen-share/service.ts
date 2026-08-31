@@ -131,7 +131,7 @@ const startBrowserDisplayCapture = async (
     const stream = await navigator.mediaDevices.getDisplayMedia({
       audio: options.captureSystemAudio ? {
         autoGainControl: false,
-        echoCancellation: true,
+        echoCancellation: false,
         noiseSuppression: false,
       } : false,
       video: {

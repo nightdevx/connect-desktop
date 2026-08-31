@@ -7,12 +7,14 @@ import {
   RemoteParticipant,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
+import { isMusicBotIdentity } from "@shared/music";
 import { readRmsLevel } from "./speaking";
 import { shouldSubscribePublication } from "./constants";
 
 // Remote playback runs through a single WebAudio bus:
 //
-//   per-track source -> per-track gain -> master gain -> limiter -> sink element
+//   per-track source -> per-track gain -> [per-voice compressor] -> master gain
+//                    -> master limiter -> context.destination
 //                    \-> analyser (mic only, speaking indicator)
 //
 // The previous implementation gave every participant a bare HTMLAudioElement
@@ -26,6 +28,7 @@ type InputKind = "mic" | "screen";
 interface BusInput {
   sourceNode: MediaStreamAudioSourceNode;
   gainNode: GainNode;
+  compressorNode: DynamicsCompressorNode | null;
   // Chromium does not pull audio from a remote MediaStreamTrack unless it is
   // also attached to a media element. This one is muted and exists purely to
   // keep the WebAudio graph fed.
@@ -41,6 +44,28 @@ interface BusInput {
   levelBuffer: Uint8Array<ArrayBuffer> | null;
 }
 
+const GAIN_RAMP_SECONDS = 0.015;
+const MUTE_RAMP_SECONDS = 0.005;
+const SILENCE_SETTLE_SECONDS = 0.05;
+
+const PLAYBACK_SAMPLE_RATE = 48000;
+
+const VOICE_COMPRESSOR = {
+  threshold: -18,
+  knee: 6,
+  ratio: 4,
+  attack: 0.005,
+  release: 0.15,
+};
+
+const MASTER_LIMITER = {
+  threshold: -1,
+  knee: 0,
+  ratio: 20,
+  attack: 0.003,
+  release: 0.25,
+};
+
 const inputKey = (identity: string, kind: InputKind): string => {
   return `${identity}:${kind}`;
 };
@@ -50,6 +75,10 @@ const percentToGain = (percent: number): number => {
     return 1;
   }
   return Math.max(0, percent) / 100;
+};
+
+const shouldLevelInput = (identity: string, kind: InputKind): boolean => {
+  return kind === "mic" && !isMusicBotIdentity(identity);
 };
 
 export class RemoteMediaHandler {
@@ -63,8 +92,6 @@ export class RemoteMediaHandler {
   private audioContext: AudioContext | null = null;
   private masterGainNode: GainNode | null = null;
   private limiterNode: DynamicsCompressorNode | null = null;
-  private destinationNode: MediaStreamAudioDestinationNode | null = null;
-  private sinkElement: HTMLAudioElement | null = null;
 
   private currentOutputDeviceId: string | null = null;
   private isDeafened = false;
@@ -96,39 +123,29 @@ export class RemoteMediaHandler {
     }
 
     try {
-      const context = new AudioContext({ latencyHint: "interactive" });
+      const context = new AudioContext({
+        latencyHint: "interactive",
+        sampleRate: PLAYBACK_SAMPLE_RATE,
+      });
 
       const masterGain = context.createGain();
       masterGain.gain.value = this.isDeafened ? 0 : this.masterVolume;
 
       const limiter = context.createDynamicsCompressor();
-      limiter.threshold.value = -2;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.003;
-      limiter.release.value = 0.25;
+      limiter.threshold.value = MASTER_LIMITER.threshold;
+      limiter.knee.value = MASTER_LIMITER.knee;
+      limiter.ratio.value = MASTER_LIMITER.ratio;
+      limiter.attack.value = MASTER_LIMITER.attack;
+      limiter.release.value = MASTER_LIMITER.release;
 
-      const destination = context.createMediaStreamDestination();
       masterGain.connect(limiter);
-      limiter.connect(destination);
-
-      const sinkElement = document.createElement("audio");
-      sinkElement.id = "connect-remote-audio-sink";
-      sinkElement.autoplay = true;
-      sinkElement.style.display = "none";
-      sinkElement.srcObject = destination.stream;
-      document.body.appendChild(sinkElement);
+      limiter.connect(context.destination);
 
       this.audioContext = context;
       this.masterGainNode = masterGain;
       this.limiterNode = limiter;
-      this.destinationNode = destination;
-      this.sinkElement = sinkElement;
 
-      this.applySinkId(sinkElement);
-      void sinkElement.play().catch((error) => {
-        logLiveKitDebug("remote-media", "sink-play-failed", { error });
-      });
+      void this.applyContextSinkId(context);
       if (context.state === "suspended") {
         void context.resume().catch(() => undefined);
       }
@@ -141,6 +158,28 @@ export class RemoteMediaHandler {
     } catch (error) {
       logLiveKitDebug("remote-media", "bus-create-failed", { error });
       return null;
+    }
+  }
+
+  private rampGain(
+    param: AudioParam,
+    value: number,
+    timeConstant: number,
+  ): void {
+    const context = this.audioContext;
+    if (!context) {
+      param.value = value;
+      return;
+    }
+
+    try {
+      param.cancelScheduledValues(context.currentTime);
+      param.setTargetAtTime(value, context.currentTime, timeConstant);
+      if (value === 0) {
+        param.setValueAtTime(0, context.currentTime + SILENCE_SETTLE_SECONDS);
+      }
+    } catch {
+      param.value = value;
     }
   }
 
@@ -204,7 +243,20 @@ export class RemoteMediaHandler {
       gainNode.gain.value = this.resolveInputGain(participant.identity, kind);
 
       sourceNode.connect(gainNode);
-      gainNode.connect(bus.masterGain);
+
+      let compressorNode: DynamicsCompressorNode | null = null;
+      if (shouldLevelInput(participant.identity, kind)) {
+        compressorNode = bus.context.createDynamicsCompressor();
+        compressorNode.threshold.value = VOICE_COMPRESSOR.threshold;
+        compressorNode.knee.value = VOICE_COMPRESSOR.knee;
+        compressorNode.ratio.value = VOICE_COMPRESSOR.ratio;
+        compressorNode.attack.value = VOICE_COMPRESSOR.attack;
+        compressorNode.release.value = VOICE_COMPRESSOR.release;
+        gainNode.connect(compressorNode);
+        compressorNode.connect(bus.masterGain);
+      } else {
+        gainNode.connect(bus.masterGain);
+      }
 
       let analyserNode: AnalyserNode | null = null;
       let levelBuffer: Uint8Array<ArrayBuffer> | null = null;
@@ -220,6 +272,7 @@ export class RemoteMediaHandler {
       this.inputs.set(key, {
         sourceNode,
         gainNode,
+        compressorNode,
         pumpElement,
         analyserNode,
         levelBuffer,
@@ -229,6 +282,7 @@ export class RemoteMediaHandler {
         identity: participant.identity,
         kind,
         gain: gainNode.gain.value,
+        levelled: compressorNode !== null,
       });
     } catch (error) {
       logLiveKitDebug("remote-media", "audio-attach-failed", {
@@ -250,6 +304,7 @@ export class RemoteMediaHandler {
     try {
       input.sourceNode.disconnect();
       input.gainNode.disconnect();
+      input.compressorNode?.disconnect();
       input.analyserNode?.disconnect();
     } catch {
       // no-op
@@ -288,9 +343,15 @@ export class RemoteMediaHandler {
 
   private applyInputGain(identity: string, kind: InputKind): void {
     const input = this.inputs.get(inputKey(identity, kind));
-    if (input) {
-      input.gainNode.gain.value = this.resolveInputGain(identity, kind);
+    if (!input) {
+      return;
     }
+    const value = this.resolveInputGain(identity, kind);
+    this.rampGain(
+      input.gainNode.gain,
+      value,
+      value === 0 ? MUTE_RAMP_SECONDS : GAIN_RAMP_SECONDS,
+    );
   }
 
   public setParticipantVolume(identity: string, volume: number) {
@@ -321,7 +382,11 @@ export class RemoteMediaHandler {
     // 0-200 percent maps to 0-2x. The limiter downstream absorbs the peaks.
     this.masterVolume = percentToGain(masterVolume);
     if (this.masterGainNode && !this.isDeafened) {
-      this.masterGainNode.gain.value = this.masterVolume;
+      this.rampGain(
+        this.masterGainNode.gain,
+        this.masterVolume,
+        GAIN_RAMP_SECONDS,
+      );
     }
   }
 
@@ -342,10 +407,17 @@ export class RemoteMediaHandler {
    * more often than an actual deafen.
    */
   public setDeafened(deafened: boolean) {
+    if (deafened === this.isDeafened) {
+      return;
+    }
     this.isDeafened = deafened;
 
     if (this.masterGainNode) {
-      this.masterGainNode.gain.value = deafened ? 0 : this.masterVolume;
+      this.rampGain(
+        this.masterGainNode.gain,
+        deafened ? 0 : this.masterVolume,
+        MUTE_RAMP_SECONDS,
+      );
     }
 
     for (const participant of this.room.remoteParticipants.values()) {
@@ -353,15 +425,17 @@ export class RemoteMediaHandler {
         if (publication.kind !== Track.Kind.Audio) {
           continue;
         }
+        const wanted = shouldSubscribePublication({
+          kind: publication.kind,
+          source: publication.source,
+          deafened,
+          watchingScreen: this.isWatchingScreen(participant.identity),
+        });
+        if (publication.isSubscribed === wanted) {
+          continue;
+        }
         try {
-          publication.setSubscribed(
-            shouldSubscribePublication({
-              kind: publication.kind,
-              source: publication.source,
-              deafened,
-              watchingScreen: this.isWatchingScreen(participant.identity),
-            }),
-          );
+          publication.setSubscribed(wanted);
         } catch (error) {
           logLiveKitDebug("remote-media", "deafen-subscription-failed", {
             identity: participant.identity,
@@ -380,19 +454,24 @@ export class RemoteMediaHandler {
 
   // ---- Audio output device ----
 
-  private applySinkId(element: HTMLAudioElement): void {
-    if (!this.currentOutputDeviceId) {
+  private async applyContextSinkId(context: AudioContext): Promise<void> {
+    if (this.currentOutputDeviceId === null) {
       return;
     }
-    const sinkTarget = element as HTMLAudioElement & {
+
+    const sinkTarget = context as AudioContext & {
       setSinkId?: (sinkId: string) => Promise<void>;
     };
-    if (typeof sinkTarget.setSinkId === "function") {
-      void sinkTarget.setSinkId(this.currentOutputDeviceId).catch((error) => {
-        logLiveKitDebug("remote-media", "set-sink-id-failed", {
-          deviceId: this.currentOutputDeviceId,
-          error,
-        });
+    if (typeof sinkTarget.setSinkId !== "function") {
+      return;
+    }
+
+    try {
+      await sinkTarget.setSinkId(this.currentOutputDeviceId);
+    } catch (error) {
+      logLiveKitDebug("remote-media", "set-sink-id-failed", {
+        deviceId: this.currentOutputDeviceId,
+        error,
       });
     }
   }
@@ -408,19 +487,8 @@ export class RemoteMediaHandler {
       deviceId: nextDeviceId,
     });
 
-    // One sink element for the whole bus, so this is a single call instead of
-    // one per participant.
-    if (this.sinkElement) {
-      const sinkTarget = this.sinkElement as HTMLAudioElement & {
-        setSinkId?: (sinkId: string) => Promise<void>;
-      };
-      if (typeof sinkTarget.setSinkId === "function") {
-        await sinkTarget.setSinkId(nextDeviceId).catch((error) => {
-          logLiveKitDebug("remote-media", "set-sink-id-change-failed", {
-            error,
-          });
-        });
-      }
+    if (this.audioContext) {
+      await this.applyContextSinkId(this.audioContext);
     }
   }
 
@@ -438,23 +506,14 @@ export class RemoteMediaHandler {
       );
     }
 
-    if (this.sinkElement) {
-      this.sinkElement.pause();
-      this.sinkElement.srcObject = null;
-      this.sinkElement.remove();
-      this.sinkElement = null;
-    }
-
     try {
       this.masterGainNode?.disconnect();
       this.limiterNode?.disconnect();
-      this.destinationNode?.disconnect();
     } catch {
       // no-op
     }
     this.masterGainNode = null;
     this.limiterNode = null;
-    this.destinationNode = null;
 
     const context = this.audioContext;
     this.audioContext = null;
