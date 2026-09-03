@@ -173,6 +173,10 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:emotes-delete", payload),
   createLiveKitToken: async (payload) =>
     ipcRenderer.invoke("desktop:livekit-token", payload),
+  uploadMediaDiagnostics: async (payload) =>
+    ipcRenderer.invoke("desktop:media-diagnostics-upload", payload),
+  getMediaDiagnosticsContext: async () =>
+    ipcRenderer.invoke("desktop:media-diagnostics-context"),
   initiateCall: async (payload) =>
     ipcRenderer.invoke("desktop:call-initiate", payload),
   acceptCall: async (payload) =>
@@ -416,6 +420,10 @@ const desktopApi: DesktopApi = {
     listInvites: async () => ipcRenderer.invoke("desktop:admin-list-invites", {}),
     createInvite: async (payload) => ipcRenderer.invoke("desktop:admin-create-invite", payload),
     deleteInvite: async (payload) => ipcRenderer.invoke("desktop:admin-delete-invite", payload),
+    listDiagnosticSessions: async (payload) => ipcRenderer.invoke("desktop:admin-diagnostics-sessions", payload),
+    getDiagnosticSession: async (payload) => ipcRenderer.invoke("desktop:admin-diagnostics-session", payload),
+    exportDiagnosticSession: async (payload) => ipcRenderer.invoke("desktop:admin-diagnostics-export-session", payload),
+    exportDiagnosticRange: async (payload) => ipcRenderer.invoke("desktop:admin-diagnostics-export-range", payload),
   },
   adminGetSettings: async () => ipcRenderer.invoke("desktop:admin-get-settings"),
   adminListMinigames: async () => ipcRenderer.invoke("desktop:admin-list-minigames"),

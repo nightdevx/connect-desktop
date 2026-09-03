@@ -247,4 +247,38 @@ export class AdminOpsClient {
   public deleteInvite(token: string, code: string) {
     return this.call<{ removed: boolean }>(token, "DELETE", `/admin/invites/${encodeURIComponent(code)}`);
   }
+
+  public listDiagnosticSessions(token: string, params?: Query) {
+    return this.call<{
+      sessions: unknown[];
+      total: number;
+      enabled: boolean;
+      retentionDays: number;
+      schemaVersion: number;
+    }>(token, "GET", `/admin/media/diagnostics/sessions${queryString(params)}`);
+  }
+
+  public getDiagnosticSession(token: string, sessionId: string) {
+    return this.call<{ session: unknown }>(
+      token,
+      "GET",
+      `/admin/media/diagnostics/sessions/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
+  public exportDiagnosticSession(token: string, sessionId: string) {
+    return this.baseClient.requestBinary(
+      `/admin/media/diagnostics/sessions/${encodeURIComponent(sessionId)}/export`,
+      { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+      120_000,
+    );
+  }
+
+  public exportDiagnosticRange(token: string, params?: Query) {
+    return this.baseClient.requestBinary(
+      `/admin/media/diagnostics/export${queryString(params)}`,
+      { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+      120_000,
+    );
+  }
 }

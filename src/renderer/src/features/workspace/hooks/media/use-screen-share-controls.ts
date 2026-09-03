@@ -19,6 +19,7 @@ import {
   getDefaultScreenShareQuality,
   getLowerScreenShareQuality
 } from "@/features/screen-share";
+import { logLiveKitDebug } from "@/services/debug-log";
 import workspaceService from "../../services";
 import { type StreamPreferences } from "../../components/settings/settings-main-panel-types";
 import {
@@ -739,6 +740,11 @@ export const useScreenShareControls = ({
         return;
       }
 
+      logLiveKitDebug("stream-manager", "quality-step-down", {
+        reason,
+        from: live.quality,
+        to: lower,
+      });
       setStatus(
         `${cause}, yayın kalitesi "${getScreenShareQualityOption(lower).label}" seviyesine düşürüldü.`,
         "warn",

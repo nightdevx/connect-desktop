@@ -57,6 +57,7 @@ export type AdminSection =
   | "chat"
   | "audit"
   | "media"
+  | "diagnostics"
   | "access"
   | "settings";
 export type SettingsSection =

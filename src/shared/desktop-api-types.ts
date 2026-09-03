@@ -1,4 +1,10 @@
 import type {
+  MediaDiagnosticsBatch,
+  MediaDiagnosticsGpu,
+  MediaDiagnosticsSessionQuery,
+  MediaDiagnosticsSessionRow,
+} from "./media-diagnostics";
+import type {
   ChatMessage,
   ChangePasswordRequest,
   LobbyDescriptor,
@@ -773,6 +779,19 @@ export interface DesktopApi {
   createLiveKitToken: (payload?: {
     room?: string;
   }) => Promise<DesktopResult<LiveKitTokenPayload>>;
+  uploadMediaDiagnostics: (
+    payload: MediaDiagnosticsBatch,
+  ) => Promise<DesktopResult<{ stored: boolean; enabled: boolean }>>;
+  getMediaDiagnosticsContext: () => Promise<
+    DesktopResult<{
+      appVersion: string;
+      platform: string;
+      osVersion: string;
+      electronVersion: string;
+      chromeVersion: string;
+      gpu: MediaDiagnosticsGpu;
+    }>
+  >;
   initiateCall: (payload: {
     targetUserId: string;
   }) => Promise<DesktopResult<{ callId: string }>>;
@@ -1085,6 +1104,26 @@ export interface DesktopApi {
     listInvites: () => Promise<DesktopResult<{ invites: AdminInviteCode[] }>>;
     createInvite: (payload: { code: string; maxUses?: number; expiresAt?: string | null }) => Promise<DesktopResult<{ invite: AdminInviteCode }>>;
     deleteInvite: (payload: { code: string }) => Promise<DesktopResult<{ removed: boolean }>>;
+    listDiagnosticSessions: (
+      payload?: MediaDiagnosticsSessionQuery,
+    ) => Promise<
+      DesktopResult<{
+        sessions: MediaDiagnosticsSessionRow[];
+        total: number;
+        enabled: boolean;
+        retentionDays: number;
+        schemaVersion: number;
+      }>
+    >;
+    getDiagnosticSession: (payload: {
+      sessionId: string;
+    }) => Promise<DesktopResult<{ session: MediaDiagnosticsSessionRow }>>;
+    exportDiagnosticSession: (payload: {
+      sessionId: string;
+    }) => Promise<DesktopResult<{ saved: boolean; path: string | null; bytes: number }>>;
+    exportDiagnosticRange: (
+      payload?: MediaDiagnosticsSessionQuery & { fileName?: string },
+    ) => Promise<DesktopResult<{ saved: boolean; path: string | null; bytes: number }>>;
   };
 
 }

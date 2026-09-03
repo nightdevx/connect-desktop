@@ -47,6 +47,7 @@ const NAV_GROUPS = [
       { key: "moderation", label: "Moderasyon", icon: <StopOutlined /> },
       { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
       { key: "media", label: "Ses ve Video", icon: <VideoCameraOutlined /> },
+      { key: "diagnostics", label: "Yayın Tanılama", icon: <FileProtectOutlined /> },
       { key: "activity", label: "Aktivite Logları", icon: <HistoryOutlined /> },
       { key: "audit", label: "Denetim Kaydı", icon: <FileProtectOutlined /> },
     ],

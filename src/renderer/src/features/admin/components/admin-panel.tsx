@@ -12,6 +12,7 @@ import AdminMusic from "./admin-music";
 import AdminChat from "./admin-chat";
 import AdminAudit from "./admin-audit";
 import AdminMedia from "./admin-media";
+import AdminDiagnostics from "./admin-diagnostics";
 import AdminAccess from "./admin-access";
 
 interface AdminPanelProps {
@@ -45,6 +46,8 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminAudit />;
       case "media":
         return <AdminMedia />;
+      case "diagnostics":
+        return <AdminDiagnostics />;
       case "access":
         return <AdminAccess />;
       case "settings":

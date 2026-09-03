@@ -12,6 +12,7 @@ import {
   type VideoCodec,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
+import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
 import {
@@ -432,6 +433,15 @@ export class LiveKitMediaSession {
     this.currentLobbyId = lobbyId;
     this.manualDisconnect = false;
 
+    if (mediaDiagnostics.isActive()) {
+      mediaDiagnostics.record("session", "room-reconnected", { lobbyId });
+    } else {
+      mediaDiagnostics.startSession(lobbyId, {
+        hardwareSvcCodec: this.hardwareSvcCodec,
+        prefs: this.buildDiagnosticsPrefs(),
+      });
+    }
+
     this.resolvedVideoCodec = resolveVideoCodec(this.videoPublishPreferences);
 
     const options: RoomOptions = {
@@ -512,6 +522,7 @@ export class LiveKitMediaSession {
     this.softwareSvcTicks = 0;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.(snapshot);
+      mediaDiagnostics.recordStats(snapshot);
       this.evaluateQualityLimitation(snapshot);
       this.evaluateScreenEncoderCodec(snapshot);
     });
@@ -658,6 +669,8 @@ export class LiveKitMediaSession {
     this.mediaMap = {};
     this.streamCache.clear();
     this.callbacks.onRemoteStreamsChanged?.({});
+    void mediaDiagnostics.endSession();
+
     // Only when a room was actually torn down. The hook treats "disconnected"
     // with an active lobby as a dropped connection and schedules the rejoin
     // chain — every other deliberate teardown clears activeLobbyId first, but
@@ -938,8 +951,16 @@ export class LiveKitMediaSession {
 
     if (paused) {
       this.pausedTracks.add(key);
+      logLiveKitDebug("stream-manager", "track-stream-paused", {
+        identity,
+        kind,
+      });
     } else {
       this.pausedTracks.delete(key);
+      logLiveKitDebug("stream-manager", "track-stream-resumed", {
+        identity,
+        kind,
+      });
     }
 
     this.emitPausedTracks();
@@ -1134,6 +1155,7 @@ export class LiveKitMediaSession {
     this.hardwareSvcProbe = resolveHardwareSvcCodec()
       .then((codec) => {
         this.hardwareSvcCodec = codec;
+        mediaDiagnostics.setClientContext({ hardwareSvcCodec: codec });
         logLiveKitDebug("stream-manager", "hardware-svc-probe", {
           codec: codec ?? "none",
         });
@@ -1154,6 +1176,19 @@ export class LiveKitMediaSession {
       noiseSuppressionPreset: source.noiseSuppressionPreset,
       selectedAudioInputDeviceId: source.selectedAudioInputDeviceId,
       microphoneVolume: source.microphoneVolume,
+    };
+  }
+
+  private buildDiagnosticsPrefs() {
+    const audio = this.audioProcessingPreferences;
+    return {
+      videoCodec: this.videoPublishPreferences.codec,
+      hardwareAcceleration: this.videoPublishPreferences.hardwareAcceleration,
+      enhancedNoiseSuppression: audio.enhancedNoiseSuppressionEnabled,
+      noiseSuppressionPreset: audio.noiseSuppressionPreset,
+      echoCancellation: audio.echoCancellationEnabled,
+      microphoneVolumePct: audio.microphoneVolume,
+      masterVolumePct: audio.masterVolume,
     };
   }
 

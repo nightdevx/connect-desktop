@@ -21,6 +21,7 @@ import {
   type ParticipantConnectionQuality,
 } from "../store/connection-quality-store";
 import { useUiStore } from "@/store/ui-store";
+import { mediaDiagnostics } from "@/services/media-diagnostics";
 
 // Deliberately NOT imported from the workspace feature's reconnect hook, which
 // is where the full key union lives. The workspace composes livekit, so an
@@ -242,6 +243,7 @@ export function useLivekitSession(
         publishSpeakingUserIds();
       },
       onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
+        mediaDiagnostics.record("session", "connection-state", { state });
         setLiveKitConnectionState(state);
 
         // Ended by the server. Stop here — the reconnect chain would either
@@ -280,7 +282,10 @@ export function useLivekitSession(
           scheduleActiveLobbyReconnect("livekit-disconnected", true);
         }
       },
-      onWarning: (message: string) => setStatus(message, "warn"),
+      onWarning: (message: string) => {
+        mediaDiagnostics.recordWarning(message);
+        setStatus(message, "warn");
+      },
       // A moderator mute is the one thing that silences someone without their
       // own client knowing. The session republishes the microphone by itself
       // when the grant comes back; this is only so the person is told, in both
@@ -342,6 +347,19 @@ export function useLivekitSession(
     // the publish path retries it anyway.
     void session.warmUpMicrophoneChain();
     void session.warmUpVideoEncoders();
+
+    void (async () => {
+      const context = await window.desktopApi?.getMediaDiagnosticsContext?.();
+      if (context?.ok && context.data) {
+        mediaDiagnostics.setClientContext({
+          ...context.data,
+          cpuThreads: navigator.hardwareConcurrency ?? null,
+          deviceMemoryGb:
+            (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
+            null,
+        });
+      }
+    })();
 
     // Hand the restored (or, if this is a re-created session, the current)
     // per-participant choices to the fresh session. Without this the manager's

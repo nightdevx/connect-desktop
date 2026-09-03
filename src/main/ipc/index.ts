@@ -6,6 +6,7 @@ import { registerDMHandlers } from "./handlers/dm-handlers";
 import { registerAppHandlers } from "./handlers/app-handlers";
 import { registerMusicHandlers } from "./handlers/music-handlers";
 import { registerWatchHandlers } from "./handlers/watch-handlers";
+import { registerMediaDiagnosticsHandlers } from "./handlers/media-diagnostics-handlers";
 import {
   directMessagesStreamManager,
   lobbyStreamManager,
@@ -168,6 +169,12 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:admin-ban-user-detailed",
   "desktop:admin-set-deletion",
   "desktop:admin-list-audit",
+  "desktop:media-diagnostics-upload",
+  "desktop:media-diagnostics-context",
+  "desktop:admin-diagnostics-sessions",
+  "desktop:admin-diagnostics-session",
+  "desktop:admin-diagnostics-export-session",
+  "desktop:admin-diagnostics-export-range",
   "desktop:admin-search-chat",
   "desktop:admin-delete-chat-message",
   "desktop:admin-redact-chat-message",
@@ -241,4 +248,5 @@ export function registerIpcHandlers(): void {
   registerDMHandlers();
   registerMusicHandlers();
   registerWatchHandlers();
+  registerMediaDiagnosticsHandlers();
 }

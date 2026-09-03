@@ -1,3 +1,5 @@
+import { mediaDiagnostics } from "./media-diagnostics";
+
 type LiveKitDebugValue =
   | string
   | number
@@ -83,13 +85,17 @@ export const logLiveKitDebug = (
   event: string,
   payload?: Record<string, unknown>,
 ): void => {
-  // Sadece development ortamında log basılmasına izin ver
-  const isDev = process.env.NODE_ENV === 'development';
-  if (!isDev) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  if (typeof window === "undefined") {
+  const normalized = normalizePayload(payload);
+
+  mediaDiagnostics.record(scope, event, normalized);
+
+  // Sadece development ortamında log basılmasına izin ver
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!isDev) {
     return;
   }
 
