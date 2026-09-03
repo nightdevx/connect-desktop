@@ -13,16 +13,26 @@ const bridgeOutdated = {
 
 const outdated = () => Promise.resolve(bridgeOutdated as DesktopResult<WatchSnapshot>);
 
+/**
+ * The frames a watch session cares about.
+ *
+ * The socket's own status is one of them, and not incidentally: watch-state is
+ * a delta stream with no replay, so "the connection came back" is the signal
+ * that everything received before it may now be wrong.
+ */
+export type WatchStreamEvent = Extract<
+  LobbyStreamEvent,
+  { type: "watch-state" } | { type: "stream-status" }
+>;
+
 export const watchService = {
-  onStateEvent: (
-    listener: (event: Extract<LobbyStreamEvent, { type: "watch-state" }>) => void,
-  ): (() => void) => {
+  onStreamEvent: (listener: (event: WatchStreamEvent) => void): (() => void) => {
     if (typeof window.desktopApi.onLobbyStreamEvent !== "function") {
       return () => undefined;
     }
 
     return window.desktopApi.onLobbyStreamEvent((event) => {
-      if (event.type === "watch-state") {
+      if (event.type === "watch-state" || event.type === "stream-status") {
         listener(event);
       }
     });

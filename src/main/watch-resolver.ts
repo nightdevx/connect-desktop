@@ -16,7 +16,17 @@ const NAVIGATE_TIMEOUT_MS = 30_000;
 const POKE_INTERVAL_MS = 1_600;
 const SETTLE_MS = 1_800;
 
-const RANK: Record<StreamKind, number> = { hls: 4, dash: 3, mp4: 2, webm: 1 };
+// Which stream to keep when a page offers several.
+//
+// dash is LAST, below the progressive formats, because it is the one kind the
+// player cannot play at all: Chromium has no DASH support and hls.js does not
+// speak it, so watch-player-host answers a dash command with player-error 3.
+// Ranked above mp4 it won every page that served both a .mpd and a plain file,
+// and the whole room got "Bu video oynatılamadı" over a stream that was sitting
+// right there. It stays in the table rather than being dropped so that a page
+// serving nothing else still resolves to something with a real error attached,
+// rather than to "video bulunamadı".
+const RANK: Record<StreamKind, number> = { hls: 4, mp4: 3, webm: 2, dash: 1 };
 
 const AD_PATTERN =
   /(doubleclick|googlesyndication|googletagservices|googletagmanager|google-analytics|adservice\.|adsterra|propellerads|popads|popcash|onclickads|exoclick|juicyads|hilltopads|mgid\.com|clickadu|adnxs|zeroredirect|smartadserver|criteo|taboola|outbrain|histats|statcounter)/i;
@@ -121,13 +131,52 @@ async function pokeEveryFrame(window: BrowserWindow): Promise<void> {
 
 let inFlight: Promise<unknown> = Promise.resolve();
 
+/**
+ * How long a resolved stream is reused for the same page.
+ *
+ * Resolving means opening the page in a hidden window and watching what it
+ * fetches — up to RESOLVE_TIMEOUT_MS of it — so doing it twice for the same
+ * address in the same minute is pure waste. It became worth avoiding when the
+ * video moved onto the lobby stage as an ordinary tile: focusing it, or
+ * focusing somebody else, re-parents the tile, which rebuilds the iframe, which
+ * asks for the stream again. Without this, every click cost the viewer a black
+ * rectangle and most of a minute.
+ *
+ * Short on purpose. These URLs are routinely signed or IP-bound with an expiry
+ * measured in minutes, and a cached one that has gone stale fails as "this
+ * video would not play" rather than as a delay — which is the worse of the two.
+ * Two minutes covers moving a tile around; it does not cover a film.
+ */
+const RESOLVE_CACHE_MS = 120_000;
+
+const resolved = new Map<string, { at: number; stream: ResolvedStream }>();
+
 export function resolveWatchSource(pageUrl: string): Promise<ResolvedStream> {
+  const key = pageUrl.trim();
+  const hit = resolved.get(key);
+  if (hit && Date.now() - hit.at < RESOLVE_CACHE_MS) {
+    return Promise.resolve(hit.stream);
+  }
+  resolved.delete(key);
+
   const next = inFlight.then(
     () => runResolve(pageUrl),
     () => runResolve(pageUrl),
   );
   inFlight = next.catch(() => undefined);
-  return next;
+  return next.then((stream) => {
+    // Bounded, because the key is a URL somebody pasted: a room that works
+    // through a series of them must not accumulate one entry per link for the
+    // life of the process. Oldest first — Map preserves insertion order.
+    if (resolved.size >= 8) {
+      const oldest = resolved.keys().next();
+      if (!oldest.done) {
+        resolved.delete(oldest.value);
+      }
+    }
+    resolved.set(key, { at: Date.now(), stream });
+    return stream;
+  });
 }
 
 async function runResolve(pageUrl: string): Promise<ResolvedStream> {

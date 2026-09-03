@@ -19,7 +19,8 @@ import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/fe
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
 import { MusicModal, useMusicRoom } from "@/features/music";
-import { WatchModal } from "@/features/watch";
+import { WatchModal, useWatchRoom } from "@/features/watch";
+import { watchStageIdentity, watchVideoRef } from "@shared/watch";
 import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
 import { useUiStore } from "@/store/ui-store";
@@ -266,14 +267,39 @@ export function LobbiesMainPanel({
   const { state: musicState, available: musicAvailable } =
     useMusicRoom(activeLobbyId);
 
+  // Owned here rather than inside the dialog, and that placement IS the feature:
+  // the dialog only starts a video. Once one is running it plays on the stage
+  // for as long as the room is watching, so its state has to outlive the window
+  // that opened it.
+  const watchRoom = useWatchRoom(activeLobbyId, currentUserId);
+
+  // Whether THIS viewer has opened the room's video, exactly like a screen
+  // share: the tile is there for everybody, the bytes are only fetched for the
+  // people who asked. Per viewer, and deliberately not remembered — a new video
+  // is a new decision.
+  //
+  // Owned here rather than inside the tile because the tile is unmounted and
+  // rebuilt every time the stage switches layouts (focusing anyone does it), and
+  // state of its own would not survive that: pressing İzle and then focusing the
+  // video would put the prompt straight back.
+  const [watchOptedIn, setWatchOptedIn] = useState(false);
+  const watchVideoKey = watchVideoRef(watchRoom.state.video);
+  const watchStartedBy = watchRoom.state.video?.startedBy ?? "";
+
+  useEffect(() => {
+    // Whoever put the video on has already decided to watch it.
+    setWatchOptedIn(Boolean(watchVideoKey) && watchStartedBy === currentUserId);
+  }, [watchVideoKey, watchStartedBy, currentUserId]);
+
   const stageParticipants = useMemo<LobbyParticipantView[]>(() => {
-    if (!activeLobbyId || !musicState.connected) {
+    if (!activeLobbyId) {
       return lobbyParticipants;
     }
 
-    return [
-      ...lobbyParticipants,
-      {
+    const extras: LobbyParticipantView[] = [];
+
+    if (musicState.connected) {
+      extras.push({
         userId: musicBotIdentity(activeLobbyId),
         username: MUSIC_BOT_NAME,
         joinedAt: new Date().toISOString(),
@@ -284,9 +310,50 @@ export function LobbiesMainPanel({
         screenSharing: false,
         isLocalUser: false,
         speaking: musicState.nowPlaying !== null && !musicState.paused,
-      },
-    ];
-  }, [activeLobbyId, lobbyParticipants, musicState.connected, musicState.nowPlaying, musicState.paused]);
+      });
+    }
+
+    // The room's video, as a participant.
+    //
+    // Same trick as the bot above, for the same reason: the stage is built
+    // entirely out of roster entries, so anything that wants a tile has to be
+    // one. This is what makes a shared video behave like the screen share it is
+    // standing in for — one 16:9 tile in the same fitted grid, focusable, and
+    // shrinking as the room fills, instead of a fixed slab above the stage that
+    // squeezed everybody else into whatever height was left.
+    //
+    // screenSharing is what puts it in a screen-shaped slot; LobbyStageView
+    // swaps the player in when it recognises the identity.
+    if (watchRoom.state.active && watchRoom.state.video) {
+      extras.push({
+        userId: watchStageIdentity(activeLobbyId),
+        username: watchRoom.state.video.title || "Birlikte İzle",
+        // The session's own start, not now(): a fresh timestamp on every
+        // rebuild is what used to remount every tile ten times a second.
+        joinedAt: watchRoom.state.video.startedAt,
+        muted: false,
+        serverMuted: false,
+        deafened: false,
+        cameraEnabled: false,
+        screenSharing: true,
+        isLocalUser: false,
+        speaking: false,
+      });
+    }
+
+    if (extras.length === 0) {
+      return lobbyParticipants;
+    }
+    return [...lobbyParticipants, ...extras];
+  }, [
+    activeLobbyId,
+    lobbyParticipants,
+    musicState.connected,
+    musicState.nowPlaying,
+    musicState.paused,
+    watchRoom.state.active,
+    watchRoom.state.video,
+  ]);
 
   // 2. Stage Slots Hook
   const { stageParticipantSlots } = useLobbyStageSlots({
@@ -573,6 +640,29 @@ export function LobbiesMainPanel({
     setFocusedParticipantId(userId);
   };
 
+  // Everything LobbyStageView needs to draw the room's video in the slot the
+  // synthetic participant above reserves for it. One object rather than five
+  // props, because the view passes it straight through to the tile.
+  const watchTile = useMemo(
+    () =>
+      activeLobbyId && watchRoom.state.active
+        ? {
+            slotUserId: watchStageIdentity(activeLobbyId),
+            room: watchRoom,
+            optedIn: watchOptedIn,
+            // Opening the video focuses it, exactly as pressing İzle on a screen
+            // share does: a film in a 380px grid tile is not what anybody meant
+            // by "watch".
+            onOptIn: () => {
+              setWatchOptedIn(true);
+              setFocusedParticipantId(watchStageIdentity(activeLobbyId));
+            },
+            onOptOut: () => setWatchOptedIn(false),
+          }
+        : null,
+    [activeLobbyId, watchRoom, watchOptedIn],
+  );
+
   const handleParticipantContextMenu = (event: MouseEvent<HTMLElement>, participant: LobbyParticipantView): void => {
     if (participant.isLocalUser) return;
     event.preventDefault();
@@ -698,6 +788,7 @@ export function LobbiesMainPanel({
                   isWatchingScreen={isWatchingScreen}
                   onWatchScreen={handleWatchScreen}
                   nameByUserId={nameByUserId}
+                  watchTile={watchTile}
                 />
               )}
             </div>
@@ -787,7 +878,7 @@ export function LobbiesMainPanel({
       />
 
       <WatchModal
-        lobbyId={activeLobbyId}
+        room={watchRoom}
         open={isWatchOpen}
         onClose={() => setIsWatchOpen(false)}
       />

@@ -1,37 +1,34 @@
 import { Modal } from "antd";
+import type { WatchRoom } from "./use-watch-room";
 import { WatchPanel } from "./watch-panel";
 
 interface WatchModalProps {
-  lobbyId: string | null;
+  room: WatchRoom;
   /**
    * Whether THIS viewer has the window open.
    *
-   * Per viewer on purpose, and the whole reason the session state lives on the
-   * server rather than in the window: closing this does not stop the room's
-   * video any more than closing somebody's screen share stops them sharing. The
-   * session keeps running, the position keeps advancing, and reopening lands
-   * wherever the room has got to.
+   * Per viewer on purpose, and unrelated to whether the room is watching
+   * anything: this dialog only starts a video. Once one is running it plays on
+   * the lobby stage for everybody, and closing this window has no more effect on
+   * it than closing a screen-share preview stops somebody sharing.
    */
   open: boolean;
   onClose: () => void;
 }
 
-export function WatchModal({ lobbyId, open, onClose }: WatchModalProps): JSX.Element {
+export function WatchModal({ room, open, onClose }: WatchModalProps): JSX.Element {
   return (
     <Modal
       open={open}
       onCancel={onClose}
       footer={null}
-      width={900}
-      // Kept mounted so the player is not torn down and rebuilt — and the video
-      // not reloaded from scratch — every time somebody glances away. Only after
-      // it has been opened once: an unopened dialog costs nothing.
+      width={560}
       destroyOnClose={false}
       forceRender={false}
       title={null}
       className="ct-watch-modal"
     >
-      <WatchPanel lobbyId={lobbyId} onClose={onClose} />
+      <WatchPanel room={room} onClose={onClose} />
     </Modal>
   );
 }

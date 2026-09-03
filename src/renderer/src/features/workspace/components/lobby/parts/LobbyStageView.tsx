@@ -9,7 +9,27 @@ import {
   resolvePreviewStream,
 } from "../lobby-view-utils";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
+import { WatchStageTile, type WatchRoom } from "@/features/watch";
 import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
+
+/**
+ * The room's shared video, and the slot it has taken on the stage.
+ *
+ * The video reaches this component as an ordinary StageParticipantSlot — the
+ * lobby panel injects a synthetic roster entry for it, the same way the music
+ * bot gets a tile — so the fit, the focus and the rail need no cases of their
+ * own. This is what tells the renderer that ONE of those slots is not a person,
+ * and hands it what to draw instead.
+ */
+export interface WatchTileBinding {
+  /** The reserved identity the session's slot is keyed by. */
+  slotUserId: string;
+  room: WatchRoom;
+  /** Whether this viewer has opened it. Screen shares work the same way. */
+  optedIn: boolean;
+  onOptIn: () => void;
+  onOptOut: () => void;
+}
 
 interface LobbyStageViewProps {
   stageParticipantSlots: StageParticipantSlot[];
@@ -37,6 +57,8 @@ interface LobbyStageViewProps {
   onWatchScreen: (userId: string) => void;
   /** Roster display names, for the audience badge on a screen tile. */
   nameByUserId: Record<string, string>;
+  /** Set while the room is watching something. See WatchTileBinding. */
+  watchTile?: WatchTileBinding | null;
 }
 
 export function LobbyStageView({
@@ -63,7 +85,75 @@ export function LobbyStageView({
   isWatchingScreen,
   onWatchScreen,
   nameByUserId,
+  watchTile = null,
 }: LobbyStageViewProps) {
+  /**
+   * One slot, drawn in whichever of the three places the stage puts it.
+   *
+   * The focused tile, the rail thumbnail and the plain grid tile used to be
+   * three copies of the same twenty-prop call, which is why the shared video
+   * could not be added to the stage without writing it a fourth time. They
+   * differ in exactly two flags.
+   */
+  const renderSlot = (
+    slot: StageParticipantSlot,
+    variant: { focused?: boolean; compact?: boolean } = {},
+  ) => {
+    const isSelected = focusedParticipantId === slot.participant.userId;
+
+    if (watchTile && slot.participant.userId === watchTile.slotUserId) {
+      return (
+        <WatchStageTile
+          key={slot.slotId}
+          room={watchTile.room}
+          optedIn={watchTile.optedIn}
+          onOptIn={watchTile.onOptIn}
+          onOptOut={watchTile.onOptOut}
+          isFocusedLayout={variant.focused}
+          isCompact={variant.compact}
+          isSelected={isSelected}
+          onActivate={(event) => handleParticipantFocus(event, slot.participant)}
+        />
+      );
+    }
+
+    return (
+      <LobbyParticipantTile
+        key={slot.slotId}
+        participant={slot.participant}
+        kind={slot.kind}
+        avatarUrl={avatarByUserId[slot.participant.userId]}
+        previewStream={resolvePreviewStream(
+          slot.participant,
+          localCameraStream,
+          localScreenStream,
+          remoteParticipantStreams,
+          slot.sourcePreference,
+          remoteParticipantAudioPreferences[slot.participant.userId]?.cameraHidden,
+        )}
+        isFocusedLayout={variant.focused}
+        isCompact={variant.compact}
+        isSelected={isSelected}
+        onActivate={(event) => handleParticipantFocus(event, slot.participant)}
+        onContextMenu={(event) => handleParticipantContextMenu(event, slot.participant)}
+        audioInputDevices={audioInputDevices}
+        audioOutputDevices={audioOutputDevices}
+        selectedAudioInputDeviceId={selectedAudioInputDeviceId}
+        selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+        onSelectAudioInputDevice={onSelectAudioInputDevice}
+        onSelectAudioOutputDevice={onSelectAudioOutputDevice}
+        localAudioMuted={isRemoteParticipantMuted(
+          remoteParticipantAudioPreferences[slot.participant.userId],
+        )}
+        localScreenAudioMuted={
+          remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted
+        }
+        isWatchingScreen={isWatchingScreen(slot.participant.userId)}
+        onWatchScreen={onWatchScreen}
+        nameByUserId={nameByUserId}
+      />
+    );
+  };
 
   return (
     <div
@@ -73,41 +163,7 @@ export function LobbyStageView({
       {focusedParticipantSlot ? (
         <>
           <div className={`ct-lobby-focused-slot ${!isRailVisible ? "full-stage" : ""}`}>
-            <LobbyParticipantTile
-              key={focusedParticipantSlot.slotId}
-              participant={focusedParticipantSlot.participant}
-              kind={focusedParticipantSlot.kind}
-              avatarUrl={avatarByUserId[focusedParticipantSlot.participant.userId]}
-              previewStream={resolvePreviewStream(
-                focusedParticipantSlot.participant,
-                localCameraStream,
-                localScreenStream,
-                remoteParticipantStreams,
-                focusedParticipantSlot.sourcePreference,
-                remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.cameraHidden,
-              )}
-              isSelected={
-                focusedParticipantId === focusedParticipantSlot.participant.userId
-              }
-              isFocusedLayout
-              onActivate={(event) =>
-                handleParticipantFocus(event, focusedParticipantSlot.participant)
-              }
-              onContextMenu={(event) =>
-                handleParticipantContextMenu(event, focusedParticipantSlot.participant)
-              }
-              audioInputDevices={audioInputDevices}
-              audioOutputDevices={audioOutputDevices}
-              selectedAudioInputDeviceId={selectedAudioInputDeviceId}
-              selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
-              onSelectAudioInputDevice={onSelectAudioInputDevice}
-              onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-              localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId])}
-              localScreenAudioMuted={remoteParticipantAudioPreferences[focusedParticipantSlot.participant.userId]?.screenAudioMuted}
-              isWatchingScreen={isWatchingScreen(focusedParticipantSlot.participant.userId)}
-              onWatchScreen={onWatchScreen}
-              nameByUserId={nameByUserId}
-            />
+            {renderSlot(focusedParticipantSlot, { focused: true })}
           </div>
 
           {nonFocusedParticipantSlots.length > 0 && (
@@ -134,75 +190,12 @@ export function LobbyStageView({
 
           {nonFocusedParticipantSlots.length > 0 && isRailVisible && (
             <div className="ct-lobby-participant-rail" role="list">
-              {nonFocusedParticipantSlots.map((slot) => (
-                <LobbyParticipantTile
-                  key={slot.slotId}
-                  participant={slot.participant}
-                  kind={slot.kind}
-                  avatarUrl={avatarByUserId[slot.participant.userId]}
-                  previewStream={resolvePreviewStream(
-                    slot.participant,
-                    localCameraStream,
-                    localScreenStream,
-                    remoteParticipantStreams,
-                    slot.sourcePreference,
-                    remoteParticipantAudioPreferences[slot.participant.userId]?.cameraHidden,
-                  )}
-                  isCompact
-                  isSelected={
-                    focusedParticipantId === slot.participant.userId
-                  }
-                  onActivate={(event) => handleParticipantFocus(event, slot.participant)}
-                  onContextMenu={(event) => handleParticipantContextMenu(event, slot.participant)}
-                  audioInputDevices={audioInputDevices}
-                  audioOutputDevices={audioOutputDevices}
-                  selectedAudioInputDeviceId={selectedAudioInputDeviceId}
-                  selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
-                  onSelectAudioInputDevice={onSelectAudioInputDevice}
-                  onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-                  localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[slot.participant.userId])}
-                  localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
-                  isWatchingScreen={isWatchingScreen(slot.participant.userId)}
-                  onWatchScreen={onWatchScreen}
-                  nameByUserId={nameByUserId}
-                />
-              ))}
+              {nonFocusedParticipantSlots.map((slot) => renderSlot(slot, { compact: true }))}
             </div>
           )}
         </>
       ) : (
-        stageParticipantSlots.map((slot) => (
-          <LobbyParticipantTile
-            key={slot.slotId}
-            participant={slot.participant}
-            kind={slot.kind}
-            avatarUrl={avatarByUserId[slot.participant.userId]}
-            previewStream={resolvePreviewStream(
-              slot.participant,
-              localCameraStream,
-              localScreenStream,
-              remoteParticipantStreams,
-              slot.sourcePreference,
-              remoteParticipantAudioPreferences[slot.participant.userId]?.cameraHidden,
-            )}
-            isSelected={
-              focusedParticipantId === slot.participant.userId
-            }
-            onActivate={(event) => handleParticipantFocus(event, slot.participant)}
-            onContextMenu={(event) => handleParticipantContextMenu(event, slot.participant)}
-            audioInputDevices={audioInputDevices}
-            audioOutputDevices={audioOutputDevices}
-            selectedAudioInputDeviceId={selectedAudioInputDeviceId}
-            selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
-            onSelectAudioInputDevice={onSelectAudioInputDevice}
-            onSelectAudioOutputDevice={onSelectAudioOutputDevice}
-            localAudioMuted={isRemoteParticipantMuted(remoteParticipantAudioPreferences[slot.participant.userId])}
-            localScreenAudioMuted={remoteParticipantAudioPreferences[slot.participant.userId]?.screenAudioMuted}
-            isWatchingScreen={isWatchingScreen(slot.participant.userId)}
-            onWatchScreen={onWatchScreen}
-            nameByUserId={nameByUserId}
-          />
-        ))
+        stageParticipantSlots.map((slot) => renderSlot(slot))
       )}
     </div>
   );

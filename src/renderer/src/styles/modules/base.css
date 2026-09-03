@@ -122,10 +122,13 @@
      Reaching for --ct-text-primary instead is what turned a participant tile's
      name and status icons black-on-black the moment the light theme was on.
 
-     There used to be a --ct-on-media-muted beside this, for a tile subtitle
-     line the JSX had stopped rendering; add it back if a second tier of text
-     ever lands on a picture again. */
+     --ct-on-media-muted is the second tier, and it is back because a second
+     tier of text landed on a picture again: the shared-video tile writes who
+     started the session, and its clock, over the frame. An alpha of white
+     rather than a grey, so it dims against whatever the video is showing
+     instead of against an assumed backdrop. */
   --ct-on-media: #ffffff;
+  --ct-on-media-muted: rgba(255, 255, 255, 0.72);
 
   /* A highlighter pen, for the one mention that is of YOU. Same argument as the
      on-media pair: the point of a highlighter is that it is the same colour

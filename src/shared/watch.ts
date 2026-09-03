@@ -46,6 +46,26 @@ export const emptyWatchState = (lobbyId: string): WatchState => ({
   revision: 0,
 });
 
+/**
+ * The identity a watch session occupies on the lobby stage.
+ *
+ * A shared video is drawn as a tile among the participants rather than as a
+ * slab above them, so the stage — which is built entirely out of roster entries
+ * — needs something to key it by. This is that key, and it is exactly the trick
+ * the music bot already plays: a reserved id that belongs to no account, so the
+ * focus, layout and slot machinery work on the video with no cases of their own.
+ *
+ * Scoped per lobby for the same reason the bot's is: two rooms open in one
+ * client must not collide.
+ */
+export const WATCH_STAGE_IDENTITY_PREFIX = "stage:watch:";
+
+export const watchStageIdentity = (lobbyId: string): string =>
+  `${WATCH_STAGE_IDENTITY_PREFIX}${lobbyId}`;
+
+export const isWatchStageIdentity = (identity: string): boolean =>
+  identity.startsWith(WATCH_STAGE_IDENTITY_PREFIX);
+
 export const watchVideoRef = (video: WatchVideo | null): string => {
   if (!video) {
     return "";

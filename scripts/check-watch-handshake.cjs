@@ -76,6 +76,22 @@ for (const [name, page] of Object.entries(pages)) {
   );
 }
 
+// Before any of the above can matter the frame has to load at all. The renderer
+// declares default-src 'self' and the player lives on an ephemeral loopback
+// port, so without an explicit frame-src the iframe is refused outright with
+// ERR_BLOCKED_BY_CSP -- no document, no handshake, and a panel that sits on
+// "yükleniyor" with nothing in the renderer console to explain it.
+const indexHtml = fs.readFileSync(path.join(ROOT, "src/renderer/index.html"), "utf8");
+const csp = indexHtml.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]*)"/);
+assert.ok(csp, "the renderer has no Content-Security-Policy meta tag");
+const frameSrc = csp[1].match(/frame-src ([^;"]*)/);
+assert.ok(frameSrc, "no frame-src, so the loopback player iframe is blocked by default-src");
+assert.match(
+  frameSrc[1],
+  /http:\/\/127\.0\.0\.1:\*/,
+  "frame-src must allow http://127.0.0.1:* -- the player host binds an ephemeral port, so no fixed port can be listed",
+);
+
 assert.ok(
   /type:\s*"hello"/.test(playerSource),
   "the renderer never says hello, so no frame can ever learn its origin",

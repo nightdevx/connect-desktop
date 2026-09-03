@@ -161,3 +161,215 @@
   color: #ff7875;
   font-size: 13px;
 }
+
+/* THE ROOM'S VIDEO, AS A STAGE TILE
+   -------------------------------------------------------------------------
+   It takes an ordinary participant slot -- the lobby panel injects a synthetic
+   roster entry for it, the way the music bot gets one -- so it carries
+   .ct-lobby-participant-tile and inherits that tile's border, radius, surface,
+   16:9 box and fitted width from features/lobby.css. Everything below is only
+   what a video needs on top of a tile.
+
+   It used to be .ct-lobby-watch-slot: a fixed 52vh slab above the measured
+   stage area with a shrink factor of zero, so it took its height first and the
+   participant grid was fitted into whatever was left. On a short window that
+   collapsed everyone else into a strip. As a slot it is fitted with them. */
+.ct-watch-tile {
+  padding: 0;
+  /* The tile's own click focuses it, like every other tile on the stage. */
+  cursor: pointer;
+}
+
+.ct-watch-tile__stage {
+  @apply absolute inset-0 overflow-hidden;
+  background: var(--ct-surface-0);
+}
+
+/* The aspect is held by the tile, so the player fills the box rather than
+   imposing the padding ratio it uses when it stands alone in a dialog. */
+.ct-watch-tile__stage .watch-player {
+  position: absolute;
+  inset: 0;
+  padding-top: 0;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* Presented full screen the tile is no longer a fitted 16:9 cell in a grid: it
+   is the screen. Its slot sizing and rounded corners both have to give way, or
+   it paints a rounded letterbox in the middle of a black page. */
+.ct-watch-tile:fullscreen {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+}
+
+/* The bar hides itself until hover, which on a full screen is a bar nobody can
+   find. */
+.ct-watch-tile:fullscreen .ct-watch-tile__bar,
+.ct-watch-tile:fullscreen .ct-watch-tile__meta {
+  opacity: 1;
+  display: flex;
+}
+
+.ct-watch-tile__surface {
+  @apply absolute inset-0 flex items-center justify-center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ct-watch-tile__surface[data-idle="true"] {
+  background: var(--ct-scrim);
+}
+
+.ct-watch-tile__badge {
+  @apply flex items-center justify-center;
+  width: var(--ct-control-lg);
+  height: var(--ct-control-lg);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--ct-on-media);
+  font-size: var(--ct-icon-md);
+  backdrop-filter: blur(6px);
+}
+
+/* Both strips float ON the picture rather than taking height from it: the tile
+   is exactly 16:9 like its neighbours, and a bar laid out in flow would have
+   made it taller than every other tile in the row. */
+.ct-watch-tile__meta {
+  @apply absolute inset-x-0 top-0 z-10 flex items-baseline justify-between overflow-hidden;
+  gap: 10px;
+  padding: 8px 12px 20px;
+  background: linear-gradient(to bottom, var(--ct-scrim), transparent);
+  pointer-events: none;
+}
+
+/* Everything from here down sits ON the video, over a scrim that is dark in
+   BOTH themes. So it is painted with the on-media pair and with fixed alphas,
+   never with --ct-text-* or --ct-alpha-*: those flip to near-black under the
+   light theme, and black on a black scrim is the exact failure the note beside
+   --ct-on-media in base.css was written about. */
+.ct-watch-tile__name {
+  @apply overflow-hidden whitespace-nowrap;
+  color: var(--ct-on-media);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.ct-watch-tile__starter {
+  @apply shrink-0 whitespace-nowrap;
+  color: var(--ct-on-media-muted);
+  font-size: 11px;
+}
+
+.ct-watch-tile__bar {
+  @apply absolute inset-x-0 bottom-0 z-10 flex items-center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(to top, var(--ct-scrim), transparent);
+  opacity: 0;
+  transition: opacity var(--ct-duration-base) var(--ct-ease-premium);
+}
+
+/* Shown on hover, or whenever the video is not running -- a paused film with no
+   visible way to resume it is the one state the controls must not hide in.
+   Keyboard focus counts too, or the bar is unreachable without a mouse. */
+.ct-watch-tile:hover .ct-watch-tile__bar,
+.ct-watch-tile__bar:focus-within,
+.ct-watch-tile[data-idle="true"] .ct-watch-tile__bar {
+  opacity: 1;
+}
+
+/* A thumbnail in the rail has no room for a transport bar or a title strip, and
+   the same is true of a tile in a crowded grid. */
+.ct-watch-tile.compact .ct-watch-tile__bar,
+.ct-watch-tile.compact .ct-watch-tile__meta {
+  display: none;
+}
+
+.ct-watch-tile__btn {
+  @apply flex items-center justify-center shrink-0;
+  width: var(--ct-control-sm);
+  height: var(--ct-control-sm);
+  border: 0;
+  border-radius: var(--ct-radius-sm);
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--ct-on-media);
+  font-size: var(--ct-icon-sm);
+  cursor: pointer;
+  transition:
+    background var(--ct-duration-fast) var(--ct-ease-premium),
+    color var(--ct-duration-fast) var(--ct-ease-premium);
+}
+
+.ct-watch-tile__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.26);
+  color: var(--ct-on-media);
+}
+
+.ct-watch-tile__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ct-watch-tile__btn[data-off="true"] {
+  color: var(--ct-danger);
+}
+
+/* accent-color paints the filled part of the track and the thumb. Fixed white
+   rather than --ct-accent for the same reason as the text above it: the accent
+   is near-black in the light theme, and these two sliders live on the bar's
+   dark scrim — the played portion and the grab handle would both disappear into
+   it, on the control the room uses to seek. */
+.ct-watch-tile__scrub {
+  @apply grow;
+  min-width: 60px;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+
+.ct-watch-tile__scrub:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ct-watch-tile__volume {
+  @apply shrink-0;
+  width: 84px;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+
+/* The volume slider is the first thing a narrow tile can do without: the
+   transport and the clock are not optional, and at this width they stop
+   fitting beside it. */
+@container participant-tile (max-width: 340px) {
+  .ct-watch-tile__volume {
+    display: none;
+  }
+}
+
+.ct-watch-tile__time {
+  @apply shrink-0 whitespace-nowrap;
+  color: var(--ct-on-media-muted);
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-panel__hint {
+  margin: 0 0 10px;
+  color: var(--ct-text-muted);
+  font-size: 12px;
+}
+
+.watch-panel__playing {
+  margin: 10px 0 0;
+  color: var(--ct-text-secondary);
+  font-size: 12px;
+}
