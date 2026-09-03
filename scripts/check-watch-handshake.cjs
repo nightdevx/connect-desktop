@@ -24,11 +24,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const hostSource = fs.readFileSync(path.join(ROOT, "src/main/watch-player-host.ts"), "utf8");
-const playerSource = fs.readFileSync(
-  path.join(ROOT, "src/renderer/src/features/watch/watch-player.tsx"),
-  "utf8",
-);
+
+const read = (relativePath) =>
+  fs.readFileSync(path.join(ROOT, relativePath), "utf8").replace(/\r\n/g, "\n");
+
+const hostSource = read("src/main/watch-player-host.ts");
+const playerSource = read("src/renderer/src/features/watch/watch-player.tsx");
 
 function section(name, startMarker) {
   const start = hostSource.indexOf(startMarker);
@@ -81,7 +82,7 @@ for (const [name, page] of Object.entries(pages)) {
 // port, so without an explicit frame-src the iframe is refused outright with
 // ERR_BLOCKED_BY_CSP -- no document, no handshake, and a panel that sits on
 // "yükleniyor" with nothing in the renderer console to explain it.
-const indexHtml = fs.readFileSync(path.join(ROOT, "src/renderer/index.html"), "utf8");
+const indexHtml = read("src/renderer/index.html");
 const csp = indexHtml.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]*)"/);
 assert.ok(csp, "the renderer has no Content-Security-Policy meta tag");
 const frameSrc = csp[1].match(/frame-src ([^;"]*)/);
