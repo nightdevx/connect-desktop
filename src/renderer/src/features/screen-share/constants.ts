@@ -64,6 +64,18 @@ export const getScreenShareQualityOption = (
   );
 };
 
+export const getLowerScreenShareQuality = (
+  preset: ScreenShareQualityPreset,
+): ScreenShareQualityPreset | null => {
+  const index = SCREEN_SHARE_QUALITY_OPTIONS.findIndex(
+    (option) => option.id === preset,
+  );
+  if (index <= 0) {
+    return null;
+  }
+  return SCREEN_SHARE_QUALITY_OPTIONS[index - 1].id;
+};
+
 export const getScreenShareQualityDimensions = (
   preset: ScreenShareQualityPreset,
 ): { width: number; height: number } => {

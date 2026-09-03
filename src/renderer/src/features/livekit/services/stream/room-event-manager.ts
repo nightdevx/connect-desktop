@@ -6,6 +6,7 @@ import {
   RemoteTrack,
   RemoteTrackPublication,
   DisconnectReason,
+  Track,
   type ConnectionQuality,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
@@ -37,6 +38,11 @@ export class RoomEventManager {
       onPeerConnected: (identity: string) => void;
       onPeerDisconnected: (identity: string) => void;
     },
+    private readonly onTrackStreamState: (
+      identity: string,
+      source: Track.Source,
+      paused: boolean,
+    ) => void,
   ) {}
 
   // Whether the local participant may publish a microphone, as last observed.
@@ -61,8 +67,21 @@ export class RoomEventManager {
       .on(RoomEvent.ActiveSpeakersChanged, this.handleActiveSpeakersChanged)
       .on(RoomEvent.ParticipantPermissionsChanged, this.handlePermissionsChanged)
       .on(RoomEvent.ConnectionQualityChanged, this.handleConnectionQualityChanged)
+      .on(RoomEvent.TrackStreamStateChanged, this.handleTrackStreamStateChanged)
       .on(RoomEvent.DataReceived, this.handleDataReceived);
   }
+
+  private readonly handleTrackStreamStateChanged = (
+    pub: RemoteTrackPublication,
+    streamState: Track.StreamState,
+    participant: RemoteParticipant,
+  ) => {
+    this.onTrackStreamState(
+      participant.identity,
+      pub.source,
+      streamState === Track.StreamState.Paused,
+    );
+  };
 
   private readonly handleConnectionQualityChanged = (
     quality: ConnectionQuality,
@@ -145,6 +164,8 @@ export class RoomEventManager {
     logLiveKitDebug("stream-manager", "participant-disconnected", { identity: p.identity });
     // Nobody announces that they stopped watching on the way out.
     this.screenWatchPresence.onPeerDisconnected(p.identity);
+    this.onTrackStreamState(p.identity, Track.Source.Camera, false);
+    this.onTrackStreamState(p.identity, Track.Source.ScreenShare, false);
     this.updateMediaMap();
   };
 
@@ -201,11 +222,11 @@ export class RoomEventManager {
     pub: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) => {
+    this.onTrackStreamState(participant.identity, pub.source, false);
     this.remoteMediaHandler.handleTrackUnsubscribed(track, pub, participant, this.updateMediaMap);
   };
 
   private readonly handleActiveSpeakersChanged = (speakers: Participant[]) => {
     this.callbacks.onActiveSpeakersChanged?.(speakers.map(s => s.identity));
-    this.updateMediaMap();
   };
 }

@@ -61,13 +61,38 @@ assert.ok(
   "the microphone bitrate must come from the named constant, so it cannot drift from the number this check asserts",
 );
 assert.ok(
-  !source.includes("AudioPresets.musicHighQuality"),
-  "no publish path may use musicHighQuality/musicHighQualityStereo: with RED that is ~190 kbps of speech and ~260 kbps of never-silent screen audio",
+  !source.includes("AudioPresets."),
+  "screen audio publishes from SCREEN_AUDIO_PUBLISH_OPTIONS, not a LiveKit preset: musicStereo is 64 kbps and musicHighQualityStereo is 128, and neither can carry the red:false decision this file asserts below",
+);
+assert.ok(
+  /const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = \{/.test(source),
+  "the two screen-audio publish paths (initial publish and late add) share one options object so they cannot drift apart",
 );
 assert.equal(
-  source.split("audioPreset: AudioPresets.musicStereo,").length - 1,
-  2,
-  "both screen-audio publish paths (initial publish and late add) use musicStereo, and they must not drift apart",
+  source.split("SCREEN_AUDIO_PUBLISH_OPTIONS").length - 1,
+  3,
+  "one declaration and exactly two uses: an inline options literal at either publish site is how the two drifted before",
+);
+
+const screenAudioOptions = source.slice(
+  source.indexOf("const SCREEN_AUDIO_PUBLISH_OPTIONS"),
+  source.indexOf("const SOFTWARE_SVC_TICKS"),
+);
+assert.ok(
+  screenAudioOptions.includes("audioPreset: { maxBitrate: 96_000 }"),
+  "96 kbps stereo, the same budget the music bot encodes at: 64 is audibly thin for game and music audio and 128 buys very little on top of 96",
+);
+assert.ok(
+  screenAudioOptions.includes("red: false"),
+  "RED doubles a never-silent stereo stream (96 -> ~192 kbps) for redundancy Opus already provides in-band; it stays off for screen audio",
+);
+assert.ok(
+  screenAudioOptions.includes("dtx: false"),
+  "DTX must stay off: a quiet passage in music is not silence, and cutting it is audible",
+);
+assert.ok(
+  screenAudioOptions.includes("forceStereo: true"),
+  "game and music audio is stereo; the voice default would fold it to mono",
 );
 
 // --- capture is owned by the controls, never by the manager ----------------

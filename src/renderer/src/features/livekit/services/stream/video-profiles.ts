@@ -60,14 +60,85 @@ const toVideoPreset = (layer: VideoLayerSpec): VideoPreset => {
   });
 };
 
-const resolveScalabilityMode = (layerCount: number): ScalabilityMode => {
-  if (layerCount >= 2) {
-    return "L3T3_KEY";
+const SVC_SCALABILITY_MODE: ScalabilityMode = "L1T3";
+
+const SVC_BITRATE_MULTIPLIER: Partial<Record<VideoCodec, number>> = {
+  av1: 0.7,
+  vp9: 0.85,
+};
+
+export const resolveCodecTarget = (
+  target: VideoPublishTarget,
+  codec: VideoCodec,
+): VideoPublishTarget => {
+  const multiplier = SVC_BITRATE_MULTIPLIER[codec];
+  if (!multiplier) {
+    return target;
   }
-  if (layerCount === 1) {
-    return "L2T3_KEY";
+
+  return {
+    ...target,
+    maxBitrateBps: Math.max(
+      80_000,
+      Math.round(target.maxBitrateBps * multiplier),
+    ),
+  };
+};
+
+const SVC_CODEC_CONTENT_TYPE: Record<"av1" | "vp9", string> = {
+  av1: "video/AV1",
+  vp9: "video/VP9",
+};
+
+const HARDWARE_PROBE_FRAME = {
+  width: 1920,
+  height: 1080,
+  bitrate: 5_000_000,
+  framerate: 60,
+};
+
+export const probeHardwareVideoEncoder = async (
+  codec: "av1" | "vp9",
+): Promise<boolean> => {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.mediaCapabilities?.encodingInfo !== "function" ||
+    typeof RTCRtpSender === "undefined" ||
+    typeof RTCRtpSender.getCapabilities !== "function"
+  ) {
+    return false;
   }
-  return "L1T3";
+
+  const contentType = SVC_CODEC_CONTENT_TYPE[codec];
+  const offered = RTCRtpSender.getCapabilities("video")?.codecs.some(
+    (entry) => entry.mimeType.toLowerCase() === contentType.toLowerCase(),
+  );
+  if (!offered) {
+    return false;
+  }
+
+  try {
+    const info = await navigator.mediaCapabilities.encodingInfo({
+      type: "webrtc",
+      video: {
+        contentType,
+        ...HARDWARE_PROBE_FRAME,
+        scalabilityMode: SVC_SCALABILITY_MODE,
+      },
+    });
+    return info.supported && info.powerEfficient;
+  } catch {
+    return false;
+  }
+};
+
+export const resolveHardwareSvcCodec = async (): Promise<VideoCodec | null> => {
+  for (const codec of ["av1", "vp9"] as const) {
+    if (await probeHardwareVideoEncoder(codec)) {
+      return codec;
+    }
+  }
+  return null;
 };
 
 export type VideoPublishPlan = Pick<
@@ -127,7 +198,7 @@ const applySourceKeyedEncoding = (
  * Screen share used to publish a single non-simulcast layer, which meant the
  * weakest subscriber in the room dragged everyone's quality down — the SFU had
  * nothing lower to forward. Every track now ships a layer ladder: simulcast for
- * H.264/VP8, temporal+spatial SVC for VP9/AV1.
+ * H.264/VP8, temporal SVC (L1T3) for VP9/AV1.
  */
 export const buildVideoPublishPlan = (params: {
   target: VideoPublishTarget;
@@ -155,9 +226,11 @@ export const buildVideoPublishPlan = (params: {
   const degradationPreference: RTCDegradationPreference =
     contentMode === "motion" ? "maintain-framerate" : "maintain-resolution";
 
+  const effectiveTarget = resolveCodecTarget(target, codec);
+
   const encoding = {
-    maxBitrate: target.maxBitrateBps,
-    maxFramerate: target.maxFramerate,
+    maxBitrate: effectiveTarget.maxBitrateBps,
+    maxFramerate: effectiveTarget.maxFramerate,
   };
 
   const maxEncodings = Math.max(
@@ -166,7 +239,11 @@ export const buildVideoPublishPlan = (params: {
       (isScreenShare ? SCREEN_SHARE_MAX_ENCODINGS : cameraMaxEncodings),
   );
 
-  const layers = buildSimulcastLayerSpecs(target, maxEncodings, isScreenShare);
+  const layers = buildSimulcastLayerSpecs(
+    effectiveTarget,
+    maxEncodings,
+    isScreenShare,
+  );
 
   if (isSvcCodec(codec)) {
     return applySourceKeyedEncoding(
@@ -175,7 +252,7 @@ export const buildVideoPublishPlan = (params: {
         // LiveKit ignores simulcast for SVC codecs; the ladder comes from
         // scalabilityMode instead.
         simulcast: false,
-        scalabilityMode: resolveScalabilityMode(layers.length),
+        scalabilityMode: SVC_SCALABILITY_MODE,
         // VP9/AV1 are not decodable everywhere. The default backup policy only
         // spins up the VP8 track when a subscriber actually needs it, so this
         // costs nothing in an all-Chromium fleet.

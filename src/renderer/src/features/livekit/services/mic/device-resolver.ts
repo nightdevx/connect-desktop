@@ -1,4 +1,5 @@
 import { logLiveKitDebug } from "@/services/debug-log";
+import { findCommunicationsDeviceId } from "../audio-devices";
 
 export class DeviceResolver {
   public constructor(private readonly onWarning?: (message: string) => void) {}
@@ -7,7 +8,7 @@ export class DeviceResolver {
     selectedInputDeviceId: string | null,
   ): Promise<string | undefined> {
     if (!selectedInputDeviceId) {
-      return undefined;
+      return findCommunicationsDeviceId("audioinput");
     }
 
     if (
@@ -36,7 +37,7 @@ export class DeviceResolver {
       logLiveKitDebug("mic-controller", "selected-device-not-found", {
         selectedInputDeviceId,
       });
-      return undefined;
+      return findCommunicationsDeviceId("audioinput");
     } catch {
       logLiveKitDebug("mic-controller", "resolve-device-enumeration-failed", {
         selectedInputDeviceId,

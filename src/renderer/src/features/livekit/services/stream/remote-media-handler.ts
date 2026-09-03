@@ -10,6 +10,7 @@ import { logLiveKitDebug } from "@/services/debug-log";
 import { isMusicBotIdentity } from "@shared/music";
 import { readRmsLevel } from "./speaking";
 import { shouldSubscribePublication } from "./constants";
+import { findCommunicationsDeviceId } from "../audio-devices";
 
 // Remote playback runs through a single WebAudio bus:
 //
@@ -477,7 +478,8 @@ export class RemoteMediaHandler {
   }
 
   public async setAudioOutputDevice(deviceId: string | null) {
-    const nextDeviceId = deviceId || "";
+    const nextDeviceId =
+      deviceId || (await findCommunicationsDeviceId("audiooutput")) || "";
     if (this.currentOutputDeviceId === nextDeviceId) {
       return;
     }

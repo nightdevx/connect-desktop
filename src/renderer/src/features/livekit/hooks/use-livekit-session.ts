@@ -8,10 +8,12 @@ import {
   type ParticipantMediaMap,
   type RemoteParticipantAudioPreference,
   type VideoPublishPreferences,
+  type PausedTrackMap,
   type ScreenWatcherMap,
 } from "../services/stream";
 import type { ActiveNoiseSuppressionMode } from "../services/mic";
 import { useMediaStatsStore } from "../store/media-stats-store";
+import { usePausedTracksStore } from "../store/paused-tracks-store";
 import { useScreenWatchersStore } from "../store/screen-watchers-store";
 import { useSpeakingStore } from "../store/speaking-store";
 import {
@@ -306,6 +308,9 @@ export function useLivekitSession(
       onScreenWatchersChanged: (watchers: ScreenWatcherMap) => {
         useScreenWatchersStore.getState().setWatchers(watchers);
       },
+      onPausedTracksChanged: (paused: PausedTrackMap) => {
+        usePausedTracksStore.getState().setPaused(paused);
+      },
       onConnectionQualityChanged: (identity: string, quality: string) => {
         useConnectionQualityStore
           .getState()
@@ -336,6 +341,7 @@ export function useLivekitSession(
     // hear you. Fire-and-forget: a failure falls back to the browser filters and
     // the publish path retries it anyway.
     void session.warmUpMicrophoneChain();
+    void session.warmUpVideoEncoders();
 
     // Hand the restored (or, if this is a re-created session, the current)
     // per-participant choices to the fresh session. Without this the manager's
@@ -355,6 +361,7 @@ export function useLivekitSession(
       measuredSpeakingRef.current = [];
       useMediaStatsStore.getState().setSnapshot(EMPTY_MEDIA_STATS);
       useScreenWatchersStore.getState().setWatchers({});
+      usePausedTracksStore.getState().reset();
       useSpeakingStore.getState().setSpeakingUserIds([]);
       useConnectionQualityStore.getState().reset();
       void session.disconnect();

@@ -13,12 +13,16 @@ const GPU_REPORT_DEADLINE_MS = 8000;
 
 // The historical all-software path. Kept as the escape hatch for machines with
 // broken GPU drivers, where hardware encode produces a black or torn stream.
-const applySoftwareMediaSwitches = (): void => {
+const applySoftwareEncodeSwitches = (): void => {
   app.commandLine.appendSwitch("disable-webrtc-hw-encoding");
-  app.commandLine.appendSwitch("disable-webrtc-hw-decoding");
   app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
   app.commandLine.appendSwitch("disable-gpu-memory-buffer-compositor-resources");
   app.commandLine.appendSwitch("disable-gpu-memory-buffers");
+};
+
+const applySoftwareMediaSwitches = (): void => {
+  applySoftwareEncodeSwitches();
+  app.commandLine.appendSwitch("disable-webrtc-hw-decoding");
 };
 
 export const applyMediaEngineSwitches = (
@@ -50,7 +54,7 @@ export const applyMediaEngineSwitches = (
     );
 
     if (!hardwareAcceleration) {
-      applySoftwareMediaSwitches();
+      applySoftwareEncodeSwitches();
     }
   }
 

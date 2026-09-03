@@ -8,6 +8,15 @@ import type { MediaStatsSnapshot } from "./stats-collector";
 import type { ScreenWatcherMap } from "./screen-watchers";
 
 export type ScreenShareMode = "slides" | "motion";
+
+export type PausedTrackKind = "camera" | "screen";
+
+export type PausedTrackMap = Record<string, boolean>;
+
+export const pausedTrackKey = (
+  identity: string,
+  kind: PausedTrackKind,
+): string => `${identity}:${kind}`;
 export type LiveKitConnectionStatus =
   | "disconnected"
   | "connecting"
@@ -95,6 +104,7 @@ export interface LiveKitStreamManagerCallbacks {
    */
   onMicrophonePermissionChanged?: (allowed: boolean) => void;
   onConnectionQualityChanged?: (identity: string, quality: string) => void;
+  onPausedTracksChanged?: (paused: PausedTrackMap) => void;
 }
 
 export interface LiveKitAudioProcessingPreferences {

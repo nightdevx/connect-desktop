@@ -25,6 +25,7 @@ import {
 } from "../../hooks/media/pip-stream";
 import {
   useConnectionQuality,
+  useTrackPaused,
   type ParticipantConnectionQuality,
 } from "@/features/livekit";
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
@@ -134,6 +135,10 @@ function LobbyParticipantTileImpl({
     Boolean(onWatchScreen);
   const micOpen = !participant.muted && !participant.serverMuted;
   const connectionQuality = useConnectionQuality(participant.userId);
+  const isStreamPaused = useTrackPaused(
+    participant.isLocalUser ? null : participant.userId,
+    kind === "screen" || kind === "camera" ? kind : null,
+  );
   const headphoneOpen = !participant.deafened;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -432,6 +437,11 @@ function LobbyParticipantTileImpl({
             onLoadedMetadata={handleVideoLoadedMetadata}
             onEmptied={() => setHasVideoTrack(false)}
           />
+          {isStreamPaused && (
+            <div className="ct-lobby-tile-stream-paused" role="status">
+              İndirme hızın yetmedi, yayın duraklatıldı
+            </div>
+          )}
           {canUsePictureInPicture && (
             <button
               onClick={handleTogglePictureInPicture}

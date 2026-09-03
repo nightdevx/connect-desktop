@@ -1246,6 +1246,13 @@
   background: var(--ct-alpha-20);
 }
 
+.ct-lobby-tile-stream-paused {
+  @apply absolute inset-x-0 bottom-0 z-20 px-3 py-1.5 text-center text-micro;
+  background: var(--ct-panel-soft);
+  color: var(--ct-alpha-70);
+  backdrop-filter: blur(2px);
+}
+
 .ct-lobby-tile-fullscreen-btn,
 .ct-lobby-tile-pip-btn {
   @apply absolute z-30 inline-flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded-full border;

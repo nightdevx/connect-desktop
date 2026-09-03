@@ -1,5 +1,4 @@
 import {
-  AudioPresets,
   Room,
   Track,
   ConnectionState,
@@ -22,7 +21,9 @@ import {
   type ScreenShareMode,
   type VideoPublishQuality,
   type LiveKitAudioProcessingPreferences,
+  type PausedTrackKind,
   type RemoteParticipantAudioPreference,
+  pausedTrackKey,
 } from "./types";
 import {
   DEFAULT_AUDIO_PROCESSING_PREFERENCES,
@@ -53,6 +54,8 @@ import {
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
+  resolveCodecTarget,
+  resolveHardwareSvcCodec,
   resolveVideoCodec,
   type VideoContentMode,
   type VideoPublishPlan,
@@ -73,8 +76,16 @@ const QUALITY_LIMITATION_TICKS = 4;
 
 const MICROPHONE_BITRATE_BPS = 64_000;
 
-const SCREEN_ENCODER_RELIEF_STEPS = 2;
-const SCREEN_ENCODER_RELIEF_MAX_ENCODINGS = 2;
+const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = {
+  name: "screen_audio",
+  source: Track.Source.ScreenShareAudio,
+  dtx: false,
+  red: false,
+  forceStereo: true,
+  audioPreset: { maxBitrate: 96_000 },
+};
+
+const SOFTWARE_SVC_TICKS = 2;
 
 // A publication that exists and is not muted. Covers a self-mute and a
 // moderator's force-mute identically, which is what we want: either way nothing
@@ -156,6 +167,7 @@ export class LiveKitMediaSession {
   // does not re-render every tile in the room.
   private lastEmittedWatchers: ScreenWatcherMap = {};
   private readonly remoteAudioPreferences = new Map<string, RemoteParticipantAudioPreference>();
+  private readonly pausedTracks = new Set<string>();
   // Single-flight guard for connect().
   private connectPromise: Promise<void> | null = null;
   private connectingLobbyId: string | null = null;
@@ -165,7 +177,6 @@ export class LiveKitMediaSession {
   private statsCollector: MediaStatsCollector | null = null;
   private readonly microphoneController: LiveKitMicrophoneController;
 
-  private audioContext: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
   private localAudioSource: MediaStreamAudioSourceNode | null = null;
   // Resolved speaking state per LiveKit identity — everyone in the room,
@@ -181,9 +192,14 @@ export class LiveKitMediaSession {
 
   private limitedTicks = 0;
   private limitationNotified = false;
-  // 0 = full ladder, 1 = two encodings, 2 = two encodings on VP9 SVC.
-  private screenEncoderRelief = 0;
-  private reliefInFlight = false;
+  private softwareSvcTicks = 0;
+  private hardwareSvcCodec: VideoCodec | null = null;
+  private hardwareSvcProbe: Promise<void> | null = null;
+  private screenCodecFallback: VideoCodec | null = null;
+  private codecFallbackInFlight = false;
+  private encoderOverloadHandler:
+    | ((reason: "cpu" | "bandwidth") => void)
+    | null = null;
   private videoQueue: Promise<void> = Promise.resolve();
 
   public constructor(
@@ -321,17 +337,18 @@ export class LiveKitMediaSession {
     if (stream.id === this.lastCapturedStreamId) return;
 
     try {
-      if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext!)();
+      const context = this.microphoneController.getOrCreateAudioContext();
+      if (!context || context.state === "closed") {
+        return;
       }
-      
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
+
+      if (context.state === "suspended") {
+        await context.resume();
       }
 
       this.localAudioSource?.disconnect();
 
-      this.localAnalyser = this.audioContext.createAnalyser();
+      this.localAnalyser = context.createAnalyser();
       this.localAnalyser.fftSize = 256;
 
       // Straight into the analyser, with no gain node in between. The stream fed
@@ -341,7 +358,7 @@ export class LiveKitMediaSession {
       // volume your own speaking ring stayed dark while everyone else saw you
       // talking. That asymmetry is exactly what the speaking gate exists to
       // remove.
-      this.localAudioSource = this.audioContext.createMediaStreamSource(stream);
+      this.localAudioSource = context.createMediaStreamSource(stream);
       this.localAudioSource.connect(this.localAnalyser);
       this.lastCapturedStreamId = stream.id;
     } catch (err) {
@@ -483,6 +500,8 @@ export class LiveKitMediaSession {
           }
         },
       },
+      (identity, source, paused) =>
+        this.handleTrackStreamState(identity, source, paused),
     );
 
     this.roomEventManager.registerEvents();
@@ -490,9 +509,11 @@ export class LiveKitMediaSession {
 
     this.limitedTicks = 0;
     this.limitationNotified = false;
+    this.softwareSvcTicks = 0;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.(snapshot);
       this.evaluateQualityLimitation(snapshot);
+      this.evaluateScreenEncoderCodec(snapshot);
     });
 
     if (this.remoteMediaHandler && this.audioProcessingPreferences.selectedAudioOutputDeviceId) {
@@ -552,20 +573,6 @@ export class LiveKitMediaSession {
     }
   }
 
-  private async cleanupLocalAudioMonitoring(): Promise<void> {
-    await this.updateLocalAudioSource(null);
-    if (this.audioContext) {
-      try {
-        if (this.audioContext.state !== "closed") {
-          await this.audioContext.close();
-        }
-      } catch (err) {
-        console.warn("[LiveKitMediaSession] Failed to close audioContext:", err);
-      }
-      this.audioContext = null;
-    }
-  }
-
   public async disconnect(): Promise<void> {
     // Pin the room this call is tearing down, the same way connectInternal
     // does. `this.room` is read again after several awaits below, and callers
@@ -592,6 +599,7 @@ export class LiveKitMediaSession {
     this.watchStateByViewer.clear();
     this.lastEmittedWatchers = {};
     this.callbacks.onScreenWatchersChanged?.({});
+    this.clearPausedTracks();
     this.stopAudioMonitoring();
     this.statsCollector?.stop();
     this.statsCollector = null;
@@ -633,8 +641,8 @@ export class LiveKitMediaSession {
       return;
     }
 
-    // 2. Cleanup local audio monitoring (AudioContext, source node, analyzer)
-    await this.cleanupLocalAudioMonitoring();
+    // 2. Cleanup local audio monitoring (source node, analyser)
+    await this.updateLocalAudioSource(null);
 
     this.room = null;
 
@@ -705,7 +713,8 @@ export class LiveKitMediaSession {
     quality: VideoPublishQuality | null = null,
   ): Promise<void> {
     if (!enabled || stream !== this.desiredScreenStream) {
-      this.screenEncoderRelief = 0;
+      this.screenCodecFallback = null;
+      this.softwareSvcTicks = 0;
     }
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
@@ -908,6 +917,50 @@ export class LiveKitMediaSession {
     this.emitScreenWatchers();
   }
 
+  private handleTrackStreamState(
+    identity: string,
+    source: Track.Source,
+    paused: boolean,
+  ): void {
+    let kind: PausedTrackKind;
+    if (source === Track.Source.ScreenShare) {
+      kind = "screen";
+    } else if (source === Track.Source.Camera) {
+      kind = "camera";
+    } else {
+      return;
+    }
+
+    const key = pausedTrackKey(identity, kind);
+    if (paused === this.pausedTracks.has(key)) {
+      return;
+    }
+
+    if (paused) {
+      this.pausedTracks.add(key);
+    } else {
+      this.pausedTracks.delete(key);
+    }
+
+    this.emitPausedTracks();
+  }
+
+  private emitPausedTracks(): void {
+    const paused: Record<string, boolean> = {};
+    for (const key of this.pausedTracks) {
+      paused[key] = true;
+    }
+    this.callbacks.onPausedTracksChanged?.(paused);
+  }
+
+  private clearPausedTracks(): void {
+    if (this.pausedTracks.size === 0) {
+      return;
+    }
+    this.pausedTracks.clear();
+    this.callbacks.onPausedTracksChanged?.({});
+  }
+
   /** Recomputes the audiences and reports them if they moved. */
   private emitScreenWatchers(): void {
     const next = buildWatcherMap(
@@ -947,10 +1000,14 @@ export class LiveKitMediaSession {
 
     this.limitationNotified = true;
 
+    if (this.desiredScreenEnabled && this.encoderOverloadHandler) {
+      this.encoderOverloadHandler(
+        limitation.kind === "cpu" ? "cpu" : "bandwidth",
+      );
+      return;
+    }
+
     if (limitation.softwareEncoderAtFault) {
-      if (this.relieveScreenEncoder()) {
-        return;
-      }
       this.callbacks.onWarning?.(
         "Video yazılımla kodlanıyor ve işlemci yetişemiyor. Ayarlar → Uygulama'dan donanım hızlandırmayı açın.",
       );
@@ -969,25 +1026,47 @@ export class LiveKitMediaSession {
     );
   }
 
-  private relieveScreenEncoder(): boolean {
+  private evaluateScreenEncoderCodec(snapshot: MediaStatsSnapshot): void {
     if (
       !this.desiredScreenEnabled ||
-      !this.desiredScreenStream ||
-      this.reliefInFlight ||
-      this.screenEncoderRelief >= SCREEN_ENCODER_RELIEF_STEPS
+      this.screenCodecFallback ||
+      this.codecFallbackInFlight
     ) {
-      return false;
+      return;
     }
 
-    this.screenEncoderRelief += 1;
-    this.reliefInFlight = true;
-    const step = this.screenEncoderRelief;
+    const codec = this.resolveScreenCodec();
+    if (codec !== "av1" && codec !== "vp9") {
+      return;
+    }
 
-    logLiveKitDebug("stream-manager", "screen-encoder-relief", { step });
+    const screen = snapshot.outbound.find(
+      (entry) =>
+        entry.kind === "video" &&
+        entry.trackKey === `local:${Track.Source.ScreenShare}`,
+    );
+
+    if (!screen || screen.hardwareEncoder !== false) {
+      this.softwareSvcTicks = 0;
+      return;
+    }
+
+    this.softwareSvcTicks += 1;
+    if (this.softwareSvcTicks < SOFTWARE_SVC_TICKS) {
+      return;
+    }
+
+    this.softwareSvcTicks = 0;
+    this.screenCodecFallback = this.resolvedVideoCodec;
+    this.codecFallbackInFlight = true;
+
+    logLiveKitDebug("stream-manager", "screen-codec-fallback", {
+      from: codec,
+      to: this.screenCodecFallback,
+      implementation: screen.encoderImplementation,
+    });
     this.callbacks.onWarning?.(
-      step === 1
-        ? "İşlemci yayına yetişemiyor; katman sayısı düşürüldü."
-        : "İşlemci hâlâ yetişemiyor; yayın VP9'a geçiriliyor.",
+      "Donanım kodlayıcı bu video biçimini kullanamadı, yayın H.264'e geçiriliyor.",
     );
 
     void this.enqueueVideo(async () => {
@@ -995,18 +1074,24 @@ export class LiveKitMediaSession {
         await this.unpublishScreenTracks();
         await this.applyScreenStateInternal();
       } catch (error) {
-        logLiveKitDebug("stream-manager", "screen-encoder-relief-failed", {
-          step,
+        logLiveKitDebug("stream-manager", "screen-codec-fallback-failed", {
           error,
         });
       } finally {
-        this.reliefInFlight = false;
-        this.limitedTicks = 0;
-        this.limitationNotified = false;
+        this.codecFallbackInFlight = false;
       }
     });
+  }
 
-    return true;
+  public setEncoderOverloadHandler(
+    handler: ((reason: "cpu" | "bandwidth") => void) | null,
+  ): void {
+    this.encoderOverloadHandler = handler;
+  }
+
+  public resetEncoderOverloadNotice(): void {
+    this.limitedTicks = 0;
+    this.limitationNotified = false;
   }
 
   private async unpublishScreenTracks(): Promise<void> {
@@ -1027,9 +1112,37 @@ export class LiveKitMediaSession {
   }
 
   private resolveScreenCodec(): VideoCodec {
-    return this.screenEncoderRelief >= SCREEN_ENCODER_RELIEF_STEPS
-      ? "vp9"
-      : this.resolvedVideoCodec;
+    if (
+      this.videoPublishPreferences.codec !== "auto" ||
+      !this.videoPublishPreferences.hardwareAcceleration
+    ) {
+      return this.resolvedVideoCodec;
+    }
+
+    return (
+      this.screenCodecFallback ??
+      this.hardwareSvcCodec ??
+      this.resolvedVideoCodec
+    );
+  }
+
+  public warmUpVideoEncoders(): Promise<void> {
+    if (this.hardwareSvcProbe) {
+      return this.hardwareSvcProbe;
+    }
+
+    this.hardwareSvcProbe = resolveHardwareSvcCodec()
+      .then((codec) => {
+        this.hardwareSvcCodec = codec;
+        logLiveKitDebug("stream-manager", "hardware-svc-probe", {
+          codec: codec ?? "none",
+        });
+      })
+      .catch(() => {
+        this.hardwareSvcCodec = null;
+      });
+
+    return this.hardwareSvcProbe;
   }
 
   private buildMicrophonePreferences(
@@ -1140,8 +1253,15 @@ export class LiveKitMediaSession {
     }
 
     let encodings: RTCRtpEncodingParameters[];
+    let negotiatedCodec: { mimeType: string; sdpFmtpLine?: string } | null =
+      null;
     try {
-      encodings = sender.getParameters().encodings ?? [];
+      const parameters = sender.getParameters();
+      encodings = parameters.encodings ?? [];
+      const codec = parameters.codecs?.[0];
+      negotiatedCodec = codec
+        ? { mimeType: codec.mimeType, sdpFmtpLine: codec.sdpFmtpLine }
+        : null;
     } catch {
       // Sender can be torn down between publish and readback.
       return;
@@ -1154,6 +1274,7 @@ export class LiveKitMediaSession {
         maxFramerate: target.maxFramerate,
         maxBitrate: target.maxBitrateBps,
       },
+      negotiatedCodec,
       actual: encodings.map((encoding) => ({
         rid: encoding.rid ?? null,
         maxBitrate: encoding.maxBitrate ?? null,
@@ -1299,10 +1420,11 @@ export class LiveKitMediaSession {
     this.desiredScreenMode = mode;
     if (quality) this.desiredScreenQuality = quality;
 
+    const codec = this.resolveScreenCodec();
     const target = this.resolveScreenTarget(nextTrack);
     const plan = buildVideoPublishPlan({
       target,
-      codec: this.resolvedVideoCodec,
+      codec,
       contentMode,
       isScreenShare: true,
     });
@@ -1317,7 +1439,11 @@ export class LiveKitMediaSession {
       layers: plan.screenShareSimulcastLayers?.length ?? 0,
     });
 
-    this.verifyPublishedEncodings("screen-replace", publication, target);
+    this.verifyPublishedEncodings(
+      "screen-replace",
+      publication,
+      resolveCodecTarget(target, codec),
+    );
 
     return true;
   }
@@ -1385,7 +1511,11 @@ export class LiveKitMediaSession {
         ...plan,
       });
 
-      this.verifyPublishedEncodings("camera", publication, target);
+      this.verifyPublishedEncodings(
+        "camera",
+        publication,
+        resolveCodecTarget(target, this.resolvedVideoCodec),
+      );
     } else {
       // No stream to publish. This used to fall through to
       // setCameraEnabled(true), which captures with publishDefaults only —
@@ -1438,16 +1568,13 @@ export class LiveKitMediaSession {
         // no-op
       }
 
+      const codec = this.resolveScreenCodec();
       const target = this.resolveScreenTarget(screenTrack);
       const plan = buildVideoPublishPlan({
         target,
-        codec: this.resolveScreenCodec(),
+        codec,
         contentMode,
         isScreenShare: true,
-        maxEncodingsOverride:
-          this.screenEncoderRelief > 0
-            ? SCREEN_ENCODER_RELIEF_MAX_ENCODINGS
-            : undefined,
       });
 
       logLiveKitDebug("stream-manager", "publish-screen", {
@@ -1458,7 +1585,7 @@ export class LiveKitMediaSession {
         simulcast: plan.simulcast,
         layers: plan.screenShareSimulcastLayers?.length ?? 0,
         scalabilityMode: plan.scalabilityMode ?? null,
-        encoderRelief: this.screenEncoderRelief,
+        codecFallback: this.screenCodecFallback ?? null,
       });
 
       const publication = await participant.publishTrack(screenTrack, {
@@ -1467,7 +1594,11 @@ export class LiveKitMediaSession {
         ...plan,
       });
 
-      this.verifyPublishedEncodings("screen", publication, target);
+      this.verifyPublishedEncodings(
+        "screen",
+        publication,
+        resolveCodecTarget(target, codec),
+      );
 
       // Also publish audio track if available (screen share audio)
       const audioTracks = this.desiredScreenStream?.getAudioTracks() ?? [];
@@ -1491,17 +1622,10 @@ export class LiveKitMediaSession {
           // it on the mono 32 kbps voice default, which is where most of the
           // "screen share audio sounds bad" came from. dtx stays off so a quiet
           // passage is not mistaken for silence and cut.
-          await participant.publishTrack(audioTrack, {
-            name: "screen_audio",
-            source: Track.Source.ScreenShareAudio,
-            dtx: false,
-            red: true,
-            forceStereo: true,
-            // 64 kbps stereo, not 128. Screen audio never goes silent (dtx is
-            // off on purpose, so a quiet passage is not cut), so this is a
-            // constant cost sitting next to the share's own video budget.
-            audioPreset: AudioPresets.musicStereo,
-          });
+          await participant.publishTrack(
+            audioTrack,
+            SCREEN_AUDIO_PUBLISH_OPTIONS,
+          );
           logLiveKitDebug("stream-manager", "screen-audio-published-success", {
             trackId: audioTrack.id,
           });
@@ -1626,6 +1750,7 @@ export class LiveKitMediaSession {
     // the outage would otherwise stay in the count forever.
     this.watchStateByViewer.clear();
     this.lastEmittedWatchers = {};
+    this.clearPausedTracks();
     void this.updateLocalAudioSource(null);
     this.callbacks.onRemoteStreamsChanged?.({});
     this.callbacks.onScreenWatchersChanged?.({});
@@ -1849,15 +1974,7 @@ export class LiveKitMediaSession {
     }
 
     stream.addTrack(track);
-    await participant.publishTrack(track, {
-      name: "screen_audio",
-      source: Track.Source.ScreenShareAudio,
-      dtx: false,
-      red: true,
-      forceStereo: true,
-      // Same budget as the publish path above; see the note there.
-      audioPreset: AudioPresets.musicStereo,
-    });
+    await participant.publishTrack(track, SCREEN_AUDIO_PUBLISH_OPTIONS);
     logLiveKitDebug("stream-manager", "screen-audio-added", {
       trackId: track.id,
     });

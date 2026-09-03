@@ -16,7 +16,8 @@ import {
   type ScreenShareSourceKind,
   getScreenShareQualityDimensions,
   getScreenShareQualityOption,
-  getDefaultScreenShareQuality
+  getDefaultScreenShareQuality,
+  getLowerScreenShareQuality
 } from "@/features/screen-share";
 import workspaceService from "../../services";
 import { type StreamPreferences } from "../../components/settings/settings-main-panel-types";
@@ -709,6 +710,49 @@ export const useScreenShareControls = ({
       liveShareRef.current = null;
     }
   }, [screenEnabled]);
+
+  useEffect(() => {
+    const session = liveKitSessionRef.current;
+    if (!session) {
+      return;
+    }
+
+    session.setEncoderOverloadHandler((reason) => {
+      const live = liveShareRef.current;
+      if (!live) {
+        return;
+      }
+
+      if (isSwappingLiveShareRef.current) {
+        liveKitSessionRef.current?.resetEncoderOverloadNotice();
+        return;
+      }
+
+      const cause =
+        reason === "cpu"
+          ? "İşlemci yayına yetişemiyor"
+          : "Yükleme hızı yayına yetmiyor";
+      const lower = getLowerScreenShareQuality(live.quality);
+
+      if (!lower) {
+        setStatus(`${cause}; kalite daha fazla düşürülemiyor.`, "warn");
+        return;
+      }
+
+      setStatus(
+        `${cause}, yayın kalitesi "${getScreenShareQualityOption(lower).label}" seviyesine düşürüldü.`,
+        "warn",
+      );
+
+      void applyLiveScreenShareChange({ quality: lower }).finally(() => {
+        liveKitSessionRef.current?.resetEncoderOverloadNotice();
+      });
+    });
+
+    return () => {
+      session.setEncoderOverloadHandler(null);
+    };
+  }, [applyLiveScreenShareChange, liveKitSessionRef, setStatus]);
 
   // The toolbar's stream menu lives four components away from this hook and
   // every file on the path is owned by something else, so the controls are

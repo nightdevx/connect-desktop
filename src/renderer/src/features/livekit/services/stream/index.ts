@@ -7,6 +7,9 @@ export {
 export {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
+  probeHardwareVideoEncoder,
+  resolveCodecTarget,
+  resolveHardwareSvcCodec,
   resolveScreenContentMode,
   resolveVideoCodec,
   type VideoCodecPreference,

@@ -141,11 +141,39 @@ const main = async () => {
     isScreenShare: true,
   });
   assert.equal(svc.simulcast, false);
-  assert.equal(svc.scalabilityMode, "L2T3_KEY");
+  assert.equal(
+    svc.scalabilityMode,
+    "L1T3",
+    "temporal only: Chromium's MediaFoundation encoders have no spatial SVC, and asking for one drops the publish to a software encoder without saying so",
+  );
   assert.equal(
     svc.screenShareEncoding?.maxFramerate,
     60,
     "SVC reads the same source-keyed encoding — it is picked before the branch",
+  );
+  assert.equal(
+    svc.screenShareEncoding?.maxBitrate,
+    3_500_000,
+    "AV1 carries the same picture in ~30% fewer bits, and LiveKit only applies that factor when no explicit encoding is supplied — which this app always supplies",
+  );
+  assert.equal(
+    svc.screenShareSimulcastLayers,
+    undefined,
+    "an SVC plan must not carry a simulcast ladder",
+  );
+
+  const svcVp9 = buildVideoPublishPlan({
+    target,
+    codec: "vp9",
+    contentMode: "motion",
+    isScreenShare: true,
+  });
+  assert.equal(svcVp9.screenShareEncoding?.maxBitrate, 4_250_000);
+
+  assert.equal(
+    screen.screenShareEncoding?.maxBitrate,
+    5_000_000,
+    "only SVC codecs get the reduction; H.264 has to keep the ceiling the preset promised",
   );
 
   fs.rmSync(outDir, { recursive: true, force: true });
