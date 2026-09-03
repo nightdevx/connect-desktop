@@ -24,21 +24,20 @@ const read = (relativePath) =>
 const shared = read("src/shared/media-diagnostics.ts");
 const collector = read("src/renderer/src/services/media-diagnostics.ts");
 const debugLog = read("src/renderer/src/services/debug-log.ts");
-const goShared = fs.readFileSync(
-  path.join(projectRoot, "..", "backend-go", "internal", "mediadiag", "mediadiag.go"),
-  "utf8",
+const goSharedPath = path.join(
+  projectRoot,
+  "..",
+  "backend-go",
+  "internal",
+  "mediadiag",
+  "mediadiag.go",
 );
+const goShared = fs.existsSync(goSharedPath)
+  ? fs.readFileSync(goSharedPath, "utf8")
+  : null;
 
-// --- the two halves agree on the schema version ----------------------------
 const tsVersion = shared.match(/MEDIA_DIAGNOSTICS_SCHEMA_VERSION\s*=\s*(\d+)/);
 assert.ok(tsVersion, "the client declares no schema version");
-const goVersion = goShared.match(/SchemaVersion\s*=\s*(\d+)/);
-assert.ok(goVersion, "the server declares no schema version");
-assert.equal(
-  tsVersion[1],
-  goVersion[1],
-  "client and server schema versions have drifted; a reader cannot tell which shape a stored session has",
-);
 
 // --- every problem tag is resolvable ---------------------------------------
 const problemValues = [
@@ -97,22 +96,45 @@ for (const cap of [
   assert.ok(shared.includes(`${cap}:`), `MEDIA_DIAGNOSTICS_LIMITS is missing ${cap}`);
 }
 
-const batchCap = Number(shared.match(/maxEntriesPerBatch:\s*([\d_]+)/)[1].replace(/_/g, ""));
-const goBatchCap = Number(goShared.match(/MaxEntriesPerBatch\s*=\s*(\d+)/)[1]);
-assert.ok(
-  goBatchCap >= batchCap,
-  `the server truncates batches at ${goBatchCap} but the client sends up to ${batchCap}; entries would be silently dropped`,
-);
+// --- the two halves agree, when both halves are here ----------------------
+let crossRepo = "cross-repo checks skipped";
+if (goShared) {
+  const goVersion = goShared.match(/SchemaVersion\s*=\s*(\d+)/);
+  assert.ok(goVersion, "the server declares no schema version");
+  assert.equal(
+    tsVersion[1],
+    goVersion[1],
+    "client and server schema versions have drifted; a reader cannot tell which shape a stored session has",
+  );
 
-const sessionCap = Number(
-  shared.match(/maxEntriesPerSession:\s*([\d_]+)/)[1].replace(/_/g, ""),
-);
-const goSessionCap = Number(goShared.match(/MaxEntriesPerSession\s*=\s*(\d+)/)[1]);
-assert.equal(
-  goSessionCap,
-  sessionCap,
-  "client and server disagree on the per-session entry cap",
-);
+  const batchCap = Number(
+    shared.match(/maxEntriesPerBatch:\s*([\d_]+)/)[1].replace(/_/g, ""),
+  );
+  const goBatchCap = Number(goShared.match(/MaxEntriesPerBatch\s*=\s*(\d+)/)[1]);
+  assert.ok(
+    goBatchCap >= batchCap,
+    `the server truncates batches at ${goBatchCap} but the client sends up to ${batchCap}; entries would be silently dropped`,
+  );
+
+  const sessionCap = Number(
+    shared.match(/maxEntriesPerSession:\s*([\d_]+)/)[1].replace(/_/g, ""),
+  );
+  const goSessionCap = Number(
+    goShared.match(/MaxEntriesPerSession\s*=\s*(\d+)/)[1],
+  );
+  assert.equal(
+    goSessionCap,
+    sessionCap,
+    "client and server disagree on the per-session entry cap",
+  );
+
+  crossRepo = "caps aligned";
+} else {
+  console.log(
+    "check-media-diagnostics: backend-go is not checked out beside this repo — " +
+      "the schema-version and entry-cap parity checks were SKIPPED",
+  );
+}
 
 // --- the summary carries what a diagnosis reads first ----------------------
 for (const field of [
@@ -142,5 +164,5 @@ assert.ok(
 );
 
 console.log(
-  `media-diagnostics self-check passed (schema v${tsVersion[1]}, ${tags.length} problem tags, caps aligned)`,
+  `media-diagnostics self-check passed (schema v${tsVersion[1]}, ${tags.length} problem tags, ${crossRepo})`,
 );
