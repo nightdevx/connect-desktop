@@ -32,6 +32,7 @@ import type {
   AdminStats,
   PresenceStatus,
   SelectablePresenceStatus,
+  UserActivity,
   FriendEntry,
   FriendRequestLists,
   PrivacySettings,
@@ -112,6 +113,7 @@ export interface DesktopAppPreferences {
   // waiting for you, a giveaway is an errand. Both must be refusable on
   // their own.
   freeGameNotifications: boolean;
+  shareGameActivity: boolean;
 }
 
 export type DesktopNotificationKind =
@@ -472,6 +474,14 @@ export type UserDirectoryStreamEvent =
         userId: string;
         appOnline: boolean;
         presence?: PresenceStatus;
+      };
+      at?: string;
+    }
+  | {
+      type: "user-activity-updated";
+      activity: {
+        userId: string;
+        activity?: UserActivity | null;
       };
       at?: string;
     }

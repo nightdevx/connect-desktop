@@ -4,7 +4,7 @@ Bu belge, yönetim panelinden indirilen `.ndjson` dosyasının tam sözleşmesid
 Dosyayı bir analize verirken bu belgeyi de ver: alan adları, birimler ve olay
 sözlüğü burada tanımlı.
 
-**Şema sürümü: 1.** Her satır kendi sürümünü taşır.
+**Şema sürümü: 2.** Her satır kendi sürümünü taşır.
 
 ## 1. Dosya biçimi
 
@@ -17,10 +17,10 @@ oturumun `session` satırı. Aralık indirmesi böyle çalışır, tek oturum
 indirmesinde tek bir blok olur.
 
 ```
-{"type":"session","schemaVersion":1,"sessionId":"...", ...}
+{"type":"session","schemaVersion":2,"sessionId":"...", ...}
 {"type":"entry","sessionId":"...","entry":{...}}
 {"type":"entry","sessionId":"...","entry":{...}}
-{"type":"session","schemaVersion":1,"sessionId":"...", ...}
+{"type":"session","schemaVersion":2,"sessionId":"...", ...}
 ...
 ```
 
@@ -78,14 +78,23 @@ Birim her alan adında yazılı: `Ms`, `Bps`, `Pct`.
 | `outboundVideo.resolutions` | `"1920x1080"` → örnek sayısı. Birden çok anahtar, çözünürlük düşüşü demektir. |
 | `outboundVideo.layerCounts` | Katman sayısı → örnek sayısı. `"1"` SVC, `"2"`/`"3"` simulcast. |
 | `outboundVideo.fps`, `bitrateBps` | Gerçekte gönderilen. Preset tavanıyla kıyasla. |
-| `outboundVideo.limitation` | `{none, cpu, bandwidth, other}` örnek sayıları. Tanının merkezi. |
+| `outboundVideo.limitation` | `{none, cpu, bandwidth, other}` **örnek sayıları**. Süre değil; `limitationSeconds` kullan. |
+| `outboundVideo.limitationSeconds` | **v2.** Kısıtın gerçek süresi (sn). `limitation` sayımları yalnızca kaç örneğin kısıt anına denk geldiğini söyler — 3 saatlik bir yayında 2417 örneğin 10'u "cpu" demek, sorunun 20 sn mi 20 dk mı sürdüğünü söylemez. Bu alan söyler. |
+| `outboundVideo.sourceFps`, `sourceResolutions` | **v2.** Kodlayıcının değil, **yakalamanın** ürettiği. `fps` ile birlikte oku: ikisi de düşükse kaynak besleyemiyor, kaynak yüksek `fps` düşükse kodlayıcı yetişemiyor. Bu ikisi zıt çözüm ister ve v1'de ayırt edilemiyordu. |
+| `outboundVideo.encodeMsPerFrame` | **v2.** Kare başına kodlama süresi. ~16 ms üstünde 60 fps, ~33 ms üstünde 30 fps ulaşılamaz. |
+| `outboundVideo.framesDroppedPct` | **v2.** Kodlayıcıya sunulup atılan kare oranı. |
+| `outboundVideo.retransmittedPct` | **v2.** NACK üzerine yeniden gönderilen paket oranı. Ağ toparlıyor mu, yoksa kaybediyor mu. |
 | `inboundVideo.*` | Alınan tarafın aynası. `freezeCountMax` kümülatiftir, oran değil. |
 | `inboundAudioConcealmentPct` | Opus'un uydurduğu örnek yüzdesi. %3 üstü duyulur. |
 | `inboundAudioJitterMs` | Alınan ses jitter'ı. |
 | `packetLossOutboundPct`, `packetLossInboundPct` | Yönlere göre kayıp. |
+| `inboundAudioConcealmentPct` | **v2'de anlamı daraldı:** artık yalnızca *duyulur* kesinti. DTX sessizliği (`silentConcealedSamples`) çıkarılıyor. v1'de bu alan konuşmayan bir katılımcıyı bozuk hat gibi gösteriyordu. |
 | `eventCounts` | `"<scope>/<name>"` → sayı. Hangi olayın kaç kez olduğunu tek bakışta verir. |
 | `warnings` | Kullanıcıya gösterilen uyarı metni → sayı. |
 | `problems` | Bölüm 5. |
+| `episodes` | **v2.** Sorunun *ne zaman* olduğu: `{problem, startMs, endMs, samples, peak}`. Etiket "3 saatte bir yerde oldu" der, bu "18:42–18:47 arası, en kötü %33" der. En uzun 40 dilim tutulur. |
+| `remotes` | **v2.** Katılımcı bazında alım: `{identity, samples, packetLossPct, concealmentPct, jitterMs, bitrateBps}`. **Tek kişi mi bozuk, herkes mi** sorusunun cevabı — biri bozuksa onun gönderme yolu, hepsi bozuksa bu makinenin indirme yolu. v1'de hepsi tek sayıya havuzlanıyordu. |
+| `verdicts` | **v2.** `{code, headline, evidence[]}`. Sıralı teşhis ve dayandığı sayılar. `deriveVerdicts(summary)` saf fonksiyonu üretir; okuyucu tarafında yeniden çalıştırılabilir, yani eski oturumlar bugünün kurallarıyla yeniden yargılanır. |
 
 ## 5. `problems` — türetilmiş sorun etiketleri
 
@@ -256,6 +265,7 @@ jq -r 'select(.type=="entry" and (.entry.name|test("-encodings$")))
 | Sürüm | Değişiklik |
 |---|---|
 | 1 | İlk şema. |
+| 2 | Teşhis katmanı. **Yeni özet alanları:** `episodes`, `remotes`, `verdicts`; `outboundVideo.limitationSeconds` / `sourceFps` / `sourceResolutions` / `encodeMsPerFrame` / `framesDroppedPct` / `retransmittedPct`. **Yeni örnek alanları:** giden seste `trackKey` ve `retransmittedPct`, gelen seste `silentPct` / `jitterBufferTargetMs` / `packetsDiscarded`, giden videoda `sourceFps` / `sourceResolution` / `encodeMsPerFrame` / `framesDroppedPct`. **Anlamı değişen:** `concealmentPct` artık DTX sessizliğini saymıyor (bu yüzden sürüm arttı); `problems` etiketleri tek örnekle değil `problemDwellSamples` kadar ardışık örnekle tetikleniyor; `availableOutgoingBitrateBps` 1 Gbps yer tutucusunda `null`; renegotiation'ı aşan pencerelerde oran alanları `null`. **Yeni olay:** `stream-manager/quality-limitation-detected` (kararın dayandığı ölçümler), `stream-manager/room-signal-reconnecting`, `session/lobby-changed` (eskiden yanlışlıkla `room-reconnected`). |
 
 Şemayı değiştirirken: alan silmek ya da anlamını değiştirmek sürüm artışı
 gerektirir; alan eklemek gerektirmez. `MEDIA_DIAGNOSTICS_SCHEMA_VERSION` ve

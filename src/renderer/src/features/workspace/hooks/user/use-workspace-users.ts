@@ -202,6 +202,14 @@ export const useWorkspaceUsers = ({
           presence:
             event.presence.presence ??
             (event.presence.appOnline ? "online" : "offline"),
+          ...(event.presence.appOnline ? {} : { activity: null }),
+        });
+        return;
+      }
+
+      if (event.type === "user-activity-updated") {
+        patchDirectory(event.activity.userId, {
+          activity: event.activity.activity ?? null,
         });
         return;
       }

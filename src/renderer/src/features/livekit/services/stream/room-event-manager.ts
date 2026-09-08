@@ -53,6 +53,7 @@ export class RoomEventManager {
     this.room
       .on(RoomEvent.Connected, this.handleConnected)
       .on(RoomEvent.Reconnecting, this.handleReconnecting)
+      .on(RoomEvent.SignalReconnecting, this.handleSignalReconnecting)
       .on(RoomEvent.Reconnected, this.handleReconnected)
       .on(RoomEvent.Disconnected, this.onDisconnected)
       .on(RoomEvent.ParticipantConnected, this.handleParticipantConnected)
@@ -98,6 +99,16 @@ export class RoomEventManager {
   private readonly handleReconnecting = () => {
     logLiveKitDebug("stream-manager", "room-reconnecting");
     this.callbacks.onConnectionStateChanged?.("reconnecting");
+  };
+
+  // The signal socket dropped while the media path stayed up. LiveKit does NOT
+  // emit Reconnecting for this one, only SignalReconnecting and then
+  // Reconnected — so without this handler the logs showed a "room-reconnected"
+  // with no beginning, and the diagnostics never learned the session had
+  // reconnected at all. The connection state is deliberately left alone: media
+  // is still flowing, and flipping the badge to "reconnecting" would be a lie.
+  private readonly handleSignalReconnecting = () => {
+    logLiveKitDebug("stream-manager", "room-signal-reconnecting");
   };
 
   private readonly handleReconnected = () => {

@@ -1,4 +1,10 @@
-import { useCallback, useRef, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { Avatar, Button, Image, Input, Popover, Tag, Tooltip, message } from "antd";
 import type { TooltipPlacement } from "antd/es/tooltip";
 import {
@@ -24,6 +30,7 @@ import { useUserPresence } from "../../hooks/user/use-user-presence";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import workspaceService from "../../services";
 import {
+  formatActivityElapsed,
   formatDateLabel,
   formatMembershipLength,
   getApiErrorMessage,
@@ -392,6 +399,13 @@ export function UserProfileCard({
         )}
       </div>
 
+      {presence?.activity ? (
+        <GameActivityRow
+          name={presence.activity.name}
+          startedAt={presence.activity.startedAt}
+        />
+      ) : null}
+
       {activity || canInvite ? (
         <div className="ct-profile-card-game">
           <span className="ct-profile-card-game-label">
@@ -469,6 +483,37 @@ export function UserProfileCard({
       {!isSelf && (
         <QuickMessageBar peerUserId={userId} peerName={card.username} />
       )}
+    </div>
+  );
+}
+
+function GameActivityRow({
+  name,
+  startedAt,
+}: {
+  name: string;
+  startedAt: string;
+}): ReactElement {
+  const [elapsed, setElapsed] = useState(() => formatActivityElapsed(startedAt));
+
+  useEffect(() => {
+    setElapsed(formatActivityElapsed(startedAt));
+
+    const interval = window.setInterval(() => {
+      setElapsed(formatActivityElapsed(startedAt));
+    }, 1_000);
+
+    return () => window.clearInterval(interval);
+  }, [startedAt]);
+
+  return (
+    <div className="ct-profile-card-game playing">
+      <span className="ct-profile-card-game-label" title={name}>
+        {name} oynuyor
+      </span>
+      {elapsed ? (
+        <span className="ct-profile-card-game-time">{elapsed}</span>
+      ) : null}
     </div>
   );
 }

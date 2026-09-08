@@ -435,6 +435,7 @@ export const appPreferencesSchema = z.object({
   pushToTalk: z.boolean().optional(),
   pushToTalkKey: z.string().max(24).optional(),
   freeGameNotifications: z.boolean().optional(),
+  shareGameActivity: z.boolean().optional(),
 });
 
 // The query is user input that ends up in a URL the main process builds, so it

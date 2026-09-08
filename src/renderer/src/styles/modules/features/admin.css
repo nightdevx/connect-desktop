@@ -869,6 +869,21 @@
   @apply inline-flex flex-wrap items-center gap-1;
 }
 
+.ct-admin-verdicts {
+  @apply mb-3 flex flex-col gap-2;
+}
+
+.ct-admin-verdict {
+  border-left: 3px solid var(--ct-danger, #d4380d);
+  background: var(--ct-surface-raised, rgba(0, 0, 0, 0.03));
+  @apply rounded px-3 py-2;
+}
+
+.ct-admin-verdict ul {
+  color: var(--ct-text-muted);
+  @apply mt-1 list-disc pl-4 text-micro;
+}
+
 .ct-audit-action {
   font-family: var(--ct-font-mono);
   @apply text-micro;

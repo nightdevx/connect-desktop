@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PresenceStatus } from "@shared/auth-contracts";
+import type { PresenceStatus, UserActivity } from "@shared/auth-contracts";
 import workspaceService from "../../services";
 
 export interface UserPresence {
   appOnline: boolean;
   presence: PresenceStatus;
+  activity: UserActivity | null;
 }
 
 /**
@@ -44,6 +45,7 @@ export const useUserPresence = (
       return {
         appOnline,
         presence: entry.presence ?? (appOnline ? "online" : "offline"),
+        activity: entry.activity ?? null,
       };
     },
   });

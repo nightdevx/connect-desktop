@@ -38,6 +38,7 @@ export interface StartScreenCaptureResult {
 
 export type ScreenShareSourceKind = "screen" | "window";
 export type ScreenShareQualityPreset =
+  | "light"
   | "smooth"
   | "balanced"
   | "high"

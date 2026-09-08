@@ -15,6 +15,7 @@ const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   pushToTalk: false,
   pushToTalkKey: "Space",
   freeGameNotifications: true,
+  shareGameActivity: true,
 };
 
 /**

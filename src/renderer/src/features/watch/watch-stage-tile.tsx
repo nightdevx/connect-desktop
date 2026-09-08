@@ -279,7 +279,6 @@ export function WatchStageTile({
         data-idle={state.playing ? undefined : "true"}
         onClick={onActivate}
         onDoubleClick={optedIn ? () => toggleFullscreen() : undefined}
-        title="Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
       >
         <div className="ct-watch-tile__stage">
           {optedIn ? (

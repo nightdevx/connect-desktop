@@ -28,6 +28,8 @@ const {
   summarizeReceiverReport,
   computeConcealmentPct,
   MIN_CONCEALMENT_WINDOW_SAMPLES,
+  readAvailableOutgoingBitrate,
+  BWE_PLACEHOLDER_BPS,
 } = stats;
 
 // --- bitrate ---------------------------------------------------------------
@@ -476,6 +478,144 @@ assert.equal(
   computeConcealmentPct(sample(1000, 0), sample(2000, 100)),
   null,
   "video inbound has no concealment fields",
+);
+
+// --- renegotiation invalidates a delta ---------------------------------------
+//
+// The counters this module subtracts are pooled over several stats entries, and
+// a reconnect changes WHICH entries. The old guards only rejected a delta that
+// went negative, so a report that gained an entry produced a large positive
+// jump instead: every outbound "packet loss" spike above 3% in the field logs
+// landed within 1.2s of a reconnect, read 80-93%, and had 0% on both sides.
+const withSource = (base, sourceKey) => ({ ...base, sourceKey });
+
+assert.equal(
+  computePacketLossPct(
+    withSource(sample(1000, 0, 5_000, 10), "outbound-rtp:111"),
+    withSource(sample(2000, 0, 5_100, 900), "outbound-rtp:222"),
+  ),
+  null,
+  "a loss ratio must not span a change of RTP stream",
+);
+assert.equal(
+  computePacketLossPct(
+    withSource(sample(1000, 0, 5_000, 10), "outbound-rtp:111"),
+    withSource(sample(2000, 0, 5_100, 15), "outbound-rtp:111"),
+  ),
+  4.8,
+  "the same stream still measures normally",
+);
+assert.equal(
+  computeBitrateBps(
+    withSource(sample(1000, 0), "outbound-rtp:111"),
+    withSource(sample(2000, 125_000), "outbound-rtp:222"),
+  ),
+  null,
+  "a bitrate must not span a change of RTP stream",
+);
+assert.equal(
+  packetWindow(
+    withSource(sample(1000, 0, 100, 0), "a"),
+    withSource(sample(2000, 0, 200, 5), "b"),
+  ),
+  null,
+  "a window must not span a change of RTP stream",
+);
+
+// The summarizers have to actually populate the key, or the guard above is
+// dead code that silently never fires.
+const senderSourceA = summarizeSenderReport(senderEntries(1000, 0, 0, 0), new Map(), "k");
+assert.ok(senderSourceA, "sender summary still produced");
+const senderCacheB = new Map();
+summarizeSenderReport(
+  senderEntries(1000, 0, 0, 0).map((entry) =>
+    entry.type === "outbound-rtp" ? { ...entry, ssrc: 111 } : entry,
+  ),
+  senderCacheB,
+  "k",
+);
+const afterRenegotiation = summarizeSenderReport(
+  senderEntries(2000, 125_000, 5_000, 4_000).map((entry) =>
+    entry.type === "outbound-rtp" ? { ...entry, ssrc: 222 } : entry,
+  ),
+  senderCacheB,
+  "k",
+);
+assert.equal(
+  afterRenegotiation.packetLossPct,
+  null,
+  "a new SSRC must not be diffed against the old one's counters",
+);
+assert.equal(afterRenegotiation.bitrateBps, null, "and neither must the bitrate");
+
+// --- the bandwidth estimate placeholder -------------------------------------
+//
+// Chromium parks availableOutgoingBitrate at exactly 1e9 while it has nothing
+// to probe with, which for an audio-only send is the whole call. Reported
+// verbatim it produced session summaries claiming ~1 Gbps of available uplink.
+assert.equal(readAvailableOutgoingBitrate(BWE_PLACEHOLDER_BPS), null, "1e9 is not an estimate");
+assert.equal(readAvailableOutgoingBitrate(null), null, "absent stays absent");
+assert.equal(readAvailableOutgoingBitrate(8_000_000), 8_000_000, "a real estimate survives");
+assert.equal(first.availableOutgoingBitrateBps, 8_000_000, "and reaches the summary");
+
+// --- concealment excludes DTX silence ---------------------------------------
+//
+// Chromium counts the comfort noise it generates for an Opus DTX gap as
+// concealment. We publish with dtx: true, so somebody in the room is always
+// silent, and "Ses kesintili geldi" fired on healthy calls: the field logs put
+// the flagged-sample mean at 78% whenever the sender was under 2 kbps and under
+// 0.25% in every bucket carrying real speech.
+const audioSampleFull = (timestampMs, concealed, silent, total) => ({
+  timestampMs,
+  bytes: 0,
+  packets: 0,
+  packetsLost: 0,
+  frames: 0,
+  concealedSamples: concealed,
+  silentConcealedSamples: silent,
+  totalSamplesReceived: total,
+});
+
+assert.equal(
+  computeConcealmentPct(
+    audioSampleFull(1000, 0, 0, 0),
+    audioSampleFull(2000, 48_000, 48_000, 48_000),
+  ),
+  0,
+  "a window that was entirely DTX silence is not a dropout",
+);
+assert.equal(
+  computeConcealmentPct(
+    audioSampleFull(1000, 0, 0, 0),
+    audioSampleFull(2000, 960, 480, 48_000),
+  ),
+  1,
+  "only the audible half of the concealment counts",
+);
+assert.equal(
+  computeConcealmentPct(
+    audioSampleFull(1000, 0, 0, 0),
+    audioSampleFull(2000, 4_800, 0, 48_000),
+  ),
+  10,
+  "a real dropout still reads at full size",
+);
+// The two counters update independently, so a window can straddle one and not
+// the other. That must clamp, not go negative.
+assert.equal(
+  computeConcealmentPct(
+    audioSampleFull(1000, 0, 0, 0),
+    audioSampleFull(2000, 480, 960, 48_000),
+  ),
+  0,
+  "more silent than concealed clamps to zero",
+);
+// A browser that does not report the field at all must keep the old answer
+// rather than silently reporting no concealment ever.
+assert.equal(
+  computeConcealmentPct(audioSample(1000, 0, 0), audioSample(2000, 4_800, 48_000)),
+  10,
+  "without silentConcealedSamples the old number stands",
 );
 
 console.log("media-stats self-check passed");

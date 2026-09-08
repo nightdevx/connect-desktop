@@ -4,6 +4,7 @@ import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined, DownloadOutlined, FileZipOutlined } from "@ant-design/icons";
 import {
   MEDIA_DIAGNOSTIC_PROBLEM_LABELS,
+  deriveVerdicts,
   type MediaDiagnosticsSessionRow,
 } from "@shared/media-diagnostics";
 import { toErrorMessage } from "@shared/error-message";
@@ -44,6 +45,14 @@ const formatDuration = (ms: number | undefined): string => {
     return `${seconds} sn`;
   }
   return `${minutes} dk ${seconds} sn`;
+};
+
+/** Session-relative mm:ss, so an episode can be found in the exported entries. */
+const clock = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
 const mbps = (bps: number | null | undefined): string => {
@@ -210,6 +219,12 @@ export default function AdminDiagnostics() {
 
   const summary = selected?.summary ?? null;
   const client = selected?.client ?? null;
+  const episodes = summary?.episodes ?? [];
+  const remotes = summary?.remotes ?? [];
+  // Re-derived rather than read off the stored session: a session recorded
+  // before a rule existed still gets judged by today's rules, and the stored
+  // list stays a cache rather than the source of truth.
+  const verdicts = summary ? deriveVerdicts(summary) : [];
 
   return (
     <div className="ct-admin-section">
@@ -291,7 +306,24 @@ export default function AdminDiagnostics() {
         }
       >
         {selected ? (
-          <Descriptions column={1} size="small" bordered>
+          <>
+            {/* The answer first. Everything below is the evidence a reader used
+                to have to assemble by hand from thousands of sample rows. */}
+            {verdicts.length > 0 ? (
+              <div className="ct-admin-verdicts">
+                {verdicts.map((verdict) => (
+                  <div key={verdict.code} className="ct-admin-verdict">
+                    <strong>{verdict.headline}</strong>
+                    <ul>
+                      {verdict.evidence.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label="Oturum">{selected.sessionId}</Descriptions.Item>
             <Descriptions.Item label="Süre">
               {formatDuration(summary?.durationMs)}
@@ -327,9 +359,31 @@ export default function AdminDiagnostics() {
                   } fps · ${mbps(summary.outboundVideo.bitrateBps?.mean)}`
                 : "—"}
             </Descriptions.Item>
-            <Descriptions.Item label="Kodlayıcı kısıtı">
+            {/* Capture against encoder. Equal and low is a starved capture;
+                source high with fps low is an encoder that cannot keep up. */}
+            <Descriptions.Item label="Yakalama / kodlama">
+              {summary?.outboundVideo?.sourceFps
+                ? `${Math.round(summary.outboundVideo.sourceFps.mean)} fps üretildi → ${
+                    summary.outboundVideo.fps
+                      ? Math.round(summary.outboundVideo.fps.mean)
+                      : "—"
+                  } fps kodlandı${
+                    summary.outboundVideo.framesDroppedPct
+                      ? ` · düşen kare %${summary.outboundVideo.framesDroppedPct.mean}`
+                      : ""
+                  }`
+                : "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Kare başına kodlama">
+              {summary?.outboundVideo?.encodeMsPerFrame
+                ? `${summary.outboundVideo.encodeMsPerFrame.mean} ms (maks ${summary.outboundVideo.encodeMsPerFrame.max} ms)`
+                : "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Kodlayıcı kısıtı (süre)">
               {summary?.outboundVideo
-                ? `cpu ${summary.outboundVideo.limitation.cpu} · bant ${summary.outboundVideo.limitation.bandwidth} · yok ${summary.outboundVideo.limitation.none}`
+                ? `cpu ${summary.outboundVideo.limitationSeconds?.cpu ?? 0} sn · bant ${
+                    summary.outboundVideo.limitationSeconds?.bandwidth ?? 0
+                  } sn · diğer ${summary.outboundVideo.limitationSeconds?.other ?? 0} sn`
                 : "—"}
             </Descriptions.Item>
             <Descriptions.Item label="Yükleme başlık payı">
@@ -362,7 +416,34 @@ export default function AdminDiagnostics() {
                     .map((item) => MEDIA_DIAGNOSTIC_PROBLEM_LABELS[item] ?? item)
                     .join(", ")}
             </Descriptions.Item>
+            {/* Who sounded bad. One peer is their uplink; everybody is this
+                machine's downlink, and the pooled numbers could not say. */}
+            <Descriptions.Item label="Katılımcı bazında alım">
+              {remotes.length === 0
+                ? "—"
+                : remotes.map((remote) => (
+                    <div key={remote.identity}>
+                      {remote.identity.slice(0, 8)} · kayıp %
+                      {remote.packetLossPct?.mean ?? 0} · kesinti %
+                      {remote.concealmentPct?.mean ?? 0} · jitter{" "}
+                      {remote.jitterMs?.mean ?? "—"} ms
+                    </div>
+                  ))}
+            </Descriptions.Item>
+            <Descriptions.Item label="Sorun dilimleri">
+              {episodes.length === 0
+                ? "—"
+                : episodes.map((episode, index) => (
+                    <div key={`${episode.problem}-${episode.startMs}-${index}`}>
+                      {clock(episode.startMs)}–{clock(episode.endMs)} ·{" "}
+                      {MEDIA_DIAGNOSTIC_PROBLEM_LABELS[episode.problem] ??
+                        episode.problem}
+                      {episode.peak === null ? "" : ` · en kötü ${episode.peak}`}
+                    </div>
+                  ))}
+            </Descriptions.Item>
           </Descriptions>
+          </>
         ) : null}
       </Drawer>
     </div>

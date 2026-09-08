@@ -17,6 +17,7 @@ import {
   getScreenShareQualityDimensions,
   getScreenShareQualityOption,
   getDefaultScreenShareQuality,
+  getHigherScreenShareQuality,
   getLowerScreenShareQuality
 } from "@/features/screen-share";
 import { logLiveKitDebug } from "@/services/debug-log";
@@ -99,6 +100,12 @@ export const useScreenShareControls = ({
   const screenEnabledRef = useRef(false);
   screenEnabledRef.current = screenEnabled;
   const liveShareRef = useRef<LiveScreenShareState | null>(null);
+  // The quality the USER asked for, which is not the same as the one currently
+  // published once an overload has stepped it down. It is the ceiling a
+  // recovery may climb back to, and nothing but an explicit choice moves it —
+  // otherwise an automatic step-down would quietly redefine the target as the
+  // degraded preset and the share could never get back what it lost.
+  const qualityCeilingRef = useRef<ScreenShareQualityPreset | null>(null);
   // Two overlapping swaps would both read the same "previous" stream and the
   // loser would stop a track the winner had just published.
   const isSwappingLiveShareRef = useRef(false);
@@ -393,6 +400,7 @@ export const useScreenShareControls = ({
         contentMode: selectedScreenShareContentMode,
         stream,
       };
+      qualityCeilingRef.current = selectedScreenShareQuality;
       setLocalScreenStream(stream);
       setScreenEnabled(true);
       patchLobbyMemberState(currentUserId, { screenSharing: true });
@@ -709,6 +717,7 @@ export const useScreenShareControls = ({
   useEffect(() => {
     if (!screenEnabled) {
       liveShareRef.current = null;
+      qualityCeilingRef.current = null;
     }
   }, [screenEnabled]);
 
@@ -733,7 +742,9 @@ export const useScreenShareControls = ({
         reason === "cpu"
           ? "İşlemci yayına yetişemiyor"
           : "Yükleme hızı yayına yetmiyor";
-      const lower = getLowerScreenShareQuality(live.quality);
+      // Reason-aware: a CPU overload must not be answered with a preset that
+      // runs at a higher framerate, which is what plain "one rung down" did.
+      const lower = getLowerScreenShareQuality(live.quality, reason);
 
       if (!lower) {
         setStatus(`${cause}; kalite daha fazla düşürülemiyor.`, "warn");
@@ -755,7 +766,35 @@ export const useScreenShareControls = ({
       });
     });
 
+    session.setEncoderRecoveryHandler(() => {
+      const live = liveShareRef.current;
+      const ceiling = qualityCeilingRef.current;
+      if (!live || !ceiling || isSwappingLiveShareRef.current) {
+        return;
+      }
+
+      const higher = getHigherScreenShareQuality(live.quality, ceiling);
+      if (!higher) {
+        return;
+      }
+
+      logLiveKitDebug("stream-manager", "quality-step-up", {
+        from: live.quality,
+        to: higher,
+        ceiling,
+      });
+      setStatus(
+        `Yayın kalitesi "${getScreenShareQualityOption(higher).label}" seviyesine yükseltildi.`,
+        "ok",
+      );
+
+      void applyLiveScreenShareChange({ quality: higher }).finally(() => {
+        liveKitSessionRef.current?.resetEncoderOverloadNotice();
+      });
+    });
+
     return () => {
+      session.setEncoderRecoveryHandler(null);
       session.setEncoderOverloadHandler(null);
     };
   }, [applyLiveScreenShareChange, liveKitSessionRef, setStatus]);
@@ -773,7 +812,12 @@ export const useScreenShareControls = ({
       isSystemAudioOn: () =>
         (liveShareRef.current?.stream.getAudioTracks().length ?? 0) > 0,
       listSources: async () => (await fetchScreenShareSources()).sources,
-      changeQuality: (quality) => applyLiveScreenShareChange({ quality }),
+      // An explicit pick from the menu is the only thing that moves the ceiling
+      // an automatic recovery climbs back to.
+      changeQuality: (quality) => {
+        qualityCeilingRef.current = quality;
+        return applyLiveScreenShareChange({ quality });
+      },
       changeFrameRate: (frameRate) => applyLiveScreenShareChange({ frameRate }),
       changeSource: (sourceId) => applyLiveScreenShareChange({ sourceId }),
       setSystemAudio: applyLiveSystemAudio,

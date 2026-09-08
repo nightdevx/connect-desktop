@@ -8,6 +8,7 @@ import type {
 import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
+import { useDesktopAppPreferences } from "./settings-app-preferences";
 
 // Mirrors the backend column defaults, so an account created before privacy
 // existed shows what it actually does: reachable by everyone.
@@ -37,6 +38,11 @@ export function SettingsPrivacy() {
   // The hook's isUpdating is one boolean for the whole list, so two rows would
   // share a spinner and the first unblock to finish would clear both.
   const [unblockingIds, setUnblockingIds] = useState<string[]>([]);
+  const {
+    preferences: appPreferences,
+    isSaving: isSavingAppPreference,
+    savePreference,
+  } = useDesktopAppPreferences(messageApi);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +226,35 @@ export function SettingsPrivacy() {
             >
               Gizlilik Ayarlarını Kaydet
             </Button>
+          </div>
+        </div>
+
+        <div className="ct-settings-subsection">
+          <h5>Oyun Etkinliği</h5>
+          <p className="ct-field-hint">
+            Bu ayar yalnızca bu bilgisayarda geçerlidir ve anında kaydedilir.
+          </p>
+
+          <div className="ct-settings-card">
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
+                <strong>Oynadığım oyun profilimde görünsün</strong>
+                <span>
+                  Açıkken bilgisayarında çalışan tanınan oyunlar tespit edilir ve
+                  arkadaşların profil kartında &quot;… oynuyor&quot; olarak
+                  süresiyle birlikte görünür. Kapatınca tarama durur ve mevcut
+                  bilgi hemen silinir.
+                </span>
+              </div>
+              <Switch
+                id="settings-share-game-activity"
+                checked={appPreferences.shareGameActivity}
+                onChange={(checked) => {
+                  void savePreference("shareGameActivity", checked);
+                }}
+                disabled={isSavingAppPreference}
+              />
+            </div>
           </div>
         </div>
 

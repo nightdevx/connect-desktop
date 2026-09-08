@@ -75,6 +75,20 @@ const DISCONNECT_MIC_MUTE_BUDGET_MS = 300;
 // warning still needs about eight seconds of sustained limiting behind it.
 const QUALITY_LIMITATION_TICKS = 4;
 
+// Deliberately far longer than the step-down dwell. Coming back up costs a
+// re-capture and a republish, so a share flapping between two presets is worse
+// than one that stays a rung low for another minute — and the limitation that
+// caused the step-down is exactly the kind that returns. 90 ticks is ~3 minutes
+// of an unlimited encoder at the 2s stats interval.
+const QUALITY_RECOVERY_TICKS = 90;
+
+// NOTE: this is the budget BEFORE redundancy. Publishing sets red: true, which
+// sends every payload twice, so a speaking participant costs ~130 kbps on the
+// wire — the diagnostics measure exactly that ceiling. Worth knowing when
+// reading a bandwidth-limited session: it is the fixed tax the video ladder is
+// trying to fit underneath, and it does not shed under congestion the way video
+// does. Lowering it is a listening decision, not a bug fix (48k was tried and
+// judged too low), so it stays where it was tuned.
 const MICROPHONE_BITRATE_BPS = 64_000;
 
 const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = {
@@ -201,6 +215,8 @@ export class LiveKitMediaSession {
   private encoderOverloadHandler:
     | ((reason: "cpu" | "bandwidth") => void)
     | null = null;
+  private encoderRecoveryHandler: (() => void) | null = null;
+  private healthyTicks = 0;
   private videoQueue: Promise<void> = Promise.resolve();
 
   public constructor(
@@ -433,8 +449,13 @@ export class LiveKitMediaSession {
     this.currentLobbyId = lobbyId;
     this.manualDisconnect = false;
 
+    // Deliberately moving rooms is not a reconnect, and used to be logged as
+    // one under the very name LiveKit's own Reconnected handler writes. The two
+    // were indistinguishable in the log, and "reconnects" is a problem tag — a
+    // user hopping lobbies would have read as a user with an unstable
+    // connection. It is a lobby change, so it says so.
     if (mediaDiagnostics.isActive()) {
-      mediaDiagnostics.record("session", "room-reconnected", { lobbyId });
+      mediaDiagnostics.record("session", "lobby-changed", { lobbyId });
     } else {
       mediaDiagnostics.startSession(lobbyId, {
         hardwareSvcCodec: this.hardwareSvcCodec,
@@ -1008,9 +1029,25 @@ export class LiveKitMediaSession {
     if (!limitation) {
       this.limitedTicks = 0;
       this.limitationNotified = false;
+
+      // The way back up. Stepping down is cheap to trigger and used to be
+      // permanent: a thirty-second background job cost the share its resolution
+      // until the user stopped sharing. Only counted while a share is actually
+      // publishing video, so an idle session does not accumulate credit toward
+      // a step-up it never earned.
+      if (this.desiredScreenEnabled && this.hasOutboundVideo(snapshot)) {
+        this.healthyTicks += 1;
+        if (this.healthyTicks >= QUALITY_RECOVERY_TICKS) {
+          this.healthyTicks = 0;
+          this.encoderRecoveryHandler?.();
+        }
+      } else {
+        this.healthyTicks = 0;
+      }
       return;
     }
 
+    this.healthyTicks = 0;
     this.limitedTicks += 1;
     if (
       this.limitedTicks < QUALITY_LIMITATION_TICKS ||
@@ -1018,6 +1055,32 @@ export class LiveKitMediaSession {
     ) {
       return;
     }
+
+    // The measurements that made this decision, recorded at the moment it was
+    // made. Reading the old logs, a "quality-step-down" event said only what it
+    // changed — reconstructing WHY meant finding the neighbouring stats samples
+    // by timestamp and hoping the interesting one had not been dropped.
+    const culprit = snapshot.outbound.find(
+      (entry) => entry.trackKey === limitation.trackKey,
+    );
+    logLiveKitDebug("stream-manager", "quality-limitation-detected", {
+      reason: limitation.kind,
+      trackKey: limitation.trackKey,
+      ticks: this.limitedTicks,
+      rttMs: snapshot.rttMs,
+      availableOutgoingBitrateBps: snapshot.availableOutgoingBitrateBps,
+      softwareEncoderAtFault: limitation.softwareEncoderAtFault,
+      encoderImplementation: culprit?.encoderImplementation ?? null,
+      fps: culprit?.framesPerSecond ?? null,
+      sourceFps: culprit?.sourceFramesPerSecond ?? null,
+      encodeMsPerFrame: culprit?.encodeMsPerFrame ?? null,
+      framesDroppedPct: culprit?.framesDroppedPct ?? null,
+      bitrateBps: culprit?.bitrateBps ?? null,
+      resolution:
+        culprit?.frameWidth && culprit?.frameHeight
+          ? `${culprit.frameWidth}x${culprit.frameHeight}`
+          : null,
+    });
 
     this.limitationNotified = true;
 
@@ -1044,6 +1107,12 @@ export class LiveKitMediaSession {
 
     this.callbacks.onWarning?.(
       "Yükleme hızı seçilen yayın kalitesine yetmiyor, görüntü otomatik olarak düşürüldü.",
+    );
+  }
+
+  private hasOutboundVideo(snapshot: MediaStatsSnapshot): boolean {
+    return snapshot.outbound.some(
+      (entry) => entry.kind === "video" && entry.bitrateBps !== null,
     );
   }
 
@@ -1110,9 +1179,17 @@ export class LiveKitMediaSession {
     this.encoderOverloadHandler = handler;
   }
 
+  public setEncoderRecoveryHandler(handler: (() => void) | null): void {
+    this.encoderRecoveryHandler = handler;
+    this.healthyTicks = 0;
+  }
+
   public resetEncoderOverloadNotice(): void {
     this.limitedTicks = 0;
     this.limitationNotified = false;
+    // A swap just republished the track; the encoder's health record starts
+    // over with it, in both directions.
+    this.healthyTicks = 0;
   }
 
   private async unpublishScreenTracks(): Promise<void> {

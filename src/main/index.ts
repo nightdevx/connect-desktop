@@ -46,6 +46,10 @@ import {
   startFreeGamesPoller,
   stopFreeGamesPoller,
 } from "./free-games-poller";
+import {
+  startGameActivityPoller,
+  stopGameActivityPoller,
+} from "./game-activity-poller";
 import { disposeGlobalHotkeys, installGlobalHotkeys } from "./global-hotkeys";
 import { clearDesktopNotifications } from "./notifications";
 import { createAppMenu } from "./menu";
@@ -425,6 +429,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     // giveaway that starts while the app sits in the tray is exactly the one
     // worth a toast.
     startFreeGamesPoller();
+    startGameActivityPoller();
 
     if (!unsubscribePreferencesListener) {
       unsubscribePreferencesListener = onDesktopAppPreferencesChanged(() => {
@@ -471,6 +476,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       disposeGlobalHotkeys();
       clearDesktopNotifications();
       stopFreeGamesPoller();
+      stopGameActivityPoller();
       destroyModularUpdater();
       if (unsubscribePreferencesListener) {
         unsubscribePreferencesListener();

@@ -1,16 +1,21 @@
 import {
   MEDIA_DIAGNOSTICS_LIMITS,
+  MEDIA_DIAGNOSTICS_MAX_EPISODES,
+  MEDIA_DIAGNOSTICS_MAX_REMOTES,
   MEDIA_DIAGNOSTICS_SCHEMA_VERSION,
   MEDIA_DIAGNOSTIC_PROBLEMS,
   MEDIA_DIAGNOSTIC_THRESHOLDS,
   bump,
+  deriveVerdicts,
   pushStat,
   roundStat,
   type MediaDiagnosticsClient,
   type MediaDiagnosticsEntry,
+  type MediaDiagnosticsEpisode,
   type MediaDiagnosticsInboundVideoSummary,
   type MediaDiagnosticsOutboundVideoSummary,
   type MediaDiagnosticsPrefs,
+  type MediaDiagnosticsRemoteSummary,
   type MediaDiagnosticsStat,
   type MediaDiagnosticsStatsInput,
   type MediaDiagnosticsSummary,
@@ -41,7 +46,38 @@ const emptyOutboundVideo = (): MediaDiagnosticsOutboundVideoSummary => ({
   fps: null,
   bitrateBps: null,
   limitation: { none: 0, cpu: 0, bandwidth: 0, other: 0 },
+  limitationSeconds: { cpu: 0, bandwidth: 0, other: 0 },
+  encodeMsPerFrame: null,
+  framesDroppedPct: null,
+  sourceFps: null,
+  sourceResolutions: {},
+  retransmittedPct: null,
 });
+
+interface RemoteAccumulator {
+  identity: string;
+  samples: number;
+  packetLossPct: MediaDiagnosticsStat | null;
+  concealmentPct: MediaDiagnosticsStat | null;
+  jitterMs: MediaDiagnosticsStat | null;
+  bitrateBps: MediaDiagnosticsStat | null;
+}
+
+/**
+ * The participant behind a track key.
+ *
+ * Keys are built as `${identity}:${source}` for remotes and `local:${source}`
+ * for our own tracks, so the identity is everything up to the last colon —
+ * split on the first one and a UUID survives intact.
+ */
+const identityOfTrackKey = (trackKey: string): string | null => {
+  const separator = trackKey.lastIndexOf(":");
+  if (separator <= 0) {
+    return null;
+  }
+  const identity = trackKey.slice(0, separator);
+  return identity === "local" ? null : identity;
+};
 
 const emptyInboundVideo = (): MediaDiagnosticsInboundVideoSummary => ({
   resolutions: {},
@@ -122,6 +158,10 @@ class MediaDiagnosticsCollector {
   private eventCounts: Record<string, number> = {};
   private warnings: Record<string, number> = {};
   private problems = new Set<string>();
+  private problemStreaks: Record<string, number> = {};
+  private episodes: MediaDiagnosticsEpisode[] = [];
+  private openEpisodes = new Map<string, MediaDiagnosticsEpisode>();
+  private remotes = new Map<string, RemoteAccumulator>();
 
   public isActive(): boolean {
     return this.sessionId !== null;
@@ -136,7 +176,19 @@ class MediaDiagnosticsCollector {
     this.sessionId = `${Date.now().toString(36)}-${random}`;
     this.startedAtMs = Date.now();
     this.lobbyId = lobbyId;
-    this.client = { ...emptyClient(), ...(client ?? {}) };
+    // Merged onto whatever setClientContext has already resolved, NOT onto a
+    // fresh empty record.
+    //
+    // The app version, platform, Electron and Chrome versions, CPU thread count
+    // and — the one that matters most — the GPU feature status all arrive from
+    // one async IPC call made when the session object is built, which is before
+    // the user has joined anything. Starting from emptyClient() threw all of it
+    // away on the way into the room, and every session ever uploaded carried
+    // `"platform": "", "gpu": null` with only the `prefs` passed in right here
+    // surviving. That is the field set that would have said whether hardware
+    // video encoding was even available on the machine, on logs where the
+    // encoder ran in software for three hours.
+    this.client = { ...this.client, ...(client ?? {}) };
 
     this.seq = 0;
     this.batchSeq = 0;
@@ -158,6 +210,10 @@ class MediaDiagnosticsCollector {
     this.eventCounts = {};
     this.warnings = {};
     this.problems = new Set();
+    this.problemStreaks = {};
+    this.episodes = [];
+    this.openEpisodes = new Map();
+    this.remotes = new Map();
 
     this.record("session", "session-started", { lobbyId });
     this.startTimer();
@@ -206,6 +262,11 @@ class MediaDiagnosticsCollector {
       snapshot.availableOutgoingBitrateBps,
     );
 
+    // What THIS sample breached. Committed once at the end so a problem has to
+    // survive consecutive samples before it becomes a session tag — see
+    // MEDIA_DIAGNOSTIC_THRESHOLDS.problemDwellSamples.
+    const breached = new Set<string>();
+
     const outboundVideoRows: Record<string, unknown>[] = [];
     for (const entry of snapshot.outbound) {
       if (entry.kind === "audio") {
@@ -226,7 +287,7 @@ class MediaDiagnosticsCollector {
           video.hardwareEncoderSamples += 1;
         } else if (entry.hardwareEncoder === false) {
           video.softwareEncoderSamples += 1;
-          this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.softwareEncoder);
+          breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.softwareEncoder);
         }
         const resolution = resolutionKey(entry.frameWidth, entry.frameHeight);
         if (resolution) {
@@ -235,16 +296,43 @@ class MediaDiagnosticsCollector {
         bump(video.layerCounts, String(entry.layerCount));
         video.fps = pushStat(video.fps, entry.framesPerSecond);
         video.bitrateBps = pushStat(video.bitrateBps, entry.bitrateBps);
+        video.encodeMsPerFrame = pushStat(
+          video.encodeMsPerFrame,
+          entry.encodeMsPerFrame,
+        );
+        video.framesDroppedPct = pushStat(
+          video.framesDroppedPct,
+          entry.framesDroppedPct,
+        );
+        video.retransmittedPct = pushStat(
+          video.retransmittedPct,
+          entry.retransmittedPct,
+        );
+        video.sourceFps = pushStat(video.sourceFps, entry.sourceFramesPerSecond);
+        const sourceResolution = resolutionKey(
+          entry.sourceFrameWidth,
+          entry.sourceFrameHeight,
+        );
+        if (sourceResolution) {
+          bump(video.sourceResolutions, sourceResolution);
+        }
+        // Real durations, accumulated from per-window deltas. The sample counts
+        // below stay, but this is the number a reader should trust.
+        if (entry.limitationSeconds) {
+          video.limitationSeconds.cpu += entry.limitationSeconds.cpu;
+          video.limitationSeconds.bandwidth += entry.limitationSeconds.bandwidth;
+          video.limitationSeconds.other += entry.limitationSeconds.other;
+        }
 
         const reason = entry.qualityLimitationReason;
         if (!reason || reason === "none") {
           video.limitation.none += 1;
         } else if (reason === "cpu") {
           video.limitation.cpu += 1;
-          this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.cpuLimited);
+          breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.cpuLimited);
         } else if (reason === "bandwidth") {
           video.limitation.bandwidth += 1;
-          this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.bandwidthLimited);
+          breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.bandwidthLimited);
         } else {
           video.limitation.other += 1;
         }
@@ -262,6 +350,16 @@ class MediaDiagnosticsCollector {
           bitrateBps: entry.bitrateBps,
           layerCount: entry.layerCount,
           limitation: entry.qualityLimitationReason,
+          // The capture side of the same track. `fps` above is what left the
+          // encoder; this is what arrived at it.
+          sourceFps:
+            entry.sourceFramesPerSecond === null
+              ? null
+              : Math.round(entry.sourceFramesPerSecond),
+          sourceResolution,
+          encodeMsPerFrame: entry.encodeMsPerFrame,
+          framesDroppedPct: entry.framesDroppedPct,
+          retransmittedPct: entry.retransmittedPct,
         });
       }
 
@@ -273,12 +371,17 @@ class MediaDiagnosticsCollector {
         typeof entry.packetLossPct === "number" &&
         entry.packetLossPct >= MEDIA_DIAGNOSTIC_THRESHOLDS.packetLossPct
       ) {
-        this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.packetLoss);
+        breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.packetLoss);
       }
     }
 
     const inboundVideoRows: Record<string, unknown>[] = [];
     for (const entry of snapshot.inbound) {
+      // Per participant, not pooled. Whether one peer sounds bad or all of them
+      // do is the difference between their uplink and this machine's downlink,
+      // and the pooled numbers could not express it.
+      this.trackRemote(entry.trackKey, entry);
+
       this.packetLossInboundPct = pushStat(
         this.packetLossInboundPct,
         entry.packetLossPct,
@@ -287,7 +390,7 @@ class MediaDiagnosticsCollector {
         typeof entry.packetLossPct === "number" &&
         entry.packetLossPct >= MEDIA_DIAGNOSTIC_THRESHOLDS.packetLossPct
       ) {
-        this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.packetLoss);
+        breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.packetLoss);
       }
 
       if (entry.kind === "audio") {
@@ -303,7 +406,7 @@ class MediaDiagnosticsCollector {
           typeof entry.concealmentPct === "number" &&
           entry.concealmentPct >= MEDIA_DIAGNOSTIC_THRESHOLDS.audioConcealmentPct
         ) {
-          this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.audioConcealment);
+          breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.audioConcealment);
         }
         continue;
       }
@@ -319,7 +422,7 @@ class MediaDiagnosticsCollector {
       if (typeof entry.freezeCount === "number") {
         video.freezeCountMax = Math.max(video.freezeCountMax, entry.freezeCount);
         if (entry.freezeCount >= MEDIA_DIAGNOSTIC_THRESHOLDS.freezeCount) {
-          this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.receiverFreezes);
+          breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.receiverFreezes);
         }
       }
       if (typeof entry.jitterBufferDelayMs === "number") {
@@ -342,6 +445,8 @@ class MediaDiagnosticsCollector {
           entry.jitterBufferDelayMs === null
             ? null
             : Math.round(entry.jitterBufferDelayMs),
+        jitterBufferTargetMs: entry.jitterBufferTargetMs,
+        packetsDiscarded: entry.packetsDiscarded,
       });
     }
 
@@ -349,8 +454,11 @@ class MediaDiagnosticsCollector {
       typeof snapshot.rttMs === "number" &&
       snapshot.rttMs >= MEDIA_DIAGNOSTIC_THRESHOLDS.highRttMs
     ) {
-      this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.highRtt);
+      breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.highRtt);
     }
+
+    this.commitSampleProblems(breached);
+    this.trackEpisodes(breached, snapshot);
 
     this.append("sample", "stats", "media-stats", {
       rttMs: snapshot.rttMs,
@@ -360,8 +468,13 @@ class MediaDiagnosticsCollector {
       outboundAudio: snapshot.outbound
         .filter((entry) => entry.kind === "audio")
         .map((entry) => ({
+          // Two anonymous rows used to appear whenever screen audio was
+          // published alongside the microphone, and nothing said which was
+          // which — the reader had to guess from the bitrate.
+          trackKey: entry.trackKey,
           bitrateBps: entry.bitrateBps,
           packetLossPct: entry.packetLossPct,
+          retransmittedPct: entry.retransmittedPct,
         })),
       inboundAudio: snapshot.inbound
         .filter((entry) => entry.kind === "audio")
@@ -370,9 +483,166 @@ class MediaDiagnosticsCollector {
           bitrateBps: entry.bitrateBps,
           jitterMs: entry.jitterMs,
           concealmentPct: entry.concealmentPct,
+          // The DTX share, kept beside the audible one. Without it a reader
+          // cannot tell a silent participant from a broken stream, which is
+          // exactly the confusion the old concealment number caused.
+          silentPct: entry.silentPct,
           packetLossPct: entry.packetLossPct,
+          jitterBufferTargetMs: entry.jitterBufferTargetMs,
+          packetsDiscarded: entry.packetsDiscarded,
         })),
     });
+  }
+
+  /**
+   * Groups consecutive breaching samples into stretches with a start, an end
+   * and a worst value.
+   *
+   * A session tag says a problem happened somewhere in three hours. This says
+   * when and for how long, which is the difference between a reader scanning
+   * 5905 sample rows and reading four lines.
+   */
+  private trackEpisodes(
+    breached: Set<string>,
+    snapshot: MediaDiagnosticsStatsInput,
+  ): void {
+    const at = this.durationMs;
+    const peaks = this.samplePeaks(snapshot);
+
+    for (const [problem, episode] of this.openEpisodes) {
+      if (breached.has(problem)) {
+        continue;
+      }
+      this.openEpisodes.delete(problem);
+      this.pushEpisode(episode);
+    }
+
+    for (const problem of breached) {
+      const open = this.openEpisodes.get(problem);
+      const peak = peaks[problem] ?? null;
+      if (open) {
+        open.endMs = at;
+        open.samples += 1;
+        if (peak !== null) {
+          open.peak = open.peak === null ? peak : Math.max(open.peak, peak);
+        }
+        continue;
+      }
+      this.openEpisodes.set(problem, {
+        problem,
+        startMs: at,
+        endMs: at,
+        samples: 1,
+        peak,
+      });
+    }
+  }
+
+  /** The worst value behind each problem in this sample, in its own unit. */
+  private samplePeaks(
+    snapshot: MediaDiagnosticsStatsInput,
+  ): Record<string, number> {
+    const peaks: Record<string, number> = {};
+    const worst = (key: string, value: number | null | undefined): void => {
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        return;
+      }
+      peaks[key] = Math.max(peaks[key] ?? value, value);
+    };
+
+    for (const entry of [...snapshot.outbound, ...snapshot.inbound]) {
+      worst(MEDIA_DIAGNOSTIC_PROBLEMS.packetLoss, entry.packetLossPct);
+    }
+    for (const entry of snapshot.inbound) {
+      if (entry.kind === "audio") {
+        worst(MEDIA_DIAGNOSTIC_PROBLEMS.audioConcealment, entry.concealmentPct);
+      } else {
+        worst(MEDIA_DIAGNOSTIC_PROBLEMS.receiverFreezes, entry.freezeCount);
+      }
+    }
+    worst(MEDIA_DIAGNOSTIC_PROBLEMS.highRtt, snapshot.rttMs);
+    return peaks;
+  }
+
+  private pushEpisode(episode: MediaDiagnosticsEpisode): void {
+    // Bounded, and the longest survive: a session that flapped a hundred times
+    // must not push its own summary over the entry size limit, and the two
+    // second blips are not what anyone is reading for.
+    if (this.episodes.length < MEDIA_DIAGNOSTICS_MAX_EPISODES) {
+      this.episodes.push(episode);
+      return;
+    }
+    const duration = (candidate: MediaDiagnosticsEpisode): number =>
+      candidate.endMs - candidate.startMs;
+    let shortest = 0;
+    for (let index = 1; index < this.episodes.length; index += 1) {
+      if (duration(this.episodes[index]) < duration(this.episodes[shortest])) {
+        shortest = index;
+      }
+    }
+    if (duration(episode) > duration(this.episodes[shortest])) {
+      this.episodes[shortest] = episode;
+    }
+  }
+
+  private trackRemote(
+    trackKey: string,
+    entry: MediaDiagnosticsStatsInput["inbound"][number],
+  ): void {
+    const identity = identityOfTrackKey(trackKey);
+    if (!identity) {
+      return;
+    }
+    let remote = this.remotes.get(identity);
+    if (!remote) {
+      if (this.remotes.size >= MEDIA_DIAGNOSTICS_MAX_REMOTES) {
+        return;
+      }
+      remote = {
+        identity,
+        samples: 0,
+        packetLossPct: null,
+        concealmentPct: null,
+        jitterMs: null,
+        bitrateBps: null,
+      };
+      this.remotes.set(identity, remote);
+    }
+    remote.samples += 1;
+    remote.packetLossPct = pushStat(remote.packetLossPct, entry.packetLossPct);
+    remote.bitrateBps = pushStat(remote.bitrateBps, entry.bitrateBps);
+    if (entry.kind === "audio") {
+      remote.concealmentPct = pushStat(
+        remote.concealmentPct,
+        entry.concealmentPct,
+      );
+      remote.jitterMs = pushStat(remote.jitterMs, entry.jitterMs);
+    }
+  }
+
+  private buildEpisodes(): MediaDiagnosticsEpisode[] {
+    // Episodes still open at flush time count: a session that ended mid-problem
+    // is precisely the one worth reading.
+    const all = [...this.episodes, ...this.openEpisodes.values()];
+    return all
+      .sort((a, b) => a.startMs - b.startMs)
+      .map((episode) => ({
+        ...episode,
+        peak: episode.peak === null ? null : Math.round(episode.peak * 10) / 10,
+      }));
+  }
+
+  private buildRemotes(): MediaDiagnosticsRemoteSummary[] {
+    return [...this.remotes.values()]
+      .sort((a, b) => b.samples - a.samples)
+      .map((remote) => ({
+        identity: remote.identity,
+        samples: remote.samples,
+        packetLossPct: roundStat(remote.packetLossPct),
+        concealmentPct: roundStat(remote.concealmentPct),
+        jitterMs: roundStat(remote.jitterMs),
+        bitrateBps: roundStat(remote.bitrateBps),
+      }));
   }
 
   public async endSession(): Promise<void> {
@@ -388,7 +658,7 @@ class MediaDiagnosticsCollector {
   }
 
   public buildSummary(): MediaDiagnosticsSummary {
-    return {
+    const summary: MediaDiagnosticsSummary = {
       durationMs: this.durationMs,
       entries: this.recorded,
       events: this.events,
@@ -402,6 +672,17 @@ class MediaDiagnosticsCollector {
             ...this.outboundVideo,
             fps: roundStat(this.outboundVideo.fps),
             bitrateBps: roundStat(this.outboundVideo.bitrateBps),
+            sourceFps: roundStat(this.outboundVideo.sourceFps),
+            encodeMsPerFrame: roundStat(this.outboundVideo.encodeMsPerFrame),
+            framesDroppedPct: roundStat(this.outboundVideo.framesDroppedPct),
+            retransmittedPct: roundStat(this.outboundVideo.retransmittedPct),
+            limitationSeconds: {
+              cpu: Math.round(this.outboundVideo.limitationSeconds.cpu),
+              bandwidth: Math.round(
+                this.outboundVideo.limitationSeconds.bandwidth,
+              ),
+              other: Math.round(this.outboundVideo.limitationSeconds.other),
+            },
           }
         : null,
       inboundVideo: this.inboundVideo
@@ -419,7 +700,37 @@ class MediaDiagnosticsCollector {
       eventCounts: { ...this.eventCounts },
       warnings: { ...this.warnings },
       problems: [...this.problems].sort(),
+      episodes: this.buildEpisodes(),
+      remotes: this.buildRemotes(),
+      verdicts: [],
     };
+
+    // Derived last, from the finished summary, so the same function can be run
+    // again by a reader months later against a stored session.
+    summary.verdicts = deriveVerdicts(summary);
+    return summary;
+  }
+
+  /**
+   * Promotes this sample's threshold breaches into session tags, but only once
+   * one has held across consecutive samples. A sample that does not breach
+   * resets that problem's streak, so the dwell means "still bad", not "bad this
+   * often".
+   */
+  private commitSampleProblems(breached: Set<string>): void {
+    for (const problem of Object.keys(this.problemStreaks)) {
+      if (!breached.has(problem)) {
+        this.problemStreaks[problem] = 0;
+      }
+    }
+
+    for (const problem of breached) {
+      const streak = (this.problemStreaks[problem] ?? 0) + 1;
+      this.problemStreaks[problem] = streak;
+      if (streak >= MEDIA_DIAGNOSTIC_THRESHOLDS.problemDwellSamples) {
+        this.problems.add(problem);
+      }
+    }
   }
 
   private deriveEventProblems(
@@ -436,7 +747,18 @@ class MediaDiagnosticsCollector {
     if (name === "track-stream-paused") {
       this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.streamPaused);
     }
-    if (name === "connection-state" && data?.state === "reconnecting") {
+    // Keyed on the RECONNECTED event, not on the "reconnecting" state.
+    //
+    // LiveKit only emits Reconnecting for a full ICE restart. A signal-channel
+    // drop emits SignalReconnecting and then Reconnected, so a session that
+    // reconnected went untagged — in the field that was three of four
+    // reconnects, and each one still re-ran restorePublishingState and
+    // corrupted a stats window on the way through. The end of a reconnect is
+    // the one edge both kinds share.
+    if (
+      name === "room-reconnected" ||
+      (name === "connection-state" && data?.state === "reconnecting")
+    ) {
       this.problems.add(MEDIA_DIAGNOSTIC_PROBLEMS.reconnects);
     }
     if (

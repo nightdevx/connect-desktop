@@ -165,6 +165,11 @@ export type PresenceStatus = "online" | "idle" | "dnd" | "offline";
 // as offline in both halves of the pair (see Service.visiblePresence).
 export type SelectablePresenceStatus = PresenceStatus;
 
+export interface UserActivity {
+  name: string;
+  startedAt: string;
+}
+
 export interface UserDirectoryEntry {
   userId: string;
   username: string;
@@ -174,6 +179,7 @@ export interface UserDirectoryEntry {
   createdAt: string;
   appOnline?: boolean;
   presence?: PresenceStatus;
+  activity?: UserActivity | null;
 }
 
 export interface LobbyDescriptor {

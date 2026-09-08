@@ -1,6 +1,6 @@
 import type { InboundTrackStats, OutboundTrackStats } from "./media-stats";
 
-export const MEDIA_DIAGNOSTICS_SCHEMA_VERSION = 1;
+export const MEDIA_DIAGNOSTICS_SCHEMA_VERSION = 2;
 
 export interface MediaDiagnosticsStatsInput {
   at: number;
@@ -12,7 +12,12 @@ export interface MediaDiagnosticsStatsInput {
 
 export const MEDIA_DIAGNOSTICS_LIMITS = {
   flushIntervalMs: 20_000,
-  sampleIntervalMs: 10_000,
+  // Mirrors MediaStatsCollector's DEFAULT_INTERVAL_MS, which is what actually
+  // drives recordStats — this said 10s while the real cadence was 2s, so the
+  // per-session entry budget below was being spent five times faster than the
+  // number it was sized against. Keep the two in step; check-media-diagnostics
+  // asserts it.
+  sampleIntervalMs: 2_000,
   maxEntriesPerBatch: 400,
   maxEntriesPerSession: 20_000,
   maxDataBytesPerEntry: 4_000,
@@ -87,12 +92,85 @@ export interface MediaDiagnosticsOutboundVideoSummary {
   layerCounts: Record<string, number>;
   fps: MediaDiagnosticsStat | null;
   bitrateBps: MediaDiagnosticsStat | null;
+  /** Sample counts. Kept for continuity; limitationSeconds is the real answer. */
   limitation: {
     none: number;
     cpu: number;
     bandwidth: number;
     other: number;
   };
+  /**
+   * How LONG the encoder was held back, per cause, in seconds.
+   *
+   * The counts above only say how many two-second samples happened to land
+   * inside a limitation. A three-hour screen share reported "cpu" on ten of
+   * 2417 samples, which is not enough to tell anyone whether the problem lasted
+   * twenty seconds or twenty minutes. Chromium keeps the real durations; these
+   * are them.
+   */
+  limitationSeconds: { cpu: number; bandwidth: number; other: number };
+  /** Encoder work per frame in ms. Over ~16ms, 60fps is not reachable. */
+  encodeMsPerFrame: MediaDiagnosticsStat | null;
+  /** Offered frames the pipeline threw away, as a percentage. */
+  framesDroppedPct: MediaDiagnosticsStat | null;
+  /**
+   * What the CAPTURE produced, against which `fps` above is the encoder's
+   * output. Equal and low means the desktop never produced the frames; source
+   * high and fps low means the encoder could not keep up. Those need opposite
+   * fixes and used to be indistinguishable.
+   */
+  sourceFps: MediaDiagnosticsStat | null;
+  sourceResolutions: Record<string, number>;
+  retransmittedPct: MediaDiagnosticsStat | null;
+}
+
+/**
+ * One contiguous stretch during which a problem was actually happening.
+ *
+ * The session tags say a problem occurred somewhere in three hours; this says
+ * when, for how long, and how bad it got. Reading the old logs meant scanning
+ * 5905 sample rows by hand to find the four that mattered.
+ */
+export interface MediaDiagnosticsEpisode {
+  problem: string;
+  /** Milliseconds from session start, matching an entry's tMs. */
+  startMs: number;
+  endMs: number;
+  samples: number;
+  /** Worst value seen in the episode, in the problem's own unit. */
+  peak: number | null;
+}
+
+/**
+ * Per-remote-participant receive quality.
+ *
+ * Whether one person sounds bad or everyone does is the difference between
+ * "their uplink" and "your downlink", and it was not answerable from the old
+ * summary: every remote track was pooled into one number. The identity is the
+ * LiveKit identity, which is the user id — the admin side can resolve a name
+ * from it without the client having to carry one into the media layer.
+ */
+export interface MediaDiagnosticsRemoteSummary {
+  identity: string;
+  samples: number;
+  packetLossPct: MediaDiagnosticsStat | null;
+  concealmentPct: MediaDiagnosticsStat | null;
+  jitterMs: MediaDiagnosticsStat | null;
+  bitrateBps: MediaDiagnosticsStat | null;
+}
+
+/**
+ * The one-line answer, with the numbers that produced it.
+ *
+ * The problem tags are a vocabulary, not a diagnosis: "packet-loss,
+ * audio-concealment" appears on a healthy call and on a broken one. This ranks
+ * the causes that are actually actionable and states the evidence, so the
+ * person reading a session does not have to know which threshold means what.
+ */
+export interface MediaDiagnosticsVerdict {
+  code: string;
+  headline: string;
+  evidence: string[];
 }
 
 export interface MediaDiagnosticsInboundVideoSummary {
@@ -121,6 +199,9 @@ export interface MediaDiagnosticsSummary {
   eventCounts: Record<string, number>;
   warnings: Record<string, number>;
   problems: string[];
+  episodes: MediaDiagnosticsEpisode[];
+  remotes: MediaDiagnosticsRemoteSummary[];
+  verdicts: MediaDiagnosticsVerdict[];
 }
 
 export interface MediaDiagnosticsSessionMeta {
@@ -191,6 +272,23 @@ export const MEDIA_DIAGNOSTIC_THRESHOLDS = {
   packetLossPct: 3,
   audioConcealmentPct: 3,
   freezeCount: 1,
+  /**
+   * Consecutive samples a threshold must stay breached before the session is
+   * tagged with the problem.
+   *
+   * A tag derived from a single sample is a tag that is always on. Every
+   * session ever uploaded carried "packet-loss" — including ones whose mean
+   * loss was 0.01% — because one sample somewhere had touched 3%, and the
+   * biggest single source of those was a reconnect corrupting the delta math.
+   * The tags are the admin table's filter, so a tag that never discriminates
+   * costs the whole feature.
+   *
+   * Two samples is 4s at sampleIntervalMs. It clears one-off spikes and keeps
+   * everything that lasted, which is the distinction a reader needs. The
+   * user-facing warning has always had a dwell of its own
+   * (QUALITY_LIMITATION_TICKS); this is the same idea for the log.
+   */
+  problemDwellSamples: 2,
 } as const;
 
 export interface MediaDiagnosticsSessionRow {
@@ -267,4 +365,183 @@ export const bump = (counter: Record<string, number>, key: string): void => {
     return;
   }
   counter[key] = (counter[key] ?? 0) + 1;
+};
+
+export const MEDIA_DIAGNOSTICS_MAX_EPISODES = 40;
+export const MEDIA_DIAGNOSTICS_MAX_REMOTES = 16;
+
+const seconds = (ms: number): string => `${Math.round(ms / 1000)} sn`;
+const pct = (value: number): string => `%${Math.round(value * 10) / 10}`;
+
+/**
+ * Ranks what actually went wrong, most actionable first.
+ *
+ * Deliberately a pure function over the finished summary: the collector calls
+ * it at flush time, and the admin reader can call it again on a session stored
+ * months ago without the client that produced it. Every verdict carries the
+ * numbers behind it, because a headline nobody can check is a headline nobody
+ * acts on.
+ */
+export const deriveVerdicts = (
+  summary: MediaDiagnosticsSummary,
+): MediaDiagnosticsVerdict[] => {
+  const verdicts: MediaDiagnosticsVerdict[] = [];
+  const video = summary.outboundVideo;
+
+  if (video) {
+    // How long video was PUBLISHING, not how long the session lasted. A
+    // three-hour lobby session carrying a forty-minute share would otherwise
+    // divide by the wrong number and report a real problem as a rounding error.
+    const shareSec = Math.max(
+      (video.fps?.n ?? 0) * (MEDIA_DIAGNOSTICS_LIMITS.sampleIntervalMs / 1000),
+      1,
+    );
+    const limited = video.limitationSeconds;
+    const encodeMs = video.encodeMsPerFrame?.mean ?? null;
+    const sourceFps = video.sourceFps?.mean ?? null;
+    const encodedFps = video.fps?.mean ?? null;
+    const software =
+      video.softwareEncoderSamples > 0 && video.hardwareEncoderSamples === 0;
+
+    // The headline finding from the field logs: three hours of 1080p encoded by
+    // two software H.264 instances, on a machine whose owner had hardware
+    // acceleration switched on.
+    if (software && limited.cpu >= 5) {
+      verdicts.push({
+        code: "software-encoder-cpu-bound",
+        headline:
+          "Video yazılımla kodlandı ve işlemci yetişemedi; donanım kodlayıcı devrede değil.",
+        evidence: [
+          `işlemci kısıtı ${seconds(limited.cpu * 1000)} — yayın süresinin ${pct((limited.cpu / shareSec) * 100)} kadarı`,
+          `kodlayıcı: ${Object.keys(video.encoderImplementations).join(", ") || "bilinmiyor"}`,
+          ...(encodeMs !== null ? [`kare başına ${encodeMs} ms kodlama`] : []),
+        ],
+      });
+    } else if (limited.cpu >= 5) {
+      verdicts.push({
+        code: "cpu-bound",
+        headline: "İşlemci seçilen yayın kalitesini karşılayamadı.",
+        evidence: [
+          `işlemci kısıtı ${seconds(limited.cpu * 1000)}`,
+          ...(encodeMs !== null ? [`kare başına ${encodeMs} ms kodlama`] : []),
+        ],
+      });
+    }
+
+    // Capture starvation vs encoder overload. Same symptom on screen, opposite
+    // fixes, and the old summary could not tell them apart at all.
+    if (
+      sourceFps !== null &&
+      encodedFps !== null &&
+      sourceFps > 0 &&
+      encodedFps / sourceFps < 0.7
+    ) {
+      verdicts.push({
+        code: "encoder-drops-frames",
+        headline:
+          "Kaynak kareleri üretti ama kodlayıcı yetiştiremedi; kareler düşürüldü.",
+        evidence: [
+          `kaynak ${Math.round(sourceFps)} fps, kodlanan ${Math.round(encodedFps)} fps`,
+          ...(video.framesDroppedPct
+            ? [`düşürülen kare ${pct(video.framesDroppedPct.mean)}`]
+            : []),
+        ],
+      });
+    } else if (
+      sourceFps !== null &&
+      video.sourceResolutions &&
+      sourceFps > 0 &&
+      sourceFps < 45 &&
+      Object.keys(video.sourceResolutions).some((key) => key.includes("1080") || key.includes("1440") || key.includes("2160"))
+    ) {
+      verdicts.push({
+        code: "capture-starved",
+        headline:
+          "Ekran yakalama istenen kare hızını üretemedi; darboğaz kodlayıcıda değil, kaynakta.",
+        evidence: [
+          `kaynak ortalama ${Math.round(sourceFps)} fps`,
+          `çözünürlük: ${Object.keys(video.sourceResolutions).join(", ")}`,
+        ],
+      });
+    }
+
+    if (limited.bandwidth >= 5) {
+      verdicts.push({
+        code: "uplink-bound",
+        headline: "Yükleme hızı seçilen yayın kalitesine yetmedi.",
+        evidence: [
+          `bant genişliği kısıtı ${seconds(limited.bandwidth * 1000)}`,
+          ...(summary.availableOutgoingBitrateBps
+            ? [
+                `ölçülen uplink tahmini min ${Math.round(summary.availableOutgoingBitrateBps.min / 1000)} kbps`,
+              ]
+            : []),
+        ],
+      });
+    }
+  }
+
+  // Whose fault is the bad audio: one peer's uplink, or this machine's
+  // downlink? Answerable only because the remotes are no longer pooled.
+  const remotes = summary.remotes ?? [];
+  const measured = remotes.filter((remote) => remote.samples >= 5);
+  const bad = measured.filter(
+    (remote) =>
+      (remote.packetLossPct?.mean ?? 0) >= MEDIA_DIAGNOSTIC_THRESHOLDS.packetLossPct ||
+      (remote.concealmentPct?.mean ?? 0) >=
+        MEDIA_DIAGNOSTIC_THRESHOLDS.audioConcealmentPct,
+  );
+
+  if (measured.length >= 2 && bad.length === measured.length) {
+    verdicts.push({
+      code: "local-downlink",
+      headline:
+        "Odadaki herkes bozuk geldi; sorun karşı taraflarda değil, bu makinenin indirme yolunda.",
+      evidence: [
+        `${measured.length} katılımcının ${bad.length}'i eşzamanlı kayıplı`,
+        ...bad
+          .slice(0, 3)
+          .map(
+            (remote) =>
+              `${remote.identity.slice(0, 8)}: kayıp ${pct(remote.packetLossPct?.mean ?? 0)}, kesinti ${pct(remote.concealmentPct?.mean ?? 0)}`,
+          ),
+      ],
+    });
+  } else if (bad.length > 0 && bad.length < measured.length) {
+    verdicts.push({
+      code: "remote-uplink",
+      headline: `${bad.length} katılımcı bozuk geldi, diğerleri temiz; sorun o katılımcıların gönderme yolunda.`,
+      evidence: bad
+        .slice(0, 3)
+        .map(
+          (remote) =>
+            `${remote.identity.slice(0, 8)}: kayıp ${pct(remote.packetLossPct?.mean ?? 0)}, kesinti ${pct(remote.concealmentPct?.mean ?? 0)}`,
+        ),
+    });
+  }
+
+  const reconnects = Object.entries(summary.eventCounts)
+    .filter(([name]) => name.endsWith("/room-reconnected"))
+    .reduce((total, [, count]) => total + count, 0);
+  if (reconnects > 0) {
+    verdicts.push({
+      code: "reconnects",
+      headline: `Bağlantı ${reconnects} kez koptu ve yeniden kuruldu.`,
+      evidence: [
+        `her kopuş yayını yeniden yayımlıyor ve o anki istatistik penceresini geçersiz kılıyor`,
+      ],
+    });
+  }
+
+  if ((summary.rttMs?.mean ?? 0) >= MEDIA_DIAGNOSTIC_THRESHOLDS.highRttMs) {
+    verdicts.push({
+      code: "high-rtt",
+      headline: "Gecikme oturum boyunca yüksek kaldı.",
+      evidence: [
+        `RTT ortalama ${Math.round(summary.rttMs?.mean ?? 0)} ms, en yüksek ${Math.round(summary.rttMs?.max ?? 0)} ms`,
+      ],
+    });
+  }
+
+  return verdicts;
 };

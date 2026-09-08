@@ -802,9 +802,19 @@
   background: var(--ct-alpha-04);
 }
 
+.ct-profile-card-game.playing {
+  border-color: var(--ct-success);
+  background: var(--ct-alpha-08);
+}
+
 .ct-profile-card-game-label {
   @apply truncate text-xs font-semibold;
   color: var(--ct-text-secondary);
+}
+
+.ct-profile-card-game-time {
+  @apply shrink-0 text-xs font-semibold tabular-nums;
+  color: var(--ct-text-primary);
 }
 
 .ct-profile-card-stats {

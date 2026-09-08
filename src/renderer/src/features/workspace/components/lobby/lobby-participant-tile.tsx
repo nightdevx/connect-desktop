@@ -363,11 +363,6 @@ function LobbyParticipantTileImpl({
       onClick={!participant.isLocalUser && !participant.isPlaceholder ? onActivate : undefined}
 
       onDoubleClick={handleDoubleClick}
-      title={
-        participant.isLocalUser
-          ? undefined
-          : "Sol tık: büyüt / Çift tık: tam ekran / Sağ tık: seçenekler"
-      }
     >
       {emoteFlash && (
         <span className="ct-lobby-tile-emote-flash" aria-live="polite">

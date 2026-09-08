@@ -105,6 +105,26 @@ export const formatMembershipLength = (value: string): string => {
   return remainingMonths > 0 ? `${years} yıl ${remainingMonths} ay` : `${years} yıl`;
 };
 
+export const formatActivityElapsed = (
+  startedAt: string,
+  nowMs: number = Date.now(),
+): string => {
+  const start = new Date(startedAt);
+  if (Number.isNaN(start.getTime())) {
+    return "";
+  }
+
+  const totalSeconds = Math.max(0, Math.floor((nowMs - start.getTime()) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number): string => String(value).padStart(2, "0");
+
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
+};
+
 export const formatTimeLabel = (value: string): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {

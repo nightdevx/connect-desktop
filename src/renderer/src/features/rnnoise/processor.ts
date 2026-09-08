@@ -303,6 +303,12 @@ export class MicrophoneTrackProcessorFactory {
           configureLimiter(limiterNode);
 
           const destinationNode = context.createMediaStreamDestination();
+          // Defaults to 2. Every stage in front of it is mono — the capture asks
+          // for channelCount 1, RNNoise and the gate are built with
+          // maxChannels 1 — so the default published a stereo microphone track
+          // whose second channel was never anything but a copy, and handed the
+          // receiver a layout it then had to guess at. One channel in, one out.
+          destinationNode.channelCount = 1;
 
           let rnnoiseNode: RnnoiseWorkletNode | null = null;
           let outputLowPassNode: BiquadFilterNode | null = null;

@@ -14,9 +14,38 @@ import { findCommunicationsDeviceId } from "../audio-devices";
 
 // Remote playback runs through a single WebAudio bus:
 //
-//   per-track source -> per-track gain -> [per-voice compressor] -> master gain
-//                    -> master limiter -> context.destination
+//   per-track source -> [voice mono fold] -> [per-voice compressor]
+//                    -> per-track gain -> master gain -> master limiter
+//                    -> context.destination
 //                    \-> analyser (mic only, speaking indicator)
+//
+// The mono fold is a ChannelSplitter/ChannelMerger pair that copies channel 0
+// of the source onto BOTH output channels. It is there because the channel
+// layout a remote track reports is not trustworthy at the moment it is
+// subscribed. TrackSubscribed fires as soon as the transceiver exists, which
+// for somebody who joins a room that is already running is BEFORE a single RTP
+// packet has arrived, so the MediaStreamAudioSourceNode is built against a
+// format nobody has seen yet — Blink defaults that node to stereo. A mono voice
+// landing in a two-channel node fills the left channel and leaves the right one
+// silent, and everything downstream carries that layout faithfully to the
+// speakers: the newcomer is heard in one ear only, by everybody who was already
+// in the room, until something re-subscribes and the node is rebuilt against a
+// format that is by then known. That was the "leave and rejoin fixes it" bug.
+//
+// Folding channel 0 out to both sides is correct either way round: a voice
+// track is mono by construction — the capture asks for channelCount 1 and the
+// microphone processor publishes one channel — so channel 1 is never anything
+// but a duplicate or silence. Screen share and the music bot are genuinely
+// stereo and are deliberately left alone.
+//
+// The per-track gain sits AFTER the compressor, and that order is what makes
+// the per-person volume slider mean anything. A compressor's gain reduction
+// depends on how loud its input is, so with the gain in front of it, turning
+// somebody down ALSO stopped the compressor compressing them — and it handed a
+// chunk of the attenuation straight back. Dragging a loud talker to 5% bought
+// about 13 dB instead of 26, which is what "I turned them all the way down and
+// they are still too loud" was. Levelling first and applying the listener's
+// choice to the result makes the slider absolute: 5% is 5%, whoever is talking.
 //
 // The previous implementation gave every participant a bare HTMLAudioElement
 // and set `el.volume`. That caps at 1.0, so the 0-200% master and per-user
@@ -28,6 +57,8 @@ type InputKind = "mic" | "screen";
 
 interface BusInput {
   sourceNode: MediaStreamAudioSourceNode;
+  // ChannelSplitter + ChannelMerger, voice only. Empty for stereo inputs.
+  monoFoldNodes: AudioNode[];
   gainNode: GainNode;
   compressorNode: DynamicsCompressorNode | null;
   // Chromium does not pull audio from a remote MediaStreamTrack unless it is
@@ -37,7 +68,7 @@ interface BusInput {
   // Voice only — a screen share's audio is not its owner talking, and counting
   // it would light somebody's ring for the whole length of a video.
   //
-  // Tapped off sourceNode, BEFORE gainNode, on purpose: turning one person down
+  // Tapped off the mono fold, BEFORE gainNode, on purpose: turning one person down
   // to 20% or muting them locally must not change whether they are shown as
   // speaking. They are still talking; the roster says so, and a separate icon
   // says you muted them.
@@ -52,19 +83,19 @@ const SILENCE_SETTLE_SECONDS = 0.05;
 const PLAYBACK_SAMPLE_RATE = 48000;
 
 const VOICE_COMPRESSOR = {
-  threshold: -18,
-  knee: 6,
-  ratio: 4,
-  attack: 0.005,
-  release: 0.15,
+  threshold: -16,
+  knee: 10,
+  ratio: 3,
+  attack: 0.02,
+  release: 0.2,
 };
 
 const MASTER_LIMITER = {
-  threshold: -1,
-  knee: 0,
-  ratio: 20,
+  threshold: -6,
+  knee: 8,
+  ratio: 8,
   attack: 0.003,
-  release: 0.25,
+  release: 0.08,
 };
 
 const inputKey = (identity: string, kind: InputKind): string => {
@@ -78,7 +109,9 @@ const percentToGain = (percent: number): number => {
   return Math.max(0, percent) / 100;
 };
 
-const shouldLevelInput = (identity: string, kind: InputKind): boolean => {
+// A human talking: mono by construction, and the only input that wants both
+// levelling and the mono fold. Screen audio and the music bot are stereo.
+const isVoiceInput = (identity: string, kind: InputKind): boolean => {
   return kind === "mic" && !isMusicBotIdentity(identity);
 };
 
@@ -234,30 +267,49 @@ export class RemoteMediaHandler {
       pumpElement.id = `remote-audio-pump-${key}`;
       pumpElement.autoplay = true;
       pumpElement.muted = true;
+      pumpElement.volume = 0;
       pumpElement.style.display = "none";
       pumpElement.srcObject = stream;
       document.body.appendChild(pumpElement);
       void pumpElement.play().catch(() => undefined);
 
       const sourceNode = bus.context.createMediaStreamSource(stream);
+      const isVoice = isVoiceInput(participant.identity, kind);
+
+      // Channel 0 to both outputs. The splitter's interpretation is "discrete",
+      // so a source that really is mono lands on output 0 and output 1 stays
+      // silent — which is the only channel this reads. One edge therefore covers
+      // both the healthy layout and the wrong one, at full level; a downmix
+      // would have cost 6 dB on whichever of the two turned up.
+      const monoFoldNodes: AudioNode[] = [];
+      let head: AudioNode = sourceNode;
+      if (isVoice) {
+        const splitterNode = bus.context.createChannelSplitter(2);
+        const mergerNode = bus.context.createChannelMerger(2);
+        sourceNode.connect(splitterNode);
+        splitterNode.connect(mergerNode, 0, 0);
+        splitterNode.connect(mergerNode, 0, 1);
+        monoFoldNodes.push(splitterNode, mergerNode);
+        head = mergerNode;
+      }
+
       const gainNode = bus.context.createGain();
       gainNode.gain.value = this.resolveInputGain(participant.identity, kind);
 
-      sourceNode.connect(gainNode);
-
       let compressorNode: DynamicsCompressorNode | null = null;
-      if (shouldLevelInput(participant.identity, kind)) {
+      if (isVoice) {
         compressorNode = bus.context.createDynamicsCompressor();
         compressorNode.threshold.value = VOICE_COMPRESSOR.threshold;
         compressorNode.knee.value = VOICE_COMPRESSOR.knee;
         compressorNode.ratio.value = VOICE_COMPRESSOR.ratio;
         compressorNode.attack.value = VOICE_COMPRESSOR.attack;
         compressorNode.release.value = VOICE_COMPRESSOR.release;
-        gainNode.connect(compressorNode);
-        compressorNode.connect(bus.masterGain);
+        head.connect(compressorNode);
+        compressorNode.connect(gainNode);
       } else {
-        gainNode.connect(bus.masterGain);
+        head.connect(gainNode);
       }
+      gainNode.connect(bus.masterGain);
 
       let analyserNode: AnalyserNode | null = null;
       let levelBuffer: Uint8Array<ArrayBuffer> | null = null;
@@ -266,12 +318,13 @@ export class RemoteMediaHandler {
         // Same window as the local meter. 256 samples is ~5ms at 48kHz, short
         // enough that the RMS follows syllables rather than averaging them away.
         analyserNode.fftSize = 256;
-        sourceNode.connect(analyserNode);
+        head.connect(analyserNode);
         levelBuffer = new Uint8Array(new ArrayBuffer(analyserNode.fftSize));
       }
 
       this.inputs.set(key, {
         sourceNode,
+        monoFoldNodes,
         gainNode,
         compressorNode,
         pumpElement,
@@ -284,6 +337,7 @@ export class RemoteMediaHandler {
         kind,
         gain: gainNode.gain.value,
         levelled: compressorNode !== null,
+        monoFolded: monoFoldNodes.length > 0,
       });
     } catch (error) {
       logLiveKitDebug("remote-media", "audio-attach-failed", {
@@ -304,6 +358,9 @@ export class RemoteMediaHandler {
     this.inputs.delete(key);
     try {
       input.sourceNode.disconnect();
+      for (const node of input.monoFoldNodes) {
+        node.disconnect();
+      }
       input.gainNode.disconnect();
       input.compressorNode?.disconnect();
       input.analyserNode?.disconnect();

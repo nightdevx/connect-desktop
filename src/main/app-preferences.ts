@@ -16,6 +16,7 @@ const defaultAppPreferences: DesktopAppPreferences = {
   pushToTalk: false,
   pushToTalkKey: "Space",
   freeGameNotifications: true,
+  shareGameActivity: true,
 };
 
 // An accelerator arrives from the renderer, so it is untrusted input that ends
@@ -102,6 +103,10 @@ const sanitizeLoadedPreferences = (payload: unknown): DesktopAppPreferences => {
       typeof source.freeGameNotifications === "boolean"
         ? source.freeGameNotifications
         : defaultAppPreferences.freeGameNotifications,
+    shareGameActivity:
+      typeof source.shareGameActivity === "boolean"
+        ? source.shareGameActivity
+        : defaultAppPreferences.shareGameActivity,
   };
 };
 

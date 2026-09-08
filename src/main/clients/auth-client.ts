@@ -28,6 +28,7 @@ import type {
 } from "../../shared/auth-contracts";
 import type { AdminEmoteLibrary } from "../../shared/desktop-api-types";
 import type { MinigameTableOverview } from "../../shared/minigames";
+import type { GameActivity } from "../../shared/game-activity";
 import type { BaseClient } from "./base-client";
 
 export class AuthClient {
@@ -184,6 +185,20 @@ export class AuthClient {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ status }),
+      },
+    );
+  }
+
+  public async setActivity(
+    accessToken: string,
+    activity: GameActivity | null,
+  ): Promise<{ activity: GameActivity | null }> {
+    return this.baseClient.request<{ activity: GameActivity | null }>(
+      "/auth/activity",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ activity }),
       },
     );
   }
