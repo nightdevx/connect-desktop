@@ -1037,9 +1037,12 @@ export class LiveKitMediaSession {
       // a step-up it never earned.
       if (this.desiredScreenEnabled && this.hasOutboundVideo(snapshot)) {
         this.healthyTicks += 1;
-        if (this.healthyTicks >= QUALITY_RECOVERY_TICKS) {
+        if (
+          this.healthyTicks >= QUALITY_RECOVERY_TICKS &&
+          this.encoderRecoveryHandler
+        ) {
           this.healthyTicks = 0;
-          this.encoderRecoveryHandler?.();
+          this.encoderRecoveryHandler();
         }
       } else {
         this.healthyTicks = 0;
@@ -1181,7 +1184,6 @@ export class LiveKitMediaSession {
 
   public setEncoderRecoveryHandler(handler: (() => void) | null): void {
     this.encoderRecoveryHandler = handler;
-    this.healthyTicks = 0;
   }
 
   public resetEncoderOverloadNotice(): void {

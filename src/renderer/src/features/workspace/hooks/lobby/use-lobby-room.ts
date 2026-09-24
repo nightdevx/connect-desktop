@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -559,7 +560,7 @@ export const useLobbyRoom = ({
     setLobbySearchResults(null);
   }, [activeLobbyId]);
 
-  const patchLobbyMemberState = (
+  const patchLobbyMemberState = useCallback((
     userId: string,
     patch: LobbyMemberStatePatch,
   ): void => {
@@ -603,7 +604,7 @@ export const useLobbyRoom = ({
         },
       };
     });
-  };
+  }, [activeLobbyId, queryClient]);
 
   return {
     lobbyStateQuery,
