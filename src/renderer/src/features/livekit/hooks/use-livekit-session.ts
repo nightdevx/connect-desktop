@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   EMPTY_MEDIA_STATS,
   LiveKitMediaSession,
+  type LiveKitConnectionStateDetail,
   type LiveKitConnectionStatus,
   type MediaStatsSnapshot,
   type LiveKitAudioProcessingPreferences,
@@ -242,9 +243,22 @@ export function useLivekitSession(
         );
         publishSpeakingUserIds();
       },
-      onConnectionStateChanged: (state: LiveKitConnectionStatus) => {
-        mediaDiagnostics.record("session", "connection-state", { state });
+      onConnectionStateChanged: (
+        state: LiveKitConnectionStatus,
+        detail?: LiveKitConnectionStateDetail,
+      ) => {
+        const expected = detail?.expected === true;
+        mediaDiagnostics.record("session", "connection-state", {
+          state,
+          expected,
+        });
         setLiveKitConnectionState(state);
+
+        // This client left on purpose. The badge has been updated above; there
+        // is nothing to recover and nobody to warn.
+        if (expected) {
+          return;
+        }
 
         // Ended by the server. Stop here — the reconnect chain would either
         // fail repeatedly or, for a duplicate identity, evict the very session

@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Switch } from "antd";
 import {
+  ApiOutlined,
   CloseOutlined,
   DashboardOutlined,
   DisconnectOutlined,
   ExclamationCircleOutlined,
+  LineChartOutlined,
   ThunderboltOutlined,
   WifiOutlined,
 } from "@ant-design/icons";
+import type { IcePathKind } from "@shared/media-stats";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import { useVideoQuality } from "../../hooks/lobby/use-video-quality";
 import {
+  JITTER_WARN_MS,
   useWorkspaceAudioConnection,
   type AudioConnectionTone,
 } from "../../hooks/lobby/use-workspace-audio-connection";
@@ -32,6 +36,12 @@ const TONE_LABELS: Record<AudioConnectionTone, string> = {
   warn: "Yüksek ping",
   error: "Bağlantı kesildi",
   idle: "Bağlanıyor",
+};
+
+const TRANSPORT_PATH_LABELS: Record<IcePathKind, string> = {
+  udp: "UDP · doğrudan",
+  tcp: "TCP · yedek yol",
+  relay: "TURN · aktarma",
 };
 
 /**
@@ -142,7 +152,13 @@ export function WorkspaceAudioStatus({
           <p
             className={`ct-audio-popover-status ${audioConnectionProps.tone}`}
           >
-            {TONE_LABELS[audioConnectionProps.tone]}
+            {/* A warning raised by the path, not the ping: "high ping" would
+                send the user looking at the wrong number. */}
+            {audioConnectionProps.tone === "warn" &&
+            audioConnectionProps.transportPath !== null &&
+            audioConnectionProps.transportPath !== "udp"
+              ? "Yedek bağlantı yolu"
+              : TONE_LABELS[audioConnectionProps.tone]}
           </p>
 
           <div className="ct-audio-details-grid">
@@ -171,6 +187,41 @@ export function WorkspaceAudioStatus({
                 {audioConnectionProps.packetLossPct !== null
                   ? `${audioConnectionProps.packetLossPct.toFixed(1)}%`
                   : "%0.0"}
+              </strong>
+            </div>
+
+            <div className="ct-metric-tile">
+              <span>
+                <LineChartOutlined /> Titreşim (Jitter)
+              </span>
+              <strong
+                className={
+                  (audioConnectionProps.jitterMs ?? 0) >= JITTER_WARN_MS
+                    ? "alarm"
+                    : undefined
+                }
+              >
+                {audioConnectionProps.jitterMs !== null
+                  ? `${audioConnectionProps.jitterMs} ms`
+                  : "-"}
+              </strong>
+            </div>
+
+            <div className="ct-metric-tile">
+              <span>
+                <ApiOutlined /> Bağlantı Yolu
+              </span>
+              <strong
+                className={
+                  audioConnectionProps.transportPath !== null &&
+                  audioConnectionProps.transportPath !== "udp"
+                    ? "alarm"
+                    : undefined
+                }
+              >
+                {audioConnectionProps.transportPath !== null
+                  ? TRANSPORT_PATH_LABELS[audioConnectionProps.transportPath]
+                  : "-"}
               </strong>
             </div>
           </div>

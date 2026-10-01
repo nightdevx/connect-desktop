@@ -444,6 +444,41 @@ assert.deepEqual(
   "a single remote cannot distinguish the two, so it must claim neither",
 );
 
+// Off the direct UDP path. RTT and loss read the same on TCP or through a
+// relay, so the per-path sample counts are the only witness and the verdict
+// has to read them right.
+const onPaths = (publisher, subscriber = publisher) => ({
+  icePathSamples: { publisher, subscriber },
+});
+assert.deepEqual(
+  codesOf(baseSummary(onPaths({ "udp/host": 290, "udp/srflx": 10 }))),
+  [],
+  "a session that stayed on UDP is no fallback, whatever its candidate types",
+);
+assert.deepEqual(
+  codesOf(baseSummary(onPaths({ "udp/srflx": 299, "tcp/host": 1 }))),
+  [],
+  "one sample on a TCP pair while ICE settles is not a fallback",
+);
+const pinnedToTcp = deriveVerdicts(
+  baseSummary(onPaths({ "udp/srflx": 40, "tcp/host": 260 })),
+).find((verdict) => verdict.code === "fallback-path");
+assert.ok(pinnedToTcp, "media pinned to ICE/TCP must be named; nothing else shows it");
+assert.ok(
+  !pinnedToTcp.headline.includes("TURN"),
+  "a TCP fallback must not be reported as a relay",
+);
+const relayed = deriveVerdicts(
+  baseSummary(onPaths({ "udp/relay": 300 }, { "udp/host": 300 })),
+).find((verdict) => verdict.code === "fallback-path");
+assert.ok(relayed, "media through a TURN relay must be named");
+assert.ok(relayed.headline.includes("TURN"), "a relayed session must be told apart from a TCP one");
+assert.equal(
+  relayed.evidence.length,
+  1,
+  "only the relayed connection is evidence; the direct one beside it is not",
+);
+
 // Every verdict has to carry its numbers, or nobody can check it.
 for (const verdict of deriveVerdicts(
   baseSummary({
@@ -451,6 +486,7 @@ for (const verdict of deriveVerdicts(
     remotes: [badRemote("a"), badRemote("b")],
     eventCounts: { "stream-manager/room-reconnected": 2 },
     rttMs: stat(310, 20, 1424),
+    ...onPaths({ "tcp/host": 30 }, { "udp/relay": 30 }),
   }),
 )) {
   assert.ok(verdict.headline.length > 0, `${verdict.code} has no headline`);

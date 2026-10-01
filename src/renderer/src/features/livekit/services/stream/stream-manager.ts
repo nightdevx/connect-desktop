@@ -1,11 +1,14 @@
 import {
   Room,
+  RoomEvent,
+  EngineEvent,
   Track,
   ConnectionState,
   DisconnectReason,
   LocalParticipant,
   type LocalTrackPublication,
   type Participant,
+  type RemoteTrack,
   type RoomOptions,
   type TrackPublication,
   type TrackPublishOptions,
@@ -16,6 +19,8 @@ import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
 import {
+  type LiveKitConnectRequest,
+  type LiveKitConnectTrigger,
   type LiveKitStreamManagerCallbacks,
   type ParticipantMediaMap,
   type ParticipantMediaState,
@@ -24,6 +29,7 @@ import {
   type LiveKitAudioProcessingPreferences,
   type PausedTrackKind,
   type RemoteParticipantAudioPreference,
+  liveKitConnectRequest,
   pausedTrackKey,
 } from "./types";
 import {
@@ -47,7 +53,13 @@ import {
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
-import { findQualityLimitation } from "@shared/media-stats";
+import {
+  EMPTY_ICE_PATHS,
+  classifyIcePath,
+  findQualityLimitation,
+  icePathKey,
+  type MediaIcePaths,
+} from "@shared/media-stats";
 import {
   describeEncodingMismatch,
   scaleBitrateToResolution,
@@ -101,6 +113,32 @@ const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = {
 };
 
 const SOFTWARE_SVC_TICKS = 2;
+
+// livekit-client 2.17+ tries the single-peer-connection signalling path
+// (/rtc/v1) first and falls back to the classic two-connection path when the
+// server answers 404. The deployed SFU (v1.9.1) does not have /rtc/v1, so every
+// join and every rejoin paid for that failed attempt before connecting — the
+// "v1 RTC path not found … Retrying" line in the logs. Ask for the classic path
+// directly until the server is upgraded; then flip this to true, which halves
+// the ICE/DTLS handshakes per join (see docs/voice-connectivity-plan.md, A4).
+const USE_SINGLE_PEER_CONNECTION = false;
+
+// How long a join may take to deliver the first remote audio before the
+// diagnostics record that it did not. Far past any healthy join (the target is
+// one second from the click); short enough that the event still describes the
+// join rather than someone unmuting minutes later.
+const FIRST_REMOTE_AUDIO_TIMEOUT_MS = 15_000;
+
+// The states in which LiveKit still owns a session and is either using it or
+// bringing it back by itself. SignalReconnecting is the one that matters most:
+// it is what a network blip looks like — the signalling socket is being resumed
+// while the media keeps flowing — and it lasts at least two seconds by design.
+// It used to be missing here, so an app-level rejoin arriving in that window
+// tore down a session LiveKit was about to restore.
+const isLiveConnectionState = (state: ConnectionState): boolean =>
+  state === ConnectionState.Connected ||
+  state === ConnectionState.Reconnecting ||
+  state === ConnectionState.SignalReconnecting;
 
 // A publication that exists and is not muted. Covers a self-mute and a
 // moderator's force-mute identically, which is what we want: either way nothing
@@ -186,6 +224,16 @@ export class LiveKitMediaSession {
   // Single-flight guard for connect().
   private connectPromise: Promise<void> | null = null;
   private connectingLobbyId: string | null = null;
+  // Bumped by every connect that installs a room and by every deliberate
+  // disconnect(). An in-flight connect compares it on the way out: if it moved,
+  // something newer owns the session and this attempt's failure is not a drop.
+  private roomGeneration = 0;
+  // The lobby a replacing connect is about to install, read by disconnect() to
+  // tell "rebuilding the same room" from "moving to another one".
+  private replacementLobbyId: string | null = null;
+  // The network path each connection was last seen on, so a switch (direct UDP
+  // to TCP, or onto a relay) is recorded once, when it happens.
+  private lastIcePaths: MediaIcePaths = EMPTY_ICE_PATHS;
 
   private remoteMediaHandler: RemoteMediaHandler | null = null;
   private roomEventManager: RoomEventManager | null = null;
@@ -388,6 +436,7 @@ export class LiveKitMediaSession {
     token: string,
     lobbyId: string,
     iceServers?: RTCIceServer[],
+    request: LiveKitConnectRequest = liveKitConnectRequest("unspecified"),
   ): Promise<void> {
     // Single-flight. Without it, a second connect() landing while the first was
     // still awaiting room.connect() took the `if (this.room)` branch and ran
@@ -395,79 +444,260 @@ export class LiveKitMediaSession {
     // dereferenced it, throwing, emitting "disconnected" and scheduling yet
     // another reconnect. A self-sustaining failure loop.
     if (this.connectPromise && this.connectingLobbyId === lobbyId) {
+      this.recordConnectRequest(lobbyId, request.trigger, "joined-in-flight");
       return this.connectPromise;
     }
 
     this.connectingLobbyId = lobbyId;
-    this.connectPromise = this.connectInternal(
+    const attempt: Promise<void> = this.connectInternal(
       url,
       token,
       lobbyId,
       iceServers,
+      request,
     ).finally(() => {
-      this.connectPromise = null;
-      this.connectingLobbyId = null;
+      // Only the attempt that still owns the guard may clear it. When a connect
+      // for another room starts while this one is in flight, it replaces both
+      // fields; clearing them unconditionally here wiped THAT attempt's
+      // protection, so the next caller for the new room did not join it but
+      // aborted it and started a third. That chain is the "night -> main-lobby
+      // (aborted) -> main-lobby" sequence the SFU logged on startup.
+      if (this.connectPromise === attempt) {
+        this.connectPromise = null;
+        this.connectingLobbyId = null;
+      }
     });
+    this.connectPromise = attempt;
 
-    return this.connectPromise;
+    return attempt;
+  }
+
+  /**
+   * Whether a session for this lobby exists and LiveKit is either using it or
+   * restoring it by itself — or a connect for it is already under way.
+   *
+   * The workspace asks this before forcing a rejoin after the network comes
+   * back: if LiveKit still owns the session, a rejoin would only replace a room
+   * that is about to recover on its own.
+   */
+  public isRoomAliveFor(lobbyId: string): boolean {
+    if (this.connectPromise && this.connectingLobbyId === lobbyId) {
+      return true;
+    }
+
+    return Boolean(
+      this.room &&
+        this.currentLobbyId === lobbyId &&
+        isLiveConnectionState(this.room.state),
+    );
+  }
+
+  private recordConnectRequest(
+    lobbyId: string,
+    trigger: LiveKitConnectTrigger,
+    outcome: "noop-alive" | "joined-in-flight" | "new-room" | "replaced-room",
+    previousState?: ConnectionState,
+  ): void {
+    // logLiveKitDebug also writes the entry into the media diagnostics, so this
+    // one call is both the dev console line and the session timeline row.
+    logLiveKitDebug("session", "connect-request", {
+      lobbyId,
+      trigger,
+      outcome,
+      previousState: previousState ?? null,
+    });
+  }
+
+  /**
+   * Writes each ICE connection state change of both transports into the
+   * session timeline, with the time since this room started connecting.
+   *
+   * The SFU logged "short ice connection" for sessions whose ICE dropped 18-28
+   * seconds after joining, and the client kept no trace of that moment — only
+   * of LiveKit's reconnect when one followed, and nothing at all when ICE came
+   * back by itself. livekit-client raises no event for it, so this chains onto
+   * the transport's own callback (its PCTransportManager installs it just
+   * before TransportsCreated) and always calls that first. A full reconnect
+   * builds new transports and raises TransportsCreated again.
+   */
+  private watchIceStates(room: Room, connectStartedAt: number): void {
+    room.engine.on(EngineEvent.TransportsCreated, (publisher, subscriber) => {
+      for (const [connection, transport] of [
+        ["publisher", publisher],
+        ["subscriber", subscriber],
+      ] as const) {
+        if (!transport) {
+          continue;
+        }
+        const forward = transport.onIceConnectionStateChange;
+        transport.onIceConnectionStateChange = (state) => {
+          forward?.(state);
+          if (this.room !== room) {
+            return;
+          }
+          logLiveKitDebug("stream-manager", "ice-state", {
+            connection,
+            state,
+            sinceConnectMs: Math.round(performance.now() - connectStartedAt),
+          });
+        };
+      }
+    });
+  }
+
+  /**
+   * Records how long this join took to make the room audible: from the request
+   * (the click, or the start of a reconnect attempt) and from connect() to the
+   * first remote audio track subscribed.
+   *
+   * Only armed when there is someone to hear — an audio publication already in
+   * the room that this session will subscribe to; a deafened session subscribes
+   * to no audio at all. Gives up after FIRST_REMOTE_AUDIO_TIMEOUT_MS and says
+   * so: sitting in silence in a room where people are talking is the very
+   * failure this exists to count.
+   */
+  private timeFirstRemoteAudio(
+    room: Room,
+    lobbyId: string,
+    request: LiveKitConnectRequest,
+    connectStartedAt: number,
+  ): void {
+    const deafened = this.remoteMediaHandler?.isDeafenedNow() ?? false;
+    let audibleTracks = 0;
+    let alreadySubscribed = false;
+    for (const participant of room.remoteParticipants.values()) {
+      for (const publication of participant.audioTrackPublications.values()) {
+        const subscribes = shouldSubscribePublication({
+          kind: publication.kind,
+          source: publication.source,
+          deafened,
+          watchingScreen: this.watchedScreenIdentities.has(
+            participant.identity,
+          ),
+        });
+        if (!subscribes) {
+          continue;
+        }
+        audibleTracks += 1;
+        if (publication.isSubscribed) {
+          alreadySubscribed = true;
+        }
+      }
+    }
+    if (audibleTracks === 0) {
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (timedOut: boolean): void => {
+      room.off(RoomEvent.TrackSubscribed, onTrackSubscribed);
+      clearTimeout(timer);
+      // Superseded by another room or a leave: whatever this would say is
+      // about a session nobody is in any more.
+      if (this.room !== room) {
+        return;
+      }
+      const now = performance.now();
+      logLiveKitDebug("session", "first-remote-audio", {
+        lobbyId,
+        trigger: request.trigger,
+        sinceRequestMs: Math.round(now - request.requestedAt),
+        sinceConnectMs: Math.round(now - connectStartedAt),
+        audibleTracks,
+        timedOut,
+      });
+    };
+    const onTrackSubscribed = (track: RemoteTrack): void => {
+      if (track.kind === Track.Kind.Audio) {
+        settle(false);
+      }
+    };
+
+    if (alreadySubscribed) {
+      settle(false);
+      return;
+    }
+    room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
+    timer = setTimeout(() => settle(true), FIRST_REMOTE_AUDIO_TIMEOUT_MS);
   }
 
   private async connectInternal(
     url: string,
     token: string,
     lobbyId: string,
-    iceServers?: RTCIceServer[],
+    iceServers: RTCIceServer[] | undefined,
+    request: LiveKitConnectRequest,
   ): Promise<void> {
-    // Idempotent when the existing room for this lobby is alive — and
-    // Reconnecting counts as alive.
+    const { trigger } = request;
+    const connectStartedAt = performance.now();
+
+    // Idempotent while LiveKit still owns a session for this lobby: Connected,
+    // Reconnecting, or SignalReconnecting (see isLiveConnectionState).
     //
-    // Only Connected used to count, which meant an app-level rejoin arriving
-    // during livekit-client's own resume tore down a session that was about to
-    // come back. That is not hypothetical: the lobby websocket and the media
-    // transport are different connections, but nearly every real network event
-    // hits both, so a `stream-status: closed` escalated into a full re-join at
-    // exactly the moment the Room was in Reconnecting. The rebuild then joined
-    // with the same LiveKit identity while the SFU still held the previous
-    // participant for its 20s departure_timeout, so the server evicted the
-    // session we had just left behind — and that eviction arrived as another
-    // Disconnected, which scheduled another rejoin.
+    // An app-level rejoin arriving during livekit-client's own resume used to
+    // tear down a session that was about to come back. That is not
+    // hypothetical: the lobby websocket and the media transport are different
+    // connections, but nearly every real network event hits both, and the
+    // browser's `online` event drove a rejoin at exactly the moment the Room
+    // was resuming. The SFU logged it as a successful resume followed one
+    // second later by CLIENT_REQUEST_LEAVE and a brand-new session — a two
+    // second hole in everyone's audio, plus a microphone that had to be opened
+    // again, for a blip LiveKit had already handled.
     if (
       this.room &&
       this.currentLobbyId === lobbyId &&
-      (this.room.state === ConnectionState.Connected ||
-        this.room.state === ConnectionState.Reconnecting)
+      isLiveConnectionState(this.room.state)
     ) {
+      this.recordConnectRequest(lobbyId, trigger, "noop-alive", this.room.state);
       return;
     }
 
+    const previousState = this.room?.state;
+    const replacing = this.room !== null;
     if (this.room) {
       this.replacingRoom = true;
-      await this.disconnect();
-      this.replacingRoom = false;
+      this.replacementLobbyId = lobbyId;
+      try {
+        await this.disconnect();
+      } finally {
+        this.replacingRoom = false;
+        this.replacementLobbyId = null;
+      }
     }
 
+    const generation = ++this.roomGeneration;
     this.currentLobbyId = lobbyId;
     this.manualDisconnect = false;
 
-    // Deliberately moving rooms is not a reconnect, and used to be logged as
-    // one under the very name LiveKit's own Reconnected handler writes. The two
-    // were indistinguishable in the log, and "reconnects" is a problem tag — a
-    // user hopping lobbies would have read as a user with an unstable
-    // connection. It is a lobby change, so it says so.
-    if (mediaDiagnostics.isActive()) {
-      mediaDiagnostics.record("session", "lobby-changed", { lobbyId });
-    } else {
+    // One diagnostics session per room. A room rebuilt for the same lobby —
+    // after a drop, or in place of one that died — continues the session, so
+    // the drop and the recovery read as one timeline (connect-request below
+    // says what happened). Any other room starts a session of its own, which
+    // closes the previous one, so every room keeps its own lobby, summary and
+    // problem tags.
+    //
+    // Moving rooms used to be written into the running session as
+    // "lobby-changed" — but the teardown had already ended that session, so
+    // the marker and everything the new room did after it were lost.
+    if (!mediaDiagnostics.isActiveFor(lobbyId)) {
       mediaDiagnostics.startSession(lobbyId, {
         hardwareSvcCodec: this.hardwareSvcCodec,
         prefs: this.buildDiagnosticsPrefs(),
       });
     }
+    this.recordConnectRequest(
+      lobbyId,
+      trigger,
+      replacing ? "replaced-room" : "new-room",
+      previousState,
+    );
 
     this.resolvedVideoCodec = resolveVideoCodec(this.videoPublishPreferences);
 
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },
       dynacast: true,
+      singlePeerConnection: USE_SINGLE_PEER_CONNECTION,
       publishDefaults: {
         // Defaults only. Every video publish supplies its own codec, encoding
         // and layer ladder through buildVideoPublishPlan, derived from the
@@ -490,6 +720,7 @@ export class LiveKitMediaSession {
     // a null dereference.
     const room = new Room(options);
     this.room = room;
+    this.watchIceStates(room, connectStartedAt);
     this.remoteMediaHandler = new RemoteMediaHandler(room, (identity) =>
       this.watchedScreenIdentities.has(identity),
     );
@@ -517,7 +748,7 @@ export class LiveKitMediaSession {
       this.callbacks,
       this.remoteMediaHandler,
       () => this.updateMediaMap(),
-      (reason) => this.handleDisconnected(reason),
+      (reason) => this.handleDisconnected(room, reason),
       () => this.restorePublishingState(),
       () => this.applyMicrophoneState(),
       (identity) => this.watchedScreenIdentities.has(identity),
@@ -541,9 +772,11 @@ export class LiveKitMediaSession {
     this.limitedTicks = 0;
     this.limitationNotified = false;
     this.softwareSvcTicks = 0;
+    this.lastIcePaths = EMPTY_ICE_PATHS;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.(snapshot);
       mediaDiagnostics.recordStats(snapshot);
+      this.trackIcePaths(snapshot.icePaths);
       this.evaluateQualityLimitation(snapshot);
       this.evaluateScreenEncoderCodec(snapshot);
     });
@@ -564,10 +797,24 @@ export class LiveKitMediaSession {
 
       // Another connect replaced this room while we were awaiting. Drop ours
       // rather than publishing into an abandoned room.
-      if (this.room !== room) {
+      if (this.room !== room || generation !== this.roomGeneration) {
         await room.disconnect();
         return;
       }
+
+      // A moderator move announced itself with expectRoomChange() so the old
+      // room's eviction would not read as a kick. When the new room replaced
+      // the old one directly, that eviction never reached handleDisconnected
+      // (a replacing teardown is ignored there), so the window was never used up
+      // and stayed armed for 15 seconds — any genuine drop of the NEW room in
+      // that time was reported as final and never recovered. Arriving is the
+      // end of the move.
+      this.roomChangeExpectedUntil = 0;
+
+      // Armed before the subscribe pass below, which is what produces the
+      // first TrackSubscribed: nothing between room.connect() resolving and
+      // here yields, so it cannot be missed.
+      this.timeFirstRemoteAudio(room, lobbyId, request, connectStartedAt);
 
       // Subscribe to what is already in the room BEFORE touching the
       // microphone. The two are independent — hearing the room does not depend
@@ -600,7 +847,26 @@ export class LiveKitMediaSession {
       this.microphoneController.prepareParticipantAudioContext(room.localParticipant);
       await this.restorePublishingState();
     } catch (error) {
-      this.callbacks.onConnectionStateChanged?.("disconnected");
+      // Superseded: a newer connect or a deliberate leave took the session
+      // while this one was in flight, and the room it built has already been
+      // closed by them. That newer owner reports its own state. Saying
+      // "disconnected" here is what made the reconnect chain run a second join
+      // for the room that had just replaced this one.
+      if (generation !== this.roomGeneration) {
+        logLiveKitDebug("stream-manager", "connect-superseded", {
+          lobbyId,
+          trigger,
+        });
+        return;
+      }
+
+      // Connected, but bringing the publications back failed (no microphone, a
+      // capture error). The room itself is up — LiveKit has already reported
+      // "connected" — so announcing "disconnected" left the badge on "no audio
+      // connection" over a working room. The caller still learns of the failure.
+      if (room.state !== ConnectionState.Connected) {
+        this.callbacks.onConnectionStateChanged?.("disconnected");
+      }
       throw error;
     }
   }
@@ -615,8 +881,19 @@ export class LiveKitMediaSession {
     // report "disconnected": a call with no audio, recovered only by the
     // reconnect chain seconds later.
     const room = this.room;
+    const replacing = this.replacingRoom;
+    const rebuildingSameLobby =
+      replacing &&
+      this.currentLobbyId !== null &&
+      this.currentLobbyId === this.replacementLobbyId;
 
-    this.manualDisconnect = !this.replacingRoom;
+    // First, and synchronously: a connect still in flight for this room learns
+    // it was superseded by comparing this counter, and its room.connect()
+    // rejects the moment room.disconnect() below closes the socket — possibly
+    // before this method returns to the connect that is replacing it.
+    this.roomGeneration += 1;
+
+    this.manualDisconnect = !replacing;
     this.currentLobbyId = null;
     // Watching is per-visit, and this set outlives the room: the session object
     // is created once per app mount and reused for every lobby and call after
@@ -627,7 +904,13 @@ export class LiveKitMediaSession {
     // opened. Only this deliberate teardown clears it; an unexpected drop goes
     // through teardownRoomState, which keeps it so a reconnect can restore what
     // the user was actually watching.
-    this.watchedScreenIdentities.clear();
+    //
+    // Rebuilding the SAME lobby is not a room change: the renderer keeps its
+    // mirror (it only resets when the lobby changes), so clearing here left the
+    // UI saying "watching" over a share that was no longer subscribed.
+    if (!rebuildingSameLobby) {
+      this.watchedScreenIdentities.clear();
+    }
     this.watchStateByViewer.clear();
     this.lastEmittedWatchers = {};
     this.callbacks.onScreenWatchersChanged?.({});
@@ -690,16 +973,28 @@ export class LiveKitMediaSession {
     this.mediaMap = {};
     this.streamCache.clear();
     this.callbacks.onRemoteStreamsChanged?.({});
-    void mediaDiagnostics.endSession();
+    // A replacement leaves the diagnostics session to connectInternal, which
+    // keeps it for the same lobby and starts a new one for any other.
+    if (!replacing) {
+      void mediaDiagnostics.endSession();
+    }
 
-    // Only when a room was actually torn down. The hook treats "disconnected"
-    // with an active lobby as a dropped connection and schedules the rejoin
-    // chain — every other deliberate teardown clears activeLobbyId first, but
-    // the text-only branch of performPostJoinSynchronization cannot: the user
-    // IS in that lobby. Announcing a no-op teardown there made the chain rejoin,
-    // re-run the sync, disconnect again, and loop forever.
-    if (room) {
-      this.callbacks.onConnectionStateChanged?.("disconnected");
+    // Only when a room was actually torn down, and never while replacing it.
+    //
+    // A replacement is followed at once by the new room's "connecting"; saying
+    // "disconnected" in between was read by the hook as a dropped connection
+    // with an active lobby — the lobby being entered — and it scheduled the
+    // rejoin chain for it, which is the second /lobby/join + token the backend
+    // logged ~1.5s after every room change.
+    //
+    // A deliberate leave still reports "disconnected" (the badge needs it), but
+    // flagged as expected, so nothing treats it as a drop: that used to depend
+    // on activeLobbyId having been cleared first, a React commit that is not
+    // guaranteed to have landed by the time this line runs.
+    if (room && !replacing) {
+      this.callbacks.onConnectionStateChanged?.("disconnected", {
+        expected: true,
+      });
     }
   }
 
@@ -1779,7 +2074,50 @@ export class LiveKitMediaSession {
     this.roomChangeExpectedUntil = Date.now() + 15_000;
   }
 
-  private handleDisconnected(reason?: DisconnectReason) {
+  /**
+   * Records each connection's network path when it first appears and whenever
+   * it changes — the full candidate record once, rather than in every sample.
+   *
+   * This is the client-side view of what the SFU logged as "ice reconnected or
+   * switched pair": a session moving onto a relay, or being pinned to TCP after
+   * a short UDP failure, now shows up in the session's own timeline.
+   */
+  private trackIcePaths(paths: MediaIcePaths): void {
+    const next: MediaIcePaths = { ...this.lastIcePaths };
+    let changed = false;
+
+    for (const connection of ["publisher", "subscriber"] as const) {
+      const path = paths[connection];
+      const key = icePathKey(path);
+      if (key === null || key === icePathKey(this.lastIcePaths[connection])) {
+        continue;
+      }
+
+      const detail = {
+        connection,
+        from: icePathKey(this.lastIcePaths[connection]),
+        to: key,
+        kind: classifyIcePath(path),
+        ...path,
+      };
+      // Also lands in the media diagnostics: logLiveKitDebug records there.
+      logLiveKitDebug("stream-manager", "ice-path-changed", detail);
+
+      next[connection] = path;
+      changed = true;
+    }
+
+    if (changed) {
+      this.lastIcePaths = next;
+    }
+  }
+
+  private handleDisconnected(room: Room, reason?: DisconnectReason) {
+    // Only the room this session currently holds may tear it down. A room that
+    // was closed deliberately keeps its listeners until it is garbage; without
+    // this check a late Disconnected from it would run teardownRoomState()
+    // against whatever room replaced it.
+    if (room !== this.room) return;
     if (this.manualDisconnect || this.replacingRoom) return;
 
     if (Date.now() < this.roomChangeExpectedUntil) {

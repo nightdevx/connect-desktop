@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { poolPacketLossPct } from "@shared/media-stats";
+import {
+  classifyIcePath,
+  poolPacketLossPct,
+  type IcePathKind,
+  type MediaIcePaths,
+} from "@shared/media-stats";
 import type {
   LiveKitConnectionStatus,
   MediaStatsSnapshot,
@@ -13,6 +18,12 @@ export interface AudioConnectionSnapshot {
   pingMs: number | null;
   packetLossPct: number | null;
   jitterMs: number | null;
+  /**
+   * The worst path either connection is on. Anything but "udp" means the
+   * audio is not on the direct path the server is built for: TCP holds every
+   * packet behind a lost one, and a relay adds a hop.
+   */
+  transportPath: IcePathKind | null;
   successfulSamples: number;
   failedSamples: number;
   networkType: string | null;
@@ -41,7 +52,8 @@ const PING_WARN_MS = 120;
 const PING_ERROR_MS = 250;
 const LOSS_WARN_PCT = 3;
 const LOSS_ERROR_PCT = 10;
-const JITTER_WARN_MS = 30;
+// Exported for the detail panel, which marks the same value it is judged by.
+export const JITTER_WARN_MS = 30;
 
 const getNetworkSnapshot = (): Pick<
   AudioConnectionSnapshot,
@@ -87,11 +99,33 @@ const createIdleAudioSnapshot = (): AudioConnectionSnapshot => {
     pingMs: null,
     packetLossPct: null,
     jitterMs: null,
+    transportPath: null,
     successfulSamples: 0,
     failedSamples: 0,
     lastMeasuredAt: null,
     ...getNetworkSnapshot(),
   };
+};
+
+const PATH_SEVERITY: Record<IcePathKind, number> = {
+  udp: 0,
+  tcp: 1,
+  relay: 2,
+};
+
+// The publisher and subscriber connections are separate and can land on
+// different paths; the one that is worse is what the user hears.
+const worstTransportPath = (paths: MediaIcePaths): IcePathKind | null => {
+  let worst: IcePathKind | null = null;
+  for (const kind of [
+    classifyIcePath(paths.publisher),
+    classifyIcePath(paths.subscriber),
+  ]) {
+    if (kind && (worst === null || PATH_SEVERITY[kind] > PATH_SEVERITY[worst])) {
+      worst = kind;
+    }
+  }
+  return worst;
 };
 
 const windowsOf = (
@@ -210,6 +244,18 @@ export const useWorkspaceAudioConnection = ({
       statusText = "Ses bağlantısı ölçülüyor";
     }
 
+    // Not an error on its own — the call works — but not the path the server
+    // is built for, and the numbers above can look fine right up to the first
+    // lost packet, which on TCP stalls everything queued behind it.
+    const transportPath = worstTransportPath(mediaStats.icePaths);
+    if (transportPath && transportPath !== "udp" && tone === "ok") {
+      tone = "warn";
+      statusText =
+        transportPath === "tcp"
+          ? `Ses yedek yoldan (TCP) akıyor${pingDisplay}`
+          : `Ses aktarma sunucusundan (TURN) akıyor${pingDisplay}`;
+    }
+
     // Transport state wins over the numbers: stats go stale the moment the
     // peer connection drops, and stale-but-good numbers must not read as green.
     if (liveKitConnectionState === "closed") {
@@ -236,6 +282,7 @@ export const useWorkspaceAudioConnection = ({
         effectivePingMs === null ? null : Math.max(1, Math.round(effectivePingMs)),
       packetLossPct,
       jitterMs,
+      transportPath,
       successfulSamples: successfulSamplesRef.current,
       failedSamples: failedSamplesRef.current,
       lastMeasuredAt:

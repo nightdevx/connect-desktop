@@ -4,7 +4,7 @@ Bu belge, yönetim panelinden indirilen `.ndjson` dosyasının tam sözleşmesid
 Dosyayı bir analize verirken bu belgeyi de ver: alan adları, birimler ve olay
 sözlüğü burada tanımlı.
 
-**Şema sürümü: 2.** Her satır kendi sürümünü taşır.
+**Şema sürümü: 3.** Her satır kendi sürümünü taşır.
 
 ## 1. Dosya biçimi
 
@@ -17,10 +17,10 @@ oturumun `session` satırı. Aralık indirmesi böyle çalışır, tek oturum
 indirmesinde tek bir blok olur.
 
 ```
-{"type":"session","schemaVersion":2,"sessionId":"...", ...}
+{"type":"session","schemaVersion":3,"sessionId":"...", ...}
 {"type":"entry","sessionId":"...","entry":{...}}
 {"type":"entry","sessionId":"...","entry":{...}}
-{"type":"session","schemaVersion":2,"sessionId":"...", ...}
+{"type":"session","schemaVersion":3,"sessionId":"...", ...}
 ...
 ```
 
@@ -95,6 +95,7 @@ Birim her alan adında yazılı: `Ms`, `Bps`, `Pct`.
 | `episodes` | **v2.** Sorunun *ne zaman* olduğu: `{problem, startMs, endMs, samples, peak}`. Etiket "3 saatte bir yerde oldu" der, bu "18:42–18:47 arası, en kötü %33" der. En uzun 40 dilim tutulur. |
 | `remotes` | **v2.** Katılımcı bazında alım: `{identity, samples, packetLossPct, concealmentPct, jitterMs, bitrateBps}`. **Tek kişi mi bozuk, herkes mi** sorusunun cevabı — biri bozuksa onun gönderme yolu, hepsi bozuksa bu makinenin indirme yolu. v1'de hepsi tek sayıya havuzlanıyordu. |
 | `verdicts` | **v2.** `{code, headline, evidence[]}`. Sıralı teşhis ve dayandığı sayılar. `deriveVerdicts(summary)` saf fonksiyonu üretir; okuyucu tarafında yeniden çalıştırılabilir, yani eski oturumlar bugünün kurallarıyla yeniden yargılanır. |
+| `icePathSamples` | **v3.** `{publisher, subscriber}`: her bağlantının hangi ağ yolunda kaç örnek geçirdiği; anahtar `protokol/yerel aday tipi`, ör. `udp/host`, `udp/srflx`, `tcp/host`, `udp/relay`. Sağlıklı oturumda yalnız `udp/…` ve `relay` olmayan anahtarlar görünür. `tcp/…` oturumun ICE/TCP yedeğinde, `…/relay` bir TURN aktarma sunucusu üzerinden aktığı demektir. İkisi de RTT ve kayıp sayılarında görünmez, bu alan tek tanıktır. |
 
 ## 5. `problems` — türetilmiş sorun etiketleri
 
@@ -116,6 +117,8 @@ sürümünü artırır.
 | `publish-encoding-mismatch` | Publish sonrası okuma istenen ayarı tutmadı | `stream-manager/publish-*-encodings` olayının `mismatch` alanı |
 | `microphone-fallback` | RNNoise/işlemci zinciri kurulamadı | `mic-controller` olayları |
 | `reconnects` | Bağlantı `reconnecting` durumuna düştü | `session/connection-state` olayları |
+| `relay-path` | **v3.** Bir bağlantının seçili ICE çifti ardışık örneklerde `relay` (TURN üzerinden) | `summary.icePathSamples`, `stream-manager/ice-path-changed`; istemciye TURN sunucusu dağıtılıyor mu |
+| `tcp-media` | **v3.** Bir bağlantının seçili ICE çifti ardışık örneklerde `tcp` | `summary.icePathSamples`; 7882/UDP'ye ulaşılabiliyor mu, sunucu oturumu TCP'ye çevirmiş mi (`allow_tcp_fallback`) |
 
 Etiketler **birlikte** okunur. `cpu-limited` + `software-encoder` donanım
 kodlayıcı sorunudur; `cpu-limited` tek başına gerçekten yetersiz işlemcidir.
@@ -158,7 +161,11 @@ kodlayıcı sorunudur; `cpu-limited` tek başına gerçekten yetersiz işlemcidi
 | `scope/name` | Ne söyler |
 |---|---|
 | `session/session-started`, `session-ended` | Oturum sınırları |
-| `session/connection-state` | `data.state`: connecting/connected/reconnecting/disconnected/closed |
+| `session/connection-state` | `data.state`: connecting/connected/reconnecting/disconnected/closed. `data.expected: true` ise kullanıcı odadan kendisi çıktı; kopma değildir |
+| `session/connect-request` | Her bağlanma isteği ve ne olduğu. `trigger`: `user-join` (tıklama), `call-sync` (1:1 arama), `network-online` (ağ geri geldi / uyanma), `livekit-disconnected`, `membership-lost`. `outcome`: `new-room`, `replaced-room` (mevcut oda kapatılıp yenisi kuruldu), `noop-alive` (LiveKit oturumu zaten canlıydı ya da kendini topluyordu, dokunulmadı), `joined-in-flight` (aynı oda için süren bağlanmaya katıldı). `previousState` değiştirilen odanın durumudur |
+| `stream-manager/ice-path-changed` | Bir bağlantının ağ yolu ilk kez belli oldu ya da değişti: `connection` (publisher/subscriber), `from` → `to` (ör. `udp/srflx` → `tcp/host`), `kind` (`udp`/`tcp`/`relay`) ve aday ayrıntıları (`localCandidateType`, `remoteCandidateType`, `protocol`, `relayProtocol`, `networkType`) |
+| `stream-manager/ice-state` | Bir bağlantının ICE durumu değişti: `connection` (publisher/subscriber), `state` (`checking`, `connected`, `completed`, `disconnected`, `failed`, `closed`), `sinceConnectMs` (bu odaya bağlanmaya başlanalı beri). Sunucunun "short ice connection" dediği, katılımdan ~18–28 sn sonra gelen kopma burada `disconnected` olarak görünür: ardından `connected` geliyorsa ICE kendini toplamıştır, `failed` geliyorsa LiveKit yeniden bağlanır |
+| `session/first-remote-audio` | Odayı duymak ne kadar sürdü: ilk uzak ses izine abone olunana kadar `sinceRequestMs` (tıklamadan, ya da yeniden bağlanma denemesinin başından; lobi katılımı ve token isteği dahil) ve `sinceConnectMs` (LiveKit bağlanmasının başından). `trigger` isteği kimin yaptığı, `audibleTracks` o an duyulabilecek iz sayısı. Yalnız odada duyulacak biri varken ölçülür; sağır modda ölçülmez. `timedOut: true`: 15 sn içinde hiç uzak ses gelmedi — insanların konuştuğu bir odada sessiz oturmak |
 | `session/warning` | Kullanıcının gördüğü uyarı |
 | `session/room-reconnected` | Beklenmedik kopma sonrası aynı odaya dönüldü |
 | `stream-manager/hardware-svc-probe` | `data.codec`: probe'un donanımda bulduğu codec |
@@ -177,6 +184,7 @@ kodlayıcı sorunudur; `cpu-limited` tek başına gerçekten yetersiz işlemcidi
 {
   "rttMs": 38,
   "availableOutgoingBitrateBps": 6800000,
+  "icePaths": { "publisher":"udp/srflx", "subscriber":"udp/srflx" },
   "outbound": [{ "trackKey":"local:screen_share","codec":"AV1","hardwareEncoder":true,
                  "encoderImplementation":"...","resolution":"1920x1080","fps":60,
                  "bitrateBps":3480000,"layerCount":1,"limitation":"none" }],
@@ -191,6 +199,10 @@ kodlayıcı sorunudur; `cpu-limited` tek başına gerçekten yetersiz işlemcidi
 `trackKey` biçimi: giden `local:<source>`, gelen `<userId>:<source>`.
 `source` LiveKit değeridir: `microphone`, `camera`, `screen_share`,
 `screen_share_audio`.
+
+`icePaths` her örnekte yalnız kısa anahtarı taşır (`protokol/yerel aday tipi`,
+henüz seçili çift yoksa `null`); adayın tam kaydı, değiştiği anda bir kez
+`stream-manager/ice-path-changed` olayı olarak yazılır.
 
 ## 7. Analiz tarifleri
 
@@ -232,15 +244,56 @@ jq -r 'select(.type=="entry" and .sessionId=="OTURUM_ID" and .entry.name=="media
 jq -r 'select(.type=="entry" and (.entry.name|test("-encodings$")))
        | [.sessionId, .entry.data.negotiatedCodec.sdpFmtpLine, (.entry.data.mismatch // "ok")]
        | @tsv' kayit.ndjson
+
+# Yedek yola (TCP / TURN) düşen oturumlar ve hangi yolda kaç örnek geçtiği
+jq -r 'select(.type=="session" and (.problems|index("tcp-media") or index("relay-path")))
+       | [.username, .lobbyId,
+          ((.summary.icePathSamples.publisher // {})|to_entries|map("\(.key)=\(.value)")|join(",")),
+          ((.summary.icePathSamples.subscriber // {})|to_entries|map("\(.key)=\(.value)")|join(","))]
+       | @tsv' kayit.ndjson
+
+# Bağlanma istekleri: hangi tetikleyici neyle sonuçlandı
+# (user-join dışındaki tetikleyicilerde noop-alive: LiveKit oturumu kendini toplamıştı, dokunulmadı;
+#  new-room / replaced-room: ses baştan kuruldu, yani gerçekten kesilmişti)
+jq -r 'select(.type=="entry" and .entry.name=="connect-request")
+       | [.entry.data.trigger, .entry.data.outcome] | @tsv' kayit.ndjson | sort | uniq -c
+
+# Tıklamadan ilk uzak sese (ms): tetikleyiciye göre örnek sayısı, medyan, p90.
+# Hedef: user-join için medyan < 1000
+jq -rs '[.[] | select(.type=="entry" and .entry.name=="first-remote-audio"
+                      and (.entry.data.timedOut | not)) | .entry.data]
+        | group_by(.trigger)[]
+        | (map(.sinceRequestMs) | sort) as $v
+        | [.[0].trigger, ($v | length),
+           $v[(($v | length) * 0.5 | floor)], $v[(($v | length) * 0.9 | floor)]]
+        | @tsv' kayit.ndjson
+
+# Odada konuşan varken 15 sn boyunca hiçbir şey duyulmayan katılımlar
+jq -r 'select(.type=="entry" and .entry.name=="first-remote-audio" and .entry.data.timedOut)
+       | [.sessionId, .entry.data.lobbyId, .entry.data.trigger] | @tsv' kayit.ndjson
+
+# ICE kopmaları: katılımdan kaç sn sonra, hangi bağlantıda, toparlandı mı
+jq -r 'select(.type=="entry" and .entry.name=="ice-state"
+              and (.entry.data.state=="disconnected" or .entry.data.state=="failed"))
+       | [.sessionId, .entry.data.connection, .entry.data.state,
+          ((.entry.data.sinceConnectMs / 1000) | floor)] | @tsv' kayit.ndjson
 ```
 
 ## 8. Toplama davranışı ve sınırlar
 
-- Oturum, bir odaya bağlanınca başlar ve **bilerek** ayrılınca biter. Beklenmedik
-  kopma oturumu kapatmaz; yeniden bağlanma aynı oturuma `room-reconnected`
-  olarak düşer. Yani bir oturum = bir kesintisiz üyelik.
-- Partiler 20 saniyede bir ve oturum sonunda gönderilir. Gönderim başarısızsa
-  kayıtlar kuyrukta bekler ve sonraki denemede gider.
+- **Bir oturum = bir oda.** Bir odaya bağlanınca başlar; bilerek ayrılınca ya
+  da başka bir odaya geçince biter (yeni oda kendi oturumunu açar). Beklenmedik
+  kopma oturumu kapatmaz: LiveKit'in kendi toparlaması aynı oturuma
+  `stream-manager/room-reconnected` olarak, aynı lobi için baştan kurulan oda
+  ise yine aynı oturuma `session/connect-request` (`new-room` /
+  `replaced-room`) olarak düşer.
+- Oturum anında kapanır, son parti ardından gönderilir. (v2'de oturum son
+  gönderim dönene kadar açık kalıyordu; oda değiştirince yeni oda o kapanmakta
+  olan oturuma yazıyor ve kaydının tamamı kayboluyordu.)
+- Partiler 20 saniyede bir ve oturum sonunda, **sırayla** gönderilir: sunucu
+  en son kaydettiği partinin özetini tuttuğu için son parti hep en son ulaşır.
+  Ara gönderim başarısızsa kayıtlar kuyrukta bekler ve sonraki denemede gider;
+  oturum sonundaki son parti tekrar denenmez.
 - Sınırlar `MEDIA_DIAGNOSTICS_LIMITS` içinde: parti başına 400 kayıt, oturum
   başına 20.000 kayıt, kayıt başına 4 KB veri, kuyrukta en fazla 4.000 kayıt.
   Tavana çarpılırsa `summary.truncated` true olur.
@@ -266,6 +319,7 @@ jq -r 'select(.type=="entry" and (.entry.name|test("-encodings$")))
 |---|---|
 | 1 | İlk şema. |
 | 2 | Teşhis katmanı. **Yeni özet alanları:** `episodes`, `remotes`, `verdicts`; `outboundVideo.limitationSeconds` / `sourceFps` / `sourceResolutions` / `encodeMsPerFrame` / `framesDroppedPct` / `retransmittedPct`. **Yeni örnek alanları:** giden seste `trackKey` ve `retransmittedPct`, gelen seste `silentPct` / `jitterBufferTargetMs` / `packetsDiscarded`, giden videoda `sourceFps` / `sourceResolution` / `encodeMsPerFrame` / `framesDroppedPct`. **Anlamı değişen:** `concealmentPct` artık DTX sessizliğini saymıyor (bu yüzden sürüm arttı); `problems` etiketleri tek örnekle değil `problemDwellSamples` kadar ardışık örnekle tetikleniyor; `availableOutgoingBitrateBps` 1 Gbps yer tutucusunda `null`; renegotiation'ı aşan pencerelerde oran alanları `null`. **Yeni olay:** `stream-manager/quality-limitation-detected` (kararın dayandığı ölçümler), `stream-manager/room-signal-reconnecting`, `session/lobby-changed` (eskiden yanlışlıkla `room-reconnected`). |
+| 3 | Bağlantı yolu. **Yeni problem etiketleri** (sürümü bu artırdı): `relay-path`, `tcp-media`. **Yeni karar:** `fallback-path` (medya TCP ya da TURN yolundan aktı). **Yeni özet alanı:** `icePathSamples`. **Yeni örnek alanı:** `icePaths`. **Yeni olaylar:** `session/connect-request` (yeniden bağlanma isteğinin sonucu: `noop-alive` / `joined-in-flight` / `new-room` / `replaced-room`), `stream-manager/ice-path-changed`, `stream-manager/ice-state` (ICE durum geçişleri), `session/first-remote-audio` (tıklamadan ilk uzak sese). **Yeni alan:** `session/connection-state` içinde `expected` (kullanıcının kendi ayrılışı ya da oda değişimi). **Anlamı değişen:** bir oturum artık bir oda: başka odaya geçiş yeni oturum açar, `session/lobby-changed` yazılmaz (v2'de bu olaydan sonra yeni odanın kaydı kayboluyordu). |
 
 Şemayı değiştirirken: alan silmek ya da anlamını değiştirmek sürüm artışı
 gerektirir; alan eklemek gerektirmez. `MEDIA_DIAGNOSTICS_SCHEMA_VERSION` ve

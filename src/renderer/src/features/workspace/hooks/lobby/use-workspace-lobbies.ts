@@ -2,12 +2,20 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember, DesktopResult } from "@shared/desktop-api-types";
+import {
+  liveKitConnectRequest,
+  type LiveKitConnectRequest,
+} from "@/features/livekit";
 import workspaceService from "../../services";
 import type { ReconnectStatusKey } from "../core/use-network-reconnect";
 import {
   isLobbyTransitionBusy,
   type LobbyTransitionState,
 } from "./lobby-transition";
+import {
+  createMediaRecoveryCheck,
+  type MediaRecoveryCheck,
+} from "./media-recovery-check";
 
 interface UseWorkspaceLobbiesProps {
   isOnline: boolean;
@@ -22,7 +30,15 @@ interface UseWorkspaceLobbiesProps {
   lobbyTransitionRef: React.MutableRefObject<LobbyTransitionState>;
   activeLobbyReconnectInFlightRef: React.MutableRefObject<boolean>;
   activeLobbyReconnectAttemptRef: React.MutableRefObject<number>;
-  performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
+  performPostJoinSynchronization: (
+    lobbyId: string,
+    request?: LiveKitConnectRequest,
+  ) => Promise<void>;
+  // Whether LiveKit still holds a session for this lobby — connected, or
+  // restoring it by itself. Asked before the network-came-back path forces a
+  // rejoin, because LiveKit resumes on its own and a forced rejoin in that
+  // window replaces a room that was about to come back.
+  isActiveLobbyMediaAlive: (lobbyId: string) => boolean;
   lobbiesQuery: UseQueryResult<DesktopResult<{ lobbies: LobbyDescriptor[] }>, Error>;
   kickedLobbyIdRef: React.MutableRefObject<string | null>;
   // Set by the manual join. An automatic re-join has nobody to prompt for a
@@ -119,6 +135,7 @@ export function useWorkspaceLobbies({
   activeLobbyReconnectInFlightRef,
   activeLobbyReconnectAttemptRef,
   performPostJoinSynchronization,
+  isActiveLobbyMediaAlive,
   lobbiesQuery,
   kickedLobbyIdRef,
   activeLobbyPasswordRef,
@@ -172,23 +189,34 @@ export function useWorkspaceLobbies({
   // Same reason as the others: the stream-subscription effect must not re-run
   // because the shell handed down a new function identity.
   const onLobbyStreamLiveChangeRef = useRef(onLobbyStreamLiveChange);
+  const isActiveLobbyMediaAliveRef = useRef(isActiveLobbyMediaAlive);
+  // Created on first use and kept for the life of the hook: everything it
+  // reads goes through a ref, so it never needs rebuilding, and one instance
+  // means one pending check to cancel on unmount.
+  const mediaRecoveryCheckRef = useRef<MediaRecoveryCheck | null>(null);
+  // Which reconnect attempt owns activeLobbyReconnectInFlightRef. A manual
+  // join or leave clears that flag so the room the user is entering is not
+  // held up by an attempt for the one they left — and that stale attempt's own
+  // `finally` then cleared the flag of the attempt started after it, letting a
+  // third run alongside the second. Only the newest attempt may release it.
+  const reconnectAttemptSeqRef = useRef(0);
 
   useEffect(() => {
     performPostJoinSyncRef.current = performPostJoinSynchronization;
     onLobbyStreamLiveChangeRef.current = onLobbyStreamLiveChange;
+    isActiveLobbyMediaAliveRef.current = isActiveLobbyMediaAlive;
     lobbiesQueryRef.current = lobbiesQuery;
     shouldEmitReconnectStatusRef.current = shouldEmitReconnectStatus;
     setStatusRef.current = setStatus;
     reconnectHandlesRef.current = {
       clearLobbyReconnectTimer,
       scheduleLobbyStreamReconnect,
-      clearActiveLobbyReconnectTimer,
-      scheduleActiveLobbyReconnect,
+      scheduleActiveLobbyMediaCheck,
     };
   });
 
-  // Network came back: redial the stream, and rebuild the room membership if
-  // the user is in one.
+  // Network came back: redial the stream, and make sure the room's media
+  // recovered.
   //
   // Everything is read through a ref. The dependency list is [isOnline] alone —
   // it has to be, or the effect re-runs on identity churn and re-fires the
@@ -199,11 +227,7 @@ export function useWorkspaceLobbies({
   const reconnectHandlesRef = useRef({
     clearLobbyReconnectTimer: () => {},
     scheduleLobbyStreamReconnect: (_immediate?: boolean) => {},
-    clearActiveLobbyReconnectTimer: () => {},
-    scheduleActiveLobbyReconnect: (
-      _reason: "network-online" | "livekit-disconnected",
-      _immediate?: boolean,
-    ) => {},
+    scheduleActiveLobbyMediaCheck: () => {},
   });
 
   useEffect(() => {
@@ -223,8 +247,7 @@ export function useWorkspaceLobbies({
         "warn",
       );
     }
-    handles.clearActiveLobbyReconnectTimer();
-    handles.scheduleActiveLobbyReconnect("network-online", true);
+    handles.scheduleActiveLobbyMediaCheck();
   }, [isOnline]);
 
   // Waking from sleep leaves every socket dead with nothing in the page to
@@ -233,10 +256,11 @@ export function useWorkspaceLobbies({
   // against a 45s server-side member TTL, which is how a reopened lid cost
   // someone their seat. The main process is the only side that gets the signal.
   //
-  // Routed through the same scheduler as every other reconnect, deliberately:
-  // it holds the backoff, the in-flight guard and the stand-down while a
-  // deliberate join is in progress. Calling join directly from here would
-  // reintroduce the second unattended join loop.
+  // The seat is held by the lobby socket, so that is redialled at once. The
+  // media is LiveKit's to restore and gets the same deferred check as the
+  // network path above; a re-join, if one is needed, still goes through the one
+  // scheduler, which holds the backoff, the in-flight guard and the stand-down
+  // while a deliberate join is in progress.
   useEffect(() => {
     const unsubscribe = window.desktopApi?.onSystemResumed?.(() => {
       const handles = reconnectHandlesRef.current;
@@ -251,8 +275,7 @@ export function useWorkspaceLobbies({
           "warn",
         );
       }
-      handles.clearActiveLobbyReconnectTimer();
-      handles.scheduleActiveLobbyReconnect("network-online", true);
+      handles.scheduleActiveLobbyMediaCheck();
     });
 
     return () => {
@@ -260,6 +283,12 @@ export function useWorkspaceLobbies({
     };
     // Everything it touches is a ref, so this subscribes once for the session —
     // the same shape as the reconnect handles above.
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      mediaRecoveryCheckRef.current?.cancel();
+    };
   }, []);
 
   const clearLobbyReconnectTimer = useCallback((): void => {
@@ -401,12 +430,21 @@ export function useWorkspaceLobbies({
       }
 
       const attempt = activeLobbyReconnectAttemptRef.current;
+      const attemptSeq = ++reconnectAttemptSeqRef.current;
       activeLobbyReconnectInFlightRef.current = true;
+      const releaseInFlight = (): void => {
+        if (reconnectAttemptSeqRef.current === attemptSeq) {
+          activeLobbyReconnectInFlightRef.current = false;
+        }
+      };
+      // Stamped as the attempt starts, so the join round trip is counted but
+      // the backoff wait before it is not.
+      const connectRequest = liveKitConnectRequest(reason);
 
       const isCallRoom = targetLobbyID.startsWith("call_");
 
       if (isCallRoom) {
-        void performPostJoinSyncRef.current(targetLobbyID)
+        void performPostJoinSyncRef.current(targetLobbyID, connectRequest)
           .then(() => {
             activeLobbyReconnectAttemptRef.current = 0;
             // Only after a visible failure, and at most once per bucket. See
@@ -425,9 +463,7 @@ export function useWorkspaceLobbies({
             }
             scheduleActiveLobbyReconnect(reason);
           })
-          .finally(() => {
-            activeLobbyReconnectInFlightRef.current = false;
-          });
+          .finally(releaseInFlight);
         return;
       }
 
@@ -459,7 +495,15 @@ export function useWorkspaceLobbies({
             return;
           }
 
-          await performPostJoinSyncRef.current(targetLobbyID);
+          // The user may have switched rooms while the join request was out.
+          // The timer checks this when it fires, but the request takes a round
+          // trip, and bringing media up for the room they just LEFT would tear
+          // down the one they are entering.
+          if (activeLobbyRef.current !== targetLobbyID) {
+            return;
+          }
+
+          await performPostJoinSyncRef.current(targetLobbyID, connectRequest);
           activeLobbyReconnectAttemptRef.current = 0;
           // This was the toast the user saw over and over.
           //
@@ -487,14 +531,29 @@ export function useWorkspaceLobbies({
           }
           scheduleActiveLobbyReconnect(reason);
         })
-        .finally(() => {
-          activeLobbyReconnectInFlightRef.current = false;
-        });
+        .finally(releaseInFlight);
     }, delay);
     // Stable identity on purpose: everything mutable is read through a ref
     // above. See the refs block near the top of this hook.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The deferred half of "the network came back" (and "the machine woke"):
+  // rejoin the media only if LiveKit has not restored the session by itself.
+  // The rules, and why a rejoin issued too early does harm, are in
+  // media-recovery-check.ts.
+  const scheduleActiveLobbyMediaCheck = useCallback((): void => {
+    if (!mediaRecoveryCheckRef.current) {
+      mediaRecoveryCheckRef.current = createMediaRecoveryCheck({
+        activeLobby: () => activeLobbyRef.current,
+        isMediaAlive: (lobbyId) => isActiveLobbyMediaAliveRef.current(lobbyId),
+        rejoin: () => scheduleActiveLobbyReconnect("network-online", true),
+        setTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
+        clearTimer: (handle) => window.clearTimeout(handle),
+      });
+    }
+    mediaRecoveryCheckRef.current.schedule();
+  }, [scheduleActiveLobbyReconnect]);
 
   useEffect(() => {
     if (!lobbiesQuery.data?.ok || !lobbiesQuery.data.data) return;

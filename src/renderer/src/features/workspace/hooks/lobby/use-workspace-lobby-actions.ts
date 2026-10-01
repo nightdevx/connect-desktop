@@ -8,7 +8,11 @@ import {
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { DesktopResult } from "@shared/desktop-api-types";
-import type { LiveKitMediaSession } from "@/features/livekit";
+import {
+  liveKitConnectRequest,
+  type LiveKitConnectRequest,
+  type LiveKitMediaSession,
+} from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
 import workspaceService from "../../services";
 import {
@@ -30,7 +34,10 @@ interface UseWorkspaceLobbyActionsParams {
   >;
   setKnownLobbies: Dispatch<SetStateAction<LobbyDescriptor[]>>;
   setStatus: (message: string, tone: StatusTone) => void;
-  performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
+  performPostJoinSynchronization: (
+    lobbyId: string,
+    request?: LiveKitConnectRequest,
+  ) => Promise<void>;
   clearActiveLobbyReconnectTimer: () => void;
   // Armed when the media bring-up fails before room.connect() is reached: no
   // connection state ever changes in that case, so nothing else would retry.
@@ -287,6 +294,11 @@ export const useWorkspaceLobbyActions = ({
 
     soundEffectManager.prime();
 
+    // The time to first remote audio is measured from the click, not from
+    // room.connect(): the join round trip and the token fetch are part of what
+    // the user sits through.
+    const connectRequest = liveKitConnectRequest("user-join");
+
     lobbyTransitionRef.current.joiningLobbyId = lobbyId;
     setJoiningLobbyId(lobbyId);
     try {
@@ -329,7 +341,7 @@ export const useWorkspaceLobbyActions = ({
       // swallowing it left the user on the roster, with a "you joined" toast,
       // and no audio in either direction until the server timed them out ~50s
       // later. Hand those failures to the same scheduler instead.
-      void performPostJoinSynchronization(lobbyId).catch(() => {
+      void performPostJoinSynchronization(lobbyId, connectRequest).catch(() => {
         scheduleActiveLobbyReconnect("livekit-disconnected", true);
       });
 

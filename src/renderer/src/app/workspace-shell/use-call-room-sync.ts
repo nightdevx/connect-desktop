@@ -1,4 +1,8 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
+import {
+  liveKitConnectRequest,
+  type LiveKitConnectRequest,
+} from "@/features/livekit";
 
 // Bringing a 1-to-1 call's media room up, exactly once per room.
 //
@@ -14,15 +18,20 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 // The ref is returned rather than kept private because the membership watchdog
 // needs the same escape hatch for the same reason.
 
+type PostJoinSynchronization = (
+  lobbyId: string,
+  request?: LiveKitConnectRequest,
+) => Promise<void>;
+
 export interface CallRoomSyncOptions {
   activeLobbyId: string | null;
-  performPostJoinSynchronization: (lobbyId: string) => Promise<void>;
+  performPostJoinSynchronization: PostJoinSynchronization;
 }
 
 export function useCallRoomSync({
   activeLobbyId,
   performPostJoinSynchronization,
-}: CallRoomSyncOptions): MutableRefObject<(lobbyId: string) => Promise<void>> {
+}: CallRoomSyncOptions): MutableRefObject<PostJoinSynchronization> {
   const performPostJoinSyncRef = useRef(performPostJoinSynchronization);
   useEffect(() => {
     performPostJoinSyncRef.current = performPostJoinSynchronization;
@@ -40,7 +49,10 @@ export function useCallRoomSync({
     }
     syncedCallLobbyRef.current = activeLobbyId;
 
-    performPostJoinSyncRef.current(activeLobbyId).catch((error) => {
+    performPostJoinSyncRef.current(
+      activeLobbyId,
+      liveKitConnectRequest("call-sync"),
+    ).catch((error) => {
       // Let a failed connect be retried on the next entry into this room.
       syncedCallLobbyRef.current = null;
       console.error(

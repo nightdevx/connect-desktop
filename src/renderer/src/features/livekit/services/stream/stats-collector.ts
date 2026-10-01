@@ -1,8 +1,12 @@
 import { Room, Track, type TrackPublication } from "livekit-client";
 import {
+  EMPTY_ICE_PATHS,
+  summarizeIcePath,
   summarizeReceiverReport,
   summarizeSenderReport,
+  type IcePathStats,
   type InboundTrackStats,
+  type MediaIcePaths,
   type OutboundTrackStats,
   type RateCache,
   type RawStatEntry,
@@ -15,6 +19,12 @@ export interface MediaStatsSnapshot {
   availableOutgoingBitrateBps: number | null;
   outbound: OutboundTrackStats[];
   inbound: InboundTrackStats[];
+  /**
+   * Which path each connection rides on: direct UDP, TCP or a relay. Read off
+   * the same reports as everything else — a sender's report describes the
+   * publishing connection, a receiver's the subscribing one.
+   */
+  icePaths: MediaIcePaths;
 }
 
 export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
@@ -23,6 +33,7 @@ export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
   availableOutgoingBitrateBps: null,
   outbound: [],
   inbound: [],
+  icePaths: EMPTY_ICE_PATHS,
 };
 
 /**
@@ -154,6 +165,12 @@ export class MediaStatsCollector {
         ),
       ]);
 
+      // One path per connection is enough: every sender shares the publishing
+      // connection and every receiver the subscribing one, so the first report
+      // that has a selected pair speaks for all of them.
+      let publisherPath: IcePathStats | null = null;
+      let subscriberPath: IcePathStats | null = null;
+
       for (const report of localReports) {
         liveKeys.add(report.key);
         if (!report.entries) {
@@ -163,6 +180,7 @@ export class MediaStatsCollector {
         if (summary) {
           outbound.push(summary);
         }
+        publisherPath = publisherPath ?? summarizeIcePath(report.entries);
       }
 
       for (const report of remoteReports) {
@@ -174,6 +192,7 @@ export class MediaStatsCollector {
         if (summary) {
           inbound.push(summary);
         }
+        subscriberPath = subscriberPath ?? summarizeIcePath(report.entries);
       }
 
       // Drop baselines for tracks that went away, otherwise the cache grows for
@@ -205,6 +224,7 @@ export class MediaStatsCollector {
         availableOutgoingBitrateBps,
         outbound,
         inbound,
+        icePaths: { publisher: publisherPath, subscriber: subscriberPath },
       });
     } finally {
       this.sampling = false;

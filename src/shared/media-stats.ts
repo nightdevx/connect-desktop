@@ -312,6 +312,69 @@ export interface InboundTrackStats {
   window: { packets: number; packetsLost: number } | null;
 }
 
+/**
+ * The network path one peer connection's media actually rides on.
+ *
+ * Nothing recorded this, and it turned out to be the missing half of several
+ * diagnoses. Production had a TURN relay on the SFU's own host that clients
+ * were quietly routing through, and LiveKit had pinned sessions to ICE/TCP
+ * after a short UDP failure — both invisible from the client, because every
+ * other number (RTT, loss, bitrate) looks the same whichever path carries it.
+ */
+export interface IcePathStats {
+  /** host | srflx | prflx | relay — this machine's end of the selected pair. */
+  localCandidateType: string | null;
+  /** The SFU's end. LiveKit is ICE-lite, so anything but host is notable. */
+  remoteCandidateType: string | null;
+  /** udp | tcp: what the media is carried over. */
+  protocol: string | null;
+  /** For a relay candidate, how this client reaches the TURN server. */
+  relayProtocol: string | null;
+  /** Chromium's guess at the adapter (ethernet, wifi, vpn…), when it gives one. */
+  networkType: string | null;
+}
+
+/** The two connections a LiveKit session has in the classic two-PC mode. */
+export interface MediaIcePaths {
+  publisher: IcePathStats | null;
+  subscriber: IcePathStats | null;
+}
+
+export const EMPTY_ICE_PATHS: MediaIcePaths = {
+  publisher: null,
+  subscriber: null,
+};
+
+export type IcePathKind = "udp" | "tcp" | "relay";
+
+/**
+ * Relay wins over protocol: a relayed path is a relay whether the client
+ * reaches the TURN server over UDP or TCP, and that is the fact that matters.
+ */
+export const classifyIcePath = (path: IcePathStats | null): IcePathKind | null => {
+  if (!path) {
+    return null;
+  }
+  if (path.localCandidateType === "relay" || path.remoteCandidateType === "relay") {
+    return "relay";
+  }
+  if (path.protocol === "tcp") {
+    return "tcp";
+  }
+  if (path.protocol === "udp") {
+    return "udp";
+  }
+  return null;
+};
+
+/** Stable text key for change detection and counting, e.g. "udp/srflx". */
+export const icePathKey = (path: IcePathStats | null): string | null => {
+  if (!path) {
+    return null;
+  }
+  return `${path.protocol ?? "?"}/${path.localCandidateType ?? "?"}`;
+};
+
 const num = (value: unknown): number | null => {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
@@ -594,6 +657,57 @@ const findSelectedCandidatePair = (
     }
   }
   return fallback;
+};
+
+/**
+ * The path the selected candidate pair runs over, read off one getStats report.
+ *
+ * The transport entry's selectedCandidatePairId is authoritative; the
+ * nominated/succeeded heuristic is only the fallback for a report that carries
+ * no transport entry. Null until a pair has been selected.
+ */
+export const summarizeIcePath = (
+  entries: RawStatEntry[],
+): IcePathStats | null => {
+  const byId = new Map<string, RawStatEntry>();
+  for (const entry of entries) {
+    byId.set(entry.id, entry);
+  }
+
+  let pair: RawStatEntry | null = null;
+  for (const entry of entries) {
+    if (entry.type !== "transport") {
+      continue;
+    }
+    const selectedId = str(entry.selectedCandidatePairId);
+    const selected = selectedId ? byId.get(selectedId) : undefined;
+    if (selected) {
+      pair = selected;
+      break;
+    }
+  }
+  pair = pair ?? findSelectedCandidatePair(entries);
+  if (!pair) {
+    return null;
+  }
+
+  const localId = str(pair.localCandidateId);
+  const remoteId = str(pair.remoteCandidateId);
+  const local = localId ? byId.get(localId) : undefined;
+  const remote = remoteId ? byId.get(remoteId) : undefined;
+  if (!local && !remote) {
+    return null;
+  }
+
+  return {
+    localCandidateType: local ? str(local.candidateType) : null,
+    remoteCandidateType: remote ? str(remote.candidateType) : null,
+    protocol:
+      (local ? str(local.protocol) : null) ??
+      (remote ? str(remote.protocol) : null),
+    relayProtocol: local ? str(local.relayProtocol) : null,
+    networkType: local ? str(local.networkType) : null,
+  };
 };
 
 export const summarizeSenderReport = (

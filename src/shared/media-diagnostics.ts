@@ -1,6 +1,10 @@
-import type { InboundTrackStats, OutboundTrackStats } from "./media-stats";
+import type {
+  InboundTrackStats,
+  MediaIcePaths,
+  OutboundTrackStats,
+} from "./media-stats";
 
-export const MEDIA_DIAGNOSTICS_SCHEMA_VERSION = 2;
+export const MEDIA_DIAGNOSTICS_SCHEMA_VERSION = 3;
 
 export interface MediaDiagnosticsStatsInput {
   at: number;
@@ -8,6 +12,19 @@ export interface MediaDiagnosticsStatsInput {
   availableOutgoingBitrateBps: number | null;
   outbound: OutboundTrackStats[];
   inbound: InboundTrackStats[];
+  /** Optional so stats recorded by callers that predate it still type-check. */
+  icePaths?: MediaIcePaths;
+}
+
+/**
+ * How many samples each connection spent on each network path, keyed like
+ * "udp/srflx", "tcp/host" or "udp/relay" (protocol / this machine's candidate
+ * type). Anything other than udp with a host, srflx or prflx candidate means
+ * the media was not on the direct UDP path the SFU is set up for.
+ */
+export interface MediaDiagnosticsIcePathSamples {
+  publisher: Record<string, number>;
+  subscriber: Record<string, number>;
 }
 
 export const MEDIA_DIAGNOSTICS_LIMITS = {
@@ -202,6 +219,8 @@ export interface MediaDiagnosticsSummary {
   episodes: MediaDiagnosticsEpisode[];
   remotes: MediaDiagnosticsRemoteSummary[];
   verdicts: MediaDiagnosticsVerdict[];
+  /** Absent from sessions recorded before the path was measured. */
+  icePathSamples?: MediaDiagnosticsIcePathSamples;
 }
 
 export interface MediaDiagnosticsSessionMeta {
@@ -246,6 +265,8 @@ export const MEDIA_DIAGNOSTIC_PROBLEMS = {
   publishMismatch: "publish-encoding-mismatch",
   micFallback: "microphone-fallback",
   reconnects: "reconnects",
+  relayPath: "relay-path",
+  tcpMedia: "tcp-media",
 } as const;
 
 export type MediaDiagnosticProblem =
@@ -265,6 +286,8 @@ export const MEDIA_DIAGNOSTIC_PROBLEM_LABELS: Record<string, string> = {
   "publish-encoding-mismatch": "Kodlayıcı istenen ayarı uygulamadı",
   "microphone-fallback": "Mikrofon işleme zinciri kurulamadı",
   reconnects: "Bağlantı koptu ve yeniden kuruldu",
+  "relay-path": "Medya TURN aktarma sunucusundan aktı",
+  "tcp-media": "Medya TCP yedek yolundan aktı",
 };
 
 export const MEDIA_DIAGNOSTIC_THRESHOLDS = {
@@ -518,6 +541,46 @@ export const deriveVerdicts = (
             `${remote.identity.slice(0, 8)}: kayıp ${pct(remote.packetLossPct?.mean ?? 0)}, kesinti ${pct(remote.concealmentPct?.mean ?? 0)}`,
         ),
     });
+  }
+
+  // Media off the direct UDP path. Every other number looks the same on it —
+  // RTT and loss do not say which path carried them — but on TCP one lost
+  // packet holds back everything queued behind it, and a relay is an extra
+  // hop. Production had both, unseen: clients routed through a TURN relay on
+  // the SFU's own host, and sessions LiveKit pinned to TCP after a short UDP
+  // failure.
+  const paths = summary.icePathSamples;
+  if (paths) {
+    const fallbackLines: string[] = [];
+    let sawRelay = false;
+    for (const [connection, counts] of [
+      ["yayın (publisher)", paths.publisher],
+      ["alım (subscriber)", paths.subscriber],
+    ] as const) {
+      const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+      for (const [key, count] of Object.entries(counts)) {
+        const relay = key.endsWith("/relay");
+        if (
+          (relay || key.startsWith("tcp/")) &&
+          count >= MEDIA_DIAGNOSTIC_THRESHOLDS.problemDwellSamples
+        ) {
+          sawRelay = sawRelay || relay;
+          fallbackLines.push(
+            `${connection}: ${key} ${count} örnek (${pct((count / Math.max(total, 1)) * 100)})`,
+          );
+        }
+      }
+    }
+
+    if (fallbackLines.length > 0) {
+      verdicts.push({
+        code: "fallback-path",
+        headline: sawRelay
+          ? "Medya bir süre TURN aktarma sunucusundan aktı; doğrudan UDP yolu kullanılmadı."
+          : "Medya bir süre TCP yedek yolundan aktı; 7882/UDP'ye ulaşılamamış ya da sunucu oturumu TCP'ye çevirmiş olabilir.",
+        evidence: fallbackLines,
+      });
+    }
   }
 
   const reconnects = Object.entries(summary.eventCounts)

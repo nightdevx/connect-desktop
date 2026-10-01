@@ -7,7 +7,11 @@ import type { UserRole } from "@shared/auth-contracts";
 // feature says it may. scripts/check-architecture.cjs enforces it.
 import { AdminPanel } from "@/features/admin";
 import { isAdminRole } from "@/features/auth";
-import { useLivekitSession } from "@/features/livekit";
+import {
+  useLivekitSession,
+  liveKitConnectRequest,
+  type LiveKitConnectRequest,
+} from "@/features/livekit";
 import {
   ScreenShareModal,
   SCREEN_SHARE_QUALITY_OPTIONS,
@@ -670,7 +674,10 @@ function WorkspaceShell({
 
   // ----- ORCHESTRATION FUNCTIONS -----
   const performPostJoinSynchronization = useCallback(
-    async (lobbyId: string): Promise<void> => {
+    async (
+      lobbyId: string,
+      request: LiveKitConnectRequest = liveKitConnectRequest("unspecified"),
+    ): Promise<void> => {
       // The LiveKit failure used to be swallowed here. The reconnect chain then
       // saw a resolved promise, reset its backoff counter and told the user
       // "connection restored" while there was no audio room at all. Let it
@@ -689,6 +696,7 @@ function WorkspaceShell({
             token,
             lobbyId,
             iceServers,
+            request,
           );
         } catch (error) {
           setStatus(
@@ -745,6 +753,13 @@ function WorkspaceShell({
 
   const activeLobbyReconnectInFlightRef = useRef(false);
   const activeLobbyReconnectAttemptRef = useRef(0);
+  // Read through the ref at call time: the session object is created by an
+  // effect and replaced if the session hook remounts.
+  const isActiveLobbyMediaAlive = useCallback(
+    (lobbyId: string): boolean =>
+      liveKitSessionRef.current?.isRoomAliveFor(lobbyId) ?? false,
+    [liveKitSessionRef],
+  );
   // The password the user actually entered for the room they are in, so an
   // automatic re-join can present it. Without it every unattended recovery into
   // a password-protected room failed with LOBBY_PASSWORD_REQUIRED forever.
@@ -767,6 +782,7 @@ function WorkspaceShell({
     activeLobbyReconnectInFlightRef,
     activeLobbyReconnectAttemptRef,
     performPostJoinSynchronization,
+    isActiveLobbyMediaAlive,
     lobbiesQuery,
     kickedLobbyIdRef,
     activeLobbyPasswordRef,

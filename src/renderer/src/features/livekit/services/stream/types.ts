@@ -76,9 +76,56 @@ export interface RemoteParticipantAudioPreference {
   emoteMuted?: boolean;
 }
 
+/**
+ * Who asked for a connect(). Recorded with every request so the diagnostics can
+ * tell a user clicking into a room from the background recovery doing it — the
+ * two used to be indistinguishable, which is how an automatic rejoin that tore
+ * down a healthy room hid among ordinary room changes.
+ *
+ * The workspace's reconnect reasons are a subset of this union, so the scheduler
+ * passes its reason straight through.
+ */
+export type LiveKitConnectTrigger =
+  | "user-join"
+  | "call-sync"
+  | "network-online"
+  | "livekit-disconnected"
+  | "membership-lost"
+  | "unspecified";
+
+/**
+ * One request for a LiveKit session: who asked for it, and when.
+ *
+ * `requestedAt` is a performance.now() stamp taken where the request began —
+ * the click, before the lobby join round trip and the token fetch, or the
+ * moment a reconnect attempt started. The time to first remote audio is
+ * measured from it, so it covers everything the user waited through rather
+ * than room.connect() alone.
+ */
+export interface LiveKitConnectRequest {
+  trigger: LiveKitConnectTrigger;
+  requestedAt: number;
+}
+
+export const liveKitConnectRequest = (
+  trigger: LiveKitConnectTrigger,
+): LiveKitConnectRequest => ({ trigger, requestedAt: performance.now() });
+
+export interface LiveKitConnectionStateDetail {
+  /**
+   * This client ended the session on purpose (leaving a room). The UI still
+   * needs to hear "disconnected", but nothing should treat it as a drop and
+   * schedule a rejoin.
+   */
+  expected?: boolean;
+}
+
 export interface LiveKitStreamManagerCallbacks {
   onRemoteStreamsChanged?: (media: ParticipantMediaMap) => void;
-  onConnectionStateChanged?: (status: LiveKitConnectionStatus) => void;
+  onConnectionStateChanged?: (
+    status: LiveKitConnectionStatus,
+    detail?: LiveKitConnectionStateDetail,
+  ) => void;
   onActiveSpeakersChanged?: (speakerIds: string[]) => void;
   onSpeakingChanged?: (identities: string[]) => void;
   onWarning?: (message: string) => void;

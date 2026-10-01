@@ -9,9 +9,11 @@ import {
   deriveVerdicts,
   pushStat,
   roundStat,
+  type MediaDiagnosticsBatch,
   type MediaDiagnosticsClient,
   type MediaDiagnosticsEntry,
   type MediaDiagnosticsEpisode,
+  type MediaDiagnosticsIcePathSamples,
   type MediaDiagnosticsInboundVideoSummary,
   type MediaDiagnosticsOutboundVideoSummary,
   type MediaDiagnosticsPrefs,
@@ -20,6 +22,12 @@ import {
   type MediaDiagnosticsStatsInput,
   type MediaDiagnosticsSummary,
 } from "@shared/media-diagnostics";
+import { classifyIcePath, icePathKey } from "@shared/media-stats";
+
+const emptyIcePathSamples = (): MediaDiagnosticsIcePathSamples => ({
+  publisher: {},
+  subscriber: {},
+});
 
 const emptyClient = (): MediaDiagnosticsClient => ({
   appVersion: "",
@@ -142,6 +150,10 @@ class MediaDiagnosticsCollector {
   private truncated = false;
   private flushing = false;
   private timer: number | null = null;
+  // Every upload runs through this chain, one after another. The server keeps
+  // the summary of whichever batch it stored last, so a periodic batch still in
+  // flight when the session ends must not land after the final one.
+  private uploads: Promise<unknown> = Promise.resolve();
 
   private durationMs = 0;
   private events = 0;
@@ -162,9 +174,15 @@ class MediaDiagnosticsCollector {
   private episodes: MediaDiagnosticsEpisode[] = [];
   private openEpisodes = new Map<string, MediaDiagnosticsEpisode>();
   private remotes = new Map<string, RemoteAccumulator>();
+  private icePathSamples: MediaDiagnosticsIcePathSamples = emptyIcePathSamples();
 
   public isActive(): boolean {
     return this.sessionId !== null;
+  }
+
+  /** Whether a session is open and it is this lobby's. */
+  public isActiveFor(lobbyId: string): boolean {
+    return this.sessionId !== null && this.lobbyId === lobbyId;
   }
 
   public startSession(lobbyId: string, client?: Partial<MediaDiagnosticsClient>): void {
@@ -214,6 +232,7 @@ class MediaDiagnosticsCollector {
     this.episodes = [];
     this.openEpisodes = new Map();
     this.remotes = new Map();
+    this.icePathSamples = emptyIcePathSamples();
 
     this.record("session", "session-started", { lobbyId });
     this.startTimer();
@@ -457,12 +476,39 @@ class MediaDiagnosticsCollector {
       breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.highRtt);
     }
 
+    // Off the direct UDP path on either connection. Same dwell as every other
+    // tag, so the moment ICE spends on a pair before nominating another does
+    // not tag a healthy session.
+    const pathKinds = [
+      classifyIcePath(snapshot.icePaths?.publisher ?? null),
+      classifyIcePath(snapshot.icePaths?.subscriber ?? null),
+    ];
+    if (pathKinds.includes("relay")) {
+      breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.relayPath);
+    }
+    if (pathKinds.includes("tcp")) {
+      breached.add(MEDIA_DIAGNOSTIC_PROBLEMS.tcpMedia);
+    }
+
     this.commitSampleProblems(breached);
     this.trackEpisodes(breached, snapshot);
+
+    const publisherPath = icePathKey(snapshot.icePaths?.publisher ?? null);
+    const subscriberPath = icePathKey(snapshot.icePaths?.subscriber ?? null);
+    if (publisherPath) {
+      bump(this.icePathSamples.publisher, publisherPath);
+    }
+    if (subscriberPath) {
+      bump(this.icePathSamples.subscriber, subscriberPath);
+    }
 
     this.append("sample", "stats", "media-stats", {
       rttMs: snapshot.rttMs,
       availableOutgoingBitrateBps: snapshot.availableOutgoingBitrateBps,
+      // Two short keys rather than the whole candidate record: this rides in
+      // every sample and the per-entry budget is 4 KB. The full record is
+      // written once, as stream-manager/ice-path-changed, when it changes.
+      icePaths: { publisher: publisherPath, subscriber: subscriberPath },
       outbound: outboundVideoRows,
       inbound: inboundVideoRows,
       outboundAudio: snapshot.outbound
@@ -646,15 +692,24 @@ class MediaDiagnosticsCollector {
   }
 
   public async endSession(): Promise<void> {
-    if (!this.sessionId) {
+    const sessionId = this.sessionId;
+    if (!sessionId) {
       return;
     }
 
     this.stopTimer();
     this.durationMs = Date.now() - this.startedAtMs;
     this.record("session", "session-ended", { durationMs: this.durationMs });
-    await this.flush(true);
+
+    // Closed here, synchronously, and only then uploaded. It used to stay open
+    // until the final upload came back, and a room change does not wait for
+    // that: the next room found the session still active, wrote its first
+    // entries into it, and everything after — its samples, its reconnects, its
+    // network path — was dropped once the old session closed underneath it.
+    // Every room switch went unrecorded that way.
+    const batches = this.takeBatches(sessionId, true);
     this.sessionId = null;
+    await this.upload(batches);
   }
 
   public buildSummary(): MediaDiagnosticsSummary {
@@ -703,6 +758,10 @@ class MediaDiagnosticsCollector {
       episodes: this.buildEpisodes(),
       remotes: this.buildRemotes(),
       verdicts: [],
+      icePathSamples: {
+        publisher: { ...this.icePathSamples.publisher },
+        subscriber: { ...this.icePathSamples.subscriber },
+      },
     };
 
     // Derived last, from the finished summary, so the same function can be run
@@ -819,7 +878,7 @@ class MediaDiagnosticsCollector {
       return;
     }
     this.timer = window.setInterval(() => {
-      void this.flush(false);
+      void this.flush();
     }, MEDIA_DIAGNOSTICS_LIMITS.flushIntervalMs);
   }
 
@@ -830,51 +889,75 @@ class MediaDiagnosticsCollector {
     }
   }
 
-  private async flush(final: boolean): Promise<void> {
+  private async flush(): Promise<void> {
     const sessionId = this.sessionId;
-    if (!sessionId || this.flushing) {
-      return;
-    }
-    if (this.pending.length === 0 && !final) {
-      return;
-    }
-
-    const upload = window.desktopApi?.uploadMediaDiagnostics;
-    if (typeof upload !== "function") {
-      this.pending = [];
+    if (!sessionId || this.flushing || this.pending.length === 0) {
       return;
     }
 
     this.flushing = true;
-    const entries = this.pending.splice(
-      0,
-      MEDIA_DIAGNOSTICS_LIMITS.maxEntriesPerBatch,
-    );
-    this.batchSeq += 1;
-
+    const batches = this.takeBatches(sessionId, false);
     try {
-      const result = await upload({
+      const sent = await this.upload(batches);
+      // Back to the front of the queue for the next flush — unless the session
+      // ended meanwhile: a later session must not inherit these.
+      if (!sent && this.sessionId === sessionId) {
+        this.pending.unshift(...batches.flatMap((batch) => batch.entries));
+        this.batchSeq -= batches.length;
+      }
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  /**
+   * Cuts the pending entries into batches, each stamped with the summary as it
+   * stands now. A periodic flush takes one batch; the final one takes all that
+   * is left, and only its last batch is marked final.
+   */
+  private takeBatches(sessionId: string, final: boolean): MediaDiagnosticsBatch[] {
+    const summary = this.buildSummary();
+    const batches: MediaDiagnosticsBatch[] = [];
+    do {
+      this.batchSeq += 1;
+      batches.push({
         sessionId,
         schemaVersion: MEDIA_DIAGNOSTICS_SCHEMA_VERSION,
         seq: this.batchSeq,
         startedAtMs: this.startedAtMs,
         lobbyId: this.lobbyId,
         client: this.client,
-        summary: this.buildSummary(),
-        entries,
-        final,
+        summary,
+        entries: this.pending.splice(0, MEDIA_DIAGNOSTICS_LIMITS.maxEntriesPerBatch),
+        final: false,
       });
+    } while (final && this.pending.length > 0);
+    batches[batches.length - 1].final = final;
+    return batches;
+  }
 
-      if (!result?.ok) {
-        this.pending.unshift(...entries);
-        this.batchSeq -= 1;
+  /** Sends the batches in order, after every upload queued before them. */
+  private upload(batches: MediaDiagnosticsBatch[]): Promise<boolean> {
+    const send = async (): Promise<boolean> => {
+      const upload = window.desktopApi?.uploadMediaDiagnostics;
+      if (typeof upload !== "function") {
+        return false;
       }
-    } catch {
-      this.pending.unshift(...entries);
-      this.batchSeq -= 1;
-    } finally {
-      this.flushing = false;
-    }
+      for (const batch of batches) {
+        try {
+          const result = await upload(batch);
+          if (!result?.ok) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    };
+    const sent = this.uploads.then(send);
+    this.uploads = sent;
+    return sent;
   }
 }
 
