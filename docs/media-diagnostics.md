@@ -174,6 +174,8 @@ kodlayıcı sorunudur; `cpu-limited` tek başına gerçekten yetersiz işlemcidi
 | `stream-manager/publish-*-encodings` | Publish sonrası **gerçek** encoder parametreleri ve `negotiatedCodec.sdpFmtpLine`. `mismatch` doluysa istenen ayar uygulanmadı |
 | `stream-manager/screen-codec-fallback` | AV1/VP9 yazılıma düştü, H.264'e dönüldü |
 | `stream-manager/quality-step-down` | Otomatik kalite düşürme; `from`, `to`, `reason` |
+| `stream-manager/audio-guard` | Ses bekçisi: ekran paylaşılırken mikrofonun RTT'si tabanın 80 ms üstüne iki örnek üst üste çıktı ve paylaşımın bit hızı tavanı canlı göndericide kısıldı (`action: "throttle"`), ya da ses 10 sn zamanında kaldı ve %10 geri verildi (`"restore"`). `factor` önayarın yüzde kaçında olunduğu (0.25–1), `rttMs` o anki, `baselineMs` son 2 dakikanın en düşük RTT'si. Yeniden yakalama yok, track değişmez; 8 sn'lik kalite düşürmenin önündeki hızlı katman |
+| `stream-manager/downlink-loss` | Konuşan en az iki kişinin sesi aynı anda ≥ %3 kayıpla geldi (iki örnek üst üste): sorun bu makinenin indirmesi. Kullanıcıya uyarı (5 dakikada en fazla bir) ve izlenen ekran paylaşımları en düşük katmana iner, temiz geçen 30 sn sonra geri döner. `remotes` kimlik öneki ve kayıp yüzdeleri |
 | `stream-manager/track-stream-paused` / `-resumed` | SFU katman duraklatma |
 | `stream-manager/replace-screen` | Kesintisiz kaynak/kalite değişimi |
 | `stats/media-stats` | Periyodik ölçüm; aşağıda |
@@ -272,6 +274,11 @@ jq -rs '[.[] | select(.type=="entry" and .entry.name=="first-remote-audio"
 jq -r 'select(.type=="entry" and .entry.name=="first-remote-audio" and .entry.data.timedOut)
        | [.sessionId, .entry.data.lobbyId, .entry.data.trigger] | @tsv' kayit.ndjson
 
+# Ses bekçisi: hangi oturumlarda paylaşım kısıldı, en düşük tavan
+jq -r 'select(.type=="entry" and .entry.name=="audio-guard")
+       | [.sessionId, .entry.data.action, .entry.data.factor, .entry.data.rttMs,
+          .entry.data.baselineMs] | @tsv' kayit.ndjson
+
 # ICE kopmaları: katılımdan kaç sn sonra, hangi bağlantıda, toparlandı mı
 jq -r 'select(.type=="entry" and .entry.name=="ice-state"
               and (.entry.data.state=="disconnected" or .entry.data.state=="failed"))
@@ -319,7 +326,7 @@ jq -r 'select(.type=="entry" and .entry.name=="ice-state"
 |---|---|
 | 1 | İlk şema. |
 | 2 | Teşhis katmanı. **Yeni özet alanları:** `episodes`, `remotes`, `verdicts`; `outboundVideo.limitationSeconds` / `sourceFps` / `sourceResolutions` / `encodeMsPerFrame` / `framesDroppedPct` / `retransmittedPct`. **Yeni örnek alanları:** giden seste `trackKey` ve `retransmittedPct`, gelen seste `silentPct` / `jitterBufferTargetMs` / `packetsDiscarded`, giden videoda `sourceFps` / `sourceResolution` / `encodeMsPerFrame` / `framesDroppedPct`. **Anlamı değişen:** `concealmentPct` artık DTX sessizliğini saymıyor (bu yüzden sürüm arttı); `problems` etiketleri tek örnekle değil `problemDwellSamples` kadar ardışık örnekle tetikleniyor; `availableOutgoingBitrateBps` 1 Gbps yer tutucusunda `null`; renegotiation'ı aşan pencerelerde oran alanları `null`. **Yeni olay:** `stream-manager/quality-limitation-detected` (kararın dayandığı ölçümler), `stream-manager/room-signal-reconnecting`, `session/lobby-changed` (eskiden yanlışlıkla `room-reconnected`). |
-| 3 | Bağlantı yolu. **Yeni problem etiketleri** (sürümü bu artırdı): `relay-path`, `tcp-media`. **Yeni karar:** `fallback-path` (medya TCP ya da TURN yolundan aktı). **Yeni özet alanı:** `icePathSamples`. **Yeni örnek alanı:** `icePaths`. **Yeni olaylar:** `session/connect-request` (yeniden bağlanma isteğinin sonucu: `noop-alive` / `joined-in-flight` / `new-room` / `replaced-room`), `stream-manager/ice-path-changed`, `stream-manager/ice-state` (ICE durum geçişleri), `session/first-remote-audio` (tıklamadan ilk uzak sese). **Yeni alan:** `session/connection-state` içinde `expected` (kullanıcının kendi ayrılışı ya da oda değişimi). **Anlamı değişen:** bir oturum artık bir oda: başka odaya geçiş yeni oturum açar, `session/lobby-changed` yazılmaz (v2'de bu olaydan sonra yeni odanın kaydı kayboluyordu). |
+| 3 | Bağlantı yolu. **Yeni problem etiketleri** (sürümü bu artırdı): `relay-path`, `tcp-media`. **Yeni karar:** `fallback-path` (medya TCP ya da TURN yolundan aktı). **Yeni özet alanı:** `icePathSamples`. **Yeni örnek alanı:** `icePaths`. **Yeni olaylar:** `session/connect-request` (yeniden bağlanma isteğinin sonucu: `noop-alive` / `joined-in-flight` / `new-room` / `replaced-room`), `stream-manager/ice-path-changed`, `stream-manager/ice-state` (ICE durum geçişleri), `session/first-remote-audio` (tıklamadan ilk uzak sese), `stream-manager/audio-guard` (ses bekçisi), `stream-manager/downlink-loss` (indirme kaybı teşhisi). **Yeni alan:** `session/connection-state` içinde `expected` (kullanıcının kendi ayrılışı ya da oda değişimi). **Anlamı değişen:** bir oturum artık bir oda: başka odaya geçiş yeni oturum açar, `session/lobby-changed` yazılmaz (v2'de bu olaydan sonra yeni odanın kaydı kayboluyordu). |
 
 Şemayı değiştirirken: alan silmek ya da anlamını değiştirmek sürüm artışı
 gerektirir; alan eklemek gerektirmez. `MEDIA_DIAGNOSTICS_SCHEMA_VERSION` ve

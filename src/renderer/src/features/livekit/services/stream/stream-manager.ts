@@ -3,12 +3,14 @@ import {
   RoomEvent,
   EngineEvent,
   Track,
+  VideoQuality,
   ConnectionState,
   DisconnectReason,
   LocalParticipant,
   type LocalTrackPublication,
   type Participant,
   type RemoteTrack,
+  type RemoteTrackPublication,
   type RoomOptions,
   type TrackPublication,
   type TrackPublishOptions,
@@ -61,6 +63,13 @@ import {
   type MediaIcePaths,
 } from "@shared/media-stats";
 import {
+  guardedBitrate,
+  initialAudioGuard,
+  stepAudioGuard,
+  stepDownlink,
+  type AudioGuardState,
+} from "./link-guards";
+import {
   describeEncodingMismatch,
   scaleBitrateToResolution,
 } from "@shared/video-layers";
@@ -109,7 +118,10 @@ const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = {
   dtx: false,
   red: false,
   forceStereo: true,
-  audioPreset: { maxBitrate: 96_000 },
+  // Below the microphone. livekit-client gives every audio track "high" unless
+  // told otherwise, so a shared game or film competed with the voice on equal
+  // terms whenever the uplink ran short; the voice is what a call is for.
+  audioPreset: { maxBitrate: 96_000, priority: "medium" },
 };
 
 const SOFTWARE_SVC_TICKS = 2;
@@ -128,6 +140,12 @@ const USE_SINGLE_PEER_CONNECTION = false;
 // one second from the click); short enough that the event still describes the
 // join rather than someone unmuting minutes later.
 const FIRST_REMOTE_AUDIO_TIMEOUT_MS = 15_000;
+
+// Watched screen shares drop to their lowest layer for this long after the
+// download stops dropping packets, and the downlink warning repeats at most
+// this often.
+const DOWNLINK_LOW_QUALITY_MS = 30_000;
+const DOWNLINK_WARNING_INTERVAL_MS = 5 * 60_000;
 
 // The states in which LiveKit still owns a session and is either using it or
 // bringing it back by itself. SignalReconnecting is the one that matters most:
@@ -234,6 +252,18 @@ export class LiveKitMediaSession {
   // The network path each connection was last seen on, so a switch (direct UDP
   // to TCP, or onto a relay) is recorded once, when it happens.
   private lastIcePaths: MediaIcePaths = EMPTY_ICE_PATHS;
+  // The audio guard (link-guards.ts) and the screen sender it is guarding. A
+  // new sender is a new publish -- a new preset -- and starts from its full
+  // ceiling; audioGuardCaps is that ceiling, read before the first cut.
+  private audioGuard: AudioGuardState = initialAudioGuard();
+  private audioGuardSender: RTCRtpSender | null = null;
+  private audioGuardCaps: (number | null)[] | null = null;
+  // Downlink diagnosis: how many samples in a row everybody arrived damaged,
+  // which watched shares were lowered for it, and when that ends.
+  private downlinkStreak = 0;
+  private downlinkWarnedAt = 0;
+  private downlinkRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly loweredScreens = new Set<RemoteTrackPublication>();
 
   private remoteMediaHandler: RemoteMediaHandler | null = null;
   private roomEventManager: RoomEventManager | null = null;
@@ -773,12 +803,16 @@ export class LiveKitMediaSession {
     this.limitationNotified = false;
     this.softwareSvcTicks = 0;
     this.lastIcePaths = EMPTY_ICE_PATHS;
+    this.audioGuard = initialAudioGuard();
+    this.downlinkStreak = 0;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.(snapshot);
       mediaDiagnostics.recordStats(snapshot);
       this.trackIcePaths(snapshot.icePaths);
+      this.evaluateAudioGuard(snapshot);
       this.evaluateQualityLimitation(snapshot);
       this.evaluateScreenEncoderCodec(snapshot);
+      this.evaluateDownlink(snapshot);
     });
 
     if (this.remoteMediaHandler && this.audioProcessingPreferences.selectedAudioOutputDeviceId) {
@@ -918,6 +952,12 @@ export class LiveKitMediaSession {
     this.stopAudioMonitoring();
     this.statsCollector?.stop();
     this.statsCollector = null;
+    // The lowered shares belong to the room going away; nothing to restore.
+    if (this.downlinkRestoreTimer !== null) {
+      clearTimeout(this.downlinkRestoreTimer);
+      this.downlinkRestoreTimer = null;
+    }
+    this.loweredScreens.clear();
 
     // 1. Mute the microphone before tearing the room down, so nothing is still
     // going out while the socket closes — but do not wait on it indefinitely.
@@ -1405,6 +1445,141 @@ export class LiveKitMediaSession {
     );
   }
 
+  /**
+   * The fast layer in front of the preset step-down: cuts the share's bitrate
+   * ceiling on the live sender while the microphone's round trip shows the
+   * uplink queue filling, and hands it back slowly. See link-guards.ts.
+   */
+  private evaluateAudioGuard(snapshot: MediaStatsSnapshot): void {
+    const sender =
+      this.room?.localParticipant.getTrackPublication(Track.Source.ScreenShare)
+        ?.track?.sender ?? null;
+    if (sender !== this.audioGuardSender) {
+      this.audioGuardSender = sender;
+      this.audioGuardCaps = null;
+      this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1 };
+    }
+
+    const step = stepAudioGuard(
+      this.audioGuard,
+      snapshot.rttMs,
+      this.desiredScreenEnabled && sender !== null,
+    );
+    this.audioGuard = step.state;
+    if (!step.action || !sender) {
+      return;
+    }
+
+    logLiveKitDebug("stream-manager", "audio-guard", {
+      action: step.action,
+      factor: step.state.factor,
+      rttMs: snapshot.rttMs,
+      baselineMs: step.baselineMs,
+    });
+    void this.applyAudioGuardCeiling(sender, step.state.factor);
+  }
+
+  private async applyAudioGuardCeiling(
+    sender: RTCRtpSender,
+    factor: number,
+  ): Promise<void> {
+    try {
+      const parameters = sender.getParameters();
+      const encodings = parameters.encodings ?? [];
+      // What the publish set is the preset; read before the first cut.
+      if (!this.audioGuardCaps) {
+        this.audioGuardCaps = encodings.map((encoding) => encoding.maxBitrate ?? null);
+      }
+      const caps = this.audioGuardCaps;
+      encodings.forEach((encoding, index) => {
+        const cap = caps[index];
+        if (typeof cap === "number") {
+          encoding.maxBitrate = guardedBitrate(cap, factor);
+        }
+      });
+      await sender.setParameters(parameters);
+    } catch (error) {
+      // A sender replaced mid-update; the next tick starts over on the new one.
+      logLiveKitDebug("stream-manager", "audio-guard-failed", { error });
+    }
+  }
+
+  /**
+   * Everybody arriving damaged at once is this machine's download. Says so --
+   * nothing else on screen can, since the numbers look the same for a remote
+   * with a bad uplink -- and lowers the shares being watched, the largest
+   * thing coming down the link, until it has been clean for a while.
+   */
+  private evaluateDownlink(snapshot: MediaStatsSnapshot): void {
+    const suffix = `:${Track.Source.Microphone}`;
+    const remotes = snapshot.inbound
+      .filter((entry) => entry.kind === "audio" && entry.trackKey.endsWith(suffix))
+      .map((entry) => ({
+        identity: entry.trackKey.slice(0, -suffix.length),
+        packetLossPct: entry.packetLossPct,
+        bitrateBps: entry.bitrateBps,
+      }));
+
+    const step = stepDownlink(this.downlinkStreak, remotes);
+    this.downlinkStreak = step.streak;
+
+    if (step.started) {
+      logLiveKitDebug("stream-manager", "downlink-loss", {
+        remotes: remotes.map((remote) => ({
+          identity: remote.identity.slice(0, 8),
+          packetLossPct: remote.packetLossPct,
+        })),
+      });
+      const now = Date.now();
+      if (now - this.downlinkWarnedAt >= DOWNLINK_WARNING_INTERVAL_MS) {
+        this.downlinkWarnedAt = now;
+        this.callbacks.onWarning?.(
+          "Konuşan herkesin sesi aynı anda kayıplı geliyor: sorun bu bilgisayarın internet bağlantısında (indirme). Wi-Fi yerine kablo kullanmak çoğu zaman çözer.",
+        );
+      }
+    }
+
+    if (step.active) {
+      this.lowerWatchedScreens();
+    }
+  }
+
+  private lowerWatchedScreens(): void {
+    const room = this.room;
+    if (!room) {
+      return;
+    }
+    for (const identity of this.watchedScreenIdentities) {
+      const publication = room.remoteParticipants
+        .get(identity)
+        ?.getTrackPublication(Track.Source.ScreenShare);
+      if (publication?.isSubscribed) {
+        publication.setVideoQuality(VideoQuality.LOW);
+        this.loweredScreens.add(publication);
+      }
+    }
+    if (this.downlinkRestoreTimer !== null) {
+      clearTimeout(this.downlinkRestoreTimer);
+    }
+    this.downlinkRestoreTimer = setTimeout(
+      () => this.restoreLoweredScreens(),
+      DOWNLINK_LOW_QUALITY_MS,
+    );
+  }
+
+  private restoreLoweredScreens(): void {
+    if (this.downlinkRestoreTimer !== null) {
+      clearTimeout(this.downlinkRestoreTimer);
+      this.downlinkRestoreTimer = null;
+    }
+    for (const publication of this.loweredScreens) {
+      if (publication.isSubscribed) {
+        publication.setVideoQuality(VideoQuality.HIGH);
+      }
+    }
+    this.loweredScreens.clear();
+  }
+
   private hasOutboundVideo(snapshot: MediaStatsSnapshot): boolean {
     return snapshot.outbound.some(
       (entry) => entry.kind === "video" && entry.bitrateBps !== null,
@@ -1568,7 +1743,10 @@ export class LiveKitMediaSession {
     return {
       dtx: true,
       red: true,
-      audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS },
+      // "high" is also livekit-client's default for audio; stated so that a
+      // library default cannot quietly change it. Video encodings are left at
+      // the browser's default, "low", which is already where they belong.
+      audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS, priority: "high" },
     };
   }
 
@@ -1774,6 +1952,13 @@ export class LiveKitMediaSession {
       });
 
       await sender.setParameters(parameters);
+
+      // A new ladder on the same sender is a new preset for the audio guard:
+      // its ceiling is re-read and it starts uncut.
+      if (sender === this.audioGuardSender) {
+        this.audioGuardCaps = null;
+        this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1 };
+      }
     } catch (error) {
       console.warn(
         `[LiveKitMediaSession] ${label} live encoding update failed:`,
@@ -2179,6 +2364,12 @@ export class LiveKitMediaSession {
     this.stopAudioMonitoring();
     this.statsCollector?.stop();
     this.statsCollector = null;
+    // The lowered shares belong to the room going away; nothing to restore.
+    if (this.downlinkRestoreTimer !== null) {
+      clearTimeout(this.downlinkRestoreTimer);
+      this.downlinkRestoreTimer = null;
+    }
+    this.loweredScreens.clear();
     if (this.room) {
       try {
         this.room.removeAllListeners();

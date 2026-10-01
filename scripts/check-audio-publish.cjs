@@ -57,9 +57,10 @@ assert.ok(
   "the microphone publishes at 64 kbps: 96 (musicHighQuality) is wasteful and 48 (music) overshot the correction downward",
 );
 assert.ok(
-  source.includes("audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS }"),
-  "the microphone bitrate must come from the named constant, so it cannot drift from the number this check asserts",
+  source.includes('audioPreset: { maxBitrate: MICROPHONE_BITRATE_BPS, priority: "high" }'),
+  "the microphone bitrate must come from the named constant, so it cannot drift from the number this check asserts, and the voice is published at high priority",
 );
+
 assert.ok(
   !source.includes("AudioPresets."),
   "screen audio publishes from SCREEN_AUDIO_PUBLISH_OPTIONS, not a LiveKit preset: musicStereo is 64 kbps and musicHighQualityStereo is 128, and neither can carry the red:false decision this file asserts below",
@@ -79,8 +80,8 @@ const screenAudioOptions = source.slice(
   source.indexOf("const SOFTWARE_SVC_TICKS"),
 );
 assert.ok(
-  screenAudioOptions.includes("audioPreset: { maxBitrate: 96_000 }"),
-  "96 kbps stereo, the same budget the music bot encodes at: 64 is audibly thin for game and music audio and 128 buys very little on top of 96",
+  screenAudioOptions.includes('audioPreset: { maxBitrate: 96_000, priority: "medium" }'),
+  "96 kbps stereo, the same budget the music bot encodes at (64 is audibly thin for game and music audio, 128 buys very little on top of 96), and below the microphone: livekit-client defaults every audio track to high, so a shared game competed with the voice on equal terms",
 );
 assert.ok(
   screenAudioOptions.includes("red: false"),
