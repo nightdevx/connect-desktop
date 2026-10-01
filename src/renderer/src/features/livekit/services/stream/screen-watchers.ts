@@ -49,7 +49,12 @@ const normalizeIdentity = (value: unknown): string | null => {
 };
 
 /** The whole current watch list of this client, ready to publish. */
-export const encodeWatchState = (targets: Iterable<string>): Uint8Array => {
+// ArrayBuffer-backed, as TextEncoder produces: livekit-client's publishData
+// takes Uint8Array<ArrayBuffer> since 2.22 and rejects the wider
+// ArrayBufferLike (which would admit a SharedArrayBuffer).
+export const encodeWatchState = (
+  targets: Iterable<string>,
+): Uint8Array<ArrayBuffer> => {
   const unique: string[] = [];
   for (const target of targets) {
     const identity = normalizeIdentity(target);
