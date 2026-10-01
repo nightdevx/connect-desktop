@@ -126,14 +126,19 @@ const SCREEN_AUDIO_PUBLISH_OPTIONS: TrackPublishOptions = {
 
 const SOFTWARE_SVC_TICKS = 2;
 
-// livekit-client 2.17+ tries the single-peer-connection signalling path
-// (/rtc/v1) first and falls back to the classic two-connection path when the
-// server answers 404. The deployed SFU (v1.9.1) does not have /rtc/v1, so every
-// join and every rejoin paid for that failed attempt before connecting — the
-// "v1 RTC path not found … Retrying" line in the logs. Ask for the classic path
-// directly until the server is upgraded; then flip this to true, which halves
-// the ICE/DTLS handshakes per join (see docs/voice-connectivity-plan.md, A4).
-const USE_SINGLE_PEER_CONNECTION = false;
+// One PeerConnection per participant instead of two: one ICE and DTLS
+// handshake per join, and one transport that can drop instead of two. Needs
+// the SFU's /rtc/v1 path, which arrived after v1.9.1; deploy/docker-compose.coolify.yml
+// in connect-backend pins v1.13.7. Measured against a local v1.13.7, join to
+// audio went from 652 ms (two connections) to 577, first remote audio from
+// ~290 ms to ~220.
+//
+// Against an older server livekit-client finds /rtc/v1 missing (404) and falls
+// back to the two-connection path by itself — one failed request per join, the
+// "v1 RTC path not found … Retrying" line — so a client released before the
+// server is upgraded is slower to join, not broken. It was false while the
+// server was v1.9.1 for exactly that reason.
+const USE_SINGLE_PEER_CONNECTION = true;
 
 // How long a join may take to deliver the first remote audio before the
 // diagnostics record that it did not. Far past any healthy join (the target is
