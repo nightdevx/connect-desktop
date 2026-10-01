@@ -185,6 +185,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:call-reject", payload),
   cancelCall: async (payload) =>
     ipcRenderer.invoke("desktop:call-cancel", payload),
+  getCallPeerStatus: async (payload) =>
+    ipcRenderer.invoke("desktop:call-peer", payload),
   getMusicCatalog: async () => ipcRenderer.invoke("desktop:music-catalog"),
   getMusicState: async (payload) =>
     ipcRenderer.invoke("desktop:music-state", payload),

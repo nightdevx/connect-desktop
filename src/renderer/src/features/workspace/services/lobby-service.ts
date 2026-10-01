@@ -1,4 +1,7 @@
-import type { LobbyFeatureId } from "@shared/desktop-api-types";
+import type {
+  LobbyFeatureId,
+  LobbyLeaveReason,
+} from "@shared/desktop-api-types";
 import type {
   CustomEmoteSummary,
   DesktopResult,
@@ -199,7 +202,7 @@ export const lobbyService = {
     }
     return window.desktopApi.muteLobbyMember(payload);
   },
-  leaveLobby: (payload?: { lobbyId?: string }) => {
+  leaveLobby: (payload?: { lobbyId?: string; reason?: LobbyLeaveReason }) => {
     return window.desktopApi.leaveLobby(payload);
   },
   getLobbyState: (payload: { lobbyId: string }) => {

@@ -254,6 +254,7 @@ export const lobbyMessageDeleteSchema = z.object({
 
 export const lobbyLeaveSchema = z.object({
   lobbyId: z.string().min(2).max(128).optional(),
+  reason: z.enum(["user", "switch", "kicked", "quit"]).optional(),
 }).optional().default({});
 
 export const lobbyMuteSchema = z.object({
@@ -481,6 +482,10 @@ export const rejectCallSchema = z.object({
 export const cancelCallSchema = z.object({
   callId: z.string().min(2).max(128),
   targetUserId: z.string().min(2).max(128),
+});
+
+export const callPeerSchema = z.object({
+  callId: z.string().min(2).max(128),
 });
 
 export const adminUpdateUserSchema = z.object({

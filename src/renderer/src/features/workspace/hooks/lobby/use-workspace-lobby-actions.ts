@@ -13,13 +13,21 @@ import {
   type LiveKitConnectRequest,
   type LiveKitMediaSession,
 } from "@/features/livekit";
+import type { LobbyLeaveReason } from "@shared/desktop-api-types";
 import { soundEffectManager } from "@/features/sound-effects";
+
+// Why the renderer leaves a room; the server records it for diagnostics. "quit"
+// is the main process's own, sent from the shutdown path.
+export type LobbyLeaveIntent = Exclude<LobbyLeaveReason, "quit">;
 import workspaceService from "../../services";
 import {
   isLobbyTransitionBusy,
   type LobbyTransitionState,
 } from "./lobby-transition";
-import type { ScheduleActiveLobbyReconnect } from "./use-workspace-lobbies";
+import type {
+  PostJoinOptions,
+  ScheduleActiveLobbyReconnect,
+} from "./use-workspace-lobbies";
 
 type StatusTone = "ok" | "warn" | "error";
 
@@ -37,6 +45,7 @@ interface UseWorkspaceLobbyActionsParams {
   performPostJoinSynchronization: (
     lobbyId: string,
     request?: LiveKitConnectRequest,
+    options?: PostJoinOptions,
   ) => Promise<void>;
   clearActiveLobbyReconnectTimer: () => void;
   // Armed when the media bring-up fails before room.connect() is reached: no
@@ -83,7 +92,7 @@ export interface WorkspaceLobbyActionsState {
   ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
   joinLobby: (lobbyId: string, password?: string) => Promise<void>;
-  leaveActiveLobby: (reason?: "user" | "kicked") => Promise<void>;
+  leaveActiveLobby: (reason?: LobbyLeaveIntent) => Promise<void>;
   pendingPasswordLobby: { lobbyId: string; wrong: boolean } | null;
   cancelPasswordPrompt: () => void;
 }
@@ -356,7 +365,7 @@ export const useWorkspaceLobbyActions = ({
     }
   };
 
-  const leaveActiveLobby = async (reason: "user" | "kicked" = "user"): Promise<void> => {
+  const leaveActiveLobby = async (reason: LobbyLeaveIntent = "user"): Promise<void> => {
     if (!activeLobbyId || lobbyTransitionRef.current.isLeaving) {
       return;
     }
@@ -372,6 +381,7 @@ export const useWorkspaceLobbyActions = ({
       const leavingLobbyId = activeLobbyId;
       const result = await workspaceService.leaveLobby({
         lobbyId: leavingLobbyId,
+        reason,
       });
       if (!result.ok) {
         setStatus(

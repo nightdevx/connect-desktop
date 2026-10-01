@@ -78,6 +78,25 @@ export class MediaClient {
     });
   }
 
+  // Whether the call's other party is connected to its room, as the SFU sees
+  // it. Asked when hanging up, because this client's own room lists nobody
+  // while it is being rebuilt. A GET with nothing in the body, so a server
+  // that does not know the route answers 404 and the caller keeps its own view.
+  public async getCallPeerStatus(
+    accessToken: string,
+    callId: string,
+  ): Promise<{ peerConnected: boolean }> {
+    return this.baseClient.request<{ peerConnected: boolean }>(
+      `/media/livekit/call/${encodeURIComponent(callId)}/peer`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  }
+
   public async uploadDiagnostics(
     accessToken: string,
     batch: MediaDiagnosticsBatchWire,

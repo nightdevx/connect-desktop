@@ -96,7 +96,7 @@ export const useAudioControls = ({
   );
 
   const syncLobbyAudioState = useCallback(
-    async (lobbyId: string): Promise<void> => {
+    async (lobbyId: string, declare = true): Promise<void> => {
       // Ensure the LiveKit session reflects the current UI state immediately.
       //
       // Deafen only. The microphone is owned by the join path (the token ->
@@ -107,7 +107,9 @@ export const useAudioControls = ({
       // promise on every join.
       liveKitSessionRef.current?.setDeafened(!headphoneEnabled);
 
-      await declareAudioState(lobbyId, micEnabled, headphoneEnabled);
+      if (declare) {
+        await declareAudioState(lobbyId, micEnabled, headphoneEnabled);
+      }
     },
     [micEnabled, headphoneEnabled, liveKitSessionRef, declareAudioState],
   );

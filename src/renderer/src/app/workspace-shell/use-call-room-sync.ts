@@ -3,6 +3,7 @@ import {
   liveKitConnectRequest,
   type LiveKitConnectRequest,
 } from "@/features/livekit";
+import type { PostJoinOptions } from "@/features/workspace";
 
 // Bringing a 1-to-1 call's media room up, exactly once per room.
 //
@@ -21,6 +22,7 @@ import {
 type PostJoinSynchronization = (
   lobbyId: string,
   request?: LiveKitConnectRequest,
+  options?: PostJoinOptions,
 ) => Promise<void>;
 
 export interface CallRoomSyncOptions {

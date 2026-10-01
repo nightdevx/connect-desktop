@@ -144,6 +144,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:call-accept",
   "desktop:call-reject",
   "desktop:call-cancel",
+  "desktop:call-peer",
   "desktop:music-catalog",
   "desktop:music-state",
   "desktop:music-command",
@@ -229,7 +230,7 @@ export async function cleanupBeforeAppQuit(): Promise<void> {
 
   try {
     await withAccessToken((accessToken) => {
-      return backendClient.lobby.leaveLobby(accessToken);
+      return backendClient.lobby.leaveLobby(accessToken, undefined, "quit");
     });
   } catch {
     // Best-effort cleanup; app shutdown should continue even if backend is unreachable.

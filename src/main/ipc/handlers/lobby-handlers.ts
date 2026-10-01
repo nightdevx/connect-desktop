@@ -36,6 +36,7 @@ import {
   acceptCallSchema,
   rejectCallSchema,
   cancelCallSchema,
+  callPeerSchema,
 } from "../validators";
 
 export function registerLobbyHandlers(): void {
@@ -217,7 +218,7 @@ export function registerLobbyHandlers(): void {
     try {
       const parsed = lobbyLeaveSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.leaveLobby(accessToken, parsed.lobbyId);
+        return backendClient.lobby.leaveLobby(accessToken, parsed.lobbyId, parsed.reason);
       });
       return ok(result);
     } catch (error) {
@@ -577,6 +578,18 @@ export function registerLobbyHandlers(): void {
       const parsed = cancelCallSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
         return backendClient.media.cancelCall(accessToken, parsed.callId, parsed.targetUserId);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:call-peer", async (_event, payload: unknown) => {
+    try {
+      const parsed = callPeerSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.getCallPeerStatus(accessToken, parsed.callId);
       });
       return ok(result);
     } catch (error) {

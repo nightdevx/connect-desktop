@@ -5,6 +5,12 @@ import type {
   ParticipantMediaMap,
 } from "@/features/livekit";
 import { resolveRoomTransition } from "./lobby-transition";
+import workspaceService from "../../services";
+
+const CALL_ROOM_PREFIX = "call_";
+// Hanging up waits at most this long for the SFU's answer.
+const PEER_CHECK_TIMEOUT_MS = 1_500;
+import type { LobbyLeaveIntent } from "./use-workspace-lobby-actions";
 
 // Mutual exclusion between rooms: a user is in at most one lobby or one 1:1
 // call at a time. Every entry point has to tear the previous room down first,
@@ -22,7 +28,7 @@ interface UseRoomTransitionsParams {
   callPeer: CallPeer | null | undefined;
   remoteParticipantStreams: ParticipantMediaMap;
   endActiveCall: (peerInRoom: boolean) => Promise<void>;
-  leaveActiveLobby: (reason?: "user" | "kicked") => Promise<void>;
+  leaveActiveLobby: (reason?: LobbyLeaveIntent) => Promise<void>;
   resetLocalMediaCapture: () => void;
   joinLobby: (lobbyId: string, password?: string) => Promise<void>;
   initiateCall: (targetUser: UserDirectoryEntry) => Promise<void>;
@@ -46,13 +52,37 @@ export const useRoomTransitions = ({
 }: UseRoomTransitionsParams) => {
   // Whether the other side is still connected decides between a soft leave
   // (they can keep the call going) and a hard end (notify them, write the DM).
-  const isPeerInRoom = useCallback((): boolean => {
+  //
+  // Our own room is the first witness, and the only one when it says yes. When
+  // it says no, it may be talking about us: while our room is being rebuilt it
+  // lists nobody, and hanging up then used to end the call on a peer who was
+  // sitting in it. So a "no" is checked with the SFU, briefly. Anything but a
+  // clear answer -- a timeout, an error, a server without the route -- keeps
+  // our own view, which is what this always did.
+  const isPeerInRoom = useCallback(async (): Promise<boolean> => {
     const peerUserId = callPeer?.userId;
-    return Boolean(peerUserId && remoteParticipantStreams[peerUserId]);
-  }, [callPeer, remoteParticipantStreams]);
+    if (!peerUserId) {
+      return false;
+    }
+    if (remoteParticipantStreams[peerUserId]) {
+      return true;
+    }
+
+    const roomId = activeLobbyRef.current;
+    if (!roomId?.startsWith(CALL_ROOM_PREFIX)) {
+      return false;
+    }
+    const answer = await Promise.race([
+      workspaceService.getCallPeerStatus({ callId: roomId.slice(CALL_ROOM_PREFIX.length) }),
+      new Promise<null>((resolve) => {
+        window.setTimeout(() => resolve(null), PEER_CHECK_TIMEOUT_MS);
+      }),
+    ]);
+    return answer?.ok === true && answer.data?.peerConnected === true;
+  }, [activeLobbyRef, callPeer, remoteParticipantStreams]);
 
   const teardownCall = useCallback(async (): Promise<void> => {
-    await endActiveCall(isPeerInRoom());
+    await endActiveCall(await isPeerInRoom());
     resetLocalMediaCapture();
     try {
       await liveKitSessionRef.current?.disconnect();
@@ -72,7 +102,7 @@ export const useRoomTransitions = ({
           await teardownCall();
           return;
         case "leave-lobby":
-          await leaveActiveLobby();
+          await leaveActiveLobby("switch");
           return;
         default:
           return;

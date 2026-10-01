@@ -524,6 +524,28 @@ export type UserDirectoryStreamEvent =
       at?: string;
     };
 
+/**
+ * What POST /lobby/join answers. alreadyMember and revision come from servers
+ * that report them and are absent from older ones, so a reader treats a
+ * missing value as "unknown", never as false.
+ */
+export interface LobbyJoinResult {
+  accepted: boolean;
+  lobbyId: string;
+  /** The account was on the roster before this join: its record survived. */
+  alreadyMember?: boolean;
+  /** The room's roster revision once the join landed. */
+  revision?: number;
+}
+
+/**
+ * Why a client is leaving, recorded by the server for diagnostics only. The
+ * server keeps a closed set: user (the leave button), switch (on the way to
+ * another room or a call), kicked (following a removal it announced), quit
+ * (the app shutting down).
+ */
+export type LobbyLeaveReason = "user" | "switch" | "kicked" | "quit";
+
 export interface DesktopApi {
   getAppVersion: () => Promise<string>;
   getAppPreferences: () => Promise<
@@ -658,7 +680,7 @@ export interface DesktopApi {
   joinLobby: (payload: {
     lobbyId: string;
     password?: string;
-  }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
+  }) => Promise<DesktopResult<LobbyJoinResult>>;
   // A kick only removes them; they are back after the cooldown. Keeping someone
   // out is timeoutLobbyMember, where durationSeconds omitted means indefinite —
   // until it is lifted by hand from the admin panel.
@@ -693,6 +715,7 @@ export interface DesktopApi {
   }) => Promise<DesktopResult<{ muted: boolean }>>;
   leaveLobby: (payload?: {
     lobbyId?: string;
+    reason?: LobbyLeaveReason;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
   setLobbyMuted: (payload: {
     lobbyId: string;
@@ -817,6 +840,10 @@ export interface DesktopApi {
     callId: string;
     targetUserId: string;
   }) => Promise<DesktopResult<{ ok: boolean }>>;
+  // Whether the call's other party is connected to its room, from the SFU.
+  getCallPeerStatus: (payload: {
+    callId: string;
+  }) => Promise<DesktopResult<{ peerConnected: boolean }>>;
   listScreenCaptureSources: () => Promise<
     DesktopResult<{ sources: ScreenCaptureSourceDescriptor[] }>
   >;

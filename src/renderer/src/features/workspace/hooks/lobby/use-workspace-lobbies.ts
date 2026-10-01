@@ -17,6 +17,18 @@ import {
   type MediaRecoveryCheck,
 } from "./media-recovery-check";
 
+/**
+ * What the post-join chain needs to know about the join it follows.
+ *
+ * alreadyMember is the server's answer to the join: the account's member record
+ * survived, so the mute, deafen and camera it declared before are still on it.
+ * Re-declaring them after every reconnect was two or three requests per blip
+ * for nothing. Missing (a server that does not report it) means declare.
+ */
+export interface PostJoinOptions {
+  alreadyMember?: boolean;
+}
+
 interface UseWorkspaceLobbiesProps {
   isOnline: boolean;
   shouldEmitReconnectStatus: (
@@ -33,6 +45,7 @@ interface UseWorkspaceLobbiesProps {
   performPostJoinSynchronization: (
     lobbyId: string,
     request?: LiveKitConnectRequest,
+    options?: PostJoinOptions,
   ) => Promise<void>;
   // Whether LiveKit still holds a session for this lobby — connected, or
   // restoring it by itself. Asked before the network-came-back path forces a
@@ -503,7 +516,12 @@ export function useWorkspaceLobbies({
             return;
           }
 
-          await performPostJoinSyncRef.current(targetLobbyID, connectRequest);
+          // Only this path skips the declarations: a reconnect inside the same
+          // app session, where the state on the server record is the state this
+          // client last sent. The drift watchdog corrects any that went missing.
+          await performPostJoinSyncRef.current(targetLobbyID, connectRequest, {
+            alreadyMember: result.data?.alreadyMember === true,
+          });
           activeLobbyReconnectAttemptRef.current = 0;
           // This was the toast the user saw over and over.
           //

@@ -85,7 +85,7 @@ export interface WorkspaceMediaControlsState {
   closeCameraShareModal: () => void;
   prepareCameraPreview: () => Promise<void>;
   startCameraShareFromModal: () => Promise<void>;
-  syncLobbyAudioState: (lobbyId: string) => Promise<void>;
+  syncLobbyAudioState: (lobbyId: string, declare?: boolean) => Promise<void>;
   // Compares what the server roster says about US against what we believe and
   // re-declares on a mismatch. Fed from the live roster in WorkspaceShell.
   reconcileDeclaredAudioState: (

@@ -1,5 +1,9 @@
 import type { LobbyDescriptor, LobbyTimeout } from "../../shared/auth-contracts";
-import type { CustomEmoteSummary } from "../../shared/desktop-api-types";
+import type {
+  CustomEmoteSummary,
+  LobbyJoinResult,
+  LobbyLeaveReason,
+} from "../../shared/desktop-api-types";
 import type { BaseClient } from "./base-client";
 
 export class LobbyClient {
@@ -92,8 +96,8 @@ export class LobbyClient {
     accessToken: string,
     lobbyId: string,
     password?: string,
-  ): Promise<{ accepted: boolean; lobbyId: string }> {
-    return this.baseClient.request<{ accepted: boolean; lobbyId: string }>("/lobby/join", {
+  ): Promise<LobbyJoinResult> {
+    return this.baseClient.request<LobbyJoinResult>("/lobby/join", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -229,9 +233,22 @@ export class LobbyClient {
   public async leaveLobby(
     accessToken: string,
     lobbyId?: string,
+    reason?: LobbyLeaveReason,
   ): Promise<{ accepted: boolean; lobbyId: string }> {
+    // The metadata rides the query string, never the body. The server's body
+    // decoder refuses unknown fields, so a field added there would have every
+    // leave refused by a server from before it existed; an older server simply
+    // ignores the query. No lobbyId means everything, and says so with all=1.
+    const query = new URLSearchParams();
+    if (!lobbyId) {
+      query.set("all", "1");
+    }
+    if (reason) {
+      query.set("reason", reason);
+    }
+    const suffix = query.toString();
     return this.baseClient.request<{ accepted: boolean; lobbyId: string }>(
-      "/lobby/leave",
+      suffix ? `/lobby/leave?${suffix}` : "/lobby/leave",
       {
         method: "POST",
         headers: {

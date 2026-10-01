@@ -51,6 +51,7 @@ import {
   workspaceService,
   type AudioPreferences,
   type LobbyTransitionState,
+  type PostJoinOptions,
   type ScheduleActiveLobbyReconnect,
 } from "@/features/workspace";
 import { useUiStore, type WorkspaceSection } from "@/store/ui-store";
@@ -677,6 +678,7 @@ function WorkspaceShell({
     async (
       lobbyId: string,
       request: LiveKitConnectRequest = liveKitConnectRequest("unspecified"),
+      options: PostJoinOptions = {},
     ): Promise<void> => {
       // The LiveKit failure used to be swallowed here. The reconnect chain then
       // saw a resolved promise, reset its backoff counter and told the user
@@ -707,10 +709,13 @@ function WorkspaceShell({
         }
       })();
 
+      // A reconnect into a record that survived has nothing to re-declare. The
+      // local half of the audio sync (deafen on the LiveKit session) still runs.
+      const declare = options.alreadyMember !== true;
       await Promise.all([
         liveKitTask,
-        syncLobbyAudioState(lobbyId),
-        syncLobbyMediaState(lobbyId),
+        syncLobbyAudioState(lobbyId, declare),
+        declare ? syncLobbyMediaState(lobbyId) : Promise.resolve(),
       ]);
     },
     [

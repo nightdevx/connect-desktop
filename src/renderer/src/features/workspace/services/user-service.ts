@@ -248,6 +248,14 @@ export const userService = {
     }
     return window.desktopApi.cancelCall(payload);
   },
+  getCallPeerStatus: (payload: { callId: string }) => {
+    if (typeof window.desktopApi.getCallPeerStatus !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ peerConnected: boolean }>,
+      );
+    }
+    return window.desktopApi.getCallPeerStatus(payload);
+  },
 };
 
 export default userService;
