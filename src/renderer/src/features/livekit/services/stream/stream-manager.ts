@@ -20,6 +20,7 @@ import { logLiveKitDebug } from "@/services/debug-log";
 import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
+import { resolvePlaybackDevice } from "../audio-devices";
 import {
   type LiveKitConnectRequest,
   type LiveKitConnectTrigger,
@@ -269,6 +270,11 @@ export class LiveKitMediaSession {
   private downlinkWarnedAt = 0;
   private downlinkRestoreTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly loweredScreens = new Set<RemoteTrackPublication>();
+  // The Hands-Free endpoint the user was last told about, so a device change
+  // that lands on the same one does not repeat it.
+  private handsFreeWarnedLabel: string | null = null;
+  // Bumped by every output-device resolution; only the latest one applies.
+  private outputDeviceGeneration = 0;
 
   private remoteMediaHandler: RemoteMediaHandler | null = null;
   private roomEventManager: RoomEventManager | null = null;
@@ -773,6 +779,9 @@ export class LiveKitMediaSession {
       this.audioProcessingPreferences.masterVolume ??
         DEFAULT_AUDIO_PROCESSING_PREFERENCES.masterVolume,
     );
+    this.remoteMediaHandler.setVoiceLevelling(
+      this.audioProcessingPreferences.voiceLevellingEnabled,
+    );
     this.remoteMediaHandler.setDeafened(this.desiredDeafened);
     for (const [participantId, preference] of this.remoteAudioPreferences) {
       this.applyRemoteParticipantAudioPreference(participantId, preference);
@@ -820,9 +829,15 @@ export class LiveKitMediaSession {
       this.evaluateDownlink(snapshot);
     });
 
-    if (this.remoteMediaHandler && this.audioProcessingPreferences.selectedAudioOutputDeviceId) {
-      void this.remoteMediaHandler.setAudioOutputDevice(this.audioProcessingPreferences.selectedAudioOutputDeviceId);
-    }
+    // Always, not only for a picked device. With none picked the bus used to
+    // stay on the default device until the first preference change of the
+    // call (a volume nudge was enough) moved it to "communications": for a
+    // Bluetooth headset, into call mode in the middle of the conversation.
+    navigator.mediaDevices.addEventListener(
+      "devicechange",
+      this.handleDeviceChange,
+    );
+    void this.applyOutputDevice();
 
     try {
       this.callbacks.onConnectionStateChanged?.("connecting");
@@ -1006,6 +1021,10 @@ export class LiveKitMediaSession {
 
     this.room = null;
 
+    navigator.mediaDevices.removeEventListener(
+      "devicechange",
+      this.handleDeviceChange,
+    );
     if (this.remoteMediaHandler) {
       this.remoteMediaHandler.dispose();
       this.remoteMediaHandler = null;
@@ -1156,9 +1175,48 @@ export class LiveKitMediaSession {
       });
     }
 
-    if (this.remoteMediaHandler) {
-      void this.remoteMediaHandler.setAudioOutputDevice(
-        prefs.selectedAudioOutputDeviceId,
+    this.remoteMediaHandler?.setVoiceLevelling(prefs.voiceLevellingEnabled);
+    void this.applyOutputDevice();
+  }
+
+  private readonly handleDeviceChange = (): void => {
+    void this.applyOutputDevice();
+  };
+
+  /**
+   * Points remote playback at its device. Run for every new room, every
+   * preference change and every device change: with no device picked, which
+   * endpoint plays depends on the device list (audio-devices.ts), and a
+   * headset plugged in mid-call changes it.
+   */
+  private async applyOutputDevice(): Promise<void> {
+    const handler = this.remoteMediaHandler;
+    if (!handler) {
+      return;
+    }
+
+    const prefs = this.audioProcessingPreferences;
+    const generation = ++this.outputDeviceGeneration;
+    const choice = await resolvePlaybackDevice(
+      prefs.selectedAudioOutputDeviceId,
+      prefs.selectedAudioInputDeviceId,
+    );
+    // A later call (a newer preference, device list or room) owns the answer.
+    if (
+      generation !== this.outputDeviceGeneration ||
+      handler !== this.remoteMediaHandler
+    ) {
+      return;
+    }
+    await handler.setAudioOutputDevice(choice.deviceId);
+
+    if (choice.handsFree && choice.label !== this.handsFreeWarnedLabel) {
+      this.handsFreeWarnedLabel = choice.label;
+      logLiveKitDebug("stream-manager", "hands-free-output", {
+        picked: Boolean(prefs.selectedAudioOutputDeviceId),
+      });
+      this.callbacks.onWarning?.(
+        "Bluetooth kulaklık arama (Hands-Free) modunda: sesler telefon kalitesinde ve daha gecikmeli gelir. Kulaklığın mikrofonu yerine başka bir mikrofon kullanırsan kulaklık stereo moda geçer.",
       );
     }
   }
@@ -2384,6 +2442,10 @@ export class LiveKitMediaSession {
       this.room = null;
     }
     this.roomEventManager = null;
+    navigator.mediaDevices.removeEventListener(
+      "devicechange",
+      this.handleDeviceChange,
+    );
     if (this.remoteMediaHandler) {
       this.remoteMediaHandler.dispose();
       this.remoteMediaHandler = null;

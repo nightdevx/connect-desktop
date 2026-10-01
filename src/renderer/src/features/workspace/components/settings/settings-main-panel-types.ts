@@ -16,6 +16,7 @@ export interface AudioPreferences {
   selectedAudioOutputDeviceId: string | null;
   masterVolume: number;
   microphoneVolume: number;
+  voiceLevellingEnabled: boolean;
 }
 
 import { type VideoCodecPreference } from "@/features/livekit";

@@ -56,6 +56,7 @@ export function useAudioPreferenceSync({
         selectedAudioOutputDeviceId: next.selectedAudioOutputDeviceId,
         masterVolume: next.masterVolume,
         microphoneVolume: next.microphoneVolume,
+        voiceLevellingEnabled: next.voiceLevellingEnabled,
       });
 
       if (shouldRefreshMicProcessing) {

@@ -3,6 +3,7 @@ import {
   Track,
   type AudioCaptureOptions,
   type LocalParticipant,
+  type LocalTrackPublication,
   type TrackPublishOptions,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
@@ -27,6 +28,18 @@ import {
 // this one, so the budget is a hard ceiling on how long a wedged worklet load
 // can hold up a mute, an unmute, or leaving a room.
 const PROCESSOR_ATTACH_TIMEOUT_MS = 2_000;
+
+// The device a capture constraint asks for, in whichever form it is stored: a
+// plain id, or {exact}/{ideal} once createLocalTracks has rewritten it.
+const unwrapDeviceId = (
+  constraint: ConstrainDOMString | undefined,
+): string | undefined => {
+  const value =
+    typeof constraint === "object" && !Array.isArray(constraint)
+      ? (constraint.exact ?? constraint.ideal)
+      : constraint;
+  return Array.isArray(value) ? value[0] : value;
+};
 
 export class LiveKitMicrophoneController {
   private operationQueue: Promise<void> = Promise.resolve();
@@ -166,39 +179,37 @@ export class LiveKitMicrophoneController {
         return this.applyMicrophoneStateInternal({ ...options, enabled: true });
       }
 
-      // 1. Resolve new processor
+      // 1. Take the old processor off the track and destroy it, BEFORE asking for
+      // the new one. The other way round destroyed the processor it had just
+      // been handed (getOrCreateProcessor returns the active one, or a new one
+      // that becomes active) and then attached it anyway. The chain ran, but the
+      // manager no longer held it, so the microphone volume slider and the
+      // noise-suppression indicator stopped reaching it until the next rejoin.
+      logLiveKitDebug("mic-controller", "refresh-detaching-old-processor");
+      await track.stopProcessor();
+      await this.processorManager.destroyActiveProcessor();
+
+      // 2. Resolve new processor
       const desiredProcessor = await this.resolveDesiredProcessor(
         participant,
         preferences,
       );
 
-      // 2. Detach old processor if it's different or if we want no processor
-      // This is crucial to prevent "audio stops" issues when toggling
-      logLiveKitDebug("mic-controller", "refresh-detaching-old-processor");
-      await track.stopProcessor();
-      
-      await this.processorManager.destroyActiveProcessor();
-
-      // 2.5 Switch device if it changed
+      // 2.5 Switch device if it changed. The same rule as an unmute: a device
+      // picked back to "Varsayılan" with no communications endpoint used to be
+      // skipped here, and the track stayed on the previous device.
       const preferredInputDeviceId =
         await this.deviceResolver.resolvePreferredInputDeviceId(
           preferences.selectedAudioInputDeviceId,
         );
-      const currentDeviceId = track.mediaStreamTrack.getSettings().deviceId;
-      if (preferredInputDeviceId && currentDeviceId !== preferredInputDeviceId) {
-        logLiveKitDebug("mic-controller", "refresh-switching-device", {
-          from: currentDeviceId,
-          to: preferredInputDeviceId,
-        });
-        try {
-          await track.setDeviceId(preferredInputDeviceId);
-        } catch (err) {
-          console.warn("[LiveKitMicrophoneController] Failed to set device ID on track, falling back to full refresh:", err);
-          await participant.setMicrophoneEnabled(false);
-          this.noiseSuppressionRuntime.markDisabled();
-          await this.processorManager.destroyActiveProcessor();
-          return this.applyMicrophoneStateInternal({ ...options, enabled: true });
-        }
+      try {
+        await this.followSelectedInputDevice(track, preferredInputDeviceId);
+      } catch (err) {
+        console.warn("[LiveKitMicrophoneController] Failed to set device ID on track, falling back to full refresh:", err);
+        await participant.setMicrophoneEnabled(false);
+        this.noiseSuppressionRuntime.markDisabled();
+        await this.processorManager.destroyActiveProcessor();
+        return this.applyMicrophoneStateInternal({ ...options, enabled: true });
       }
 
       // 3. Attach new processor if wanted
@@ -206,7 +217,7 @@ export class LiveKitMicrophoneController {
       if (desiredProcessor) {
         appliedProcessor = await this.attachProcessorToMicrophoneTrack(
           participant,
-          publication,
+          track,
           desiredProcessor,
         );
       }
@@ -316,7 +327,7 @@ export class LiveKitMicrophoneController {
     });
 
     // Resolved BEFORE the microphone is published, and now genuinely ready by
-    // the time it returns: resolveDesiredProcessor loads the worklets and the
+    // the time it returns: resolveDesiredProcessor loads the worklet and the
     // RNNoise WASM rather than leaving that to the first setProcessor call.
     const desiredProcessor = await this.resolveDesiredProcessor(
       participant,
@@ -336,9 +347,9 @@ export class LiveKitMicrophoneController {
     const attempts = this.buildAttempts(captureOptions);
     logLiveKitDebug("mic-controller", "apply-enable-attempts-built", {
       attemptCount: attempts.length,
+      hasProcessor: Boolean(desiredProcessor),
       attempts: attempts.map((attempt) => {
         return {
-          hasProcessor: Boolean(attempt.options.processor),
           hasDeviceId: typeof attempt.options.deviceId !== "undefined",
           warning: attempt.warning ?? null,
         };
@@ -356,12 +367,13 @@ export class LiveKitMicrophoneController {
       try {
         logLiveKitDebug("mic-controller", "attempt-start", {
           attemptIndex,
-          hasProcessor: Boolean(attempt.options.processor),
+          hasProcessor: Boolean(desiredProcessor),
           hasDeviceId: typeof attempt.options.deviceId !== "undefined",
         });
-        const publication = await participant.setMicrophoneEnabled(
-          true,
+        const { publication, appliedProcessor } = await this.enableMicrophone(
+          participant,
           attempt.options,
+          desiredProcessor,
           publishOptions,
         );
 
@@ -369,14 +381,6 @@ export class LiveKitMicrophoneController {
           participant.isMicrophoneEnabled ||
           (publication ? !publication.isMuted : false)
         ) {
-          const appliedProcessor = desiredProcessor
-            ? await this.attachProcessorToMicrophoneTrack(
-                participant,
-                publication,
-                desiredProcessor,
-              )
-            : false;
-
           if (desiredProcessor && !appliedProcessor) {
             this.onWarning?.(
               "RNNoise başlatılamadı, mikrofon tarayıcı ses filtreleri ile açılıyor.",
@@ -413,7 +417,7 @@ export class LiveKitMicrophoneController {
         lastError = error;
         logLiveKitDebug("mic-controller", "attempt-failed", {
           attemptIndex,
-          hasProcessor: Boolean(attempt.options.processor),
+          hasProcessor: Boolean(desiredProcessor),
           hasDeviceId: typeof attempt.options.deviceId !== "undefined",
           error,
         });
@@ -452,6 +456,110 @@ export class LiveKitMicrophoneController {
     }
 
     throw new Error("Mikrofon yayını başlatılamadı");
+  }
+
+  /**
+   * Turns the microphone on with the processor already in the chain.
+   *
+   * A first publish creates the track, attaches the processor and only then
+   * publishes. setMicrophoneEnabled publishes as it captures, and the processor
+   * used to be attached after that: the raw microphone was on the air for that
+   * window, with the browser's suppressor off whenever RNNoise was meant to
+   * run, and the sender's track was swapped underneath it a moment later.
+   * (LiveKit's own AudioCaptureOptions.processor cannot be used for this: it
+   * initialises the processor before the track has an AudioContext, and
+   * LocalAudioTrack.setProcessor throws without one.)
+   *
+   * A published microphone is muted, not gone. LiveKit keeps its processor
+   * across a mute and across its own track restarts, so it is unmuted as it
+   * is. This used to attach the processor again on every unmute, which put the
+   * raw track back on the sender and rebuilt the chain: RNNoise started cold
+   * on the first syllable of every push-to-talk.
+   */
+  private async enableMicrophone(
+    participant: LocalParticipant,
+    options: AudioCaptureOptions,
+    processor: MicrophoneProcessor | null,
+    publishOptions: TrackPublishOptions,
+  ): Promise<{
+    publication: LocalTrackPublication | undefined;
+    appliedProcessor: boolean;
+  }> {
+    const publishedTrack = participant.getTrackPublication(
+      Track.Source.Microphone,
+    )?.track as LocalAudioTrack | undefined;
+
+    if (publishedTrack) {
+      const appliedProcessor = processor
+        ? publishedTrack.getProcessor() === processor ||
+          (await this.attachProcessorToMicrophoneTrack(
+            participant,
+            publishedTrack,
+            processor,
+          ))
+        : false;
+      await this.followSelectedInputDevice(publishedTrack, options.deviceId);
+      const publication = await participant.setMicrophoneEnabled(
+        true,
+        options,
+        publishOptions,
+      );
+      return { publication, appliedProcessor };
+    }
+
+    const [track] = (await participant.createTracks({
+      audio: options,
+    })) as LocalAudioTrack[];
+    try {
+      const appliedProcessor = processor
+        ? await this.attachProcessorToMicrophoneTrack(
+            participant,
+            track,
+            processor,
+          )
+        : false;
+      const publication = await participant.publishTrack(track, publishOptions);
+      return { publication, appliedProcessor };
+    } catch (error) {
+      track.stop();
+      throw error;
+    }
+  }
+
+  /**
+   * Points a published microphone at the device it should be using.
+   *
+   * Unmuting only unmutes: the device in the capture options is read when a
+   * track is created. So a microphone picked while muted, which with
+   * push-to-talk is most of the time, was never used. And a device unplugged
+   * while muted was reopened by its exact id on unmute, which failed and left
+   * the microphone dead until a rejoin. On a muted track setDeviceId only
+   * records the device; LiveKit re-acquires on the unmute that follows and
+   * restarts the processor with it.
+   *
+   * Exact, not the bare id. LiveKit passes a bare id to getUserMedia as an
+   * ideal, and Chromium answers an ideal deviceId with the default device: the
+   * track was re-acquired, on the device it was already on. A device that is
+   * gone makes an exact request fail instead, and the next attempt falls back
+   * to "default".
+   */
+  private async followSelectedInputDevice(
+    track: LocalAudioTrack,
+    deviceId: ConstrainDOMString | undefined,
+  ): Promise<void> {
+    // Never undefined: LiveKit restarts a track with no deviceId as a bare
+    // `audio: true`, which drops every capture constraint with it.
+    const target = unwrapDeviceId(deviceId) ?? "default";
+    const requested = unwrapDeviceId(track.constraints.deviceId);
+    if (requested === target) {
+      return;
+    }
+    logLiveKitDebug("mic-controller", "input-device-follow", {
+      from: requested ?? null,
+      to: target,
+      muted: track.isMuted,
+    });
+    await track.setDeviceId({ exact: target });
   }
 
   private async buildCaptureOptions(
@@ -586,19 +694,9 @@ export class LiveKitMicrophoneController {
 
   private async attachProcessorToMicrophoneTrack(
     participant: LocalParticipant,
-    publication: Awaited<ReturnType<LocalParticipant["setMicrophoneEnabled"]>>,
+    track: LocalAudioTrack,
     processor: MicrophoneProcessor,
   ): Promise<boolean> {
-    const currentPublication =
-      publication ?? participant.getTrackPublication(Track.Source.Microphone);
-    const track = currentPublication?.track as LocalAudioTrack | undefined;
-    if (!track) {
-      logLiveKitDebug("mic-controller", "processor-attach-skipped", {
-        reason: "microphone-track-missing",
-      });
-      return false;
-    }
-
     const context = await this.ensureParticipantAudioContext(participant);
     if (!context) {
       return false;
@@ -670,7 +768,17 @@ export class LiveKitMicrophoneController {
   ): Promise<boolean> {
     try {
       logLiveKitDebug("mic-controller", "emergency-fallback-start");
-      await participant.setMicrophoneEnabled(false);
+      // Unpublished, not muted. Whatever is published may itself be what is
+      // broken: a track on a device that is gone, or a sender still holding the
+      // output of the processor destroyed below. Muting and unmuting that track
+      // would only bring it back as it was. A fresh capture is the one state
+      // known to work.
+      const publishedTrack = participant.getTrackPublication(
+        Track.Source.Microphone,
+      )?.track;
+      if (publishedTrack) {
+        await participant.unpublishTrack(publishedTrack);
+      }
       await this.processorManager.destroyActiveProcessor();
       await this.ensureParticipantAudioContext(participant);
 

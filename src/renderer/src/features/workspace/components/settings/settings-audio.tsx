@@ -563,6 +563,26 @@ export function SettingsAudio({
                 />
               </div>
             )}
+
+            {/* Diğerlerinin sesine uygulanır, mikrofona değil. Kişi başı
+                kompresörün 6 ms'lik ileriye bakışı her kelimeye eklenir;
+                kapatan bu gecikmeden kurtulur, seviye farkı kalır. */}
+            <div className="ct-settings-row">
+              <div className="ct-settings-row-text">
+                <strong>Ses seviyelerini dengele</strong>
+                <span>
+                  Yüksek sesle konuşanları kısarak herkesi benzer seviyede
+                  duymanızı sağlar. Kapatırsanız sesler işlenmeden ve biraz
+                  daha erken gelir.
+                </span>
+              </div>
+              <Switch
+                checked={draftAudioPreferences.voiceLevellingEnabled}
+                onChange={(checked) =>
+                  handlePreferenceChange("voiceLevellingEnabled", checked)
+                }
+              />
+            </div>
           </div>
         </div>
 

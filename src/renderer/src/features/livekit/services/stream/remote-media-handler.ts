@@ -9,15 +9,20 @@ import {
 import { logLiveKitDebug } from "@/services/debug-log";
 import { isMusicBotIdentity } from "@shared/music";
 import { readRmsLevel } from "./speaking";
-import { shouldSubscribePublication } from "./constants";
-import { findCommunicationsDeviceId } from "../audio-devices";
+import { needsMasterLimiter, shouldSubscribePublication } from "./constants";
 
 // Remote playback runs through a single WebAudio bus:
 //
 //   per-track source -> [voice mono fold] -> [per-voice compressor]
-//                    -> per-track gain -> master gain -> master limiter
+//                    -> per-track gain -> master gain -> [master limiter]
 //                    -> context.destination
 //                    \-> analyser (mic only, speaking indicator)
+//
+// Both dynamics stages are on the path only while they are wanted. A
+// DynamicsCompressorNode delays everything through it by its 6 ms look-ahead,
+// and the two in series cost 12 ms on every word. The per-voice compressor
+// follows the "Ses seviyelerini dengele" setting; the master limiter is switched
+// in by needsMasterLimiter, when something can push the mix past full scale.
 //
 // The mono fold is a ChannelSplitter/ChannelMerger pair that copies channel 0
 // of the source onto BOTH output channels. It is there because the channel
@@ -56,14 +61,21 @@ import { findCommunicationsDeviceId } from "../audio-devices";
 type InputKind = "mic" | "screen";
 
 interface BusInput {
+  identity: string;
+  kind: InputKind;
   sourceNode: MediaStreamAudioSourceNode;
   // ChannelSplitter + ChannelMerger, voice only. Empty for stereo inputs.
   monoFoldNodes: AudioNode[];
+  // Where the chain continues from: the fold's merger for a voice, the source
+  // for a stereo input.
+  head: AudioNode;
   gainNode: GainNode;
+  // Voice only. Built for every voice, on the path only while levelling is on.
   compressorNode: DynamicsCompressorNode | null;
   // Chromium does not pull audio from a remote MediaStreamTrack unless it is
   // also attached to a media element. This one is muted and exists purely to
-  // keep the WebAudio graph fed.
+  // keep the WebAudio graph fed, and it feeds it at the clock of whichever
+  // device it plays on, so it is kept on the bus's device.
   pumpElement: HTMLAudioElement;
   // Voice only — a screen share's audio is not its owner talking, and counting
   // it would light somebody's ring for the whole length of a video.
@@ -115,6 +127,28 @@ const isVoiceInput = (identity: string, kind: InputKind): boolean => {
   return kind === "mic" && !isMusicBotIdentity(identity);
 };
 
+type SinkId = string | { type: "none" };
+
+// AudioContext.setSinkId is missing from TypeScript's DOM lib, and both it and
+// the media element's may be absent at runtime; the two take the same ids.
+const setSink = async (target: object, sinkId: SinkId): Promise<void> => {
+  const sinkTarget = target as {
+    setSinkId?: (sinkId: SinkId) => Promise<void>;
+  };
+  if (typeof sinkTarget.setSinkId === "function") {
+    await sinkTarget.setSinkId(sinkId);
+  }
+};
+
+// disconnect(destination) throws when the two are not connected.
+const disconnectFrom = (node: AudioNode, destination: AudioNode): void => {
+  try {
+    node.disconnect(destination);
+  } catch {
+    // not connected
+  }
+};
+
 export class RemoteMediaHandler {
   private readonly participantVolumes = new Map<string, number>();
   private readonly participantMutes = new Map<string, boolean>();
@@ -126,10 +160,13 @@ export class RemoteMediaHandler {
   private audioContext: AudioContext | null = null;
   private masterGainNode: GainNode | null = null;
   private limiterNode: DynamicsCompressorNode | null = null;
+  private limiterInPath = false;
 
   private currentOutputDeviceId: string | null = null;
+  private reopeningOutput = false;
   private isDeafened = false;
   private masterVolume = 1.0;
+  private voiceLevelling = true;
 
   public constructor(
     private readonly room: Room,
@@ -172,14 +209,19 @@ export class RemoteMediaHandler {
       limiter.attack.value = MASTER_LIMITER.attack;
       limiter.release.value = MASTER_LIMITER.release;
 
-      masterGain.connect(limiter);
       limiter.connect(context.destination);
+      masterGain.connect(context.destination);
 
       this.audioContext = context;
       this.masterGainNode = masterGain;
       this.limiterNode = limiter;
+      this.limiterInPath = false;
+      this.updateLimiterRoute();
 
-      void this.applyContextSinkId(context);
+      context.addEventListener("error", () => {
+        void this.reopenOutputDevice();
+      });
+      void this.applyOutputDevice();
       if (context.state === "suspended") {
         void context.resume().catch(() => undefined);
       }
@@ -270,6 +312,9 @@ export class RemoteMediaHandler {
       pumpElement.volume = 0;
       pumpElement.style.display = "none";
       pumpElement.srcObject = stream;
+      if (this.currentOutputDeviceId !== null) {
+        void this.setSinkLogged(pumpElement, this.currentOutputDeviceId);
+      }
       document.body.appendChild(pumpElement);
       void pumpElement.play().catch(() => undefined);
 
@@ -304,7 +349,6 @@ export class RemoteMediaHandler {
         compressorNode.ratio.value = VOICE_COMPRESSOR.ratio;
         compressorNode.attack.value = VOICE_COMPRESSOR.attack;
         compressorNode.release.value = VOICE_COMPRESSOR.release;
-        head.connect(compressorNode);
         compressorNode.connect(gainNode);
       } else {
         head.connect(gainNode);
@@ -322,21 +366,27 @@ export class RemoteMediaHandler {
         levelBuffer = new Uint8Array(new ArrayBuffer(analyserNode.fftSize));
       }
 
-      this.inputs.set(key, {
+      const input: BusInput = {
+        identity: participant.identity,
+        kind,
         sourceNode,
         monoFoldNodes,
+        head,
         gainNode,
         compressorNode,
         pumpElement,
         analyserNode,
         levelBuffer,
-      });
+      };
+      this.routeVoice(input);
+      this.inputs.set(key, input);
+      this.updateLimiterRoute();
 
       logLiveKitDebug("remote-media", "audio-attached", {
         identity: participant.identity,
         kind,
         gain: gainNode.gain.value,
-        levelled: compressorNode !== null,
+        levelled: compressorNode !== null && this.voiceLevelling,
         monoFolded: monoFoldNodes.length > 0,
       });
     } catch (error) {
@@ -370,6 +420,63 @@ export class RemoteMediaHandler {
     input.pumpElement.pause();
     input.pumpElement.srcObject = null;
     input.pumpElement.remove();
+    this.updateLimiterRoute();
+  }
+
+  // ---- Dynamics routing ----
+
+  /**
+   * "Ses seviyelerini dengele": every voice's compressor on the path, or
+   * around it. Live; a stereo input never has one.
+   */
+  public setVoiceLevelling(enabled: boolean): void {
+    if (enabled === this.voiceLevelling) {
+      return;
+    }
+    this.voiceLevelling = enabled;
+    for (const input of this.inputs.values()) {
+      this.routeVoice(input);
+    }
+    logLiveKitDebug("remote-media", "voice-levelling", { enabled });
+  }
+
+  private routeVoice(input: BusInput): void {
+    const { head, compressorNode, gainNode } = input;
+    if (!compressorNode) {
+      return;
+    }
+    disconnectFrom(head, compressorNode);
+    disconnectFrom(head, gainNode);
+    if (this.voiceLevelling) {
+      head.connect(compressorNode);
+    } else {
+      head.connect(gainNode);
+    }
+  }
+
+  private updateLimiterRoute(): void {
+    const context = this.audioContext;
+    const masterGain = this.masterGainNode;
+    const limiter = this.limiterNode;
+    if (!context || !masterGain || !limiter) {
+      return;
+    }
+
+    const wanted = needsMasterLimiter(
+      this.masterVolume,
+      Array.from(this.inputs.values(), (input) => ({
+        voice: input.compressorNode !== null,
+        gain: this.resolveInputGain(input.identity, input.kind),
+      })),
+    );
+    if (wanted === this.limiterInPath) {
+      return;
+    }
+
+    masterGain.disconnect();
+    masterGain.connect(wanted ? limiter : context.destination);
+    this.limiterInPath = wanted;
+    logLiveKitDebug("remote-media", "master-limiter", { inPath: wanted });
   }
 
   // ---- Speaking level ----
@@ -410,6 +517,7 @@ export class RemoteMediaHandler {
       value,
       value === 0 ? MUTE_RAMP_SECONDS : GAIN_RAMP_SECONDS,
     );
+    this.updateLimiterRoute();
   }
 
   public setParticipantVolume(identity: string, volume: number) {
@@ -437,7 +545,8 @@ export class RemoteMediaHandler {
   }
 
   public setMasterVolume(masterVolume: number) {
-    // 0-200 percent maps to 0-2x. The limiter downstream absorbs the peaks.
+    // 0-200 percent maps to 0-2x. Above 1x the limiter is switched in to absorb
+    // the peaks.
     this.masterVolume = percentToGain(masterVolume);
     if (this.masterGainNode && !this.isDeafened) {
       this.rampGain(
@@ -446,6 +555,7 @@ export class RemoteMediaHandler {
         GAIN_RAMP_SECONDS,
       );
     }
+    this.updateLimiterRoute();
   }
 
   // ---- Deafen ----
@@ -512,43 +622,81 @@ export class RemoteMediaHandler {
 
   // ---- Audio output device ----
 
-  private async applyContextSinkId(context: AudioContext): Promise<void> {
-    if (this.currentOutputDeviceId === null) {
-      return;
-    }
-
-    const sinkTarget = context as AudioContext & {
-      setSinkId?: (sinkId: string) => Promise<void>;
-    };
-    if (typeof sinkTarget.setSinkId !== "function") {
-      return;
-    }
-
+  private async setSinkLogged(target: object, sinkId: string): Promise<void> {
     try {
-      await sinkTarget.setSinkId(this.currentOutputDeviceId);
+      await setSink(target, sinkId);
     } catch (error) {
       logLiveKitDebug("remote-media", "set-sink-id-failed", {
-        deviceId: this.currentOutputDeviceId,
+        deviceId: sinkId,
         error,
       });
     }
   }
 
-  public async setAudioOutputDevice(deviceId: string | null) {
-    const nextDeviceId =
-      deviceId || (await findCommunicationsDeviceId("audiooutput")) || "";
-    if (this.currentOutputDeviceId === nextDeviceId) {
+  // The context and every pump element on one device. A pump element plays on
+  // the default device unless it is told otherwise, and Chromium feeds the bus
+  // from it at that device's clock. With the bus on another device the two
+  // clocks drift apart in the FIFO between them, which is heard as a periodic
+  // crackle or a slowly growing delay.
+  private async applyOutputDevice(): Promise<void> {
+    const deviceId = this.currentOutputDeviceId;
+    if (deviceId === null) {
+      return;
+    }
+    const targets: object[] = Array.from(
+      this.inputs.values(),
+      (input) => input.pumpElement,
+    );
+    if (this.audioContext) {
+      targets.push(this.audioContext);
+    }
+    await Promise.all(
+      targets.map((target) => this.setSinkLogged(target, deviceId)),
+    );
+  }
+
+  /**
+   * Where remote audio plays: a device id, or "" for the system default.
+   * Chosen by the caller (stream-manager, through audio-devices.ts), which is
+   * the one place that knows the user's selection and the device list.
+   */
+  public async setAudioOutputDevice(deviceId: string): Promise<void> {
+    if (this.currentOutputDeviceId === deviceId) {
       return;
     }
 
-    this.currentOutputDeviceId = nextDeviceId;
-    logLiveKitDebug("remote-media", "switching-output-device", {
-      deviceId: nextDeviceId,
-    });
+    this.currentOutputDeviceId = deviceId;
+    logLiveKitDebug("remote-media", "switching-output-device", { deviceId });
+    await this.applyOutputDevice();
+  }
 
-    if (this.audioContext) {
-      await this.applyContextSinkId(this.audioContext);
+  /**
+   * The output device failed under a running context: unplugged, or its
+   * driver reset. Chromium reports that as an "error" event and leaves the
+   * context silent until it is pointed at a device again. setSinkId with the
+   * id it already has is a no-op, so the context is parked on no device first.
+   * A device that is gone for good falls back to the system default; the
+   * stored selection is reset separately, by WorkspaceShell's device watch.
+   */
+  private async reopenOutputDevice(): Promise<void> {
+    const context = this.audioContext;
+    if (!context || this.reopeningOutput) {
+      return;
     }
+    this.reopeningOutput = true;
+    const deviceId = this.currentOutputDeviceId ?? "";
+    logLiveKitDebug("remote-media", "output-device-error", { deviceId });
+    try {
+      await setSink(context, { type: "none" });
+      await setSink(context, deviceId);
+    } catch (error) {
+      logLiveKitDebug("remote-media", "set-sink-id-failed", { deviceId, error });
+      this.currentOutputDeviceId = "";
+      await this.setSinkLogged(context, "");
+    } finally {
+      this.reopeningOutput = false;
+    }
+    await this.applyOutputDevice();
   }
 
   // ---- Dispose ----

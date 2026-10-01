@@ -28,7 +28,7 @@ export interface CaptureFilterDecision {
 
 /**
  * @param wantsEnhancedSuppression the user's "gelişmiş gürültü engelleme" setting
- * @param rnnoiseReady whether the worklets and the WASM are loaded and the audio
+ * @param rnnoiseReady whether the worklet and the WASM are loaded and the audio
  *   context runs at the 48 kHz the model needs — established before the
  *   microphone is published, never assumed
  */
@@ -37,7 +37,7 @@ export const resolveCaptureFilters = (
   rnnoiseReady: boolean,
   // Kept in the signature although the capture constraints no longer vary by
   // preset: the preset still decides the PROCESSING profile (high-pass,
-  // low-pass, gate) in processor.ts, and callers pass it here as the one place
+  // low-pass) in processor.ts, and callers pass it here as the one place
   // that answers "how should this microphone be opened".
   _preset: NoiseSuppressionPreset,
 ): CaptureFilterDecision => {

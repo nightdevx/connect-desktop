@@ -351,6 +351,7 @@ export function useLivekitSession(
       selectedAudioOutputDeviceId: audioPreferences.selectedAudioOutputDeviceId,
       masterVolume: audioPreferences.masterVolume,
       microphoneVolume: audioPreferences.microphoneVolume,
+      voiceLevellingEnabled: audioPreferences.voiceLevellingEnabled,
     });
 
     // The expensive, room-independent half of the microphone chain: an
@@ -430,6 +431,7 @@ export function useLivekitSession(
           audioPreferences.selectedAudioOutputDeviceId,
         masterVolume: audioPreferences.masterVolume,
         microphoneVolume: audioPreferences.microphoneVolume,
+        voiceLevellingEnabled: audioPreferences.voiceLevellingEnabled,
       });
     }
   }, [
@@ -440,6 +442,7 @@ export function useLivekitSession(
     audioPreferences.selectedAudioOutputDeviceId,
     audioPreferences.masterVolume,
     audioPreferences.microphoneVolume,
+    audioPreferences.voiceLevellingEnabled,
   ]);
 
   return {

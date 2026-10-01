@@ -162,6 +162,8 @@ export interface LiveKitAudioProcessingPreferences {
   selectedAudioOutputDeviceId: string | null;
   masterVolume: number;
   microphoneVolume: number;
+  // "Ses seviyelerini dengele": the per-voice compressor on playback.
+  voiceLevellingEnabled: boolean;
 }
 
 

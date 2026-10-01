@@ -140,7 +140,7 @@ const main = async () => {
 
   // --- the presets differ where they actually differ -----------------------
   // Not in the capture constraints: every preset captures the same way and the
-  // difference lives in the processing profile (high-pass, low-pass, gate) in
+  // difference lives in the processing profile (high-pass, low-pass) in
   // features/rnnoise/processor.ts. Asserting a constraint-level difference here
   // is what pinned the AGC bug in place.
   for (const preset of presets) {

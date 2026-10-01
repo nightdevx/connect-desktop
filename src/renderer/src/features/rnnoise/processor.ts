@@ -4,12 +4,7 @@ import {
   type TrackProcessor,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
-import {
-  NoiseGateWorkletNode,
-  RnnoiseWorkletNode,
-  loadRnnoise,
-} from "@sapphi-red/web-noise-suppressor";
-import noiseGateWorkletPath from "@sapphi-red/web-noise-suppressor/noiseGateWorklet.js?url";
+import { RnnoiseWorkletNode, loadRnnoise } from "@sapphi-red/web-noise-suppressor";
 import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
 import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
 import rnnoiseSimdWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
@@ -21,10 +16,17 @@ import { type NoiseSuppressionPreset } from "./types";
 // meter, so moving it changed the meter and nothing else — the published audio
 // never saw it.
 //
-// Chain: source -> highpass -> [rnnoise -> lowpass -> gate] -> gain -> limiter
+// Chain: source -> highpass -> [rnnoise -> lowpass] -> gain -> limiter
 //
 // The limiter is what makes gain above 100% safe; without it, boosting a hot
 // microphone just clips into the encoder.
+//
+// There is no noise gate after RNNoise. There used to be one, but its worklet is
+// 1.1 kB, so Vite inlined it as a data: URL, which the app's CSP (script-src
+// 'self') refuses: in every production build it failed to load and the chain
+// ran without it. It only ever ran in development, at thresholds that had been
+// lowered to -62/-68 dBFS because anything higher cut the start of words. At
+// that level it only caught silence that RNNoise had already produced.
 
 export interface MicrophoneProcessor
   extends TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
@@ -39,22 +41,14 @@ interface ProcessorGraph {
   inputHighPassNode: BiquadFilterNode;
   rnnoiseNode: RnnoiseWorkletNode | null;
   outputLowPassNode: BiquadFilterNode | null;
-  noiseGateNode: NoiseGateWorkletNode | null;
   gainNode: GainNode;
   limiterNode: DynamicsCompressorNode;
   destinationNode: MediaStreamAudioDestinationNode;
 }
 
-interface WorkletAvailability {
-  noiseGateSupported: boolean;
-}
-
 interface RnnoiseProcessingProfile {
   inputHighPassHz: number;
   outputLowPassHz: number;
-  gateOpenThresholdDb: number;
-  gateCloseThresholdDb: number;
-  gateHoldMs: number;
 }
 
 // The output lowpass used to sit at 6.8-9 kHz, which cut speech down to
@@ -65,35 +59,17 @@ const RNNOISE_PROCESSING_PROFILES: Record<
   NoiseSuppressionPreset,
   RnnoiseProcessingProfile
 > = {
-  // The gate thresholds are deliberately well below speech now.
-  //
-  // It runs AFTER RNNoise, which has already removed the stationary noise the
-  // gate was there for, and it decides open/closed from a single 128-sample
-  // block (2.67ms) with no attack or release ramp — so a threshold anywhere near
-  // a talker's level cuts the start of words and steps to silence between them.
-  // Balanced sat at -52/-58 and aggressive at -46/-52, which is inside normal
-  // speech onsets; both are now floor values that only catch true silence, and
-  // the longer hold keeps the gate from chattering between syllables.
   natural: {
     inputHighPassHz: 80,
     outputLowPassHz: 16_000,
-    gateOpenThresholdDb: -62,
-    gateCloseThresholdDb: -68,
-    gateHoldMs: 140,
   },
   balanced: {
     inputHighPassHz: 100,
     outputLowPassHz: 15_000,
-    gateOpenThresholdDb: -62,
-    gateCloseThresholdDb: -68,
-    gateHoldMs: 160,
   },
   aggressive: {
     inputHighPassHz: 120,
     outputLowPassHz: 13_000,
-    gateOpenThresholdDb: -58,
-    gateCloseThresholdDb: -64,
-    gateHoldMs: 190,
   },
 };
 
@@ -215,6 +191,13 @@ export class MicrophoneTrackProcessorFactory {
       noiseSuppressionEnabled && (await this.isWasmCompilationAllowed());
 
     let graph: ProcessorGraph | null = null;
+    // The context the chain was first built on. LiveKit calls restart() on its
+    // own whenever it re-acquires the microphone: a device unplugged mid-call,
+    // or a device change that waited for unmute. It passes no context there, and
+    // without one the chain came back as a passthrough. The room then heard the
+    // raw microphone, with the browser's suppressor switched off because RNNoise
+    // was meant to be running, until the next rejoin.
+    let chainContext: AudioContext | null = null;
 
     const destroyGraph = (): void => {
       if (!graph) {
@@ -233,7 +216,6 @@ export class MicrophoneTrackProcessorFactory {
         graph.inputHighPassNode,
         graph.rnnoiseNode,
         graph.outputLowPassNode,
-        graph.noiseGateNode,
         graph.gainNode,
         graph.limiterNode,
         graph.destinationNode,
@@ -268,15 +250,15 @@ export class MicrophoneTrackProcessorFactory {
       init: async (opts) => {
         destroyGraph();
 
-        if (!opts.audioContext) {
+        const context = opts.audioContext ?? chainContext;
+        if (!context) {
           logLiveKitDebug("mic-controller", "processor-init-skipped", {
             reason: "audio-context-missing",
           });
           processor.processedTrack = opts.track;
           return;
         }
-
-        const context = opts.audioContext;
+        chainContext = context;
 
         try {
           const profile = resolveProcessingProfile(preset);
@@ -304,20 +286,18 @@ export class MicrophoneTrackProcessorFactory {
 
           const destinationNode = context.createMediaStreamDestination();
           // Defaults to 2. Every stage in front of it is mono — the capture asks
-          // for channelCount 1, RNNoise and the gate are built with
-          // maxChannels 1 — so the default published a stereo microphone track
+          // for channelCount 1, RNNoise is built with maxChannels 1 — so the
+          // default published a stereo microphone track
           // whose second channel was never anything but a copy, and handed the
           // receiver a layout it then had to guess at. One channel in, one out.
           destinationNode.channelCount = 1;
 
           let rnnoiseNode: RnnoiseWorkletNode | null = null;
           let outputLowPassNode: BiquadFilterNode | null = null;
-          let noiseGateNode: NoiseGateWorkletNode | null = null;
 
           if (canUseRnnoise) {
             try {
-              const workletAvailability =
-                await this.ensureWorkletRegistered(context);
+              await this.ensureWorkletRegistered(context);
               const wasmBinary = await this.getRnnoiseWasmBinary();
 
               rnnoiseNode = new RnnoiseWorkletNode(context, {
@@ -329,20 +309,10 @@ export class MicrophoneTrackProcessorFactory {
               outputLowPassNode.type = "lowpass";
               outputLowPassNode.frequency.value = profile.outputLowPassHz;
               outputLowPassNode.Q.value = 0.707;
-
-              noiseGateNode = workletAvailability.noiseGateSupported
-                ? new NoiseGateWorkletNode(context, {
-                    openThreshold: profile.gateOpenThresholdDb,
-                    closeThreshold: profile.gateCloseThresholdDb,
-                    holdMs: profile.gateHoldMs,
-                    maxChannels: 1,
-                  })
-                : null;
             } catch (error) {
               // Degrade to gain + limiter rather than losing the mic entirely.
               rnnoiseNode = null;
               outputLowPassNode = null;
-              noiseGateNode = null;
               this.onWarning?.(
                 `RNNoise başlatılamadı, mikrofon filtresiz yayınlanıyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
               );
@@ -356,10 +326,6 @@ export class MicrophoneTrackProcessorFactory {
             tail.connect(rnnoiseNode);
             rnnoiseNode.connect(outputLowPassNode);
             tail = outputLowPassNode;
-            if (noiseGateNode) {
-              tail.connect(noiseGateNode);
-              tail = noiseGateNode;
-            }
           }
           tail.connect(gainNode);
           gainNode.connect(limiterNode);
@@ -372,7 +338,6 @@ export class MicrophoneTrackProcessorFactory {
             inputHighPassNode,
             rnnoiseNode,
             outputLowPassNode,
-            noiseGateNode,
             gainNode,
             limiterNode,
             destinationNode,
@@ -410,12 +375,12 @@ export class MicrophoneTrackProcessorFactory {
 
   private readonly registrationPromises = new WeakMap<
     AudioContext,
-    Promise<WorkletAvailability>
+    Promise<void>
   >();
 
   private async ensureWorkletRegistered(
     audioContext: AudioContext,
-  ): Promise<WorkletAvailability> {
+  ): Promise<void> {
     if (!audioContext || !audioContext.audioWorklet) {
       throw new Error("Invalid AudioContext provided for RNNoise registration");
     }
@@ -425,22 +390,8 @@ export class MicrophoneTrackProcessorFactory {
       return existingPromise;
     }
 
-    const registrationPromise: Promise<WorkletAvailability> = (async () => {
-      await audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
-
-      let noiseGateSupported = true;
-      try {
-        await audioContext.audioWorklet.addModule(noiseGateWorkletPath);
-      } catch (error) {
-        noiseGateSupported = false;
-        console.warn(
-          "[MicProcessor] Noise gate module failed to load, continuing without it.",
-          error,
-        );
-      }
-
-      return { noiseGateSupported };
-    })();
+    const registrationPromise =
+      audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
 
     // Clear the cache on failure so a later attempt can retry.
     registrationPromise.catch(() => {

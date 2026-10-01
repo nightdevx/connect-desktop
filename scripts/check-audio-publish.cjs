@@ -153,6 +153,88 @@ assert.ok(
   "muting must not destroy the processor — releaseForRoomChange and dispose own that",
 );
 
+// --- the processor is in the chain before anything is sent ----------------
+// setMicrophoneEnabled publishes as it captures, and the processor used to be
+// attached after that: the raw microphone went out first (with the browser's
+// suppressor off whenever RNNoise was meant to run) and the sender's track was
+// swapped under it. A first publish now creates, attaches, then publishes.
+// controller.ts is CRLF or LF depending on the checkout.
+const controllerLf = controller.replace(/\r\n/g, "\n");
+const enable = controllerLf.slice(
+  controllerLf.indexOf("private async enableMicrophone("),
+  controllerLf.indexOf("private async followSelectedInputDevice("),
+);
+assert.ok(enable.length > 0, "enableMicrophone must still be findable");
+const created = enable.indexOf("participant.createTracks(");
+const attached = enable.indexOf(
+  "this.attachProcessorToMicrophoneTrack(",
+  created,
+);
+const published = enable.indexOf("participant.publishTrack(track, publishOptions)");
+assert.ok(
+  created !== -1 && attached > created && published > attached,
+  "a first publish must capture, attach the processor, and only then publish",
+);
+assert.ok(
+  !/processor: desiredProcessor|processor: processor/.test(controllerLf),
+  "AudioCaptureOptions.processor must not be used: LiveKit initialises it before the track has an AudioContext, and setProcessor throws without one",
+);
+
+// An unmute is an unmute. Attaching the processor again put the raw track back
+// on the sender and rebuilt the chain on every push-to-talk press.
+assert.ok(
+  /publishedTrack\.getProcessor\(\) === processor \|\|/.test(enable),
+  "unmuting must keep the processor LiveKit already holds",
+);
+// A device picked or lost while muted is applied on the way back.
+assert.ok(
+  /await this\.followSelectedInputDevice\(publishedTrack, options\.deviceId\);\s*const publication = await participant\.setMicrophoneEnabled\(/.test(
+    enable,
+  ),
+  "the device is followed before the unmute that re-acquires it",
+);
+
+// LiveKit hands a bare deviceId to getUserMedia as an ideal, and Chromium
+// answers an ideal deviceId with the default device: the track is re-acquired
+// on the device it was already on. Every switch has to be exact.
+assert.ok(
+  /track\.setDeviceId\(\{ exact: target \}\)/.test(controllerLf) &&
+    !/\.setDeviceId\((?!\{ exact)/.test(controllerLf),
+  "devices are switched with an exact constraint, never a bare id",
+);
+// A preference change rebuilt the chain and then lost track of it: the
+// processor it had just been handed was destroyed as "the active one" and
+// attached anyway, so the volume slider stopped reaching it.
+const refresh = controllerLf.slice(
+  controllerLf.indexOf("public refreshMicrophoneProcessing("),
+  controllerLf.indexOf("public dispose("),
+);
+const detachOld = refresh.indexOf(
+  "await track.stopProcessor();\n      await this.processorManager.destroyActiveProcessor();",
+);
+assert.ok(
+  detachOld !== -1 && detachOld < refresh.indexOf("this.resolveDesiredProcessor("),
+  "the refresh must take off and destroy the old processor before resolving the new one",
+);
+assert.ok(
+  /await this\.followSelectedInputDevice\(track, preferredInputDeviceId\);/.test(
+    refresh,
+  ),
+  "a live switch follows the same rule as a switch at unmute",
+);
+
+// LiveKit restarts the processor itself whenever it re-acquires the track (an
+// unplugged device, a device change at unmute) and passes no AudioContext. The
+// chain has to come back processed, not as a passthrough.
+const processorSource = fs.readFileSync(
+  path.join(projectRoot, "src/renderer/src/features/rnnoise/processor.ts"),
+  "utf8",
+);
+assert.ok(
+  processorSource.includes("const context = opts.audioContext ?? chainContext;"),
+  "a restart without a context must rebuild on the context the chain was built on",
+);
+
 // --- the session warms the chain before there is a room --------------------
 assert.ok(
   /public warmUp\(/.test(controller),

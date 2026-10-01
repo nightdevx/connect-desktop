@@ -46,7 +46,7 @@ assert.ok(
 );
 assert.ok(
   /maxChannels: 1/.test(processor),
-  "the RNNoise/gate worklets are mono; if that changes the mono publish above is wrong too",
+  "the RNNoise worklet is mono; if that changes the mono publish above is wrong too",
 );
 
 // --- playback: channel 0 reaches both ears ---------------------------------

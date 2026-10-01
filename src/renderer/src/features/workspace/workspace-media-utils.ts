@@ -78,6 +78,7 @@ export const readAudioPreferences = (): {
   selectedAudioOutputDeviceId: string | null;
   masterVolume: number;
   microphoneVolume: number;
+  voiceLevellingEnabled: boolean;
 } => {
   try {
     const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
@@ -93,6 +94,7 @@ export const readAudioPreferences = (): {
         selectedAudioOutputDeviceId: null,
         masterVolume: 100,
         microphoneVolume: 100,
+        voiceLevellingEnabled: true,
       };
     }
 
@@ -107,6 +109,7 @@ export const readAudioPreferences = (): {
       selectedAudioOutputDeviceId?: string | null;
       masterVolume?: number;
       microphoneVolume?: number;
+      voiceLevellingEnabled?: boolean;
     };
 
     const normalizeVolume = (value: unknown): number => {
@@ -136,6 +139,7 @@ export const readAudioPreferences = (): {
           : null,
       masterVolume: normalizeVolume(parsed.masterVolume),
       microphoneVolume: normalizeVolume(parsed.microphoneVolume),
+      voiceLevellingEnabled: parsed.voiceLevellingEnabled !== false,
     };
   } catch {
     return {
@@ -149,6 +153,7 @@ export const readAudioPreferences = (): {
       selectedAudioOutputDeviceId: null,
       masterVolume: 100,
       microphoneVolume: 100,
+      voiceLevellingEnabled: true,
     };
   }
 };
