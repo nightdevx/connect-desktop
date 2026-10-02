@@ -220,6 +220,22 @@ export class RoomEventManager {
     this.updateMediaMap();
   };
 
+  /**
+   * Hands over the tracks that finished subscribing while the room was still
+   * connecting. The first subscribe pass runs at the join response, well before
+   * the transport is up, and livekit-client holds TrackSubscribed back until the
+   * room is connected without replaying it afterwards.
+   */
+  public adoptSubscribedTracks(): void {
+    for (const participant of this.room.remoteParticipants.values()) {
+      for (const pub of participant.trackPublications.values()) {
+        if (pub.isSubscribed && pub.track) {
+          this.handleTrackSubscribed(pub.track, pub, participant);
+        }
+      }
+    }
+  }
+
   private readonly handleTrackSubscribed = (
     track: RemoteTrack,
     pub: RemoteTrackPublication,

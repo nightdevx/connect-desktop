@@ -258,6 +258,39 @@ assert.ok(
   "the session warms the microphone chain when it is created, so the first join does not pay for it on the path where nobody can hear you yet",
 );
 
+// --- the room is heard as soon as the transport is up -----------------------
+// The subscribe round trip runs alongside ICE/DTLS only if it starts at the
+// join response. Started after connect() it added ~150ms (production) to the
+// first remote audio; and a track it got before "connected" has no
+// TrackSubscribed from livekit-client, so it must be adopted or it stays silent.
+{
+  const connectAt = source.indexOf("await room.connect(url, token");
+  const early = source.indexOf("room.once(RoomEvent.SignalConnected");
+  const adopt = source.indexOf("this.roomEventManager?.adoptSubscribedTracks();");
+  const timer = source.indexOf("this.timeFirstRemoteAudio(room, lobbyId");
+  assert.ok(connectAt > 0, "room.connect call not found");
+  assert.ok(
+    early > 0 && early < connectAt,
+    "the first subscribe pass must be armed on SignalConnected, before room.connect()",
+  );
+  assert.ok(
+    adopt > connectAt && adopt < timer,
+    "tracks subscribed while connecting must be adopted right after room.connect(), before the first-audio timer looks for them",
+  );
+  const handler = fs.readFileSync(
+    path.join(projectRoot, "src/renderer/src/features/livekit/services/stream/remote-media-handler.ts"),
+    "utf8",
+  );
+  const attach = handler.slice(handler.indexOf("private attachAudioTrack("));
+  const sameTrack = attach.indexOf(
+    "existing.sourceNode.mediaStream.getAudioTracks()[0] === track.mediaStreamTrack",
+  );
+  assert.ok(
+    sameTrack > 0 && sameTrack < attach.indexOf("this.detachAudioTrack(participant.identity, kind);"),
+    "attaching the same track twice (adopted and announced) must be a no-op, not a rebuild of its chain",
+  );
+}
+
 console.log(
-  "audio-publish self-check passed (mute keeps capture, one gain stage, bounded queues, no self-capture)",
+  "audio-publish self-check passed (mute keeps capture, one gain stage, bounded queues, no self-capture, early subscribe + adopt)",
 );

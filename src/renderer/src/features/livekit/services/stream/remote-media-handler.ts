@@ -295,6 +295,17 @@ export class RemoteMediaHandler {
     kind: InputKind,
   ): void {
     const key = inputKey(participant.identity, kind);
+    // The same track twice is one attach. The join hands over tracks that
+    // subscribed while the room was still connecting (adoptSubscribedTracks),
+    // and livekit-client may also have announced one of them by then.
+    const existing = this.inputs.get(key);
+    if (
+      existing &&
+      track.mediaStreamTrack &&
+      existing.sourceNode.mediaStream.getAudioTracks()[0] === track.mediaStreamTrack
+    ) {
+      return;
+    }
     this.detachAudioTrack(participant.identity, kind);
 
     const bus = this.ensureBus();

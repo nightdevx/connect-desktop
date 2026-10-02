@@ -844,6 +844,17 @@ export class LiveKitMediaSession {
     );
     void this.applyOutputDevice();
 
+    // Ask for the room's tracks as soon as the join response has said who is in
+    // it, rather than once the transport is up. The subscription is a signalling
+    // round trip plus a renegotiation; started here it runs alongside ICE and
+    // DTLS, where after connect() it came on top of them (in production, the
+    // ~150ms between "connected" and the first remote audio).
+    room.once(RoomEvent.SignalConnected, () => {
+      if (this.room === room && generation === this.roomGeneration) {
+        this.subscribeToExistingTracks();
+      }
+    });
+
     try {
       this.callbacks.onConnectionStateChanged?.("connecting");
       // autoSubscribe and connectTimeout are ConnectOptions
@@ -870,20 +881,29 @@ export class LiveKitMediaSession {
       // end of the move.
       this.roomChangeExpectedUntil = 0;
 
-      // Armed before the subscribe pass below, which is what produces the
-      // first TrackSubscribed: nothing between room.connect() resolving and
-      // here yields, so it cannot be missed.
+      // Whatever the early pass got before the room was connected: no
+      // TrackSubscribed was emitted for it.
+      this.roomEventManager?.adoptSubscribedTracks();
+
+      // A track that is already in counts as heard now; one still on its way
+      // arrives as a TrackSubscribed, and nothing between room.connect()
+      // resolving and here yields, so it cannot be missed.
       this.timeFirstRemoteAudio(room, lobbyId, request, connectStartedAt);
 
       // Subscribe to what is already in the room BEFORE touching the
       // microphone. The two are independent — hearing the room does not depend
       // on publishing into it — and the mic path is the slow one: device
       // enumeration, getUserMedia, two audioWorklet.addModule() loads and a
-      // WebAssembly compile for RNNoise. With `autoSubscribe: false` this call
-      // is the only thing that subscribes to tracks already present, so putting
-      // it after `await applyMicrophoneState()` meant whoever joined second sat
-      // in silence for the whole length of their own microphone setup. In a 1:1
-      // call that is always the person who answered.
+      // WebAssembly compile for RNNoise. With `autoSubscribe: false` the
+      // subscribe passes are the only thing that subscribes to tracks already
+      // present, so putting this after `await applyMicrophoneState()` meant
+      // whoever joined second sat in silence for the whole length of their own
+      // microphone setup. In a 1:1 call that is always the person who answered.
+      //
+      // Most of this repeats the pass at the join response, which the server
+      // ignores. What it adds is anything published while the room was
+      // connecting: livekit-client holds TrackPublished back until connected,
+      // and does not replay it either.
       //
       // (Pacing is left to `dynacast` and `adaptiveStream`. This used to be a
       // hand-rolled ladder of setTimeouts — 200ms settle, 20ms between audio
