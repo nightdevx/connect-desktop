@@ -34,6 +34,65 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.1.106",
+    date: "2026-10-02",
+    summary: "Sesli görüşmeler daha sağlam ve daha hızlı; arayüz baştan yenilendi.",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Kısa bir internet kesintisinde görüşme baştan kurulmuyor: bağlantı birkaç saniyede kendini topluyor ve mikrofonun yeniden açılmıyor. Hızla oda değiştirirken de yersiz \"bağlantı koptu\" uyarısı çıkmıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Odaya girince sesler daha çabuk geliyor: sunucuyla iki yerine tek bağlantı kuruluyor.",
+      },
+      {
+        kind: "improved",
+        text: "Ekran paylaşırken ses öncelikli. İnternetinin yükleme tarafı darsa görüntü biraz yumuşuyor, konuşman gecikmiyor ve kesilmiyor.",
+      },
+      {
+        kind: "new",
+        text: "Konuşan herkesin sesi aynı anda kayıplı geliyorsa, sorunun senin internet bağlantında olduğunu söyleyen bir uyarı çıkıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Bas-konuş tuşuna her basışta sesin ilk anı filtresiz gidebiliyordu. Artık mikrofon ilk andan itibaren gürültü engellemeden geçerek gidiyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Kullandığın mikrofon ya da kulaklık çıkarılınca ses varsayılan cihazdan devam ediyor. Mikrofon susturulmuşken çıkarılsa bile artık çalışmaz hale gelmiyor; odadan çıkıp girmen gerekmiyor.",
+      },
+      {
+        kind: "improved",
+        text: "Bluetooth kulaklık, kendi mikrofonunu kullanmadığın sürece stereo ve temiz çalıyor. Kulaklığın mikrofonunu seçersen ses kalitesinin düşeceğini söyleyen bir uyarı çıkıyor.",
+      },
+      {
+        kind: "new",
+        text: "Ayarlar → Ses → Ses İşleme altına \"Ses seviyelerini dengele\" anahtarı eklendi. Açıkken yüksek ve alçak sesle konuşanlar birbirine daha yakın duyuluyor.",
+      },
+      {
+        kind: "new",
+        text: "Ayarlar → Bağlantı → Ağ Testi: bağlantını sunucuyla adım adım dener ve sorunun ağında mı sunucuda mı olduğunu gösterir.",
+      },
+      {
+        kind: "new",
+        text: "Bağlantı panelinde \"Tahmini Gecikme\": konuşulan sesin karşı tarafa yaklaşık kaç milisaniyede ulaştığını gösterir.",
+      },
+      {
+        kind: "improved",
+        text: "Arayüz yenilendi: giriş ekranı, bildirimler, pencereler, sağ tık menüleri ve lobi seçimi. Hata mesajları kısa ve teknik terim içermiyor.",
+      },
+      {
+        kind: "new",
+        text: "Arkadaşlar sayfasında odada ya da oyunda olan arkadaşların en üstte; tek tıkla odalarına katılabilirsin. 1:1 aramada yeni gelen arama kartı, çalan kutucuk ve görüşme süresi var.",
+      },
+      {
+        kind: "fixed",
+        text: "Arkadaşlar sayfasında sağ tık menüsü açılmıyordu, sohbet listesinde isimler küçük ve gri görünüyordu; ikisi de düzeltildi.",
+      },
+    ],
+  },
+  {
     version: "0.1.99",
     date: "2026-08-31",
     summary: "Ses yolu baştan sona elden geçti; bağlantı sorunları için relay eklendi.",
