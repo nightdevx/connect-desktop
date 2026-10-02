@@ -33,7 +33,7 @@ async function main() {
     },
   });
 
-  const { createRecoveryTracker, RECOVERY_COOLDOWN_MS } = await import(
+  const { createRecoveryTracker, RECOVERY_COOLDOWN_MS, isRecoveredBy } = await import(
     pathToFileURL(path.join(outDir, "backend-recovery.mjs")).href
   );
 
@@ -100,13 +100,23 @@ async function main() {
     );
   }
 
+  // A reconnect refreshes what its own stream feeds, and nothing else.
+  assert.equal(isRecoveredBy("lobby", ["lobby-state", "main-lobby"]), true);
+  assert.equal(isRecoveredBy("users", ["friends"]), true);
+  assert.equal(isRecoveredBy("dm", ["direct-message-preview", "u1"]), true);
+  assert.equal(isRecoveredBy("lobby", ["direct-messages", "u1"]), false, "the lobby stream refreshed the DMs");
+  for (const stream of ["lobby", "users", "dm"]) {
+    assert.equal(isRecoveredBy(stream, ["auth-session"]), false, `${stream} refetched the session`);
+    assert.equal(isRecoveredBy(stream, ["free-games"]), false, `${stream} refetched an unrelated list`);
+  }
+
   assert.ok(
     RECOVERY_COOLDOWN_MS >= 1_000,
     "the cooldown has to outlast a reconnect storm, not a single frame",
   );
 
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("backend-recovery self-check passed (first connect, drop, storm, later outage)");
+  console.log("backend-recovery self-check passed (first connect, drop, storm, later outage, per-stream refresh)");
 }
 
 main().catch((error) => {

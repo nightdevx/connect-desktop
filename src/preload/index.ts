@@ -12,6 +12,38 @@ const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
 
 
 
+// One ipcRenderer listener per channel, fanned out to every subscriber.
+//
+// The lobby stream has a dozen subscribers in the renderer (roster, chat,
+// emotes, music, watch, games, unread counts, the membership watchdog...), and
+// each used to add its own ipcRenderer listener: past ten, Node's
+// MaxListenersExceededWarning fired on every session. One listener per
+// channel, added with the first subscriber and removed with the last.
+const createFanOut = <T>(channel: string) => {
+  const listeners = new Set<(payload: T) => void>();
+  const dispatch = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+    for (const listener of [...listeners]) {
+      listener(payload as T);
+    }
+  };
+  return (listener: (payload: T) => void): (() => void) => {
+    if (listeners.size === 0) {
+      ipcRenderer.on(channel, dispatch);
+    }
+    listeners.add(listener);
+    return () => {
+      if (listeners.delete(listener) && listeners.size === 0) {
+        ipcRenderer.removeListener(channel, dispatch);
+      }
+    };
+  };
+};
+
+const subscribeLobbyStream = createFanOut<never>(LOBBY_STREAM_EVENT_CHANNEL);
+const subscribeUserDirectory = createFanOut<never>(USER_DIRECTORY_EVENT_CHANNEL);
+const subscribeDirectMessages = createFanOut<never>(DIRECT_MESSAGES_EVENT_CHANNEL);
+const subscribeSystemResumed = createFanOut<never>(SYSTEM_RESUMED_EVENT_CHANNEL);
+
 const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
 const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
 const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
@@ -91,39 +123,14 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:user-directory-stream-start"),
   stopUserDirectoryStream: async () =>
     ipcRenderer.invoke("desktop:user-directory-stream-stop"),
-  onUserDirectoryEvent: (listener) => {
-    const wrappedListener = (
-      _event: Electron.IpcRendererEvent,
-      payload: unknown,
-    ) => {
-      listener(payload as Parameters<typeof listener>[0]);
-    };
-
-    ipcRenderer.on(USER_DIRECTORY_EVENT_CHANNEL, wrappedListener);
-
-    return () => {
-      ipcRenderer.removeListener(USER_DIRECTORY_EVENT_CHANNEL, wrappedListener);
-    };
-  },
+  onUserDirectoryEvent: (listener) => subscribeUserDirectory(listener),
   listLobbies: async () => ipcRenderer.invoke("desktop:lobbies-list"),
   startLobbyStream: async () =>
     ipcRenderer.invoke("desktop:lobbies-stream-start"),
   stopLobbyStream: async () =>
     ipcRenderer.invoke("desktop:lobbies-stream-stop"),
-  onLobbyStreamEvent: (listener) => {
-    const wrappedListener = (
-      _event: Electron.IpcRendererEvent,
-      payload: unknown,
-    ) => {
-      listener(payload as Parameters<typeof listener>[0]);
-    };
-
-    ipcRenderer.on(LOBBY_STREAM_EVENT_CHANNEL, wrappedListener);
-
-    return () => {
-      ipcRenderer.removeListener(LOBBY_STREAM_EVENT_CHANNEL, wrappedListener);
-    };
-  },
+  onLobbyStreamEvent: (listener) => subscribeLobbyStream(listener),
+  probeStreams: async () => ipcRenderer.invoke("desktop:streams-probe"),
   getLobbyStates: async () => ipcRenderer.invoke("desktop:lobbies-states"),
   createLobby: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-create", payload),
@@ -243,23 +250,7 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:direct-messages-start"),
   stopDirectMessagesStream: async () =>
     ipcRenderer.invoke("desktop:direct-messages-stop"),
-  onDirectMessagesEvent: (listener) => {
-    const wrappedListener = (
-      _event: Electron.IpcRendererEvent,
-      payload: unknown,
-    ) => {
-      listener(payload as Parameters<typeof listener>[0]);
-    };
-
-    ipcRenderer.on(DIRECT_MESSAGES_EVENT_CHANNEL, wrappedListener);
-
-    return () => {
-      ipcRenderer.removeListener(
-        DIRECT_MESSAGES_EVENT_CHANNEL,
-        wrappedListener,
-      );
-    };
-  },
+  onDirectMessagesEvent: (listener) => subscribeDirectMessages(listener),
   minimizeWindow: async () => ipcRenderer.invoke("desktop:window-minimize"),
   toggleMaximizeWindow: async () =>
     ipcRenderer.invoke("desktop:window-toggle-maximize"),
@@ -267,20 +258,7 @@ const desktopApi: DesktopApi = {
   setWindowAttention: async (payload) =>
     ipcRenderer.invoke("desktop:window-attention", payload),
   getWindowState: async () => ipcRenderer.invoke("desktop:window-state"),
-  onSystemResumed: (listener) => {
-    const wrappedListener = (
-      _event: Electron.IpcRendererEvent,
-      payload: unknown,
-    ) => {
-      listener(payload as Parameters<typeof listener>[0]);
-    };
-
-    ipcRenderer.on(SYSTEM_RESUMED_EVENT_CHANNEL, wrappedListener);
-
-    return () => {
-      ipcRenderer.removeListener(SYSTEM_RESUMED_EVENT_CHANNEL, wrappedListener);
-    };
-  },
+  onSystemResumed: (listener) => subscribeSystemResumed(listener),
   onWindowStateChanged: (listener) => {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,

@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import {
   backendClient,
-  lobbyStreamManager,
+  streamHub,
   ok,
   fail,
   withAccessToken,
@@ -432,7 +432,7 @@ export function registerLobbyHandlers(): void {
   ipcMain.handle("desktop:lobbies-stream-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
-        await lobbyStreamManager.start(event.sender, accessToken);
+        await streamHub.start("lobby", event.sender, accessToken);
       });
       return ok({ started: true });
     } catch (error) {
@@ -440,9 +440,20 @@ export function registerLobbyHandlers(): void {
     }
   });
 
+  // The network came back or the machine woke: ask every stream socket whether
+  // it is still there instead of redialling a healthy one. See StreamHub.probe.
+  ipcMain.handle("desktop:streams-probe", async () => {
+    try {
+      streamHub.probe();
+      return ok({ probed: true });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:lobbies-stream-stop", async (event) => {
     try {
-      lobbyStreamManager.stop(event.sender.id);
+      streamHub.stop("lobby", event.sender.id);
       return ok({ stopped: true });
     } catch (error) {
       return fail(error);

@@ -9,6 +9,10 @@ interface UserDirectoryStreamState {
   socket: WebSocket;
   closing: boolean;
   pingTimeout?: NodeJS.Timeout;
+  // Settles with the handshake. A second start while it is pending joins it
+  // instead of tearing it down.
+  opened?: Promise<void>;
+  probeTimer?: NodeJS.Timeout;
 }
 
 export class UserDirectoryStreamManager {
@@ -23,6 +27,28 @@ export class UserDirectoryStreamManager {
   public stopAll(): void {
     for (const senderId of this.streamsBySender.keys()) {
       this.stop(senderId);
+    }
+  }
+
+  // Pings every open socket; one that does not answer within 5s is
+  // terminated, and its close starts the renderer's reconnect. For the
+  // network coming back and the machine waking, when a socket can look open
+  // and be dead.
+  public probe(): void {
+    for (const stream of this.streamsBySender.values()) {
+      if (stream.closing || stream.socket.readyState !== WebSocket.OPEN || stream.probeTimer) {
+        continue;
+      }
+      const socket = stream.socket;
+      stream.probeTimer = setTimeout(() => {
+        stream.probeTimer = undefined;
+        socket.terminate();
+      }, 5_000);
+      try {
+        socket.ping();
+      } catch {
+        socket.terminate();
+      }
     }
   }
 
@@ -53,9 +79,22 @@ export class UserDirectoryStreamManager {
     sender: WebContents,
     accessToken: string,
   ): Promise<{ started: boolean }> {
+    // A live socket is kept, and one still connecting is joined: this used to
+    // stop and redial on every start, so "the network came back" replaced a
+    // healthy connection. Whether it is still alive is probe()'s question.
+    const existing = this.streamsBySender.get(sender.id);
+    if (existing && !existing.closing) {
+      if (existing.socket.readyState === WebSocket.OPEN) {
+        return { started: true };
+      }
+      if (existing.socket.readyState === WebSocket.CONNECTING) {
+        await existing.opened;
+        return { started: true };
+      }
+    }
     this.stop(sender.id);
 
-    const socket = new WebSocket(this.buildWebSocketURL(accessToken));
+    const socket = new WebSocket(this.buildWebSocketURL(accessToken), { handshakeTimeout: 10_000 });
     const opened = awaitSocketOpen(
       socket,
       "USER_DIRECTORY_WS_CONNECTION_ERROR",
@@ -70,13 +109,18 @@ export class UserDirectoryStreamManager {
       if (streamState.pingTimeout) {
         clearTimeout(streamState.pingTimeout);
       }
+      if (streamState.probeTimer) {
+        clearTimeout(streamState.probeTimer);
+        streamState.probeTimer = undefined;
+      }
 
       streamState.pingTimeout = setTimeout(() => {
         if (streamState.closing || socket.readyState === WebSocket.CLOSED) {
           return;
         }
         socket.terminate();
-      }, 35000);
+      // Past the server's 20s ping and 40s deadline; see lobby-stream-manager.
+      }, 50_000);
     };
 
     const cleanup = () => {
@@ -86,6 +130,7 @@ export class UserDirectoryStreamManager {
       }
     };
 
+    streamState.opened = opened;
     this.streamsBySender.set(sender.id, streamState);
 
     if (!this.senderDestroyBound.has(sender.id)) {
@@ -96,7 +141,9 @@ export class UserDirectoryStreamManager {
       });
     }
 
+    let didOpen = false;
     socket.on("open", () => {
+      didOpen = true;
       heartbeat();
       this.emit(sender, {
         type: "stream-status",
@@ -106,6 +153,10 @@ export class UserDirectoryStreamManager {
     });
 
     socket.on("ping", () => {
+      heartbeat();
+    });
+
+    socket.on("pong", () => {
       heartbeat();
     });
 
@@ -161,7 +212,12 @@ export class UserDirectoryStreamManager {
 
       this.streamsBySender.delete(sender.id);
 
-      if (streamState.closing) {
+      // Only a socket that was open can close. A dial that fails gets its
+      // close from ws in the same tick as the error, before the rejection below
+      // is handled, so the guard there came too late: every failed attempt
+      // still announced "closed", and the renderer scheduled a second
+      // reconnect on top of the one the rejection drives.
+      if (streamState.closing || !didOpen) {
         return;
       }
 

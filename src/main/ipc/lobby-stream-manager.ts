@@ -9,6 +9,10 @@ interface LobbyStreamState {
   socket: WebSocket;
   closing: boolean;
   pingTimeout?: NodeJS.Timeout;
+  // Settles with the handshake. A second start while it is pending joins it
+  // instead of tearing it down.
+  opened?: Promise<void>;
+  probeTimer?: NodeJS.Timeout;
 }
 
 export class LobbyStreamManager {
@@ -20,6 +24,28 @@ export class LobbyStreamManager {
   public stopAll(): void {
     for (const senderId of this.streamsBySender.keys()) {
       this.stop(senderId);
+    }
+  }
+
+  // Pings every open socket; one that does not answer within 5s is
+  // terminated, and its close starts the renderer's reconnect. For the
+  // network coming back and the machine waking, when a socket can look open
+  // and be dead.
+  public probe(): void {
+    for (const stream of this.streamsBySender.values()) {
+      if (stream.closing || stream.socket.readyState !== WebSocket.OPEN || stream.probeTimer) {
+        continue;
+      }
+      const socket = stream.socket;
+      stream.probeTimer = setTimeout(() => {
+        stream.probeTimer = undefined;
+        socket.terminate();
+      }, 5_000);
+      try {
+        socket.ping();
+      } catch {
+        socket.terminate();
+      }
     }
   }
 
@@ -54,6 +80,19 @@ export class LobbyStreamManager {
     sender: WebContents,
     accessToken: string,
   ): Promise<{ started: boolean }> {
+    // A live socket is kept, and one still connecting is joined: this used to
+    // stop and redial on every start, so "the network came back" replaced a
+    // healthy connection. Whether it is still alive is probe()'s question.
+    const existing = this.streamsBySender.get(sender.id);
+    if (existing && !existing.closing) {
+      if (existing.socket.readyState === WebSocket.OPEN) {
+        return { started: true };
+      }
+      if (existing.socket.readyState === WebSocket.CONNECTING) {
+        await existing.opened;
+        return { started: true };
+      }
+    }
     this.stop(sender.id);
 
     const wsUrl = this.buildWebSocketUrl(accessToken);
@@ -81,6 +120,10 @@ export class LobbyStreamManager {
     const heartbeat = () => {
       if (streamState.pingTimeout) {
         clearTimeout(streamState.pingTimeout);
+      }
+      if (streamState.probeTimer) {
+        clearTimeout(streamState.probeTimer);
+        streamState.probeTimer = undefined;
       }
 
       // The server pings every 20s and gives up on us after 40s of silence.
@@ -111,6 +154,7 @@ export class LobbyStreamManager {
       }
     };
 
+    streamState.opened = opened;
     this.streamsBySender.set(sender.id, streamState);
 
     if (!this.senderDestroyBound.has(sender.id)) {
@@ -121,7 +165,9 @@ export class LobbyStreamManager {
       });
     }
 
+    let didOpen = false;
     socket.on("open", () => {
+      didOpen = true;
       heartbeat();
       this.emit(sender, {
         type: "stream-status",
@@ -131,6 +177,10 @@ export class LobbyStreamManager {
     });
 
     socket.on("ping", () => {
+      heartbeat();
+    });
+
+    socket.on("pong", () => {
       heartbeat();
     });
 
@@ -192,7 +242,12 @@ export class LobbyStreamManager {
         this.streamsBySender.delete(sender.id);
       }
 
-      if (streamState.closing) {
+      // Only a socket that was open can close. A dial that fails gets its
+      // close from ws in the same tick as the error, before the rejection below
+      // is handled, so the guard there came too late: every failed attempt
+      // still announced "closed", and the renderer scheduled a second
+      // reconnect on top of the one the rejection drives.
+      if (streamState.closing || !didOpen) {
         return;
       }
 

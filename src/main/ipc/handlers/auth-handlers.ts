@@ -2,9 +2,7 @@ import { BrowserWindow, dialog, ipcMain } from "electron";
 import { writeFile } from "node:fs/promises";
 import {
   backendClient,
-  directMessagesStreamManager,
-  lobbyStreamManager,
-  userDirectoryStreamManager,
+  streamHub,
   getSessionStore,
   ok,
   fail,
@@ -123,9 +121,7 @@ export function registerAuthHandlers(): void {
   });
 
   ipcMain.handle("desktop:auth-logout", async () => {
-    directMessagesStreamManager.stopAll();
-    lobbyStreamManager.stopAll();
-    userDirectoryStreamManager.stopAll();
+    streamHub.stopAll();
 
     // Revoke server-side first, but never let that failure block the local
     // sign-out: a user logging out on a flaky network still expects the app to
@@ -152,9 +148,7 @@ export function registerAuthHandlers(): void {
 
       // The server has already revoked every session; drop the local one too so
       // the app does not sit there retrying with a token that will never work.
-      directMessagesStreamManager.stopAll();
-      lobbyStreamManager.stopAll();
-      userDirectoryStreamManager.stopAll();
+      streamHub.stopAll();
       getSessionStore().clear();
 
       return ok(result);
@@ -440,7 +434,7 @@ export function registerAuthHandlers(): void {
       await withAccessToken(async (accessToken) => {
         // Awaited: start now resolves only once the socket is open, so a
         // failure propagates and the renderer's backoff actually escalates.
-        await userDirectoryStreamManager.start(event.sender, accessToken);
+        await streamHub.start("users", event.sender, accessToken);
       });
 
       return ok({ started: true });
@@ -451,7 +445,7 @@ export function registerAuthHandlers(): void {
 
   ipcMain.handle("desktop:user-directory-stream-stop", async (event) => {
     try {
-      userDirectoryStreamManager.stop(event.sender.id);
+      streamHub.stop("users", event.sender.id);
       return ok({ stopped: true });
     } catch (error) {
       return fail(error);

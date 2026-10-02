@@ -644,6 +644,13 @@ export interface DesktopApi {
   listLobbies: () => Promise<DesktopResult<{ lobbies: LobbyDescriptor[] }>>;
   startLobbyStream: () => Promise<DesktopResult<{ started: boolean }>>;
   stopLobbyStream: () => Promise<DesktopResult<{ stopped: boolean }>>;
+  /**
+   * Asks the stream sockets whether they are still alive (the network came
+   * back, the machine woke). A socket that does not answer is closed, which
+   * reaches the stream listeners as stream-status "closed" and their usual
+   * reconnect; a healthy one is left alone.
+   */
+  probeStreams: () => Promise<DesktopResult<{ probed: boolean }>>;
   onLobbyStreamEvent: (
     listener: (event: LobbyStreamEvent) => void,
   ) => () => void;

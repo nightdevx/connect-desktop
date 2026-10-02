@@ -43,6 +43,14 @@ export const lobbyService = {
 
     return window.desktopApi.startLobbyStream();
   },
+  // Liveness check for every stream socket; see DesktopApi.probeStreams. An
+  // older desktop bridge has nothing to probe, and that is not an error.
+  probeStreams: () => {
+    if (typeof window.desktopApi.probeStreams !== "function") {
+      return Promise.resolve({ ok: true, data: { probed: false } } as DesktopResult<{ probed: boolean }>);
+    }
+    return window.desktopApi.probeStreams();
+  },
   stopLobbyStream: () => {
     if (typeof window.desktopApi.stopLobbyStream !== "function") {
       return Promise.resolve(

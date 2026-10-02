@@ -8,9 +8,7 @@ import { registerMusicHandlers } from "./handlers/music-handlers";
 import { registerWatchHandlers } from "./handlers/watch-handlers";
 import { registerMediaDiagnosticsHandlers } from "./handlers/media-diagnostics-handlers";
 import {
-  directMessagesStreamManager,
-  lobbyStreamManager,
-  userDirectoryStreamManager,
+  streamHub,
   getSessionStore,
   withAccessToken,
   backendClient,
@@ -67,6 +65,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:auth-privacy-update",
   "desktop:user-directory-stream-start",
   "desktop:user-directory-stream-stop",
+  "desktop:streams-probe",
   "desktop:admin-list-users",
   "desktop:admin-get-user",
   "desktop:admin-update-user",
@@ -222,9 +221,7 @@ const clearIpcInvokeHandlers = (): void => {
 };
 
 export async function cleanupBeforeAppQuit(): Promise<void> {
-  directMessagesStreamManager.stopAll();
-  lobbyStreamManager.stopAll();
-  userDirectoryStreamManager.stopAll();
+  streamHub.stopAll();
 
   const current = getSessionStore().get();
   if (!current) {

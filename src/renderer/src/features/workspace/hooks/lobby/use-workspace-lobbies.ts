@@ -16,6 +16,11 @@ import {
   createMediaRecoveryCheck,
   type MediaRecoveryCheck,
 } from "./media-recovery-check";
+import {
+  decideOnAttempt,
+  decideOnTrigger,
+  type RoomSessionState,
+} from "./room-session-controller";
 
 /**
  * What the post-join chain needs to know about the join it follows.
@@ -163,6 +168,11 @@ export function useWorkspaceLobbies({
 
   const lobbyStreamReconnectTimerRef = useRef<number | null>(null);
   const lobbyStreamReconnectAttemptRef = useRef(0);
+  // A start is out. A closed or failed stream asks for a reconnect again while
+  // it is, and a second start used to arrive on top of the first; the main
+  // process now joins it rather than redialling, but the failure branch below
+  // would still schedule twice. The attempt that is out reschedules itself.
+  const lobbyStreamStartInFlightRef = useRef(false);
   const activeLobbyReconnectTimerRef = useRef<number | null>(null);
   // Once the websocket has delivered a snapshot it is the authoritative list.
   //
@@ -248,9 +258,17 @@ export function useWorkspaceLobbies({
     onlineRef.current = isOnline;
     if (!isOnline) return;
 
+    // A socket that is still open is asked whether it is alive, not replaced:
+    // redialling here closed a healthy connection on every "online" event,
+    // and the network flapping is exactly when that costs most. One that does
+    // not answer is closed and comes back through the stream's own reconnect.
+    // A stream that is already down is redialled at once, as before.
     const handles = reconnectHandlesRef.current;
-    handles.clearLobbyReconnectTimer();
-    handles.scheduleLobbyStreamReconnect(true);
+    void workspaceService.probeStreams();
+    if (!hasLiveSnapshotRef.current) {
+      handles.clearLobbyReconnectTimer();
+      handles.scheduleLobbyStreamReconnect(true);
+    }
 
     if (!activeLobbyRef.current) return;
 
@@ -276,9 +294,13 @@ export function useWorkspaceLobbies({
   // while a deliberate join is in progress.
   useEffect(() => {
     const unsubscribe = window.desktopApi?.onSystemResumed?.(() => {
+      // The main process probes the sockets itself on resume; a stream that
+      // is not live is redialled from here at once.
       const handles = reconnectHandlesRef.current;
-      handles.clearLobbyReconnectTimer();
-      handles.scheduleLobbyStreamReconnect(true);
+      if (!hasLiveSnapshotRef.current) {
+        handles.clearLobbyReconnectTimer();
+        handles.scheduleLobbyStreamReconnect(true);
+      }
 
       if (!activeLobbyRef.current) return;
 
@@ -349,6 +371,7 @@ export function useWorkspaceLobbies({
 
   const scheduleLobbyStreamReconnect = useCallback((immediate = false): void => {
     if (lobbyStreamReconnectTimerRef.current !== null) return;
+    if (lobbyStreamStartInFlightRef.current) return;
 
     const delay = immediate
       ? 0
@@ -367,7 +390,9 @@ export function useWorkspaceLobbies({
         return;
       }
 
+      lobbyStreamStartInFlightRef.current = true;
       void workspaceService.startLobbyStream().then((result) => {
+        lobbyStreamStartInFlightRef.current = false;
         if (result.ok) {
           lobbyStreamReconnectAttemptRef.current = 0;
           return;
@@ -391,17 +416,23 @@ export function useWorkspaceLobbies({
     reason: ActiveLobbyReconnectReason,
     immediate = false,
   ): void => {
-    if (!activeLobbyRef.current) return;
-    // Never auto-rejoin a lobby the user was just server-kicked from — that
-    // would silently undo the kick. A deliberate manual join clears this.
-    if (kickedLobbyIdRef.current === activeLobbyRef.current) return;
+    // Every rule about whether and when to re-join is in
+    // room-session-controller.ts; this function only times and runs it.
+    const roomSessionState = (): RoomSessionState => ({
+      activeRoomId: activeLobbyRef.current,
+      kickedRoomId: kickedLobbyIdRef.current,
+      transitionBusy: isLobbyTransitionBusy(lobbyTransitionRef.current),
+      online: onlineRef.current,
+      attemptInFlight: activeLobbyReconnectInFlightRef.current,
+    });
+
+    const trigger = decideOnTrigger(roomSessionState());
+    if (!trigger.schedule) return;
 
     // The room this attempt is FOR. Checked again when the timer fires: a
     // reconnect armed for the room the user was in must not fire against the
-    // one they moved to. Every server-side join is exclusive, so re-joining the
-    // wrong room does not just waste a round trip, it pulls the user out of the
-    // room they are standing in.
-    const scheduledFor = activeLobbyRef.current;
+    // one they moved to.
+    const scheduledFor = trigger.roomId;
 
     if (activeLobbyReconnectTimerRef.current !== null) {
       // An urgent trigger (LiveKit dropped, network came back) must not be
@@ -423,24 +454,17 @@ export function useWorkspaceLobbies({
 
     activeLobbyReconnectTimerRef.current = window.setTimeout(() => {
       activeLobbyReconnectTimerRef.current = null;
-      const targetLobbyID = activeLobbyRef.current;
-      if (!targetLobbyID) return;
 
-      // Moved rooms while this was counting down. Drop it: whatever the user is
-      // in now has its own lifecycle and does not need this attempt.
-      if (targetLobbyID !== scheduledFor) return;
-
-      // A manual join or leave is under way. Stand down and try later rather
-      // than racing it — this is the interlock that used to be permanently open
-      // because the two flags arrived as literals.
-      if (
-        isLobbyTransitionBusy(lobbyTransitionRef.current) ||
-        !onlineRef.current ||
-        activeLobbyReconnectInFlightRef.current
-      ) {
+      // Moved rooms, left, or kicked while this was counting down: drop it.
+      // A manual join or leave under way, no network, or an attempt already
+      // out: stand down and look again later rather than racing it.
+      const decision = decideOnAttempt(scheduledFor, roomSessionState());
+      if (decision.action === "drop") return;
+      if (decision.action === "wait") {
         scheduleActiveLobbyReconnect(reason);
         return;
       }
+      const targetLobbyID = decision.roomId;
 
       const attempt = activeLobbyReconnectAttemptRef.current;
       const attemptSeq = ++reconnectAttemptSeqRef.current;
@@ -454,9 +478,7 @@ export function useWorkspaceLobbies({
       // the backoff wait before it is not.
       const connectRequest = liveKitConnectRequest(reason);
 
-      const isCallRoom = targetLobbyID.startsWith("call_");
-
-      if (isCallRoom) {
+      if (decision.kind === "call") {
         void performPostJoinSyncRef.current(targetLobbyID, connectRequest)
           .then(() => {
             activeLobbyReconnectAttemptRef.current = 0;

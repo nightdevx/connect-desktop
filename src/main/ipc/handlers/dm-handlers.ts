@@ -18,7 +18,7 @@ const remoteImageFileName = (url: string): string => {
 };
 import {
   backendClient,
-  directMessagesStreamManager,
+  streamHub,
   ok,
   fail,
   withAccessToken,
@@ -292,7 +292,7 @@ export function registerDMHandlers(): void {
   ipcMain.handle("desktop:direct-messages-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
-        return directMessagesStreamManager.start(event.sender, accessToken);
+        return streamHub.start("dm", event.sender, accessToken);
       });
       return ok({ started: true });
     } catch (error) {
@@ -302,7 +302,7 @@ export function registerDMHandlers(): void {
 
   ipcMain.handle("desktop:direct-messages-stop", async (event) => {
     try {
-      directMessagesStreamManager.stop(event.sender.id);
+      streamHub.stop("dm", event.sender.id);
       return ok({ stopped: true });
     } catch (error) {
       return fail(error);

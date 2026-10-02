@@ -42,6 +42,7 @@ if (process.env.SENTRY_DSN && !isDev) {
   });
 }
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
+import { streamHub } from "./ipc/context";
 import {
   startFreeGamesPoller,
   stopFreeGamesPoller,
@@ -417,6 +418,9 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     // main process gets, and let its existing reconnect scheduler decide what to
     // do with it.
     powerMonitor.on("resume", emitSystemResumed);
+    // The stream sockets are the main process's own: ask them directly whether
+    // they survived the suspend rather than waiting for the renderer to.
+    powerMonitor.on("resume", () => streamHub.probe());
 
     initializeModularUpdater({
       beforeInstall: cleanupBeforeAppQuit,
