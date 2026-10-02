@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { message } from "antd";
 import {
   CloseOutlined,
   CompressOutlined,
@@ -9,9 +8,16 @@ import {
   ReloadOutlined,
   WifiOutlined,
 } from "@ant-design/icons";
-import { LoginPage, RegisterPage, useAuthController } from "./features/auth";
+import {
+  AuthLogoMark,
+  LoginPage,
+  RegisterPage,
+  useAuthController,
+} from "./features/auth";
 import { WhatsNewModal } from "./features/release-notes";
 import WorkspaceShell from "./app/WorkspaceShell";
+import { ToastHost } from "./app/ToastHost";
+import { toast } from "@/services/toast";
 import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
@@ -43,7 +49,6 @@ function App() {
   // refresh failed, user blocked -- and nothing in the tree ever rendered the
   // result, so every one of those messages was swallowed. This is the single
   // consumer that surfaces them.
-  const [messageApi, messageHolder] = message.useMessage({ top: 60, maxCount: 3 });
   const lastStatusNonce = useRef(statusNonce);
 
   useEffect(() => {
@@ -54,7 +59,7 @@ function App() {
     }
     lastStatusNonce.current = statusNonce;
 
-    void messageApi.open({
+    toast.open({
       key: "ct-status",
       type:
         statusTone === "ok"
@@ -64,7 +69,7 @@ function App() {
             : "error",
       content: statusMessage,
     });
-  }, [statusNonce, statusMessage, statusTone, messageApi]);
+  }, [statusNonce, statusMessage, statusTone]);
 
   useEffect(() => {
     let active = true;
@@ -139,7 +144,7 @@ function App() {
 
   return (
     <main className="ct-app-shell">
-      {messageHolder}
+      <ToastHost />
 
       {/* Opens itself once, on the first launch after an update, and renders
           nothing on every other launch. Gated on being signed in and past the
@@ -245,7 +250,7 @@ function App() {
               fades in on a delay, so a fast answer shows nothing at all. */}
           {isBooting ? (
             <div className="ct-boot" role="status" aria-label="Oturum kontrol ediliyor">
-              <img src={logo} alt="" className="ct-boot-logo" />
+              <AuthLogoMark animated />
               <span className="ct-boot-bar" aria-hidden="true" />
             </div>
           ) : isOffline ? (
@@ -278,47 +283,52 @@ function App() {
               isLoggingOut={isLoggingOut}
             />
           ) : (
-            <div className="ct-double-bezel-outer w-full max-w-md mx-auto">
-              <section className="ct-auth-card ct-double-bezel-inner">
-                <div className="flex justify-center pt-4 pb-6">
-                  <img
-                    src={logo}
-                    alt="Connect"
-                    className="h-20 w-auto object-contain"
-                  />
-                </div>
+            <div className="ct-auth-screen">
+              <div className="ct-auth-ambient" aria-hidden="true" />
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className={`ct-auth-tab ${activePage === "login" ? "active" : ""}`}
-                    onClick={() => setActivePage("login")}
-                  >
-                    Giriş Yap
-                  </button>
-                  <button
-                    type="button"
-                    className={`ct-auth-tab ${activePage === "register" ? "active" : ""}`}
-                    onClick={() => setActivePage("register")}
-                  >
-                    Kayıt Ol
-                  </button>
-                </div>
+              <div className="ct-auth-shell">
+                <aside className="ct-auth-brand">
+                  <AuthLogoMark className="ct-logomark--mural" />
 
-                {activePage === "login" ? (
-                  <LoginPage
-                    loading={isLoading}
-                    onSubmit={login}
-                    onGoRegister={() => setActivePage("register")}
-                  />
-                ) : (
-                  <RegisterPage
-                    loading={isLoading}
-                    onSubmit={register}
-                    onGoLogin={() => setActivePage("login")}
-                  />
-                )}
-              </section>
+                  <div className="ct-auth-brand-head">
+                    <AuthLogoMark className="ct-logomark--badge" />
+                    <span className="ct-auth-wordmark">Connect</span>
+                  </div>
+
+                  <p className="ct-auth-tagline">
+                    Sesli sohbet, birlikte film, müzik ve mini oyunlar.
+                    Arkadaşlarının takıldığı yer.
+                  </p>
+
+                  <div className="ct-auth-presence">
+                    <span className="ct-auth-presence-dot" aria-hidden="true" />
+                    Arkadaşların çoktan içeride.
+                  </div>
+                </aside>
+
+                <div className="ct-auth-formside">
+                  {/* Stands in for the brand panel when the window is too
+                      narrow to show it; hidden otherwise. */}
+                  <div className="ct-auth-formside-brand">
+                    <AuthLogoMark className="ct-logomark--badge" />
+                    <span className="ct-auth-wordmark">Connect</span>
+                  </div>
+
+                  {activePage === "login" ? (
+                    <LoginPage
+                      loading={isLoading}
+                      onSubmit={login}
+                      onGoRegister={() => setActivePage("register")}
+                    />
+                  ) : (
+                    <RegisterPage
+                      loading={isLoading}
+                      onSubmit={register}
+                      onGoLogin={() => setActivePage("login")}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </section>

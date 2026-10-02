@@ -1,7 +1,8 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useState } from "react";
-import { Switch, Modal, Select, Input, InputNumber, message } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Switch, Modal, Select, Input, InputNumber } from "antd";
+import { PlusOutlined, UserAddOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import type {
   FriendEntry,
   LobbyDescriptor,
@@ -33,6 +34,7 @@ import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
+import { toast } from "@/services/toast";
 
 interface WorkspaceSidebarProps {
   sectionTitle: string;
@@ -130,7 +132,6 @@ export function WorkspaceSidebar({
   audioProcessingProps,
   liveKitConnectionState,
 }: WorkspaceSidebarProps) {
-  const [messageApi, contextHolder] = message.useMessage();
   const [isCreateLobbyOpen, setIsCreateLobbyOpen] = useState(false);
   const [newLobbyName, setNewLobbyName] = useState("");
   const [isLocked, setIsLocked] = useState(false);
@@ -182,7 +183,7 @@ export function WorkspaceSidebar({
     try {
       const result = await workspaceService.lookupUserByUsername({ username });
       if (!result.ok || !result.data) {
-        messageApi.error(
+        toast.error(
           result.error?.code === "USER_NOT_FOUND" ||
             result.error?.code === "VALIDATION_ERROR"
             ? "Kullanıcı bulunamadı."
@@ -193,7 +194,7 @@ export function WorkspaceSidebar({
 
       const user = result.data.user;
       if (user.userId === lobbiesProps.currentUserId) {
-        messageApi.info("Lobi sahibi zaten erişebilir.");
+        toast.info("Lobi sahibi zaten erişebilir.");
         setLookupUsername("");
         return;
       }
@@ -245,11 +246,11 @@ export function WorkspaceSidebar({
     try {
       const result = await usersProps.friends.sendRequest(friendUsername);
       if (!result.ok) {
-        messageApi.error(result.message);
+        toast.error(result.message);
         return;
       }
 
-      messageApi.success(result.message);
+      toast.success(result.message);
       setFriendUsername("");
       usersProps.onAddFriendOpenChange(false);
     } finally {
@@ -288,7 +289,6 @@ export function WorkspaceSidebar({
 
   return (
     <aside className="ct-sidebar" aria-label="Yan panel">
-      {contextHolder}
 
       <header className="ct-sidebar-header">
         <h3>{sectionTitle}</h3>
@@ -389,7 +389,13 @@ export function WorkspaceSidebar({
 
       <Modal
         rootClassName="ct-modal"
-        title="Yeni Lobi Oluştur"
+        title={
+          <ModalHeading
+            icon={<PlusOutlined />}
+            title="Yeni Lobi Oluştur"
+            description="Arkadaşlarının katılabileceği sesli bir oda ya da yazılı bir kanal aç."
+          />
+        }
         open={isCreateLobbyOpen}
         onOk={() => void handleCreateLobbySubmit()}
         onCancel={() => setIsCreateLobbyOpen(false)}
@@ -518,7 +524,13 @@ export function WorkspaceSidebar({
 
       <Modal
         rootClassName="ct-modal"
-        title="Arkadaş Ekle"
+        title={
+          <ModalHeading
+            icon={<UserAddOutlined />}
+            title="Arkadaş Ekle"
+            description="Kullanıcı adını yaz; isteği kabul ettiğinde listende görünür."
+          />
+        }
         open={usersProps.isAddFriendOpen}
         onOk={() => void handleAddFriendSubmit()}
         onCancel={() => usersProps.onAddFriendOpenChange(false)}

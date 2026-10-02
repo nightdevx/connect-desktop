@@ -1,6 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Input, Button, Avatar, message } from "antd";
+import { Input, Button, Avatar } from "antd";
 import {
   UserOutlined,
   UploadOutlined,
@@ -13,6 +13,7 @@ import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
 import type { UserRestriction } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import { useStillImage } from "../../hooks/media/use-still-image";
+import { toast } from "@/services/toast";
 
 interface ProfileSettings {
   displayName: string;
@@ -198,7 +199,6 @@ export function SettingsProfile({
   const queryClient = useQueryClient();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
-  const [messageApi, contextHolder] = message.useMessage();
 
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
     displayName: currentUsername,
@@ -263,7 +263,7 @@ export function SettingsProfile({
           setSavedEmail("");
 
           if (!result.ok) {
-            messageApi.error(
+            toast.error(
               `Profil bilgisi alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
             );
           }
@@ -296,7 +296,7 @@ export function SettingsProfile({
           bannerUrl: null,
         });
         setSavedEmail("");
-        messageApi.error(
+        toast.error(
           `Profil bilgisi alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       })
@@ -309,9 +309,7 @@ export function SettingsProfile({
     return () => {
       cancelled = true;
     };
-    // messageApi is stable (antd memoises it); currentUsername is what this
-    // actually reacts to.
-  }, [currentUsername, messageApi]);
+  }, [currentUsername]);
 
   /**
    * Writes the profile and re-seeds the form from what came back.
@@ -331,7 +329,7 @@ export function SettingsProfile({
   ): Promise<void> => {
     const normalizedDisplayName = next.displayName.trim();
     if (normalizedDisplayName.length < 3) {
-      messageApi.warning("Görünen ad en az 3 karakter olmalı.");
+      toast.warning("Görünen ad en az 3 karakter olmalı.");
       return;
     }
 
@@ -347,7 +345,7 @@ export function SettingsProfile({
       });
 
       if (!result.ok || !result.data?.profile) {
-        messageApi.error(
+        toast.error(
           `Profil kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -375,9 +373,9 @@ export function SettingsProfile({
         queryClient.invalidateQueries({ queryKey: ["workspace-users"] }),
         queryClient.invalidateQueries({ queryKey: ["user-card"] }),
       ]);
-      messageApi.success(successMessage);
+      toast.success(successMessage);
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Profil kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -391,7 +389,7 @@ export function SettingsProfile({
   const handleSendVerificationCode = async (): Promise<void> => {
     const targetEmail = profileSettings.email.trim();
     if (!targetEmail) {
-      messageApi.warning("Lütfen önce geçerli bir e-posta adresi girin ve kaydedin.");
+      toast.warning("Lütfen önce geçerli bir e-posta adresi girin ve kaydedin.");
       return;
     }
 
@@ -403,12 +401,12 @@ export function SettingsProfile({
       if (result.ok) {
         setVerificationSent(true);
         setVerificationCode("");
-        messageApi.success("Doğrulama kodu e-posta adresinize gönderildi!");
+        toast.success("Doğrulama kodu e-posta adresinize gönderildi!");
       } else {
-        messageApi.error(authErrorToast(result.error, "recovery"));
+        toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Kod gönderilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
       );
     } finally {
@@ -418,7 +416,7 @@ export function SettingsProfile({
 
   const handleVerifyEmailCode = async (): Promise<void> => {
     if (verificationCode.length !== OTP_CODE_LENGTH) {
-      messageApi.warning(`Lütfen ${OTP_CODE_LENGTH} haneli doğrulama kodunu girin.`);
+      toast.warning(`Lütfen ${OTP_CODE_LENGTH} haneli doğrulama kodunu girin.`);
       return;
     }
 
@@ -430,7 +428,7 @@ export function SettingsProfile({
       });
 
       if (result.ok) {
-        messageApi.success("E-posta adresiniz başarıyla doğrulandı!");
+        toast.success("E-posta adresiniz başarıyla doğrulandı!");
         setProfileSettings((prev) => ({
           ...prev,
           emailVerified: true,
@@ -438,10 +436,10 @@ export function SettingsProfile({
         setVerificationSent(false);
         setVerificationCode("");
       } else {
-        messageApi.error(authErrorToast(result.error, "recovery"));
+        toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Doğrulama başarısız: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
       );
     } finally {
@@ -485,7 +483,7 @@ export function SettingsProfile({
         "Profil resmi güncellendi.",
       );
     } catch (error) {
-      messageApi.warning(
+      toast.warning(
         error instanceof Error ? error.message : "Görsel okunamadı",
       );
     }
@@ -524,7 +522,6 @@ export function SettingsProfile({
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
 
       <ImageCropModal
         open={pendingBanner !== null}

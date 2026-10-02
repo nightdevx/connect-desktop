@@ -1,0 +1,296 @@
+/* ==========================================================================
+   OVERLAYS — toasts and modals.
+
+   The two surfaces that float above everything else, so they share one
+   language: the elevated surface, a hairline border, the large radius, and the
+   logo's two colours as a thin accent wherever the app speaks first.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Toasts (app/ToastHost.tsx, store in services/toast.ts)
+   -------------------------------------------------------------------------- */
+
+/* Top centre, just under the title bar — where the eye already is after a
+   click, and clear of the incoming-call card in the top-right corner. */
+.ct-toasts {
+  position: fixed;
+  top: calc(var(--ct-titlebar-height) + 10px);
+  left: 50%;
+  z-index: 2000;
+  display: flex;
+  width: min(380px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ct-toast {
+  --ct-toast-tone: var(--ct-info);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 10px 13px 12px;
+  overflow: hidden;
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-3);
+  box-shadow: var(--ct-shadow-lg);
+  pointer-events: auto;
+  animation: ctToastIn 0.32s var(--ct-ease-spring);
+}
+
+.ct-toast.success {
+  --ct-toast-tone: var(--ct-success);
+}
+
+.ct-toast.warning {
+  --ct-toast-tone: var(--ct-warning);
+}
+
+.ct-toast.error {
+  --ct-toast-tone: var(--ct-danger);
+}
+
+.ct-toast.leaving {
+  animation: ctToastOut 0.18s ease forwards;
+}
+
+@keyframes ctToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ctToastOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.ct-toast-icon {
+  @apply inline-flex shrink-0 items-center justify-center rounded-full;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+  color: var(--ct-toast-tone);
+  background: color-mix(in srgb, var(--ct-toast-tone) 15%, transparent);
+}
+
+.ct-toast-text {
+  @apply min-w-0 flex-1;
+  padding-top: 3px;
+}
+
+.ct-toast-text strong {
+  @apply block text-sm font-semibold;
+  line-height: 1.4;
+  color: var(--ct-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ct-toast-text span {
+  @apply mt-0.5 block text-xs;
+  line-height: 1.45;
+  color: var(--ct-text-muted);
+}
+
+.ct-toast-action {
+  @apply shrink-0 cursor-pointer self-center rounded-full border-0 px-3 text-xs font-bold;
+  height: 28px;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
+}
+
+.ct-toast-action:hover {
+  filter: brightness(1.08);
+}
+
+.ct-toast-close {
+  @apply inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  color: var(--ct-text-muted);
+}
+
+.ct-toast-close:hover {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+}
+
+/* Time left, as a line along the bottom edge in the toast's tone. Its
+   animationend is what closes the card, so it pauses with the hover. */
+.ct-toast-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  transform-origin: left;
+  background: var(--ct-toast-tone);
+  opacity: 0.7;
+  animation-name: ctToastTimer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.ct-toast:hover .ct-toast-timer {
+  animation-play-state: paused;
+}
+
+@keyframes ctToastTimer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-toast,
+  .ct-toast.leaving {
+    animation: none;
+  }
+
+  /* Still timed — the countdown is what dismisses — just not drawn moving. */
+  .ct-toast-timer {
+    opacity: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Modals — every antd Modal in the app carries rootClassName="ct-modal".
+
+   antd 6 renamed the panel from .ant-modal-content to .ant-modal-container;
+   the rules that used to live in common.css still targeted the old name and
+   had not styled a single modal since the upgrade.
+   -------------------------------------------------------------------------- */
+
+.ct-modal .ant-modal-mask {
+  background: var(--ct-scrim);
+  backdrop-filter: blur(6px);
+}
+
+.ct-modal .ant-modal-container {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-xl);
+  background: var(--ct-surface-2);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+/* The app speaking: the logo's two colours along the top edge. A destructive
+   confirmation swaps them for red, so "careful" reads before a word does. */
+.ct-modal .ant-modal-container::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ct-brand-blue), var(--ct-brand-cyan));
+}
+
+.ct-modal.danger .ant-modal-container::before {
+  background: var(--ct-danger);
+}
+
+.ct-modal .ant-modal-header {
+  margin: 0;
+  padding: 22px 60px 0 22px;
+  border: 0;
+  background: transparent;
+}
+
+.ct-modal .ant-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ct-text-primary);
+}
+
+.ct-modal .ant-modal-close {
+  top: 16px;
+  inset-inline-end: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: var(--ct-text-muted);
+}
+
+.ct-modal .ant-modal-close:hover {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+}
+
+.ct-modal .ant-modal-body {
+  padding: 18px 22px 22px;
+}
+
+/* No heading (the watch panel draws its own): the body takes the top inset. */
+.ct-modal .ant-modal-container:not(:has(> .ant-modal-header)) > .ant-modal-body {
+  padding-top: 22px;
+}
+
+.ct-modal .ant-modal-footer {
+  margin: 0;
+  padding: 14px 22px;
+  border-top: 1px solid var(--ct-alpha-08);
+  background: var(--ct-alpha-02);
+}
+
+/* The modal heading component (ui/modal-heading.tsx): icon badge, title and
+   one line saying what this dialog is for. */
+.ct-modal-heading {
+  @apply flex items-start gap-3.5;
+}
+
+.ct-modal-heading-icon {
+  @apply inline-flex shrink-0 items-center justify-center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ct-radius-md);
+  font-size: 18px;
+  color: var(--ct-brand-blue);
+  background: color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
+}
+
+.ct-modal-heading-icon.danger {
+  color: var(--ct-danger);
+  background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
+}
+
+.ct-modal-heading-text {
+  @apply flex min-w-0 flex-col;
+  padding-top: 1px;
+}
+
+.ct-modal-heading-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ct-text-primary);
+}
+
+.ct-modal-heading-description {
+  @apply mt-1 text-sm font-normal;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+}
+
+/* "Kim görecek" and similar one-line notes at the top of a modal body. */
+.ct-modal-note {
+  @apply m-0 flex items-center gap-2 rounded-md px-3 py-2.5 text-sm;
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+}

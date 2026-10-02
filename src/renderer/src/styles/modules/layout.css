@@ -211,18 +211,20 @@
    ========================================================================== */
 
 .ct-boot {
-  @apply flex flex-col items-center gap-6;
+  @apply flex flex-col items-center gap-7;
   opacity: 0;
   animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) 140ms both;
 }
 
-.ct-boot-logo {
-  @apply h-20 w-auto object-contain;
+/* The mark itself is drawn in by the ct-logomark--draw rules in auth.css. */
+.ct-boot .ct-logomark {
+  width: 128px;
+  height: auto;
 }
 
 .ct-boot-bar {
   @apply block overflow-hidden rounded-full;
-  width: 120px;
+  width: 128px;
   height: 2px;
   background: var(--ct-alpha-08);
 }
@@ -231,7 +233,11 @@
   content: "";
   @apply block h-full rounded-full;
   width: 33%;
-  background: var(--ct-accent);
+  background: linear-gradient(
+    90deg,
+    var(--ct-brand-blue),
+    var(--ct-brand-cyan)
+  );
   animation: ctBootBar 1.1s var(--ct-ease-premium) infinite;
 }
 

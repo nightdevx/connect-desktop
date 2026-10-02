@@ -1,11 +1,12 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Table, Button, Input, Tag, message, Select } from "antd";
+import { Table, Button, Input, Tag, Select } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
 import { AdminPageHeader } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
@@ -83,7 +84,7 @@ export default function AdminActivity() {
       setEvents(res.events || []);
       setTotal(res.total || 0);
     } catch (err) {
-      message.error(toErrorMessage(err, "Aktivite logları alınamadı"));
+      toast.error(toErrorMessage(err, "Aktivite logları alınamadı"));
     } finally {
       setLoading(false);
     }

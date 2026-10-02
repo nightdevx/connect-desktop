@@ -688,7 +688,7 @@ function WorkspaceShell({
         try {
           const result = await workspaceService.createLiveKitToken({ room: lobbyId });
           if (!result.ok || !result.data) {
-            throw new Error(result.error?.message ?? "Token alinamadi");
+            throw new Error(result.error?.message ?? "Ses sunucusuna bağlanılamadı");
           }
 
           const { token, serverUrl: url, iceServers } = result.data;
@@ -838,6 +838,48 @@ function WorkspaceShell({
     return lobbyMembersById[activeLobbyId] ?? restFallback;
   }, [activeLobbyId, openTextRoomId, lobbyMembersById, lobbyMembers]);
 
+  // Who a camera or a screen share reaches: "share" means one person in a call
+  // and a whole room in a lobby, and nothing used to say which. Phrased twice —
+  // the dialogs say who WILL see it, the dock's reminder who sees it NOW.
+  const mediaAudience = useMemo((): { before: string; live: string } | undefined => {
+    if (!activeLobbyId) {
+      return undefined;
+    }
+
+    if (activeLobbyId.startsWith("call_")) {
+      const peerName = callState.peerUser?.displayName || callState.peerUser?.username;
+      return peerName
+        ? { before: `Yalnızca ${peerName} görecek.`, live: `${peerName} görüyor` }
+        : undefined;
+    }
+
+    const lobbyName = lobbiesQuery.data?.data?.lobbies.find(
+      (lobby) => lobby.id === activeLobbyId,
+    )?.name;
+    if (!lobbyName) {
+      return undefined;
+    }
+
+    const others = activeLobbyRosterMembers.filter(
+      (member) => member.userId !== currentUserId,
+    ).length;
+    return others > 0
+      ? {
+          before: `${lobbyName} odasındaki ${others} kişi görecek.`,
+          live: `${lobbyName} odasındaki ${others} kişi görüyor`,
+        }
+      : {
+          before: `${lobbyName} odasına katılan herkes görecek.`,
+          live: `${lobbyName} odasına katılan herkes görür`,
+        };
+  }, [
+    activeLobbyId,
+    activeLobbyRosterMembers,
+    callState.peerUser,
+    currentUserId,
+    lobbiesQuery.data,
+  ]);
+
   // Mic/deafen drift watchdog. The local tile always renders local state, so a
   // disagreement with the server roster is invisible here and visible to
   // everyone else — this is what closes that gap. It reads the active lobby's
@@ -924,15 +966,11 @@ function WorkspaceShell({
   const handleCopyUsername = useCallback(
     async (username: string): Promise<void> => {
       try {
-        if (!navigator?.clipboard)
-          throw new Error("Pano erişimi desteklenmiyor");
         await navigator.clipboard.writeText(username);
-        setStatus(`@${username} kullanıcı adı kopyalandı`, "ok");
+        setStatus(`@${username} kopyalandı`, "ok");
       } catch (error) {
-        setStatus(
-          `Kopyalama başarısız: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-          "warn",
-        );
+        console.error("[copy-username]", error);
+        setStatus("Kullanıcı adı kopyalanamadı.", "warn");
       }
     },
     [setStatus],
@@ -1087,6 +1125,29 @@ function WorkspaceShell({
   // hid the lobby list behind an empty room with no roster. The lobbies half of
   // the tree gets the id only when it names a real lobby.
   const isInCallRoom = Boolean(activeLobbyId?.startsWith("call_"));
+
+  const lobbyByUserId = useMemo(() => {
+    const byUser: Record<string, { id: string; name: string }> = {};
+    for (const lobby of lobbies) {
+      if (lobby.isTextOnly) {
+        continue;
+      }
+      for (const member of lobbyMembersById[lobby.id] ?? []) {
+        byUser[member.userId] = { id: lobby.id, name: lobby.name };
+      }
+    }
+    return byUser;
+  }, [lobbies, lobbyMembersById]);
+
+  // From the friends page: same join funnel as clicking the room, after
+  // switching to the section the room is shown in.
+  const handleJoinFriendLobby = useCallback(
+    (lobbyId: string): void => {
+      setWorkspaceSection("lobbies");
+      handleSelectLobby(lobbyId);
+    },
+    [setWorkspaceSection, handleSelectLobby],
+  );
 
   // What the lobbies panel puts on screen. An open text room wins: that is what
   // the user just clicked, and the voice lobby carries on underneath it.
@@ -1336,6 +1397,7 @@ function WorkspaceShell({
             remoteParticipantAudioPreferences={remoteParticipantAudioPreferences}
             activeSpeakerIds={activeSpeakerIds}
             avatarByUserId={avatarByUserId}
+            lobbyMembersById={lobbyMembersById}
             settingsSection={settingsSection}
             currentUserRole={currentUserRole}
             onLogout={onLogout}
@@ -1387,6 +1449,10 @@ function WorkspaceShell({
               onOpenConversation: selectConversation,
               onAddFriend: () => setIsAddFriendOpen(true),
               onInitiateCall: handleInitiateCall,
+              lobbyByUserId,
+              currentLobbyId: isInCallRoom ? null : activeLobbyId,
+              onJoinLobby: handleJoinFriendLobby,
+              onCopyUsername: handleCopyUsername,
             }}
             onCopyUsername={handleCopyUsername}
             isWatchingScreen={isWatchingScreen}
@@ -1469,6 +1535,8 @@ function WorkspaceShell({
         micLocked={micLocked}
         headphoneEnabled={headphoneEnabled}
         screenShareEnabled={screenEnabled}
+        cameraEnabled={cameraEnabled}
+        mediaAudience={mediaAudience?.live}
         audioInputDevices={audioInputDevices}
         audioOutputDevices={audioOutputDevices}
         selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
@@ -1480,6 +1548,7 @@ function WorkspaceShell({
         onToggleMic={handleMicToggle}
         onToggleHeadphone={handleHeadphoneToggle}
         onStopScreenShare={handleScreenToggle}
+        onStopCamera={handleCameraToggle}
         onDisconnect={handleLeaveLobbyOrEndCall}
       />
 
@@ -1515,6 +1584,7 @@ function WorkspaceShell({
         onChangeKind={handleScreenShareSourceKindChange}
         onChangeQuality={setSelectedScreenShareQuality}
         onToggleCaptureSystemAudio={setCaptureSystemAudio}
+        audience={mediaAudience?.before}
       />
 
       <CameraShareModal
@@ -1532,6 +1602,7 @@ function WorkspaceShell({
         onChangeCameraPreferences={saveCameraPreferences}
         onStart={startCameraShareFromModal}
         onRefreshPreview={prepareCameraPreview}
+        audience={mediaAudience?.before}
       />
 
       <LobbyPasswordPromptModal

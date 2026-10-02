@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Switch, Button, message, Alert, Segmented } from "antd";
+import { Switch, Button, Alert, Segmented } from "antd";
 import { SettingOutlined, ReloadOutlined, BugOutlined } from "@ant-design/icons";
 import type {
   AppUpdateEvent,
@@ -9,6 +9,7 @@ import type { ThemeMode } from "@/styles/theme-mode";
 import type { GifPlayback } from "@/styles/gif-playback";
 import { useUiStore } from "@/store/ui-store";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
+import { toast } from "@/services/toast";
 
 const getUpdateCheckBlockedReason = (reason?: string): string => {
   if (reason === "DEV_MODE") {
@@ -85,7 +86,6 @@ export function SettingsApplication() {
   const setThemeMode = useUiStore((state) => state.setThemeMode);
   const gifPlayback = useUiStore((state) => state.gifPlayback);
   const setGifPlayback = useUiStore((state) => state.setGifPlayback);
-  const [messageApi, contextHolder] = message.useMessage();
   const [appVersion, setAppVersion] = useState("-");
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(
     null,
@@ -95,7 +95,7 @@ export function SettingsApplication() {
     isSaving: isSavingAppPreference,
     needsRelaunch,
     savePreference,
-  } = useDesktopAppPreferences(messageApi);
+  } = useDesktopAppPreferences();
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [isLaunchingUpdateDebug, setIsLaunchingUpdateDebug] = useState(false);
 
@@ -128,7 +128,7 @@ export function SettingsApplication() {
         }
 
         if (!result.ok) {
-          messageApi.error(
+          toast.error(
             `Güncelleme durumu alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           );
         }
@@ -138,7 +138,7 @@ export function SettingsApplication() {
           return;
         }
 
-        messageApi.error(
+        toast.error(
           `Güncelleme durumu alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       });
@@ -152,7 +152,7 @@ export function SettingsApplication() {
         setUpdateState(event.state);
 
         if (event.type === "update-error") {
-          messageApi.error(`Güncelleme hatası: ${event.errorMessage}`);
+          toast.error(`Güncelleme hatası: ${event.errorMessage}`);
         }
       },
     );
@@ -161,8 +161,7 @@ export function SettingsApplication() {
       active = false;
       unsubscribe();
     };
-    // Stable: antd memoises the message.useMessage() handle.
-  }, [messageApi]);
+  }, []);
 
   const handleManualUpdateCheck = async (): Promise<void> => {
     setIsCheckingForUpdates(true);
@@ -170,20 +169,20 @@ export function SettingsApplication() {
     try {
       const result = await window.desktopApi.checkForAppUpdates();
       if (!result.ok) {
-        messageApi.error(
+        toast.error(
           `Güncelleme kontrolü başlatılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
 
       if (!result.data?.requested) {
-        messageApi.warning(getUpdateCheckBlockedReason(result.data?.reason));
+        toast.warning(getUpdateCheckBlockedReason(result.data?.reason));
         return;
       }
 
-      messageApi.success("Güncelleme kontrolü başlatıldı.");
+      toast.success("Güncelleme kontrolü başlatıldı.");
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Güncelleme kontrolü başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -197,20 +196,20 @@ export function SettingsApplication() {
     try {
       const result = await window.desktopApi.launchMockUpdateDebug();
       if (!result.ok) {
-        messageApi.error(
+        toast.error(
           `Debug güncelleme açılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
 
       if (!result.data?.started) {
-        messageApi.warning(getUpdateDebugBlockedReason(result.data?.reason));
+        toast.warning(getUpdateDebugBlockedReason(result.data?.reason));
         return;
       }
 
-      messageApi.success("Debug güncelleme penceresi açıldı.");
+      toast.success("Debug güncelleme penceresi açıldı.");
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Debug güncelleme açılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -230,7 +229,6 @@ export function SettingsApplication() {
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">

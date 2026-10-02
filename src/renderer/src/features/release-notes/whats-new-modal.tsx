@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "antd";
 import { GiftOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import {
   RELEASE_HIGHLIGHT_LABELS,
   notesSince,
@@ -110,10 +111,11 @@ export function WhatsNewModal({
     <Modal
       rootClassName="ct-modal"
       title={
-        <span className="ct-modal-title-icon">
-          <GiftOutlined />
-          Yenilikler
-        </span>
+        <ModalHeading
+          icon={<GiftOutlined />}
+          title="Yenilikler"
+          description="Son güncellemelerde neler değişti."
+        />
       }
       open={manualOpen || isOpen}
       onCancel={close}

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Form, Input, Button, message } from "antd";
+import { Form, Input, Button } from "antd";
 import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
 import { OTP_CODE_LENGTH, type LoginRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { authErrorToast, describeAuthError } from "../auth-error-messages";
 import { AuthErrorAlert } from "../components/AuthErrorAlert";
+import { toast } from "@/services/toast";
 
 // antd Form hands its callback an untyped object; naming the fields here is
 // what makes a renamed <Form.Item name> a compile error rather than an
@@ -81,15 +82,15 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
       const email = values.email.trim();
       const result = await window.desktopApi.forgotPassword({ email });
       if (result.ok) {
-        message.success("Şifre sıfırlama kodu e-postanıza gönderildi!");
+        toast.success("Şifre sıfırlama kodu e-postanıza gönderildi!");
         setResetEmail(email);
         setMode("reset");
         form.resetFields();
       } else {
-        message.error(authErrorToast(result.error, "recovery"));
+        toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
-      message.error("Bir hata oluştu!");
+      toast.error("Bir hata oluştu!");
     } finally {
       setActionLoading(false);
     }
@@ -104,13 +105,13 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         newPassword: values.newPassword,
       });
       if (result.ok) {
-        message.success("Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.");
+        toast.success("Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.");
         goToMode("login");
       } else {
-        message.error(authErrorToast(result.error, "recovery"));
+        toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
-      message.error("Bir hata oluştu!");
+      toast.error("Bir hata oluştu!");
     } finally {
       setActionLoading(false);
     }
@@ -120,8 +121,8 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     return (
       <section className="ct-auth-pane" aria-label="Şifre sıfırlama e-posta formu">
         <div className="mb-8">
-          <h2 className="ct-auth-title text-center">Şifremi Unuttum</h2>
-          <p className="ct-auth-subtitle text-center mx-auto">
+          <h2 className="ct-auth-title">Şifremi Unuttum</h2>
+          <p className="ct-auth-subtitle">
             Şifrenizi sıfırlamak için hesabınıza kayıtlı e-posta adresini girin.
           </p>
         </div>
@@ -182,8 +183,8 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     return (
       <section className="ct-auth-pane" aria-label="Şifre sıfırlama formu">
         <div className="mb-8">
-          <h2 className="ct-auth-title text-center">Yeni Şifre Belirle</h2>
-          <p className="ct-auth-subtitle text-center mx-auto">
+          <h2 className="ct-auth-title">Yeni Şifre Belirle</h2>
+          <p className="ct-auth-subtitle">
             E-postanıza gönderilen {OTP_CODE_LENGTH} haneli kodu ve yeni şifrenizi girin.
           </p>
         </div>
@@ -280,8 +281,8 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
   return (
     <section className="ct-auth-pane" aria-label="Giriş formu">
       <div className="mb-8">
-        <h2 className="ct-auth-title text-center">Hoş Geldin</h2>
-        <p className="ct-auth-subtitle text-center mx-auto">
+        <h2 className="ct-auth-title">Hoş Geldin</h2>
+        <p className="ct-auth-subtitle">
           Arkadaşlarınla tekrar bağlanmak için hesabına giriş yap.
         </p>
       </div>
@@ -366,7 +367,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-center text-sm" >
+      <p className="mt-6 text-sm">
         Hesabın yok mu?{" "}
         <button type="button" className="ct-link" onClick={onGoRegister}>
           Kayıt Ol

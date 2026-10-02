@@ -21,9 +21,22 @@
   }
 }
 
-@keyframes slowRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* The boot mark's rings, drawn as strokes. pathLength="1" on the circles is
+   what lets a dasharray of 1 mean "the whole ring". */
+@keyframes ctLogoDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Held while the session check is in flight: the finished mark breathes
+   between its two ring colours instead of sitting frozen. */
+@keyframes ctLogoBreathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--ct-brand-blue) 30%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--ct-brand-cyan) 40%, transparent));
+  }
 }
 
 @keyframes ctSpinnerPulse {
@@ -47,19 +60,6 @@
   to { transform: translateX(300%); }
 }
 
-@keyframes callAvatarDimPulse {
-  0% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0.35;
-  }
-}
-
-
 @keyframes bannerSlideDown {
   from {
     opacity: 0;
@@ -71,42 +71,24 @@
   }
 }
 
-@keyframes callAvatarBreathe {
-  0%,
-  100% {
+@keyframes ctRingRipple {
+  from {
     transform: scale(1);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    opacity: 0.8;
   }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 40px rgba(99, 102, 241, 0.8);
+  to {
+    transform: scale(1.75);
+    opacity: 0;
   }
 }
 
-/* Distinct from callAvatarDimPulse, which the lobby uses for a placeholder
-   tile. The call overlay injected its own keyframes under that same name, so
-   whichever mounted last silently redefined the other one. */
-@keyframes callAvatarPulseGlow {
+@keyframes ctRingDot {
   0%,
   100% {
-    transform: scale(1);
-    opacity: 0.65;
-    box-shadow: 0 0 10px var(--ct-alpha-12);
+    opacity: 0.25;
   }
   50% {
-    transform: scale(1.02);
-    opacity: 0.95;
-    box-shadow: 0 0 25px var(--ct-alpha-20);
-  }
-}
-
-@keyframes buttonBreathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
+    opacity: 1;
   }
 }
 
@@ -131,17 +113,6 @@
   50% {
     opacity: 1;
     transform: scale(1.15);
-  }
-}
-
-@keyframes ctaPulseAccept {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 4px 10px color-mix(in srgb, var(--ct-success) 5%, transparent);
-  }
-  50% {
-    transform: scale(1.03);
-    box-shadow: 0 6px 15px color-mix(in srgb, var(--ct-success) 15%, transparent);
   }
 }
 

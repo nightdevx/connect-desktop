@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Input, Select, Table, Tag, message } from "antd";
+import { Button, Input, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined, DownloadOutlined } from "@ant-design/icons";
 import type { AdminAuditEntry } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
 
 const TARGET_TYPES = [
   { value: "", label: "Tüm hedefler" },
@@ -45,7 +46,7 @@ export default function AdminAudit() {
       setEntries(data.entries);
       setTotal(data.total);
     } catch (error) {
-      message.error(toErrorMessage(error, "Denetim kaydı yüklenemedi"));
+      toast.error(toErrorMessage(error, "Denetim kaydı yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -101,7 +102,7 @@ export default function AdminAudit() {
           <Button
             icon={<DownloadOutlined />}
             onClick={() => {
-              message.info("CSV dökümü GET /admin/audit/export adresinden alınır.");
+              toast.info("CSV dökümü GET /admin/audit/export adresinden alınır.");
             }}
           >
             CSV

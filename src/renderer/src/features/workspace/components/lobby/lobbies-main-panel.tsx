@@ -8,7 +8,6 @@ import {
   type MouseEvent,
   type SetStateAction,
 } from "react";
-import { message } from "antd";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage, LobbyDescriptor, UserRole } from "@shared/auth-contracts";
 import type {
@@ -23,6 +22,7 @@ import { WatchModal, useWatchRoom } from "@/features/watch";
 import { watchStageIdentity, watchVideoRef } from "@shared/watch";
 import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
+import { UserDeleteOutlined } from "@ant-design/icons";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -44,6 +44,7 @@ import { LobbyStageView } from "./parts/LobbyStageView";
 import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
 import { describeDuration } from "./parts/moderation-durations";
 import { buildMoveTargets } from "./parts/member-move";
+import { toast } from "@/services/toast";
 
 interface LobbiesMainPanelProps {
   lobbiesCount: number;
@@ -67,6 +68,8 @@ interface LobbiesMainPanelProps {
   remoteParticipantAudioPreferences: Record<string, RemoteParticipantAudioPreference>;
   activeSpeakerIds: string[];
   avatarByUserId: Record<string, string | null | undefined>;
+  /** Live rosters of every room (the WS snapshot), keyed by lobby id. */
+  lobbyMembersById: Record<string, LobbyStateMember[]>;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
   onSetRemoteParticipantMuted: (participantUserId: string, muted: boolean) => void;
@@ -149,6 +152,7 @@ export function LobbiesMainPanel({
   remoteParticipantAudioPreferences,
   activeSpeakerIds,
   avatarByUserId,
+  lobbyMembersById,
   joiningLobbyId,
   onJoinLobby,
   onSetRemoteParticipantMuted,
@@ -456,13 +460,13 @@ export function LobbiesMainPanel({
       .muteLobbyMember({ lobbyId: activeLobbyId, userId: targetId, muted, durationSeconds })
       .then((result) => {
         if (result.ok) {
-          message.success(
+          toast.success(
             muted
               ? `${targetName} susturuldu (${describeDuration(durationSeconds)})`
               : `${targetName} sesi açıldı`,
           );
         } else {
-          message.error(getApiErrorMessage(result.error));
+          toast.error(getApiErrorMessage(result.error));
         }
       });
   };
@@ -475,9 +479,9 @@ export function LobbiesMainPanel({
       .kickLobbyMember({ lobbyId: activeLobbyId, userId: targetId })
       .then((result) => {
         if (result.ok) {
-          message.success(`${targetName} odadan atıldı`);
+          toast.success(`${targetName} odadan atıldı`);
         } else {
-          message.error(getApiErrorMessage(result.error));
+          toast.error(getApiErrorMessage(result.error));
         }
       });
   };
@@ -491,9 +495,9 @@ export function LobbiesMainPanel({
       .moveLobbyMember({ lobbyId: activeLobbyId, userId: targetId, targetLobbyId })
       .then((result) => {
         if (result.ok) {
-          message.success(`${targetName} → ${roomName}`);
+          toast.success(`${targetName} → ${roomName}`);
         } else {
-          message.error(getApiErrorMessage(result.error));
+          toast.error(getApiErrorMessage(result.error));
         }
       });
   };
@@ -506,11 +510,11 @@ export function LobbiesMainPanel({
       .timeoutLobbyMember({ lobbyId: activeLobbyId, userId: targetId, durationSeconds })
       .then((result) => {
         if (result.ok) {
-          message.success(
+          toast.success(
             `${targetName} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
           );
         } else {
-          message.error(getApiErrorMessage(result.error));
+          toast.error(getApiErrorMessage(result.error));
         }
       });
   };
@@ -560,9 +564,9 @@ export function LobbiesMainPanel({
         // Already Turkish: use-friends maps the server's codes before it
         // returns, so there is nothing to translate here.
         if (result.ok) {
-          message.success(result.message);
+          toast.success(result.message);
         } else {
-          message.error(result.message);
+          toast.error(result.message);
         }
       })
       .finally(() => {
@@ -681,7 +685,7 @@ export function LobbiesMainPanel({
       .sendLobbyEmote({ lobbyId: activeLobbyId, emote })
       .then((result) => {
         if (!result.ok) {
-          message.error(getApiErrorMessage(result.error));
+          toast.error(getApiErrorMessage(result.error));
         }
       });
   };
@@ -723,6 +727,8 @@ export function LobbiesMainPanel({
         activeLobbyId={activeLobbyId}
         lobbiesCount={lobbiesCount}
         lobbies={lobbies}
+        lobbyMembersById={lobbyMembersById}
+        avatarByUserId={avatarByUserId}
         joiningLobbyId={joiningLobbyId}
         onJoinLobby={onJoinLobby}
       />
@@ -743,6 +749,7 @@ export function LobbiesMainPanel({
             isConnected={lobbyMembers.some(
               (member) => member.userId === currentUserId,
             )}
+            liveShareCount={lobbyMembers.filter((member) => member.screenSharing).length}
             isChatOpen={isLobbyChatOpen}
             unreadCount={unreadLobbyMessages}
             onToggleChat={() =>
@@ -889,6 +896,9 @@ export function LobbiesMainPanel({
           key={`context-menu-${contextMenuParticipantId}-${contextMenuPosition.x}-${contextMenuPosition.y}`}
           x={contextMenuPosition.x}
           y={contextMenuPosition.y}
+          userId={contextMenuParticipantId}
+          name={nameByUserId[contextMenuParticipantId] ?? "Katılımcı"}
+          avatarUrl={avatarByUserId[contextMenuParticipantId]}
           preference={selectedPreference}
           isScreenSharing={
             lobbyMembers.find((m) => m.userId === contextMenuParticipantId)?.screenSharing ?? false
@@ -972,6 +982,7 @@ export function LobbiesMainPanel({
       <ConfirmActionModal
         isOpen={pendingUnfriend !== null}
         title="Arkadaşlıktan Çıkar"
+        icon={<UserDeleteOutlined />}
         message={`${pendingUnfriend?.name ?? ""} arkadaş listenizden kaldırılacak. Geri almak için karşı tarafın yeni isteğinizi kabul etmesi gerekir.`}
         confirmLabel="Arkadaşlıktan Çıkar"
         isProcessing={

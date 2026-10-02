@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Button, message } from "antd";
+import { Select, Button } from "antd";
 import { VideoCameraOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import type { CameraPreferences } from "./settings-main-panel-types";
+import { toast } from "@/services/toast";
 
 interface SettingsCameraProps {
   cameraPreferences: CameraPreferences;
@@ -23,7 +24,6 @@ export function SettingsCamera({
   cameraPreferences,
   onSaveCameraPreferences,
 }: SettingsCameraProps) {
-  const [messageApi, contextHolder] = message.useMessage();
   const [draftCameraPreferences, setDraftCameraPreferences] =
     useState<CameraPreferences>(cameraPreferences);
   const [cameraTestStream, setCameraTestStream] = useState<MediaStream | null>(
@@ -262,9 +262,9 @@ export function SettingsCamera({
       });
 
       setCameraTestStream(stream);
-      messageApi.success("Kamera testi başlatıldı.");
+      toast.success("Kamera testi başlatıldı.");
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Kamera testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -290,7 +290,6 @@ export function SettingsCamera({
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
@@ -369,7 +368,7 @@ export function SettingsCamera({
               onClick={() => {
                 if (cameraTestStream) {
                   stopCameraTest();
-                  messageApi.info("Kamera testi durduruldu.");
+                  toast.info("Kamera testi durduruldu.");
                   return;
                 }
 

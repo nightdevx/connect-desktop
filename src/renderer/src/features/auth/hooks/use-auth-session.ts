@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { message } from "antd";
 import type { SessionSnapshot } from "@shared/desktop-api-types";
 import { authService } from "../services/service";
 import { useUiStore } from "@/store/ui-store";
+import { toast } from "@/services/toast";
 
 const getErrorMessage = (error?: { message?: string }): string => {
   if (!error?.message?.trim()) {
@@ -59,7 +59,7 @@ export const useAuthSession = () => {
 
       // Keyed: this hook is mounted more than once (App and the admin users
       // page), so an unkeyed toast would stack one copy per mount.
-      void message.open({
+      void toast.open({
         type: "warning",
         key: "session-expired",
         content: sessionEndedMessage(reason),

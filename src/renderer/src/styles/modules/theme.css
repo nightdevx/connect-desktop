@@ -64,21 +64,6 @@
   background: var(--ct-danger);
 }
 
-/* Nested bezel used by the auth card: an outer hairline frame with the card
-   inset inside it. */
-.ct-double-bezel-outer {
-  @apply rounded-2xl border p-1.5;
-  border-color: var(--ct-alpha-04);
-  background: var(--ct-alpha-02);
-}
-
-.ct-double-bezel-inner {
-  @apply rounded-lg border;
-  border-color: var(--ct-alpha-08);
-  background: var(--ct-panel);
-  box-shadow: inset 0 1px 1px var(--ct-alpha-04);
-}
-
 /* Conversation header above the message thread. */
 .ct-chat-user-header-premium {
   @apply flex h-14 shrink-0 cursor-pointer select-none items-center justify-between gap-3 border-b px-4;
@@ -138,6 +123,9 @@
 .ct-premium-form .ant-form-item-label > label {
   @apply text-2xs font-bold uppercase tracking-widest;
   height: auto;
+  /* antd's <label> is inline-flex at content width; the password label hosts a
+     space-between row ("Şifre" | "Şifremi Unuttum") that needs the full line. */
+  width: 100%;
   color: var(--ct-text-muted);
 }
 
@@ -223,74 +211,222 @@
 /* ------------------------------------------------------------------ *
  * Context menus
  *
- * Every right-click menu in the app is an antd Dropdown, and antd sizes its
- * items from the global controlHeight token — 40px here, which is the right
- * height for a button and far too tall for a menu row. A two-item menu came
- * out taller than the row it belonged to.
+ * Every right-click menu in the app is an antd Dropdown. They share one
+ * surface with the modals and toasts (overlays.css): the elevated surface, a
+ * hairline border, the large radius. Rows are 32px — antd sizes them from the
+ * global 40px controlHeight, which is a button's height, not a menu row's.
+ *
+ * SUBMENUS ARE SEPARATE POPUPS. antd renders a submenu into its own portal,
+ * `.ant-dropdown-menu-submenu-popup`, which is NOT inside `.ant-dropdown` —
+ * so every rule below is written for both roots. Before this, the moderation
+ * durations and the screen-change list kept antd's default light look.
  *
  * SPECIFICITY MATTERS. antd 6 emits its own rules as
  * `.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item` (three classes,
- * only the hash part wrapped in :where). A single-class override loses to that
- * silently — the rules apply, the browser just picks antd's. Everything here is
- * written at matching or higher specificity for that reason.
- *
- * Written as CSS rather than component tokens because it also has to reach the
- * one menu that is not antd at all (the audio-device popover in common.css) and
- * the hand-rolled blocks inside the participant menu. Tokens would style only
- * some of them and the two would visibly diverge.
+ * only the hash part wrapped in :where). `:is()` takes the weight of its
+ * heaviest argument, so the selectors below match antd's and win on order.
  * ------------------------------------------------------------------ */
 
-.ant-dropdown .ant-dropdown-menu {
-  padding: 3px;
-  border-radius: var(--ct-radius-md);
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu {
+  padding: 6px;
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-3);
+  box-shadow: var(--ct-shadow-lg);
 }
 
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
-  /* Height comes from the line box plus this padding — 18 + 6 = 24px — not from
-     a 40px control. The smaller radius stops the hover highlight reading as a
-     button sitting inside the menu. */
-  min-height: 0;
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  min-height: 32px;
   height: auto;
-  padding: 3px 9px;
-  border-radius: var(--ct-radius-sm);
+  padding: 6px 10px;
+  border-radius: 8px;
   font-size: 13px;
-  line-height: 18px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--ct-text-secondary);
   /* Window titles in the screen-change submenu are arbitrarily long; they must
      not wrap a row onto two lines. */
   white-space: nowrap;
 }
 
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item .anticon,
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title .anticon {
-  font-size: 13px;
-  min-width: 13px;
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item:hover,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-open > .ant-dropdown-menu-submenu-title {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+}
+
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item .anticon,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title .anticon {
+  min-width: 15px;
+  font-size: 15px;
+  color: var(--ct-text-muted);
+}
+
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item:hover .anticon,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover .anticon {
+  color: var(--ct-text-primary);
 }
 
 /* antd spaces the icon from the label with a margin sized for the tall row. */
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-icon {
-  margin-inline-end: 7px;
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-icon {
+  margin-inline-end: 10px;
 }
 
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-title-content {
+/* The label takes the rest of the row so a trailing value (the current
+   quality, a shortcut) sits flush right. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-title-content {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 260px;
 }
 
 /* antd reserves room for the expand arrow out of horizontal padding this no
    longer has; give it back explicitly or the arrow sits on the label. */
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
-  padding-inline-end: 24px;
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  padding-inline-end: 28px;
 }
 
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-divider {
-  margin: 3px 0;
+/* Destructive rows: red text; a red fill under the pointer. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger .anticon {
+  color: var(--ct-danger);
 }
 
-/* Disabled items are section headings in the participant menu — no hover, and
-   they should read as labels rather than dead options. */
-.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-disabled {
-  padding-block: 2px;
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled):hover,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled):hover .anticon {
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+}
+
+/* A destructive submenu ("Zaman Aşımı"). antd's danger flag is for items
+   only, so these carry a class instead. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ct-menu-danger > .ant-dropdown-menu-submenu-title,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ct-menu-danger > .ant-dropdown-menu-submenu-title .anticon {
+  color: var(--ct-danger);
+}
+
+/* A group's rows line up with the rows outside it; antd insets them. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-group-list {
+  margin: 0;
+}
+
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-divider {
+  margin: 5px 6px;
+  background: var(--ct-alpha-08);
+}
+
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-group-title {
+  padding: 8px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ct-text-muted);
+}
+
+/* Disabled rows read as dimmed options, not as live ones. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled,
+:is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled:hover {
   cursor: default;
+  color: var(--ct-text-muted);
+  background: transparent;
+}
+
+/* A menu about one person (ContextMenuPanel): who, their volumes, then the
+   rows. The surface moves from the menu onto this panel around it, so the
+   header and the sliders sit on the same card as the rows. */
+.ct-menu-panel {
+  min-width: 248px;
+  max-width: 300px;
+  padding: 6px;
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-3);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ant-dropdown .ct-menu-panel .ant-dropdown-menu {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ct-menu-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--ct-alpha-08);
+}
+
+/* A face without a picture takes its owner's hue, as on the lobby cards. */
+.ct-menu-identity .ant-avatar {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ct-on-media);
+  background: oklch(0.55 0.12 var(--ct-name-h));
+}
+
+.ct-menu-identity-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.ct-menu-identity-text strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ct-text-primary);
+}
+
+.ct-menu-identity-text span {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ct-text-muted);
+}
+
+.ct-menu-volume {
+  padding: 6px 10px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--ct-alpha-08);
+}
+
+.ct-menu-volume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ct-text-secondary);
+}
+
+.ct-menu-volume-row .anticon {
+  margin-inline-end: 7px;
+  color: var(--ct-text-muted);
+}
+
+.ct-menu-volume-row b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-menu-volume .ant-slider {
+  margin: 8px 4px 10px;
 }

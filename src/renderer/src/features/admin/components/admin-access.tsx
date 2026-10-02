@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Input, InputNumber, Segmented, Select, Table, message } from "antd";
+import { Button, Input, InputNumber, Segmented, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { AdminInviteCode, AdminIpBan } from "@shared/desktop-api-types";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
 
 type Pane = "ips" | "invites";
 
@@ -41,7 +42,7 @@ export default function AdminAccess() {
         setInvites(data.invites);
       }
     } catch (error) {
-      message.error(toErrorMessage(error, "Liste yüklenemedi"));
+      toast.error(toErrorMessage(error, "Liste yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export default function AdminAccess() {
         }
         setUsers(collected);
       } catch (error) {
-        message.error(toErrorMessage(error, "Kullanıcılar yüklenemedi"));
+        toast.error(toErrorMessage(error, "Kullanıcılar yüklenemedi"));
       } finally {
         setUsersLoading(false);
       }
@@ -100,33 +101,33 @@ export default function AdminAccess() {
 
   const addBan = async (): Promise<void> => {
     if (newBanReason.trim().length < 3) {
-      message.warning("Gerekçe en az 3 karakter olmalı.");
+      toast.warning("Gerekçe en az 3 karakter olmalı.");
       return;
     }
     try {
       if (banBy === "user") {
         if (!banUserId) {
-          message.warning("Bir kullanıcı seçin.");
+          toast.warning("Bir kullanıcı seçin.");
           return;
         }
         const data = await adminService.unwrap(
           adminService.ops.banUserIp({ userId: banUserId, reason: newBanReason.trim() }),
           "IP yasaklanamadı",
         );
-        message.success(`${data.ban.cidr} yasaklandı ve oturumları kapatıldı`);
+        toast.success(`${data.ban.cidr} yasaklandı ve oturumları kapatıldı`);
         setBanUserId(null);
       } else {
         await adminService.unwrap(
           adminService.ops.banIp({ cidr: newCidr.trim(), reason: newBanReason.trim() }),
           "IP yasaklanamadı",
         );
-        message.success("IP yasaklandı");
+        toast.success("IP yasaklandı");
         setNewCidr("");
       }
       setNewBanReason("");
       void load();
     } catch (error) {
-      message.error(toErrorMessage(error, "IP yasaklanamadı"));
+      toast.error(toErrorMessage(error, "IP yasaklanamadı"));
     }
   };
 
@@ -136,12 +137,12 @@ export default function AdminAccess() {
         adminService.ops.createInvite({ code: newCode.trim(), maxUses: newMaxUses ?? 1 }),
         "Davet kodu oluşturulamadı",
       );
-      message.success("Davet kodu oluşturuldu");
+      toast.success("Davet kodu oluşturuldu");
       setNewCode("");
       setNewMaxUses(1);
       void load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Davet kodu oluşturulamadı"));
+      toast.error(toErrorMessage(error, "Davet kodu oluşturulamadı"));
     }
   };
 
@@ -167,10 +168,10 @@ export default function AdminAccess() {
           onClick={async () => {
             try {
               await adminService.unwrap(adminService.ops.unbanIp({ cidr: row.cidr }), "Yasak kaldırılamadı");
-              message.success("Yasak kaldırıldı");
+              toast.success("Yasak kaldırıldı");
               void load();
             } catch (error) {
-              message.error(toErrorMessage(error, "Yasak kaldırılamadı"));
+              toast.error(toErrorMessage(error, "Yasak kaldırılamadı"));
             }
           }}
         />
@@ -205,10 +206,10 @@ export default function AdminAccess() {
           onClick={async () => {
             try {
               await adminService.unwrap(adminService.ops.deleteInvite({ code: row.code }), "Kod silinemedi");
-              message.success("Kod silindi");
+              toast.success("Kod silindi");
               void load();
             } catch (error) {
-              message.error(toErrorMessage(error, "Kod silinemedi"));
+              toast.error(toErrorMessage(error, "Kod silinemedi"));
             }
           }}
         />

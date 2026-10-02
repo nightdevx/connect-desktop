@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Select, Switch, message } from "antd";
+import { Button, Select, Switch } from "antd";
 import { EyeInvisibleOutlined, SaveOutlined } from "@ant-design/icons";
 import type {
   PrivacySettings,
@@ -9,6 +9,7 @@ import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
+import { toast } from "@/services/toast";
 
 // Mirrors the backend column defaults, so an account created before privacy
 // existed shows what it actually does: reachable by everyone.
@@ -24,7 +25,6 @@ const AUDIENCE_OPTIONS = [
 ];
 
 export function SettingsPrivacy() {
-  const [messageApi, contextHolder] = message.useMessage();
   // Two copies: `saved` is what the server last told us, `draft` is what the
   // user sees. The diff between them is the PATCH body.
   const [saved, setSaved] = useState<PrivacySettings>(DEFAULT_PRIVACY);
@@ -42,7 +42,7 @@ export function SettingsPrivacy() {
     preferences: appPreferences,
     isSaving: isSavingAppPreference,
     savePreference,
-  } = useDesktopAppPreferences(messageApi);
+  } = useDesktopAppPreferences();
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +58,7 @@ export function SettingsPrivacy() {
         }
 
         if (!result.ok) {
-          messageApi.error(
+          toast.error(
             `Gizlilik ayarları alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           );
           return;
@@ -77,7 +77,7 @@ export function SettingsPrivacy() {
     return () => {
       cancelled = true;
     };
-  }, [messageApi]);
+  }, []);
 
   const handleSavePrivacy = async (): Promise<void> => {
     // Omitted means "leave unchanged", so send only the fields the user
@@ -98,7 +98,7 @@ export function SettingsPrivacy() {
       const result = await userService.updatePrivacySettings(payload);
 
       if (!result.ok || !result.data?.privacy) {
-        messageApi.error(
+        toast.error(
           `Gizlilik ayarları kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -106,7 +106,7 @@ export function SettingsPrivacy() {
 
       setSaved(result.data.privacy);
       setDraft(result.data.privacy);
-      messageApi.success("Gizlilik ayarları kaydedildi.");
+      toast.success("Gizlilik ayarları kaydedildi.");
     } finally {
       setIsSaving(false);
     }
@@ -116,11 +116,11 @@ export function SettingsPrivacy() {
     setUnblockingIds((previous) => [...previous, userId]);
     try {
       if (await unblockUser(userId)) {
-        messageApi.success("Engel kaldırıldı.");
+        toast.success("Engel kaldırıldı.");
         return;
       }
 
-      messageApi.error("Engel kaldırılamadı.");
+      toast.error("Engel kaldırılamadı.");
     } finally {
       setUnblockingIds((previous) => previous.filter((id) => id !== userId));
     }
@@ -128,7 +128,6 @@ export function SettingsPrivacy() {
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">

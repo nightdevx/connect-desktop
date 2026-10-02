@@ -12,6 +12,9 @@ export interface CallSessionState {
   targetUserId: string | null;
   peerUser: UserDirectoryEntry | null;
   isMuted?: boolean;
+  // ISO time the call went active, for the running time on the stage and the
+  // dock. A rejoin restarts it: the original start does not survive a leave.
+  connectedAt?: string | null;
 }
 
 // ongoingCall stores full context needed to rejoin after a soft leave
@@ -268,7 +271,10 @@ export const useCallSession = ({
       getSynth().startDialTone();
       setStatus(`${targetUser.displayName} aranıyor...`, "ok");
     } catch (error) {
-      setStatus(`Arama hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "error");
+      // Exception mesajları teknik ve çoğu zaman İngilizce; kullanıcıya sabit
+      // bir açıklama, ayrıntı konsola.
+      console.error("[call-session] startCall failed:", error);
+      setStatus("Arama başlatılamadı. Lütfen tekrar dene.", "error");
     }
   }, [currentUserId, currentUsername, getSynth, setActiveLobbyId, setStatus]);
 
@@ -285,11 +291,16 @@ export const useCallSession = ({
         return;
       }
 
-      setCallState((prev) => ({ ...prev, status: "active" }));
+      setCallState((prev) => ({
+        ...prev,
+        status: "active",
+        connectedAt: new Date().toISOString(),
+      }));
       setActiveLobbyId(`call_${callId}`);
       setStatus("Arama başladı.", "ok");
     } catch (error) {
-      setStatus(`Arama kabul hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "error");
+      console.error("[call-session] acceptCall failed:", error);
+      setStatus("Arama kabul edilemedi. Lütfen tekrar dene.", "error");
       setCallState(initialCallState);
     }
   }, [getSynth, setActiveLobbyId, setStatus]);
@@ -488,7 +499,11 @@ export const useCallSession = ({
         // 2. CALL ACCEPTED
         else if (type === "call-accepted" && callId === callStateRef.current.callId) {
           getSynth().stop();
-          setCallState((prev) => ({ ...prev, status: "active" }));
+          setCallState((prev) => ({
+            ...prev,
+            status: "active",
+            connectedAt: new Date().toISOString(),
+          }));
           setActiveLobbyId(`call_${callId}`);
           setStatus("Arama kabul edildi.", "ok");
           if (targetUserId) {
@@ -564,11 +579,13 @@ export const useCallSession = ({
         callerName: null,
         targetUserId: active.targetUserId, // restore original target info
         peerUser: active.peerUser,
+        connectedAt: new Date().toISOString(),
       });
       setActiveLobbyId(`call_${active.callId}`);
       setStatus("Aramaya tekrar katıldınız.", "ok");
     } catch (error) {
-      setStatus(`Aramaya katılma hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "error");
+      console.error("[call-session] rejoinCall failed:", error);
+      setStatus("Aramaya katılınamadı. Lütfen tekrar dene.", "error");
     }
   }, [getSynth, setActiveLobbyId, setStatus]);
 

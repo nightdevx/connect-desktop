@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button, message } from "antd";
+import { Button } from "antd";
 import type { DesktopAppPreferences } from "@shared/desktop-api-types";
-
-type MessageApi = ReturnType<typeof message.useMessage>[0];
+import { toast } from "@/services/toast";
 
 const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -24,7 +23,7 @@ const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
  * where people look for them. Both panels share this rather than each carrying
  * its own copy of the load / optimistic-write / rollback dance.
  */
-export function useDesktopAppPreferences(messageApi: MessageApi) {
+export function useDesktopAppPreferences() {
   const [preferences, setPreferences] = useState<DesktopAppPreferences>(
     DEFAULT_APP_PREFERENCES,
   );
@@ -47,7 +46,7 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
         }
 
         if (!result.ok) {
-          messageApi.error(
+          toast.error(
             `Uygulama ayarları alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
           );
         }
@@ -57,7 +56,7 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
           return;
         }
 
-        messageApi.error(
+        toast.error(
           `Uygulama ayarları alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         );
       });
@@ -65,9 +64,7 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
     return () => {
       active = false;
     };
-    // messageApi comes from antd message.useMessage(), which memoises it — listing
-    // it costs nothing and stops the rule hiding a real omission behind this one.
-  }, [messageApi]);
+  }, []);
 
   const savePreference = async (
     key: keyof DesktopAppPreferences,
@@ -88,7 +85,7 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
 
       if (!result.ok || !result.data?.preferences) {
         setPreferences(previousPreferences);
-        messageApi.error(
+        toast.error(
           `Uygulama ayarı kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -100,16 +97,16 @@ export function useDesktopAppPreferences(messageApi: MessageApi) {
       // restart before it does anything.
       if (key === "hardwareAcceleration") {
         setNeedsRelaunch(true);
-        messageApi.info(
+        toast.info(
           "Donanım hızlandırma ayarı, uygulama yeniden başlatıldığında geçerli olur.",
         );
         return;
       }
 
-      messageApi.success("Uygulama davranış ayarları kaydedildi.");
+      toast.success("Uygulama davranış ayarları kaydedildi.");
     } catch (error) {
       setPreferences(previousPreferences);
-      messageApi.error(
+      toast.error(
         `Uygulama ayarı kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {

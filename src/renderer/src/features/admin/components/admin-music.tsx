@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Popconfirm, Select, Table, Tag, Tooltip, message } from "antd";
+import { Alert, Button, Popconfirm, Select, Table, Tag, Tooltip } from "antd";
 import {
   CustomerServiceOutlined,
   DeleteOutlined,
@@ -11,6 +11,7 @@ import type { MusicDJ } from "@shared/music";
 import { toErrorMessage } from "@shared/error-message";
 import adminService from "../services/admin-service";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 export default function AdminMusic() {
   const [djs, setDjs] = useState<MusicDJ[]>([]);
@@ -31,7 +32,7 @@ export default function AdminMusic() {
     } catch (error) {
       setDisabled(true);
       setDjs([]);
-      message.error(toErrorMessage(error, "DJ listesi alınamadı"));
+      toast.error(toErrorMessage(error, "DJ listesi alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -56,10 +57,10 @@ export default function AdminMusic() {
       setGranting(true);
       await adminService.grantMusicDJ(candidateId);
       setCandidateId(undefined);
-      message.success("DJ yetkisi verildi");
+      toast.success("DJ yetkisi verildi");
       void fetchDjs();
     } catch (error) {
-      message.error(toErrorMessage(error, "DJ yetkisi verilemedi"));
+      toast.error(toErrorMessage(error, "DJ yetkisi verilemedi"));
     } finally {
       setGranting(false);
     }
@@ -69,10 +70,10 @@ export default function AdminMusic() {
     async (userId: string): Promise<void> => {
       try {
         await adminService.revokeMusicDJ(userId);
-        message.success("DJ yetkisi alındı");
+        toast.success("DJ yetkisi alındı");
         void fetchDjs();
       } catch (error) {
-        message.error(toErrorMessage(error, "DJ yetkisi alınamadı"));
+        toast.error(toErrorMessage(error, "DJ yetkisi alınamadı"));
       }
     },
     [fetchDjs],

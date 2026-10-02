@@ -17,6 +17,7 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
 import { ConfirmActionModal } from "../common";
+import { ContextMenuPanel } from "../common/context-menu-panel";
 import {
   getDisplayInitials,
   getPresenceColor,
@@ -257,6 +258,21 @@ export function UsersSidebarPanel({
             <Dropdown
               key={userId}
               trigger={["contextMenu"]}
+              // Whose conversation this is, above the rows.
+              popupRender={(menu) => (
+                <ContextMenuPanel
+                  identity={{
+                    userId,
+                    name,
+                    avatarUrl: conversation.avatarUrl,
+                    detail: getUserStatusLabel(
+                      directoryUser?.appOnline,
+                      directoryUser?.presence,
+                    ),
+                  }}
+                  menu={menu}
+                />
+              )}
               menu={{
                 items: [
                   {
@@ -289,6 +305,7 @@ export function UsersSidebarPanel({
       <ConfirmActionModal
         isOpen={pendingUnfriend !== null}
         title="Arkadaşlıktan Çıkar"
+        icon={<UserDeleteOutlined />}
         message={`${pendingUnfriend?.name ?? ""} arkadaş listenizden kaldırılacak. Geri almak için karşı tarafın yeni isteğinizi kabul etmesi gerekir.`}
         confirmLabel="Arkadaşlıktan Çıkar"
         isProcessing={

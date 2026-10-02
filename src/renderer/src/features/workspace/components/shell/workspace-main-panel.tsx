@@ -57,6 +57,8 @@ interface WorkspaceMainPanelProps {
   >;
   activeSpeakerIds: string[];
   avatarByUserId: Record<string, string | null | undefined>;
+  /** Live rosters of every room (the WS snapshot), keyed by lobby id. */
+  lobbyMembersById: Record<string, LobbyStateMember[]>;
   workspaceSection: WorkspaceSection;
   settingsSection: SettingsSection;
   currentUserRole: UserRole;
@@ -220,6 +222,7 @@ export function WorkspaceMainPanel({
   remoteParticipantAudioPreferences,
   activeSpeakerIds,
   avatarByUserId,
+  lobbyMembersById,
   workspaceSection,
   settingsSection,
   currentUserRole,
@@ -413,6 +416,7 @@ export function WorkspaceMainPanel({
             }
             activeSpeakerIds={activeSpeakerIds}
             avatarByUserId={avatarByUserId}
+            lobbyMembersById={lobbyMembersById}
             joiningLobbyId={joiningLobbyId}
             onJoinLobby={onJoinLobby}
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}

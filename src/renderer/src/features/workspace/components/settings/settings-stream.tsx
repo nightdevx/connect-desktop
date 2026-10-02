@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button, message } from "antd";
+import { Select, Switch, Button } from "antd";
 import {
   DesktopOutlined,
   EyeOutlined,
@@ -7,6 +7,7 @@ import {
 } from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "@/features/screen-share";
+import { toast } from "@/services/toast";
 
 interface SettingsStreamProps {
   streamPreferences: StreamPreferences;
@@ -28,7 +29,6 @@ export function SettingsStream({
   streamPreferences,
   onSaveStreamPreferences,
 }: SettingsStreamProps) {
-  const [messageApi, contextHolder] = message.useMessage();
   const [draftStreamPreferences, setDraftStreamPreferences] =
     useState<StreamPreferences>(streamPreferences);
   const [streamTestStream, setStreamTestStream] = useState<MediaStream | null>(
@@ -136,18 +136,18 @@ export function SettingsStream({
       if (videoTrack) {
         videoTrack.onended = () => {
           stopStreamTest();
-          messageApi.info("Yayın testi sonlandırıldı.");
+          toast.info("Yayın testi sonlandırıldı.");
         };
       }
 
       setStreamTestStream(stream);
       if (warning) {
-        messageApi.warning(warning);
+        toast.warning(warning);
       } else {
-        messageApi.success("Yayın testi başlatıldı.");
+        toast.success("Yayın testi başlatıldı.");
       }
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Yayın testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -171,7 +171,6 @@ export function SettingsStream({
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
@@ -268,7 +267,7 @@ export function SettingsStream({
               onClick={() => {
                 if (streamTestStream) {
                   stopStreamTest();
-                  messageApi.info("Yayın testi durduruldu.");
+                  toast.info("Yayın testi durduruldu.");
                   return;
                 }
 

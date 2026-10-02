@@ -67,6 +67,7 @@ import workspaceService from "../../services";
 import { useUiStore } from "@/store/ui-store";
 import { DirectChatMessageRow } from "./direct-chat-message-row";
 import { useThreadScroll } from "./use-thread-scroll";
+import { CallElapsed } from "./parts/CallElapsed";
 
 // Mention matching, highlighting and "was I named" live in ../../mentions so the
 // lobby composer and this message list share one set of rules. Re-exported
@@ -901,6 +902,31 @@ export function UsersDirectMessagesPanel({
                   )}
                 </button>
 
+                {/* What the call is doing, opposite the chat toggle: ringing
+                    while the other side has not picked up, then the running
+                    time. */}
+                <span
+                  className={`ct-call-stage-status ${callState?.status === "active" ? "" : "ringing"}`}
+                  role="status"
+                >
+                  {callState?.status === "active" ? (
+                    <>
+                      <span className="ct-online-dot" aria-hidden="true" />
+                      Görüşme sürüyor
+                      {callState.connectedAt && <CallElapsed since={callState.connectedAt} />}
+                    </>
+                  ) : (
+                    <>
+                      Aranıyor
+                      <span className="ct-ring-dots" aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    </>
+                  )}
+                </span>
+
                 {/* The measured box: its padding is the stage's breathing
                     room, and useLobbyStageLayout fits the tiles to whatever
                     content box is left over. */}
@@ -991,6 +1017,9 @@ export function UsersDirectMessagesPanel({
                   key={`context-menu-${contextMenuParticipantId}`}
                   x={contextMenuPosition.x}
                   y={contextMenuPosition.y}
+                  userId={contextMenuParticipantId}
+                  name={nameByUserId[contextMenuParticipantId] ?? "Katılımcı"}
+                  avatarUrl={avatarByUserId?.[contextMenuParticipantId]}
                   preference={selectedPreference}
                   isScreenSharing={
                     lobbyMembers?.find((m) => m.userId === contextMenuParticipantId)?.screenSharing ?? false
@@ -1089,48 +1118,45 @@ export function UsersDirectMessagesPanel({
                 </div>
               </div>
 
-              {/* In-chat incoming call alert banner */}
+              {/* The same ringing call as the corner card, where the user is
+                  already looking: in the conversation with the caller. */}
               {callState?.status === "incoming" && callState.callerId === selectedUser?.userId && (
-                <div className="ct-muted-call-banner">
-                  {/* Left side: Avatar and Text */}
+                <div className="ct-incoming-call-banner">
                   <div className="ct-banner-text-content">
-                    <div className="ct-call-pulse-avatar-container" >
+                    <span className="ct-ring-ripple">
                       <Avatar
                         size={32}
                         src={selectedUser.avatarUrl}
                         icon={!selectedUser.avatarUrl && <UserOutlined />}
-                        
                       />
-                    </div>
+                    </span>
                     <div className="ct-banner-lines">
-                      <span >
-                        {selectedUser.displayName || selectedUser.username} arıyor...
-                      </span>
-                      <span >
-                        Gelen sesli/görüntülü arama
-                      </span>
+                      <strong>
+                        {selectedUser.displayName || selectedUser.username} arıyor…
+                      </strong>
+                      <span>Gelen sesli arama</span>
                     </div>
                   </div>
-                  {/* Right side: Buttons */}
+
+                  {/* Plain buttons, the same pair as the corner card: an antd
+                      Button brought nothing here but a cssinjs sheet to out-shout.
+                      Answer on the right, as on a phone. */}
                   <div className="ct-banner-actions">
-                    {/* Plain buttons: an antd Button here brought nothing but a
-                        cssinjs sheet this stylesheet then had to out-shout with
-                        !important on every property. See .ct-banner-accept-btn. */}
-                    <button
-                      type="button"
-                      onClick={onAcceptCall}
-                      className="ct-banner-accept-btn"
-                    >
-                      <PhoneOutlined />
-                      Kabul Et
-                    </button>
                     <button
                       type="button"
                       onClick={onRejectCall}
-                      className="ct-banner-reject-btn"
+                      className="ct-call-answer reject"
                     >
-                      <CloseOutlined />
+                      <PhoneOutlined rotate={225} />
                       Reddet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onAcceptCall}
+                      className="ct-call-answer accept"
+                    >
+                      <PhoneOutlined />
+                      Kabul et
                     </button>
                   </div>
                 </div>
@@ -1141,7 +1167,7 @@ export function UsersDirectMessagesPanel({
                 <div className="ct-rejoin-banner">
                   <div className="ct-banner-text-content">
                     <PhoneOutlined className="ct-icon-success" />
-                    <span >Devam eden aktif bir sesli/görüntülü arama var.</span>
+                    <span>Bu kişiyle devam eden bir aramanız var.</span>
                   </div>
                   <button
                     type="button"

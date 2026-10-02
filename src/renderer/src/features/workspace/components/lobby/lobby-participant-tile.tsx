@@ -10,6 +10,7 @@ import {
   FullscreenExitOutlined,
   PicRightOutlined,
   SignalFilled,
+  VideoCameraOutlined,
 } from "@ant-design/icons";
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
@@ -341,6 +342,20 @@ function LobbyParticipantTileImpl({
 
   const emoteFlash = useLobbyEmoteFlash(participant.userId);
 
+  // The face is the whole tile when there is no video, so it is sized for that
+  // rather than for a list row. The container queries in features/lobby.css
+  // step it back down as the tile narrows — antd writes the size inline, so
+  // those have to win with !important.
+  const face = (
+    <Avatar
+      size={isCompact ? 64 : 120}
+      src={avatarUrl}
+      className="ct-lobby-avatar-container"
+    >
+      {getDisplayInitials(participant.username)}
+    </Avatar>
+  );
+
   return (
     <article
       className={[
@@ -375,11 +390,22 @@ function LobbyParticipantTileImpl({
           parked top-right at the same 12px inset as the fullscreen button,
           which is drawn a layer above it — so hovering a screen tile covered
           "who is watching" with the control that expands it. */}
+      {/* What this tile is broadcasting, said on the picture: a red "CANLI"
+          on a screen share, a blue "Kamera" on a camera. */}
+      {kind === "camera" && !participant.isPlaceholder && (
+        <div className="ct-lobby-tile-topbar">
+          <span className="ct-lobby-tile-kind-badge camera" title="Kamera açık">
+            <VideoCameraOutlined />
+            <span>Kamera</span>
+          </span>
+        </div>
+      )}
+
       {kind === "screen" && (
         <div className="ct-lobby-tile-topbar">
-          <span className="ct-lobby-tile-kind-badge" title="Ekran paylaşımı">
-            <DesktopOutlined />
-            <span>Ekran</span>
+          <span className="ct-lobby-tile-kind-badge live" title="Ekran paylaşımı">
+            <span className="ct-live-dot" aria-hidden="true" />
+            <span>CANLI</span>
           </span>
 
           {!participant.isPlaceholder && (
@@ -472,23 +498,25 @@ function LobbyParticipantTileImpl({
         className={`ct-lobby-tile-center-logo ${previewStream ? "media-on" : ""}`}
         aria-hidden="true"
       >
-        {/* The face is the whole tile when there is no video, so it is sized
-            for that rather than for a list row. The container queries in
-            features/lobby.css step it back down as the tile narrows — antd
-            writes the size inline, so those have to win with !important. */}
-        <Avatar
-          size={isCompact ? 64 : 120}
-          src={avatarUrl}
-          className="ct-lobby-avatar-container"
-        >
-          {getDisplayInitials(participant.username)}
-        </Avatar>
+        {/* Ringing while this is someone the call is waiting on. */}
+        {participant.isPlaceholder ? (
+          <span className="ct-ring-ripple">{face}</span>
+        ) : (
+          face
+        )}
       </div>
 
       {/* A placeholder tile is someone the call is waiting on. The dimmed,
           dashed tile says "not here yet"; this says why. */}
       {participant.isPlaceholder && (
-        <span className="ct-lobby-tile-ringing">Aranıyor…</span>
+        <span className="ct-lobby-tile-ringing">
+          Aranıyor
+          <span className="ct-ring-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </span>
       )}
 
       <footer className="ct-lobby-tile-footer">

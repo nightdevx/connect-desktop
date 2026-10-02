@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Input } from "antd";
 import { LockOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 
 interface LobbyPasswordPromptModalProps {
   // Non-null while a password-protected lobby join is awaiting a password.
@@ -47,10 +48,11 @@ export function LobbyPasswordPromptModal({
     <Modal
       rootClassName="ct-modal"
       title={
-        <span className="ct-modal-title-icon">
-          <LockOutlined />
-          Oda Şifresi
-        </span>
+        <ModalHeading
+          icon={<LockOutlined />}
+          title="Oda Şifresi"
+          description="Bu lobi şifre korumalı. Katılmak için şifreyi girin."
+        />
       }
       open={pending !== null}
       onOk={handleOk}
@@ -64,10 +66,6 @@ export function LobbyPasswordPromptModal({
       }}
     >
       <div className="ct-modal-form">
-        <p className="ct-field-hint">
-          Bu lobi şifre korumalı. Katılmak için şifreyi girin.
-        </p>
-
         <label className="ct-field" htmlFor="lobby-join-password">
           <span>Oda Şifresi</span>
           <Input.Password

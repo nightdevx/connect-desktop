@@ -271,7 +271,7 @@ export function useLivekitSession(
 
         if (state === "reconnecting") {
           if (shouldEmitReconnectStatus("livekit", 7_000)) {
-            setStatus("LiveKit bağlantısı yeniden kuruluyor...", "warn");
+            setStatus("Ses bağlantısı yeniden kuruluyor...", "warn");
           }
           return;
         }

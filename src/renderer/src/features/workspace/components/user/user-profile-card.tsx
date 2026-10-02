@@ -5,7 +5,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { Avatar, Button, Image, Input, Popover, Tag, Tooltip, message } from "antd";
+import { Avatar, Button, Image, Input, Popover, Tag, Tooltip } from "antd";
 import type { TooltipPlacement } from "antd/es/tooltip";
 import {
   CheckOutlined,
@@ -38,6 +38,7 @@ import {
   getPresenceColor,
   getUserStatusLabel,
 } from "../../workspace-utils";
+import { toast } from "@/services/toast";
 
 // Same ceiling the composer uses. Enforced again server-side; this only stops
 // the request being made at all.
@@ -134,7 +135,7 @@ export function UserProfileCard({
     void joinMinigameTable(activity.tableId)
       .then((joined) => {
         if (!joined) {
-          message.error("Masaya oturulamadı. Oyun başlamış olabilir.");
+          toast.error("Masaya oturulamadı. Oyun başlamış olabilir.");
           return;
         }
         // The page opens on whatever game was last looked at, so the table
@@ -168,10 +169,10 @@ export function UserProfileCard({
       })
       .then((result) => {
         if (!result.ok) {
-          message.error(`Davet gönderilemedi: ${getApiErrorMessage(result.error)}`);
+          toast.error(`Davet gönderilemedi: ${getApiErrorMessage(result.error)}`);
           return;
         }
-        message.success(`${game} daveti gönderildi`);
+        toast.success(`${game} daveti gönderildi`);
       })
       .finally(() => setInviting(false));
   }, [inviting, myTable, userId]);
@@ -194,9 +195,9 @@ export function UserProfileCard({
       .then((result) => {
         // use-friends already maps the server's codes to Turkish.
         if (result.ok) {
-          message.success(result.message);
+          toast.success(result.message);
         } else {
-          message.error(result.message);
+          toast.error(result.message);
         }
       })
       .finally(() => setIsSending(false));
@@ -215,7 +216,7 @@ export function UserProfileCard({
         setHasCopiedHandle(true);
         window.setTimeout(() => setHasCopiedHandle(false), 1_400);
       })
-      .catch(() => message.error("Kullanıcı adı kopyalanamadı"));
+      .catch(() => toast.error("Kullanıcı adı kopyalanamadı"));
   }, [card?.username]);
 
   // The skeleton is the finished layout with its text blanked out, not a
@@ -548,14 +549,14 @@ function QuickMessageBar({
       .sendDirectMessage({ peerUserId, body })
       .then((result) => {
         if (!result.ok) {
-          message.error(`Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`);
+          toast.error(`Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`);
           return;
         }
 
         // Cleared only on success, so a rejected message is still in the box to
         // retry or copy out of.
         setDraft("");
-        message.success(`@${peerName} kişisine mesaj gönderildi`);
+        toast.success(`@${peerName} kişisine mesaj gönderildi`);
       })
       .finally(() => setIsSending(false));
   }, [draft, isSending, peerName, peerUserId]);

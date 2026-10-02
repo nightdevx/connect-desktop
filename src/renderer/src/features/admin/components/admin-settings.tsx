@@ -1,10 +1,11 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Input, InputNumber, Spin, Switch, message } from "antd";
+import { Input, InputNumber, Spin, Switch } from "antd";
 import { LockOutlined, MessageOutlined, TeamOutlined, ToolOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminRuntimeSettings, AdminRuntimeSettingsPatch } from "@shared/auth-contracts";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 /**
  * Operator settings that take effect immediately.
@@ -29,7 +30,7 @@ export default function AdminSettings() {
     try {
       setSettings(await adminService.getSettings());
     } catch (error) {
-      message.error(toErrorMessage(error, "Ayarlar yüklenemedi"));
+      toast.error(toErrorMessage(error, "Ayarlar yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -46,9 +47,9 @@ export default function AdminSettings() {
       // clamps out-of-range values, so echoing the number that was typed would
       // show a limit that is not the one in force.
       setSettings(await adminService.updateSettings(patch));
-      message.success("Ayar uygulandı.");
+      toast.success("Ayar uygulandı.");
     } catch (error) {
-      message.error(toErrorMessage(error, "Ayar kaydedilemedi"));
+      toast.error(toErrorMessage(error, "Ayar kaydedilemedi"));
       await load();
     } finally {
       setSaving(false);

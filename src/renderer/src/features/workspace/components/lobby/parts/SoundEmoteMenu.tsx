@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { Button, Input, Modal, Popover, Slider, Tooltip, message } from "antd";
+import { Button, Input, Modal, Popover, Slider, Tooltip } from "antd";
 import {
   DeleteOutlined,
   NotificationOutlined,
+  SoundOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import {
   CUSTOM_EMOTE_PREFIX,
   LOBBY_SOUND_EMOTES,
@@ -20,6 +22,7 @@ import {
 } from "../../../hooks/lobby/use-emote-library";
 import { MAX_EMOTE_VOLUME_PERCENT } from "@/store/emote-volume";
 import { useUiStore } from "@/store/ui-store";
+import { toast } from "@/services/toast";
 
 // Label and glyph per built-in emote. The ids come from the shared set so this
 // cannot offer one the server would refuse; the picker breaks at compile time
@@ -151,7 +154,7 @@ export function SoundEmoteMenu({
         // validation error the user had done nothing to cause.
         setPendingName(upload.fileName.slice(0, EMOTE_MAX_NAME_LENGTH));
       } catch (error) {
-        message.error(
+        toast.error(
           error instanceof Error ? error.message : "Ses dosyası okunamadı.",
         );
       }
@@ -166,10 +169,10 @@ export function SoundEmoteMenu({
 
     try {
       await library.upload(pendingName.trim(), pending.dataUrl);
-      message.success("Ses eklendi");
+      toast.success("Ses eklendi");
       setPending(null);
     } catch (error) {
-      message.error(
+      toast.error(
         error instanceof Error ? error.message : "Ses yüklenemedi",
       );
     }
@@ -179,9 +182,9 @@ export function SoundEmoteMenu({
     async (emoteId: string): Promise<void> => {
       try {
         await library.remove(emoteId);
-        message.success("Ses silindi");
+        toast.success("Ses silindi");
       } catch (error) {
-        message.error(error instanceof Error ? error.message : "Ses silinemedi");
+        toast.error(error instanceof Error ? error.message : "Ses silinemedi");
       }
     },
     [library],
@@ -323,7 +326,13 @@ export function SoundEmoteMenu({
 
       <Modal
         rootClassName="ct-modal"
-        title="Sesi Adlandır"
+        title={
+          <ModalHeading
+            icon={<SoundOutlined />}
+            title="Sesi Adlandır"
+            description="Emote panosunda herkesin göreceği adı yaz."
+          />
+        }
         open={pending !== null}
         onOk={() => void confirmUpload()}
         onCancel={() => setPending(null)}

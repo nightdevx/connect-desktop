@@ -258,7 +258,7 @@ export const useScreenShareControls = ({
   const openScreenShareModal = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
-      setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
+      setStatus("Ekran paylaşmak için önce bir lobiye katıl.", "warn");
       return;
     }
 
@@ -316,7 +316,7 @@ export const useScreenShareControls = ({
   const startScreenShareFromModal = useCallback(async (): Promise<void> => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
-      setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
+      setStatus("Ekran paylaşmak için önce bir lobiye katıl.", "warn");
       return;
     }
 
@@ -391,7 +391,7 @@ export const useScreenShareControls = ({
       }
 
       if (warning) setStatus(warning, "warn");
-      else if (sourceName) setStatus(`Yayin baslatildi: ${sourceName}`, "ok");
+      else if (sourceName) setStatus(`Yayın başlatıldı: ${sourceName}`, "ok");
 
       liveShareRef.current = {
         sourceId: selectedSourceId,
@@ -833,7 +833,7 @@ export const useScreenShareControls = ({
   const handleScreenToggle = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
-      setStatus("Ekran paylasimi icin once bir lobiye katil", "warn");
+      setStatus("Ekran paylaşmak için önce bir lobiye katıl.", "warn");
       return;
     }
 

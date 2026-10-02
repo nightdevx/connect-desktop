@@ -8,5 +8,6 @@ export * from "./auth-error-messages";
 export * from "./hooks/use-auth-actions";
 export * from "./hooks/use-auth-session";
 export * from "./hooks/use-auth-controller";
+export { AuthLogoMark } from "./components/AuthLogoMark";
 export { default as LoginPage } from "./pages/LoginPage";
 export { default as RegisterPage } from "./pages/RegisterPage";

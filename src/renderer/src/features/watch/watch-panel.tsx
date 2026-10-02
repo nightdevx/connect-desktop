@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react";
+import { Button, Input } from "antd";
+import { CaretRightFilled, PlayCircleOutlined } from "@ant-design/icons";
 import type { WatchRoom } from "./use-watch-room";
 
 interface WatchPanelProps {
@@ -15,6 +17,9 @@ interface WatchPanelProps {
  * session starts and the session outlives it. The room state is owned by the
  * lobby panel above for exactly that reason: a dialog that owned it would take
  * the video down with it every time somebody dismissed the window.
+ *
+ * The heading and the "how this works" line belong to the modal around it
+ * (watch-modal.tsx), like every other dialog's.
  */
 export function WatchPanel({ room, onClose }: WatchPanelProps): JSX.Element {
   const [link, setLink] = useState("");
@@ -36,47 +41,48 @@ export function WatchPanel({ room, onClose }: WatchPanelProps): JSX.Element {
   );
 
   return (
-    <section className="watch-panel">
-      <header className="watch-panel__header">
-        <h3 className="watch-panel__title">Birlikte İzle</h3>
-      </header>
-
+    <section className="ct-watch-panel">
       {canStart ? (
         <>
-          <p className="watch-panel__hint">
-            Bağlantıyı yapıştır. Video sahnede bir yayın kutucuğu olarak herkese
-            çıkar; izlemek isteyen kutucuktan açar. Oynatma, duraklatma ve ileri
-            sarma sende — herkes aynı yerden izler.
-          </p>
-          <form onSubmit={submitLink} className="watch-panel__form">
-            <input
-              type="text"
+          {state.active && state.video ? (
+            <p className="ct-modal-note">
+              <PlayCircleOutlined />
+              <span>
+                Şu an lobide: <b>{state.video.title || "video"}</b>. Yeni bağlantı
+                bunun yerine geçer.
+              </span>
+            </p>
+          ) : null}
+
+          <form onSubmit={submitLink} className="ct-watch-form">
+            <Input
               value={link}
               autoFocus
               placeholder="Bağlantı yapıştır (YouTube ya da dizi sitesi)"
               onChange={(event) => setLink(event.target.value)}
             />
-            <button type="submit" disabled={isSending || !link.trim()}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<CaretRightFilled />}
+              loading={isSending}
+              disabled={!link.trim()}
+            >
               {state.active ? "Değiştir" : "Başlat"}
-            </button>
+            </Button>
           </form>
-          {state.active && state.video ? (
-            <p className="watch-panel__playing">
-              Şu an lobide: {state.video.title || "video"} — yeni bağlantı bunun yerine geçer.
-            </p>
-          ) : null}
         </>
       ) : (
         // Opening a video needs no permission, so the only way to be refused
         // here is that somebody else already has the room.
-        <p className="watch-panel__empty">
+        <p className="ct-watch-empty">
           {state.video?.startedByName
             ? `${state.video.startedByName} bir yayın açtı. Önce onun bitmesi gerekiyor.`
             : "Bu odada başkasının açtığı bir yayın var."}
         </p>
       )}
 
-      {lastError ? <p className="watch-panel__error">{lastError}</p> : null}
+      {lastError ? <p className="ct-form-error">{lastError}</p> : null}
     </section>
   );
 }

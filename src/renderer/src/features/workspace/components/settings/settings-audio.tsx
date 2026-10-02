@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button, Progress, Slider, message } from "antd";
+import { Select, Switch, Button, Progress, Slider } from "antd";
 import {
   AudioOutlined,
   PlayCircleOutlined,
@@ -12,6 +12,7 @@ import {
   HotkeyCaptureField,
   useDesktopAppPreferences,
 } from "./settings-app-preferences";
+import { toast } from "@/services/toast";
 
 interface SettingsAudioProps {
   audioPreferences: AudioPreferences;
@@ -51,7 +52,6 @@ export function SettingsAudio({
   audioOutputDevices,
   onSaveAudioPreferences,
 }: SettingsAudioProps) {
-  const [messageApi, contextHolder] = message.useMessage();
   const [draftAudioPreferences, setDraftAudioPreferences] =
     useState<AudioPreferences>(audioPreferences);
   const [audioTestStream, setAudioTestStream] = useState<MediaStream | null>(
@@ -66,7 +66,7 @@ export function SettingsAudio({
     preferences: appPreferences,
     isSaving: isSavingAppPreference,
     savePreference,
-  } = useDesktopAppPreferences(messageApi);
+  } = useDesktopAppPreferences();
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -188,7 +188,7 @@ export function SettingsAudio({
             device.deviceId === preferredInputDeviceId,
         )
       ) {
-        messageApi.info(
+        toast.info(
           "Seçili mikrofon şu anda bağlı değil. Test varsayılan mikrofonla denenecek.",
         );
       }
@@ -217,7 +217,7 @@ export function SettingsAudio({
           audio: buildAudioConstraints(null),
           video: false,
         });
-        messageApi.warning(
+        toast.warning(
           "Seçili mikrofon bulunamadı. Test varsayılan mikrofonla başlatıldı.",
         );
       }
@@ -249,7 +249,7 @@ export function SettingsAudio({
             try {
               await sinkTarget.setSinkId(selectedOutputDeviceId);
             } catch {
-              messageApi.warning(
+              toast.warning(
                 "Seçili ses çıkış cihazı testte kullanılamadı. Varsayılan çıkışa geçildi.",
               );
             }
@@ -298,11 +298,11 @@ export function SettingsAudio({
         audioInputDevices.find((device) => device.deviceId === usedDeviceId)
           ?.label ?? activeTrack?.label;
 
-      messageApi.success(
+      toast.success(
         `Mikrofon testi başlatıldı.${usedDeviceLabel ? ` Aktif mikrofon: ${usedDeviceLabel}.` : ""} Konuşurken seviye çubuğunu kontrol et.`,
       );
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Ses testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -324,7 +324,7 @@ export function SettingsAudio({
         await sinkTarget
           .setSinkId(draftAudioPreferences.selectedAudioOutputDeviceId ?? "")
           .catch(() => {
-            messageApi.warning(
+            toast.warning(
               "Seçili çıkış cihazı kullanılamadı, test sesi varsayılan cihazdan çalınıyor.",
             );
           });
@@ -348,9 +348,9 @@ export function SettingsAudio({
         void closeAudioContextSafely(audioContext);
       };
 
-      messageApi.success("Test sesi çalındı.");
+      toast.success("Test sesi çalındı.");
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Test sesi çalınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     }
@@ -374,7 +374,6 @@ export function SettingsAudio({
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
@@ -747,7 +746,7 @@ export function SettingsAudio({
                 onClick={() => {
                   if (audioTestStream) {
                     void stopAudioTest().then(() => {
-                      messageApi.info("Mikrofon testi durduruldu.");
+                      toast.info("Mikrofon testi durduruldu.");
                     });
                     return;
                   }

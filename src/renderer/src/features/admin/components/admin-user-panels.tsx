@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Empty, Spin, Tag, message } from "antd";
+import { Button, Empty, Spin, Tag } from "antd";
 import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import type {
@@ -9,6 +9,7 @@ import type {
 } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
 
 export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
   const [sessions, setSessions] = useState<AdminSessionSummary[]>([]);
@@ -23,7 +24,7 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
       );
       setSessions(data.sessions);
     } catch (error) {
-      message.error(toErrorMessage(error, "Oturumlar yüklenemedi"));
+      toast.error(toErrorMessage(error, "Oturumlar yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -65,10 +66,10 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
                       adminService.ops.revokeSession({ userId: user.id, sessionId: session.id }),
                       "Oturum kapatılamadı",
                     );
-                    message.success("Oturum kapatıldı");
+                    toast.success("Oturum kapatıldı");
                     void load();
                   } catch (error) {
-                    message.error(toErrorMessage(error, "Oturum kapatılamadı"));
+                    toast.error(toErrorMessage(error, "Oturum kapatılamadı"));
                   }
                 }}
               />
@@ -126,7 +127,7 @@ export function AdminUserRelationsPanel({ user }: { user: AdminUserDetail }) {
       );
       setRelations(data.relations);
     } catch (error) {
-      message.error(toErrorMessage(error, "İlişkiler yüklenemedi"));
+      toast.error(toErrorMessage(error, "İlişkiler yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -142,10 +143,10 @@ export function AdminUserRelationsPanel({ user }: { user: AdminUserDetail }) {
         adminService.ops.removeFriend({ userId: user.id, peerId: peer.id }),
         "Arkadaşlık kaldırılamadı",
       );
-      message.success("Arkadaşlık kaldırıldı");
+      toast.success("Arkadaşlık kaldırıldı");
       void load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Arkadaşlık kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Arkadaşlık kaldırılamadı"));
     }
   };
 
@@ -155,10 +156,10 @@ export function AdminUserRelationsPanel({ user }: { user: AdminUserDetail }) {
         adminService.ops.setBlock({ userId: user.id, peerId: peer.id, blocked: false }),
         "Engel kaldırılamadı",
       );
-      message.success("Engel kaldırıldı");
+      toast.success("Engel kaldırıldı");
       void load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Engel kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Engel kaldırılamadı"));
     }
   };
 

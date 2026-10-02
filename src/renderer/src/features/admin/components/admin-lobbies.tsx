@@ -1,22 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Table,
-  Button,
-  Space,
-  message,
-  Tag,
-  Avatar,
-  Modal,
-  Form,
-  Input,
-  InputNumber,
-  Popconfirm,
-  Segmented,
-  Select,
-  Switch,
-  Tooltip,
-} from "antd";
+import { Table, Button, Space, Tag, Avatar, Modal, Form, Input, InputNumber, Popconfirm, Segmented, Select, Switch, Tooltip } from "antd";
 import type { TablePaginationConfig } from "antd";
 import {
   HomeOutlined,
@@ -42,6 +26,8 @@ import type {
 import type { LobbyFeatureId, LobbyStateMember } from "@shared/desktop-api-types";
 import { LOBBY_FEATURES } from "@shared/desktop-api-types";
 import { AdminPageHeader } from "./admin-primitives";
+import { toast } from "@/services/toast";
+import { ModalHeading } from "@/ui/modal-heading";
 
 interface EditLobbyFormValues {
   name: string;
@@ -140,7 +126,7 @@ export default function AdminLobbies() {
       setLobbies(res.lobbies);
       setTotal(res.total || 0);
     } catch (err) {
-      message.error(toErrorMessage(err, "Lobiler alınamadı"));
+      toast.error(toErrorMessage(err, "Lobiler alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -229,14 +215,14 @@ export default function AdminLobbies() {
         disabledFeatures: values.disabledFeatures ?? [],
       });
       if (res.ok) {
-        message.success("Oda güncellendi");
+        toast.success("Oda güncellendi");
         setIsEditOpen(false);
         fetchLobbies();
       } else {
         throw new Error(toErrorMessage(res.error, "Güncelleme başarısız"));
       }
     } catch (err) {
-      message.error(toErrorMessage(err, "İşlem başarısız"));
+      toast.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
@@ -244,23 +230,23 @@ export default function AdminLobbies() {
     try {
       const res = await window.desktopApi.deleteLobby({ lobbyId });
       if (res.ok) {
-        message.success("Oda silindi");
+        toast.success("Oda silindi");
         fetchLobbies();
       } else {
         throw new Error(toErrorMessage(res.error, "Silme işlemi başarısız"));
       }
     } catch (err) {
-      message.error(toErrorMessage(err, "İşlem başarısız"));
+      toast.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
   const handleKickUser = async (lobbyId: string, userId: string) => {
     try {
       await adminService.kickUser(lobbyId, userId);
-      message.success("Kullanıcı odadan atıldı");
+      toast.success("Kullanıcı odadan atıldı");
       fetchLobbies();
     } catch (err) {
-      message.error(toErrorMessage(err, "Kullanıcı odadan atılamadı"));
+      toast.error(toErrorMessage(err, "Kullanıcı odadan atılamadı"));
     }
   };
 
@@ -270,7 +256,7 @@ export default function AdminLobbies() {
     try {
       setTimeouts(await adminService.listLobbyTimeouts(record.lobby.id));
     } catch (error) {
-      message.error(toErrorMessage(error, "Zaman aşımları yüklenemedi"));
+      toast.error(toErrorMessage(error, "Zaman aşımları yüklenemedi"));
       setTimeouts([]);
     } finally {
       setTimeoutsLoading(false);
@@ -286,9 +272,9 @@ export default function AdminLobbies() {
       // Refetched rather than filtered locally: the server also drops timeouts
       // that lapsed on their own, and a local splice would leave those on screen.
       setTimeouts(await adminService.listLobbyTimeouts(timeoutLobby.lobby.id));
-      message.success("Zaman aşımı kaldırıldı.");
+      toast.success("Zaman aşımı kaldırıldı.");
     } catch (error) {
-      message.error(toErrorMessage(error, "Zaman aşımı kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Zaman aşımı kaldırılamadı"));
     }
   };
 
@@ -645,7 +631,17 @@ export default function AdminLobbies() {
           undoing they are not in the room to right-click. */}
       <Modal
         rootClassName="ct-modal"
-        title={timeoutLobby ? `Zaman Aşımları — ${timeoutLobby.lobby.name}` : "Zaman Aşımları"}
+        title={
+          <ModalHeading
+            icon={<StopOutlined />}
+            title="Zaman Aşımları"
+            description={
+              timeoutLobby
+                ? `${timeoutLobby.lobby.name} odasına girişi geçici olarak engellenen kişiler.`
+                : undefined
+            }
+          />
+        }
         open={timeoutLobby !== null}
         onCancel={() => setTimeoutLobby(null)}
         footer={null}
@@ -699,7 +695,13 @@ export default function AdminLobbies() {
       {/* Edit Name Modal */}
       <Modal
         rootClassName="ct-modal"
-        title="Oda Yetkilerini Düzenle"
+        title={
+          <ModalHeading
+            icon={<EditOutlined />}
+            title="Oda Yetkilerini Düzenle"
+            description="Odanın adı, sınırı, kilidi, şifresi, kapalı özellikleri ve erişim listesi."
+          />
+        }
         open={isEditOpen}
         onCancel={() => setIsEditOpen(false)}
         footer={[

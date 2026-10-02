@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Descriptions, Drawer, Input, Select, Table, Tag, message } from "antd";
+import { Button, Descriptions, Drawer, Input, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined, DownloadOutlined, FileZipOutlined } from "@ant-design/icons";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@shared/media-diagnostics";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
 
 const PAGE_SIZE = 50;
 
@@ -91,7 +92,7 @@ export default function AdminDiagnostics() {
       setEnabled(data.enabled);
       setRetentionDays(data.retentionDays);
     } catch (error) {
-      message.error(toErrorMessage(error, "Tanılama oturumları yüklenemedi"));
+      toast.error(toErrorMessage(error, "Tanılama oturumları yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -109,10 +110,10 @@ export default function AdminDiagnostics() {
         "Tanılama kaydı indirilemedi",
       );
       if (data.saved) {
-        message.success(`Kaydedildi: ${data.path}`);
+        toast.success(`Kaydedildi: ${data.path}`);
       }
     } catch (error) {
-      message.error(toErrorMessage(error, "Tanılama kaydı indirilemedi"));
+      toast.error(toErrorMessage(error, "Tanılama kaydı indirilemedi"));
     } finally {
       setExporting(false);
     }
@@ -129,10 +130,10 @@ export default function AdminDiagnostics() {
         "Tanılama kayıtları indirilemedi",
       );
       if (data.saved) {
-        message.success(`Kaydedildi: ${data.path}`);
+        toast.success(`Kaydedildi: ${data.path}`);
       }
     } catch (error) {
-      message.error(toErrorMessage(error, "Tanılama kayıtları indirilemedi"));
+      toast.error(toErrorMessage(error, "Tanılama kayıtları indirilemedi"));
     } finally {
       setExporting(false);
     }

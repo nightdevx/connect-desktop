@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Table, Tag, message } from "antd";
+import { Button, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DisconnectOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { AdminLivePublisher } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
 
 export default function AdminMedia() {
   const [publishers, setPublishers] = useState<AdminLivePublisher[]>([]);
@@ -16,7 +17,7 @@ export default function AdminMedia() {
       const data = await adminService.unwrap(adminService.ops.liveMedia(), "Canlı yayınlar yüklenemedi");
       setPublishers(data.publishers);
     } catch (error) {
-      message.error(toErrorMessage(error, "Canlı yayınlar yüklenemedi"));
+      toast.error(toErrorMessage(error, "Canlı yayınlar yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -31,10 +32,10 @@ export default function AdminMedia() {
   const stopTrack = async (userId: string, kind: "camera" | "screen" | "microphone"): Promise<void> => {
     try {
       await adminService.unwrap(adminService.ops.forceTrackOff({ userId, kind }), "Yayın durdurulamadı");
-      message.success("Yayın durduruldu");
+      toast.success("Yayın durduruldu");
       void load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Yayın durdurulamadı"));
+      toast.error(toErrorMessage(error, "Yayın durdurulamadı"));
     }
   };
 
@@ -84,10 +85,10 @@ export default function AdminMedia() {
                   adminService.ops.disconnectMedia({ userId: row.userId }),
                   "Yayından koparılamadı",
                 );
-                message.success("Yayından koparıldı");
+                toast.success("Yayından koparıldı");
                 void load();
               } catch (error) {
-                message.error(toErrorMessage(error, "Yayından koparılamadı"));
+                toast.error(toErrorMessage(error, "Yayından koparılamadı"));
               }
             }}
           />

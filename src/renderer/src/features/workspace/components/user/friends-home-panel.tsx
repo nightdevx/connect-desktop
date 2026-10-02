@@ -1,13 +1,20 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { Button, Dropdown, Input, Segmented, Tooltip } from "antd";
+import type { MenuProps } from "antd";
 import {
   CheckOutlined,
   CloseOutlined,
+  CopyOutlined,
+  DesktopOutlined,
+  EllipsisOutlined,
   InboxOutlined,
+  MessageOutlined,
   PhoneOutlined,
   ReloadOutlined,
+  RocketOutlined,
   SearchOutlined,
+  SoundOutlined,
   TeamOutlined,
   UserAddOutlined,
   UserDeleteOutlined,
@@ -17,6 +24,8 @@ import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { ConfirmActionModal } from "../common";
+import { ContextMenuPanel } from "../common/context-menu-panel";
+import { AuthLogoMark } from "@/features/auth";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import {
   getDisplayInitials,
@@ -35,6 +44,16 @@ export interface FriendsHomePanelProps {
   // This list is exactly the set of people you may call, so the phone belongs
   // on the row: reaching it used to mean opening the DM thread first.
   onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
+  // Which voice room each person is in, off the live rosters: the page answers
+  // "where is everybody" with it, and offers the way in.
+  lobbyByUserId?: Record<string, { id: string; name: string }>;
+  // The room this user is already in, so a friend beside them is not offered
+  // a "Katıl" that would do nothing.
+  currentLobbyId?: string | null;
+  // Switches to Lobiler and joins through the same funnel as a click on the
+  // room, password prompt and full-room handling included.
+  onJoinLobby?: (lobbyId: string) => void;
+  onCopyUsername?: (username: string) => Promise<void>;
 }
 
 type FriendsTab = "friends" | "online" | "offline" | "requests";
@@ -42,6 +61,20 @@ type FriendsTab = "friends" | "online" | "offline" | "requests";
 interface RequestRow extends FriendEntry {
   name: string;
 }
+
+// What somebody is doing right now, in the order it is worth saying: a room
+// first, because it is the one activity that comes with a way to join them.
+interface FriendActivity {
+  kind: "lobby" | "minigame" | "game";
+  label: string;
+  lobby?: { id: string; name: string };
+}
+
+const ACTIVITY_ICON: Record<FriendActivity["kind"], ReactNode> = {
+  lobby: <SoundOutlined />,
+  minigame: <RocketOutlined />,
+  game: <DesktopOutlined />,
+};
 
 const normalize = (value: string): string => value.toLocaleLowerCase("tr-TR");
 
@@ -79,6 +112,45 @@ function TabLabel({
   );
 }
 
+function PersonAvatar({
+  name,
+  avatarUrl,
+  presenceDot,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  presenceDot?: string;
+}) {
+  return (
+    <div
+      className={`ct-user-avatar ${presenceDot ? "with-presence" : ""}`}
+      aria-hidden="true"
+    >
+      <div className="ct-user-avatar-core">
+        {avatarUrl ? (
+          <img className="ct-user-avatar-image" src={avatarUrl} alt="" />
+        ) : (
+          <span className="ct-user-avatar-fallback">{getDisplayInitials(name)}</span>
+        )}
+      </div>
+
+      {presenceDot && (
+        <span className="ct-presence-dot" style={{ background: presenceDot }} />
+      )}
+    </div>
+  );
+}
+
+// The activity line: the icon says which kind, the text says what.
+function ActivityText({ activity }: { activity: FriendActivity }) {
+  return (
+    <span className={`ct-friends-activity ${activity.kind}`}>
+      {ACTIVITY_ICON[activity.kind]}
+      {activity.label}
+    </span>
+  );
+}
+
 // Requests carry no avatar - FriendEntry deliberately omits it, since it rides
 // the users-WS - so the initials branch is the only one a request row takes.
 //
@@ -94,14 +166,16 @@ function PersonRow({
   actions,
   onActivate,
   activateLabel,
+  contextMenu,
 }: {
   name: string;
-  subtitle: string;
+  subtitle: ReactNode;
   avatarUrl?: string | null;
   presenceDot?: string;
   actions?: ReactNode;
   onActivate?: () => void;
   activateLabel?: string;
+  contextMenu?: { menu: MenuProps; popupRender?: (menu: ReactNode) => ReactNode };
 }) {
   const activateOnKey = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (!onActivate || (event.key !== "Enter" && event.key !== " ")) {
@@ -113,24 +187,7 @@ function PersonRow({
 
   const identity = (
     <div className="ct-list-user">
-      <div
-        className={`ct-user-avatar ${presenceDot ? "with-presence" : ""}`}
-        aria-hidden="true"
-      >
-        <div className="ct-user-avatar-core">
-          {avatarUrl ? (
-            <img className="ct-user-avatar-image" src={avatarUrl} alt="" />
-          ) : (
-            <span className="ct-user-avatar-fallback">
-              {getDisplayInitials(name)}
-            </span>
-          )}
-        </div>
-
-        {presenceDot && (
-          <span className="ct-presence-dot" style={{ background: presenceDot }} />
-        )}
-      </div>
+      <PersonAvatar name={name} avatarUrl={avatarUrl} presenceDot={presenceDot} />
 
       <div className="ct-list-user-meta">
         <p>
@@ -141,7 +198,7 @@ function PersonRow({
     </div>
   );
 
-  return (
+  const item = (
     <li className={`ct-list-item ${onActivate ? "clickable" : ""}`}>
       {onActivate ? (
         <div
@@ -160,6 +217,22 @@ function PersonRow({
 
       {actions && <div className="ct-list-item-actions">{actions}</div>}
     </li>
+  );
+
+  // Right-click, the same secondary-action gesture the sidebar and the lobby
+  // member rows use. Wrapped around the <li> itself: Dropdown hangs its
+  // listener and ref on its direct child, and with this component as the child
+  // both were dropped as unknown props -- the menu never opened.
+  return contextMenu ? (
+    <Dropdown
+      trigger={["contextMenu"]}
+      menu={contextMenu.menu}
+      popupRender={contextMenu.popupRender}
+    >
+      {item}
+    </Dropdown>
+  ) : (
+    item
   );
 }
 
@@ -204,6 +277,10 @@ export function FriendsHomePanel({
   onOpenConversation,
   onAddFriend,
   onInitiateCall,
+  lobbyByUserId,
+  currentLobbyId,
+  onJoinLobby,
+  onCopyUsername,
 }: FriendsHomePanelProps) {
   const gameActivityByUser = useGameActivityByUser();
   // Çevrimiçi first, not the full list. Opening "Arkadaşlar" is almost always
@@ -243,6 +320,35 @@ export function FriendsHomePanel({
     () => friendUsers.filter((user) => user.appOnline).length,
     [friendUsers],
   );
+
+  const activityOf = (user: UserDirectoryEntry): FriendActivity | null => {
+    // Offline is a status, not an activity: anything still attached to an
+    // offline row is a leftover from before they left.
+    if (!user.appOnline) {
+      return null;
+    }
+
+    const lobby = lobbyByUserId?.[user.userId];
+    if (lobby) {
+      return { kind: "lobby", label: `${lobby.name} odasında`, lobby };
+    }
+
+    const minigame = gameActivityByUser.get(user.userId);
+    if (minigame) {
+      return { kind: "minigame", label: gameActivityLabel(minigame) };
+    }
+
+    if (user.activity?.name) {
+      return { kind: "game", label: `${user.activity.name} oynuyor` };
+    }
+
+    return null;
+  };
+
+  const activeFriends = friendUsers.flatMap((user) => {
+    const activity = activityOf(user);
+    return activity ? [{ user, activity }] : [];
+  });
 
   const visibleFriends = useMemo(
     () =>
@@ -302,6 +408,76 @@ export function FriendsHomePanel({
   ];
 
   const askUnfriend = (row: RequestRow): void => setPendingUnfriend(row);
+
+  // One menu behind both the ⋯ button and a right-click, so the two cannot
+  // drift apart.
+  const menuItemsFor = (
+    user: UserDirectoryEntry,
+    activity: FriendActivity | null,
+    isPending: boolean,
+    asRow: RequestRow,
+  ): MenuProps["items"] => {
+    const items: NonNullable<MenuProps["items"]> = [
+      {
+        key: "message",
+        label: "Mesaj Gönder",
+        icon: <MessageOutlined />,
+        onClick: () => onOpenConversation(toPeer(user)),
+      },
+    ];
+
+    if (onInitiateCall) {
+      items.push({
+        key: "call",
+        label: "Sesli Ara",
+        icon: <PhoneOutlined />,
+        // Listed but closed while they are offline, with the reason beside it:
+        // the call would ring into nothing.
+        disabled: !user.appOnline,
+        extra: user.appOnline ? undefined : "çevrimdışı",
+        onClick: () => onInitiateCall(user),
+      });
+    }
+
+    const lobby = activity?.lobby;
+    if (lobby && onJoinLobby && lobby.id !== currentLobbyId) {
+      items.push({
+        key: "join",
+        // The room's name beside the action, not inside it: rooms tend to be
+        // called "… Odası", and "Oyun Odası Odasına Katıl" says it twice.
+        label: "Odasına Katıl",
+        extra: lobby.name,
+        icon: <SoundOutlined />,
+        onClick: () => onJoinLobby(lobby.id),
+      });
+    }
+
+    if (onCopyUsername) {
+      items.push(
+        { type: "divider" },
+        {
+          key: "copy",
+          label: "Kullanıcı Adını Kopyala",
+          icon: <CopyOutlined />,
+          onClick: () => void onCopyUsername(user.username),
+        },
+      );
+    }
+
+    items.push(
+      { type: "divider" },
+      {
+        key: "unfriend",
+        label: "Arkadaşlıktan Çıkar",
+        icon: <UserDeleteOutlined />,
+        danger: true,
+        disabled: isPending,
+        onClick: () => askUnfriend(asRow),
+      },
+    );
+
+    return items;
+  };
 
   // Above every empty state, because "no friends" and "the call failed" used to
   // render identically — which is how a broken list stayed unreported.
@@ -372,92 +548,196 @@ export function FriendsHomePanel({
     );
   };
 
-  const renderFriendList = (): ReactNode => {
-    if (friends.isLoading) {
-      return <li className="ct-list-state">Arkadaşlar yükleniyor...</li>;
-    }
+  const renderFriendRow = (user: UserDirectoryEntry): ReactNode => {
+    const name = user.displayName || user.username;
+    const activity = activityOf(user);
+    const isPending = friends.pendingUserIds.includes(user.userId);
+    const asRow: RequestRow = {
+      userId: user.userId,
+      username: user.username,
+      displayName: user.displayName,
+      name,
+    };
+    const menu: MenuProps = { items: menuItemsFor(user, activity, isPending, asRow) };
+    // Whose menu this is, above it -- the same header the lobby menus carry.
+    const popupRender = (origin: ReactNode): ReactNode => (
+      <ContextMenuPanel
+        identity={{
+          userId: user.userId,
+          name,
+          avatarUrl: user.avatarUrl,
+          detail: activity?.label ?? getUserStatusLabel(user.appOnline, user.presence),
+        }}
+        menu={origin}
+      />
+    );
 
-    if (friends.loadError) {
-      return renderLoadError();
-    }
+    return (
+      <PersonRow
+        key={user.userId}
+        contextMenu={{ menu, popupRender }}
+        name={name}
+        subtitle={
+          activity ? (
+            <ActivityText activity={activity} />
+          ) : (
+            getUserStatusLabel(user.appOnline, user.presence)
+          )
+        }
+        avatarUrl={user.avatarUrl}
+        presenceDot={getPresenceColor(user.appOnline, user.presence)}
+        onActivate={() => onOpenConversation(toPeer(user))}
+        activateLabel={`${name} ile sohbeti aç`}
+        actions={
+          <>
+            <RowAction
+              title="Mesaj gönder"
+              tone="neutral"
+              icon={<MessageOutlined />}
+              ariaLabel={`${name} ile sohbeti aç`}
+              onClick={() => onOpenConversation(toPeer(user))}
+            />
 
-    if (visibleFriends.length === 0) {
-      return renderFriendEmpty();
-    }
-
-    return visibleFriends.map((user) => {
-      const name = user.displayName || user.username;
-      const activity = gameActivityByUser.get(user.userId);
-      const isPending = friends.pendingUserIds.includes(user.userId);
-      const asRow: RequestRow = {
-        userId: user.userId,
-        username: user.username,
-        displayName: user.displayName,
-        name,
-      };
-
-      const row = (
-        <PersonRow
-          name={name}
-          subtitle={
-            activity
-              ? gameActivityLabel(activity)
-              : getUserStatusLabel(user.appOnline, user.presence)
-          }
-          avatarUrl={user.avatarUrl}
-          presenceDot={getPresenceColor(user.appOnline, user.presence)}
-          onActivate={() => onOpenConversation(toPeer(user))}
-          activateLabel={`${name} ile sohbeti aç`}
-          actions={
-            <>
-              {/* Offline gets no button rather than a dead one: the call would
-                  ring into nothing. */}
-              {onInitiateCall && user.appOnline && (
-                <RowAction
-                  title="Sesli ara"
-                  tone="success"
-                  icon={<PhoneOutlined />}
-                  ariaLabel={`${name} kişisini ara`}
-                  onClick={() => onInitiateCall(user)}
-                />
-              )}
-
+            {/* Offline gets no button rather than a dead one: the call would
+                ring into nothing. */}
+            {onInitiateCall && user.appOnline && (
               <RowAction
-                title="Arkadaşlıktan çıkar"
-                tone="danger"
-                icon={<UserDeleteOutlined />}
-                ariaLabel={`${name} ile arkadaşlığı bitir`}
-                isLoading={isPending}
-                onClick={() => askUnfriend(asRow)}
+                title="Sesli ara"
+                tone="success"
+                icon={<PhoneOutlined />}
+                ariaLabel={`${name} kişisini ara`}
+                onClick={() => onInitiateCall(user)}
               />
-            </>
-          }
-        />
-      );
+            )}
 
-      // Right-click, the same secondary-action gesture the sidebar and the
-      // lobby member rows use: the row's own job is to open the conversation.
+            {/* Everything else, unfriend included, one click further in: a red
+                bin on every row was one misclick from ending a friendship. It
+                spins while that request is in flight, as the bin used to. */}
+            <Dropdown trigger={["click"]} menu={menu} popupRender={popupRender}>
+              <Button
+                type="text"
+                className="ct-row-action neutral"
+                icon={<EllipsisOutlined />}
+                loading={isPending}
+                aria-label={`${name} için diğer seçenekler`}
+              />
+            </Dropdown>
+          </>
+        }
+      />
+    );
+  };
+
+  // The label rides each <ul>, not the scroller around them: a bare div carries
+  // no role, so a name on it is announced by nothing.
+  const renderFriends = (): ReactNode => {
+    let state: ReactNode = null;
+    if (friends.isLoading) {
+      state = <li className="ct-list-state">Arkadaşlar yükleniyor...</li>;
+    } else if (friends.loadError) {
+      state = renderLoadError();
+    } else if (visibleFriends.length === 0) {
+      state = renderFriendEmpty();
+    }
+
+    if (state) {
       return (
-        <Dropdown
-          key={user.userId}
-          trigger={["contextMenu"]}
-          menu={{
-            items: [
-              {
-                key: "unfriend",
-                label: "Arkadaşlıktan Çıkar",
-                icon: <UserDeleteOutlined />,
-                danger: true,
-                disabled: isPending,
-                onClick: () => askUnfriend(asRow),
-              },
-            ],
-          }}
-        >
-          {row}
-        </Dropdown>
+        <ul className="ct-list" aria-label="Arkadaşlar">
+          {state}
+        </ul>
       );
-    });
+    }
+
+    // Who is around, then who is not, each under its own count: the full tab
+    // answers "is anyone online" without a second click, and on Çevrimiçi the
+    // heading is what separates the list from the Şu an aktif strip above it.
+    const groups = [
+      { label: "Çevrimiçi", users: visibleFriends.filter((user) => user.appOnline) },
+      { label: "Çevrimdışı", users: visibleFriends.filter((user) => !user.appOnline) },
+    ].filter((group) => group.users.length > 0);
+
+    return groups.map((group) => (
+      <section key={group.label} className="ct-friends-home-group">
+        <p className="ct-list-group-title">
+          {group.label}
+          <span className="ct-segmented-count">{group.users.length}</span>
+        </p>
+
+        <ul className="ct-list" aria-label={`${group.label} arkadaşlar`}>
+          {group.users.map(renderFriendRow)}
+        </ul>
+      </section>
+    ));
+  };
+
+  // "Şu an aktif": who is in a room or in a game, above the list, each with the
+  // one click that matters -- into their room, or into the conversation.
+  const renderActive = (): ReactNode => {
+    if (
+      query ||
+      friends.isLoading ||
+      friends.loadError ||
+      (tab !== "friends" && tab !== "online") ||
+      activeFriends.length === 0
+    ) {
+      return null;
+    }
+
+    return (
+      <section className="ct-friends-home-group">
+        <p className="ct-list-group-title">
+          Şu an aktif
+          <span className="ct-segmented-count">{activeFriends.length}</span>
+        </p>
+
+        <ul className="ct-friends-active" aria-label="Şu an aktif">
+          {activeFriends.map(({ user, activity }) => {
+            const name = user.displayName || user.username;
+            const lobby = activity.lobby;
+
+            return (
+              <li key={user.userId} className={`ct-friends-active-card ${activity.kind}`}>
+                <PersonAvatar
+                  name={name}
+                  avatarUrl={user.avatarUrl}
+                  presenceDot={getPresenceColor(user.appOnline, user.presence)}
+                />
+
+                <div className="ct-friends-active-meta">
+                  <strong title={name}>{name}</strong>
+                  <ActivityText activity={activity} />
+                </div>
+
+                {lobby && onJoinLobby ? (
+                  lobby.id === currentLobbyId ? (
+                    <span className="ct-friends-active-here">Aynı odadasınız</span>
+                  ) : (
+                    <Button
+                      size="small"
+                      icon={<SoundOutlined />}
+                      aria-label={`${lobby.name} odasına katıl`}
+                      onClick={() => onJoinLobby(lobby.id)}
+                    >
+                      Katıl
+                    </Button>
+                  )
+                ) : (
+                  <Tooltip title="Mesaj gönder">
+                    <Button
+                      size="small"
+                      shape="circle"
+                      icon={<MessageOutlined />}
+                      aria-label={`${name} ile sohbeti aç`}
+                      onClick={() => onOpenConversation(toPeer(user))}
+                    />
+                  </Tooltip>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
   };
 
   // Both request lists render only when they have rows, under one heading that
@@ -572,18 +852,29 @@ export function FriendsHomePanel({
 
   return (
     <div className="ct-friends-home">
+      <AuthLogoMark className="ct-brand-mural" />
+
       <header className="ct-friends-home-header">
         <div>
           <h2>Arkadaşlar</h2>
           <p>
-            Sohbeti açmak için bir arkadaşınıza tıklayın; sağ tık daha fazla
-            seçenek gösterir.
+            Kimin ne yaptığını görün, sohbet açın ya da sesli arayın; sağ tık
+            daha fazla seçenek gösterir.
           </p>
         </div>
 
-        <Button type="primary" icon={<UserAddOutlined />} onClick={onAddFriend}>
-          Arkadaş Ekle
-        </Button>
+        <div className="ct-friends-home-header-actions">
+          {friendUsers.length > 0 && (
+            <span className="ct-stat-chip">
+              <span className="ct-online-dot" aria-hidden="true" />
+              {onlineCount} çevrimiçi
+            </span>
+          )}
+
+          <Button type="primary" icon={<UserAddOutlined />} onClick={onAddFriend}>
+            Arkadaş Ekle
+          </Button>
+        </div>
       </header>
 
       <div className="ct-friends-home-toolbar">
@@ -605,22 +896,21 @@ export function FriendsHomePanel({
         />
       </div>
 
-      {/* The label rides the <ul>, not this scroller: a bare div carries no
-          role, so a name on it is announced by nothing. The requests tab labels
-          its own two lists. */}
       <div className="ct-friends-home-body">
         {tab === "requests" ? (
           renderRequests()
         ) : (
-          <ul className="ct-list" aria-label="Arkadaşlar">
-            {renderFriendList()}
-          </ul>
+          <>
+            {renderActive()}
+            {renderFriends()}
+          </>
         )}
       </div>
 
       <ConfirmActionModal
         isOpen={pendingUnfriend !== null}
         title="Arkadaşlıktan Çıkar"
+        icon={<UserDeleteOutlined />}
         message={`${pendingUnfriend?.name ?? ""} arkadaş listenizden kaldırılacak. Geri almak için karşı tarafın yeni isteğinizi kabul etmesi gerekir.`}
         confirmLabel="Arkadaşlıktan Çıkar"
         isProcessing={

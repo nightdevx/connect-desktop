@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Input, Modal, Segmented, Select, Table, Tag, message } from "antd";
+import { Button, Input, Modal, Segmented, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import type { ReactNode } from "react";
 import { DeleteOutlined, EyeInvisibleOutlined, ReloadOutlined } from "@ant-design/icons";
 import type {
   AdminAttachmentStats,
@@ -11,6 +12,8 @@ import type {
 import type { ChatMessage } from "@shared/auth-contracts";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { toast } from "@/services/toast";
+import { ModalHeading } from "@/ui/modal-heading";
 
 type Pane = "messages" | "reports" | "attachments";
 
@@ -22,11 +25,27 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const askReason = (title: string): Promise<string | null> =>
+type ModalApi = ReturnType<typeof Modal.useModal>[0];
+
+const askReason = (
+  modal: ModalApi,
+  title: string,
+  icon: ReactNode = <DeleteOutlined />,
+): Promise<string | null> =>
   new Promise((resolve) => {
     let value = "";
-    Modal.confirm({
-      title,
+    modal.confirm({
+      rootClassName: "ct-modal danger",
+      icon: null,
+      title: (
+        <ModalHeading
+          tone="danger"
+          icon={icon}
+          title={title}
+          description="İşlem kayda geçer; gerekçesi denetim günlüğünde görünür."
+        />
+      ),
+      okButtonProps: { danger: true },
       content: (
         <Input.TextArea
           placeholder="Gerekçe (en az 3 karakter)"
@@ -41,7 +60,7 @@ const askReason = (title: string): Promise<string | null> =>
       cancelText: "Vazgeç",
       onOk: () => {
         if (value.trim().length < 3) {
-          message.warning("Gerekçe en az 3 karakter olmalı.");
+          toast.warning("Gerekçe en az 3 karakter olmalı.");
           return Promise.reject(new Error("reason too short"));
         }
         resolve(value.trim());
@@ -52,6 +71,7 @@ const askReason = (title: string): Promise<string | null> =>
   });
 
 export default function AdminChat() {
+  const [modal, modalHolder] = Modal.useModal();
   const [pane, setPane] = useState<Pane>("messages");
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -81,7 +101,7 @@ export default function AdminChat() {
       setMessages(data.messages);
       setMessagesTotal(data.total);
     } catch (error) {
-      message.error(toErrorMessage(error, "Mesajlar yüklenemedi"));
+      toast.error(toErrorMessage(error, "Mesajlar yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -96,7 +116,7 @@ export default function AdminChat() {
       );
       setReports(data.reports);
     } catch (error) {
-      message.error(toErrorMessage(error, "Şikâyetler yüklenemedi"));
+      toast.error(toErrorMessage(error, "Şikâyetler yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -112,7 +132,7 @@ export default function AdminChat() {
       setAttachments(data.attachments);
       setAttachmentStats(data.stats);
     } catch (error) {
-      message.error(toErrorMessage(error, "Ekler yüklenemedi"));
+      toast.error(toErrorMessage(error, "Ekler yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -129,26 +149,26 @@ export default function AdminChat() {
   }, [refresh]);
 
   const handleDelete = async (messageId: string): Promise<void> => {
-    const reason = await askReason("Mesajı sil");
+    const reason = await askReason(modal, "Mesajı sil");
     if (!reason) return;
     try {
       await adminService.unwrap(adminService.ops.deleteChatMessage({ messageId, reason }), "Mesaj silinemedi");
-      message.success("Mesaj silindi");
+      toast.success("Mesaj silindi");
       void refresh();
     } catch (error) {
-      message.error(toErrorMessage(error, "Mesaj silinemedi"));
+      toast.error(toErrorMessage(error, "Mesaj silinemedi"));
     }
   };
 
   const handleRedact = async (messageId: string): Promise<void> => {
-    const reason = await askReason("Mesajı karart");
+    const reason = await askReason(modal, "Mesajı karart", <EyeInvisibleOutlined />);
     if (!reason) return;
     try {
       await adminService.unwrap(adminService.ops.redactChatMessage({ messageId, reason }), "Mesaj karartılamadı");
-      message.success("Mesaj karartıldı");
+      toast.success("Mesaj karartıldı");
       void refresh();
     } catch (error) {
-      message.error(toErrorMessage(error, "Mesaj karartılamadı"));
+      toast.error(toErrorMessage(error, "Mesaj karartılamadı"));
     }
   };
 
@@ -225,10 +245,10 @@ export default function AdminChat() {
                   adminService.ops.updateReport({ reportId: row.id, status: "resolved" }),
                   "Şikâyet güncellenemedi",
                 );
-                message.success("Şikâyet kapatıldı");
+                toast.success("Şikâyet kapatıldı");
                 void refresh();
               } catch (error) {
-                message.error(toErrorMessage(error, "Şikâyet güncellenemedi"));
+                toast.error(toErrorMessage(error, "Şikâyet güncellenemedi"));
               }
             }}
           >
@@ -265,17 +285,17 @@ export default function AdminChat() {
           danger
           icon={<DeleteOutlined />}
           onClick={async () => {
-            const reason = await askReason("Eki sil");
+            const reason = await askReason(modal, "Eki sil");
             if (!reason) return;
             try {
               await adminService.unwrap(
                 adminService.ops.deleteAttachment({ attachmentId: row.id, reason }),
                 "Ek silinemedi",
               );
-              message.success("Ek silindi");
+              toast.success("Ek silindi");
               void refresh();
             } catch (error) {
-              message.error(toErrorMessage(error, "Ek silinemedi"));
+              toast.error(toErrorMessage(error, "Ek silinemedi"));
             }
           }}
         />
@@ -285,6 +305,7 @@ export default function AdminChat() {
 
   return (
     <div className="ct-admin-section">
+      {modalHolder}
       <header className="ct-admin-section-header">
         <div>
           <h3>Sohbet Moderasyonu</h3>

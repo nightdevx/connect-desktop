@@ -16,9 +16,32 @@
     @apply relative flex h-full w-full overflow-hidden;
   }
 
+  /* The logo's blue, faint, behind the two of them. */
   .ct-call-stage {
     @apply relative flex h-full min-w-0 flex-1 flex-col overflow-hidden;
-    background: var(--ct-surface-1);
+    background:
+      radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--ct-brand-blue) 11%, transparent), transparent 62%),
+      var(--ct-surface-1);
+  }
+
+  /* Top-left, opposite the chat toggle and the same pill: ringing in the
+     logo's blue, then green with the running time. */
+  .ct-call-stage-status {
+    @apply absolute left-4 top-4 z-30 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold;
+    border-color: var(--ct-border);
+    color: var(--ct-success);
+    background: var(--ct-panel);
+    backdrop-filter: blur(12px);
+  }
+
+  .ct-call-stage-status.ringing {
+    color: var(--ct-brand-blue);
+  }
+
+  .ct-call-elapsed {
+    @apply shrink-0;
+    font-variant-numeric: tabular-nums;
+    color: var(--ct-text-primary);
   }
 
   .ct-call-chat-drawer {
@@ -789,7 +812,7 @@
      is the live one. */
 
 /* Call Banners */
-.ct-muted-call-banner,
+.ct-incoming-call-banner,
 .ct-rejoin-banner {
   display: flex;
   align-items: center;
@@ -804,13 +827,14 @@
   box-shadow: 0 4px 16px var(--ct-shadow-color-soft);
 }
 
-.ct-muted-call-banner {
+/* Green: a call waiting to be answered, the colour of the answer button. */
+.ct-incoming-call-banner {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--ct-info) 9%, transparent) 0%,
-    color-mix(in srgb, var(--ct-info) 3%, transparent) 100%
+    color-mix(in srgb, var(--ct-success) 10%, transparent) 0%,
+    color-mix(in srgb, var(--ct-success) 3%, transparent) 100%
   );
-  border: 1px solid color-mix(in srgb, var(--ct-info) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ct-success) 26%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -834,7 +858,9 @@
   min-width: 0; /* Crucial for flex-shrink to work */
 }
 
-.ct-banner-text-content span {
+/* The direct child only: the ringing avatar is a span too, and clipping it
+   would cut its rings off at the face. */
+.ct-banner-text-content > span {
   white-space: nowrap; /* Prevent text from wrapping */
   overflow: hidden;
   text-overflow: ellipsis; /* Add ... if text is too long */
@@ -854,87 +880,35 @@
   color: var(--ct-alpha-50);
 }
 
-.ct-call-pulse-avatar-container {
-  @apply relative h-avatar-sm w-avatar-sm shrink-0;
-}
-
-.ct-call-pulse-avatar-container .ant-avatar {
-  border: 1.5px solid var(--ct-alpha-20);
-  background: var(--ct-surface-3);
-  animation: callAvatarDimPulse 2s infinite ease-in-out;
-}
-
 .ct-chat-user-header-avatar.ant-avatar {
   border: 1.5px solid var(--ct-alpha-12);
   background: var(--ct-surface-3);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-muted-call-banner, .ct-rejoin-banner {
+  .ct-incoming-call-banner, .ct-rejoin-banner {
     animation: none !important;
   }
 }
 
-/* Plain <button>s, not antd Buttons wearing a class.
-
-   These three carried 22 `!important` declarations between them -- more than
-   half of the whole stylesheet's -- because an antd Button brings its own
-   cssinjs rules of equal specificity and there is no guaranteed order between
-   that runtime-injected sheet and this one. Every property had to shout to win.
-   None of the three uses anything an antd Button provides: no loading state, no
-   ripple, no size system. They are pills with an icon and a label. */
-.ct-banner-accept-btn,
-.ct-banner-reject-btn,
+/* A plain <button>, not an antd Button wearing a class: the antd one brought
+   nothing but a cssinjs sheet of equal specificity, and every property had to
+   win against it with !important. The answer pair beside it on the incoming
+   banner is .ct-call-answer (common.css), shared with the corner card. */
 .ct-banner-rejoin-btn {
   @apply inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium;
   height: 32px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ct-success) 30%, transparent);
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
   transition:
     background var(--ct-duration-fast) ease,
-    border-color var(--ct-duration-fast) ease,
-    box-shadow var(--ct-duration-fast) ease;
+    border-color var(--ct-duration-fast) ease;
 }
 
-.ct-banner-accept-btn:focus-visible,
-.ct-banner-reject-btn:focus-visible,
 .ct-banner-rejoin-btn:focus-visible {
   outline: 2px solid var(--ct-accent);
   outline-offset: 2px;
-}
-
-/* Hover deepens the tint rather than flipping to a solid fill. The fill version
-   set `color: var(--ct-text-primary)`, which is the theme's text colour: near
-   white on #10b981 in the dark theme (2.5:1) and near black on #0b7350 in the
-   light one (2.2:1) -- unreadable in BOTH, in opposite directions. A tint keeps
-   the label on the page's own ground, where one colour is correct for both. */
-.ct-banner-accept-btn {
-  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
-  color: var(--ct-success);
-  background: color-mix(in srgb, var(--ct-success) 15%, transparent);
-  animation: ctaPulseAccept 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-.ct-banner-accept-btn:hover {
-  border-color: color-mix(in srgb, var(--ct-success) 50%, transparent);
-  background: color-mix(in srgb, var(--ct-success) 28%, transparent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ct-success) 25%, transparent);
-}
-
-.ct-banner-reject-btn {
-  border-color: color-mix(in srgb, var(--ct-danger) 25%, transparent);
-  color: var(--ct-danger);
-}
-
-.ct-banner-reject-btn:hover {
-  border-color: color-mix(in srgb, var(--ct-danger) 50%, transparent);
-  background: color-mix(in srgb, var(--ct-danger) 10%, transparent);
-}
-
-.ct-banner-rejoin-btn {
-  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
-  color: var(--ct-success);
-  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
 }
 
 .ct-banner-rejoin-btn:hover {
@@ -977,9 +951,23 @@
    search box fit on one row is the width of this panel, and the panel is the
    window minus a rail and a sidebar that both resize on their own. */
 .ct-friends-home {
-  @apply flex min-h-0 flex-1 flex-col;
+  @apply relative flex min-h-0 flex-1 flex-col overflow-hidden;
   container-type: inline-size;
   container-name: friends-home;
+  /* The logo's two colours, faint, in opposite corners, and the mark cropped
+     off the top-right (.ct-brand-mural) -- the ambience the lobby selection
+     screen opens on, so the two homes read as one app. */
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--ct-brand-blue) 7%, transparent), transparent 42%),
+    radial-gradient(circle at 105% 115%, color-mix(in srgb, var(--ct-brand-cyan) 6%, transparent), transparent 46%);
+}
+
+/* Above the mark, which is absolutely positioned and would otherwise paint
+   over every band that is not. */
+.ct-friends-home-header,
+.ct-friends-home-toolbar,
+.ct-friends-home-body {
+  @apply relative z-[1];
 }
 
 /* items-center, not items-start: the button used to hang off the top of a
@@ -1001,8 +989,9 @@
   color: var(--ct-text-muted);
 }
 
-.ct-friends-home-header .ant-btn {
-  @apply shrink-0;
+/* The online count and Arkadaş Ekle, side by side. */
+.ct-friends-home-header-actions {
+  @apply flex shrink-0 items-center gap-2;
 }
 
 /* align-items: stretch is what makes the tab strip and the search box the same
@@ -1123,6 +1112,84 @@
   color: var(--ct-text-secondary);
 }
 
+/* --------------------------------------------------------------------------
+   Şu an aktif
+
+   One line per person -- who, what, and the one click into it -- so the strip
+   never pushes the list below the fold. auto-fill columns: two or three across
+   a wide panel, one when it is narrow.
+   -------------------------------------------------------------------------- */
+
+.ct-friends-active {
+  @apply m-0 grid list-none gap-2 p-0;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.ct-friends-active-card {
+  @apply flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5;
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-02);
+  transition:
+    border-color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
+}
+
+.ct-friends-active-card:hover {
+  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-04);
+}
+
+/* In a room: the one card that offers a way in, tinted the colour of joining. */
+.ct-friends-active-card.lobby {
+  border-color: color-mix(in srgb, var(--ct-success) 30%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 5%, transparent);
+}
+
+.ct-friends-active-meta {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.ct-friends-active-meta strong {
+  @apply truncate text-sm font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-friends-active-meta .ct-friends-activity {
+  @apply truncate text-xs;
+}
+
+.ct-friends-active-card .ant-btn {
+  @apply shrink-0;
+}
+
+.ct-friends-active-here {
+  @apply shrink-0 text-2xs font-semibold;
+  color: var(--ct-success);
+}
+
+/* What somebody is doing, on a card and as a row's subtitle. The icon carries
+   the kind -- green for a room, the logo's cyan and blue for games -- and the
+   text sits one notch brighter than a plain "Çevrimiçi". */
+.ct-friends-home .ct-friends-activity {
+  color: var(--ct-text-secondary);
+}
+
+.ct-friends-activity .anticon {
+  margin-inline-end: 6px;
+}
+
+.ct-friends-activity.lobby .anticon {
+  color: var(--ct-success);
+}
+
+.ct-friends-activity.minigame .anticon {
+  color: var(--ct-brand-cyan);
+}
+
+.ct-friends-activity.game .anticon {
+  color: var(--ct-brand-blue);
+}
+
 /* An empty state that names a dead end and offers no way out is a dead end.
    Both the "no friends yet" and the "list failed to load" cases end in a
    button, so the screen always has a next move. */
@@ -1136,6 +1203,10 @@
 @container friends-home (max-width: 560px) {
   .ct-friends-home-header {
     @apply flex-col items-stretch gap-3;
+  }
+
+  .ct-friends-home-header-actions .ant-btn {
+    @apply flex-1;
   }
 
   .ct-friends-home-toolbar .ant-segmented {

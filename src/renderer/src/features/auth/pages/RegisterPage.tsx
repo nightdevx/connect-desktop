@@ -53,8 +53,8 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
   return (
     <section className="ct-auth-pane" aria-label="Kayıt formu">
       <div className="mb-8">
-        <h2 className="ct-auth-title text-center">Aramıza Katıl</h2>
-        <p className="ct-auth-subtitle text-center mx-auto">
+        <h2 className="ct-auth-title">Aramıza Katıl</h2>
+        <p className="ct-auth-subtitle">
           Kendi topluluğunu kurmak için saniyeler içinde kayıt ol.
         </p>
       </div>
@@ -176,7 +176,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-center text-sm" >
+      <p className="mt-6 text-sm">
         Zaten hesabın var mı?{" "}
         <button type="button" className="ct-link" onClick={onGoLogin}>
           Giriş Yap

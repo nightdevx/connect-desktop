@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Modal, Slider, Tooltip } from "antd";
 import type { InputRef } from "antd";
+import { ModalHeading } from "@/ui/modal-heading";
 import {
   ClearOutlined,
   CustomerServiceOutlined,
@@ -140,10 +141,11 @@ export function MusicModal({
     <Modal
       rootClassName="ct-modal"
       title={
-        <span className="ct-modal-title-icon">
-          <CustomerServiceOutlined />
-          Müzik
-        </span>
+        <ModalHeading
+          icon={<CustomerServiceOutlined />}
+          title="Müzik"
+          description="Odadaki herkes aynı müziği dinler; kuyruğu DJ yetkisi olanlar yönetir."
+        />
       }
       open={open}
       onCancel={onClose}

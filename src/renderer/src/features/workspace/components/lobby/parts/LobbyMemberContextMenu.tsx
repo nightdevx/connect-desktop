@@ -1,4 +1,4 @@
-import { Dropdown, Slider, type MenuProps } from "antd";
+import { Dropdown, type MenuProps } from "antd";
 import type { ReactElement } from "react";
 import {
   AudioMutedOutlined,
@@ -19,6 +19,7 @@ import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
 import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
+import { ContextMenuPanel } from "../../common/context-menu-panel";
 
 /**
  * Right-click menu for a member row in the lobby sidebar.
@@ -44,7 +45,11 @@ export interface LobbyMemberMenuAudio {
 
 interface LobbyMemberContextMenuProps {
   children: ReactElement;
+  userId: string;
   username: string;
+  avatarUrl?: string | null;
+  /** The room the row sits under, for the menu's header. */
+  roomName: string;
   isSelf: boolean;
   onShowProfile: () => void;
   onSendMessage: () => void;
@@ -70,7 +75,10 @@ interface LobbyMemberContextMenuProps {
 
 export function LobbyMemberContextMenu({
   children,
+  userId,
   username,
+  avatarUrl,
+  roomName,
   isSelf,
   onShowProfile,
   onSendMessage,
@@ -91,15 +99,6 @@ export function LobbyMemberContextMenu({
   const locallyMuted = isRemoteParticipantMuted(audio?.preference);
 
   const items: MenuProps["items"] = [
-    {
-      key: "title",
-      label: (
-        <div className="ct-participant-context-menu-title">
-          {isBot ? "Müzik Botu Ayarları" : `@${username}`}
-        </div>
-      ),
-      disabled: true,
-    },
     ...(isBot
       ? []
       : [
@@ -107,7 +106,6 @@ export function LobbyMemberContextMenu({
             key: "profile",
             label: "Profili Gör",
             icon: <IdcardOutlined />,
-            className: "ct-participant-context-menu-button",
             onClick: onShowProfile,
           },
         ]),
@@ -118,7 +116,6 @@ export function LobbyMemberContextMenu({
             key: "message",
             label: "Mesaj Gönder",
             icon: <MessageOutlined />,
-            className: "ct-participant-context-menu-button",
             onClick: onSendMessage,
           },
           {
@@ -139,7 +136,6 @@ export function LobbyMemberContextMenu({
               ),
             danger: friendState === "friend",
             disabled: friendState === "requested" || isFriendActionPending,
-            className: "ct-participant-context-menu-button",
             onClick: () => {
               if (friendState === "friend") {
                 onRemoveFriend();
@@ -156,41 +152,7 @@ export function LobbyMemberContextMenu({
             key: "mute",
             label: locallyMuted ? "Sesi Aç" : "Sustur",
             icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
-            className: "ct-participant-context-menu-button",
             onClick: () => audio.onMute(!locallyMuted),
-          },
-          {
-            key: "volume-header",
-            label: (
-              <div className="ct-participant-context-menu-hint">
-                <SoundOutlined />
-                <span>
-                  Ses Seviyesi: %{audio.preference.volumePercent}
-                  {locallyMuted && " · susturuldu"}
-                </span>
-              </div>
-            ),
-            disabled: true,
-          },
-          {
-            key: "volume-slider",
-            label: (
-              // The slider must not close the menu on every drag tick, and the
-              // row underneath joins a lobby on click.
-              <div
-                className="ct-participant-context-menu-volume"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <Slider
-                  min={0}
-                  max={200}
-                  step={5}
-                  value={audio.preference.volumePercent}
-                  onChange={audio.onVolume}
-                  tooltip={{ formatter: (value) => `%${value}` }}
-                />
-              </div>
-            ),
           },
           ...(isBot
             ? []
@@ -209,7 +171,6 @@ export function LobbyMemberContextMenu({
                   ) : (
                     <MutedOutlined />
                   ),
-                  className: "ct-participant-context-menu-button",
                   onClick: () => audio.onEmoteMute(!audio.preference.emoteMuted),
                 },
               ]),
@@ -219,68 +180,63 @@ export function LobbyMemberContextMenu({
       ? [
           { type: "divider" as const },
           {
-            key: "moderation-header",
-            label: (
-              <div className="ct-participant-context-menu-hint">Moderasyon</div>
-            ),
-            disabled: true,
-          },
-          // Lifting a restriction is one click; applying one asks how long for.
-          // The asymmetry is the point: "undo this" has no parameters, and
-          // burying it in a submenu would put a step between a moderator and
-          // the correction of their own mistake.
-          isServerMuted
-            ? {
-                key: "server-unmute",
-                label: "Sunucuda Susturmayı Kaldır",
-                icon: <AudioOutlined />,
-                className: "ct-participant-context-menu-button",
-                onClick: () => onServerMute(false),
-              }
-            : {
-                key: "server-mute",
-                label: "Sunucuda Sustur",
-                icon: <MutedOutlined />,
-                className: "ct-participant-context-menu-button",
-                children: buildDurationMenuItems("member-mute", (durationSeconds) =>
-                  onServerMute(true, durationSeconds),
-                ),
+            type: "group" as const,
+            key: "moderation",
+            label: "Moderasyon",
+            children: [
+              // Lifting a restriction is one click; applying one asks how long for.
+              // The asymmetry is the point: "undo this" has no parameters, and
+              // burying it in a submenu would put a step between a moderator and
+              // the correction of their own mistake.
+              isServerMuted
+                ? {
+                    key: "server-unmute",
+                    label: "Sunucuda Susturmayı Kaldır",
+                    icon: <AudioOutlined />,
+                    onClick: () => onServerMute(false),
+                  }
+                : {
+                    key: "server-mute",
+                    label: "Sunucuda Sustur",
+                    icon: <MutedOutlined />,
+                    children: buildDurationMenuItems("member-mute", (durationSeconds) =>
+                      onServerMute(true, durationSeconds),
+                    ),
+                  },
+              // Not dangerous, and deliberately above the two that are: moving
+              // somebody is the mild answer to "you are in the wrong room", and it
+              // should not sit among the actions that end their session.
+              ...(onMove
+                ? [
+                    {
+                      key: "move",
+                      label: "Başka Odaya Taşı",
+                      icon: <SwapOutlined />,
+                      children: buildMoveMenuItems(
+                        "member-move",
+                        moveTargets ?? [],
+                        onMove,
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                key: "kick",
+                label: "Odadan At",
+                icon: <LogoutOutlined />,
+                danger: true,
+                onClick: onKick,
               },
-          // Not dangerous, and deliberately above the two that are: moving
-          // somebody is the mild answer to "you are in the wrong room", and it
-          // should not sit among the actions that end their session.
-          ...(onMove
-            ? [
-                {
-                  key: "move",
-                  label: "Başka Odaya Taşı",
-                  icon: <SwapOutlined />,
-                  className: "ct-participant-context-menu-button",
-                  children: buildMoveMenuItems(
-                    "member-move",
-                    moveTargets ?? [],
-                    onMove,
-                  ),
-                },
-              ]
-            : []),
-          {
-            key: "kick",
-            label: "Odadan At",
-            icon: <LogoutOutlined />,
-            danger: true,
-            className: "ct-participant-context-menu-button",
-            onClick: onKick,
-          },
-          // A kick is undone by walking back in; a timeout is the one that keeps
-          // them out, so it is the one that asks how long for.
-          {
-            key: "timeout",
-            label: "Zaman Aşımı",
-            icon: <StopOutlined />,
-            danger: true,
-            className: "ct-participant-context-menu-button",
-            children: buildDurationMenuItems("member-timeout", onTimeout),
+              // A kick is undone by walking back in; a timeout is the one that keeps
+              // them out, so it is the one that asks how long for.
+              {
+                key: "timeout",
+                label: "Zaman Aşımı",
+                icon: <StopOutlined />,
+                className: "ct-menu-danger",
+                children: buildDurationMenuItems("member-timeout", onTimeout),
+              },
+            ],
           },
         ]
       : []),
@@ -289,7 +245,31 @@ export function LobbyMemberContextMenu({
   return (
     <Dropdown
       trigger={["contextMenu"]}
-      overlayClassName="ct-participant-context-menu"
+      popupRender={(menu) => (
+        <ContextMenuPanel
+          identity={{
+            userId,
+            name: username,
+            avatarUrl,
+            detail: isBot ? "Müzik botu" : isSelf ? "Sen" : `${roomName} odasında`,
+          }}
+          volumes={
+            audio
+              ? [
+                  {
+                    key: "voice",
+                    label: isBot ? "Müzik sesi" : "Ses seviyesi",
+                    icon: <SoundOutlined />,
+                    value: audio.preference.volumePercent,
+                    muted: locallyMuted,
+                    onChange: audio.onVolume,
+                  },
+                ]
+              : []
+          }
+          menu={menu}
+        />
+      )}
       menu={{
         // The overlay is portalled into document.body, but React synthetic
         // events still bubble along the REACT tree — Dropdown -> the member list

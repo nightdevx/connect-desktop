@@ -147,7 +147,7 @@ export const useCameraControls = ({
   const startCameraShareFromModal = useCallback(async (): Promise<void> => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
-      setCameraShareModalError("Kamera paylasimi icin once bir lobiye katil.");
+      setCameraShareModalError("Kamerayı paylaşmak için önce bir lobiye katıl.");
       return;
     }
 
@@ -235,7 +235,7 @@ export const useCameraControls = ({
   const handleCameraToggle = useCallback((): void => {
     const lobbyId = activeLobbyRef.current;
     if (!lobbyId) {
-      setStatus("Kamerayi acmak icin once bir lobiye katil", "warn");
+      setStatus("Kamerayı açmak için önce bir lobiye katıl.", "warn");
       return;
     }
 

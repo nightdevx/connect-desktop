@@ -4,8 +4,8 @@ import {
   AudioOutlined,
   CustomerServiceOutlined,
   DisconnectOutlined,
-  DesktopOutlined,
   StopOutlined,
+  VideoCameraOutlined,
 } from "@ant-design/icons";
 import { getDisplayInitials } from "../../workspace-utils";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -33,6 +33,10 @@ interface QuickControlsProps {
   headphoneEnabled: boolean;
   /** This user's own screen share, not somebody else's being watched. */
   screenShareEnabled: boolean;
+  /** This user's own camera. */
+  cameraEnabled: boolean;
+  /** Who is seeing it right now, e.g. "Genel odasındaki 4 kişi görüyor". */
+  mediaAudience?: string;
   audioInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   selectedAudioInputDeviceId: string | null;
@@ -42,6 +46,7 @@ interface QuickControlsProps {
   onToggleMic: () => void;
   onToggleHeadphone: () => void;
   onStopScreenShare: () => void;
+  onStopCamera: () => void;
   onDisconnect: () => void;
 }
 
@@ -66,6 +71,8 @@ export function QuickControls({
   micLocked,
   headphoneEnabled,
   screenShareEnabled,
+  cameraEnabled,
+  mediaAudience,
   audioInputDevices,
   audioOutputDevices,
   selectedAudioInputDeviceId,
@@ -75,6 +82,7 @@ export function QuickControls({
   onToggleMic,
   onToggleHeadphone,
   onStopScreenShare,
+  onStopCamera,
   onDisconnect,
 }: QuickControlsProps) {
   return (
@@ -84,20 +92,39 @@ export function QuickControls({
           its own box rather than a fourth icon in a row of icons. */}
       {screenShareEnabled && (
         <div className="ct-quick-share-bar" role="status" aria-live="polite">
-          <span className="ct-quick-share-state">
-            <DesktopOutlined aria-hidden="true" />
-            Ekranınız paylaşılıyor
+          <span className="ct-live-dot" aria-hidden="true" />
+          <span className="ct-quick-share-text">
+            <strong>Ekranını paylaşıyorsun</strong>
+            {mediaAudience && <span>{mediaAudience}</span>}
           </span>
-          <Tooltip title="Yayını kapat">
-            <button
-              type="button"
-              className="ct-quick-share-stop"
-              onClick={onStopScreenShare}
-              aria-label="Yayını kapat"
-            >
-              <StopOutlined />
-            </button>
-          </Tooltip>
+          <button
+            type="button"
+            className="ct-quick-share-stop"
+            onClick={onStopScreenShare}
+          >
+            <StopOutlined aria-hidden="true" />
+            Durdur
+          </button>
+        </div>
+      )}
+
+      {/* The same reminder for the camera: it is the other thing on this
+          screen that other people are looking at. */}
+      {cameraEnabled && (
+        <div className="ct-quick-share-bar" role="status" aria-live="polite">
+          <VideoCameraOutlined className="ct-quick-share-icon" aria-hidden="true" />
+          <span className="ct-quick-share-text">
+            <strong>Kameran açık</strong>
+            {mediaAudience && <span>{mediaAudience}</span>}
+          </span>
+          <button
+            type="button"
+            className="ct-quick-share-stop"
+            onClick={onStopCamera}
+          >
+            <StopOutlined aria-hidden="true" />
+            Kapat
+          </button>
         </div>
       )}
 

@@ -4,8 +4,10 @@ import {
   CheckOutlined,
   LoadingOutlined,
   ReloadOutlined,
+  TeamOutlined,
   VideoCameraOutlined,
 } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import type { CameraPreferences } from "../settings/settings-main-panel-types";
 
 interface CameraShareModalProps {
@@ -21,6 +23,8 @@ interface CameraShareModalProps {
   onClose: () => void;
   onRefreshPreview: () => void;
   onStart: () => void;
+  /** Who will see it: one person in a call, a whole room in a lobby. */
+  audience?: string;
 }
 
 /**
@@ -45,6 +49,7 @@ export function CameraShareModal({
   onClose,
   onRefreshPreview,
   onStart,
+  audience,
 }: CameraShareModalProps) {
   const isBusy = isPreparingPreview || isStarting;
 
@@ -52,12 +57,11 @@ export function CameraShareModal({
     <Modal
       rootClassName="ct-modal"
       title={
-        <>
-          Kamerayı Paylaş
-          <p className="ct-modal-subtitle">
-            Görüntünü kontrol et, sonra nasıl gönderileceğini seç.
-          </p>
-        </>
+        <ModalHeading
+          icon={<VideoCameraOutlined />}
+          title="Kamerayı Paylaş"
+          description="Görüntünü kontrol et, sonra nasıl gönderileceğini seç."
+        />
       }
       open={isOpen}
       onCancel={onClose}
@@ -96,6 +100,11 @@ export function CameraShareModal({
       destroyOnHidden
     >
       <div className="ct-share-body">
+        {audience && (
+          <p className="ct-modal-note">
+            <TeamOutlined /> {audience}
+          </p>
+        )}
         <section className="ct-share-step">
           <header className="ct-share-step-head">
             <h5>

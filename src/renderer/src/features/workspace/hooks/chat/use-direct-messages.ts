@@ -552,7 +552,10 @@ export const useDirectMessages = ({
 
     if (streamEvent.type === "system-error") {
       if (shouldEmitWarnStatus(selectedPeerWarnAtRef, 6_000)) {
-        setStatus(`Mesaj akışı hatası: ${streamEvent.message}`, "error");
+        // Ham akış hatası teknik; kullanıcıya olan biteni söyle, ayrıntı
+        // konsola. Hemen altta yeniden bağlanma zaten planlanıyor.
+        console.error("[direct-messages] stream error:", streamEvent.message);
+        setStatus("Mesaj bağlantısı koptu, yeniden bağlanılıyor...", "error");
       }
       scheduleDirectStreamReconnect();
       return;

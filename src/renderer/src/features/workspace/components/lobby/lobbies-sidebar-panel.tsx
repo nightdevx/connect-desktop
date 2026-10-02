@@ -1,16 +1,7 @@
 import { LOBBY_FEATURES, type LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Dropdown,
-  Modal,
-  Input,
-  InputNumber,
-  Switch,
-  Select,
-  Tag,
-  message,
-} from "antd";
+import { Dropdown, Modal, Input, InputNumber, Switch, Select, Tag } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -18,7 +9,6 @@ import {
   AudioMutedOutlined,
   CustomerServiceOutlined,
   VideoCameraOutlined,
-  DesktopOutlined,
   TeamOutlined,
   KeyOutlined,
   LockOutlined,
@@ -27,6 +17,7 @@ import {
   SoundOutlined,
   RightOutlined,
 } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
@@ -64,6 +55,7 @@ import {
   encodeMemberDrag,
   type MemberDragPayload,
 } from "./parts/member-move";
+import { toast } from "@/services/toast";
 
 interface LobbiesSidebarPanelProps {
   lobbiesQuery: UseQueryResult<
@@ -207,22 +199,22 @@ export function LobbiesSidebarPanel({
   const handleAddFriend = async (userId: string): Promise<void> => {
     const card = await fetchUserCard(queryClient, userId);
     if (!card?.username) {
-      message.error("Kullanıcı bulunamadı");
+      toast.error("Kullanıcı bulunamadı");
       return;
     }
 
     const result = await friends.sendRequest(card.username);
     if (result.ok) {
-      message.success(result.message);
+      toast.success(result.message);
     } else {
-      message.error(result.message);
+      toast.error(result.message);
     }
   };
 
   const handleRemoveFriend = async (userId: string): Promise<void> => {
     const removed = await friends.removeFriend(userId);
     if (removed) {
-      message.success("Arkadaşlıktan çıkarıldı");
+      toast.success("Arkadaşlıktan çıkarıldı");
     }
   };
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
@@ -302,9 +294,9 @@ export function LobbiesSidebarPanel({
     });
 
     if (result.ok) {
-      message.success(`${username} → ${targetName}`);
+      toast.success(`${username} → ${targetName}`);
     } else {
-      message.error(getApiErrorMessage(result.error));
+      toast.error(getApiErrorMessage(result.error));
     }
   };
 
@@ -315,9 +307,9 @@ export function LobbiesSidebarPanel({
   ): Promise<void> => {
     const result = await workspaceService.kickLobbyMember({ lobbyId, userId });
     if (result.ok) {
-      message.success(`${username} odadan atıldı`);
+      toast.success(`${username} odadan atıldı`);
     } else {
-      message.error(getApiErrorMessage(result.error));
+      toast.error(getApiErrorMessage(result.error));
     }
   };
 
@@ -333,11 +325,11 @@ export function LobbiesSidebarPanel({
       durationSeconds,
     });
     if (result.ok) {
-      message.success(
+      toast.success(
         `${username} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
       );
     } else {
-      message.error(getApiErrorMessage(result.error));
+      toast.error(getApiErrorMessage(result.error));
     }
   };
 
@@ -355,13 +347,13 @@ export function LobbiesSidebarPanel({
       durationSeconds,
     });
     if (result.ok) {
-      message.success(
+      toast.success(
         muted
           ? `${username} susturuldu (${describeDuration(durationSeconds)})`
           : `${username} sesi açıldı`,
       );
     } else {
-      message.error(getApiErrorMessage(result.error));
+      toast.error(getApiErrorMessage(result.error));
     }
   };
 
@@ -376,7 +368,7 @@ export function LobbiesSidebarPanel({
     try {
       const result = await workspaceService.lookupUserByUsername({ username });
       if (!result.ok || !result.data) {
-        message.error(
+        toast.error(
           result.error?.code === "USER_NOT_FOUND" ||
             result.error?.code === "VALIDATION_ERROR"
             ? "Kullanıcı bulunamadı."
@@ -387,7 +379,7 @@ export function LobbiesSidebarPanel({
 
       const user = result.data.user;
       if (user.userId === currentUserId) {
-        message.info("Lobi sahibi zaten erişebilir.");
+        toast.info("Lobi sahibi zaten erişebilir.");
         setLookupUsername("");
         return;
       }
@@ -900,18 +892,22 @@ export function LobbiesSidebarPanel({
                               />
                             )}
 
+                            {/* Broadcasting is the loud state on this row:
+                                a blue camera, a red "CANLI" for a screen. */}
                             {member.cameraEnabled && (
                               <VideoCameraOutlined
-                                className="ct-lobby-member-flag neutral"
+                                className="ct-lobby-member-flag camera"
                                 title="Kamera açık"
                               />
                             )}
 
                             {member.screenSharing && (
-                              <DesktopOutlined
-                                className="ct-lobby-member-flag neutral"
+                              <span
+                                className="ct-lobby-member-live"
                                 title="Ekran paylaşımı açık"
-                              />
+                              >
+                                CANLI
+                              </span>
                             )}
                           </div>
                         </li>
@@ -946,7 +942,10 @@ export function LobbiesSidebarPanel({
                       return (
                         <LobbyMemberContextMenu
                           key={member.userId}
+                          userId={member.userId}
                           username={member.username}
+                          avatarUrl={avatarByUserId[member.userId]}
+                          roomName={lobby.name}
                           isSelf={isSelf}
                           onShowProfile={() =>
                             setProfileCardTarget({
@@ -1130,7 +1129,13 @@ export function LobbiesSidebarPanel({
 
       <Modal
         rootClassName="ct-modal"
-        title="Lobi Ayarları"
+        title={
+          <ModalHeading
+            icon={<EditOutlined />}
+            title="Lobi Ayarları"
+            description="Odanın adı, kimlerin girebileceği ve odada nelerin açık olduğu."
+          />
+        }
         open={editingLobby !== null}
         onOk={handleUpdateSubmit}
         onCancel={() => setEditingLobby(null)}

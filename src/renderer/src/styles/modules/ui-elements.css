@@ -106,6 +106,16 @@ color: var(--ct-info);
 color: var(--ct-text-muted);
 }
 
+/* A red button reads white in both themes. main.tsx sets the solid-button text
+   to --ct-text-inverse, which is right for the white accent button and printed
+   black on every red one -- "Lobiyi Sil", "Hesabımı Sil", "Arkadaşlıktan Çıkar".
+   Red is red on either ground, so what reads on it is fixed too. */
+.ant-btn.ant-btn-color-dangerous.ant-btn-variant-solid,
+.ant-btn.ant-btn-color-dangerous.ant-btn-variant-solid:hover,
+.ant-btn.ant-btn-color-dangerous.ant-btn-variant-solid:active {
+color: var(--ct-on-danger);
+}
+
 .ct-icon-danger {
 color: var(--ct-danger);
 }
@@ -152,11 +162,6 @@ color: var(--ct-text-secondary);
 .ct-form-error {
 @apply mt-2 block text-2xs;
 color: var(--ct-danger);
-}
-
-.ct-modal-subtitle {
-@apply m-0 mt-1 text-xs font-normal;
-color: var(--ct-text-muted);
 }
 
 .ct-auth-form-row {
@@ -429,4 +434,170 @@ text-underline-offset: 3px;
 
 .ct-link:hover {
 color: var(--ct-text-primary);
+}
+
+/* ==========================================================================
+   LIVE — somebody is sharing a screen. One chip and one dot, used wherever
+   that has to be said: lobby cards, the room header, the sidebar roster.
+   ========================================================================== */
+
+.ct-live-chip {
+@apply inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 text-micro font-bold;
+height: 20px;
+letter-spacing: 0.04em;
+color: var(--ct-danger);
+background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
+}
+
+.ct-live-dot {
+@apply inline-block shrink-0 rounded-full;
+width: 7px;
+height: 7px;
+background: currentColor;
+animation: ctLivePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ctLivePulse {
+0%,
+100% {
+opacity: 1;
+}
+50% {
+opacity: 0.35;
+}
+}
+
+/* The corner dot on a control that is broadcasting (the camera button). Its
+   border is the toolbar's surface, so it reads as punched out of the button. */
+.ct-live-badge {
+@apply absolute rounded-full border-2;
+top: -4px;
+right: -4px;
+width: 12px;
+height: 12px;
+border-color: var(--ct-panel-solid);
+background: var(--ct-danger);
+animation: ctLivePulse 1.6s ease-in-out infinite;
+}
+
+/* A phone that is ringing: two rings in the logo's two colours, opening out
+   in turn around whatever face sits inside. The incoming-call card, the
+   banner in the caller's conversation, and the stage tile of the person being
+   called all ring the same way. */
+.ct-ring-ripple {
+@apply relative inline-grid shrink-0 place-items-center rounded-full;
+}
+
+.ct-ring-ripple::before,
+.ct-ring-ripple::after {
+content: "";
+@apply pointer-events-none absolute inset-0 rounded-full;
+border: 2px solid var(--ct-brand-blue);
+animation: ctRingRipple 2.4s ease-out infinite;
+}
+
+.ct-ring-ripple::after {
+border-color: var(--ct-brand-cyan);
+animation-delay: 1.2s;
+}
+
+.ct-ring-ripple > * {
+@apply relative z-[1];
+}
+
+/* "Aranıyor" with three dots that breathe in turn, in the text's colour. */
+.ct-ring-dots {
+@apply ml-0.5 inline-flex gap-0.5;
+}
+
+.ct-ring-dots i {
+@apply block rounded-full;
+width: 3px;
+height: 3px;
+background: currentColor;
+animation: ctRingDot 1.2s ease-in-out infinite;
+}
+
+.ct-ring-dots i:nth-child(2) {
+animation-delay: 0.2s;
+}
+
+.ct-ring-dots i:nth-child(3) {
+animation-delay: 0.4s;
+}
+
+/* --------------------------------------------------------------------------
+   Page header furniture, shared by the lobby selection screen and the
+   friends home
+   -------------------------------------------------------------------------- */
+
+/* A live count beside a page title: "3 oda aktif", "5 çevrimiçi". */
+.ct-stat-chip {
+@apply inline-flex shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-semibold tabular-nums;
+height: 30px;
+border-color: var(--ct-border);
+color: var(--ct-text-secondary);
+background: var(--ct-panel-soft);
+}
+
+.ct-stat-chip .anticon {
+font-size: 13px;
+color: var(--ct-text-muted);
+}
+
+/* The glowing green dot of an "online" count. */
+.ct-online-dot {
+@apply inline-block shrink-0 rounded-full;
+width: 7px;
+height: 7px;
+background: var(--ct-presence-online);
+box-shadow: 0 0 7px color-mix(in srgb, var(--ct-presence-online) 55%, transparent);
+}
+
+/* The mark as line art, cropped off a page's top-right corner. The page is
+   position: relative and clips it; its own content sits above at z-index 1. */
+.ct-logomark.ct-brand-mural {
+@apply pointer-events-none absolute;
+top: -140px;
+right: -170px;
+width: 460px;
+height: auto;
+transform: rotate(8deg);
+}
+
+.ct-brand-mural .ct-logomark-ring,
+.ct-brand-mural .ct-logomark-bubble {
+stroke-width: 2;
+}
+
+.ct-brand-mural .ct-logomark-ring {
+stroke: color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
+}
+
+.ct-brand-mural .ct-logomark-bubble {
+stroke: color-mix(in srgb, var(--ct-brand-cyan) 12%, transparent);
+}
+
+.ct-brand-mural .ct-logomark-tail,
+.ct-brand-mural .ct-logomark-over {
+display: none;
+}
+
+/* The value a menu row is set to, flush right (the title column is flex:1 —
+   see the context-menu rules in theme.css). */
+.ct-menu-value {
+@apply pl-3 text-2xs;
+margin-left: auto;
+font-family: var(--ct-font-mono);
+color: var(--ct-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+.ct-live-dot,
+.ct-live-badge,
+.ct-ring-ripple::before,
+.ct-ring-ripple::after,
+.ct-ring-dots i {
+animation: none;
+}
 }

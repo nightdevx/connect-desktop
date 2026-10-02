@@ -87,6 +87,17 @@
   --ct-accent-strong: var(--ct-alpha-32);
   --ct-accent-glow: rgba(255, 255, 255, 0.15);
 
+  /* ---- Brand ------------------------------------------------------------
+     The logo's two rings: a deep blue and a cyan. The app's chrome stays
+     monochrome on purpose — these exist ONLY where the logo itself lives: the
+     drawn mark, the auth screen's ambient glow and submit button, and the boot
+     bar. Reaching for them in ordinary chrome is how the one accent becomes
+     three. */
+  --ct-brand-blue: #2f6bff;
+  --ct-brand-blue-deep: #1e40af;
+  --ct-brand-cyan: #2dd4e8;
+  --ct-brand-cyan-deep: #0e7490;
+
   /* ---- Semantic -------------------------------------------------------- */
   --ct-success: #10b981;
   --ct-warning: #f59e0b;
@@ -99,6 +110,7 @@
      red in both themes, so what reads on it is white in both themes. */
   --ct-on-danger: #ffffff;
   --ct-on-info: #ffffff;
+  --ct-on-success: #ffffff;
 
   /* ---- Presence ---------------------------------------------------------
      A status dot means the same thing in both themes. These are hues rather
@@ -342,6 +354,14 @@
   --ct-tile-2: #babac4;
   --ct-tile-3: #85858f;
   --ct-tile-4: #4a4a54;
+
+  /* Brand rings, darkened for a white ground the same way the semantic
+     colours are: the dark theme's cyan drops to ~1.6:1 on white, where the
+     mark's right half would all but vanish. */
+  --ct-brand-blue: #1d4ed8;
+  --ct-brand-blue-deep: #1e3a8a;
+  --ct-brand-cyan: #0891b2;
+  --ct-brand-cyan-deep: #155e75;
 
   /* Green and red are darkened: the dark theme's values are tuned to glow on
      black and drop to ~2.5:1 as text on white. */

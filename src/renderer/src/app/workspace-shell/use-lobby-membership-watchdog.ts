@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
-import { message } from "antd";
 import {
   isLobbyTransitionBusy,
   workspaceService,
   type LobbyTransitionState,
 } from "@/features/workspace";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
+import { toast } from "@/services/toast";
 
 // Staying in a room you did not leave.
 //
@@ -135,7 +135,7 @@ export function useLobbyMembershipWatchdog({
       delete hasSeenActiveLobbyStateRef.current[lobbyId];
       kickedLobbyIdRef.current = lobbyId;
       activeLobbyPasswordRef.current = null;
-      message.warning(reason);
+      toast.warning(reason);
       void leaveActiveLobbyRef.current("kicked");
     },
     [activeLobbyPasswordRef, kickedLobbyIdRef],
@@ -226,7 +226,7 @@ export function useLobbyMembershipWatchdog({
             return;
           }
 
-          message.info(
+          toast.info(
             `${event.movedBy ?? "Bir yetkili"} sizi başka bir odaya taşıdı.`,
           );
           followModeratorMoveRef.current(destination);

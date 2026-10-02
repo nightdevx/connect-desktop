@@ -16,6 +16,8 @@ interface LobbyRoomHeaderProps {
   memberCount: number;
   /** Voice-connected to THIS room, as opposed to merely reading it. */
   isConnected: boolean;
+  /** People in the room sharing a screen right now. */
+  liveShareCount?: number;
   isChatOpen: boolean;
   unreadCount: number;
   onToggleChat: () => void;
@@ -38,6 +40,7 @@ export function LobbyRoomHeader({
   lobby,
   memberCount,
   isConnected,
+  liveShareCount = 0,
   isChatOpen,
   unreadCount,
   onToggleChat,
@@ -92,6 +95,13 @@ export function LobbyRoomHeader({
               <TeamOutlined />
               {lobby.capacity ? `${memberCount} / ${lobby.capacity}` : memberCount}
             </span>
+
+            {liveShareCount > 0 && (
+              <span className="ct-live-chip" title="Bu odada ekran paylaşılıyor">
+                <span className="ct-live-dot" aria-hidden="true" />
+                {liveShareCount} yayın
+              </span>
+            )}
 
             <span
               className={`ct-lobby-room-status ${isConnected ? "on" : ""}`}

@@ -1,21 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Table,
-  Input,
-  Button,
-  Tag,
-  Modal,
-  Form,
-  Select,
-  message,
-  Drawer,
-  Space,
-  Avatar,
-  Popconfirm,
-  Tooltip,
-  Switch,
-} from "antd";
+import { Table, Input, Button, Tag, Modal, Form, Select, Drawer, Space, Avatar, Popconfirm, Tooltip, Switch } from "antd";
 import {
   SearchOutlined,
   EditOutlined,
@@ -29,6 +14,7 @@ import {
   AudioMutedOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import adminService from "../services/admin-service";
 import type {
   AdminUserDetail,
@@ -40,6 +26,7 @@ import { USER_RESTRICTIONS } from "@shared/auth-contracts";
 import { AdminUserRelationsPanel, AdminUserSessions } from "./admin-user-panels";
 import type { TablePaginationConfig } from "antd";
 import { AdminPageHeader } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 interface EditUserFormValues {
   username: string;
@@ -120,7 +107,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         current ? (res.users.find((user) => user.id === current.id) ?? current) : current,
       );
     } catch (err) {
-      message.error(toErrorMessage(err, "Kullanıcılar alınamadı"));
+      toast.error(toErrorMessage(err, "Kullanıcılar alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -200,11 +187,11 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         restrictions: values.restrictions ?? [],
         reason: values.reason,
       });
-      message.success("Kullanıcı başarıyla güncellendi");
+      toast.success("Kullanıcı başarıyla güncellendi");
       setIsEditOpen(false);
       fetchUsers();
     } catch (err) {
-      message.error(toErrorMessage(err, "Güncelleme başarısız"));
+      toast.error(toErrorMessage(err, "Güncelleme başarısız"));
     }
   };
 
@@ -218,21 +205,21 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     if (!resettingUser) return;
     try {
       await adminService.resetPassword(resettingUser.id, values.password);
-      message.success("Şifre başarıyla sıfırlandı");
+      toast.success("Şifre başarıyla sıfırlandı");
       setIsResetOpen(false);
     } catch (err) {
-      message.error(toErrorMessage(err, "Şifre sıfırlama başarısız"));
+      toast.error(toErrorMessage(err, "Şifre sıfırlama başarısız"));
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     try {
       await adminService.deleteUser(userId);
-      message.success("Kullanıcı başarıyla silindi");
+      toast.success("Kullanıcı başarıyla silindi");
       setIsEditOpen(false);
       fetchUsers();
     } catch (err) {
-      message.error(toErrorMessage(err, "Kullanıcı silinemedi"));
+      toast.error(toErrorMessage(err, "Kullanıcı silinemedi"));
     }
   };
 
@@ -242,9 +229,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const handleForceLogout = async (user: AdminUserDetail) => {
     try {
       await adminService.forceLogout(user.id);
-      message.success(`@${user.username} oturumları sonlandırıldı`);
+      toast.success(`@${user.username} oturumları sonlandırıldı`);
     } catch (err) {
-      message.error(toErrorMessage(err, "Oturumlar sonlandırılamadı"));
+      toast.error(toErrorMessage(err, "Oturumlar sonlandırılamadı"));
     }
   };
 
@@ -254,10 +241,10 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const handleClearMedia = async (user: AdminUserDetail): Promise<void> => {
     try {
       await adminService.clearProfileMedia(user.id);
-      message.success("Profil görselleri kaldırıldı.");
+      toast.success("Profil görselleri kaldırıldı.");
       await fetchUsers();
     } catch (error) {
-      message.error(toErrorMessage(error, "Görseller kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Görseller kaldırılamadı"));
     }
   };
 
@@ -273,32 +260,32 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       if (!result.ok || !result.data) {
         throw new Error(result.error?.message || "IP yasaklanamadı");
       }
-      message.success(`${result.data.ban.cidr} yasaklandı`);
+      toast.success(`${result.data.ban.cidr} yasaklandı`);
       await fetchUsers();
     } catch (error) {
-      message.error(toErrorMessage(error, "IP yasaklanamadı"));
+      toast.error(toErrorMessage(error, "IP yasaklanamadı"));
     }
   };
 
   const handleToggleEmailVerified = async (user: AdminUserDetail): Promise<void> => {
     try {
       await adminService.setEmailVerified(user.id, !user.emailVerified);
-      message.success(
+      toast.success(
         user.emailVerified ? "Doğrulama geri alındı." : "E-posta doğrulandı.",
       );
       await fetchUsers();
     } catch (error) {
-      message.error(toErrorMessage(error, "Doğrulama durumu değiştirilemedi"));
+      toast.error(toErrorMessage(error, "Doğrulama durumu değiştirilemedi"));
     }
   };
 
   const handleCancelDeletion = async (user: AdminUserDetail): Promise<void> => {
     try {
       await adminService.cancelDeletion(user.id);
-      message.success("Hesap silme talebi iptal edildi.");
+      toast.success("Hesap silme talebi iptal edildi.");
       await fetchUsers();
     } catch (error) {
-      message.error(toErrorMessage(error, "Silme talebi iptal edilemedi"));
+      toast.error(toErrorMessage(error, "Silme talebi iptal edilemedi"));
     }
   };
 
@@ -307,9 +294,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const handleServerMute = async (user: AdminUserDetail): Promise<void> => {
     try {
       await adminService.setVoiceMute(user.id, true);
-      message.success(`@${user.username} sunucuda susturuldu.`);
+      toast.success(`@${user.username} sunucuda susturuldu.`);
     } catch (error) {
-      message.error(toErrorMessage(error, "Susturma uygulanamadı"));
+      toast.error(toErrorMessage(error, "Susturma uygulanamadı"));
     }
   };
 
@@ -317,14 +304,14 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     try {
       if (user.bannedAt) {
         await adminService.unbanUser(user.id);
-        message.success("Kullanıcının yasağı kaldırıldı");
+        toast.success("Kullanıcının yasağı kaldırıldı");
       } else {
         await adminService.banUser(user.id);
-        message.success("Kullanıcı yasaklandı");
+        toast.success("Kullanıcı yasaklandı");
       }
       fetchUsers();
     } catch (err) {
-      message.error(toErrorMessage(err, "İşlem başarısız"));
+      toast.error(toErrorMessage(err, "İşlem başarısız"));
     }
   };
 
@@ -800,7 +787,17 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       {/* Reset Password Modal */}
       <Modal
         rootClassName="ct-modal"
-        title="Şifre Sıfırla"
+        title={
+          <ModalHeading
+            icon={<LockOutlined />}
+            title="Şifre Sıfırla"
+            description={
+              resettingUser
+                ? `@${resettingUser.username} kullanıcısı için yeni bir şifre tanımla.`
+                : undefined
+            }
+          />
+        }
         open={isResetOpen}
         onCancel={() => setIsResetOpen(false)}
         footer={[
@@ -812,10 +809,6 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
           </Button>,
         ]}
       >
-        <p className="ct-admin-muted">
-          <strong>@{resettingUser?.username}</strong> kullanıcısı için yeni bir
-          şifre tanımlayın.
-        </p>
         <Form form={resetForm} layout="vertical" onFinish={handleResetPasswordSubmit}>
           <Form.Item
             name="password"

@@ -369,28 +369,42 @@
    ========================================================================== */
 
 /* Top right, clear of the titlebar. Not bottom right: that is where the
-   message composer's send button and the lobby toolbar live. antd's toasts are
-   top-centre, so they do not collide either. */
+   message composer's send button and the lobby toolbar live. The toasts are
+   top-centre (overlays.css), so they do not collide either. Tinted by state --
+   the logo's blue while it rings out, green once it is connected. */
 .ct-call-dock {
-  @apply fixed flex items-center gap-3 rounded-2xl border p-3;
+  @apply fixed flex items-center gap-3 rounded-xl border px-3.5 py-3;
   right: 16px;
   top: calc(var(--ct-titlebar-height) + 12px);
   width: 320px;
   max-width: calc(100vw - 32px);
   z-index: 900;
-  border-color: var(--ct-border-strong);
-  background: var(--ct-panel-solid);
-  backdrop-filter: blur(16px);
+  border-color: var(--ct-alpha-12);
+  background: var(--ct-surface-3);
   box-shadow: var(--ct-shadow-lg);
-  animation: ctFadeIn var(--ct-duration-slow) var(--ct-ease-premium) both;
+  animation: ctCallDockIn 0.35s var(--ct-ease-spring) both;
 }
 
+.ct-call-dock.outgoing {
+  background: color-mix(in srgb, var(--ct-brand-blue) 9%, var(--ct-surface-3));
+}
+
+.ct-call-dock.active {
+  background: color-mix(in srgb, var(--ct-success) 9%, var(--ct-surface-3));
+}
+
+/* Incoming is a small card rather than a strip: who, then the two answers. */
 .ct-call-dock.incoming {
-  border-color: color-mix(in srgb, var(--ct-success) 45%, transparent);
+  @apply flex-col items-stretch gap-3.5 p-4;
 }
 
+.ct-call-dock-head {
+  @apply flex min-w-0 items-center gap-3.5;
+}
+
+/* Holds the face, and the rings (.ct-ring-ripple) while it rings. */
 .ct-call-dock-avatar-wrap {
-  @apply relative shrink-0;
+  @apply relative inline-grid shrink-0 place-items-center rounded-full;
 }
 
 .ct-call-dock-avatar {
@@ -399,25 +413,13 @@
   color: var(--ct-text-primary);
 }
 
-/* The initials fallback, for a caller with no picture.
-
-   The gradient is a deliberate literal and does not follow the theme -- same
-   argument as --ct-highlight: it is a fixed coloured surface, not a page
-   surface, so what reads on it is fixed too. The parent sets
-   --ct-text-primary, which is near-white in the dark theme and near-black in
-   the light one; against this indigo that second case measured 2.6:1, i.e.
-   initials nobody could read. On-media white is the correct pair for both. */
+/* The initials fallback, for a caller with no picture: the logo's blue into
+   its deep cyan. A fixed coloured surface, not a page surface, so what reads
+   on it is on-media white in both themes -- --ct-text-primary turns near-black
+   in the light one. */
 .ct-call-dock-avatar.fallback {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
   color: var(--ct-on-media);
-}
-
-.ct-call-dock.incoming .ct-call-dock-avatar {
-  animation: callAvatarBreathe 4s infinite ease-in-out;
-}
-
-.ct-call-dock.outgoing .ct-call-dock-avatar {
-  animation: callAvatarPulseGlow 3s infinite ease-in-out;
 }
 
 .ct-call-dock-text {
@@ -429,9 +431,21 @@
   color: var(--ct-text-primary);
 }
 
+.ct-call-dock.incoming .ct-call-dock-name {
+  @apply text-base font-bold;
+}
+
 .ct-call-dock-status {
-  @apply inline-flex items-center gap-1.5 truncate text-2xs;
+  @apply inline-flex items-center gap-1.5 truncate text-2xs font-semibold;
   color: var(--ct-text-muted);
+}
+
+.ct-call-dock.outgoing .ct-call-dock-status {
+  color: var(--ct-brand-blue);
+}
+
+.ct-call-dock.active .ct-call-dock-status {
+  color: var(--ct-success);
 }
 
 .ct-call-dock-actions {
@@ -442,8 +456,9 @@
   @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-full border-0;
   color: var(--ct-text-primary);
   font-size: var(--ct-icon-sm);
-  box-shadow: var(--ct-shadow-md);
-  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+  transition:
+    filter var(--ct-duration-fast) ease,
+    transform var(--ct-duration-fast) ease;
 }
 
 .ct-call-dock-btn:hover {
@@ -454,9 +469,9 @@
   transform: scale(0.94);
 }
 
-.ct-call-dock-btn.accept {
-  background: var(--ct-success);
-  animation: buttonBreathe 2s infinite ease-in-out;
+.ct-call-dock-btn:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
 }
 
 .ct-call-dock-btn.open {
@@ -464,49 +479,64 @@
 }
 
 .ct-call-dock-btn.reject {
+  color: var(--ct-on-danger);
   background: var(--ct-danger);
 }
 
-/* ==========================================================================
-   MODAL
-   One look for every Ant Design modal in the app. Applied with
-   rootClassName="ct-modal" so the mask is in scope too.
-   ========================================================================== */
-
-.ct-modal .ant-modal-content {
-  border: 1px solid var(--ct-border);
-  border-radius: var(--ct-radius-lg);
-  background: var(--ct-surface-2);
-  box-shadow: var(--ct-shadow-lg);
+.ct-call-dock-answer {
+  @apply grid grid-cols-2 gap-2;
 }
 
-.ct-modal .ant-modal-mask {
-  backdrop-filter: blur(6px);
-  background: var(--ct-scrim);
+/* The answer pair, on the corner card and in the caller's conversation alike:
+   red hangs up, green answers. Solid, with white lettering in both themes --
+   the green is taken a third of the way to black for it, since white on the
+   raw success green measured 2.5:1. */
+.ct-call-answer {
+  @apply inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full border-0 px-4 text-sm font-semibold;
+  height: 36px;
+  transition:
+    filter var(--ct-duration-fast) ease,
+    transform var(--ct-duration-fast) ease;
 }
 
-.ct-modal .ant-modal-header {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--ct-border);
-  background: transparent;
+.ct-call-answer:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
-.ct-modal .ant-modal-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ct-text-primary);
+.ct-call-answer:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
 }
 
-.ct-modal .ant-modal-footer {
-  margin-top: 20px;
+.ct-call-answer.accept {
+  color: var(--ct-on-success);
+  background: color-mix(in srgb, var(--ct-success) 70%, black);
 }
 
-/* A title with a glyph in front of it. antd's title is a plain block, so the
-   icon sat on the text baseline rather than on its optical centre. */
-.ct-modal-title-icon {
-  @apply inline-flex items-center gap-2;
+.ct-call-answer.reject {
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
 }
+
+@keyframes ctCallDockIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-call-dock {
+    animation: none;
+  }
+}
+
+/* Modal chrome and headings live in overlays.css (ui/modal-heading.tsx). */
 
 /* ==========================================================================
    AUDIO CONNECTION POPOVER

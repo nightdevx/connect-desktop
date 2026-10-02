@@ -4,9 +4,11 @@ import {
   DesktopOutlined,
   ReloadOutlined,
   SoundOutlined,
+  TeamOutlined,
   WarningOutlined,
   WindowsOutlined,
 } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { useMediaStatsStore } from "@/features/livekit";
 import { estimateScreenShareUplinkBps } from "../constants";
@@ -39,6 +41,8 @@ interface ScreenShareModalProps {
   onChangeKind: (kind: ScreenShareSourceKind) => void;
   onChangeQuality: (quality: ScreenShareQualityPreset) => void;
   onToggleCaptureSystemAudio: (enabled: boolean) => void;
+  /** Who will see it: one person in a call, a whole room in a lobby. */
+  audience?: string;
 }
 
 const mbps = (bps: number): string => {
@@ -84,6 +88,7 @@ export function ScreenShareModal({
   onChangeKind,
   onChangeQuality,
   onToggleCaptureSystemAudio,
+  audience,
 }: ScreenShareModalProps) {
   // Congestion control's current estimate of the uplink, or null before it has
   // one. A floor rather than a ceiling — send-side BWE only probes above what
@@ -117,12 +122,11 @@ export function ScreenShareModal({
     <Modal
       rootClassName="ct-modal"
       title={
-        <>
-          Yayın Başlat
-          <p className="ct-modal-subtitle">
-            Paylaşacağın ekranı seç, sonra nasıl gönderileceğini ayarla.
-          </p>
-        </>
+        <ModalHeading
+          icon={<DesktopOutlined />}
+          title="Yayın Başlat"
+          description="Paylaşacağın ekranı seç, sonra nasıl gönderileceğini ayarla."
+        />
       }
       open={isOpen}
       onCancel={onClose}
@@ -163,6 +167,11 @@ export function ScreenShareModal({
       width={1000}
     >
       <div className="ct-share-body">
+        {audience && (
+          <p className="ct-modal-note">
+            <TeamOutlined /> {audience}
+          </p>
+        )}
         <section className="ct-share-step">
           <header className="ct-share-step-head">
             <h5>

@@ -1,4 +1,4 @@
-import { Dropdown, Slider, type MenuProps } from "antd";
+import { Dropdown, type MenuProps } from "antd";
 import {
   AudioOutlined,
   AudioMutedOutlined,
@@ -20,10 +20,15 @@ import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
 import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
+import { ContextMenuPanel, type MenuVolume } from "../../common/context-menu-panel";
 
 interface ParticipantContextMenuProps {
   x: number;
   y: number;
+  /** Whose menu this is, for the header. */
+  userId: string;
+  name: string;
+  avatarUrl?: string | null;
   preference: RemoteParticipantAudioPreference;
   isScreenSharing: boolean;
   onClose: () => void;
@@ -69,6 +74,9 @@ interface ParticipantContextMenuProps {
 export function ParticipantContextMenu({
   x,
   y,
+  userId,
+  name,
+  avatarUrl,
   preference,
   isScreenSharing,
   onClose,
@@ -96,22 +104,37 @@ export function ParticipantContextMenu({
 }: ParticipantContextMenuProps) {
   const locallyMuted = isRemoteParticipantMuted(preference);
 
-  const menuItems: MenuProps['items'] = [
+  // Their voice, and their screen's sound while they share one: the two things
+  // on this stage that come out of the user's speakers.
+  const volumes: MenuVolume[] = [
     {
-      key: 'title',
-      label: (
-        <div className="ct-participant-context-menu-title">
-          {isBot ? 'Müzik Botu Ayarları' : 'Katılımcı Ayarları'}
-        </div>
-      ),
-      disabled: true,
+      key: "voice",
+      label: isBot ? "Müzik sesi" : "Mikrofon sesi",
+      icon: <SoundOutlined />,
+      value: preference.volumePercent,
+      muted: locallyMuted,
+      onChange: onVolume,
     },
+    ...(isScreenSharing
+      ? [
+          {
+            key: "screen",
+            label: "Yayın sesi",
+            icon: <DesktopOutlined />,
+            value: preference.screenAudioVolumePercent ?? 100,
+            muted: preference.screenAudioMuted ?? false,
+            onChange: onScreenAudioVolume,
+          },
+        ]
+      : []),
+  ];
+
+  const menuItems: MenuProps['items'] = [
     ...(onShowProfile ? [
       {
         key: 'profile',
         label: 'Profili Gör',
         icon: <IdcardOutlined />,
-        className: 'ct-participant-context-menu-button',
         onClick: () => {
           onShowProfile();
           onClose();
@@ -135,7 +158,6 @@ export function ParticipantContextMenu({
               : <UserAddOutlined />,
         danger: friendState === 'friend',
         disabled: friendState === 'requested' || isFriendActionPending,
-        className: 'ct-participant-context-menu-button',
         onClick: () => {
           if (friendState === 'friend') {
             onRemoveFriend?.();
@@ -151,7 +173,6 @@ export function ParticipantContextMenu({
       key: 'mute',
       label: locallyMuted ? 'Sesi Aç' : 'Sustur',
       icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
-      className: 'ct-participant-context-menu-button',
       onClick: () => {
         onMute(!locallyMuted);
         onClose();
@@ -172,7 +193,6 @@ export function ParticipantContextMenu({
             ) : (
               <MutedOutlined />
             ),
-            className: 'ct-participant-context-menu-button',
             onClick: () => {
               onEmoteMute(!preference.emoteMuted);
               onClose();
@@ -187,45 +207,14 @@ export function ParticipantContextMenu({
             key: 'camera',
             label: preference.cameraHidden ? 'Kamerayı Göster' : 'Kamerayı Gizle',
             icon: preference.cameraHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />,
-            className: 'ct-participant-context-menu-button',
             onClick: () => {
               onToggleCameraHidden(!preference.cameraHidden);
               onClose();
             },
           },
         ]),
-    {
-      type: 'divider',
-    },
-    {
-      key: 'volume-header',
-      label: (
-        <div className="ct-participant-context-menu-hint">
-          <SoundOutlined />
-          <span>
-            {isBot ? 'Müzik Sesi' : 'Mikrofon Sesi'}: %{preference.volumePercent}
-            {locallyMuted && " · susturuldu"}
-          </span>
-        </div>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'volume-slider',
-      label: (
-        <div className="ct-participant-context-menu-volume" onClick={(e) => e.stopPropagation()}>
-          <Slider
-            min={0}
-            max={200}
-            step={5}
-            value={preference.volumePercent}
-            onChange={onVolume}
-            tooltip={{ formatter: (v) => `%${v}` }}
-          />
-        </div>
-      ),
-    },
-    // Screen share audio controls only if user is sharing screen
+    // Screen share controls only while they are sharing. Its volume is a
+    // slider in the panel above.
     ...(isScreenSharing ? [
       {
         type: 'divider' as const,
@@ -234,124 +223,91 @@ export function ParticipantContextMenu({
         key: 'screen-watch',
         label: isWatchingScreen ? 'İzlemeyi Bırak' : 'Yayını İzle',
         icon: isWatchingScreen ? <EyeInvisibleOutlined /> : <DesktopOutlined />,
-        className: 'ct-participant-context-menu-button',
         onClick: () => {
           onSetScreenWatching?.(!isWatchingScreen);
           onClose();
         },
       },
       {
-        key: 'screen-audio-header',
-        label: (
-          <div className="ct-participant-context-menu-hint">
-            <DesktopOutlined />
-            <span>Yayın Sesi: %{preference.screenAudioVolumePercent ?? 100}</span>
-          </div>
-        ),
-        disabled: true,
-      },
-      {
         key: 'screen-audio-mute',
         label: (preference.screenAudioMuted) ? 'Yayın Sesini Aç' : 'Yayın Sesini Sustur',
         icon: (preference.screenAudioMuted) ? <AudioOutlined /> : <AudioMutedOutlined />,
-        className: 'ct-participant-context-menu-button',
         onClick: () => {
           onScreenAudioMute(!(preference.screenAudioMuted ?? false));
           onClose();
         },
       },
-      {
-        key: 'screen-audio-slider',
-        label: (
-          <div className="ct-participant-context-menu-volume" onClick={(e) => e.stopPropagation()}>
-            <Slider
-              min={0}
-              max={200}
-              step={5}
-              value={preference.screenAudioVolumePercent ?? 100}
-              onChange={onScreenAudioVolume}
-              tooltip={{ formatter: (v) => `%${v}` }}
-            />
-          </div>
-        ),
-      },
     ] : []),
-    // Server-enforced moderation, owner/admin only — separated from the local
-    // playback controls above so it's not mistaken for a personal preference.
+    // Server-enforced moderation, owner/admin only — a group of its own under
+    // a heading, so it is not mistaken for a personal preference.
     ...(canModerate ? [
       { type: 'divider' as const },
       {
-        key: 'moderation-header',
-        label: (
-          <div className="ct-participant-context-menu-hint">
-            Moderasyon
-          </div>
-        ),
-        disabled: true,
-      },
-      // Lifting a restriction is one click; applying one asks how long for. The
-      // same two rows are offered from the sidebar roster — see
-      // LobbyMemberContextMenu — and both read their durations from one list.
-      isServerMuted
-        ? {
-            key: 'server-unmute',
-            label: 'Sunucuda Susturmayı Kaldır',
-            icon: <AudioOutlined />,
-            className: 'ct-participant-context-menu-button',
+        type: 'group' as const,
+        key: 'moderation',
+        label: 'Moderasyon',
+        children: [
+          // Lifting a restriction is one click; applying one asks how long for.
+          // The same two rows are offered from the sidebar roster — see
+          // LobbyMemberContextMenu — and both read their durations from one
+          // list.
+          isServerMuted
+            ? {
+                key: 'server-unmute',
+                label: 'Sunucuda Susturmayı Kaldır',
+                icon: <AudioOutlined />,
+                onClick: () => {
+                  onServerMute?.(false);
+                  onClose();
+                },
+              }
+            : {
+                key: 'server-mute',
+                label: 'Sunucuda Sustur',
+                icon: <MutedOutlined />,
+                children: buildDurationMenuItems('tile-mute', (durationSeconds) => {
+                  onServerMute?.(true, durationSeconds);
+                  onClose();
+                }),
+              },
+          // The mild answer to "you are in the wrong room", so it sits above the
+          // two that end somebody's session rather than among them.
+          ...(onMove
+            ? [
+                {
+                  key: 'move',
+                  label: 'Başka Odaya Taşı',
+                  icon: <SwapOutlined />,
+                  children: buildMoveMenuItems('tile-move', moveTargets ?? [], (targetLobbyId) => {
+                    onMove(targetLobbyId);
+                    onClose();
+                  }),
+                },
+              ]
+            : []),
+          {
+            key: 'kick',
+            label: 'Odadan At',
+            icon: <LogoutOutlined />,
+            danger: true,
             onClick: () => {
-              onServerMute?.(false);
+              onKick?.();
               onClose();
             },
-          }
-        : {
-            key: 'server-mute',
-            label: 'Sunucuda Sustur',
-            icon: <MutedOutlined />,
-            className: 'ct-participant-context-menu-button',
-            children: buildDurationMenuItems('tile-mute', (durationSeconds) => {
-              onServerMute?.(true, durationSeconds);
+          },
+          // A kick is undone by walking back in; a timeout is the one that keeps
+          // them out, so it is the one that asks how long for.
+          {
+            key: 'timeout',
+            label: 'Zaman Aşımı',
+            icon: <StopOutlined />,
+            className: 'ct-menu-danger',
+            children: buildDurationMenuItems('tile-timeout', (durationSeconds) => {
+              onTimeout?.(durationSeconds);
               onClose();
             }),
           },
-      // The mild answer to "you are in the wrong room", so it sits above the two
-      // that end somebody's session rather than among them.
-      ...(onMove
-        ? [
-            {
-              key: 'move',
-              label: 'Başka Odaya Taşı',
-              icon: <SwapOutlined />,
-              className: 'ct-participant-context-menu-button',
-              children: buildMoveMenuItems('tile-move', moveTargets ?? [], (targetLobbyId) => {
-                onMove(targetLobbyId);
-                onClose();
-              }),
-            },
-          ]
-        : []),
-      {
-        key: 'kick',
-        label: 'Odadan At',
-        icon: <LogoutOutlined />,
-        danger: true,
-        className: 'ct-participant-context-menu-button',
-        onClick: () => {
-          onKick?.();
-          onClose();
-        },
-      },
-      // A kick is undone by walking back in; a timeout is the one that keeps them
-      // out, so it is the one that asks how long for.
-      {
-        key: 'timeout',
-        label: 'Zaman Aşımı',
-        icon: <StopOutlined />,
-        danger: true,
-        className: 'ct-participant-context-menu-button',
-        children: buildDurationMenuItems('tile-timeout', (durationSeconds) => {
-          onTimeout?.(durationSeconds);
-          onClose();
-        }),
+        ],
       },
     ] : []),
   ];
@@ -364,20 +320,31 @@ export function ParticipantContextMenu({
         if (!open) onClose();
       }}
       trigger={['click']}
-      overlayClassName="ct-participant-context-menu"
       placement="bottomLeft"
-      destroyPopupOnHide
+      destroyOnHidden
+      popupRender={(menu) => (
+        <ContextMenuPanel
+          identity={{
+            userId,
+            name,
+            avatarUrl,
+            detail: isBot ? 'Müzik botu ayarları' : 'Katılımcı ayarları',
+          }}
+          volumes={volumes}
+          menu={menu}
+        />
+      )}
     >
-      <div 
-        style={{ 
-          position: 'fixed', 
-          left: x, 
-          top: y, 
-          width: '1px', 
+      <div
+        style={{
+          position: 'fixed',
+          left: x,
+          top: y,
+          width: '1px',
           height: '1px',
           zIndex: 9999,
           pointerEvents: 'none'
-        }} 
+        }}
       />
     </Dropdown>
   );

@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
 import { Modal, Button } from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 
 interface ConfirmActionModalProps {
   isOpen: boolean;
@@ -7,6 +10,8 @@ interface ConfirmActionModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   isProcessing?: boolean;
+  /** The heading's badge. Defaults to a bin: most confirmations here delete. */
+  icon?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,12 +23,17 @@ export function ConfirmActionModal({
   confirmLabel = "Sil",
   cancelLabel = "İptal",
   isProcessing = false,
+  icon = <DeleteOutlined />,
   onConfirm,
   onCancel,
 }: ConfirmActionModalProps) {
   return (
+    // Every confirmation here is irreversible, so the red chrome is the
+    // default rather than an option. The mask blur used to be set inline; it
+    // is .ct-modal's now, like every other dialog.
     <Modal
-      title={<span className="text-base font-bold text-ct-text-primary">{title}</span>}
+      rootClassName="ct-modal danger"
+      title={<ModalHeading tone="danger" icon={icon} title={title} />}
       open={isOpen}
       onCancel={onCancel}
       footer={[
@@ -46,13 +56,7 @@ export function ConfirmActionModal({
           {isProcessing ? "İşleniyor..." : confirmLabel}
         </Button>
       ]}
-      styles={{
-        mask: {
-          backdropFilter: "blur(6px)",
-          background: "rgba(0, 0, 0, 0.7)",
-        },
-      }}
-      width={400}
+      width={420}
     >
       <p className="ct-confirm-message">
         {message}

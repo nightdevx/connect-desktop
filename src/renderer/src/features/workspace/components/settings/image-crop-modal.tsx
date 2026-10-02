@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { Button, Modal, Slider } from "antd";
-import { ZoomInOutlined, ZoomOutOutlined } from "@ant-design/icons";
+import { PictureOutlined, ZoomInOutlined, ZoomOutOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import {
   clamp,
   computeCropGeometry,
@@ -254,7 +255,7 @@ export function ImageCropModal({
   return (
     <Modal
       rootClassName="ct-modal"
-      title={title}
+      title={<ModalHeading icon={<PictureOutlined />} title={title} />}
       open={open}
       onCancel={onCancel}
       okText="Uygula"

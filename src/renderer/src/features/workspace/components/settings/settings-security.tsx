@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Button, message, Modal } from "antd";
+import { Input, Button, Modal } from "antd";
 import {
   SafetyOutlined,
   LockOutlined,
@@ -7,6 +7,8 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { authService } from "@/features/auth";
+import { ModalHeading } from "@/ui/modal-heading";
+import { toast } from "@/services/toast";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
 // keep the two in step: telling someone "14 days" and purging after 7 is worse
@@ -18,7 +20,6 @@ const DELETION_GRACE_DAYS = 14;
 const DELETE_CONFIRM_WORD = "SİL";
 
 export function SettingsSecurity() {
-  const [messageApi, contextHolder] = message.useMessage();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,13 +35,13 @@ export function SettingsSecurity() {
     try {
       const result = await authService.exportAccountData();
       if (!result.ok) {
-        messageApi.error(
+        toast.error(
           `Veriler dışa aktarılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
       }
       if (result.data?.saved) {
-        messageApi.success("Hesap verileri kaydedildi.");
+        toast.success("Hesap verileri kaydedildi.");
       }
     } finally {
       setIsExporting(false);
@@ -49,12 +50,12 @@ export function SettingsSecurity() {
 
   const handleDeleteAccount = async (): Promise<void> => {
     if (deleteConfirmWord.trim().toLocaleUpperCase("tr-TR") !== DELETE_CONFIRM_WORD) {
-      messageApi.warning(`Onaylamak için "${DELETE_CONFIRM_WORD}" yazın.`);
+      toast.warning(`Onaylamak için "${DELETE_CONFIRM_WORD}" yazın.`);
       return;
     }
 
     if (deletePassword.length < 8) {
-      messageApi.warning("Şifrenizi girin.");
+      toast.warning("Şifrenizi girin.");
       return;
     }
 
@@ -65,7 +66,7 @@ export function SettingsSecurity() {
       });
 
       if (!result.ok) {
-        messageApi.error(
+        toast.error(
           `Hesap silinemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -78,7 +79,7 @@ export function SettingsSecurity() {
       // app back to the login screen without needing a shell-level callback.
       window.location.reload();
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Hesap silinemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -88,17 +89,17 @@ export function SettingsSecurity() {
 
   const handleChangePassword = async (): Promise<void> => {
     if (currentPassword.trim().length < 8) {
-      messageApi.warning("Mevcut şifre en az 8 karakter olmalı.");
+      toast.warning("Mevcut şifre en az 8 karakter olmalı.");
       return;
     }
 
     if (newPassword.trim().length < 8) {
-      messageApi.warning("Yeni şifre en az 8 karakter olmalı.");
+      toast.warning("Yeni şifre en az 8 karakter olmalı.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      messageApi.warning("Yeni şifre ve şifre tekrarı aynı olmalı.");
+      toast.warning("Yeni şifre ve şifre tekrarı aynı olmalı.");
       return;
     }
 
@@ -110,7 +111,7 @@ export function SettingsSecurity() {
       });
 
       if (!result.ok || !result.data?.changed) {
-        messageApi.error(
+        toast.error(
           `Şifre değiştirilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
         );
         return;
@@ -119,9 +120,9 @@ export function SettingsSecurity() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      messageApi.success("Şifre başarıyla değiştirildi.");
+      toast.success("Şifre başarıyla değiştirildi.");
     } catch (error) {
-      messageApi.error(
+      toast.error(
         `Şifre değiştirilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
       );
     } finally {
@@ -131,7 +132,6 @@ export function SettingsSecurity() {
 
   return (
     <div className="ct-settings-section">
-      {contextHolder}
       <div className="ct-settings-section-header">
         <div className="ct-settings-section-header-main">
           <div className="ct-settings-section-header-icon">
@@ -267,9 +267,16 @@ export function SettingsSecurity() {
           stacked flush against each other, because the spacing between them is
           .ct-modal-form's, not something antd supplies. */}
       <Modal
-        rootClassName="ct-modal"
+        rootClassName="ct-modal danger"
         open={isDeleteModalOpen}
-        title="Hesabı Sil"
+        title={
+          <ModalHeading
+            tone="danger"
+            icon={<DeleteOutlined />}
+            title="Hesabı Sil"
+            description={`Hesabınız hemen devre dışı bırakılacak ve ${DELETION_GRACE_DAYS} gün sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri alabilirsiniz.`}
+          />
+        }
         okText="Hesabımı Sil"
         cancelText="Vazgeç"
         confirmLoading={isDeletingAccount}
@@ -284,11 +291,6 @@ export function SettingsSecurity() {
         }}
       >
         <div className="ct-modal-form">
-          <p className="ct-field-hint">
-            Hesabınız hemen devre dışı bırakılacak ve {DELETION_GRACE_DAYS} gün
-            sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri
-            alabilirsiniz.
-          </p>
 
           <div className="ct-settings-field">
             <label className="ct-field-label" htmlFor="settings-delete-password">

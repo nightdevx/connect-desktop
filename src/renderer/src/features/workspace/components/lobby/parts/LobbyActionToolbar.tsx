@@ -2,7 +2,6 @@ import { Button, Tooltip } from "antd";
 import {
   AudioOutlined,
   AudioMutedOutlined,
-  CloseOutlined,
   CustomerServiceOutlined,
   DesktopOutlined,
   PlayCircleOutlined,
@@ -131,15 +130,21 @@ export function LobbyActionToolbar({
       {/* While a share is live the single toggle splits in two: stopping it and
           adjusting it were the same click, so there was no way to change
           quality or screen without dropping the stream first. */}
+      {/* Live, it says so in words: a wide "Yayında" pill in the logo's two
+          colours, so the one state with a privacy cost is the loudest control
+          in the row instead of a small X. */}
       {screenEnabled ? (
         <div className="ct-stream-control-group">
           <Tooltip title="Ekran Paylaşımını Durdur">
             <Button
               size="large"
-              className="ct-lobby-action-btn active ct-stream-stop-btn"
-              icon={<CloseOutlined />}
+              className="ct-lobby-action-btn live-share ct-stream-stop-btn"
               onClick={onToggleScreen}
-            />
+              aria-label="Ekran paylaşımını durdur"
+            >
+              <span className="ct-live-dot" aria-hidden="true" />
+              Yayında
+            </Button>
           </Tooltip>
           <StreamControlMenu />
         </div>
@@ -156,12 +161,17 @@ export function LobbyActionToolbar({
 
       {cameraDisabled && !cameraEnabled ? null : (
         <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
+          {/* It used to look the same on and off. On, it is filled in the
+              brand blue with a red "live" dot in the corner. */}
           <Button
             size="large"
-            className={`ct-lobby-action-btn `}
+            className={`ct-lobby-action-btn ${cameraEnabled ? "live-cam" : ""}`}
             icon={<VideoCameraOutlined />}
             onClick={onToggleCamera}
-          />
+            aria-pressed={cameraEnabled}
+          >
+            {cameraEnabled && <span className="ct-live-badge" aria-hidden="true" />}
+          </Button>
         </Tooltip>
       )}
 

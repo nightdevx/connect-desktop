@@ -11,14 +11,17 @@
   border-bottom-right-radius: 0;
 }
 
+/* The settings half of the "Yayında" pill: the gradient's far colour, so the
+   two halves read as one control split by a hairline seam. */
 .ct-stream-menu-btn {
   @apply inline-flex h-control-lg cursor-pointer items-center justify-center border border-l-0 p-0;
-  width: 22px;
-  border-color: var(--ct-accent);
+  width: 28px;
+  border-color: transparent;
+  border-left: 1px solid color-mix(in srgb, white 22%, transparent);
   border-top-right-radius: var(--ct-radius-md);
   border-bottom-right-radius: var(--ct-radius-md);
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
+  color: var(--ct-on-info);
+  background: var(--ct-brand-cyan-deep);
   font-size: var(--ct-icon-sm);
   transition: all var(--ct-duration-base) var(--ct-ease-spring);
 }

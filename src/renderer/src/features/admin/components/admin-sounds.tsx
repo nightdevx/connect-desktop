@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Button,
-  InputNumber,
-  Popconfirm,
-  Select,
-  Table,
-  Tag,
-  Tooltip,
-  message,
-} from "antd";
+import { Button, InputNumber, Popconfirm, Select, Table, Tag, Tooltip } from "antd";
 import {
   DeleteOutlined,
   NumberOutlined,
@@ -21,6 +12,7 @@ import type { AdminUserDetail } from "@shared/auth-contracts";
 import adminService from "../services/admin-service";
 import { toErrorMessage } from "@shared/error-message";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 // The soundboard is the one member-level feature that writes to shared storage
 // and plays on everyone else's speakers, so it needs both halves of an operator
@@ -41,7 +33,7 @@ export default function AdminSounds() {
       setLibrary(result);
       setGlobalDraft(result.globalQuota);
     } catch (error) {
-      message.error(toErrorMessage(error, "Sesler alınamadı"));
+      toast.error(toErrorMessage(error, "Sesler alınamadı"));
     } finally {
       setLoading(false);
     }
@@ -83,9 +75,9 @@ export default function AdminSounds() {
             : previous,
         );
         setGlobalDraft(result.globalQuota);
-        message.success("Limit güncellendi");
+        toast.success("Limit güncellendi");
       } catch (error) {
-        message.error(toErrorMessage(error, "Limit güncellenemedi"));
+        toast.error(toErrorMessage(error, "Limit güncellenemedi"));
       } finally {
         setSavingQuota(false);
       }
@@ -97,10 +89,10 @@ export default function AdminSounds() {
     async (emoteId: string): Promise<void> => {
       try {
         await adminService.deleteEmote(emoteId);
-        message.success("Ses silindi");
+        toast.success("Ses silindi");
         void fetchLibrary();
       } catch (error) {
-        message.error(toErrorMessage(error, "Ses silinemedi"));
+        toast.error(toErrorMessage(error, "Ses silinemedi"));
       }
     },
     [fetchLibrary],

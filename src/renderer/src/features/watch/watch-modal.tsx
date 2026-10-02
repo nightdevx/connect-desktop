@@ -1,4 +1,6 @@
 import { Modal } from "antd";
+import { PlayCircleOutlined } from "@ant-design/icons";
+import { ModalHeading } from "@/ui/modal-heading";
 import type { WatchRoom } from "./use-watch-room";
 import { WatchPanel } from "./watch-panel";
 
@@ -19,14 +21,24 @@ interface WatchModalProps {
 export function WatchModal({ room, open, onClose }: WatchModalProps): JSX.Element {
   return (
     <Modal
+      rootClassName="ct-modal"
       open={open}
       onCancel={onClose}
       footer={null}
       width={560}
-      destroyOnClose={false}
+      destroyOnHidden={false}
       forceRender={false}
-      title={null}
-      className="ct-watch-modal"
+      title={
+        <ModalHeading
+          icon={<PlayCircleOutlined />}
+          title="Birlikte İzle"
+          description={
+            room.canStart
+              ? "Video sahnede herkese bir kutucuk olarak çıkar; izlemek isteyen kutucuktan açar. Oynatma, duraklatma ve ileri sarma sende — herkes aynı yerden izler."
+              : undefined
+          }
+        />
+      }
     >
       <WatchPanel room={room} onClose={onClose} />
     </Modal>

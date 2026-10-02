@@ -391,30 +391,51 @@
   opacity: 1;
 }
 
-.ct-lobby-member-flag.neutral {
-  color: var(--ct-text-primary);
+/* Broadcasting. The camera in the brand blue; a screen share is spelled out
+   as a small red "CANLI", the same word the stage and the lobby cards use. */
+.ct-lobby-member-flag.camera {
+  color: var(--ct-brand-blue);
+}
+
+.ct-lobby-member-live {
+  @apply shrink-0 rounded px-1 font-extrabold leading-4;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
 }
 
 /* ==========================================================================
    SELECTION SCREEN (no room open yet)
 
-   A left-aligned page title and a grid that fills the width it is given. It
-   used to be a centred hero with a one-column list under it: 88px of air
-   between the paragraph and the list heading, 2px between the cards, and a
-   single card stretched across the whole panel however many rooms there were.
+   A page title with two live counts, then a grid of rooms that answers "where
+   is everybody?" before anything is clicked: a room with people in it is drawn
+   lit, with their faces, how full it is and whether somebody in there is
+   sharing a screen. Empty rooms stay quiet so the eye goes to the live ones.
    ========================================================================== */
 
 .ct-lobby-selection {
-  @apply flex flex-col gap-5 overflow-y-auto p-6;
+  @apply relative flex flex-col gap-6 overflow-y-auto overflow-x-hidden;
+  padding: 28px;
   border: 1px solid var(--ct-border);
   border-radius: var(--ct-radius-xl);
-  background: var(--ct-lobby-surface);
+  /* The logo's two colours, faint, in opposite corners — the same ambience the
+     sign-in screen opens on, so the first room list reads as the same app. */
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--ct-brand-blue) 7%, transparent), transparent 42%),
+    radial-gradient(circle at 105% 115%, color-mix(in srgb, var(--ct-brand-cyan) 6%, transparent), transparent 46%),
+    var(--ct-lobby-surface);
+}
+
+.ct-lobby-selection-head {
+  @apply relative z-[1] flex flex-wrap items-end justify-between gap-4;
 }
 
 .ct-lobby-selection-head h2 {
-  @apply m-0 text-xl font-bold;
-  color: var(--ct-text-primary);
+  @apply m-0 font-bold;
+  font-size: 22px;
   letter-spacing: -0.01em;
+  color: var(--ct-text-primary);
 }
 
 .ct-lobby-selection-head p {
@@ -422,8 +443,14 @@
   color: var(--ct-text-muted);
 }
 
+.ct-lobby-selection-stats {
+  @apply flex gap-2;
+}
+
+/* flex-shrink 0: the screen scrolls, the sections do not — a shrinking section
+   let the room grid spill over the heading below it on a crowded server. */
 .ct-lobby-selection-rooms {
-  @apply flex min-h-0 flex-col gap-3 border-t pt-5;
+  @apply relative z-[1] flex shrink-0 flex-col gap-3 border-t pt-5;
   border-color: var(--ct-border);
 }
 
@@ -441,8 +468,9 @@
 }
 
 .ct-lobby-selection-grid {
-  @apply m-0 grid list-none gap-3 p-0;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  @apply m-0 grid list-none p-0;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
 /* Text rooms on the selection screen.
@@ -450,13 +478,15 @@
    They used to be drawn as room cards with an occupancy line reading
    "Sohbet kanalı" where a member count would go and a button that said
    "Aç" where every neighbour said "Katıl" — a room card apologising for
-   not being a room. A channel is a line you click, so this is a list. */
+   not being a room. A channel is a line you click, so this is a list —
+   capped in width, so a lock does not land on the far side of the screen. */
 .ct-lobby-channel-list {
-  @apply flex flex-col gap-0.5;
+  @apply m-0 flex list-none flex-col gap-0.5 p-0;
+  max-width: 560px;
 }
 
 .ct-lobby-channel {
-  @apply flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left;
+  @apply flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md border-0 bg-transparent px-3 py-2 text-left;
   color: var(--ct-text-muted);
   transition:
     background var(--ct-duration-base) var(--ct-ease-premium),
@@ -469,12 +499,19 @@
 }
 
 .ct-lobby-channel-hash {
-  @apply shrink-0 text-sm font-semibold leading-none;
-  color: var(--ct-text-muted);
+  @apply inline-flex shrink-0 items-center justify-center text-xs font-bold leading-none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--ct-radius-sm);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-08);
 }
 
+/* Hugs its text, so the lock sits right after the name instead of being
+   pushed to the far end of the row. Long names still truncate. */
 .ct-lobby-channel-name {
-  @apply min-w-0 flex-1 truncate text-sm font-medium;
+  @apply min-w-0 truncate text-sm font-medium;
+  flex: 0 1 auto;
 }
 
 .ct-lobby-channel-flag {
@@ -491,32 +528,59 @@
 }
 
 .ct-lobby-select-card {
-  @apply flex flex-col gap-2 rounded-lg border p-4;
+  @apply relative flex flex-col gap-3 border p-4;
+  border-radius: var(--ct-radius-lg);
   border-color: var(--ct-alpha-08);
   background: var(--ct-alpha-02);
   transition:
+    transform var(--ct-duration-base) var(--ct-ease-spring),
     border-color var(--ct-duration-base) var(--ct-ease-premium),
-    background var(--ct-duration-base) var(--ct-ease-premium);
+    background var(--ct-duration-base) var(--ct-ease-premium),
+    box-shadow var(--ct-duration-base) var(--ct-ease-premium);
 }
 
 .ct-lobby-select-card:hover {
+  transform: translateY(-2px);
   border-color: var(--ct-alpha-20);
   background: var(--ct-alpha-04);
+  box-shadow: var(--ct-shadow-md);
+}
+
+/* People inside: the same green the speaking ring uses, drawn as a lit frame. */
+.ct-lobby-select-card.live {
+  border-color: color-mix(in srgb, var(--ct-success) 36%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 4%, transparent);
+}
+
+.ct-lobby-select-card.live:hover {
+  border-color: color-mix(in srgb, var(--ct-success) 55%, transparent);
+  box-shadow:
+    var(--ct-shadow-md),
+    inset 0 0 22px color-mix(in srgb, var(--ct-success) 7%, transparent);
 }
 
 .ct-lobby-select-card-head {
-  @apply flex min-w-0 items-center gap-1.5;
+  @apply flex min-w-0 items-center gap-2;
 }
 
 .ct-lobby-select-card-icon {
-  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md;
+  @apply inline-flex shrink-0 items-center justify-center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ct-radius-sm);
   font-size: var(--ct-icon-sm);
   color: var(--ct-text-secondary);
   background: var(--ct-alpha-08);
 }
 
+.ct-lobby-select-card.live .ct-lobby-select-card-icon {
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 12%, transparent);
+}
+
 .ct-lobby-select-card-head strong {
-  @apply min-w-0 flex-1 truncate text-sm font-semibold;
+  @apply min-w-0 flex-1 truncate font-semibold;
+  font-size: 15px;
   color: var(--ct-text-primary);
 }
 
@@ -530,23 +594,87 @@
   color: var(--ct-warning);
 }
 
+.ct-lobby-select-card-flag.camera {
+  color: var(--ct-brand-blue);
+}
+
+.ct-lobby-select-card-people {
+  @apply flex items-center gap-2.5;
+  min-height: 28px;
+}
+
+.ct-lobby-select-faces {
+  @apply flex items-center;
+}
+
+.ct-lobby-select-face.ant-avatar,
+.ct-lobby-select-face.more {
+  @apply shrink-0 border-2 text-micro font-bold;
+  margin-left: -7px;
+  /* The ring that separates overlapping faces is the card's own ground. */
+  border-color: var(--ct-surface-2);
+}
+
+/* A face without a picture: its owner's hue (--ct-name-h, set inline from the
+   user id) at a fixed mid lightness, so white initials read in both themes. */
+.ct-lobby-select-face.ant-avatar {
+  color: var(--ct-on-info);
+  background: oklch(0.55 0.12 var(--ct-name-h));
+}
+
+.ct-lobby-select-faces > :first-child {
+  margin-left: 0;
+}
+
+.ct-lobby-select-face.more {
+  @apply inline-flex items-center justify-center rounded-full;
+  width: 26px;
+  height: 26px;
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-12);
+}
+
 .ct-lobby-select-card-meta {
-  @apply inline-flex items-center gap-1.5 text-2xs tabular-nums;
+  @apply text-xs tabular-nums;
   color: var(--ct-text-muted);
 }
 
+.ct-lobby-select-card.live .ct-lobby-select-card-meta {
+  color: var(--ct-text-secondary);
+}
+
+/* How full the room is; amber once it is. */
+.ct-lobby-select-meter {
+  @apply block overflow-hidden rounded-full;
+  height: 3px;
+  background: var(--ct-alpha-08);
+}
+
+.ct-lobby-select-meter > span {
+  @apply block h-full rounded-full;
+  background: var(--ct-success);
+  transition: width var(--ct-duration-slow) var(--ct-ease-premium);
+}
+
+.ct-lobby-select-meter.full > span {
+  background: var(--ct-warning);
+}
+
+/* Pinned to the bottom, so every card's button sits on one line across a row
+   whether or not the card has a meter above it. */
 .ct-lobby-select-card-action.ant-btn {
-  @apply mt-1 w-full;
+  @apply mt-auto w-full;
 }
 
 .ct-lobby-selection-empty {
-  @apply flex min-h-0 flex-1 flex-col items-center justify-center gap-1 py-12 text-center;
+  @apply relative z-[1] flex min-h-0 flex-1 flex-col items-center justify-center gap-1 py-12 text-center;
   color: var(--ct-text-muted);
 }
 
-.ct-lobby-selection-empty .anticon {
-  @apply mb-3 opacity-30;
-  font-size: 28px;
+.ct-logomark.ct-lobby-selection-empty-mark {
+  width: 96px;
+  height: auto;
+  margin-bottom: 18px;
 }
 
 .ct-lobby-selection-empty h3 {
@@ -555,8 +683,15 @@
 }
 
 .ct-lobby-selection-empty p {
-  @apply m-0 mt-1 max-w-[38ch] text-sm;
+  @apply m-0 mt-1 max-w-[40ch] text-sm;
   color: var(--ct-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-lobby-select-card,
+  .ct-lobby-select-card:hover {
+    transform: none;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -1146,6 +1281,20 @@
   pointer-events: none;
 }
 
+/* A live screen share: red, "CANLI", with the pulsing dot. */
+.ct-lobby-tile-kind-badge.live {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--ct-danger) 90%, transparent);
+  color: var(--ct-on-danger);
+}
+
+/* A camera: the brand blue the toolbar's camera button lights up in. */
+.ct-lobby-tile-kind-badge.camera {
+  background: color-mix(in srgb, var(--ct-brand-blue) 88%, transparent);
+  color: var(--ct-on-info);
+}
+
 /* Who is watching this share. Muted rather than accented so it never competes
    with the kind badge, and pointer-events stay on so the tooltip listing the
    names is reachable. */
@@ -1548,6 +1697,39 @@
   box-shadow: 0 4px 14px var(--ct-accent-glow);
 }
 
+/* Camera on: filled in the brand blue, with the red "live" dot (.ct-live-badge)
+   in its corner. Off, it is an ordinary control — it used to look the same in
+   both states. White on the blue in both themes. */
+.ct-lobby-action-btn.live-cam {
+  position: relative;
+  border-color: var(--ct-brand-blue);
+  color: var(--ct-on-info);
+  background: var(--ct-brand-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-brand-blue) 28%, transparent);
+}
+
+.ct-lobby-action-btn.live-cam:hover:not(:disabled) {
+  border-color: var(--ct-brand-blue);
+  background: color-mix(in srgb, var(--ct-brand-blue) 85%, white);
+}
+
+/* Sharing: the stop half of the share pair becomes a wide "Yayında" pill in
+   the logo's two colours, with a pulsing dot. The loudest thing in the row,
+   on purpose — it is the one state other people can see. */
+.ct-lobby-action-btn.live-share {
+  @apply w-auto gap-2 px-3.5 text-sm font-bold;
+  border-color: transparent;
+  color: var(--ct-on-info);
+  background: linear-gradient(120deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-brand-blue) 24%, transparent);
+}
+
+.ct-lobby-action-btn.live-share:hover:not(:disabled) {
+  border-color: transparent;
+  background: linear-gradient(120deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
+  filter: brightness(1.1);
+}
+
 /* "Leave the room" is a red button in both themes, so its label is white in
    both. --ct-text-primary flips to near-black under the light theme, which put
    black on #cc2b2b — 2.9:1, and the one control in the toolbar that must never
@@ -1644,62 +1826,6 @@
 }
 
 /* ==========================================================================
-   PARTICIPANT CONTEXT MENU
-   ========================================================================== */
-
-/* This class lands on the overlay ROOT, not on the menu itself. Padding here
-   drew a square-cornered frame around the rounded menu inside it, and `gap`
-   did nothing at all — the root is not a flex container. The surface belongs on
-   the menu element; the root only carries the width. */
-.ct-participant-context-menu {
-  @apply min-w-[228px] p-0;
-}
-
-.ct-participant-context-menu .ant-dropdown-menu {
-  border: 1px solid var(--ct-alpha-20);
-  background:
-    radial-gradient(circle at 100% 0%, var(--ct-alpha-08), transparent 45%),
-    var(--ct-panel-solid);
-  box-shadow:
-    0 18px 38px var(--ct-shadow-color),
-    inset 0 1px 0 var(--ct-alpha-04);
-}
-
-/* Half this menu's height was non-interactive chrome: four heading rows and two
-   slider blocks, each paying full item padding on top of its own margins. */
-.ct-participant-context-menu-title {
-  @apply m-0 truncate px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.08em];
-  color: var(--ct-text-secondary);
-}
-
-.ct-participant-context-menu-hint .anticon {
-  margin-inline-end: 7px;
-}
-
-.ct-participant-context-menu-hint {
-  @apply py-0 text-micro font-medium uppercase tracking-[0.08em];
-  color: var(--ct-alpha-50);
-}
-
-.ct-participant-context-menu-volume {
-  @apply mt-0.5 flex flex-col gap-1 rounded-md border px-2 py-1;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-}
-
-/* The slider needs room for its 14px handle, so this one row opts out of the
-   tighter block padding rather than clipping it. */
-.ct-participant-context-menu
-  .ant-dropdown-menu-item:has(.ct-participant-context-menu-volume) {
-  padding-block: 2px;
-}
-
-.ct-participant-context-menu-volume input[type="range"] {
-  @apply h-1.5 w-full cursor-pointer;
-  accent-color: var(--ct-accent);
-}
-
-/* ==========================================================================
    DIRECT-MESSAGE CALL PANEL
 
    The same stage, in a shorter box. It keeps its chat toggle floating over the
@@ -1730,17 +1856,17 @@
   box-shadow: none;
 }
 
-.ct-call-placeholder-pulsing .ct-lobby-tile-center-logo {
-  animation: callAvatarDimPulse 2s infinite ease-in-out;
-  filter: grayscale(80%) brightness(60%);
+/* The face rings (.ct-ring-ripple) rather than dimming: "not here yet" is
+   the dashed tile, and the rings say they are being called right now. */
+.ct-call-placeholder-pulsing .ct-lobby-avatar-container.ant-avatar {
+  opacity: 0.85;
 }
 
 .ct-lobby-tile-ringing {
-  @apply pointer-events-none absolute left-1/2 z-10 text-2xs font-semibold uppercase tracking-[0.18em];
+  @apply pointer-events-none absolute left-1/2 z-10 inline-flex items-baseline text-2xs font-semibold uppercase tracking-[0.18em];
   top: calc(50% + 44px);
   translate: -50% 0;
-  color: var(--ct-text-muted);
-  animation: callAvatarDimPulse 2s infinite ease-in-out;
+  color: var(--ct-brand-blue);
 }
 
 .ct-call-placeholder-pulsing .ct-lobby-tile-userline p {

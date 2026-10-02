@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Empty, Space, Spin, Switch, Table, Tag, message } from "antd";
+import { Button, Empty, Space, Spin, Switch, Table, Tag } from "antd";
 import {
   EyeOutlined,
   PlayCircleOutlined,
@@ -11,6 +11,7 @@ import type { MinigamePlayer, MinigameTableOverview } from "@shared/minigames";
 import { MINIGAMES } from "@/features/minigames";
 import adminService from "../services/admin-service";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 const REFRESH_INTERVAL_MS = 8000;
 
@@ -26,7 +27,7 @@ export default function AdminMinigames() {
       setTables(result.tables);
       setDisabled(result.disabledGames);
     } catch (error) {
-      message.error(toErrorMessage(error, "Masalar yüklenemedi"));
+      toast.error(toErrorMessage(error, "Masalar yüklenemedi"));
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +49,7 @@ export default function AdminMinigames() {
       const settings = await adminService.updateSettings({ disabledMinigames: next });
       setDisabled(settings.disabledMinigames ?? next);
     } catch (error) {
-      message.error(toErrorMessage(error, "Ayar kaydedilemedi"));
+      toast.error(toErrorMessage(error, "Ayar kaydedilemedi"));
     } finally {
       setSavingId(null);
     }

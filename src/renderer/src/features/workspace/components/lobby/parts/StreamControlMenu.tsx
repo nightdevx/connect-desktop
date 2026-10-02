@@ -3,9 +3,12 @@ import { Dropdown, Tooltip, type MenuProps } from "antd";
 import {
   AudioMutedOutlined,
   CheckOutlined,
+  DesktopOutlined,
   DownOutlined,
   LoadingOutlined,
+  SettingOutlined,
   SoundOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { SCREEN_SHARE_QUALITY_OPTIONS } from "@/features/screen-share";
@@ -99,7 +102,17 @@ export function StreamControlMenu() {
     { type: "divider" },
     {
       key: "quality",
-      label: "Kalite",
+      icon: <SettingOutlined />,
+      // The value it is set to, on the right of the row: the menu used to say
+      // only what could be changed, never what it was.
+      label: (
+        <>
+          Kalite
+          <span className="ct-menu-value">
+            {SCREEN_SHARE_QUALITY_OPTIONS.find((option) => option.id === currentQuality)?.label}
+          </span>
+        </>
+      ),
       children: SCREEN_SHARE_QUALITY_OPTIONS.map((option) => ({
         key: `quality-${option.id}`,
         icon: checkmark(option.id === currentQuality),
@@ -109,7 +122,13 @@ export function StreamControlMenu() {
     },
     {
       key: "framerate",
-      label: "Kare Hızı",
+      icon: <ThunderboltOutlined />,
+      label: (
+        <>
+          Kare Hızı
+          <span className="ct-menu-value">{currentFrameRate} FPS</span>
+        </>
+      ),
       children: FRAME_RATE_OPTIONS.map((frameRate) => ({
         key: `framerate-${frameRate}`,
         icon: checkmark(frameRate === currentFrameRate),
@@ -119,6 +138,7 @@ export function StreamControlMenu() {
     },
     {
       key: "source",
+      icon: <DesktopOutlined />,
       label: "Ekran Değiştir",
       children: sourceItems,
     },

@@ -1,10 +1,11 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Popconfirm, Table, Tag, message } from "antd";
+import { Button, Popconfirm, Table, Tag } from "antd";
 import { AudioOutlined, ReloadOutlined, StopOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminLobbyTimeout, AdminVoiceMute } from "@shared/auth-contracts";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { toast } from "@/services/toast";
 
 /**
  * Where a restriction is lifted.
@@ -44,7 +45,7 @@ export default function AdminModeration() {
       setMutes(nextMutes);
       setTimeouts(nextTimeouts);
     } catch (error) {
-      message.error(toErrorMessage(error, "Moderasyon kayıtları yüklenemedi"));
+      toast.error(toErrorMessage(error, "Moderasyon kayıtları yüklenemedi"));
     } finally {
       setLoading(false);
     }
@@ -57,20 +58,20 @@ export default function AdminModeration() {
   const handleClearMute = async (userId: string): Promise<void> => {
     try {
       await adminService.setVoiceMute(userId, false);
-      message.success("Susturma kaldırıldı.");
+      toast.success("Susturma kaldırıldı.");
       await load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Susturma kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Susturma kaldırılamadı"));
     }
   };
 
   const handleClearTimeout = async (lobbyId: string, userId: string): Promise<void> => {
     try {
       await adminService.clearTimeout(lobbyId, userId);
-      message.success("Zaman aşımı kaldırıldı.");
+      toast.success("Zaman aşımı kaldırıldı.");
       await load();
     } catch (error) {
-      message.error(toErrorMessage(error, "Zaman aşımı kaldırılamadı"));
+      toast.error(toErrorMessage(error, "Zaman aşımı kaldırılamadı"));
     }
   };
 
