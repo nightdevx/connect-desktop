@@ -1,7 +1,7 @@
 import { Tooltip } from "antd";
 import { PhoneOutlined } from "@ant-design/icons";
 import type { CallSessionState } from "../../../hooks/user/use-call-session";
-import { getDisplayInitials } from "../../../workspace-utils";
+import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
 import { ElapsedTime } from "../../common/elapsed-time";
 
 interface CallDockProps {
@@ -55,7 +55,10 @@ export function CallDock({
       {peerUser?.avatarUrl ? (
         <img className="ct-call-dock-avatar" src={peerUser.avatarUrl} alt="" />
       ) : (
-        <span className="ct-call-dock-avatar fallback">
+        <span
+          className="ct-call-dock-avatar fallback"
+          style={hueStyle(peerUser?.userId ?? callState.callerId ?? displayName)}
+        >
           {getDisplayInitials(displayName)}
         </span>
       )}

@@ -41,7 +41,9 @@ import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import {
   formatTimeLabel,
   getApiErrorMessage,
+  getDisplayInitials,
   getUsernameHue,
+  hueStyle,
 } from "../../workspace-utils";
 import { renderMessageBody, type MentionCandidate } from "../../mentions";
 import { MentionPicker, useMentionPicker } from "../common/mention-picker";
@@ -112,49 +114,10 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
 
   return (
     <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
+      <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
+        {getDisplayInitials(message.username)}
+      </span>
       <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
-        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
-
-        {isEditing ? (
-          <Input.TextArea
-            autoFocus
-            value={editDraft}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            onChange={(event) => setEditDraft(event.target.value)}
-            onBlur={commitEdit}
-            onPressEnter={(event) => {
-              if (event.shiftKey) {
-                return;
-              }
-              event.preventDefault();
-              commitEdit();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setEditDraft(message.body);
-                setIsEditing(false);
-              }
-            }}
-            
-          />
-        ) : (
-          message.body && (
-            <ChatMessageBody body={message.body}>
-              {renderMessageBody(message.body, currentUsername)}
-            </ChatMessageBody>
-          )
-        )}
-
-        {message.attachment && (
-          <ChatAttachmentView attachment={message.attachment} />
-        )}
-
-        <ChatReactionBar
-          reactions={message.reactions ?? []}
-          currentUserId={currentUserId}
-          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
-        />
-
         <div className="ct-chat-bubble-meta">
           <span>
             {/* <b>, not a <span>: `.ct-chat-bubble span` sets a muted colour and
@@ -167,7 +130,6 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
             >
               {message.username}
             </b>
-            {" • "}
             {formatTimeLabel(message.createdAt)}
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
@@ -229,6 +191,47 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
             )}
           </span>
         </div>
+        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
+
+        {isEditing ? (
+          <Input.TextArea
+            autoFocus
+            value={editDraft}
+            autoSize={{ minRows: 1, maxRows: 6 }}
+            onChange={(event) => setEditDraft(event.target.value)}
+            onBlur={commitEdit}
+            onPressEnter={(event) => {
+              if (event.shiftKey) {
+                return;
+              }
+              event.preventDefault();
+              commitEdit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setEditDraft(message.body);
+                setIsEditing(false);
+              }
+            }}
+            
+          />
+        ) : (
+          message.body && (
+            <ChatMessageBody body={message.body}>
+              {renderMessageBody(message.body, currentUsername)}
+            </ChatMessageBody>
+          )
+        )}
+
+        {message.attachment && (
+          <ChatAttachmentView attachment={message.attachment} />
+        )}
+
+        <ChatReactionBar
+          reactions={message.reactions ?? []}
+          currentUserId={currentUserId}
+          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
+        />
       </div>
     </div>
   );

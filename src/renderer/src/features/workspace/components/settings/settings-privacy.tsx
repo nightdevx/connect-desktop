@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { Button, Select, Switch } from "antd";
-import { SaveOutlined } from "@ant-design/icons";
+import { Button, Select, Switch, Tag } from "antd";
+import {
+  MessageOutlined,
+  PhoneOutlined,
+  SaveOutlined,
+  StopOutlined,
+  TrophyOutlined,
+  UserAddOutlined,
+} from "@ant-design/icons";
 import type {
   PrivacySettings,
   UpdatePrivacyRequest,
@@ -9,7 +16,8 @@ import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
-import { PageHeader } from "@/ui/page-header";
+import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 // Mirrors the backend column defaults, so an account created before privacy
@@ -127,169 +135,158 @@ export function SettingsPrivacy() {
     }
   };
 
+  const isDirty =
+    draft.allowDirectMessagesFrom !== saved.allowDirectMessagesFrom ||
+    draft.allowCallsFrom !== saved.allowCallsFrom ||
+    draft.allowFriendRequests !== saved.allowFriendRequests;
+
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Gizlilik"
-        description="Sana kimlerin mesaj gönderebileceğini, seni kimlerin arayabileceğini ve arkadaşlık isteği alıp almayacağını buradan belirleyebilirsin."
-      />
+    <SettingsPage
+      title="Gizlilik"
+      description="Sana kimlerin mesaj gönderebileceğini, seni kimlerin arayabileceğini ve kimleri engellediğini buradan yönetebilirsin."
+    >
+      <SettingsGroup
+        title="Sana kimler ulaşabilir"
+        description="Hesabına kaydedilir; her cihazda geçerlidir."
+        footerHint={isDirty ? "Kaydedilmemiş değişikliklerin var." : undefined}
+        footer={
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => {
+              void handleSavePrivacy();
+            }}
+            loading={isSaving}
+            disabled={isLoading || isSaving || !isDirty}
+          >
+            Kaydet
+          </Button>
+        }
+      >
+        <SettingsRow
+          icon={<MessageOutlined />}
+          title="Özel mesajlar"
+          description="Sana kimler özel mesaj gönderebilir."
+          htmlFor="settings-allow-dm-from"
+        >
+          <Select
+            id="settings-allow-dm-from"
+            value={draft.allowDirectMessagesFrom}
+            onChange={(value) =>
+              setDraft((current) => ({
+                ...current,
+                allowDirectMessagesFrom: value,
+              }))
+            }
+            options={AUDIENCE_OPTIONS}
+            disabled={isLoading}
+            className="ct-settings-row-select"
+          />
+        </SettingsRow>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Sana Kimler Ulaşabilir</h5>
+        <SettingsRow
+          icon={<PhoneOutlined />}
+          title="Aramalar"
+          description="Seni kimler arayabilir."
+          htmlFor="settings-allow-calls-from"
+        >
+          <Select
+            id="settings-allow-calls-from"
+            value={draft.allowCallsFrom}
+            onChange={(value) =>
+              setDraft((current) => ({ ...current, allowCallsFrom: value }))
+            }
+            options={AUDIENCE_OPTIONS}
+            disabled={isLoading}
+            className="ct-settings-row-select"
+          />
+        </SettingsRow>
 
-          <div className="ct-settings-two-col">
-            <div className="ct-settings-field">
-              <label className="ct-field-label" htmlFor="settings-allow-dm-from">
-                Bana kim mesaj gönderebilir?
-              </label>
-              <Select
-                id="settings-allow-dm-from"
-                value={draft.allowDirectMessagesFrom}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    allowDirectMessagesFrom: value,
-                  }))
-                }
-                options={AUDIENCE_OPTIONS}
-                disabled={isLoading}
-                className="ct-block-control"
-              />
-            </div>
+        <SettingsRow
+          icon={<UserAddOutlined />}
+          title="Arkadaşlık istekleri"
+          description="Kapalıyken kimse sana arkadaşlık isteği gönderemez; mevcut arkadaşlıkların etkilenmez."
+        >
+          <Switch
+            id="settings-allow-friend-requests"
+            checked={draft.allowFriendRequests}
+            onChange={(checked) =>
+              setDraft((current) => ({
+                ...current,
+                allowFriendRequests: checked,
+              }))
+            }
+            disabled={isLoading}
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-            <div>
-              <label
-                className="ct-field-label"
-                htmlFor="settings-allow-calls-from"
-              >
-                Beni kim arayabilir?
-              </label>
-              <Select
-                id="settings-allow-calls-from"
-                value={draft.allowCallsFrom}
-                onChange={(value) =>
-                  setDraft((current) => ({ ...current, allowCallsFrom: value }))
-                }
-                options={AUDIENCE_OPTIONS}
-                disabled={isLoading}
-                className="ct-block-control"
-              />
-            </div>
+      <SettingsGroup
+        title="Oyun etkinliği"
+        description="Yalnızca bu bilgisayarda geçerlidir ve anında kaydedilir."
+      >
+        <SettingsRow
+          icon={<TrophyOutlined />}
+          title="Oynadığım oyun profilimde görünsün"
+          description="Açıkken bilgisayarında çalışan tanınan oyunlar tespit edilir ve arkadaşlarının gördüğü profil kartında süresiyle birlikte görünür. Kapatınca tarama durur ve bilgi hemen silinir."
+        >
+          <Switch
+            id="settings-share-game-activity"
+            checked={appPreferences.shareGameActivity}
+            onChange={(checked) => {
+              void savePreference("shareGameActivity", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
+      </SettingsGroup>
+
+      {/* The only other way back is a toggle inside an open conversation, and
+          a blocked non-friend has no row anywhere to open one from. */}
+      <SettingsGroup
+        title="Engellenen kullanıcılar"
+        description="Engellediğin kişiler sana mesaj gönderemez ve seni arayamaz."
+        action={
+          blockedUsers.length > 0 ? (
+            <Tag className="ct-tag">{blockedUsers.length} kişi</Tag>
+          ) : null
+        }
+      >
+        {blockedUsers.length === 0 ? (
+          <div className="ct-settings-empty">
+            <StopOutlined />
+            <strong>Engellediğin kimse yok</strong>
+            <span>Bir kişiyi sohbetinden ya da profil kartından engelleyebilirsin.</span>
           </div>
-
-          {/* The same row every other switch in Settings uses. It used to be
-              a bare label with the control underneath it, so the one toggle
-              on this page did not look like a toggle anywhere else. */}
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Arkadaşlık isteği alayım</strong>
-                <span>
-                  Kapalıyken kimse sana arkadaşlık isteği gönderemez;
-                  mevcut arkadaşlıkların etkilenmez.
+        ) : (
+          [...blockedUsers]
+            .sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"))
+            .map((user) => (
+              <div key={user.userId} className="ct-settings-row">
+                <span
+                  className="ct-settings-row-icon person ct-hued"
+                  style={hueStyle(user.userId)}
+                  aria-hidden="true"
+                >
+                  {getDisplayInitials(user.displayName || user.username)}
                 </span>
+                <div className="ct-settings-row-text">
+                  <strong>{user.displayName}</strong>
+                  <span>@{user.username}</span>
+                </div>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    void handleUnblock(user.userId);
+                  }}
+                  loading={unblockingIds.includes(user.userId)}
+                >
+                  Engeli kaldır
+                </Button>
               </div>
-              <Switch
-                id="settings-allow-friend-requests"
-                checked={draft.allowFriendRequests}
-                onChange={(checked) =>
-                  setDraft((current) => ({
-                    ...current,
-                    allowFriendRequests: checked,
-                  }))
-                }
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <div className="ct-settings-actions">
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={() => {
-                void handleSavePrivacy();
-              }}
-              loading={isSaving}
-              disabled={isLoading || isSaving}
-            >
-              Gizlilik Ayarlarını Kaydet
-            </Button>
-          </div>
-        </div>
-
-        <div className="ct-settings-subsection">
-          <h5>Oyun Etkinliği</h5>
-          <p className="ct-field-hint">
-            Bu ayar yalnızca bu bilgisayarda geçerlidir ve anında kaydedilir.
-          </p>
-
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Oynadığım oyun profilimde görünsün</strong>
-                <span>
-                  Açıkken bilgisayarında çalışan tanınan oyunlar tespit edilir ve
-                  arkadaşların profil kartında &quot;… oynuyor&quot; olarak
-                  süresiyle birlikte görünür. Kapatınca tarama durur ve mevcut
-                  bilgi hemen silinir.
-                </span>
-              </div>
-              <Switch
-                id="settings-share-game-activity"
-                checked={appPreferences.shareGameActivity}
-                onChange={(checked) => {
-                  void savePreference("shareGameActivity", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* The only other way back is a toggle inside an open conversation, and
-            a blocked non-friend has no row anywhere to open one from. */}
-        <div className="ct-settings-subsection">
-          <h5>Engellenen Kullanıcılar</h5>
-          <p className="ct-field-hint">
-            Engellediğin kişiler sana mesaj gönderemez ve seni arayamaz.
-          </p>
-
-          {blockedUsers.length === 0 ? (
-            <p className="ct-list-state">Engellediğin kimse yok.</p>
-          ) : (
-            <ul className="ct-list" aria-label="Engellenen kullanıcılar">
-              {[...blockedUsers]
-                .sort((a, b) =>
-                  a.displayName.localeCompare(b.displayName, "tr"),
-                )
-                .map((user) => (
-                  <li key={user.userId} className="ct-list-item">
-                    <div className="ct-list-user">
-                      <div className="ct-list-user-meta">
-                        <p>{user.displayName}</p>
-                        <span>@{user.username}</span>
-                      </div>
-                    </div>
-                    <div className="ct-list-item-actions">
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          void handleUnblock(user.userId);
-                        }}
-                        loading={unblockingIds.includes(user.userId)}
-                      >
-                        Engeli Kaldır
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+            ))
+        )}
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

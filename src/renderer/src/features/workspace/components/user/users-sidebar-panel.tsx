@@ -25,6 +25,7 @@ import {
   getDisplayInitials,
   getPresenceColor,
   getUserStatusLabel,
+  hueStyle,
 } from "../../workspace-utils";
 
 interface UsersSidebarPanelProps {
@@ -217,8 +218,8 @@ export function UsersSidebarPanel({
               onKeyDown={(event) => activateOnKey(event, userId)}
             >
               <div className="ct-list-user">
-                <div className="ct-user-avatar with-presence" aria-hidden="true">
-                  <div className="ct-user-avatar-core">
+                <div className="ct-user-avatar with-presence" aria-hidden="true" style={hueStyle(userId)}>
+                  <div className="ct-user-avatar-core ct-hued">
                     {conversation.avatarUrl ? (
                       <img
                         className="ct-user-avatar-image"

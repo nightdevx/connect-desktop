@@ -6,6 +6,7 @@ import type { MinigameLeaderboard as Board } from "@shared/minigames";
 import { DIFFICULTY_IDS, scoreKey, type DifficultyId } from "@/store/minigame-scores";
 import { DIFFICULTY_LABELS, describeDifficulty, type SoloGameId } from "../difficulty";
 import { scoreService } from "../score-service";
+import { getDisplayInitials, hueStyle } from "@/ui/person-style";
 
 interface MinigameLeaderboardProps {
   game: SoloGameId;
@@ -108,14 +109,20 @@ export function MinigameLeaderboard({
   return (
     <section className="ct-leaderboard" aria-label="Sıralama">
       <header className="ct-leaderboard-head">
-        <h5>
-          <TrophyOutlined aria-hidden="true" /> Sıralama
-        </h5>
+        <span className="ct-rail-card-icon" aria-hidden="true">
+          <TrophyOutlined />
+        </span>
+        <h5>Sıralama</h5>
         <div className="ct-leaderboard-head-right">
           {/* Absent, not zero: rank 0 means "no record at this game yet", which
               is a different statement from "ranked last". */}
           {board && board.viewerRank > 0 ? (
-            <span className="ct-leaderboard-rank">{board.viewerRank}. sıradasın</span>
+            <span
+              className="ct-leaderboard-rank"
+              title={`Bu zorlukta ${board.viewerRank}. sıradasın`}
+            >
+              #{board.viewerRank}
+            </span>
           ) : null}
           <Button
             size="small"
@@ -174,6 +181,13 @@ export function MinigameLeaderboard({
                   deactivated account is dropped from the rows but keeps its
                   place, so a gap here is the truth. */}
               <span className="ct-leaderboard-position">{entry.rank}</span>
+              <span
+                className="ct-leaderboard-face ct-hued"
+                style={hueStyle(entry.userId)}
+                aria-hidden="true"
+              >
+                {getDisplayInitials(entry.displayName || entry.username)}
+              </span>
               <span className="ct-leaderboard-name">
                 {entry.displayName || entry.username}
               </span>

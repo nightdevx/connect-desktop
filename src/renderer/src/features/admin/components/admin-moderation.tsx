@@ -1,12 +1,17 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Popconfirm, Table, Tag } from "antd";
+import { Button, Popconfirm, Table } from "antd";
 import { AudioOutlined, ReloadOutlined, StopOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminLobbyTimeout, AdminVoiceMute } from "@shared/auth-contracts";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
-
 /**
  * Where a restriction is lifted.
  *
@@ -21,11 +26,11 @@ import { toast } from "@/services/toast";
  * timed restriction that lapsed on its own is gone from here before the sweeper
  * has tidied the table, because a row nobody can act on is worse than no row.
  */
-const expiryTag = (expiresAt?: string | null) =>
+const expiryState = (expiresAt?: string | null) =>
   expiresAt ? (
-    <Tag className="ct-tag warn">{new Date(expiresAt).toLocaleString("tr-TR")}</Tag>
+    <AdminState tone="warn">{adminDateTime(expiresAt)}</AdminState>
   ) : (
-    <Tag className="ct-tag danger">Süresiz</Tag>
+    <AdminState tone="danger">Süresiz</AdminState>
   );
 
 export default function AdminModeration() {
@@ -98,7 +103,8 @@ export default function AdminModeration() {
           second layer of padding around a table puts it on a different left
           edge from every full-width table in the panel. */}
       <AdminSection
-        title="Sunucu Susturmaları"
+        title="Sunucu susturmaları"
+        description="Sunucu genelinde konuşması kapatılan kişiler; her odada geçerlidir."
         icon={<AudioOutlined />}
         hint={`${mutes.length} kayıt`}
         flush
@@ -109,36 +115,33 @@ export default function AdminModeration() {
           rowKey={(row) => row.userId}
           pagination={false}
           size="small"
-          scroll={{ x: "max-content" }}
+          tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Susturulmuş kimse yok." }}
           columns={[
             {
               title: "Kullanıcı",
               key: "username",
-              width: 260,
+              ellipsis: true,
               render: (_value: unknown, row: AdminVoiceMute) => (
-                <div className="ct-admin-cell">
-                  <strong>@{row.username}</strong>
-                  <span className="ct-admin-mono">{row.userId}</span>
-                </div>
+                <AdminPerson userId={row.userId} name={row.username} handle={row.userId} />
               ),
             },
             {
               title: "Başlangıç",
               dataIndex: "mutedAt",
               key: "mutedAt",
-              width: 180,
-              render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+              width: 150,
+              render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
             },
             {
               title: "Bitiş",
               key: "expiresAt",
-              width: 180,
-              render: (_value: unknown, row: AdminVoiceMute) => expiryTag(row.expiresAt),
+              width: 160,
+              render: (_value: unknown, row: AdminVoiceMute) => expiryState(row.expiresAt),
             },
             {
-              title: "İşlem",
+              title: "",
               key: "actions",
               width: 160,
               align: "right" as const,
@@ -149,7 +152,7 @@ export default function AdminModeration() {
                   okText="Evet"
                   cancelText="Hayır"
                 >
-                  <Button type="link" size="small">
+                  <Button type="text" size="small">
                     Susturmayı Kaldır
                   </Button>
                 </Popconfirm>
@@ -160,7 +163,8 @@ export default function AdminModeration() {
       </AdminSection>
 
       <AdminSection
-        title="Oda Zaman Aşımları"
+        title="Oda zaman aşımları"
+        description="Bir odaya girişi geçici ya da süresiz engellenen kişiler."
         icon={<StopOutlined />}
         hint={`${timeouts.length} kayıt`}
         flush
@@ -173,37 +177,33 @@ export default function AdminModeration() {
           rowKey={(row) => `${row.lobbyId}:${row.userId}`}
           pagination={false}
           size="small"
-          scroll={{ x: "max-content" }}
+          tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Zaman aşımı verilmiş kimse yok." }}
           columns={[
             {
               title: "Kullanıcı",
               key: "username",
-              width: 260,
+              ellipsis: true,
               render: (_value: unknown, row: AdminLobbyTimeout) => (
-                <div className="ct-admin-cell">
-                  <strong>@{row.username}</strong>
-                  <span className="ct-admin-mono">{row.userId}</span>
-                </div>
+                <AdminPerson userId={row.userId} name={row.username} handle={row.userId} />
               ),
             },
             {
               title: "Oda",
               key: "lobby",
-              width: 220,
-              render: (_value: unknown, row: AdminLobbyTimeout) => (
-                <Tag className="ct-tag info">{row.lobbyName}</Tag>
-              ),
+              width: 180,
+              ellipsis: true,
+              render: (_value: unknown, row: AdminLobbyTimeout) => <strong>{row.lobbyName}</strong>,
             },
             {
               title: "Bitiş",
               key: "expiresAt",
-              width: 180,
-              render: (_value: unknown, row: AdminLobbyTimeout) => expiryTag(row.expiresAt),
+              width: 160,
+              render: (_value: unknown, row: AdminLobbyTimeout) => expiryState(row.expiresAt),
             },
             {
-              title: "İşlem",
+              title: "",
               key: "actions",
               width: 160,
               align: "right" as const,
@@ -214,7 +214,7 @@ export default function AdminModeration() {
                   okText="Evet"
                   cancelText="Hayır"
                 >
-                  <Button type="link" size="small">
+                  <Button type="text" size="small">
                     Kaldır
                   </Button>
                 </Popconfirm>

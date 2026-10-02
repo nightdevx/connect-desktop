@@ -59,6 +59,10 @@ export default function AdminSettings() {
   if (loading || !settings) {
     return (
       <div className="ct-admin-page">
+        <AdminPageHeader
+          title="Sunucu Ayarları"
+          description="Değişiklikler anında geçerli olur; sunucuyu yeniden başlatmak gerekmez."
+        />
         <div className="ct-admin-center-state">
           <Spin />
           <span>Ayarlar yükleniyor…</span>
@@ -82,7 +86,12 @@ export default function AdminSettings() {
         description="Değişiklikler anında geçerli olur; sunucuyu yeniden başlatmak gerekmez."
       />
 
-      <AdminSection title="Bakım" icon={<ToolOutlined />} flush>
+      <AdminSection
+        title="Bakım"
+        description="Sunucuyu yöneticiler dışına kapatmak ya da yalnızca okunur yapmak."
+        icon={<ToolOutlined />}
+        flush
+      >
         <div className="ct-settings-card">
           <div className="ct-settings-row">
             <div className="ct-settings-row-text">
@@ -114,7 +123,7 @@ export default function AdminSettings() {
                   void apply({ maintenanceMessage: value });
                 }
               }}
-              style={{ maxWidth: 320 }}
+              className="ct-admin-setting-input"
             />
           </div>
 
@@ -135,7 +144,12 @@ export default function AdminSettings() {
         </div>
       </AdminSection>
 
-      <AdminSection title="Erişim" icon={<LockOutlined />} flush>
+      <AdminSection
+        title="Kayıt ve erişim"
+        description="Kimlerin yeni hesap açabileceği."
+        icon={<LockOutlined />}
+        flush
+      >
         <div className="ct-settings-card">
           <div className="ct-settings-row">
             <div className="ct-settings-row-text">
@@ -187,13 +201,18 @@ export default function AdminSettings() {
                   void apply({ emailDomains: next });
                 }
               }}
-              style={{ maxWidth: 320 }}
+              className="ct-admin-setting-input"
             />
           </div>
         </div>
       </AdminSection>
 
-      <AdminSection title="Sohbet ve Müzik" icon={<MessageOutlined />} flush>
+      <AdminSection
+        title="Sohbet ve müzik"
+        description="Mesajların ne kadar saklandığı ve müzik kuyruğunun sınırı."
+        icon={<MessageOutlined />}
+        flush
+      >
         <div className="ct-settings-card">
           <div className="ct-settings-row">
             <div className="ct-settings-row-text">
@@ -229,7 +248,12 @@ export default function AdminSettings() {
         </div>
       </AdminSection>
 
-      <AdminSection title="Oda Limitleri" icon={<TeamOutlined />} flush>
+      <AdminSection
+        title="Oda limitleri"
+        description="Odaların büyüklüğü ve sayısı."
+        icon={<TeamOutlined />}
+        flush
+      >
         <div className="ct-settings-card">
           <div className="ct-settings-row">
             <div className="ct-settings-row-text">

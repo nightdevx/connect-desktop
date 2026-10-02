@@ -1,6 +1,5 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { Alert, Button, Segmented, Spin, Table } from "antd";
 import {
   ApiOutlined,
@@ -17,7 +16,13 @@ import type {
   AdminMediaHealthWindow,
 } from "@shared/desktop-api-types";
 import adminService from "../services/admin-service";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminRefreshedAt,
+  AdminSection,
+  AdminStatGrid,
+  type AdminStat,
+} from "./admin-primitives";
 
 // LiveKit's own view of the calls, read from its /metrics by the backend. The
 // client-side diagnostics say what one person's machine saw; this says what the
@@ -99,7 +104,7 @@ const describeDist = (
   ].join(" · ");
 };
 
-type Tone = "emerald" | "amber" | "red" | "blue";
+type Tone = AdminStat["tone"];
 
 // Lower is better: the share of microphone samples that lost more than 1%.
 // Production sat at 1.2% up and 2.6% down before the connectivity work.
@@ -116,15 +121,7 @@ const joinTone = (rate: number | null): Tone => {
   return rate >= 0.85 ? "amber" : "red";
 };
 
-interface HeadlineCard {
-  tone: Tone;
-  label: string;
-  value: string;
-  hint: string;
-  icon: ReactNode;
-}
-
-const buildHeadline = (health: AdminMediaHealth, window: AdminMediaHealthWindow): HeadlineCard[] => [
+const buildHeadline = (health: AdminMediaHealth, window: AdminMediaHealthWindow): AdminStat[] => [
   {
     tone: lossTone(window.upload.lossPercent.over["1"] ?? null),
     label: "Kayıplı ses (yükleme)",
@@ -216,7 +213,7 @@ export default function AdminMediaHealth() {
     return (
       <div className="ct-admin-page">
         <AdminPageHeader
-          title="Sunucu Medya Sağlığı"
+          title="Medya Sağlığı"
           description="LiveKit'in kendi ölçümleri: mikrofonların iki yöndeki kaybı, gecikmesi ve titreşimi, katılımların ve bağlantıların ne kadarının başarılı olduğu. 30 saniyede bir yenilenir."
         />
         <div className="ct-admin-center-state">
@@ -232,17 +229,11 @@ export default function AdminMediaHealth() {
   return (
     <div className="ct-admin-page">
       <AdminPageHeader
-        title="Sunucu Medya Sağlığı"
+        title="Medya Sağlığı"
         description="LiveKit'in kendi ölçümleri: mikrofonların iki yöndeki kaybı, gecikmesi ve titreşimi, katılımların ve bağlantıların ne kadarının başarılı olduğu. 30 saniyede bir yenilenir."
         actions={
           <>
-            {error || refreshedAt ? (
-              <span className="ct-admin-section-hint">
-                {error
-                  ? "Yenilenemedi — son bilinen veriler"
-                  : `Güncellendi ${refreshedAt?.toLocaleTimeString("tr-TR")}`}
-              </span>
-            ) : null}
+            <AdminRefreshedAt at={refreshedAt} failed={Boolean(error)} />
             <Button icon={<ReloadOutlined />} onClick={() => void load()}>
               Yenile
             </Button>
@@ -276,48 +267,40 @@ export default function AdminMediaHealth() {
 
       {health?.configured && !health.error && current ? (
         <>
-          <Segmented<WindowLabel>
-            value={selected}
-            onChange={setSelected}
-            options={(Object.keys(WINDOW_LABELS) as WindowLabel[]).map((label) => ({
-              label: WINDOW_LABELS[label],
-              value: label,
-            }))}
-          />
-          {current.partial ? (
-            <span className="ct-admin-section-hint">
-              {current.seconds > 0
-                ? `Bu pencerenin yalnız ${formatSpan(current.seconds)}'lık kısmı var: backend o zamandan beri ölçüyor.`
-                : "Bu pencere için henüz ölçüm yok: backend yeni başladı, ilk karşılaştırma 5 dakika içinde gelir."}
+          {/* The window, and how much of it there is data for, on one line. */}
+          <div className="ct-admin-window-bar">
+            <Segmented<WindowLabel>
+              value={selected}
+              onChange={setSelected}
+              className="ct-segmented-premium"
+              options={(Object.keys(WINDOW_LABELS) as WindowLabel[]).map((label) => ({
+                label: WINDOW_LABELS[label],
+                value: label,
+              }))}
+            />
+            <span className="ct-admin-note">
+              {current.partial
+                ? current.seconds > 0
+                  ? `Bu pencerenin yalnız ${formatSpan(current.seconds)}'lık kısmı var: backend o zamandan beri ölçüyor.`
+                  : "Bu pencere için henüz ölçüm yok: backend yeni başladı, ilk karşılaştırma 5 dakika içinde gelir."
+                : `Kapsanan süre: ${formatSpan(current.seconds)}`}
             </span>
-          ) : (
-            <span className="ct-admin-section-hint">Kapsanan süre: {formatSpan(current.seconds)}</span>
-          )}
-
-          <div className="ct-stat-grid">
-            {buildHeadline(health, current).map((card) => (
-              <article key={card.label} className={`ct-stat-card ${card.tone}`}>
-                <div className="ct-stat-card-top">
-                  <div>
-                    <span className="ct-stat-label">{card.label}</span>
-                    <span className="ct-stat-value">{card.value}</span>
-                  </div>
-                  <span className="ct-stat-icon" aria-hidden="true">
-                    {card.icon}
-                  </span>
-                </div>
-                <div className="ct-stat-hint">{card.hint}</div>
-              </article>
-            ))}
           </div>
 
-          <AdminSection title="Mikrofon sesi, yön yön" icon={<SoundOutlined />} flush>
+          <AdminStatGrid stats={buildHeadline(health, current)} />
+
+          <AdminSection
+            title="Mikrofon sesi, yön yön"
+            description="Kuyruk önce: p95, insanların duyduğu en kötü yüzde beşlik dilim."
+            icon={<SoundOutlined />}
+            flush
+          >
             <Table<DirectionRow>
               dataSource={buildDirectionRows(current)}
               rowKey="key"
               pagination={false}
               size="small"
-              scroll={{ x: "max-content" }}
+              tableLayout="fixed"
               className="ct-admin-table-wrap"
               columns={[
                 { title: "Ölçü", dataIndex: "metric", key: "metric" },
@@ -376,10 +359,10 @@ export default function AdminMediaHealth() {
             </AdminSection>
           </div>
 
-          <span className="ct-admin-section-hint">
+          <p className="ct-admin-note">
             Tıkanıklık (CONGESTED) ve kısa ICE bağlantısı sayıları LiveKit'in ölçüm çıktısında yok; yalnız sunucu logunda görünür.
             {current.ice.length === 0 ? " ICE oranları LiveKit 1.13 ile gelir." : ""}
-          </span>
+          </p>
         </>
       ) : null}
     </div>

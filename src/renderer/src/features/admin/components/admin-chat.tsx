@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader } from "./admin-primitives";
-import { Button, Input, Modal, Segmented, Select, Table, Tag } from "antd";
+import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
+import { Button, Input, Modal, Segmented, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
-import { DeleteOutlined, EyeInvisibleOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  EyeInvisibleOutlined,
+  FlagOutlined,
+  MessageOutlined,
+  PaperClipOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import type {
   AdminAttachmentStats,
   AdminAttachmentSummary,
@@ -177,26 +185,40 @@ export default function AdminChat() {
     {
       title: "Zaman",
       dataIndex: "createdAt",
-      width: 160,
-      render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+      width: 150,
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
-    { title: "Kanal", dataIndex: "channel", width: 200, ellipsis: true },
-    { title: "Gönderen", dataIndex: "username", width: 150 },
+    {
+      title: "Kanal",
+      dataIndex: "channel",
+      width: 170,
+      ellipsis: true,
+      responsive: ["lg"],
+      render: (value: string) => <span className="ct-admin-mono">{value}</span>,
+    },
+    {
+      title: "Gönderen",
+      dataIndex: "username",
+      width: 130,
+      ellipsis: true,
+      render: (value: string) => <strong>{value}</strong>,
+    },
     { title: "Mesaj", dataIndex: "body", ellipsis: true },
     {
-      title: "İşlem",
+      title: "",
       key: "actions",
-      width: 130,
+      width: 96,
+      align: "right",
       render: (_: unknown, row) => (
-        <div className="ct-admin-row-actions">
+        <div className="ct-admin-actions">
           <Button
-            size="small"
+            type="text"
             icon={<EyeInvisibleOutlined />}
             title="Karart"
             onClick={() => void handleRedact(row.id)}
           />
           <Button
-            size="small"
+            type="text"
             danger
             icon={<DeleteOutlined />}
             title="Sil"
@@ -211,35 +233,50 @@ export default function AdminChat() {
     {
       title: "Zaman",
       dataIndex: "createdAt",
-      width: 160,
-      render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+      width: 150,
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
-    { title: "Bildiren", dataIndex: "reporterName", width: 150 },
-    { title: "Kanal", dataIndex: "channel", width: 190, ellipsis: true },
+    {
+      title: "Bildiren",
+      dataIndex: "reporterName",
+      width: 130,
+      ellipsis: true,
+      render: (value: string) => <strong>{value}</strong>,
+    },
+    {
+      title: "Kanal",
+      dataIndex: "channel",
+      width: 170,
+      ellipsis: true,
+      responsive: ["lg"],
+      render: (value: string) => <span className="ct-admin-mono">{value}</span>,
+    },
     { title: "Gerekçe", dataIndex: "reason", ellipsis: true },
     {
       title: "Durum",
       dataIndex: "status",
       width: 110,
       render: (value: AdminReportStatus) => (
-        <Tag className={`ct-tag ${value === "open" ? "warn" : value === "resolved" ? "success" : ""}`}>{value}</Tag>
+        <AdminState tone={value === "open" ? "warn" : value === "resolved" ? "ok" : "muted"}>
+          {value === "open" ? "Açık" : value === "resolved" ? "Kapatıldı" : "Reddedildi"}
+        </AdminState>
       ),
     },
     {
-      title: "İşlem",
+      title: "",
       key: "actions",
       width: 210,
+      align: "right",
       render: (_: unknown, row) => (
-        <div className="ct-admin-row-actions">
-          <Button size="small" onClick={() => void handleRedact(row.messageId)}>
+        <div className="ct-admin-actions">
+          <Button size="small" type="text" onClick={() => void handleRedact(row.messageId)}>
             Karart
           </Button>
-          <Button size="small" danger onClick={() => void handleDelete(row.messageId)}>
+          <Button size="small" type="text" danger onClick={() => void handleDelete(row.messageId)}>
             Sil
           </Button>
           <Button
             size="small"
-            type="primary"
             onClick={async () => {
               try {
                 await adminService.unwrap(
@@ -264,25 +301,44 @@ export default function AdminChat() {
     {
       title: "Zaman",
       dataIndex: "createdAt",
-      width: 160,
-      render: (value: string) => (value ? new Date(value).toLocaleString("tr-TR") : "—"),
+      width: 150,
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
-    { title: "Dosya", dataIndex: "name", ellipsis: true },
-    { title: "Tür", dataIndex: "mimeType", width: 150 },
+    {
+      title: "Dosya",
+      dataIndex: "name",
+      ellipsis: true,
+      render: (value: string) => (
+        <span className="ct-admin-inline">
+          <PaperClipOutlined className="ct-admin-muted" />
+          <strong className="ct-admin-ellipsis">{value}</strong>
+        </span>
+      ),
+    },
+    {
+      title: "Tür",
+      dataIndex: "mimeType",
+      width: 140,
+      ellipsis: true,
+      responsive: ["lg"],
+      render: (value: string) => <span className="ct-admin-mono">{value}</span>,
+    },
     {
       title: "Boyut",
       dataIndex: "size",
-      width: 100,
+      width: 90,
+      align: "right",
       render: (value: number) => formatBytes(value),
     },
-    { title: "Yükleyen", dataIndex: "username", width: 150 },
+    { title: "Yükleyen", dataIndex: "username", width: 130, ellipsis: true },
     {
-      title: "İşlem",
+      title: "",
       key: "actions",
-      width: 90,
+      width: 64,
+      align: "right",
       render: (_: unknown, row) => (
         <Button
-          size="small"
+          type="text"
           danger
           icon={<DeleteOutlined />}
           onClick={async () => {
@@ -322,6 +378,7 @@ export default function AdminChat() {
       <Segmented
         value={pane}
         onChange={(value) => setPane(value as Pane)}
+        className="ct-segmented-premium"
         options={[
           { value: "messages", label: "Mesajlar" },
           { value: "reports", label: "Şikâyetler" },
@@ -330,75 +387,96 @@ export default function AdminChat() {
       />
 
       {pane === "messages" && (
-        <>
-          <div className="ct-admin-filters">
+        <AdminSection
+          title="Oda mesajları"
+          icon={<MessageOutlined />}
+          hint={`${messagesTotal} mesaj`}
+          flush
+          toolbar={
             <Input.Search
               placeholder="Mesaj içinde ara"
               allowClear
+              prefix={<SearchOutlined className="ct-admin-muted" />}
               onSearch={(value) => {
                 setPage(1);
                 setQuery(value);
               }}
-              style={{ maxWidth: 320 }}
+              className="ct-admin-toolbar-search"
             />
-          </div>
-          <div className="ct-admin-table-wrap">
-            <Table
-              rowKey="id"
-              size="small"
-              loading={loading}
-              dataSource={messages}
-              columns={messageColumns}
-              pagination={{
-                current: page,
-                pageSize: PAGE_SIZE,
-                total: messagesTotal,
-                showSizeChanger: false,
-                onChange: setPage,
-              }}
-            />
-          </div>
-        </>
+          }
+        >
+          <Table
+            tableLayout="fixed"
+            rowKey="id"
+            size="small"
+            loading={loading}
+            dataSource={messages}
+            columns={messageColumns}
+            className="ct-admin-table-wrap"
+            locale={{ emptyText: "Mesaj yok." }}
+            pagination={{
+              current: page,
+              pageSize: PAGE_SIZE,
+              total: messagesTotal,
+              showSizeChanger: false,
+              onChange: setPage,
+            }}
+          />
+        </AdminSection>
       )}
 
       {pane === "reports" && (
-        <>
-          <div className="ct-admin-filters">
+        <AdminSection
+          title="Şikâyetler"
+          icon={<FlagOutlined />}
+          hint={`${reports.length} şikâyet`}
+          flush
+          toolbar={
             <Select
               value={reportStatus}
               onChange={(value) => setReportStatus(value)}
-              style={{ width: 180 }}
+              className="ct-admin-toolbar-filter"
               options={[
                 { value: "open", label: "Açık" },
                 { value: "resolved", label: "Kapatılmış" },
                 { value: "rejected", label: "Reddedilmiş" },
               ]}
             />
-          </div>
-          <div className="ct-admin-table-wrap">
-            <Table
-              rowKey="id"
-              size="small"
-              loading={loading}
-              dataSource={reports}
-              columns={reportColumns}
-              pagination={false}
-            />
-          </div>
-        </>
+          }
+        >
+          <Table
+            tableLayout="fixed"
+            rowKey="id"
+            size="small"
+            loading={loading}
+            dataSource={reports}
+            columns={reportColumns}
+            pagination={false}
+            className="ct-admin-table-wrap"
+            locale={{ emptyText: "Bu durumda şikâyet yok." }}
+          />
+        </AdminSection>
       )}
 
       {pane === "attachments" && (
-        <div className="ct-admin-table-wrap">
+        <AdminSection
+          title="Ek dosyalar"
+          icon={<PaperClipOutlined />}
+          hint={`${attachmentStats.count} dosya · ${formatBytes(attachmentStats.totalBytes)}`}
+          flush
+        >
           <Table
+            tableLayout="fixed"
             rowKey="id"
             size="small"
             loading={loading}
             dataSource={attachments}
             columns={attachmentColumns}
             pagination={false}
+            className="ct-admin-table-wrap"
+            locale={{ emptyText: "Ek dosya yok." }}
           />
-        </div>
+        </AdminSection>
       )}
     </div>
   );

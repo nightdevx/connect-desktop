@@ -194,6 +194,7 @@ interface WorkspaceMainPanelProps {
     isSearching: boolean;
     runSearch: UseDirectMessagesResult["runSearch"];
     clearSearch: UseDirectMessagesResult["clearSearch"];
+    onCloseConversation: () => void;
   };
   onSelectAudioInputDevice: (deviceId: string | null) => void;
   onSelectAudioOutputDevice: (deviceId: string | null) => void;
@@ -324,6 +325,7 @@ export function WorkspaceMainPanel({
             selectedUser={selectedUser}
             friendsHome={friendsHome}
             onCopyUsername={onCopyUsername}
+            onCloseConversation={directMessagesProps.onCloseConversation}
             onSetRemoteParticipantMuted={onSetRemoteParticipantMuted}
             onSetRemoteParticipantVolume={onSetRemoteParticipantVolume}
             onSetRemoteParticipantCameraHidden={onSetRemoteParticipantCameraHidden}
@@ -472,6 +474,7 @@ export function WorkspaceMainPanel({
           <SettingsMainPanel
             settingsSection={settingsSection}
             currentUsername={currentUsername}
+            currentUserId={currentUserId}
             onLogout={onLogout}
             isLoggingOut={isLoggingOut}
             cameraPreferences={cameraPreferences}

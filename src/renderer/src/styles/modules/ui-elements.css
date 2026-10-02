@@ -96,10 +96,6 @@ color: var(--ct-success);
 color: var(--ct-warning);
 }
 
-.ct-icon-info {
-color: var(--ct-info);
-}
-
 /* antd disables the button, which already dims it; the icon should not fight
    that with its own colour. */
 .ant-btn:disabled .anticon {
@@ -271,21 +267,7 @@ background: var(--ct-alpha-04);
    an accent-filled row was the loudest thing in the sidebar for the one row
    the user already knows about. */
 .ct-list-item.clickable.active {
-position: relative;
 background: var(--ct-alpha-08);
-}
-
-/* The bar every selected row carries: lobby rows, settings tabs, admin nav. */
-.ct-list-item.clickable.active::before {
-content: "";
-position: absolute;
-left: 0;
-top: 50%;
-width: 3px;
-height: 16px;
-translate: 0 -50%;
-border-radius: 0 3px 3px 0;
-background: var(--ct-accent);
 }
 
 /* A count on a row: unread messages, waiting requests. Red, because it asks
@@ -369,6 +351,23 @@ margin-top: 0;
 @apply text-xs font-semibold;
 color: var(--ct-text-primary);
 letter-spacing: 0.04em;
+}
+
+/* A face without a picture in its owner's colour (--ct-name-h, set inline by
+   hueStyle): the same hue for the same person in every row, tile and message.
+   Mid lightness, so white initials read on it in both themes. A picture, when
+   there is one, simply covers it. */
+.ct-hued {
+background: oklch(0.55 0.12 var(--ct-name-h));
+color: var(--ct-on-media);
+}
+
+.ct-hued .ct-user-avatar-fallback {
+color: var(--ct-on-media);
+}
+
+.ct-user-avatar:has(> .ct-hued) {
+border-color: transparent;
 }
 
 /* Presence is a status, not a piece of chrome, so it reads from the presence

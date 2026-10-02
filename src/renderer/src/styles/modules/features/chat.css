@@ -7,6 +7,28 @@
     background: transparent;
   }
 
+  /* A conversation is one card, the way a room is: its bar, any call banner,
+     the transcript and the composer inside one border. */
+  .ct-chat-panel-plain.dm {
+    @apply m-3 rounded-xl border p-0;
+    width: auto;
+    height: auto;
+    border-color: var(--ct-border);
+    background:
+      radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--ct-brand-blue) 6%, transparent), transparent 55%),
+      var(--ct-panel);
+  }
+
+  .ct-chat-panel-plain.dm .ct-chat-thread-box {
+    @apply rounded-none border-0;
+    background: transparent;
+  }
+
+  .ct-chat-panel-plain.dm .ct-incoming-call-banner,
+  .ct-chat-panel-plain.dm .ct-rejoin-banner {
+    @apply mx-3 mb-0 mt-3;
+  }
+
   /* While a call is up the panel becomes stage + chat drawer, edge to edge. */
   .ct-chat-panel-plain.in-call {
     @apply p-0;
@@ -418,7 +440,7 @@
      same size in both cases, so every rule keyed to the viewport gets the lobby
      wrong. This is the same fix the participant tile already uses. */
   .ct-chat-message-list {
-    @apply flex flex-col gap-2;
+    @apply flex flex-col gap-1;
     container-type: inline-size;
     container-name: chat-thread;
   }
@@ -496,43 +518,29 @@
     @apply ml-1.5;
   }
 
+  /* A transcript row: the author's face, then their name and the time, then
+     the message. Everybody on the same side -- two columns of bubbles read as
+     a phone, and this is a room as often as it is a conversation. */
   .ct-chat-row {
-    @apply flex;
-    justify-content: flex-start;
+    @apply relative flex items-start gap-2.5 rounded-md px-2 py-1.5;
+    transition: background var(--ct-duration-fast) ease;
   }
 
-  .ct-chat-row.own {
-    justify-content: flex-end;
+  .ct-chat-row:hover,
+  .ct-chat-row:focus-within {
+    background: var(--ct-alpha-02);
   }
 
-  /* One width for every bubble, derived from the thread's own width and capped
-     at a readable measure. Requested explicitly: a uniform column reads as a
-     transcript, where content-sized bubbles gave a ragged left/right edge. */
+  .ct-chat-avatar {
+    @apply mt-0.5 grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full text-micro font-bold uppercase;
+  }
+
+  .ct-chat-avatar img {
+    @apply h-full w-full object-cover;
+  }
+
   .ct-chat-bubble {
-    @apply relative rounded-lg border px-3 py-2;
-    width: min(78%, 620px);
-    max-width: 100%;
-    border-color: var(--ct-border);
-    background: var(--ct-panel-strong);
-  }
-
-  /* Below this width the 78% column is not a design, it is wasted space.
-     At the lobby's narrowest the thread is ~276px, so a 78% bubble is 215px
-     with a 191px text box -- and the leftover 61px are empty on every single
-     line. 92% keeps the own/other offset that tells the two apart, and hands
-     the text (and any GIF inside it) back most of the column.
-
-     Placed after the rule it overrides on purpose: a container query carries no
-     specificity of its own, so source order is the only thing that decides. */
-  @container chat-thread (max-width: 480px) {
-    .ct-chat-bubble {
-      width: 92%;
-    }
-  }
-
-  .ct-chat-bubble.own {
-    border-color: var(--ct-accent-strong);
-    background: var(--ct-accent-soft);
+    @apply relative min-w-0 flex-1;
   }
 
   .ct-chat-bubble p {
@@ -548,7 +556,16 @@
   }
 
   .ct-chat-bubble-meta {
-    @apply mt-1 flex items-center justify-between gap-2;
+    @apply mb-0.5 flex items-center gap-2;
+  }
+
+  .ct-chat-bubble-meta > span:first-child {
+    @apply flex items-baseline gap-2;
+  }
+
+  .ct-chat-bubble-meta b {
+    @apply text-xs font-bold;
+    color: var(--ct-text-primary);
   }
 
   /* The author of a message in a room with many of them. The hue is set inline
@@ -573,8 +590,8 @@
      one-word "tamam" -- was at least as wide as four buttons plus a timestamp. */
   .ct-chat-message-actions {
     @apply absolute inline-flex shrink-0 items-center gap-0.5 rounded-full border p-0.5;
-    top: -14px;
-    right: 8px;
+    top: -18px;
+    right: 0;
     /* Absolute boxes are capped at the containing block's width, and a bubble
        can be 96px -- without this the four buttons wrapped onto two rows. */
     width: max-content;
@@ -587,15 +604,8 @@
     transition: opacity var(--ct-duration-fast) ease;
   }
 
-  /* Own messages hang on the right, so their group opens to the left where
-     there is room. */
-  .ct-chat-row.own .ct-chat-message-actions {
-    right: auto;
-    left: 8px;
-  }
-
-  .ct-chat-bubble:hover .ct-chat-message-actions,
-  .ct-chat-bubble:focus-within .ct-chat-message-actions {
+  .ct-chat-row:hover .ct-chat-message-actions,
+  .ct-chat-row:focus-within .ct-chat-message-actions {
     opacity: 1;
     pointer-events: auto;
   }
@@ -640,7 +650,12 @@
   .ct-chat-reply-quote,
   .ct-chat-reaction,
   .ct-emoji-picker,
-  .ct-chat-input .ant-input,
+  .ct-chat-input .ant-input {
+    font-family:
+      "Space Grotesk", "IBM Plex Sans", "Segoe UI Emoji", "Apple Color Emoji",
+      "Noto Color Emoji", "Segoe UI", sans-serif;
+  }
+
   /* Emoji and GIF popovers. No padding of its own: both panels bring their own
      chrome and a border around a border reads as a double frame. */
   .ct-emoji-popover .ant-popover-inner {

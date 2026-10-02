@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader } from "./admin-primitives";
-import { Button, Table, Tag } from "antd";
+import { AdminPageHeader, AdminPerson, AdminSection, AdminState } from "./admin-primitives";
+import { Button, Table, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DisconnectOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  AudioMutedOutlined,
+  AudioOutlined,
+  DesktopOutlined,
+  DisconnectOutlined,
+  ReloadOutlined,
+  VideoCameraOutlined,
+} from "@ant-design/icons";
 import type { AdminLivePublisher } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
@@ -41,45 +48,79 @@ export default function AdminMedia() {
   };
 
   const columns: ColumnsType<AdminLivePublisher> = [
-    { title: "Oda", dataIndex: "room", width: 200, ellipsis: true },
     {
       title: "Kullanıcı",
       key: "user",
-      width: 200,
-      render: (_: unknown, row) => row.username || row.userId,
+      ellipsis: true,
+      render: (_: unknown, row) => (
+        <AdminPerson userId={row.userId} name={row.username || row.userId} handle={row.room} />
+      ),
     },
     {
       title: "Açık yayınlar",
       key: "tracks",
+      width: 220,
       render: (_: unknown, row) => (
-        <span className="ct-admin-track-tags">
-          {row.microphone && <Tag className="ct-tag info">Mikrofon</Tag>}
-          {row.camera && <Tag className="ct-tag success">Kamera</Tag>}
-          {row.screen && <Tag className="ct-tag info">Ekran</Tag>}
+        <span className="ct-admin-states">
+          {row.microphone && (
+            <AdminState tone="ok" icon={<AudioOutlined />}>
+              Mikrofon
+            </AdminState>
+          )}
+          {row.camera && (
+            <AdminState tone="info" icon={<VideoCameraOutlined />}>
+              Kamera
+            </AdminState>
+          )}
+          {row.screen && (
+            <AdminState tone="info" icon={<DesktopOutlined />}>
+              Ekran
+            </AdminState>
+          )}
           {!row.microphone && !row.camera && !row.screen && <span className="ct-muted">—</span>}
         </span>
       ),
     },
     {
-      title: "İşlem",
+      title: "",
       key: "actions",
-      width: 340,
+      width: 168,
+      align: "right" as const,
       render: (_: unknown, row) => (
-        <div className="ct-admin-row-actions">
-          <Button size="small" disabled={!row.microphone} onClick={() => void stopTrack(row.userId, "microphone")}>
-            Mikrofonu kapat
-          </Button>
-          <Button size="small" disabled={!row.camera} onClick={() => void stopTrack(row.userId, "camera")}>
-            Kamerayı kapat
-          </Button>
-          <Button size="small" disabled={!row.screen} onClick={() => void stopTrack(row.userId, "screen")}>
-            Ekranı kapat
-          </Button>
+        <div className="ct-admin-actions">
+          <Tooltip title="Mikrofonu kapat">
+            <Button
+              type="text"
+              icon={<AudioMutedOutlined />}
+              disabled={!row.microphone}
+              aria-label="Mikrofonu kapat"
+              onClick={() => void stopTrack(row.userId, "microphone")}
+            />
+          </Tooltip>
+          <Tooltip title="Kamerayı kapat">
+            <Button
+              type="text"
+              icon={<VideoCameraOutlined />}
+              disabled={!row.camera}
+              aria-label="Kamerayı kapat"
+              onClick={() => void stopTrack(row.userId, "camera")}
+            />
+          </Tooltip>
+          <Tooltip title="Ekran paylaşımını kapat">
+            <Button
+              type="text"
+              icon={<DesktopOutlined />}
+              disabled={!row.screen}
+              aria-label="Ekran paylaşımını kapat"
+              onClick={() => void stopTrack(row.userId, "screen")}
+            />
+          </Tooltip>
           <Button
-            size="small"
+            type="text"
             danger
             icon={<DisconnectOutlined />}
             title="Yayından at"
+            aria-label="Yayından at"
             onClick={async () => {
               try {
                 await adminService.unwrap(
@@ -101,8 +142,8 @@ export default function AdminMedia() {
   return (
     <div className="ct-admin-page">
       <AdminPageHeader
-        title="Ses ve Video"
-        description={"Şu anda yayında olan herkes. Sekiz saniyede bir kendiliğinden tazelenir."}
+        title="Canlı Yayınlar"
+        description="Şu anda mikrofonu, kamerası ya da ekranı yayında olan herkes. Sekiz saniyede bir yenilenir."
         actions={
           <>
             <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
@@ -112,7 +153,12 @@ export default function AdminMedia() {
         }
       />
 
-      <div className="ct-admin-table-wrap">
+      <AdminSection
+        title="Yayında olanlar"
+        icon={<VideoCameraOutlined />}
+        hint={`${publishers.length} kişi`}
+        flush
+      >
         <Table
           rowKey={(row) => `${row.room}:${row.userId}`}
           size="small"
@@ -120,9 +166,11 @@ export default function AdminMedia() {
           dataSource={publishers}
           columns={columns}
           pagination={false}
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
           locale={{ emptyText: "Şu anda yayında kimse yok." }}
         />
-      </div>
+      </AdminSection>
     </div>
   );
 }

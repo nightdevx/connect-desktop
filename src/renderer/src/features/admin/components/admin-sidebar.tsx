@@ -12,19 +12,20 @@ import {
   CustomerServiceOutlined,
   MessageOutlined,
   VideoCameraOutlined,
-  FileProtectOutlined,
+  FundProjectionScreenOutlined,
   CloudServerOutlined,
   SafetyCertificateOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 
-// Seven flat entries in one column was a list to read top to bottom. Grouped by
-// what the screen is FOR -- what is happening now, who and what is on the
-// server, what has already happened, what the server itself is set to -- it is
-// a list to scan.
+// Grouped by what the screen is FOR, the way the settings menu is: the people
+// and rooms on the server, what they have put on it, how the calls are doing,
+// what has already happened, and what the server itself is set to. The calls
+// group used to be filed under "Denetim" beside moderation, so the diagnostics
+// screens were three entries in a list of seven about something else.
 //
 // The groups are flattened into the same <nav> rather than wrapped in a <div>
-// each: the narrow layout turns that nav into a horizontal scrolling strip, and
-// a wrapper per group would lay out as four columns inside one row.
+// each, so the list keeps one column and one rhythm.
 const NAV_GROUPS = [
   {
     label: "Genel",
@@ -33,25 +34,35 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Yönetim",
+    label: "Topluluk",
     items: [
       { key: "users", label: "Kullanıcılar", icon: <UserOutlined /> },
       { key: "lobbies", label: "Odalar", icon: <HomeOutlined /> },
+      { key: "moderation", label: "Moderasyon", icon: <StopOutlined /> },
+      { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
+    ],
+  },
+  {
+    label: "İçerik",
+    items: [
       { key: "sounds", label: "Sesler", icon: <SoundOutlined /> },
       { key: "minigames", label: "Oyunlar", icon: <PlayCircleOutlined /> },
       { key: "music", label: "Müzik", icon: <CustomerServiceOutlined /> },
     ],
   },
   {
-    label: "Denetim",
+    label: "Görüşmeler",
     items: [
-      { key: "moderation", label: "Moderasyon", icon: <StopOutlined /> },
-      { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
-      { key: "media", label: "Ses ve Video", icon: <VideoCameraOutlined /> },
-      { key: "diagnostics", label: "Yayın Tanılama", icon: <FileProtectOutlined /> },
-      { key: "media-health", label: "Sunucu Medya Sağlığı", icon: <CloudServerOutlined /> },
-      { key: "activity", label: "Aktivite Logları", icon: <HistoryOutlined /> },
-      { key: "audit", label: "Denetim Kaydı", icon: <FileProtectOutlined /> },
+      { key: "media", label: "Canlı Yayınlar", icon: <VideoCameraOutlined /> },
+      { key: "diagnostics", label: "Yayın Tanılama", icon: <FundProjectionScreenOutlined /> },
+      { key: "media-health", label: "Medya Sağlığı", icon: <CloudServerOutlined /> },
+    ],
+  },
+  {
+    label: "Kayıtlar",
+    items: [
+      { key: "activity", label: "Oda Etkinliği", icon: <HistoryOutlined /> },
+      { key: "audit", label: "Denetim Kaydı", icon: <AuditOutlined /> },
     ],
   },
   {
@@ -68,15 +79,14 @@ export default function AdminSidebar() {
 
   return (
     <aside className="ct-admin-sidebar" aria-label="Yönetim navigasyonu">
-      <header className="ct-admin-sidebar-header">
-        <h2>Yönetim Paneli</h2>
-        <span>Sistem yönetim araçları</span>
+      <header className="ct-sidebar-header">
+        <h3>Yönetim</h3>
       </header>
 
       <nav className="ct-admin-sidebar-nav">
         {NAV_GROUPS.map((group) => (
           <Fragment key={group.label}>
-            <span className="ct-admin-sidebar-group-label">{group.label}</span>
+            <span className="ct-list-group-title">{group.label}</span>
             {group.items.map((item) => {
               const active = adminSection === item.key;
               return (

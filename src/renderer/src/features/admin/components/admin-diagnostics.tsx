@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader } from "./admin-primitives";
-import { Button, Descriptions, Drawer, Input, Select, Table, Tag } from "antd";
+import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
+import { Button, Descriptions, Drawer, Input, Select, Table, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { ReloadOutlined, DownloadOutlined, FileZipOutlined } from "@ant-design/icons";
+import {
+  ReloadOutlined,
+  DownloadOutlined,
+  FileZipOutlined,
+  FundProjectionScreenOutlined,
+  ProfileOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import {
   MEDIA_DIAGNOSTIC_PROBLEM_LABELS,
   deriveVerdicts,
@@ -22,7 +29,7 @@ const PROBLEM_OPTIONS = [
   })),
 ];
 
-const problemTone = (problem: string): string => {
+const problemTone = (problem: string): "danger" | "warn" | "info" => {
   if (
     problem === "software-encoder" ||
     problem === "cpu-limited" ||
@@ -144,21 +151,34 @@ export default function AdminDiagnostics() {
     {
       title: "Başlangıç",
       dataIndex: "startedAt",
-      width: 165,
-      render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+      width: 140,
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
-    { title: "Kullanıcı", dataIndex: "username", width: 140 },
-    { title: "Oda", dataIndex: "lobbyId", width: 150 },
+    {
+      title: "Kullanıcı",
+      dataIndex: "username",
+      width: 110,
+      ellipsis: true,
+      render: (value: string) => <strong>{value}</strong>,
+    },
+    {
+      title: "Oda",
+      dataIndex: "lobbyId",
+      width: 130,
+      ellipsis: true,
+      responsive: ["xxl"],
+      render: (value: string) => <span className="ct-admin-mono">{value || "—"}</span>,
+    },
     {
       title: "Süre",
       key: "duration",
-      width: 100,
+      width: 112,
       render: (_: unknown, row) => formatDuration(row.summary?.durationMs),
     },
     {
       title: "Kodlayıcı",
       key: "encoder",
-      width: 150,
+      width: 140,
       render: (_: unknown, row) => {
         const video = row.summary?.outboundVideo;
         if (!video) {
@@ -167,11 +187,9 @@ export default function AdminDiagnostics() {
         const codec = Object.keys(video.codecs)[0] ?? "?";
         const hardware = video.hardwareEncoderSamples >= video.softwareEncoderSamples;
         return (
-          <span>
-            <Tag className={`ct-tag ${hardware ? "success" : "danger"}`}>
-              {hardware ? "donanım" : "yazılım"}
-            </Tag>
-            {codec}
+          <span className="ct-admin-inline">
+            <AdminState tone={hardware ? "ok" : "danger"}>{hardware ? "Donanım" : "Yazılım"}</AdminState>
+            <span className="ct-admin-mono">{codec}</span>
           </span>
         );
       },
@@ -179,15 +197,16 @@ export default function AdminDiagnostics() {
     {
       title: "Sorunlar",
       key: "problems",
+      ellipsis: true,
       render: (_: unknown, row) =>
         row.problems.length === 0 ? (
-          <Tag className="ct-tag success">temiz</Tag>
+          <AdminState tone="ok">Temiz</AdminState>
         ) : (
-          <span>
+          <span className="ct-admin-states">
             {row.problems.map((item) => (
-              <Tag key={item} className={`ct-tag ${problemTone(item)}`}>
+              <AdminState key={item} tone={problemTone(item)}>
                 {MEDIA_DIAGNOSTIC_PROBLEM_LABELS[item] ?? item}
-              </Tag>
+              </AdminState>
             ))}
           </span>
         ),
@@ -195,25 +214,34 @@ export default function AdminDiagnostics() {
     {
       title: "Kayıt",
       dataIndex: "entryCount",
-      width: 90,
+      width: 70,
+      responsive: ["xxl"],
+      align: "right" as const,
     },
     {
       title: "",
       key: "actions",
-      width: 190,
+      width: 88,
+      align: "right" as const,
       render: (_: unknown, row) => (
-        <span className="ct-admin-row-actions">
-          <Button size="small" onClick={() => setSelected(row)}>
-            Özet
-          </Button>
-          <Button
-            size="small"
-            icon={<DownloadOutlined />}
-            loading={exporting}
-            onClick={() => void exportSession(row.sessionId)}
-          >
-            İndir
-          </Button>
+        <span className="ct-admin-actions">
+          <Tooltip title="Özet">
+            <Button
+              type="text"
+              icon={<ProfileOutlined />}
+              aria-label="Özet"
+              onClick={() => setSelected(row)}
+            />
+          </Tooltip>
+          <Tooltip title="İndir">
+            <Button
+              type="text"
+              icon={<DownloadOutlined />}
+              aria-label="İndir"
+              loading={exporting}
+              onClick={() => void exportSession(row.sessionId)}
+            />
+          </Tooltip>
         </span>
       ),
     },
@@ -246,49 +274,60 @@ export default function AdminDiagnostics() {
               loading={exporting}
               onClick={() => void exportRange()}
             >
-              Filtrelenenleri tek dosyaya indir
+              Filtrelenenleri indir
             </Button>
           </>
         }
       />
 
-      <div className="ct-admin-filters">
-        <Input.Search
-          placeholder="Kullanıcı kimliği"
-          allowClear
-          onSearch={(value) => {
-            setPage(1);
-            setUserId(value);
-          }}
-          style={{ maxWidth: 280 }}
-        />
-        <Select
-          value={problem}
-          options={PROBLEM_OPTIONS}
-          onChange={(value) => {
-            setPage(1);
-            setProblem(value);
-          }}
-          style={{ width: 260 }}
-        />
-      </div>
-
-      <div className="ct-admin-table-wrap">
+      <AdminSection
+        title="Oturumlar"
+        icon={<FundProjectionScreenOutlined />}
+        hint={`${total} oturum`}
+        flush
+        toolbar={
+          <>
+            <Input.Search
+              placeholder="Kullanıcı kimliği"
+              allowClear
+              prefix={<SearchOutlined className="ct-admin-muted" />}
+              onSearch={(value) => {
+                setPage(1);
+                setUserId(value);
+              }}
+              className="ct-admin-toolbar-search"
+            />
+            <Select
+              value={problem}
+              options={PROBLEM_OPTIONS}
+              onChange={(value) => {
+                setPage(1);
+                setProblem(value);
+              }}
+              className="ct-admin-toolbar-filter wide"
+            />
+          </>
+        }
+      >
         <Table
           rowKey="sessionId"
           size="small"
           loading={loading}
           dataSource={sessions}
           columns={columns}
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
+          locale={{ emptyText: "Bu filtrelerle eşleşen oturum yok." }}
           pagination={{
             current: page,
             pageSize: PAGE_SIZE,
             total,
             showSizeChanger: false,
             onChange: setPage,
+            showTotal: (count) => `${count} oturum`,
           }}
         />
-      </div>
+      </AdminSection>
 
       <Drawer
         open={selected !== null}
@@ -326,7 +365,7 @@ export default function AdminDiagnostics() {
                 ))}
               </div>
             ) : null}
-            <Descriptions column={1} size="small" bordered>
+            <Descriptions column={1} size="small" bordered className="ct-admin-descriptions">
             <Descriptions.Item label="Oturum">{selected.sessionId}</Descriptions.Item>
             <Descriptions.Item label="Süre">
               {formatDuration(summary?.durationMs)}

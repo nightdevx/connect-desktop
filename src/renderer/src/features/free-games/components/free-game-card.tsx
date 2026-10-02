@@ -59,8 +59,15 @@ function FreeGameCardImpl({ offer, nowMs }: FreeGameCardProps) {
 
         <span className="ct-free-game-store">{offer.storeLabel}</span>
 
+        {/* What kind of offer this is, in the corner where the eye lands: the
+            sidebar bucket says it once, the card has to say it on its own when
+            it is one of many. */}
         {offer.kind === "deal" && offer.discountPercent !== null ? (
-          <span className="ct-free-game-discount">-%{offer.discountPercent}</span>
+          <span className="ct-free-game-badge deal">-%{offer.discountPercent}</span>
+        ) : offer.kind === "free-now" ? (
+          <span className="ct-free-game-badge free">Ücretsiz</span>
+        ) : offer.kind === "free-soon" ? (
+          <span className="ct-free-game-badge soon">Yakında</span>
         ) : null}
       </div>
 

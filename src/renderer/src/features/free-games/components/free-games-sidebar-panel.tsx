@@ -50,6 +50,7 @@ export function FreeGamesSidebarPanel() {
 
   return (
     <div className="ct-free-games-sidebar">
+      <span className="ct-list-group-title">Kategoriler</span>
       <nav
         className="ct-free-games-tabs"
         role="tablist"
@@ -67,25 +68,15 @@ export function FreeGamesSidebarPanel() {
               aria-selected={isActive}
               className={`ct-free-games-tab ${isActive ? "active" : ""}`}
               onClick={() => setFilter(entry.id)}
+              title={entry.description}
             >
               <span className="ct-free-games-tab-icon" aria-hidden="true">
                 {FILTER_ICONS[entry.id]}
               </span>
-
-              <span className="ct-free-games-tab-body">
-                <span className="ct-free-games-tab-head">
-                  <span className="ct-free-games-tab-label">{entry.label}</span>
-                  {/* Zero is drawn as a dash rather than hidden: an empty bucket
-                      is an answer, and a vanishing badge reads as a loading
-                      state. */}
-                  <span className="ct-free-games-tab-count">
-                    {count > 0 ? count : "–"}
-                  </span>
-                </span>
-                <span className="ct-free-games-tab-description">
-                  {entry.description}
-                </span>
-              </span>
+              <span className="ct-free-games-tab-label">{entry.label}</span>
+              {/* Zero is drawn as a dash rather than hidden: an empty bucket is
+                  an answer, and a vanishing badge reads as a loading state. */}
+              <span className="ct-free-games-tab-count">{count > 0 ? count : "–"}</span>
             </button>
           );
         })}
@@ -105,18 +96,18 @@ export function FreeGamesSidebarPanel() {
           </Tooltip>
         ) : null}
 
-        <p className="ct-free-games-updated">
-          Güncelleme: {formatFetchedAt(snapshot.fetchedAt, nowMs)}
-        </p>
-
-        <Button
-          block
-          icon={<ReloadOutlined />}
-          onClick={refresh}
-          loading={isRefreshing}
-        >
-          Yenile
-        </Button>
+        <div className="ct-free-games-updated">
+          <span>Güncelleme: {formatFetchedAt(snapshot.fetchedAt, nowMs)}</span>
+          <Button
+            size="small"
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={refresh}
+            loading={isRefreshing}
+          >
+            Yenile
+          </Button>
+        </div>
       </div>
     </div>
   );

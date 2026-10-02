@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Button } from "antd";
-import { EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
+import { Select, Button, Segmented } from "antd";
+import {
+  DashboardOutlined,
+  ExpandOutlined,
+  StopOutlined,
+  VideoCameraOutlined,
+} from "@ant-design/icons";
 import type { CameraPreferences } from "./settings-main-panel-types";
-import { PageHeader } from "@/ui/page-header";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 interface SettingsCameraProps {
@@ -170,10 +175,6 @@ export function SettingsCamera({
   }, [capabilities]);
 
   useEffect(() => {
-    setDraftCameraPreferences(cameraPreferences);
-  }, [cameraPreferences]);
-
-  useEffect(() => {
     if (!cameraPreviewRef.current) {
       return;
     }
@@ -289,99 +290,88 @@ export function SettingsCamera({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftCameraPreferences.resolution, draftCameraPreferences.frameRate]);
 
+  const resolutionOptions = [
+    { value: "720p", label: "1280 × 720 (HD)" },
+    ...(!capabilities || capabilities.resolutions.includes("1080p")
+      ? [{ value: "1080p", label: "1920 × 1080 (Full HD)" }]
+      : []),
+  ];
+
+  const frameRateOptions = [
+    { value: 24, label: "24 FPS" },
+    ...(!capabilities || capabilities.fpsOptions.includes(30)
+      ? [{ value: 30, label: "30 FPS" }]
+      : []),
+  ];
+
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Kamera"
-        description="Kamera açılırken kullanılacak kalite ayarlarını belirleyebilirsin."
-      />
+    <SettingsPage
+      title="Kamera"
+      description="Kameranı açtığında görüntünün hangi kalitede gideceği. Seçenekler kameranın desteklediklerine göre listelenir."
+    >
+      <SettingsGroup title="Görüntü kalitesi">
+        <SettingsRow
+          icon={<ExpandOutlined />}
+          title="Çözünürlük"
+          description="Yüksek çözünürlük daha net, ama daha çok bant genişliği harcar."
+          htmlFor="settings-camera-resolution"
+        >
+          <Select
+            id="settings-camera-resolution"
+            value={draftCameraPreferences.resolution}
+            onChange={(value) => handlePreferenceChange("resolution", value)}
+            options={resolutionOptions}
+            className="ct-settings-row-select"
+          />
+        </SettingsRow>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Görüntü Kalitesi</h5>
+        <SettingsRow
+          icon={<DashboardOutlined />}
+          title="Kare hızı"
+          description="Saniyedeki kare sayısı; yüksek değer hareketi daha akıcı gösterir."
+        >
+          <Segmented
+            aria-label="Kamera kare hızı"
+            value={draftCameraPreferences.frameRate}
+            onChange={(value) => handlePreferenceChange("frameRate", value)}
+            options={frameRateOptions}
+            className="ct-segmented-premium"
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-          <div className="ct-settings-two-col">
-            <div>
-              <label
-                className="ct-field-label"
-                htmlFor="settings-camera-resolution"
-              >
-                Kamera Çözünürlüğü
-              </label>
-              <Select
-                id="settings-camera-resolution"
-                value={draftCameraPreferences.resolution}
-                onChange={(value) => handlePreferenceChange("resolution", value)}
-                options={[
-                  { value: "720p", label: "1280 x 720 (HD)" },
-                  ...(capabilities
-                    ? (capabilities.resolutions.includes("1080p")
-                        ? [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]
-                        : [])
-                    : [{ value: "1080p", label: "1920 x 1080 (Full HD)" }]),
-                ]}
-                className="ct-block-control"
-              />
-            </div>
-
-            <div className="ct-settings-field">
-              <label className="ct-field-label" htmlFor="settings-camera-fps">
-                Kamera Kare Hızı
-              </label>
-              <Select
-                id="settings-camera-fps"
-                value={draftCameraPreferences.frameRate}
-                onChange={(value) => handlePreferenceChange("frameRate", value)}
-                options={[
-                  { value: 24, label: "24 FPS" },
-                  ...(capabilities
-                    ? (capabilities.fpsOptions.includes(30)
-                        ? [{ value: 30, label: "30 FPS" }]
-                        : [])
-                    : [{ value: 30, label: "30 FPS" }]),
-                ]}
-                className="ct-block-control"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="ct-settings-subsection">
-          {/* The button that starts the preview, on the line of the heading
-              that names it -- a row of its own put a band of empty panel
-              between the control and the thing it turns on. */}
-          <div className="ct-settings-subsection-header">
-            <h5>Kamera Testi</h5>
-
-            <Button
-              icon={
-                cameraTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
+      {/* The button that starts the preview sits on the title line of the card
+          it fills -- a row of its own put a band of empty panel between the
+          control and the thing it turns on. */}
+      <SettingsGroup
+        title="Önizleme"
+        description="Başkalarının seni nasıl göreceğini, seçili kalitede gösterir."
+        action={
+          <Button
+            type={cameraTestStream ? "default" : "primary"}
+            icon={cameraTestStream ? <StopOutlined /> : <VideoCameraOutlined />}
+            onClick={() => {
+              if (cameraTestStream) {
+                stopCameraTest();
+                toast.info("Kamera testi durduruldu.");
+                return;
               }
-              onClick={() => {
-                if (cameraTestStream) {
-                  stopCameraTest();
-                  toast.info("Kamera testi durduruldu.");
-                  return;
-                }
 
-                void handleStartCameraTest();
-              }}
-              loading={isStartingCameraTest}
-              disabled={isStartingCameraTest}
-              danger={Boolean(cameraTestStream)}
-            >
-              {cameraTestStream
-                ? "Kamera Testini Durdur"
-                : "Kamera Testini Başlat"}
-            </Button>
-          </div>
-
+              void handleStartCameraTest();
+            }}
+            loading={isStartingCameraTest}
+            disabled={isStartingCameraTest}
+            danger={Boolean(cameraTestStream)}
+          >
+            {cameraTestStream ? "Durdur" : "Önizlemeyi başlat"}
+          </Button>
+        }
+      >
+        <div className="ct-settings-block">
           <div className="ct-media-preview">
             {process.env.NODE_ENV === "development" && devStats && (
               <div className="ct-media-preview-badge">
-                Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps}{" "}
-                FPS
+                {devStats.width}×{devStats.height} · {devStats.fps} FPS
               </div>
             )}
 
@@ -395,13 +385,14 @@ export function SettingsCamera({
                 playsInline
               />
             ) : (
-              <p className="ct-media-preview-placeholder">
-                Önizleme bu alanda görünecek.
-              </p>
+              <div className="ct-media-preview-placeholder">
+                <VideoCameraOutlined />
+                <span>Önizlemeyi başlatınca görüntün burada görünür.</span>
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

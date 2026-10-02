@@ -148,7 +148,7 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 
           <button
             type="button"
-            className="ct-minigames-info-button"
+            className="ct-minigames-header-button"
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
             title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
@@ -158,7 +158,7 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 
           <button
             type="button"
-            className="ct-minigames-info-button"
+            className="ct-minigames-header-button"
             onClick={() => setInfoOpen(true)}
             aria-label={`${entry.label} nasıl oynanır`}
             title="Nasıl oynanır"

@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { Switch, Button, Alert, Segmented } from "antd";
-import { ReloadOutlined, BugOutlined } from "@ant-design/icons";
+import {
+  BellOutlined,
+  BgColorsOutlined,
+  BugOutlined,
+  CloseSquareOutlined,
+  FileGifOutlined,
+  GiftOutlined,
+  MinusSquareOutlined,
+  PoweroffOutlined,
+  ReloadOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
 import type {
   AppUpdateEvent,
   AppUpdateSnapshot,
@@ -14,7 +25,8 @@ const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
 import type { GifPlayback } from "@/styles/gif-playback";
 import { useUiStore } from "@/store/ui-store";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
-import { PageHeader } from "@/ui/page-header";
+import { AuthLogoMark } from "@/features/auth";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 const getUpdateCheckBlockedReason = (reason?: string): string => {
@@ -233,208 +245,175 @@ export function SettingsApplication() {
     updateState?.phase === "checking" ||
     updateState?.phase === "installing";
 
+  const phaseTone =
+    updatePhase === "error"
+      ? " danger"
+      : updatePhase === "not-available"
+        ? " ok"
+        : updatePhase === "available" ||
+            updatePhase === "downloading" ||
+            updatePhase === "downloaded"
+          ? " warn"
+          : "";
+
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Genel"
-        description="Connect'in bilgisayarında nasıl davranacağını ayarlayabilir ve sürüm durumunu buradan takip edebilirsin."
-      />
-
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Tema ve Görünüm</h5>
-
-          <div className="ct-settings-card">
-            <div className="ct-settings-row stacked">
-              <div className="ct-settings-row-text">
-                <strong>Tema</strong>
-                <span>
-                  Açık tema aydınlık ortamlarda, koyu tema düşük ışıkta daha
-                  rahat okunur. Değişiklik anında uygulanır.
+    <SettingsPage
+      title="Genel"
+      description="Connect'in görünümü, bilgisayarında nasıl davrandığı, bildirimleri ve sürümü."
+    >
+      <SettingsGroup title="Görünüm">
+        {/* Local, not a server preference: it is a property of this screen,
+            and a person who uses the app on a laptop and a desktop rarely
+            wants the same answer on both. Two cards that show the theme,
+            rather than two words that name it. */}
+        <SettingsRow
+          stacked
+          icon={<BgColorsOutlined />}
+          title="Tema"
+          description="Açık tema aydınlık ortamlarda, koyu tema düşük ışıkta daha rahat okunur. Değişiklik anında uygulanır."
+        >
+          <div className="ct-theme-cards" role="radiogroup" aria-label="Tema">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={themeMode === option.value}
+                className={`ct-theme-card ${themeMode === option.value ? "active" : ""}`}
+                onClick={() => setThemeMode(option.value)}
+              >
+                <span className={`ct-theme-swatch ${option.value}`} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
                 </span>
-              </div>
-              {/* Local, not a server preference: it is a property of this
-                  screen, and a person who uses the app on a laptop and a
-                  desktop rarely wants the same answer on both. Two cards that
-                  show the theme, rather than two words that name it. */}
-              <div className="ct-theme-cards" role="radiogroup" aria-label="Tema">
-                {THEME_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={themeMode === option.value}
-                    className={`ct-theme-card ${themeMode === option.value ? "active" : ""}`}
-                    onClick={() => setThemeMode(option.value)}
-                  >
-                    <span className={`ct-theme-swatch ${option.value}`} aria-hidden="true">
-                      <span />
-                      <span />
-                    </span>
-                    <span className="ct-theme-card-label">{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Hareketli görseller</strong>
-                <span>
-                  Sohbetteki GIF'ler sürekli oynayabilir ya da yalnızca fare
-                  üzerine geldiğinde oynayabilir. Sürekli oynatma kapalıyken
-                  görseller ilk karesinde durur.
-                </span>
-              </div>
-              <Segmented
-                value={gifPlayback}
-                onChange={(value) => setGifPlayback(value as GifPlayback)}
-                options={[
-                  { label: "Sürekli oynat", value: "always" },
-                  { label: "Üstüne gelince", value: "hover" },
-                ]}
-                className="ct-segmented-premium"
-              />
-            </div>
+                <span className="ct-theme-card-label">{option.label}</span>
+              </button>
+            ))}
           </div>
-        </div>
+        </SettingsRow>
 
-        <div className="ct-settings-subsection">
-          <h5>Başlangıç ve Pencere</h5>
+        <SettingsRow
+          icon={<FileGifOutlined />}
+          title="Hareketli görseller"
+          description="Sohbetteki GIF'ler sürekli oynayabilir ya da yalnızca üstüne gelince oynar; o zaman ilk karesinde durur."
+        >
+          <Segmented
+            aria-label="Hareketli görseller"
+            value={gifPlayback}
+            onChange={(value) => setGifPlayback(value as GifPlayback)}
+            options={[
+              { label: "Sürekli", value: "always" },
+              { label: "Üstüne gelince", value: "hover" },
+            ]}
+            className="ct-segmented-premium"
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Bilgisayar açıldığında Connect otomatik başlasın</strong>
-                <span>
-                  Uygulama oturum açıldığında arka planda çalışmaya hazır olur.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.launchOnStartup}
-                onChange={(checked) => {
-                  void savePreference("launchOnStartup", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
+      <SettingsGroup title="Başlangıç ve pencere">
+        <SettingsRow
+          icon={<PoweroffOutlined />}
+          title="Bilgisayar açılınca başlat"
+          description="Oturum açtığında Connect arka planda hazır olur."
+        >
+          <Switch
+            checked={appPreferences.launchOnStartup}
+            onChange={(checked) => {
+              void savePreference("launchOnStartup", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
 
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Pencere küçültülünce sistem tepsisine gönder</strong>
-                <span>
-                  Küçült butonuna basıldığında uygulama görev çubuğundan
-                  gizlenir.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.minimizeToTray}
-                onChange={(checked) => {
-                  void savePreference("minimizeToTray", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
+        <SettingsRow
+          icon={<MinusSquareOutlined />}
+          title="Küçültünce sistem tepsisine gönder"
+          description="Küçült düğmesi uygulamayı görev çubuğundan gizler."
+        >
+          <Switch
+            checked={appPreferences.minimizeToTray}
+            onChange={(checked) => {
+              void savePreference("minimizeToTray", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
 
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Kapat tuşunda sistem tepsisine gizle</strong>
-                <span>
-                  Pencereyi kapatmak uygulamayı sonlandırmaz; tepside çalışmaya
-                  devam eder.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.closeToTray}
-                onChange={(checked) => {
-                  void savePreference("closeToTray", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
-          </div>
-        </div>
+        <SettingsRow
+          icon={<CloseSquareOutlined />}
+          title="Kapatınca tepside çalışmaya devam et"
+          description="Pencereyi kapatmak uygulamayı sonlandırmaz; aramalar ve mesajlar gelmeye devam eder."
+        >
+          <Switch
+            checked={appPreferences.closeToTray}
+            onChange={(checked) => {
+              void savePreference("closeToTray", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-        <div className="ct-settings-subsection">
-          <h5>Bildirimler</h5>
+      <SettingsGroup title="Bildirimler">
+        <SettingsRow
+          icon={<BellOutlined />}
+          title="Masaüstü bildirimleri"
+          description="Pencere arka plandayken gelen mesaj ve aramalar için Windows bildirimi gösterir. Odadaki giriş-çıkış sesleri ayrı bir ayar: Ses › Bildirim sesleri."
+        >
+          <Switch
+            checked={appPreferences.desktopNotifications}
+            onChange={(checked) => {
+              void savePreference("desktopNotifications", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
 
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Masaüstü bildirimleri</strong>
-                <span>
-                  Pencere arka plandayken gelen mesaj ve aramalar için işletim
-                  sistemi bildirimi gösterir. Odadaki giriş-çıkış ve yayın
-                  sesleri ayrı bir ayar: Ayarlar → Ses → Bildirim Sesleri.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.desktopNotifications}
-                onChange={(checked) => {
-                  void savePreference("desktopNotifications", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
+        <SettingsRow
+          icon={<GiftOutlined />}
+          title="Ücretsiz oyun bildirimleri"
+          description={
+            appPreferences.desktopNotifications
+              ? "Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda haber verir. Uygulama tepsideyken de çalışır."
+              : "Masaüstü bildirimleri kapalıyken hiçbir bildirim gösterilmez."
+          }
+        >
+          <Switch
+            checked={appPreferences.freeGameNotifications}
+            onChange={(checked) => {
+              void savePreference("freeGameNotifications", checked);
+            }}
+            disabled={
+              isSavingAppPreference || !appPreferences.desktopNotifications
+            }
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Ücretsiz oyun bildirimleri</strong>
-                <span>
-                  Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda
-                  bildirim gösterir. Uygulama tepsideyken de çalışır. Ücretsiz
-                  Oyunlar sayfası bu ayardan bağımsız çalışmaya devam eder.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.freeGameNotifications}
-                onChange={(checked) => {
-                  void savePreference("freeGameNotifications", checked);
-                }}
-                disabled={
-                  isSavingAppPreference || !appPreferences.desktopNotifications
-                }
-              />
-            </div>
-          </div>
+      <SettingsGroup title="Performans">
+        <SettingsRow
+          icon={<ThunderboltOutlined />}
+          title="Donanım hızlandırma"
+          description="Ekran paylaşımı ve kamerayı ekran kartıyla kodlar; işlemci kullanımını büyük ölçüde düşürür. Görüntü siyah geliyor veya bozuluyorsa kapat. Yeniden başlatma gerektirir."
+        >
+          <Switch
+            checked={appPreferences.hardwareAcceleration}
+            onChange={(checked) => {
+              void savePreference("hardwareAcceleration", checked);
+            }}
+            disabled={isSavingAppPreference}
+          />
+        </SettingsRow>
 
-          {!appPreferences.desktopNotifications && (
-            <p className="ct-field-hint">
-              Masaüstü bildirimleri kapalıyken hiçbir bildirim gösterilmez.
-            </p>
-          )}
-        </div>
-
-        <div className="ct-settings-subsection">
-          <h5>Performans</h5>
-
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Donanım hızlandırma (video kodlama)</strong>
-                <span>
-                  Ekran paylaşımı ve kamerayı GPU ile kodlar; CPU kullanımını
-                  büyük ölçüde düşürür. Görüntü siyah geliyor veya bozuluyorsa
-                  kapatın. Değişiklik yeniden başlatma gerektirir.
-                </span>
-              </div>
-              <Switch
-                checked={appPreferences.hardwareAcceleration}
-                onChange={(checked) => {
-                  void savePreference("hardwareAcceleration", checked);
-                }}
-                disabled={isSavingAppPreference}
-              />
-            </div>
-          </div>
-
-          {needsRelaunch && (
+        {needsRelaunch && (
+          <div className="ct-settings-block">
             <Alert
               type="warning"
               showIcon
               title="Yeniden başlatma gerekli"
-              description="Donanım hızlandırma ayarının etkili olması için uygulamayı yeniden başlatın."
+              description="Donanım hızlandırma ayarının etkili olması için uygulamayı yeniden başlat."
               action={
                 <Button
                   size="small"
@@ -442,89 +421,19 @@ export function SettingsApplication() {
                     void window.desktopApi.relaunchApp();
                   }}
                 >
-                  Yeniden Başlat
+                  Yeniden başlat
                 </Button>
               }
               className="ct-alert"
             />
-          )}
-        </div>
-
-        <div className="ct-settings-subsection">
-          <h5>Güncellemeler</h5>
-
-          <div className="ct-settings-info-grid">
-            <div className="ct-settings-info-item">
-              <span className="ct-settings-info-label">Sürüm</span>
-              <strong className="ct-settings-info-value">
-                v{currentVersionLabel}
-              </strong>
-            </div>
-            <div className="ct-settings-info-item">
-              <span className="ct-settings-info-label">Durum</span>
-              <strong className="ct-settings-info-value">
-                {getUpdatePhaseLabel(updatePhase)}
-              </strong>
-            </div>
-            {nextVersionLabel && (
-              <div className="ct-settings-info-item">
-                <span className="ct-settings-info-label">Bulunan Sürüm</span>
-                <strong className="ct-settings-info-value">
-                  v{nextVersionLabel}
-                </strong>
-              </div>
-            )}
           </div>
+        )}
+      </SettingsGroup>
 
-          <div className="ct-settings-update-alert">
-            {nextVersionLabel ? (
-              <Alert
-                title={`Yeni güncelleme bulundu: v${nextVersionLabel}`}
-                description={updateState?.message}
-                type={updatePhase === "error" ? "error" : "success"}
-                showIcon
-                className="ct-alert"
-              />
-            ) : (
-              <Alert
-                title={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
-                type={
-                  updatePhase === "error"
-                    ? "error"
-                    : updatePhase === "available" || updatePhase === "downloaded"
-                      ? "success"
-                      : "info"
-                }
-                showIcon
-                className="ct-alert"
-              />
-            )}
-          </div>
-
-          <div className="ct-settings-actions">
-            <Button
-              type="primary"
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                void handleManualUpdateCheck();
-              }}
-              loading={isManualCheckDisabled}
-              disabled={isManualCheckDisabled}
-            >
-              Güncellemeleri Kontrol Et
-            </Button>
-
-            {updatePhase === "downloaded" && (
-              <Button
-                type="primary"
-                onClick={() => {
-                  void window.desktopApi.installDownloadedUpdate();
-                }}
-              >
-                Kuruluma Başla
-              </Button>
-            )}
-
+      <SettingsGroup
+        title="Güncellemeler"
+        footer={
+          <>
             {isDevelopmentUpdateMode && (
               <Button
                 type="text"
@@ -535,12 +444,55 @@ export function SettingsApplication() {
                 loading={isLaunchingUpdateDebug}
                 disabled={isLaunchingUpdateDebug}
               >
-                Güncelleme Debug Ekranı
+                Debug ekranı
               </Button>
             )}
+
+            {updatePhase === "downloaded" && (
+              <Button
+                type="primary"
+                onClick={() => {
+                  void window.desktopApi.installDownloadedUpdate();
+                }}
+              >
+                Kuruluma başla
+              </Button>
+            )}
+
+            <Button
+              type={updatePhase === "downloaded" ? "default" : "primary"}
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                void handleManualUpdateCheck();
+              }}
+              loading={isManualCheckDisabled}
+              disabled={isManualCheckDisabled}
+            >
+              Güncellemeleri denetle
+            </Button>
+          </>
+        }
+      >
+        <div className="ct-settings-block">
+          <div className="ct-settings-about">
+            <AuthLogoMark className="ct-logomark--badge" />
+            <div className="ct-settings-about-text">
+              <strong>Connect</strong>
+              <span>
+                Sürüm {currentVersionLabel}
+                {nextVersionLabel ? ` · v${nextVersionLabel} bulundu` : ""}
+              </span>
+            </div>
+            <span className={`ct-status-chip${phaseTone}`}>
+              {getUpdatePhaseLabel(updatePhase)}
+            </span>
           </div>
+
+          {updateState?.message ? (
+            <p className="ct-settings-about-message">{updateState.message}</p>
+          ) : null}
         </div>
-      </div>
-    </div>
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

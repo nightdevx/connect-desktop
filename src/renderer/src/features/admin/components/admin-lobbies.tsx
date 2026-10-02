@@ -1,6 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Space, Tag, Avatar, Modal, Form, Input, InputNumber, Popconfirm, Segmented, Select, Switch, Tooltip } from "antd";
+import { Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Popconfirm, Segmented, Select, Switch, Tooltip } from "antd";
 import type { TablePaginationConfig } from "antd";
 import {
   HomeOutlined,
@@ -15,6 +15,8 @@ import {
   StopOutlined,
   LockOutlined,
   MessageOutlined,
+  KeyOutlined,
+  CustomerServiceOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
@@ -25,7 +27,13 @@ import type {
 } from "@shared/auth-contracts";
 import type { LobbyFeatureId, LobbyStateMember } from "@shared/desktop-api-types";
 import { LOBBY_FEATURES } from "@shared/desktop-api-types";
-import { AdminPageHeader } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 import { ModalHeading } from "@/ui/modal-heading";
 
@@ -52,31 +60,24 @@ const DEFAULT_PAGE_SIZE = 10;
 // The three privacy flags are independent — a room can be locked and password
 // protected at once — so they stack, and "Herkese açık" is the empty case
 // rather than a fourth flag.
-const privacyTags = (lobby: LobbyDescriptor) => {
-  const tags = [
+const privacyStates = (lobby: LobbyDescriptor) => {
+  const states = [
     lobby.isLocked ? (
-      <Tag key="locked" className="ct-tag warn" icon={<LockOutlined />}>
+      <AdminState key="locked" tone="warn" icon={<LockOutlined />}>
         Kilitli
-      </Tag>
+      </AdminState>
     ) : null,
     lobby.hasPassword ? (
-      <Tag key="password" className="ct-tag danger">
+      <AdminState key="password" tone="warn" icon={<KeyOutlined />}>
         Şifreli
-      </Tag>
-    ) : null,
-    lobby.isTextOnly ? (
-      <Tag key="text" className="ct-tag info">
-        Metin odası
-      </Tag>
+      </AdminState>
     ) : null,
   ].filter(Boolean);
 
-  return tags.length > 0 ? (
-    <Space size={4} wrap>
-      {tags}
-    </Space>
+  return states.length > 0 ? (
+    <span className="ct-admin-states">{states}</span>
   ) : (
-    <Tag className="ct-tag success">Herkese açık</Tag>
+    <AdminState tone="ok">Herkese açık</AdminState>
   );
 };
 
@@ -282,79 +283,86 @@ export default function AdminLobbies() {
     {
       title: "Oda",
       key: "lobby",
-      width: 300,
+      ellipsis: true,
       render: (_value: unknown, record: AdminLobbySnapshot) => (
         <div className="ct-admin-table-user">
-          <HomeOutlined className="ct-admin-muted" />
-          <div className="ct-admin-cell">
-            {/* strong/span, not bare divs: .ct-admin-table-user styles those two
-                and nothing else, so the name used to render at the table's
-                default weight with the id at the same size beneath it. */}
+          <span className="ct-admin-row-icon" aria-hidden="true">
+            {record.lobby.isTextOnly ? <MessageOutlined /> : <SoundOutlined />}
+          </span>
+          <div className="ct-admin-person-text">
             <strong>{record.lobby.name}</strong>
             <span className="ct-admin-mono">{record.lobby.id}</span>
           </div>
-          {record.lobby.isLocked ? (
-            <Tooltip title="Kilitli oda — yalnızca izin verilenler girebilir">
-              <LockOutlined className="ct-icon-warning" />
-            </Tooltip>
-          ) : null}
         </div>
       ),
     },
     {
-      title: "Oluşturan",
+      title: "Sahip",
       key: "createdBy",
-      width: 160,
-      render: (_value: unknown, record: AdminLobbySnapshot) => {
-        const username = record.lobby.createdByUsername || record.lobby.createdBy;
-        return <Tag className="ct-tag info">@{username}</Tag>;
-      },
+      width: 110,
+      ellipsis: true,
+      responsive: ["lg" as const],
+      render: (_value: unknown, record: AdminLobbySnapshot) => (
+        <span>@{record.lobby.createdByUsername || record.lobby.createdBy}</span>
+      ),
     },
     {
-      title: "Gizlilik",
+      title: "Erişim",
       key: "privacy",
-      width: 190,
-      render: (_value: unknown, record: AdminLobbySnapshot) => privacyTags(record.lobby),
+      width: 160,
+      render: (_value: unknown, record: AdminLobbySnapshot) => privacyStates(record.lobby),
     },
     // Voice only. A text channel has no roster, so this column would read
-    // "0 aktif üye" on every row of it, forever.
+    // "0" on every row of it, forever.
     ...(kindFilter === "voice"
       ? [
           {
-            title: "Üye Sayısı",
+            title: "Üyeler",
             dataIndex: "size",
             key: "size",
-            width: 130,
+            width: 110,
             // The ceiling only shows when the server sent one; an older server
             // omits capacity and "3 / undefined" is worse than no ceiling.
             render: (size: number, record: AdminLobbySnapshot) => (
-              <Tag className={`ct-tag ${size > 0 ? "success" : ""}`}>
-                {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : `${size} aktif üye`}
-              </Tag>
+              <div className="ct-admin-fill-cell">
+                <span className="ct-admin-fill-count">
+                  {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : size}
+                </span>
+                {record.lobby.capacity ? (
+                  <span className="ct-admin-fill" aria-hidden="true">
+                    <span
+                      style={{
+                        width: `${Math.min(100, (size / record.lobby.capacity) * 100)}%`,
+                      }}
+                    />
+                  </span>
+                ) : null}
+              </div>
             ),
           },
         ]
       : []),
     {
-      title: "Kurulma Tarihi",
+      title: "Kuruldu",
       dataIndex: ["lobby", "createdAt"],
       key: "createdAt",
-      width: 170,
-      render: (date: string) => new Date(date).toLocaleString("tr-TR"),
+      width: 140,
+      responsive: ["xxl" as const],
+      render: (date: string) => <span className="ct-admin-muted">{adminDateTime(date)}</span>,
     },
     {
-      title: "İşlemler",
+      title: "",
       key: "actions",
-      width: 130,
+      width: 116,
       align: "right" as const,
       render: (_value: unknown, record: AdminLobbySnapshot) => (
         <div className="ct-admin-actions">
-          <Tooltip title="Yetkileri düzenle">
+          <Tooltip title="Düzenle">
             <Button
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleEditClick(record)}
-              className="ct-icon-info"
+              aria-label="Düzenle"
             />
           </Tooltip>
           <Tooltip title="Zaman aşımları">
@@ -362,6 +370,7 @@ export default function AdminLobbies() {
               type="text"
               icon={<StopOutlined />}
               onClick={() => void openTimeouts(record)}
+              aria-label="Zaman aşımları"
             />
           </Tooltip>
           <Popconfirm
@@ -371,7 +380,7 @@ export default function AdminLobbies() {
             cancelText="Hayır"
           >
             <Tooltip title="Odayı sil">
-              <Button type="text" danger icon={<DeleteOutlined />} />
+              <Button type="text" danger icon={<DeleteOutlined />} aria-label="Odayı sil" />
             </Tooltip>
           </Popconfirm>
         </div>
@@ -397,14 +406,14 @@ export default function AdminLobbies() {
         : allowedIds.map((id) => ({ id, username: id }));
 
     const details = (
-      <div className="ct-admin-kv-grid mb-3">
+      <div className="ct-admin-kv-grid">
         <div className="ct-admin-kv">
           <span>Oda sahibi</span>
           <strong>@{record.lobby.createdByUsername || record.lobby.createdBy}</strong>
         </div>
         <div className="ct-admin-kv">
           <span>Oluşturulma tarihi</span>
-          <strong>{new Date(record.lobby.createdAt).toLocaleString("tr-TR")}</strong>
+          <strong>{adminDateTime(record.lobby.createdAt)}</strong>
         </div>
         <div className="ct-admin-kv">
           <span>Erişim listesi</span>
@@ -444,72 +453,80 @@ export default function AdminLobbies() {
 
     const memberColumns = [
       {
-        title: "Kullanıcı Adı",
+        title: "Kişi",
         dataIndex: "username",
         key: "username",
-        render: (username: string) => (
-          <div className="ct-admin-table-user">
-            <Avatar size="small" className="ct-admin-avatar">
-              {username[0]?.toUpperCase()}
-            </Avatar>
-            <strong>@{username}</strong>
-          </div>
+        ellipsis: true,
+        render: (username: string, member: LobbyStateMember) => (
+          <AdminPerson userId={member.userId} name={username} handle={`@${username}`} />
         ),
       },
       {
-        title: "Giriş Saati",
+        title: "Girdi",
         dataIndex: "joinedAt",
         key: "joinedAt",
-        render: (date: string) => new Date(date).toLocaleTimeString("tr-TR"),
+        width: 80,
+        render: (date: string) => (
+          <span className="ct-admin-muted">
+            {new Date(date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        ),
       },
       {
-        title: "Ses / Mikrofon",
+        title: "Ses",
         key: "audioStatus",
+        width: 170,
         render: (_value: unknown, member: LobbyStateMember) => (
-          <Space size={4} wrap>
-            {member.muted || member.serverMuted ? (
-              <Tag className="ct-tag danger" icon={<AudioMutedOutlined />}>
+          <span className="ct-admin-states">
+            {member.serverMuted ? (
+              // A moderator mute the user cannot lift themselves -- without
+              // its own label it looked exactly like a self mute.
+              <AdminState tone="danger" icon={<AudioMutedOutlined />}>
+                Yönetici susturdu
+              </AdminState>
+            ) : member.muted ? (
+              <AdminState tone="warn" icon={<AudioMutedOutlined />}>
                 Sessiz
-              </Tag>
+              </AdminState>
             ) : (
-              <Tag className="ct-tag success" icon={<SoundOutlined />}>
-                Ses açık
-              </Tag>
+              <AdminState tone="ok" icon={<SoundOutlined />}>
+                Açık
+              </AdminState>
             )}
-            {/* A moderator mute the user cannot lift themselves — without its
-                own tag it looked exactly like a self mute. */}
-            {member.serverMuted && (
-              <Tag className="ct-tag danger">Yönetici susturdu</Tag>
-            )}
-            {member.deafened && (
-              <Tag className="ct-tag danger">Sağırlaştırılmış</Tag>
-            )}
-          </Space>
-        ),
-      },
-      {
-        title: "Kamera / Ekran",
-        key: "mediaStatus",
-        render: (_value: unknown, member: LobbyStateMember) => (
-          <Space size={4} wrap>
-            {member.cameraEnabled ? (
-              <Tag className="ct-tag info" icon={<VideoCameraOutlined />}>
-                Kamera açık
-              </Tag>
-            ) : (
-              <Tag className="ct-tag">Kamera kapalı</Tag>
-            )}
-            {member.screenSharing ? (
-              <Tag className="ct-tag info" icon={<DesktopOutlined />}>
-                Ekran paylaşıyor
-              </Tag>
+            {member.deafened ? (
+              <AdminState tone="warn" icon={<CustomerServiceOutlined />}>
+                Duymuyor
+              </AdminState>
             ) : null}
-          </Space>
+          </span>
         ),
       },
       {
-        title: "İşlemler",
+        title: "Görüntü",
+        key: "mediaStatus",
+        width: 170,
+        render: (_value: unknown, member: LobbyStateMember) =>
+          member.cameraEnabled || member.screenSharing ? (
+            <span className="ct-admin-states">
+              {member.cameraEnabled ? (
+                <AdminState tone="info" icon={<VideoCameraOutlined />}>
+                  Kamera
+                </AdminState>
+              ) : null}
+              {member.screenSharing ? (
+                <AdminState tone="info" icon={<DesktopOutlined />}>
+                  Ekran
+                </AdminState>
+              ) : null}
+            </span>
+          ) : (
+            <span className="ct-admin-muted">—</span>
+          ),
+      },
+      {
+        title: "",
         key: "actions",
+        width: 110,
         align: "right" as const,
         render: (_value: unknown, member: LobbyStateMember) => (
           <Popconfirm
@@ -518,8 +535,8 @@ export default function AdminLobbies() {
             okText="Evet"
             cancelText="Hayır"
           >
-            <Button type="link" danger size="small">
-              Odadan At
+            <Button type="text" danger size="small">
+              Odadan at
             </Button>
           </Popconfirm>
         ),
@@ -539,7 +556,7 @@ export default function AdminLobbies() {
           rowKey="userId"
           pagination={false}
           size="small"
-          scroll={{ x: "max-content" }}
+          tableLayout="fixed"
           className="ct-admin-table-wrap"
         />
       </div>
@@ -562,69 +579,83 @@ export default function AdminLobbies() {
         }
       />
 
-      {/* Filters Bar */}
-      <div className="ct-admin-toolbar">
-        <Input
-          allowClear
-          placeholder="Oda adı, ID veya oluşturan ara..."
-          prefix={<SearchOutlined className="ct-admin-muted" />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="ct-admin-toolbar-search"
-        />
+      <AdminSection
+        title={kindFilter === "voice" ? "Sesli odalar" : "Yazılı sohbetler"}
+        description={
+          kindFilter === "voice"
+            ? "Satırı açınca odadakileri, ses ve görüntü durumlarını görürsün."
+            : "Sesli bağlantısı olmayan, yalnızca mesajlaşılan odalar."
+        }
+        icon={<HomeOutlined />}
+        hint={`${total} oda`}
+        flush
+        toolbar={
+          <>
+            <Input
+              allowClear
+              placeholder="Oda adı, ID veya oluşturan ara..."
+              prefix={<SearchOutlined className="ct-admin-muted" />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="ct-admin-toolbar-search"
+            />
 
-        <Segmented
-          value={kindFilter}
-          onChange={(value) => setKindFilter(value as "voice" | "text")}
-          options={[
-            { value: "voice", label: "Sesli Odalar", icon: <SoundOutlined /> },
-            { value: "text", label: "Yazılı Sohbetler", icon: <MessageOutlined /> },
-          ]}
-        />
+            <Segmented
+              value={kindFilter}
+              onChange={(value) => setKindFilter(value as "voice" | "text")}
+              className="ct-segmented-premium"
+              options={[
+                { value: "voice", label: "Sesli", icon: <SoundOutlined /> },
+                { value: "text", label: "Yazılı", icon: <MessageOutlined /> },
+              ]}
+            />
 
-        <Select
-          value={lockedFilter}
-          onChange={setLockedFilter}
-          className="ct-admin-toolbar-filter"
-          options={[
-            { value: "all", label: "Tüm Odalar" },
-            { value: "true", label: "Kilitli Odalar" },
-            { value: "false", label: "Açık Odalar" },
-          ]}
+            <Select
+              value={lockedFilter}
+              onChange={setLockedFilter}
+              className="ct-admin-toolbar-filter"
+              options={[
+                { value: "all", label: "Tüm odalar" },
+                { value: "true", label: "Kilitli" },
+                { value: "false", label: "Açık" },
+              ]}
+            />
+          </>
+        }
+      >
+        <Table
+          size="middle"
+          dataSource={lobbies}
+          columns={columns}
+          rowKey={(record) => record.lobby.id}
+          loading={loading}
+          expandable={{
+            expandedRowRender,
+            defaultExpandAllRows: kindFilter === "voice",
+          }}
+          onChange={handleTableChange}
+          locale={{
+            emptyText: searchText
+              ? "Bu aramayla eşleşen oda yok."
+              : kindFilter === "voice"
+                ? "Şu anda açık sesli oda yok."
+                : "Şu anda yazılı sohbet yok.",
+          }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (count) => `${count} oda`,
+          }}
+          // See admin-users: a viewport height for a table that is not the
+          // viewport clipped the last row and hid the pagination. The page
+          // scrolls instead.
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
         />
-      </div>
-
-      <Table
-        dataSource={lobbies}
-        columns={columns}
-        rowKey={(record) => record.lobby.id}
-        loading={loading}
-        expandable={{
-          expandedRowRender,
-          defaultExpandAllRows: kindFilter === "voice",
-        }}
-        onChange={handleTableChange}
-        locale={{
-          emptyText: searchText
-            ? "Bu aramayla eşleşen oda yok."
-            : kindFilter === "voice"
-              ? "Şu anda açık sesli oda yok."
-              : "Şu anda yazılı sohbet yok.",
-        }}
-        pagination={{
-          current: currentPage,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: ["10", "20", "50", "100"],
-          showTotal: (count) => `${count} oda`,
-        }}
-        // See admin-users: a viewport height for a table that is not the
-        // viewport clipped the last row and hid the pagination. The page
-        // scrolls instead.
-        scroll={{ x: "max-content" }}
-        className="ct-admin-table-wrap"
-      />
+      </AdminSection>
 
       {/* The one place a timeout can be lifted. A moderator sets them from the
           lobby, where the person is in front of them; by the time one needs
@@ -648,6 +679,7 @@ export default function AdminLobbies() {
         destroyOnHidden
       >
         <Table
+          tableLayout="fixed"
           dataSource={timeouts}
           loading={timeoutsLoading}
           rowKey={(row) => row.userId}
@@ -669,9 +701,9 @@ export default function AdminLobbies() {
               key: "expiresAt",
               render: (_value: unknown, row: LobbyTimeout) =>
                 row.expiresAt ? (
-                  <Tag className="ct-tag warn">{new Date(row.expiresAt).toLocaleString("tr-TR")}</Tag>
+                  <AdminState tone="warn">{adminDateTime(row.expiresAt)}</AdminState>
                 ) : (
-                  <Tag className="ct-tag danger">Süresiz</Tag>
+                  <AdminState tone="danger">Süresiz</AdminState>
                 ),
             },
             {
@@ -680,7 +712,7 @@ export default function AdminLobbies() {
               align: "right" as const,
               render: (_value: unknown, row: LobbyTimeout) => (
                 <Button
-                  type="link"
+                  type="text"
                   size="small"
                   onClick={() => void handleClearTimeout(row.userId)}
                 >

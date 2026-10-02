@@ -15,7 +15,7 @@ import {
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { logLiveKitDebug } from "@/services/debug-log";
-import { getDisplayInitials } from "../../workspace-utils";
+import { getDisplayInitials, hueStyle } from "../../workspace-utils";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 import { useWindowActive } from "../../hooks/media/use-window-active";
 import {
@@ -346,11 +346,13 @@ function LobbyParticipantTileImpl({
   // rather than for a list row. The container queries in features/lobby.css
   // step it back down as the tile narrows — antd writes the size inline, so
   // those have to win with !important.
+  // In its owner's colour when there is no picture, like every face in the app.
   const face = (
     <Avatar
-      size={isCompact ? 64 : 120}
+      size={isCompact ? 44 : 88}
       src={avatarUrl}
       className="ct-lobby-avatar-container"
+      style={hueStyle(participant.userId)}
     >
       {getDisplayInitials(participant.username)}
     </Avatar>
@@ -520,16 +522,7 @@ function LobbyParticipantTileImpl({
       )}
 
       <footer className="ct-lobby-tile-footer">
-        <div className="ct-lobby-tile-userline">
-          <p title={participant.username}>
-            {kind === "screen" ? `${participant.username} · Ekran` : participant.username}
-          </p>
-        </div>
-
-        <div
-          className="ct-lobby-tile-flags"
-          aria-label="Kullanıcı durum simgeleri"
-        >
+        <div className="ct-lobby-tile-userline" aria-label="Kullanıcı durum simgeleri">
           {participant.isLocalUser ? (
             <AudioDeviceDropdown
               kind="input"
@@ -541,50 +534,48 @@ function LobbyParticipantTileImpl({
                 className={`ct-lobby-flag ${micOpen ? "active" : "inactive"}`}
                 title="Sağ tık: giriş cihazı"
               >
-                {micOpen ? (
-                  <AudioOutlined  />
-                ) : (
-                  <AudioMutedOutlined  />
-                )}
+                {micOpen ? <AudioOutlined /> : <AudioMutedOutlined />}
               </span>
             </AudioDeviceDropdown>
           ) : (
             <Tooltip title={localAudioMuted ? "Siz susturdunuz" : (micOpen ? "Mikrofon açık" : "Mikrofon kapalı")}>
               <span className={`ct-lobby-flag ${localAudioMuted ? "muted" : (micOpen ? "active" : "inactive")}`}>
-                {localAudioMuted ? (
-                  <AudioMutedOutlined  />
-                ) : micOpen ? (
-                  <AudioOutlined  />
-                ) : (
-                  <AudioMutedOutlined  />
-                )}
+                {localAudioMuted || !micOpen ? <AudioMutedOutlined /> : <AudioOutlined />}
               </span>
             </Tooltip>
           )}
 
-          {participant.isLocalUser ? (
-            <AudioDeviceDropdown
-              kind="output"
-              devices={audioOutputDevices}
-              selectedDeviceId={selectedAudioOutputDeviceId}
-              onSelectDevice={onSelectAudioOutputDevice || (() => {})}
-            >
-              <span
-                className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
-                title="Sağ tık: çıkış cihazı"
+          {!headphoneOpen &&
+            (participant.isLocalUser ? (
+              <AudioDeviceDropdown
+                kind="output"
+                devices={audioOutputDevices}
+                selectedDeviceId={selectedAudioOutputDeviceId}
+                onSelectDevice={onSelectAudioOutputDevice || (() => {})}
               >
-                <CustomerServiceOutlined
-                  className={headphoneOpen ? undefined : "ct-icon-slashed"}
-                />
-              </span>
-            </AudioDeviceDropdown>
-          ) : (
-            <span
-              className={`ct-lobby-flag ${headphoneOpen ? "active" : "inactive"}`}
-            >
-              <CustomerServiceOutlined
-                className={headphoneOpen ? undefined : "ct-icon-slashed"}
-              />
+                <span className="ct-lobby-flag inactive" title="Sağ tık: çıkış cihazı">
+                  <CustomerServiceOutlined className="ct-icon-slashed" />
+                </span>
+              </AudioDeviceDropdown>
+            ) : (
+              <Tooltip title="Sesi kapalı">
+                <span className="ct-lobby-flag inactive">
+                  <CustomerServiceOutlined className="ct-icon-slashed" />
+                </span>
+              </Tooltip>
+            ))}
+
+          <p title={participant.username}>
+            {kind === "screen" ? `${participant.username} · Ekran` : participant.username}
+          </p>
+
+          {participant.isLocalUser && kind !== "screen" && (
+            <span className="ct-lobby-tile-you">SEN</span>
+          )}
+
+          {participant.cameraEnabled && kind !== "screen" && (
+            <span className="ct-lobby-flag" title="Kamera açık">
+              <VideoCameraOutlined />
             </span>
           )}
 

@@ -754,11 +754,6 @@ export function LobbiesMainPanel({
                 ?.joinedAt
             }
             liveShareCount={lobbyMembers.filter((member) => member.screenSharing).length}
-            isChatOpen={isLobbyChatOpen}
-            unreadCount={unreadLobbyMessages}
-            onToggleChat={() =>
-              setViewPreference("lobbyChatOpen", !isLobbyChatOpen)
-            }
           />
 
           {!isTextOnly && (
@@ -838,6 +833,11 @@ export function LobbiesMainPanel({
               screenDisabled={
                 !isLobbyFeatureEnabled(activeLobby?.disabledFeatures, "screenShare")
               }
+              onToggleChat={() =>
+                setViewPreference("lobbyChatOpen", !isLobbyChatOpen)
+              }
+              isChatOpen={isLobbyChatOpen}
+              chatUnreadCount={unreadLobbyMessages}
               onOpenMusic={musicAvailable ? () => setIsMusicOpen(true) : undefined}
               onOpenWatch={() => setIsWatchOpen(true)}
               watchDisabled={

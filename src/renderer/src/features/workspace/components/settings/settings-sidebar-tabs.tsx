@@ -160,6 +160,7 @@ export function SettingsSidebarTabs({
                 type="button"
                 className={`ct-settings-tab ${settingsSection === tab.id ? "active" : ""}`}
                 onClick={() => onSettingsSectionChange(tab.id)}
+                title={tab.description}
                 role="tab"
                 aria-selected={settingsSection === tab.id}
                 aria-controls="settings-panel"
@@ -175,12 +176,7 @@ export function SettingsSidebarTabs({
                 }
               >
                 <div className="ct-settings-tab-icon">{tab.icon}</div>
-                <div className="ct-settings-tab-content">
-                  <span className="ct-settings-tab-label">{tab.label}</span>
-                  <span className="ct-settings-tab-description">
-                    {tab.description}
-                  </span>
-                </div>
+                <span className="ct-settings-tab-label">{tab.label}</span>
               </button>
             ))}
           </div>

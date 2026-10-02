@@ -8,7 +8,13 @@ import {
   StopOutlined,
   VideoCameraOutlined,
 } from "@ant-design/icons";
-import { getDisplayInitials } from "../../workspace-utils";
+import {
+  getDisplayInitials,
+  getPresenceColor,
+  getUserStatusLabel,
+  hueStyle,
+} from "../../workspace-utils";
+import type { PresenceStatus } from "@shared/auth-contracts";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { UserProfileCardPopover } from "../user/user-profile-card";
 
@@ -51,6 +57,10 @@ interface QuickControlsProps {
   onDisconnect: () => void;
   /** The call row (CallDock variant="strip"), above the reminders. */
   callStrip?: ReactNode;
+  /** This user's presence, for the dot and the line under the name. */
+  presenceStatus?: PresenceStatus;
+  /** Where they are: the room's name, or "Görüşmede: …". */
+  whereLabel?: string;
 }
 
 /**
@@ -88,6 +98,8 @@ export function QuickControls({
   onStopCamera,
   onDisconnect,
   callStrip,
+  presenceStatus = "online",
+  whereLabel,
 }: QuickControlsProps) {
   return (
     <div className="ct-quick-dock">
@@ -148,7 +160,7 @@ export function QuickControls({
         placement="topLeft"
       >
         <button type="button" className="ct-quick-idle-left" aria-label="Profilin">
-          <div className="ct-quick-idle-logo" aria-hidden="true">
+          <div className="ct-quick-idle-logo" aria-hidden="true" style={hueStyle(currentUserId)}>
             {currentUserAvatarUrl ? (
               <img
                 className="ct-user-avatar-image"
@@ -161,7 +173,18 @@ export function QuickControls({
           </div>
           <div className="ct-quick-idle-meta">
             <strong>{currentUsername}</strong>
-            <span>{hasActiveLobby ? "Lobiye bağlı" : "Lobiye bağlı değil"}</span>
+            {/* Where you are, or how you appear to everyone else when you are
+                nowhere in particular. */}
+            <span className="ct-quick-idle-status">
+              <span
+                className="ct-quick-idle-dot"
+                style={{ background: getPresenceColor(true, presenceStatus) }}
+                aria-hidden="true"
+              />
+              <span className="ct-quick-idle-where">
+                {whereLabel ?? getUserStatusLabel(true, presenceStatus)}
+              </span>
+            </span>
           </div>
         </button>
       </UserProfileCardPopover>

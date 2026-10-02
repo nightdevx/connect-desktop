@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader } from "./admin-primitives";
-import { Button, Input, Select, Table, Tag } from "antd";
+import { AdminPageHeader, AdminSection, adminDateTime } from "./admin-primitives";
+import { Button, Input, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { ReloadOutlined, DownloadOutlined } from "@ant-design/icons";
+import { AuditOutlined, ReloadOutlined, DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AdminAuditEntry } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
@@ -62,31 +62,46 @@ export default function AdminAudit() {
       title: "Zaman",
       dataIndex: "occurredAt",
       width: 170,
-      render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value, true)}</span>,
     },
-    { title: "Yönetici", dataIndex: "actorName", width: 140 },
+    {
+      title: "Yönetici",
+      dataIndex: "actorName",
+      width: 120,
+      ellipsis: true,
+      render: (value: string) => <strong>{value}</strong>,
+    },
     {
       title: "Eylem",
       dataIndex: "action",
-      width: 190,
-      render: (value: string) => <Tag className="ct-audit-action">{value}</Tag>,
+      width: 170,
+      render: (value: string) => <code className="ct-audit-action">{value}</code>,
     },
     {
       title: "Hedef",
       key: "target",
+      ellipsis: true,
       render: (_: unknown, row) => (
-        <span>
-          <Tag className="ct-tag">{row.targetType}</Tag>
-          {row.targetLabel || row.targetId || "—"}
+        <span className="ct-admin-target">
+          <span className="ct-admin-muted">{row.targetType}</span>
+          <span className="ct-admin-ellipsis">{row.targetLabel || row.targetId || "—"}</span>
         </span>
       ),
     },
     {
       title: "Gerekçe",
       dataIndex: "reason",
+      ellipsis: true,
+      responsive: ["lg"],
       render: (value: string) => value || <span className="ct-muted">—</span>,
     },
-    { title: "IP", dataIndex: "clientIp", width: 130 },
+    {
+      title: "IP",
+      dataIndex: "clientIp",
+      width: 120,
+      responsive: ["xl"],
+      render: (value: string) => <span className="ct-admin-mono">{value || "—"}</span>,
+    },
   ];
 
   return (
@@ -111,43 +126,54 @@ export default function AdminAudit() {
         }
       />
 
-      <div className="ct-admin-filters">
-        <Input.Search
-          placeholder="Yönetici, hedef veya gerekçe ara"
-          allowClear
-          onSearch={(value) => {
-            setPage(1);
-            setSearch(value);
-          }}
-          style={{ maxWidth: 320 }}
-        />
-        <Select
-          value={targetType}
-          options={TARGET_TYPES}
-          onChange={(value) => {
-            setPage(1);
-            setTargetType(value);
-          }}
-          style={{ width: 180 }}
-        />
-      </div>
-
-      <div className="ct-admin-table-wrap">
+      <AdminSection
+        title="Yönetici eylemleri"
+        icon={<AuditOutlined />}
+        hint={`${total} kayıt`}
+        flush
+        toolbar={
+          <>
+            <Input.Search
+              placeholder="Yönetici, hedef veya gerekçe ara"
+              allowClear
+              prefix={<SearchOutlined className="ct-admin-muted" />}
+              onSearch={(value) => {
+                setPage(1);
+                setSearch(value);
+              }}
+              className="ct-admin-toolbar-search"
+            />
+            <Select
+              value={targetType}
+              options={TARGET_TYPES}
+              onChange={(value) => {
+                setPage(1);
+                setTargetType(value);
+              }}
+              className="ct-admin-toolbar-filter"
+            />
+          </>
+        }
+      >
         <Table
           rowKey="id"
           size="small"
           loading={loading}
           dataSource={entries}
           columns={columns}
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
+          locale={{ emptyText: "Bu filtrelerle eşleşen kayıt yok." }}
           pagination={{
             current: page,
             pageSize: PAGE_SIZE,
             total,
             showSizeChanger: false,
             onChange: setPage,
+            showTotal: (count) => `${count} kayıt`,
           }}
         />
-      </div>
+      </AdminSection>
     </div>
   );
 }

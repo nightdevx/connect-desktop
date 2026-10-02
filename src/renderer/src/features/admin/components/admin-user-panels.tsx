@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, Empty, Spin, Tag } from "antd";
-import { DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
+import { DeleteOutlined, KeyOutlined, ReloadOutlined, TeamOutlined } from "@ant-design/icons";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import type {
   AdminRelatedUser,
@@ -37,8 +37,17 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
   return (
     <section className="ct-admin-drawer-block">
       <header>
-        <h4>Açık Oturumlar</h4>
-        <Button size="small" icon={<ReloadOutlined />} onClick={() => void load()} loading={loading} />
+        <h4>
+          <KeyOutlined /> Açık oturumlar
+        </h4>
+        <Button
+          size="small"
+          type="text"
+          icon={<ReloadOutlined />}
+          onClick={() => void load()}
+          loading={loading}
+          aria-label="Yenile"
+        />
       </header>
 
       {loading && sessions.length === 0 ? (
@@ -58,8 +67,10 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
               </span>
               <Button
                 size="small"
+                type="text"
                 danger
                 icon={<DeleteOutlined />}
+                aria-label="Oturumu kapat"
                 onClick={async () => {
                   try {
                     await adminService.unwrap(
@@ -105,7 +116,14 @@ const RelationGroup = ({
             <span className="ct-admin-plain-list-main">@{peer.username}</span>
             <span className="ct-muted">{peer.displayName}</span>
             {action && (
-              <Button size="small" danger icon={<DeleteOutlined />} onClick={() => void action(peer)} />
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                aria-label="Kaldır"
+                onClick={() => void action(peer)}
+              />
             )}
           </li>
         ))}
@@ -174,8 +192,17 @@ export function AdminUserRelationsPanel({ user }: { user: AdminUserDetail }) {
   return (
     <section className="ct-admin-drawer-block">
       <header>
-        <h4>İlişkiler</h4>
-        <Button size="small" icon={<ReloadOutlined />} onClick={() => void load()} loading={loading} />
+        <h4>
+          <TeamOutlined /> İlişkiler
+        </h4>
+        <Button
+          size="small"
+          type="text"
+          icon={<ReloadOutlined />}
+          onClick={() => void load()}
+          loading={loading}
+          aria-label="Yenile"
+        />
       </header>
 
       {loading && !relations ? (

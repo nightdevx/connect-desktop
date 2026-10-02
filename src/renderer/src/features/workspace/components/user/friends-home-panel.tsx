@@ -34,6 +34,7 @@ import {
   getDisplayInitials,
   getPresenceColor,
   getUserStatusLabel,
+  hueStyle,
 } from "../../workspace-utils";
 
 export interface FriendsHomePanelProps {
@@ -116,10 +117,12 @@ function TabLabel({
 }
 
 function PersonAvatar({
+  userId,
   name,
   avatarUrl,
   presenceDot,
 }: {
+  userId: string;
   name: string;
   avatarUrl?: string | null;
   presenceDot?: string;
@@ -128,8 +131,9 @@ function PersonAvatar({
     <div
       className={`ct-user-avatar ${presenceDot ? "with-presence" : ""}`}
       aria-hidden="true"
+      style={hueStyle(userId)}
     >
-      <div className="ct-user-avatar-core">
+      <div className="ct-user-avatar-core ct-hued">
         {avatarUrl ? (
           <img className="ct-user-avatar-image" src={avatarUrl} alt="" />
         ) : (
@@ -162,6 +166,7 @@ function ActivityText({ activity }: { activity: FriendActivity }) {
 // keep a click off the row underneath them. The row keeps its <li> semantics --
 // the identity half carries role="button" rather than the list item itself.
 function PersonRow({
+  userId,
   name,
   subtitle,
   avatarUrl,
@@ -171,6 +176,7 @@ function PersonRow({
   activateLabel,
   contextMenu,
 }: {
+  userId: string;
   name: string;
   subtitle: ReactNode;
   avatarUrl?: string | null;
@@ -190,7 +196,7 @@ function PersonRow({
 
   const identity = (
     <div className="ct-list-user">
-      <PersonAvatar name={name} avatarUrl={avatarUrl} presenceDot={presenceDot} />
+      <PersonAvatar userId={userId} name={name} avatarUrl={avatarUrl} presenceDot={presenceDot} />
 
       <div className="ct-list-user-meta">
         <p>
@@ -601,6 +607,7 @@ export function FriendsHomePanel({
       <PersonRow
         key={user.userId}
         contextMenu={{ menu, popupRender }}
+        userId={user.userId}
         name={name}
         subtitle={
           activity ? (
@@ -723,6 +730,7 @@ export function FriendsHomePanel({
             return (
               <li key={user.userId} className={`ct-friends-active-card ${activity.kind}`}>
                 <PersonAvatar
+                  userId={user.userId}
                   name={name}
                   avatarUrl={user.avatarUrl}
                   presenceDot={getPresenceColor(user.appOnline, user.presence)}
@@ -814,6 +822,7 @@ export function FriendsHomePanel({
                 return (
                   <PersonRow
                     key={row.userId}
+                    userId={row.userId}
                     name={row.name}
                     subtitle="Arkadaş olmak istiyor"
                     actions={
@@ -854,6 +863,7 @@ export function FriendsHomePanel({
               {outgoingRows.map((row) => (
                 <PersonRow
                   key={row.userId}
+                  userId={row.userId}
                   name={row.name}
                   subtitle="Yanıt bekleniyor"
                   actions={

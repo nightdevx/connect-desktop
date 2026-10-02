@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Empty, Space, Spin, Switch, Table, Tag } from "antd";
+import { Button, Empty, Spin, Switch, Table } from "antd";
 import {
   EyeOutlined,
   PlayCircleOutlined,
@@ -10,7 +10,7 @@ import { toErrorMessage } from "@shared/error-message";
 import type { MinigamePlayer, MinigameTableOverview } from "@shared/minigames";
 import { MINIGAMES } from "@/features/minigames";
 import adminService from "../services/admin-service";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { AdminPageHeader, AdminSection, AdminState } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 const REFRESH_INTERVAL_MS = 8000;
@@ -81,6 +81,7 @@ export default function AdminMinigames() {
 
       <AdminSection
         title="Açık masalar"
+        description="Şu anda kurulmuş masalar, oyuncuları ve izleyicileri."
         icon={<TableOutlined />}
         hint={`${tables.length} masa · ${activePlayers} oyuncu · ${activeWatchers} izleyici`}
         flush
@@ -91,10 +92,12 @@ export default function AdminMinigames() {
           </div>
         ) : (
           <Table<MinigameTableOverview>
+            tableLayout="fixed"
             rowKey="id"
             dataSource={tables}
             pagination={false}
             size="small"
+            className="ct-admin-table-wrap"
             locale={{
               emptyText: <Empty description="Şu anda açık masa yok" />,
             }}
@@ -102,53 +105,52 @@ export default function AdminMinigames() {
               {
                 title: "Oyun",
                 dataIndex: "game",
-                render: (game: string) => gameLabel(game),
+                width: 160,
+                render: (game: string) => <strong>{gameLabel(game)}</strong>,
               },
               {
                 title: "Durum",
                 key: "state",
+                width: 130,
                 render: (_, table) =>
                   table.finished ? (
-                    <Tag className="ct-tag">bitti</Tag>
+                    <AdminState>Bitti</AdminState>
                   ) : table.started ? (
-                    <Tag className="ct-tag success">oynanıyor</Tag>
+                    <AdminState tone="ok">Oynanıyor</AdminState>
                   ) : (
-                    <Tag className="ct-tag warn">bekliyor</Tag>
+                    <AdminState tone="warn">Bekliyor</AdminState>
                   ),
               },
               {
                 title: "Oyuncular",
                 key: "players",
-                render: (_, table) => (
-                  <Space size={4} wrap>
-                    {table.players.map((player: MinigamePlayer) => (
-                      <Tag className="ct-tag" key={player.userId} icon={<PlayCircleOutlined />}>
-                        {player.username}
-                      </Tag>
-                    ))}
-                  </Space>
-                ),
+                ellipsis: true,
+                render: (_, table) =>
+                  table.players.map((player: MinigamePlayer) => player.username).join(", "),
               },
               {
                 title: "İzleyiciler",
                 key: "spectators",
+                ellipsis: true,
                 render: (_, table) =>
                   table.spectators.length === 0 ? (
                     <span className="ct-admin-minigames-none">—</span>
                   ) : (
-                    <Space size={4} wrap>
-                      {table.spectators.map((watcher: MinigamePlayer) => (
-                        <Tag className="ct-tag info" key={watcher.userId} icon={<EyeOutlined />}>
-                          {watcher.username}
-                        </Tag>
-                      ))}
-                    </Space>
+                    <span className="ct-admin-inline">
+                      <EyeOutlined className="ct-admin-muted" />
+                      {table.spectators.map((watcher: MinigamePlayer) => watcher.username).join(", ")}
+                    </span>
                   ),
               },
               {
                 title: "Açılış",
                 dataIndex: "createdAt",
-                render: (value: string) => new Date(value).toLocaleTimeString("tr-TR"),
+                width: 90,
+                render: (value: string) => (
+                  <span className="ct-admin-muted">
+                    {new Date(value).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                ),
               },
             ]}
           />
@@ -157,21 +159,23 @@ export default function AdminMinigames() {
 
       <AdminSection
         title="Oyun görünürlüğü"
+        description="Kapalı bir oyun kullanıcıların oyun listesinde görünmez."
         icon={<PlayCircleOutlined />}
         hint={`${MINIGAMES.length - disabled.length}/${MINIGAMES.length} açık`}
+        flush
       >
         <ul className="ct-admin-minigames-toggles">
           {MINIGAMES.map((entry) => {
             const isEnabled = !disabled.includes(entry.id);
             return (
-              <li key={entry.id} className="ct-admin-minigames-toggle">
-                <span className="ct-admin-minigames-icon" aria-hidden="true">
+              <li key={entry.id} className="ct-settings-row">
+                <span className="ct-settings-row-icon" aria-hidden="true">
                   {entry.icon}
                 </span>
-                <span className="ct-admin-minigames-label">
+                <div className="ct-settings-row-text">
                   <strong>{entry.label}</strong>
                   <span>{entry.description}</span>
-                </span>
+                </div>
                 <Switch
                   checked={isEnabled}
                   loading={savingId === entry.id}

@@ -27,124 +27,99 @@
 
 /* --- the sidebar --------------------------------------------------------- */
 
+/* The settings menu's shape, to the pixel: one line per game -- an icon, the
+   name, and at the far end the record or the seat count -- 13px, muted until
+   it is the game on screen. The two-line rows with an icon tile and a
+   description were the one sidebar in the app that looked like neither
+   settings nor admin, and thirty-odd of them was a page of scrolling. The
+   description is the row's hover hint now. */
 .ct-minigames-sidebar {
-  @apply flex min-h-0 flex-1 flex-col gap-4;
-}
-
-.ct-minigames-tabs {
-  @apply flex shrink-0 flex-col gap-1;
-}
-
-/* Deliberately the same shape as .ct-free-games-tab and .ct-settings-tab: this
-   is the third panel in the app whose sidebar is a list of labelled
-   destinations, and three different answers to that would read as three
-   different apps. */
-/* items-center, NOT items-start. The icon is a 30px tile beside a body that is
-   two lines on most rows and three on any game with a record, so anchoring it
-   to the top left it sitting 12.5px above the row's centre line -- measured, not
-   guessed -- and the taller the row the more it looked dropped in from above.
-   Centred, it reads as one row whatever the body under it turns out to be. */
-.ct-minigames-tab {
-  @apply relative flex items-center gap-2.5 overflow-hidden rounded-md border px-2.5 py-2 text-left;
-  border-color: transparent;
-  color: var(--ct-text-secondary);
-  background: transparent;
-  transition: all var(--ct-duration-base) var(--ct-ease-spring);
-}
-
-.ct-minigames-tab::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  translate: 0 -50%;
-  width: 3px;
-  height: 0;
-  border-radius: 0 3px 3px 0;
-  background: var(--ct-accent);
-  transition: height var(--ct-duration-base) var(--ct-ease-premium);
-}
-
-.ct-minigames-tab:hover:not(.active) {
-  border-color: var(--ct-border);
-  color: var(--ct-text-primary);
-  background: var(--ct-alpha-04);
-}
-
-.ct-minigames-tab.active {
-  border-color: var(--ct-border-strong);
-  color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-}
-
-.ct-minigames-tab.active::before {
-  height: 62%;
-}
-
-/* A tile rather than a bare glyph. The list is seven rows of very similar text,
-   and the icon is the only thing on each row that is not text. */
-.ct-minigames-tab-icon {
-  @apply flex shrink-0 items-center justify-center rounded-md;
-  width: 30px;
-  height: 30px;
-  font-size: var(--ct-icon-sm);
-  color: var(--ct-text-muted);
-  background: var(--ct-alpha-04);
-  transition: all var(--ct-duration-base) var(--ct-ease-premium);
-}
-
-.ct-minigames-tab.active .ct-minigames-tab-icon {
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
-}
-
-.ct-minigames-tab-body {
-  @apply flex min-w-0 flex-col gap-0.5;
-}
-
-.ct-minigames-tab-label {
-  @apply text-sm font-semibold;
-  line-height: 1.25;
-}
-
-.ct-minigames-tab-description {
-  @apply text-2xs;
-  color: var(--ct-text-muted);
-  line-height: 1.35;
-}
-
-/* --ct-success, not --ct-accent-strong: that one is a 32% alpha overlay, which
-   works as a background and disappears as a text colour. */
-.ct-minigames-tab-best {
-  @apply mt-1 flex items-center gap-1.5 text-2xs font-semibold tabular-nums;
-  color: var(--ct-success);
-}
-
-/* Which board the record is FOR. Without it the number silently changes meaning
-   when the difficulty does. */
-.ct-minigames-tab-best-scope {
-  @apply rounded px-1 py-px text-3xs font-bold uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ct-text-muted);
-  background: var(--ct-alpha-08);
+  @apply flex min-h-0 flex-1 flex-col;
 }
 
 .ct-minigames-group {
-  @apply flex shrink-0 flex-col gap-1.5;
+  @apply flex shrink-0 flex-col;
 }
 
-.ct-minigames-group-title {
-  @apply m-0 px-1 text-2xs font-semibold uppercase;
-  letter-spacing: 0.08em;
+.ct-minigames-group > .ct-list-group-title {
+  @apply mb-1 mt-3.5;
+}
+
+.ct-minigames-group:first-child > .ct-list-group-title {
+  @apply mt-1;
+}
+
+.ct-minigames-tabs {
+  @apply flex flex-col gap-0.5;
+}
+
+.ct-minigames-tab,
+.ct-free-games-tab {
+  @apply relative flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 text-left font-medium;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ct-text-muted);
+  background: transparent;
+  transition:
+    color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
+}
+
+.ct-minigames-tab:hover:not(.active),
+.ct-free-games-tab:hover:not(.active) {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-04);
+}
+
+.ct-minigames-tab.active,
+.ct-free-games-tab.active {
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
+  font-weight: 600;
+}
+
+.ct-minigames-tab:focus-visible,
+.ct-free-games-tab:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: -2px;
+}
+
+.ct-minigames-tab-icon,
+.ct-free-games-tab-icon {
+  @apply flex shrink-0 items-center justify-center;
+  width: 16px;
+  font-size: 15px;
+  color: inherit;
+}
+
+.ct-minigames-tab-label,
+.ct-free-games-tab-label {
+  @apply min-w-0 flex-1 truncate;
+}
+
+/* Your record at the difficulty the game is set to. --ct-success, not
+   --ct-accent-strong: that one is a 32% alpha overlay, which works as a
+   background and disappears as a text colour. */
+.ct-minigames-tab-best {
+  @apply shrink-0 font-semibold tabular-nums;
+  font-size: 11.5px;
+  color: var(--ct-success);
+}
+
+.ct-minigames-tab-seats {
+  @apply shrink-0 tabular-nums;
+  font-size: 11.5px;
   color: var(--ct-text-muted);
 }
 
 .ct-minigames-sidebar-note {
-  @apply mt-auto shrink-0 rounded-md border p-2.5 text-2xs;
-  border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
-  color: var(--ct-text-muted);
+  @apply mt-auto shrink-0 border-t;
+  margin-inline: 4px;
+  padding-top: 12px;
+  font-size: 11.5px;
   line-height: 1.5;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-muted);
 }
 
 /* --- the page ------------------------------------------------------------ */
@@ -236,13 +211,16 @@
   grid-area: rail;
 }
 
+/* The game's mark in the tinted square every card title carries. */
 .ct-minigames-header-icon {
-  @apply flex shrink-0 items-center justify-center rounded-lg;
-  width: 38px;
-  height: 38px;
-  font-size: var(--ct-icon-md);
-  color: var(--ct-on-info);
-  background: linear-gradient(135deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
+  @apply grid shrink-0 place-items-center border;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+  font-size: 18px;
 }
 
 /* Grows, so everything after it is pushed to the far end of the header. The
@@ -272,9 +250,9 @@
 /* A stat chip, like the other pages' live counts. */
 .ct-minigames-best {
   @apply flex shrink-0 items-center gap-2 rounded-full border px-3;
-  height: 30px;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
+  height: 32px;
+  border-color: var(--ct-alpha-08);
+  background: var(--ct-alpha-02);
 }
 
 .ct-minigames-best-label {
@@ -707,41 +685,60 @@
   grid-area: game;
 }
 
+/* The tables for this game, as a card: the count and "Masa aç" on its title
+   band, the tables as rows under it. A fixed width rather than w-full: the
+   game column hugs its content, so a full-width list was as narrow as the
+   longest row in it. */
 .ct-versus-browser {
-  @apply flex min-h-0 w-full max-w-[560px] flex-1 flex-col gap-3 self-center;
+  @apply flex min-h-0 flex-col self-center overflow-hidden border;
+  width: 560px;
+  max-width: 100%;
+  border-color: var(--ct-alpha-08);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-alpha-02);
 }
 
 .ct-versus-browser-head {
-  @apply flex shrink-0 items-center justify-between gap-3;
+  @apply flex shrink-0 items-center justify-between gap-3 border-b;
+  padding: 12px 14px;
+  border-color: var(--ct-alpha-08);
 }
 
 .ct-versus-browser-count {
-  @apply text-xs font-semibold tabular-nums;
-  color: var(--ct-text-muted);
+  @apply flex items-center gap-2 font-semibold tabular-nums;
+  font-size: 13.5px;
+  color: var(--ct-text-primary);
 }
 
-.ct-versus-table-list {
-  @apply m-0 flex min-h-0 list-none flex-col gap-2 overflow-y-auto p-0;
-}
-
-.ct-versus-table-row {
-  @apply flex items-center gap-2.5 rounded-lg border px-3 py-2.5;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  transition: all var(--ct-duration-base) var(--ct-ease-premium);
-}
-
-.ct-versus-table-row:hover {
-  border-color: var(--ct-border-strong);
+.ct-versus-browser-seats {
+  @apply rounded-full border px-2 py-0.5 font-semibold;
+  font-size: 11px;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
   background: var(--ct-alpha-04);
 }
 
-/* Both names, each behind its own seat colour. The row used to print only the
-   host and then say "X ile oynuyor" in the state pill, which put the two
-   players in two different typefaces at two different sizes for no reason
-   beyond the order they sat down. */
+.ct-versus-table-list {
+  @apply m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0;
+}
+
+.ct-versus-table-row {
+  @apply flex items-center gap-3;
+  padding: 12px 14px;
+  transition: background var(--ct-duration-fast) ease;
+}
+
+.ct-versus-table-row + .ct-versus-table-row {
+  border-top: 1px solid var(--ct-alpha-04);
+}
+
+.ct-versus-table-row:hover {
+  background: var(--ct-alpha-02);
+}
+
+/* Both names, each behind its own seat colour. */
 .ct-versus-table-players {
-  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-0.5;
+  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5;
 }
 
 .ct-versus-table-player {
@@ -749,18 +746,30 @@
 }
 
 .ct-versus-table-name {
-  @apply min-w-0 truncate text-sm font-semibold;
+  @apply min-w-0 truncate font-semibold;
+  font-size: 13px;
   color: var(--ct-text-primary);
 }
 
+/* The state as a dot and a word, like the live tables beside it. */
 .ct-versus-table-state {
-  @apply shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium;
-  color: var(--ct-success);
-  background: var(--ct-alpha-04);
+  @apply inline-flex shrink-0 items-center gap-1.5;
+  font-size: 12px;
+  color: var(--ct-warning);
+}
+
+.ct-versus-table-state::before {
+  content: "";
+  @apply block h-1.5 w-1.5 shrink-0 rounded-full;
+  background: var(--ct-warning);
 }
 
 .ct-versus-table-state[data-full] {
-  color: var(--ct-text-muted);
+  color: var(--ct-text-secondary);
+}
+
+.ct-versus-table-state[data-full]::before {
+  background: var(--ct-success);
 }
 
 /* Why the board under it takes no clicks. A disabled board with nothing saying
@@ -777,10 +786,16 @@
 /* The empty and the blocked states, which are most of what this page shows
    before anybody sits down. */
 .ct-versus-state {
-  @apply flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border py-8 text-center;
-  border-color: var(--ct-border);
-  border-style: dashed;
+  @apply flex flex-1 flex-col items-center justify-center gap-2 border px-6 py-10 text-center;
+  border-color: var(--ct-alpha-08);
+  border-radius: var(--ct-radius-lg);
   color: var(--ct-text-secondary);
+  background: var(--ct-alpha-02);
+}
+
+/* Inside the tables card the card is the frame. */
+.ct-versus-browser .ct-versus-state {
+  @apply rounded-none border-0 bg-transparent;
 }
 
 .ct-versus-state-icon {
@@ -1253,39 +1268,86 @@
   font-size: 26px;
 }
 
-/* --- the leaderboard ------------------------------------------------------ */
+/* --- the rail's cards ----------------------------------------------------- */
 
-/* A card in the rail. Beside the board rather than under it -- stacked, it was
-   below the fold on every game and nobody scrolled to it.
+/* The leaderboard and the live tables: the card every other page uses -- a
+   title with a tinted icon, a hairline, then the rows. Beside the board rather
+   than under it, where it was below the fold on every game. No width of its
+   own: the rail is one track of one width for every game. */
+.ct-leaderboard,
+.ct-live-tables {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden border;
+  border-color: var(--ct-alpha-08);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-alpha-02);
+}
 
-   No width of its own any more: the rail is one track of one width for every
-   game, and a card that carried its own 230px was the reason the page changed
-   shape when the leaderboard was not there to carry it. */
-.ct-leaderboard {
-  @apply flex min-h-0 flex-1 flex-col gap-2 rounded-lg border p-3;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
+.ct-leaderboard-head,
+.ct-live-tables-head {
+  @apply flex shrink-0 items-center gap-2.5 border-b;
+  padding: 12px 14px;
+  border-color: var(--ct-alpha-08);
+}
+
+.ct-rail-card-icon {
+  @apply grid shrink-0 place-items-center border;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+  font-size: 13px;
+}
+
+.ct-leaderboard-head h5,
+.ct-live-tables-head h5 {
+  @apply m-0 min-w-0 flex-1 truncate font-semibold;
+  font-size: 13.5px;
+  color: var(--ct-text-primary);
+}
+
+.ct-leaderboard-head-right {
+  @apply flex shrink-0 items-center gap-1;
+}
+
+.ct-leaderboard-rank {
+  @apply rounded-full px-2 py-0.5 font-semibold tabular-nums;
+  font-size: 11px;
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 13%, transparent);
+}
+
+.ct-live-tables-count {
+  @apply shrink-0 rounded-full border px-2 py-0.5 font-semibold tabular-nums;
+  font-size: 11px;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
 }
 
 /* Three boards, side by side, inside the card that shows one of them.
 
-   Deliberately NOT the .ct-difficulty segmented control in the page header:
-   that one deals a new board, this one only changes what is being read, and two
+   Deliberately NOT the .ct-difficulty control in the page header: that one
+   deals a new board, this one only changes what is being read, and two
    controls that look identical and do different things is worse than two that
-   look different. Flatter, quieter, and no hint line under each label. */
+   look different. */
 .ct-leaderboard-scopes {
-  @apply flex shrink-0 items-stretch gap-1 rounded-md border p-0.5;
-  border-color: var(--ct-border);
+  @apply flex shrink-0 items-stretch gap-0.5 rounded-md border p-0.5;
+  margin: 12px 14px 0;
+  border-color: var(--ct-alpha-08);
   background: var(--ct-alpha-02);
 }
 
 .ct-leaderboard-scope {
-  @apply flex-1 rounded px-1 py-0.5 text-3xs font-bold uppercase;
-  letter-spacing: 0.05em;
+  @apply flex-1 rounded py-1 font-semibold;
+  font-size: 11.5px;
   border: 0;
   background: transparent;
   color: var(--ct-text-muted);
-  transition: all var(--ct-duration-fast) var(--ct-ease-premium);
+  transition:
+    color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
 }
 
 .ct-leaderboard-scope:hover:not([data-active]) {
@@ -1294,75 +1356,66 @@
 }
 
 .ct-leaderboard-scope[data-active] {
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-12);
 }
 
 /* Which one the board under the page is actually set to. Without it the card
-   can be reading Zor while the player is on Kolay and nothing says so -- an
-   underline is enough, because it is a fact rather than a control. */
+   can be reading Zor while the player is on Kolay and nothing says so. */
 .ct-leaderboard-scope[data-playing]:not([data-active]) {
-  color: var(--ct-text-primary);
-  box-shadow: inset 0 -2px 0 var(--ct-accent);
+  color: var(--ct-text-secondary);
+  box-shadow: inset 0 -2px 0 var(--ct-alpha-32);
 }
 
 .ct-leaderboard-scope-hint {
-  @apply m-0 shrink-0 text-center text-3xs tabular-nums;
+  @apply m-0 shrink-0 text-center tabular-nums;
+  padding: 6px 14px 2px;
+  font-size: 11px;
   color: var(--ct-text-muted);
 }
 
-.ct-leaderboard-head {
-  @apply flex shrink-0 items-center justify-between gap-2;
-}
-
-.ct-leaderboard-head h5 {
-  @apply m-0 flex items-center gap-1.5 text-xs font-bold uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ct-text-primary);
-}
-
-.ct-leaderboard-head-right {
-  @apply flex items-center gap-1;
-}
-
-.ct-leaderboard-rank {
-  @apply rounded-full border px-2 py-0.5 text-3xs font-bold tabular-nums;
-  border-color: var(--ct-success);
-  color: var(--ct-success);
-}
-
-.ct-leaderboard-empty {
-  @apply m-0 py-3 text-center text-2xs;
-  color: var(--ct-text-muted);
+.ct-leaderboard-empty,
+.ct-live-tables-empty {
+  @apply m-0 flex items-center justify-center text-center;
+  padding: 22px 18px;
+  font-size: 12px;
   line-height: 1.5;
+  color: var(--ct-text-muted);
 }
 
 .ct-leaderboard-list {
-  @apply m-0 flex min-h-0 list-none flex-col gap-0.5 overflow-y-auto p-0;
+  @apply m-0 flex min-h-0 list-none flex-col gap-0.5 overflow-y-auto;
+  padding: 6px 8px 8px;
 }
 
 .ct-leaderboard-row {
-  @apply flex items-center gap-2 rounded-md px-1.5 py-1 text-2xs;
+  @apply flex items-center gap-2.5 rounded-md;
+  padding: 6px 8px;
+  font-size: 13px;
   color: var(--ct-text-secondary);
 }
 
 .ct-leaderboard-row[data-me] {
   color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
+  background: var(--ct-alpha-08);
   font-weight: 600;
 }
 
 .ct-leaderboard-position {
-  @apply flex shrink-0 items-center justify-center rounded font-bold tabular-nums;
-  width: 1.35rem;
-  height: 1.35rem;
+  @apply shrink-0 text-center font-bold tabular-nums;
+  width: 18px;
+  font-size: 12px;
   color: var(--ct-text-muted);
-  background: var(--ct-alpha-04);
 }
 
-.ct-leaderboard-row[data-me] .ct-leaderboard-position {
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
+/* The podium, as a colour on the number and nothing more. */
+.ct-leaderboard-row:nth-child(-n + 3) .ct-leaderboard-position {
+  color: var(--ct-warning);
+}
+
+.ct-leaderboard-face {
+  @apply grid h-7 w-7 shrink-0 place-items-center rounded-full font-bold uppercase;
+  font-size: 10.5px;
 }
 
 .ct-leaderboard-name {
@@ -1370,108 +1423,100 @@
 }
 
 .ct-leaderboard-score {
-  @apply shrink-0 tabular-nums;
-}
-
-/* --- what is being played right now --------------------------------------- */
-
-/* The other card in the rail, and the only place on the page that knows about
-   more than one game at a time.
-
-   flex-1 rather than a height: it takes whatever the leaderboard leaves, which
-   is all of the rail on the two-player games -- they keep no records, so there
-   is no leaderboard above it. */
-.ct-live-tables {
-  @apply flex min-h-0 flex-1 flex-col gap-2 rounded-lg border p-3;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-}
-
-.ct-live-tables-head {
-  @apply flex shrink-0 items-center justify-between gap-2;
-}
-
-.ct-live-tables-head h5 {
-  @apply m-0 flex items-center gap-1.5 text-xs font-bold uppercase;
-  letter-spacing: 0.06em;
+  @apply shrink-0 font-semibold tabular-nums;
+  font-size: 12.5px;
   color: var(--ct-text-primary);
 }
 
-.ct-live-tables-count {
-  @apply shrink-0 rounded-full px-2 text-2xs font-bold tabular-nums;
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
-}
-
-.ct-live-tables-empty {
-  @apply m-0 flex items-center justify-center py-3 text-center text-2xs;
-  color: var(--ct-text-muted);
-  line-height: 1.5;
-}
-
+/* The other card, and the only place on the page that knows about more than
+   one game at a time. */
 .ct-live-tables-list {
-  @apply m-0 flex min-h-0 list-none flex-col gap-2 overflow-y-auto p-0;
+  @apply m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0;
 }
 
 .ct-live-table {
-  @apply flex flex-col gap-1.5 rounded-md border p-2;
-  border-color: var(--ct-border);
-  background: var(--ct-panel);
-  transition: border-color var(--ct-duration-base) var(--ct-ease-premium);
+  @apply flex flex-col gap-2;
+  padding: 12px 14px;
+  transition: background var(--ct-duration-fast) ease;
+}
+
+.ct-live-table + .ct-live-table {
+  border-top: 1px solid var(--ct-alpha-04);
 }
 
 .ct-live-table:hover {
-  border-color: var(--ct-border-strong);
+  background: var(--ct-alpha-02);
 }
 
-/* Your own table, and the one you are watching. Two different states with two
-   different answers in the row's button, so they are told apart at a glance
-   rather than by reading it. */
+/* Your own table, and the one you are watching: a bar down the left edge in
+   two different colours, told apart at a glance rather than by reading. */
 .ct-live-table[data-mine] {
-  border-color: var(--ct-accent);
-  background: var(--ct-accent-soft);
+  box-shadow: inset 3px 0 0 var(--ct-success);
 }
 
 .ct-live-table[data-watched] {
-  border-color: var(--ct-info);
+  box-shadow: inset 3px 0 0 var(--ct-info);
 }
 
 .ct-live-table-game {
-  @apply flex items-center gap-1.5 text-2xs font-bold uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ct-text-secondary);
+  @apply flex min-w-0 items-center gap-2.5;
 }
 
 .ct-live-table-icon {
-  @apply flex shrink-0 items-center justify-center;
-  font-size: var(--ct-icon-xs);
-  color: var(--ct-text-muted);
+  @apply grid shrink-0 place-items-center border;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border-color: var(--ct-alpha-08);
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-04);
+  font-size: 14px;
 }
 
-/* The state, pushed to the far end of the game line. Colour is the whole
-   signal here: three words at 10px are not read, they are recognised. */
+.ct-live-table-title {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.ct-live-table-title strong {
+  @apply truncate font-semibold leading-snug;
+  font-size: 13px;
+  color: var(--ct-text-primary);
+}
+
+/* The state as a dot and a word, like every other table. */
 .ct-live-table-state {
-  @apply ml-auto shrink-0 rounded-full px-1.5 text-3xs font-semibold lowercase;
-  letter-spacing: 0;
-  background: var(--ct-alpha-08);
+  @apply inline-flex items-center gap-1.5;
+  font-size: 11.5px;
   color: var(--ct-text-muted);
 }
 
-.ct-live-table-state[data-state="playing"] {
-  color: var(--ct-success);
+.ct-live-table-state::before {
+  content: "";
+  @apply block h-1.5 w-1.5 shrink-0 rounded-full;
+  background: var(--ct-alpha-32);
+}
+
+.ct-live-table-state[data-state="playing"]::before {
+  background: var(--ct-success);
 }
 
 .ct-live-table-state[data-state="waiting"] {
   color: var(--ct-warning);
 }
 
+.ct-live-table-state[data-state="waiting"]::before {
+  background: var(--ct-warning);
+}
+
 .ct-live-table-players {
-  @apply flex min-w-0 flex-col gap-0.5;
+  @apply flex min-w-0 flex-wrap gap-x-3 gap-y-1;
+  padding-left: 40px;
 }
 
 .ct-live-table-player {
-  @apply flex min-w-0 items-center gap-1.5 text-2xs;
-  color: var(--ct-text-primary);
+  @apply flex min-w-0 items-center gap-1.5;
+  font-size: 12px;
+  color: var(--ct-text-secondary);
 }
 
 .ct-live-table-name {
@@ -1916,21 +1961,27 @@
   }
 }
 
-.ct-minigames-info-button {
-  @apply flex h-8 w-8 flex-none items-center justify-center rounded-full text-base;
-  border: 1px solid var(--ct-border);
-  background: var(--ct-alpha-04);
+/* Fullscreen and "how to play": square buttons, the shape of every other
+   icon button on a page header. */
+.ct-minigames-header-button {
+  @apply grid h-8 w-8 flex-none cursor-pointer place-items-center rounded-md border;
+  font-size: 15px;
+  border-color: var(--ct-alpha-08);
+  background: var(--ct-alpha-02);
   color: var(--ct-text-secondary);
   transition:
-    transform var(--ct-duration-fast) var(--ct-ease-spring),
-    background var(--ct-duration-fast) linear,
-    color var(--ct-duration-fast) linear;
+    background var(--ct-duration-fast) ease,
+    color var(--ct-duration-fast) ease;
 }
 
-.ct-minigames-info-button:hover {
-  background: var(--ct-accent-soft);
+.ct-minigames-header-button:hover {
+  background: var(--ct-alpha-08);
   color: var(--ct-text-primary);
-  transform: scale(1.08);
+}
+
+.ct-minigames-header-button:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
 }
 
 /* The body of the "Nasıl oynanır" dialog (a .ct-modal). */
@@ -2013,13 +2064,7 @@
 }
 
 .ct-live-table-audience {
-  @apply inline-flex items-center gap-1 rounded-full px-1.5 text-[10px] font-semibold tabular-nums;
-  background: var(--ct-alpha-08);
+  @apply inline-flex shrink-0 items-center gap-1 tabular-nums;
+  font-size: 11.5px;
   color: var(--ct-text-muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ct-minigames-info-button:hover {
-    transform: none;
-  }
 }

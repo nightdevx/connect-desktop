@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminPageHeader } from "./admin-primitives";
+import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
 import { Button, Input, InputNumber, Segmented, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DeleteOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  GlobalOutlined,
+  KeyOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import type { AdminInviteCode, AdminIpBan } from "@shared/desktop-api-types";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import { toErrorMessage } from "@shared/error-message";
@@ -148,22 +154,33 @@ export default function AdminAccess() {
   };
 
   const banColumns: ColumnsType<AdminIpBan> = [
-    { title: "Adres / blok", dataIndex: "cidr", width: 200 },
+    {
+      title: "Adres / blok",
+      dataIndex: "cidr",
+      width: 200,
+      render: (value: string) => <code className="ct-admin-code">{value}</code>,
+    },
     { title: "Gerekçe", dataIndex: "reason", ellipsis: true },
-    { title: "Ekleyen", dataIndex: "createdBy", width: 150 },
+    { title: "Ekleyen", dataIndex: "createdBy", width: 120, ellipsis: true, responsive: ["lg"] },
     {
       title: "Bitiş",
       dataIndex: "expiresAt",
-      width: 170,
-      render: (value: string | null) => (value ? new Date(value).toLocaleString("tr-TR") : "Süresiz"),
+      width: 160,
+      render: (value: string | null) =>
+        value ? (
+          <AdminState tone="warn">{adminDateTime(value)}</AdminState>
+        ) : (
+          <AdminState tone="danger">Süresiz</AdminState>
+        ),
     },
     {
       title: "",
       key: "actions",
       width: 60,
+      align: "right" as const,
       render: (_: unknown, row) => (
         <Button
-          size="small"
+          type="text"
           danger
           icon={<DeleteOutlined />}
           onClick={async () => {
@@ -181,27 +198,47 @@ export default function AdminAccess() {
   ];
 
   const inviteColumns: ColumnsType<AdminInviteCode> = [
-    { title: "Kod", dataIndex: "code", width: 200 },
+    {
+      title: "Kod",
+      dataIndex: "code",
+      width: 200,
+      render: (value: string) => <code className="ct-admin-code">{value}</code>,
+    },
     {
       title: "Kullanım",
       key: "uses",
-      width: 130,
-      render: (_: unknown, row) => `${row.uses} / ${row.maxUses}`,
+      width: 140,
+      render: (_: unknown, row) => (
+        <div className="ct-admin-fill-cell">
+          <span className="ct-admin-fill-count">
+            {row.uses} / {row.maxUses}
+          </span>
+          <span className="ct-admin-fill" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, (row.uses / Math.max(1, row.maxUses)) * 100)}%` }} />
+          </span>
+        </div>
+      ),
     },
-    { title: "Oluşturan", dataIndex: "createdBy", width: 150 },
+    { title: "Oluşturan", dataIndex: "createdBy", width: 120, ellipsis: true, responsive: ["lg"] },
     {
       title: "Bitiş",
       dataIndex: "expiresAt",
-      width: 170,
-      render: (value: string | null) => (value ? new Date(value).toLocaleString("tr-TR") : "Süresiz"),
+      width: 160,
+      render: (value: string | null) =>
+        value ? (
+          <span className="ct-admin-muted">{adminDateTime(value)}</span>
+        ) : (
+          <AdminState>Süresiz</AdminState>
+        ),
     },
     {
       title: "",
       key: "actions",
       width: 60,
+      align: "right" as const,
       render: (_: unknown, row) => (
         <Button
-          size="small"
+          type="text"
           danger
           icon={<DeleteOutlined />}
           onClick={async () => {
@@ -235,6 +272,7 @@ export default function AdminAccess() {
       <Segmented
         value={pane}
         onChange={(value) => setPane(value as Pane)}
+        className="ct-segmented-premium"
         options={[
           { value: "ips", label: "IP Yasakları" },
           { value: "invites", label: "Davet Kodları" },
@@ -242,94 +280,130 @@ export default function AdminAccess() {
       />
 
       {pane === "ips" ? (
-        <>
-          <div className="ct-admin-filters">
-            <Segmented
-              value={banBy}
-              onChange={(value) => setBanBy(value as "user" | "cidr")}
-              options={[
-                { value: "user", label: "Kullanıcıdan" },
-                { value: "cidr", label: "Adres / blok" },
-              ]}
-            />
-
-            {banBy === "user" ? (
-              <Select
-                showSearch
-                allowClear
-                loading={usersLoading}
-                value={banUserId}
-                onChange={(value) => setBanUserId(value ?? null)}
-                placeholder="Kullanıcı seç"
-                optionFilterProp="label"
-                options={userOptions}
-                style={{ minWidth: 300 }}
-              />
-            ) : (
-              <Input
-                placeholder="1.2.3.4 veya 1.2.3.0/24"
-                value={newCidr}
-                onChange={(event) => setNewCidr(event.target.value)}
-                style={{ maxWidth: 220 }}
-              />
-            )}
-
-            <Input
-              placeholder="Gerekçe"
-              value={newBanReason}
-              onChange={(event) => setNewBanReason(event.target.value)}
-              maxLength={280}
-              style={{ maxWidth: 320 }}
-            />
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => void addBan()}
-              disabled={banBy === "user" ? !selectedUser?.lastIp : !newCidr.trim()}
-            >
-              Yasakla
-            </Button>
-          </div>
-
-          {banBy === "user" ? (
-            <p className="ct-field-hint">
-              {selectedUser
+        <AdminSection
+          title="IP yasakları"
+          description={
+            banBy === "user"
+              ? selectedUser
                 ? selectedUser.lastIp
                   ? `Son giriş adresi ${selectedUser.lastIp} yasaklanır ve açık oturumları kapatılır.`
                   : "Bu hesap hiç giriş yapmamış, yasaklanacak bir adres yok."
-                : "Adres, kişinin son girişinden alınır. Hiç giriş yapmamış hesaplarda kayıtlı adres olmaz."}
-            </p>
-          ) : null}
-          <div className="ct-admin-table-wrap">
-            <Table rowKey="cidr" size="small" loading={loading} dataSource={bans} columns={banColumns} pagination={false} />
-          </div>
-        </>
+                : "Adres, kişinin son girişinden alınır. Hiç giriş yapmamış hesaplarda kayıtlı adres olmaz."
+              : "Tek bir adres ya da bir blok (CIDR) yasaklanır."
+          }
+          icon={<GlobalOutlined />}
+          hint={`${bans.length} yasak`}
+          flush
+          toolbar={
+            <>
+              <Segmented
+                value={banBy}
+                onChange={(value) => setBanBy(value as "user" | "cidr")}
+                className="ct-segmented-premium"
+                options={[
+                  { value: "user", label: "Kullanıcıdan" },
+                  { value: "cidr", label: "Adres / blok" },
+                ]}
+              />
+
+              {banBy === "user" ? (
+                <Select
+                  showSearch
+                  allowClear
+                  loading={usersLoading}
+                  value={banUserId}
+                  onChange={(value) => setBanUserId(value ?? null)}
+                  placeholder="Kullanıcı seç"
+                  optionFilterProp="label"
+                  options={userOptions}
+                  className="ct-admin-toolbar-filter wide"
+                />
+              ) : (
+                <Input
+                  placeholder="1.2.3.4 veya 1.2.3.0/24"
+                  value={newCidr}
+                  onChange={(event) => setNewCidr(event.target.value)}
+                  className="ct-admin-toolbar-filter"
+                />
+              )}
+
+              <Input
+                placeholder="Gerekçe"
+                value={newBanReason}
+                onChange={(event) => setNewBanReason(event.target.value)}
+                maxLength={280}
+                className="ct-admin-toolbar-search"
+              />
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => void addBan()}
+                disabled={banBy === "user" ? !selectedUser?.lastIp : !newCidr.trim()}
+              >
+                Yasakla
+              </Button>
+            </>
+          }
+        >
+          <Table
+            rowKey="cidr"
+            size="small"
+            loading={loading}
+            dataSource={bans}
+            columns={banColumns}
+            pagination={false}
+            tableLayout="fixed"
+            className="ct-admin-table-wrap"
+            locale={{ emptyText: "Yasaklı adres yok." }}
+          />
+        </AdminSection>
       ) : (
-        <>
-          <div className="ct-admin-filters">
-            <Input
-              placeholder="Davet kodu"
-              value={newCode}
-              onChange={(event) => setNewCode(event.target.value)}
-              maxLength={64}
-              style={{ maxWidth: 220 }}
-            />
-            <InputNumber
-              className="ct-input-number"
-              min={1}
-              max={10000}
-              value={newMaxUses}
-              onChange={(value) => setNewMaxUses(value)}
-              placeholder="Kullanım hakkı"
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => void addInvite()} disabled={newCode.trim().length < 3}>
-              Oluştur
-            </Button>
-          </div>
-          <div className="ct-admin-table-wrap">
-            <Table rowKey="code" size="small" loading={loading} dataSource={invites} columns={inviteColumns} pagination={false} />
-          </div>
-        </>
+        <AdminSection
+          title="Davet kodları"
+          description="Yalnızca davetle kayıt açıkken yeni hesap açmak için gereken kodlar."
+          icon={<KeyOutlined />}
+          hint={`${invites.length} kod`}
+          flush
+          toolbar={
+            <>
+              <Input
+                placeholder="Davet kodu"
+                value={newCode}
+                onChange={(event) => setNewCode(event.target.value)}
+                maxLength={64}
+                className="ct-admin-toolbar-filter"
+              />
+              <InputNumber
+                className="ct-input-number ct-admin-toolbar-number"
+                min={1}
+                max={10000}
+                value={newMaxUses}
+                onChange={(value) => setNewMaxUses(value)}
+                placeholder="Kullanım hakkı"
+              />
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => void addInvite()}
+                disabled={newCode.trim().length < 3}
+              >
+                Oluştur
+              </Button>
+            </>
+          }
+        >
+          <Table
+            rowKey="code"
+            size="small"
+            loading={loading}
+            dataSource={invites}
+            columns={inviteColumns}
+            pagination={false}
+            tableLayout="fixed"
+            className="ct-admin-table-wrap"
+            locale={{ emptyText: "Davet kodu yok." }}
+          />
+        </AdminSection>
       )}
     </div>
   );

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button } from "antd";
+import { Select, Switch, Button, Segmented } from "antd";
 import {
-  EyeOutlined,
-  EyeInvisibleOutlined,
+  CodeOutlined,
+  DashboardOutlined,
+  DesktopOutlined,
+  SoundOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "@/features/screen-share";
-import { PageHeader } from "@/ui/page-header";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 interface SettingsStreamProps {
@@ -170,116 +173,102 @@ export function SettingsStream({
   }, [draftStreamPreferences.frameRate, draftStreamPreferences.captureSystemAudio]);
 
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Yayın"
-        description="Yayın başlatılırken kullanılacak varsayılan kaliteyi belirleyebilirsin."
-      />
+    <SettingsPage
+      title="Yayın"
+      description="Ekranını paylaştığında yayının hangi kalitede ve hangi sesle gideceği."
+    >
+      <SettingsGroup
+        title="Yayın kalitesi"
+        description="Değişiklikler bir sonraki yayında geçerli olur."
+      >
+        <SettingsRow
+          icon={<DashboardOutlined />}
+          title="Kare hızı"
+          description="Oyun ve video için 60, sunum ve kod için 15-30 yeterli."
+        >
+          <Segmented
+            aria-label="Yayın kare hızı"
+            value={draftStreamPreferences.frameRate}
+            onChange={(value) => handlePreferenceChange("frameRate", value)}
+            options={[
+              { value: 15, label: "15 FPS" },
+              { value: 30, label: "30 FPS" },
+              { value: 60, label: "60 FPS" },
+            ]}
+            className="ct-segmented-premium"
+          />
+        </SettingsRow>
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Yayın Kalitesi</h5>
+        {/* The hardware-acceleration switch lives on another page, so the
+            description says where: the hint used to name it with no way to
+            find it. */}
+        <SettingsRow
+          icon={<CodeOutlined />}
+          title="Video codec"
+          description="Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8. O anahtar Genel › Performans altında."
+          htmlFor="settings-stream-codec"
+        >
+          <Select
+            id="settings-stream-codec"
+            value={draftStreamPreferences.videoCodec}
+            onChange={(value) => handlePreferenceChange("videoCodec", value)}
+            options={[
+              { value: "auto", label: "Otomatik (önerilen)" },
+              { value: "h264", label: "H.264 — en geniş donanım desteği" },
+              { value: "vp8", label: "VP8 — yazılım, en uyumlu" },
+              { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
+              { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
+            ]}
+            popupMatchSelectWidth={false}
+            className="ct-settings-row-select"
+          />
+        </SettingsRow>
 
-          <div className="ct-settings-two-col">
-            <div className="ct-settings-field">
-              <label className="ct-field-label" htmlFor="settings-stream-fps">
-                Yayın Kare Hızı
-              </label>
-              <Select
-                id="settings-stream-fps"
-                value={draftStreamPreferences.frameRate}
-                onChange={(value) => handlePreferenceChange("frameRate", value)}
-                options={[
-                  { value: 15, label: "15 FPS" },
-                  { value: 30, label: "30 FPS" },
-                  { value: 60, label: "60 FPS" },
-                ]}
-                className="ct-block-control"
-              />
-            </div>
+        <SettingsRow
+          icon={<SoundOutlined />}
+          title="Sistem sesini dahil et"
+          description="Bilgisayarında çalan ses yayına eklenir; izleyenler de duyar."
+        >
+          <Switch
+            checked={draftStreamPreferences.captureSystemAudio}
+            onChange={(checked) =>
+              handlePreferenceChange("captureSystemAudio", checked)
+            }
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-            <div className="ct-settings-field">
-              <label className="ct-field-label" htmlFor="settings-stream-codec">
-                Video Codec
-              </label>
-              <Select
-                id="settings-stream-codec"
-                value={draftStreamPreferences.videoCodec}
-                onChange={(value) => handlePreferenceChange("videoCodec", value)}
-                options={[
-                  { value: "auto", label: "Otomatik (önerilen)" },
-                  { value: "h264", label: "H.264 — en geniş donanım desteği" },
-                  { value: "vp8", label: "VP8 — yazılım, en uyumlu" },
-                  { value: "vp9", label: "VP9 — daha iyi sıkıştırma, ağır" },
-                  { value: "av1", label: "AV1 — en iyi sıkıştırma, en ağır" },
-                ]}
-                className="ct-block-control"
-              />
-              {/* The hardware-acceleration switch lives on another tab, so
-                  say where: the hint used to name it with no way to find it. */}
-              <span className="ct-field-hint">
-                Otomatik: donanım hızlandırma açıkken H.264, kapalıyken VP8. Bu
-                anahtar Uygulama {">"} Performans altındadır.
-                Değişiklik bir sonraki yayında geçerli olur.
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="ct-settings-subsection">
-          <h5>Yayın Sesi</h5>
-
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Ekran paylaşımında sistem sesini dahil et</strong>
-                <span>Tarayıcı izin veriyorsa sistem sesi yayına eklenir.</span>
-              </div>
-              <Switch
-                checked={draftStreamPreferences.captureSystemAudio}
-                onChange={(checked) =>
-                  handlePreferenceChange("captureSystemAudio", checked)
-                }
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="ct-settings-subsection">
-          {/* Same as the camera panel: the control that starts the preview sits
-              on the heading line, next to the preview it fills. */}
-          <div className="ct-settings-subsection-header">
-            <h5>Yayın Testi</h5>
-
-            <Button
-              icon={
-                streamTestStream ? <EyeInvisibleOutlined /> : <EyeOutlined />
+      {/* Same as the camera page: the control that starts the preview sits on
+          the title line of the card it fills. */}
+      <SettingsGroup
+        title="Önizleme"
+        description="Bir ekran ya da pencere seç; yayının seçili kare hızında nasıl görüneceğini burada izle."
+        action={
+          <Button
+            type={streamTestStream ? "default" : "primary"}
+            icon={streamTestStream ? <StopOutlined /> : <DesktopOutlined />}
+            onClick={() => {
+              if (streamTestStream) {
+                stopStreamTest();
+                toast.info("Yayın testi durduruldu.");
+                return;
               }
-              onClick={() => {
-                if (streamTestStream) {
-                  stopStreamTest();
-                  toast.info("Yayın testi durduruldu.");
-                  return;
-                }
 
-                void handleStartStreamTest();
-              }}
-              loading={isStartingStreamTest}
-              disabled={isStartingStreamTest}
-              danger={Boolean(streamTestStream)}
-            >
-              {streamTestStream
-                ? "Yayın Testini Durdur"
-                : "Yayın Testini Başlat"}
-            </Button>
-          </div>
-
+              void handleStartStreamTest();
+            }}
+            loading={isStartingStreamTest}
+            disabled={isStartingStreamTest}
+            danger={Boolean(streamTestStream)}
+          >
+            {streamTestStream ? "Durdur" : "Önizlemeyi başlat"}
+          </Button>
+        }
+      >
+        <div className="ct-settings-block">
           <div className="ct-media-preview">
             {process.env.NODE_ENV === "development" && devStats && (
               <div className="ct-media-preview-badge">
-                Dev Stats: {devStats.width}x{devStats.height} @ {devStats.fps}{" "}
-                FPS
+                {devStats.width}×{devStats.height} · {devStats.fps} FPS
               </div>
             )}
 
@@ -293,13 +282,14 @@ export function SettingsStream({
                 playsInline
               />
             ) : (
-              <p className="ct-media-preview-placeholder">
-                Yayın önizlemesi bu alanda görünecek.
-              </p>
+              <div className="ct-media-preview-placeholder">
+                <DesktopOutlined />
+                <span>Önizlemeyi başlatınca paylaştığın ekran burada görünür.</span>
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

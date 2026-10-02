@@ -280,7 +280,8 @@
 }
 
 .ct-list-user-meta p {
-  @apply m-0 flex min-w-0 items-center gap-1.5 truncate text-sm font-medium;
+  @apply m-0 flex min-w-0 items-center gap-1.5 truncate font-semibold leading-tight;
+  font-size: 13px;
   color: var(--ct-text-primary);
 }
 
@@ -439,10 +440,9 @@
 }
 
 .ct-quick-idle-logo {
-  @apply grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full border text-2xs font-bold;
-  border-color: var(--ct-alpha-12);
-  color: var(--ct-text-primary);
-  background: var(--ct-alpha-04);
+  @apply grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full text-2xs font-bold;
+  color: var(--ct-on-media);
+  background: oklch(0.55 0.12 var(--ct-name-h));
   letter-spacing: 0.06em;
 }
 
@@ -455,9 +455,17 @@
   color: var(--ct-text-primary);
 }
 
-.ct-quick-idle-meta span {
-  @apply block truncate text-micro font-semibold uppercase;
+.ct-quick-idle-status {
+  @apply flex min-w-0 items-center gap-1.5 text-2xs;
   color: var(--ct-text-muted);
+}
+
+.ct-quick-idle-dot {
+  @apply block h-1.5 w-1.5 shrink-0 rounded-full;
+}
+
+.ct-quick-idle-where {
+  @apply truncate;
 }
 
 .ct-quick-controls-inline {
@@ -563,11 +571,14 @@
   color: var(--ct-text-primary);
 }
 
+/* A navigation row, set like the settings and admin menus: 13px, muted until
+   it is the page on screen. */
 .ct-list-home {
-  @apply mb-1 flex w-full items-center gap-2 rounded-lg border-0 text-left text-sm font-semibold;
-  padding: 8px 12px;
+  @apply mb-1 flex w-full items-center gap-2.5 rounded-md border-0 text-left font-medium;
+  padding: 9px 12px;
+  font-size: 13px;
   background: transparent;
-  color: var(--ct-text-secondary);
+  color: var(--ct-text-muted);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -580,21 +591,9 @@
 }
 
 .ct-list-home.active {
-  position: relative;
   background: var(--ct-alpha-08);
   color: var(--ct-text-primary);
-}
-
-.ct-list-home.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 3px;
-  height: 16px;
-  translate: 0 -50%;
-  border-radius: 0 3px 3px 0;
-  background: var(--ct-accent);
+  font-weight: 600;
 }
 
 /* ==========================================================================

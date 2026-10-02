@@ -11,7 +11,7 @@ import type { AdminEmoteLibrary, CustomEmoteSummary } from "@shared/desktop-api-
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import adminService from "../services/admin-service";
 import { toErrorMessage } from "@shared/error-message";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { AdminPageHeader, AdminSection, adminDateTime } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 // The soundboard is the one member-level feature that writes to shared storage
@@ -111,11 +111,13 @@ export default function AdminSounds() {
     {
       title: "Ses",
       key: "name",
-      width: 280,
+      ellipsis: true,
       render: (_: unknown, record: CustomEmoteSummary) => (
         <div className="ct-admin-table-user">
-          <SoundOutlined className="ct-admin-muted" />
-          <div className="ct-admin-cell">
+          <span className="ct-admin-row-icon" aria-hidden="true">
+            <SoundOutlined />
+          </span>
+          <div className="ct-admin-person-text">
             <strong>{record.name}</strong>
             <span>{record.mimeType}</span>
           </div>
@@ -125,17 +127,16 @@ export default function AdminSounds() {
     {
       title: "Yükleyen",
       key: "owner",
-      width: 180,
+      width: 160,
+      ellipsis: true,
       render: (_: unknown, record: CustomEmoteSummary) => (
-        <Tag className="ct-tag info">
-          {record.ownerUsername ? `@${record.ownerUsername}` : usernameOf(record.ownerId)}
-        </Tag>
+        <span>{record.ownerUsername ? `@${record.ownerUsername}` : usernameOf(record.ownerId)}</span>
       ),
     },
     {
       title: "Boyut",
       key: "size",
-      width: 110,
+      width: 90,
       align: "right" as const,
       render: (_: unknown, record: CustomEmoteSummary) =>
         `${Math.max(1, Math.round(record.byteLength / 1024))} KB`,
@@ -144,13 +145,14 @@ export default function AdminSounds() {
       title: "Yüklenme",
       dataIndex: "createdAt",
       key: "createdAt",
-      width: 180,
-      render: (value: string) => new Date(value).toLocaleString("tr-TR"),
+      width: 150,
+      responsive: ["lg" as const],
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
-      title: "İşlemler",
+      title: "",
       key: "actions",
-      width: 100,
+      width: 64,
       align: "right" as const,
       render: (_: unknown, record: CustomEmoteSummary) => (
         <div className="ct-admin-actions">
@@ -189,11 +191,11 @@ export default function AdminSounds() {
           -- the 180px key/value chip grid -- so two cards full of controls
           were laid out on a track sized for a one-line label. */}
       <div className="ct-admin-grid-halves">
-        <AdminSection title="Genel Yükleme Hakkı" icon={<NumberOutlined />}>
-          <p className="ct-admin-muted">
-            Kendine özel bir hakkı olmayan herkes için geçerli. En fazla{" "}
-            {maxQuota}.
-          </p>
+        <AdminSection
+          title="Genel yükleme hakkı"
+          description={`Kendine özel hakkı olmayan herkesin yükleyebileceği ses sayısı. En fazla ${maxQuota}.`}
+          icon={<NumberOutlined />}
+        >
           <div className="ct-admin-quota-row">
             <div className="ct-admin-field">
               <label htmlFor="admin-global-quota">Hak</label>
@@ -217,14 +219,11 @@ export default function AdminSounds() {
         </AdminSection>
 
         <AdminSection
-          title="Kullanıcıya Özel Hak"
+          title="Kullanıcıya özel hak"
+          description="Bir kişi için genel hakkın yerine geçer. Kaldırılırsa o kişi genel hakka döner."
           icon={<UserOutlined />}
           hint={overrideRows.length > 0 ? `${overrideRows.length} istisna` : undefined}
         >
-          <p className="ct-admin-muted">
-            Bir kullanıcı için genel hakkı ezer. Kaldırılırsa o kullanıcı genel
-            hakka döner.
-          </p>
           <div className="ct-admin-quota-row">
             <div className="ct-admin-field grow">
               <label htmlFor="admin-quota-user">Kullanıcı</label>
@@ -302,7 +301,7 @@ export default function AdminSounds() {
       </div>
 
       <AdminSection
-        title="Yüklenmiş Sesler"
+        title="Yüklenmiş sesler"
         icon={<SoundOutlined />}
         hint={
           library
@@ -321,7 +320,7 @@ export default function AdminSounds() {
             showSizeChanger: true,
             showTotal: (count) => `${count} ses`,
           }}
-          scroll={{ x: "max-content" }}
+          tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Henüz ses yüklenmemiş." }}
         />

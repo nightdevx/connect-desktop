@@ -7,7 +7,7 @@ import {
   PhoneOutlined,
 } from "@ant-design/icons";
 import type { ChatMessage } from "@shared/auth-contracts";
-import { formatTimeLabel } from "../../workspace-utils";
+import { formatTimeLabel, getDisplayInitials, hueStyle } from "../../workspace-utils";
 import {
   callLogKind,
   formatCallDuration,
@@ -39,6 +39,8 @@ export interface DirectChatMessageRowProps {
   callLog?: CallLogInfo;
   /** "Geri ara" on a missed or declined call; absent while it cannot ring. */
   onCallBack?: () => void;
+  /** The author's picture, when there is one; their initials otherwise. */
+  avatarUrl?: string | null;
 }
 
 // Every prop except the four callbacks. `message` is compared by reference
@@ -58,7 +60,8 @@ const areRowPropsEqual = (
   previous.currentUserId === next.currentUserId &&
   previous.callLog?.hidden === next.callLog?.hidden &&
   previous.callLog?.durationSeconds === next.callLog?.durationSeconds &&
-  Boolean(previous.onCallBack) === Boolean(next.onCallBack);
+  Boolean(previous.onCallBack) === Boolean(next.onCallBack) &&
+  previous.avatarUrl === next.avatarUrl;
 
 /**
  * One rendered direct message.
@@ -162,6 +165,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   onToggleReaction,
   callLog,
   onCallBack,
+  avatarUrl,
 }: DirectChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
@@ -183,6 +187,8 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
     );
   }
 
+  const authorName = isOwnMessage ? currentUsername : peerLabel || message.username;
+
   const commitEdit = (): void => {
     const trimmed = editDraft.trim();
     setIsEditing(false);
@@ -193,51 +199,15 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
 
   return (
     <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
+      {/* A transcript, not two columns of bubbles: every message under its
+          author's face and name, the way the room chat reads. */}
+      <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(authorName)}
+      </span>
       <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
-        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
-
-        {isEditing ? (
-          <Input.TextArea
-            autoFocus
-            value={editDraft}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            onChange={(event) => setEditDraft(event.target.value)}
-            onBlur={commitEdit}
-            onPressEnter={(event) => {
-              if (event.shiftKey) {
-                return;
-              }
-              event.preventDefault();
-              commitEdit();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setEditDraft(message.body);
-                setIsEditing(false);
-              }
-            }}
-          />
-        ) : (
-          message.body && (
-            <ChatMessageBody body={message.body}>
-              {renderMessageBody(message.body, currentUsername)}
-            </ChatMessageBody>
-          )
-        )}
-
-        {message.attachment && (
-          <ChatAttachmentView attachment={message.attachment} />
-        )}
-
-        <ChatReactionBar
-          reactions={message.reactions ?? []}
-          currentUserId={currentUserId}
-          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
-        />
-
         <div className="ct-chat-bubble-meta">
           <span>
-            {isOwnMessage ? "Sen" : peerLabel} •{" "}
+            <b>{authorName}</b>
             {formatTimeLabel(message.createdAt)}
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
@@ -301,6 +271,46 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
             )}
           </span>
         </div>
+        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
+
+        {isEditing ? (
+          <Input.TextArea
+            autoFocus
+            value={editDraft}
+            autoSize={{ minRows: 1, maxRows: 6 }}
+            onChange={(event) => setEditDraft(event.target.value)}
+            onBlur={commitEdit}
+            onPressEnter={(event) => {
+              if (event.shiftKey) {
+                return;
+              }
+              event.preventDefault();
+              commitEdit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setEditDraft(message.body);
+                setIsEditing(false);
+              }
+            }}
+          />
+        ) : (
+          message.body && (
+            <ChatMessageBody body={message.body}>
+              {renderMessageBody(message.body, currentUsername)}
+            </ChatMessageBody>
+          )
+        )}
+
+        {message.attachment && (
+          <ChatAttachmentView attachment={message.attachment} />
+        )}
+
+        <ChatReactionBar
+          reactions={message.reactions ?? []}
+          currentUserId={currentUserId}
+          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
+        />
       </div>
     </div>
   );

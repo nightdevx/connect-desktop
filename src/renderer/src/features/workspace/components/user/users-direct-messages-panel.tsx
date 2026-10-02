@@ -21,7 +21,6 @@ import {
   PhoneOutlined,
   BellOutlined,
   BellFilled,
-  LeftOutlined,
   RightOutlined,
   MessageOutlined,
   CloseOutlined,
@@ -36,6 +35,7 @@ import {
   getDisplayInitials,
   getPresenceColor,
   getUserStatusLabel,
+  hueStyle,
 } from "../../workspace-utils";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import { ModalHeading } from "@/ui/modal-heading";
@@ -129,6 +129,8 @@ interface UsersDirectMessagesPanelProps {
   // only so the shell can be wired after this panel; the empty state is gone.
   friendsHome?: Omit<FriendsHomePanelProps, "currentUserId">;
   onCopyUsername: (username: string) => Promise<void>;
+  /** Back to the friends page; the conversation stays in the sidebar. */
+  onCloseConversation?: () => void;
   directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
   directMessages: UseDirectMessagesResult["directMessages"];
   messageDraft: string;
@@ -212,6 +214,7 @@ export function UsersDirectMessagesPanel({
   selectedUser,
   friendsHome,
   onCopyUsername,
+  onCloseConversation,
   directMessagesQuery,
   directMessages,
   messageDraft,
@@ -745,6 +748,7 @@ export function UsersDirectMessagesPanel({
                   message={message}
                   callLog={callLogInfo.get(message.id)}
                   onCallBack={handleCallBack}
+                  avatarUrl={message.userId === currentUserId ? undefined : selectedUser?.avatarUrl}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={deletingMessageId === message.id}
                   deleteDisabled={Boolean(deletingMessageId)}
@@ -929,7 +933,7 @@ export function UsersDirectMessagesPanel({
     // header, toolbar, list -- and its dividers have to reach the panel edge.
     // The thread view keeps the gutter it has always had.
     <article
-      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""} ${selectedUser ? "" : "friends-mode"}`}
+      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""} ${selectedUser ? (isCallActive ? "" : "dm") : "friends-mode"}`}
     >
       {selectedUser ? (
         <>
@@ -937,26 +941,8 @@ export function UsersDirectMessagesPanel({
             <div className="ct-call-split">
               {/* LEFT SIDE: EMBEDDED CALL STAGE */}
               <section className="ct-lobby-stage-panel ct-call-stage">
-                {/* Embedded Stage Toggle Chat Button */}
-                <button
-                  type="button"
-                  className="ct-lobby-chat-toggle in-stage"
-                  onClick={() => setViewPreference("callChatOpen", !isChatOpen)}
-                >
-                  {isChatOpen ? (
-                    <>
-                      <RightOutlined /> Sohbeti Kapat
-                    </>
-                  ) : (
-                    <>
-                      <LeftOutlined /> Sohbeti Aç
-                    </>
-                  )}
-                </button>
-
-                {/* What the call is doing, opposite the chat toggle: ringing
-                    while the other side has not picked up, then the running
-                    time. */}
+                {/* What the call is doing: ringing while the other side has
+                    not picked up, then the running time and the connection. */}
                 <span
                   className={`ct-call-stage-status ${callState?.status === "active" ? "" : "ringing"}`}
                   role="status"
@@ -1040,6 +1026,9 @@ export function UsersDirectMessagesPanel({
                   onSendEmote={handleSendEmote}
                   currentUserId={currentUserId}
                   currentUserRole={currentUserRole}
+                  onToggleChat={() => setViewPreference("callChatOpen", !isChatOpen)}
+                  isChatOpen={isChatOpen}
+                  leaveLabel="Aramayı bitir"
                 />
               </section>
 
@@ -1108,8 +1097,8 @@ export function UsersDirectMessagesPanel({
                   onClick={() => setIsUserPopupOpen(true)}
                   aria-label={`${selectedUser.displayName || selectedUser.username} profilini aç`}
                 >
-                  <span className="ct-user-avatar with-presence" aria-hidden="true">
-                    <span className="ct-user-avatar-core">
+                  <span className="ct-user-avatar with-presence" aria-hidden="true" style={hueStyle(selectedUser.userId)}>
+                    <span className="ct-user-avatar-core ct-hued">
                       {selectedUser.avatarUrl ? (
                         <img className="ct-user-avatar-image" src={selectedUser.avatarUrl} alt="" />
                       ) : (
@@ -1179,6 +1168,18 @@ export function UsersDirectMessagesPanel({
                       onClick={() => setIsUserPopupOpen(true)}
                     />
                   </Tooltip>
+
+                  {onCloseConversation && (
+                    <Tooltip title="Sohbeti kapat">
+                      <Button
+                        type="text"
+                        className="ct-row-action neutral"
+                        icon={<CloseOutlined />}
+                        aria-label="Sohbeti kapat"
+                        onClick={onCloseConversation}
+                      />
+                    </Tooltip>
+                  )}
                 </div>
               </header>
 

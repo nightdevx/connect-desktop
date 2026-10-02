@@ -1,6 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Table, Input, Button, Tag, Modal, Form, Select, Drawer, Space, Avatar, Popconfirm, Tooltip, Switch } from "antd";
+import { Table, Input, Button, Modal, Form, Select, Drawer, Space, Popconfirm, Tooltip, Switch } from "antd";
 import {
   SearchOutlined,
   EditOutlined,
@@ -13,7 +13,12 @@ import {
   UndoOutlined,
   AudioMutedOutlined,
   ReloadOutlined,
+  UserOutlined,
+  ThunderboltOutlined,
+  CheckCircleFilled,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
+import { getDisplayInitials, hueStyle } from "@/ui/person-style";
 import { ModalHeading } from "@/ui/modal-heading";
 import adminService from "../services/admin-service";
 import type {
@@ -25,7 +30,7 @@ import type {
 import { USER_RESTRICTIONS } from "@shared/auth-contracts";
 import { AdminUserRelationsPanel, AdminUserSessions } from "./admin-user-panels";
 import type { TablePaginationConfig } from "antd";
-import { AdminPageHeader } from "./admin-primitives";
+import { AdminPageHeader, AdminPerson, AdminSection, AdminState } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 interface EditUserFormValues {
@@ -48,6 +53,13 @@ interface ResetPasswordFormValues {
   password: string;
 }
 
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Sahip",
+  admin: "Yönetici",
+  moderator: "Moderatör",
+  member: "Üye",
+};
 
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
@@ -331,76 +343,78 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     {
       title: "Kullanıcı",
       key: "user",
-      width: 240,
+      ellipsis: true,
       render: (_value: unknown, record: AdminUserDetail) => (
-        <div className="ct-admin-table-user">
-          <Avatar src={record.avatarUrl} className="ct-admin-avatar">
-            {record.displayName[0]?.toUpperCase()}
-          </Avatar>
-          <div className="ct-admin-cell">
-            <strong>{record.displayName}</strong>
-            <span>@{record.username}</span>
-          </div>
-        </div>
+        <AdminPerson
+          userId={record.id}
+          name={record.displayName || record.username}
+          handle={`@${record.username}`}
+          avatarUrl={record.avatarUrl}
+        />
       ),
     },
     {
       title: "E-posta",
       key: "email",
-      width: 260,
-      render: (_value: unknown, record: AdminUserDetail) => (
-        <div className="ct-admin-cell">
-          <strong>{record.email || "—"}</strong>
-          {record.email ? (
-            <span
-              className={`ct-status-chip ${record.emailVerified ? "ok" : "warn"}`}
-            >
-              {record.emailVerified ? "Doğrulanmış" : "Doğrulanmamış"}
-            </span>
-          ) : null}
-        </div>
-      ),
+      ellipsis: true,
+      responsive: ["lg" as const],
+      render: (_value: unknown, record: AdminUserDetail) =>
+        record.email ? (
+          <span className="ct-admin-inline">
+            <Tooltip title={record.emailVerified ? "Doğrulanmış" : "Doğrulanmamış"}>
+              {record.emailVerified ? (
+                <CheckCircleFilled className="ct-icon-success" />
+              ) : (
+                <ExclamationCircleOutlined className="ct-icon-warning" />
+              )}
+            </Tooltip>
+            <span className="ct-admin-ellipsis">{record.email}</span>
+          </span>
+        ) : (
+          <span className="ct-admin-muted">—</span>
+        ),
     },
     {
       title: "Rol",
       dataIndex: "role",
       key: "role",
-      width: 110,
-      render: (role: string) => (
-        <Tag className={`ct-tag ${role === "admin" ? "warn" : "info"}`}>
-          {role === "admin" ? "Yönetici" : "Üye"}
-        </Tag>
+      width: 120,
+      render: (role: UserRole) => (
+        <AdminState tone={role === "member" ? "muted" : "info"}>
+          {ROLE_LABELS[role] ?? role}
+        </AdminState>
       ),
     },
     {
       title: "Durum",
       key: "status",
-      width: 150,
+      width: 130,
       // A pending deletion used to be visible only as a tenth icon appearing
       // in the action row; it belongs in the column that answers "what is going
       // on with this account".
-      render: (_value: unknown, record: AdminUserDetail) => (
-        <Space size={4} wrap>
-          <Tag className={`ct-tag ${record.bannedAt ? "danger" : "success"}`}>
-            {record.bannedAt ? "Yasaklı" : "Aktif"}
-          </Tag>
-          {record.deletionScheduledAt ? (
-            <Tag className="ct-tag warn">Silinecek</Tag>
-          ) : null}
-        </Space>
+      render: (_value: unknown, record: AdminUserDetail) =>
+        record.bannedAt ? (
+          <AdminState tone="danger">Yasaklı</AdminState>
+        ) : record.deletionScheduledAt ? (
+          <AdminState tone="warn">Silinecek</AdminState>
+        ) : (
+          <AdminState tone="ok">Aktif</AdminState>
+        ),
+    },
+    {
+      title: "Kayıt",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      width: 110,
+      responsive: ["xl" as const],
+      render: (date: string) => (
+        <span className="ct-admin-muted">{new Date(date).toLocaleDateString("tr-TR")}</span>
       ),
     },
     {
-      title: "Kayıt Tarihi",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      width: 130,
-      render: (date: string) => new Date(date).toLocaleDateString("tr-TR"),
-    },
-    {
-      title: "İşlemler",
+      title: "",
       key: "actions",
-      width: 160,
+      width: 152,
       align: "right" as const,
       render: (_value: unknown, record: AdminUserDetail) => {
         const isSelf = record.id === currentUserId;
@@ -417,8 +431,8 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 type="text"
                 icon={<EditOutlined />}
                 onClick={() => handleEditClick(record)}
-                className="ct-icon-info"
                 disabled={isSelf}
+                aria-label="Düzenle"
               />
             </Tooltip>
             <Tooltip
@@ -432,8 +446,8 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 type="text"
                 icon={<LockOutlined />}
                 onClick={() => handleResetPasswordClick(record)}
-                className="ct-icon-warning"
                 disabled={isSelf}
+                aria-label="Şifre sıfırla"
               />
             </Tooltip>
             <Popconfirm
@@ -454,9 +468,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               >
                 <Button
                   type="text"
-                  icon={<StopOutlined />}
-                  className={record.bannedAt ? "ct-icon-success" : "ct-icon-danger"}
+                  icon={record.bannedAt ? <UndoOutlined /> : <StopOutlined />}
                   disabled={isSelf}
+                  aria-label={record.bannedAt ? "Yasağı kaldır" : "Yasakla"}
                 />
               </Tooltip>
             </Popconfirm>
@@ -481,6 +495,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                   danger
                   icon={<DeleteOutlined />}
                   disabled={record.role === "admin" || isSelf}
+                  aria-label="Sil"
                 />
               </Tooltip>
             </Popconfirm>
@@ -493,7 +508,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   return (
     <div className="ct-admin-page">
       <AdminPageHeader
-        title="Kullanıcı Yönetimi"
+        title="Kullanıcılar"
         description="Kullanıcı hesaplarını görüntüleyin, düzenleyin, şifrelerini sıfırlayın veya yasaklayın."
         actions={
           <Button
@@ -506,84 +521,112 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         }
       />
 
-      {/* Filters only. "Yenile" moved to the page header, where it is on this
-          screen the same button in the same place as on the other six -- it
-          used to be the one refresh control that lived inside the filter bar. */}
-      <div className="ct-admin-toolbar">
-        <Input
-          allowClear
-          placeholder="İsim, kullanıcı adı veya e-posta ara..."
-          prefix={<SearchOutlined className="ct-admin-muted" />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="ct-admin-toolbar-search"
-        />
+      {/* One card: the search and filters on its top band, the table under
+          them. "Yenile" stays in the page header, in the same place as on every
+          other screen. */}
+      <AdminSection
+        title="Hesaplar"
+        icon={<UserOutlined />}
+        hint={`${total} kullanıcı`}
+        flush
+        toolbar={
+          <>
+            <Input
+              allowClear
+              placeholder="İsim, kullanıcı adı veya e-posta ara..."
+              prefix={<SearchOutlined className="ct-admin-muted" />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="ct-admin-toolbar-search"
+            />
 
-        {/* No dropdownStyle here or anywhere else on this screen: it hardcoded
-            #1f1f1f, which is the one colour the theme cannot reach — every
-            filter menu stayed dark on a light page. The ConfigProvider already
-            paints these. */}
-        <Select
-          value={roleFilter}
-          onChange={setRoleFilter}
-          className="ct-admin-toolbar-filter"
-          options={[
-            { value: "all", label: "Tüm Roller" },
-            { value: "admin", label: "Yöneticiler" },
-            { value: "member", label: "Üyeler" },
-          ]}
-        />
+            {/* No dropdownStyle here or anywhere else on this screen: it
+                hardcoded #1f1f1f, which is the one colour the theme cannot
+                reach. The ConfigProvider already paints these. */}
+            <Select
+              value={roleFilter}
+              onChange={setRoleFilter}
+              className="ct-admin-toolbar-filter"
+              options={[
+                { value: "all", label: "Tüm roller" },
+                { value: "admin", label: "Yöneticiler" },
+                { value: "member", label: "Üyeler" },
+              ]}
+            />
 
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          className="ct-admin-toolbar-filter"
-          options={[
-            { value: "all", label: "Tüm Durumlar" },
-            { value: "active", label: "Aktif Kullanıcılar" },
-            { value: "banned", label: "Yasaklı Kullanıcılar" },
-          ]}
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              className="ct-admin-toolbar-filter"
+              options={[
+                { value: "all", label: "Tüm durumlar" },
+                { value: "active", label: "Aktif" },
+                { value: "banned", label: "Yasaklı" },
+              ]}
+            />
+          </>
+        }
+      >
+        <Table
+          size="middle"
+          dataSource={users}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          onChange={handleTableChange}
+          locale={{
+            emptyText: searchText
+              ? "Bu aramayla eşleşen kullanıcı yok."
+              : "Henüz kullanıcı yok.",
+          }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (count) => `${count} kullanıcı`,
+          }}
+          // No scroll.y: a viewport height for a table inside the panel cut the
+          // last row in half and pushed the pagination off the bottom. The page
+          // scrolls instead; scroll.x keeps the columns from crushing.
+          //
+          // ponytail: no sticky header; pass antd's `sticky` a getContainer
+          // pointing at .ct-admin-panel-content if the loss is felt.
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
         />
-      </div>
-
-      {/* Users Table */}
-      <Table
-        dataSource={users}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        onChange={handleTableChange}
-        locale={{
-          emptyText: searchText
-            ? "Bu aramayla eşleşen kullanıcı yok."
-            : "Henüz kullanıcı yok.",
-        }}
-        pagination={{
-          current: currentPage,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: ["10", "20", "50", "100"],
-          showTotal: (count) => `${count} kullanıcı`,
-        }}
-        // No scroll.y. It was calc(100vh - 260px) — a VIEWPORT height for a
-        // table that lives inside the admin panel, below the titlebar, the page
-        // padding, a header and a toolbar. The body was therefore always taller
-        // than the space it had, which cut the last row in half and pushed the
-        // pagination off the bottom.
-        //
-        // ponytail: the page scrolls instead of the table body. That costs a
-        // sticky header; give the table one by passing antd's `sticky` a
-        // getContainer pointing at .ct-admin-panel-content if the loss is felt.
-        // scroll.x keeps the six columns from crushing on a narrow window.
-        scroll={{ x: "max-content" }}
-        className="ct-admin-table-wrap"
-      />
+      </AdminSection>
 
       {/* Edit Drawer */}
       <Drawer
         rootClassName="ct-admin-drawer"
-        title={editingUser ? `@${editingUser.username}` : "Kullanıcı"}
+        title={
+          editingUser ? (
+            <div className="ct-admin-drawer-title">
+              {/* A span, not antd's Avatar: the drawer mounts hidden, and Avatar
+                  measures its initials at mount -- in a zero-width box it
+                  scaled them down to a speck. */}
+              <span
+                className="ct-admin-face large ct-hued"
+                style={hueStyle(editingUser.id)}
+                aria-hidden="true"
+              >
+                {editingUser.avatarUrl ? (
+                  <img src={editingUser.avatarUrl} alt="" />
+                ) : (
+                  getDisplayInitials(editingUser.displayName || editingUser.username)
+                )}
+              </span>
+              <div>
+                <strong>{editingUser.displayName}</strong>
+                <span>@{editingUser.username}</span>
+              </div>
+            </div>
+          ) : (
+            "Kullanıcı"
+          )
+        }
         placement="right"
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
@@ -597,7 +640,13 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
           </Space>
         }
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={handleEditSubmit}
+          className="ct-admin-drawer-form"
+        >
+          <h4 className="ct-admin-form-heading">Profil</h4>
           <Form.Item
             name="username"
             label="Kullanıcı Adı"
@@ -636,6 +685,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             <Input.TextArea rows={3} />
           </Form.Item>
 
+          <h4 className="ct-admin-form-heading">Yetki ve gizlilik</h4>
           <Form.Item name="role" label="Sistem Rolü" rules={[{ required: true }]}>
             <Select
               options={[
@@ -672,6 +722,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
           {/* A ban was the only tool for "stop changing your name every ten
               minutes", and it is far too big for that. Each switch here closes
               one field on the account's own settings screen and nothing else. */}
+          <h4 className="ct-admin-form-heading">Kısıtlamalar ve not</h4>
           <Form.Item
             name="restrictions"
             label="Kapatılan Düzenlemeler"
@@ -706,8 +757,12 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             immediately — none of them is part of the form above, so "Kaydet"
             has nothing to do with them. */}
         {editingUser ? (
-          <div className="ct-admin-field">
-            <label>Hesap İşlemleri</label>
+          <section className="ct-admin-drawer-block">
+            <header>
+              <h4>
+                <ThunderboltOutlined /> Hesap işlemleri
+              </h4>
+            </header>
             <div className="ct-admin-action-list">
               <Popconfirm
                 title={`@${editingUser.username} kullanıcısının tüm oturumlarını kapatmak istediğinize emin misiniz?`}
@@ -780,7 +835,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 </Popconfirm>
               ) : null}
             </div>
-          </div>
+          </section>
         ) : null}
       </Drawer>
 

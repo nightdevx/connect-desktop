@@ -425,7 +425,8 @@
    on it is on-media white in both themes -- --ct-text-primary turns near-black
    in the light one. */
 .ct-call-dock-avatar.fallback {
-  background: linear-gradient(135deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
+  border-color: transparent;
+  background: oklch(0.55 0.12 var(--ct-name-h));
   color: var(--ct-on-media);
 }
 

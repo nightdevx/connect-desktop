@@ -5,7 +5,6 @@ import { Dropdown, Modal, Input, InputNumber, Switch, Select, Tag } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
-  AudioOutlined,
   AudioMutedOutlined,
   CustomerServiceOutlined,
   VideoCameraOutlined,
@@ -634,17 +633,16 @@ export function LobbiesSidebarPanel({
                 </span>
               )}
 
-              {!lobby.isTextOnly && seatCount > 0 && (
+              {/* Every voice room says how full it is, an empty one too:
+                  "0/6" is an answer, a missing count was a question. */}
+              {!lobby.isTextOnly && (
                 <span
                   className="ct-lobby-row-count"
                   title={
                     lobby.capacity ? "Üye sayısı / kapasite" : "Üye sayısı"
                   }
                 >
-                  <TeamOutlined />
-                  {lobby.capacity
-                    ? `${seatCount} / ${lobby.capacity}`
-                    : seatCount}
+                  {lobby.capacity ? `${seatCount}/${lobby.capacity}` : seatCount}
                 </span>
               )}
             </button>
@@ -855,17 +853,16 @@ export function LobbiesSidebarPanel({
                                 whether or not their microphone is open. Amber
                                 rather than the red a moderator mute uses —
                                 different act, different consequence. */}
+                            {/* Only what is out of the ordinary: an open
+                                microphone and working headphones are what
+                                everybody has, and a column of them on every row
+                                buried the states worth seeing. */}
                             {locallyMuted ? (
                               <AudioMutedOutlined
                                 className="ct-lobby-member-flag self-muted"
                                 title="Siz susturdunuz (sağ tık: sesi aç)"
                               />
-                            ) : micOpen ? (
-                              <AudioOutlined
-                                className="ct-lobby-member-flag on"
-                                title="Mikrofon açık"
-                              />
-                            ) : (
+                            ) : micOpen ? null : (
                               <AudioMutedOutlined
                                 className={`ct-lobby-member-flag ${member.serverMuted ? "forced" : "off"}`}
                                 title={
@@ -881,14 +878,10 @@ export function LobbiesSidebarPanel({
                                 crossed-out speaker -- a different device. The
                                 bot has no ears; only the speaker icon above
                                 says anything true about it. */}
-                            {!isBot && (
+                            {!isBot && !headphoneOpen && (
                               <CustomerServiceOutlined
-                                className={`ct-lobby-member-flag ${
-                                  headphoneOpen ? "on" : "off ct-icon-slashed"
-                                }`}
-                                title={
-                                  headphoneOpen ? "Kulaklık açık" : "Kulaklık kapalı"
-                                }
+                                className="ct-lobby-member-flag off ct-icon-slashed"
+                                title="Kulaklık kapalı"
                               />
                             )}
 

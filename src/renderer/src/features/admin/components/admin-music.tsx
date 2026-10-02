@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Popconfirm, Select, Table, Tag, Tooltip } from "antd";
+import { Alert, Button, Popconfirm, Select, Table, Tooltip } from "antd";
 import {
   CustomerServiceOutlined,
   DeleteOutlined,
@@ -10,7 +10,7 @@ import type { AdminUserDetail } from "@shared/auth-contracts";
 import type { MusicDJ } from "@shared/music";
 import { toErrorMessage } from "@shared/error-message";
 import adminService from "../services/admin-service";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
+import { AdminPageHeader, AdminPerson, AdminSection, adminDateTime } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 export default function AdminMusic() {
@@ -96,33 +96,33 @@ export default function AdminMusic() {
     {
       title: "Kullanıcı",
       key: "user",
+      ellipsis: true,
       render: (_: unknown, record: MusicDJ) => (
-        <div className="ct-admin-table-user">
-          <CustomerServiceOutlined className="ct-admin-muted" />
-          <div className="ct-admin-cell">
-            <strong>{record.displayName || record.username || record.userId}</strong>
-            <span>{record.username ? `@${record.username}` : record.userId}</span>
-          </div>
-        </div>
+        <AdminPerson
+          userId={record.userId}
+          name={record.displayName || record.username || record.userId}
+          handle={record.username ? `@${record.username}` : record.userId}
+        />
       ),
     },
     {
       title: "Yetkiyi veren",
       key: "grantedBy",
-      width: 200,
-      render: (_: unknown, record: MusicDJ) => <Tag className="ct-tag info">{nameOf(record.grantedBy)}</Tag>,
+      width: 170,
+      ellipsis: true,
+      render: (_: unknown, record: MusicDJ) => <span>{nameOf(record.grantedBy)}</span>,
     },
     {
       title: "Tarih",
       dataIndex: "grantedAt",
       key: "grantedAt",
-      width: 180,
-      render: (value: string) => (value ? new Date(value).toLocaleString("tr-TR") : "-"),
+      width: 150,
+      render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
-      title: "İşlemler",
+      title: "",
       key: "actions",
-      width: 100,
+      width: 64,
       align: "right" as const,
       render: (_: unknown, record: MusicDJ) => (
         <div className="ct-admin-actions">
@@ -172,11 +172,12 @@ export default function AdminMusic() {
       ) : null}
 
       <AdminSection
-        title="DJ Yetkileri"
+        title="DJ yetkileri"
+        description="Bu kişiler odalarda müzik botuna şarkı ekleyip kuyruğu yönetebilir."
         icon={<CustomerServiceOutlined />}
         hint={`${djs.length} kişi`}
-        action={
-          <div className="ct-admin-actions">
+        toolbar={
+          <>
             <Select
               showSearch
               allowClear
@@ -185,7 +186,7 @@ export default function AdminMusic() {
               options={candidates}
               placeholder="Kullanıcı seç"
               optionFilterProp="label"
-              style={{ minWidth: 260 }}
+              className="ct-admin-toolbar-filter wide"
               disabled={disabled}
             />
             <Button
@@ -197,21 +198,21 @@ export default function AdminMusic() {
             >
               Yetki ver
             </Button>
-          </div>
+          </>
         }
         flush
       >
-        <div className="ct-admin-table-wrap">
-          <Table
-            rowKey="userId"
-            size="small"
-            loading={loading}
-            dataSource={djs}
-            columns={columns}
-            pagination={false}
-            locale={{ emptyText: "Henüz DJ yetkisi verilmiş kimse yok" }}
-          />
-        </div>
+        <Table
+          tableLayout="fixed"
+          rowKey="userId"
+          size="small"
+          loading={loading}
+          dataSource={djs}
+          columns={columns}
+          pagination={false}
+          className="ct-admin-table-wrap"
+          locale={{ emptyText: "Henüz DJ yetkisi verilmiş kimse yok." }}
+        />
       </AdminSection>
     </div>
   );

@@ -8,7 +8,7 @@ import {
 } from "@ant-design/icons";
 import { authService } from "@/features/auth";
 import { ModalHeading } from "@/ui/modal-heading";
-import { PageHeader } from "@/ui/page-header";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
@@ -132,24 +132,42 @@ export function SettingsSecurity() {
   };
 
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Güvenlik"
-        description="Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını silebilirsin."
-      />
-
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Şifre</h5>
-
-          <div className="ct-settings-form-group">
+    <SettingsPage
+      title="Güvenlik"
+      description="Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını silebilirsin."
+    >
+      <SettingsGroup
+        title="Şifre"
+        description="Yeni şifren en az 8 karakter olmalı."
+        footer={
+          <Button
+            type="primary"
+            icon={<SafetyOutlined />}
+            onClick={() => {
+              void handleChangePassword();
+            }}
+            loading={isChangingPassword}
+            // An empty form has nothing to submit, and a button that is
+            // clickable there only exists to produce a warning toast.
+            disabled={
+              isChangingPassword ||
+              !currentPassword ||
+              !newPassword ||
+              !confirmPassword
+            }
+          >
+            Şifreyi değiştir
+          </Button>
+        }
+      >
+        <div className="ct-settings-block">
+          <div className="ct-settings-fields">
             <div className="ct-settings-field">
               <label
                 className="ct-field-label"
                 htmlFor="settings-current-password"
               >
-                Mevcut Şifre
+                Mevcut şifre
               </label>
               <Input.Password
                 id="settings-current-password"
@@ -157,13 +175,13 @@ export function SettingsSecurity() {
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 autoComplete="current-password"
-                placeholder="Mevcut şifrenizi girin"
+                placeholder="Mevcut şifren"
               />
             </div>
 
             <div className="ct-settings-field">
               <label className="ct-field-label" htmlFor="settings-new-password">
-                Yeni Şifre
+                Yeni şifre
               </label>
               <Input.Password
                 id="settings-new-password"
@@ -171,7 +189,7 @@ export function SettingsSecurity() {
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 autoComplete="new-password"
-                placeholder="Yeni şifrenizi girin"
+                placeholder="Yeni şifren"
               />
             </div>
 
@@ -180,7 +198,7 @@ export function SettingsSecurity() {
                 className="ct-field-label"
                 htmlFor="settings-confirm-password"
               >
-                Yeni Şifre (Tekrar)
+                Yeni şifre (tekrar)
               </label>
               <Input.Password
                 id="settings-confirm-password"
@@ -188,70 +206,46 @@ export function SettingsSecurity() {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 autoComplete="new-password"
-                placeholder="Yeni şifrenizi tekrar girin"
+                placeholder="Yeni şifreni tekrar yaz"
               />
             </div>
           </div>
-
-          <div className="ct-settings-actions">
-            <Button
-              type="primary"
-              icon={<SafetyOutlined />}
-              onClick={() => {
-                void handleChangePassword();
-              }}
-              loading={isChangingPassword}
-              // An empty form has nothing to submit, and a button that is
-              // clickable there only exists to produce a warning toast.
-              disabled={
-                isChangingPassword ||
-                !currentPassword ||
-                !newPassword ||
-                !confirmPassword
-              }
-            >
-              Şifreyi Değiştir
-            </Button>
-          </div>
         </div>
+      </SettingsGroup>
 
-        <div className="ct-settings-subsection">
-          <h5>Hesap Verileri</h5>
-          <p className="ct-field-hint">
-            Profil bilgilerinizi ve engel listenizi JSON olarak indirin. Sohbet
-            geçmişi dahil değildir: mesajlar karşı tarafla ortak veridir.
-          </p>
-          <div className="ct-settings-actions">
-            <Button
-              icon={<DownloadOutlined />}
-              loading={isExporting}
-              onClick={() => {
-                void handleExportData();
-              }}
-            >
-              Verilerimi İndir
-            </Button>
-          </div>
-        </div>
+      <SettingsGroup title="Hesap verileri">
+        <SettingsRow
+          icon={<DownloadOutlined />}
+          title="Verilerimi indir"
+          description="Profil bilgilerin ve engel listen JSON olarak indirilir. Sohbet geçmişi dahil değildir: mesajlar karşı tarafla ortak veridir."
+        >
+          <Button
+            icon={<DownloadOutlined />}
+            loading={isExporting}
+            onClick={() => {
+              void handleExportData();
+            }}
+          >
+            İndir
+          </Button>
+        </SettingsRow>
+      </SettingsGroup>
 
-        <div className="ct-settings-subsection danger">
-          <h5>Hesabı Sil</h5>
-          <p className="ct-field-hint">
-            Hesabınız hemen devre dışı bırakılır ve {DELETION_GRACE_DAYS} gün
-            sonra kalıcı olarak silinir. Bu süre içinde giriş yaparsanız hesabınız
-            geri gelir.
-          </p>
-          <div className="ct-settings-actions">
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => setIsDeleteModalOpen(true)}
-            >
-              Hesabımı Sil
-            </Button>
-          </div>
-        </div>
-      </div>
+      <SettingsGroup title="Tehlikeli bölge" tone="danger">
+        <SettingsRow
+          icon={<DeleteOutlined />}
+          title="Hesabı sil"
+          description={`Hesabın hemen devre dışı kalır ve ${DELETION_GRACE_DAYS} gün sonra kalıcı olarak silinir. Bu süre içinde giriş yaparsan hesabın geri gelir.`}
+        >
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => setIsDeleteModalOpen(true)}
+          >
+            Hesabımı sil
+          </Button>
+        </SettingsRow>
+      </SettingsGroup>
 
       {/* rootClassName, like every other dialog in the app. Without it this one
           modal rendered in Ant Design's own chrome -- a different surface, a
@@ -283,7 +277,6 @@ export function SettingsSecurity() {
         }}
       >
         <div className="ct-modal-form">
-
           <div className="ct-settings-field">
             <label className="ct-field-label" htmlFor="settings-delete-password">
               Şifreniz
@@ -309,8 +302,6 @@ export function SettingsSecurity() {
           </div>
         </div>
       </Modal>
-    </div>
+    </SettingsPage>
   );
 }
-
-

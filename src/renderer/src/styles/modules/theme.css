@@ -172,16 +172,12 @@
   transition: box-shadow var(--ct-duration-base) ease;
 }
 
-.ct-lobby-participant-tile.speaking .ct-lobby-tile-userline p {
-  color: var(--ct-success);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* The ring belongs to the tile, not the face inside it. */
+/* The face picks up the ring too: the tile's edge says who, the face says it
+   from across the stage. */
 .ct-lobby-participant-tile.speaking .ct-lobby-avatar-container.ant-avatar {
-  box-shadow: none;
-  border-color: var(--ct-alpha-12);
+  box-shadow:
+    0 10px 26px var(--ct-shadow-color),
+    0 0 0 3px color-mix(in srgb, var(--ct-success) 55%, transparent);
 }
 
 /* ------------------------------------------------------------------ *

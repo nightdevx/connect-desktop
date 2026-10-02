@@ -66,9 +66,10 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
   return (
     <section className="ct-live-tables" aria-label="Canlı masalar">
       <header className="ct-live-tables-head">
-        <h5>
-          <WifiOutlined aria-hidden="true" /> Canlı Masalar
-        </h5>
+        <span className="ct-rail-card-icon" aria-hidden="true">
+          <WifiOutlined />
+        </span>
+        <h5>Canlı masalar</h5>
         <span className="ct-live-tables-count">{tables.length}</span>
       </header>
 
@@ -102,9 +103,11 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
                   <span className="ct-live-table-icon" aria-hidden="true">
                     {entry.icon}
                   </span>
-                  {entry.label}
-                  <span className="ct-live-table-state" data-state={stateOf(table)}>
-                    {STATE_LABELS[stateOf(table)]}
+                  <span className="ct-live-table-title">
+                    <strong>{entry.label}</strong>
+                    <span className="ct-live-table-state" data-state={stateOf(table)}>
+                      {STATE_LABELS[stateOf(table)]}
+                    </span>
                   </span>
                   {spectatorsOf(table).length > 0 ? (
                     <span
@@ -179,9 +182,9 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
 type TableState = "playing" | "waiting" | "finished";
 
 const STATE_LABELS: Record<TableState, string> = {
-  playing: "oynanıyor",
-  waiting: "bekliyor",
-  finished: "bitti",
+  playing: "Oynanıyor",
+  waiting: "Oyuncu bekliyor",
+  finished: "Bitti",
 };
 
 function stateOf(table: MinigameTable): TableState {

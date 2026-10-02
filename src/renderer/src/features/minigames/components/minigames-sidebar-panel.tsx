@@ -62,7 +62,7 @@ function MinigameGroup({
 
   return (
     <section className="ct-minigames-group">
-      <h5 className="ct-minigames-group-title">{title}</h5>
+      <span className="ct-list-group-title">{title}</span>
       <nav className="ct-minigames-tabs" role="tablist" aria-label={title}>
         {visible.map((entry) => {
           const isActive = selected === entry.id;
@@ -74,6 +74,10 @@ function MinigameGroup({
           const seats = seatsOf(entry.id);
 
           return (
+            // One line, like every other menu in the app: the icon, the name,
+            // and at the far end the one fact worth a glance -- your record at
+            // the difficulty the game is set to, or how many it seats. The
+            // description is the row's hover hint.
             <button
               key={entry.id}
               type="button"
@@ -81,39 +85,31 @@ function MinigameGroup({
               aria-selected={isActive}
               className={`ct-minigames-tab ${isActive ? "active" : ""}`}
               onClick={() => select(entry.id)}
+              title={entry.description}
             >
               <span className="ct-minigames-tab-icon" aria-hidden="true">
                 {entry.icon}
               </span>
 
-              <span className="ct-minigames-tab-body">
-                <span className="ct-minigames-tab-label">
-                  {entry.label}
-                  {/* Only where it says something the group title does not: a
-                      2-4 game inside "Kalabalık" needs its range, a fixed
-                      three-hander needs its number, and a duel needs neither. */}
-                  {seats && seats.max > 2 ? (
-                    <span className="ct-minigames-tab-seats">
-                      {seats.min === seats.max
-                        ? `${seats.max} kişi`
-                        : `${seats.min}-${seats.max} kişi`}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="ct-minigames-tab-description">{entry.description}</span>
+              <span className="ct-minigames-tab-label">{entry.label}</span>
 
-                {/* Absent, not zero: a game never played at this difficulty has
-                    no record, and "0" is a real score in several of the ones
-                    that keep one. */}
-                {best !== undefined && entry.formatScore ? (
-                  <span className="ct-minigames-tab-best">
-                    <span className="ct-minigames-tab-best-scope">
-                      {DIFFICULTY_LABELS[difficulty]}
-                    </span>
-                    {entry.formatScore(best)}
-                  </span>
-                ) : null}
-              </span>
+              {/* Absent, not zero: a game never played at this difficulty has
+                  no record, and "0" is a real score in several of the ones that
+                  keep one. */}
+              {best !== undefined && entry.formatScore ? (
+                <span
+                  className="ct-minigames-tab-best"
+                  title={`${DIFFICULTY_LABELS[difficulty]} rekorun`}
+                >
+                  {entry.formatScore(best)}
+                </span>
+              ) : seats && seats.max > 2 ? (
+                // Only where it says something the group title does not: a 2-4
+                // game inside "Kalabalık" needs its range, a duel needs nothing.
+                <span className="ct-minigames-tab-seats">
+                  {seats.min === seats.max ? `${seats.max} kişi` : `${seats.min}-${seats.max}`}
+                </span>
+              ) : null}
             </button>
           );
         })}

@@ -1,8 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import type { BadgeProps } from "antd";
-import { Spin, Alert, List, Tag, Badge, Tooltip, Button } from "antd";
+import { Spin, Alert, Tag, Tooltip, Button } from "antd";
 import {
   UserOutlined,
   GlobalOutlined,
@@ -10,30 +8,26 @@ import {
   TeamOutlined,
   CalendarOutlined,
   DatabaseOutlined,
-  ThunderboltOutlined,
   ArrowUpOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   PieChartOutlined,
   LineChartOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent } from "@shared/auth-contracts";
-import { AdminPageHeader, AdminSection } from "./admin-primitives";
-
-interface StatCard {
-  tone: "violet" | "emerald" | "blue" | "amber" | "red";
-  label: string;
-  value: number;
-  icon: ReactNode;
-  hint: ReactNode;
-}
+import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import {
+  AdminPageHeader,
+  AdminRefreshedAt,
+  AdminSection,
+  AdminStatGrid,
+  type AdminStat,
+} from "./admin-primitives";
 
 // The five metric tiles differed only in colour and copy, so they were five
 // near-identical blocks of inline styles. One shape, one data array.
-const buildStatCards = (stats: AdminStats | null): StatCard[] => [
+const buildStatCards = (stats: AdminStats | null): AdminStat[] => [
   {
     tone: "violet",
     label: "Toplam Kullanıcı",
@@ -75,23 +69,22 @@ const buildStatCards = (stats: AdminStats | null): StatCard[] => [
     label: "Bugünkü Olaylar",
     value: stats?.todayEvents ?? 0,
     icon: <CalendarOutlined />,
-    hint: "Son 24 saat lobi aktiviteleri",
+    hint: "Son 24 saatteki oda olayları",
   },
 ];
 
-// antd Badge status is a fixed union — "purple" is a Tag preset colour, not a
-// status, so `as any` was hiding a value antd silently ignores. Typed, so the
-// next label that wants a new colour fails to compile instead of rendering grey.
-const EVENT_LABELS: Record<
-  string,
-  { badge: BadgeProps["status"]; text: string }
-> = {
-  join: { badge: "success", text: "giriş yaptı" },
-  leave: { badge: "error", text: "çıkış yaptı" },
-  create: { badge: "default", text: "oda oluşturdu" },
-  delete: { badge: "warning", text: "odayı sildi" },
-  edit: { badge: "processing", text: "odayı güncelledi" },
+// The tone is a feed dot's colour: the same three meanings the tags use
+// everywhere else in the panel.
+const EVENT_LABELS: Record<string, { tone: string; text: string }> = {
+  join: { tone: "ok", text: "odaya girdi" },
+  leave: { tone: "danger", text: "odadan çıktı" },
+  create: { tone: "info", text: "oda oluşturdu" },
+  delete: { tone: "warn", text: "odayı sildi" },
+  edit: { tone: "info", text: "odayı güncelledi" },
 };
+
+const DESCRIPTION =
+  "Sunucunun anlık durumu, kullanıcılar ve oda hareketliliği. Sayfa 10 saniyede bir kendini yeniler.";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -141,19 +134,20 @@ export default function AdminDashboard() {
   const header = (
     <AdminPageHeader
       title="Genel Bakış"
-      description="Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel bakış. Sayfa 10 saniyede bir kendini yeniler."
+      description={DESCRIPTION}
       actions={
-        <Button icon={<ReloadOutlined />} onClick={() => void fetchDashboardData()}>
-          Yenile
-        </Button>
+        <>
+          <AdminRefreshedAt at={refreshedAt} failed={Boolean(error)} />
+          <Button icon={<ReloadOutlined />} onClick={() => void fetchDashboardData()}>
+            Yenile
+          </Button>
+        </>
       }
     />
   );
 
   if (loading && !stats) {
     return (
-      // `tip` only renders in antd's nested or fullscreen pattern, so on a bare
-      // Spin it was dropped and the typo in it never showed up either.
       <div className="ct-admin-page">
         {header}
         <div className="ct-admin-center-state">
@@ -209,58 +203,40 @@ export default function AdminDashboard() {
   const linePath = points.map((p: { x: number; y: number; val: number }, i: number) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - padding} L ${points[0].x} ${chartHeight - padding} Z`;
 
+  const dbState =
+    stats?.dbStatus === "connected"
+      ? { tone: "ok", text: "PostgreSQL · bağlı" }
+      : stats?.dbStatus === "in_memory"
+        ? { tone: "warn", text: "Bellek içi · kalıcı değil" }
+        : { tone: "danger", text: "PostgreSQL · bağlantı yok" };
+  const liveKitState =
+    stats?.liveKitStatus === "connected"
+      ? { tone: "ok", text: "Bağlı" }
+      : { tone: "danger", text: "Bağlantı yok" };
+  const modeText =
+    stats?.envMode === "production"
+      ? "Üretim (production)"
+      : stats?.envMode === "test"
+        ? "Test"
+        : "Geliştirme (development)";
+
   return (
     <div className="ct-admin-page">
-      <AdminPageHeader
-        title="Genel Bakış"
-        description="Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel bakış. Sayfa 10 saniyede bir kendini yeniler."
-        actions={
-          <>
-            {error || refreshedAt ? (
-              <span className="ct-admin-section-hint">
-                {error
-                  ? "Yenilenemedi — son bilinen veriler"
-                  : `Güncellendi ${refreshedAt?.toLocaleTimeString("tr-TR")}`}
-              </span>
-            ) : null}
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => void fetchDashboardData()}
-            >
-              Yenile
-            </Button>
-          </>
-        }
-      />
+      {header}
 
-      <div className="ct-stat-grid">
-        {buildStatCards(stats).map((card) => (
-          <article key={card.label} className={`ct-stat-card ${card.tone}`}>
-            <div className="ct-stat-card-top">
-              <div>
-                <span className="ct-stat-label">{card.label}</span>
-                <span className="ct-stat-value">{card.value}</span>
-              </div>
-              <span className="ct-stat-icon" aria-hidden="true">
-                {card.icon}
-              </span>
-            </div>
-            <div className="ct-stat-hint">{card.hint}</div>
-          </article>
-        ))}
-      </div>
+      <AdminStatGrid stats={buildStatCards(stats)} />
 
       {/* A plain CSS grid, not antd's <Row gutter>. The gutter is a negative
           margin on the row plus a matching padding on each column, so these
           cards used to hang 8px past both edges of the stat grid above. */}
       <div className="ct-admin-grid-split">
         <AdminSection
-          title="Lobi Olay Hareketliliği"
+          title="Oda hareketliliği"
+          description="Saat başına giriş, çıkış ve oda olayları."
           icon={<LineChartOutlined />}
           hint="Son 12 saat"
         >
           <div className="ct-chart-body">
-            <div className="ct-chart-caption">Saat başına olay sayısı</div>
             <div className="ct-chart-plot">
               <svg
                 viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -310,15 +286,16 @@ export default function AdminDashboard() {
         </AdminSection>
 
         <AdminSection
-          title="Kullanıcı Rol Dağılımı"
+          title="Kullanıcılar"
+          description="Rollere göre dağılım."
           icon={<PieChartOutlined />}
           footer={
             <>
               <span>
-                Doğrulanmış e-posta: <strong>%{verifiedPercentage}</strong>
+                Doğrulanmış e-posta <strong>%{verifiedPercentage}</strong>
               </span>
               <span>
-                Yasaklı üye: <strong>{bannedCount}</strong>
+                Yasaklı <strong>{bannedCount}</strong>
               </span>
             </>
           }
@@ -326,10 +303,8 @@ export default function AdminDashboard() {
           <div className="ct-donut-row">
             <div className="ct-donut">
               <svg viewBox="0 0 100 100" width="100%" height="100%">
-                {/* Outer circle background */}
                 <circle className="ct-donut-track" cx="50" cy="50" r={radius} fill="transparent" strokeWidth="10" />
 
-                {/* Members arc */}
                 <circle
                   className="ct-donut-arc members"
                   cx="50"
@@ -341,7 +316,6 @@ export default function AdminDashboard() {
                   strokeLinecap="round"
                 />
 
-                {/* Admins arc */}
                 <circle
                   className="ct-donut-arc admins"
                   cx="50"
@@ -364,15 +338,15 @@ export default function AdminDashboard() {
               <div className="ct-legend-item">
                 <span className="ct-legend-dot admins" />
                 <div>
-                  <strong>Yöneticiler ({adminCount})</strong>
-                  <span>%{adminPercentage} pay</span>
+                  <strong>Yöneticiler · {adminCount}</strong>
+                  <span>%{adminPercentage}</span>
                 </div>
               </div>
               <div className="ct-legend-item">
                 <span className="ct-legend-dot members" />
                 <div>
-                  <strong>Üyeler ({memberCount})</strong>
-                  <span>%{memberPercentage} pay</span>
+                  <strong>Üyeler · {memberCount}</strong>
+                  <span>%{memberPercentage}</span>
                 </div>
               </div>
             </div>
@@ -382,110 +356,90 @@ export default function AdminDashboard() {
 
       <div className="ct-admin-grid-halves">
         <AdminSection
-          title="Canlı Aktivite Akışı"
+          title="Son olaylar"
+          description="Odalara son girenler, çıkanlar ve oda değişiklikleri."
           icon={<ClockCircleOutlined />}
-          hint={recentEvents.length > 0 ? `Son ${recentEvents.length} olay` : undefined}
+          hint={recentEvents.length > 0 ? `${recentEvents.length} olay` : undefined}
+          flush
         >
           {recentEvents.length === 0 ? (
-            <div className="ct-admin-center-state">
-              Henüz sistem aktivitesi loglanmadı.
+            <div className="ct-admin-empty-state">
+              <ClockCircleOutlined />
+              <strong>Henüz olay yok</strong>
+              <span>Biri bir odaya girdiğinde burada görünür.</span>
             </div>
           ) : (
-            <List
-              className="ct-activity-list"
-              dataSource={recentEvents}
-              renderItem={(item) => {
+            <ul className="ct-admin-feed">
+              {recentEvents.map((item) => {
                 const label = EVENT_LABELS[item.eventType] ?? {
-                  badge: "default",
-                  text: item.eventType.toUpperCase(),
+                  tone: "info",
+                  text: item.eventType,
                 };
 
                 return (
-                  <List.Item>
-                    <div className="ct-activity-row">
-                      <div className="ct-activity-row-main">
-                        <Badge status={label.badge} />
-                        <strong>@{item.username}</strong>
-                        <span>{label.text}</span>
-                        <Tag className="ct-tag">{item.lobbyName}</Tag>
-                      </div>
-                      <span className="ct-activity-time">
-                        {new Date(item.occurredAt).toLocaleTimeString("tr-TR")}
+                  <li key={item.id}>
+                    <span
+                      className="ct-admin-face ct-hued"
+                      style={hueStyle(item.userId)}
+                      aria-hidden="true"
+                    >
+                      {getDisplayInitials(item.username)}
+                    </span>
+                    <div className="ct-admin-feed-text">
+                      <span>
+                        <strong>@{item.username}</strong> {label.text}
+                      </span>
+                      <span className="ct-admin-feed-meta">
+                        <span className={`ct-admin-status-dot ${label.tone}`} />
+                        {item.lobbyName}
                       </span>
                     </div>
-                  </List.Item>
+                    <time className="ct-admin-feed-time">
+                      {new Date(item.occurredAt).toLocaleTimeString("tr-TR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </li>
                 );
-              }}
-            />
+              })}
+            </ul>
           )}
         </AdminSection>
 
         <AdminSection
-          title="Sistem Durumu & Yapılandırma"
+          title="Sistem durumu"
+          description="Sunucunun bağlı olduğu servisler ve adresleri."
           icon={<DatabaseOutlined />}
+          flush
         >
-          <div className="ct-admin-kv-grid">
-            <div className="ct-admin-kv">
-              <span>Veritabanı Servisi</span>
-              <strong>
-                {stats?.dbStatus === "connected" ? (
-                  <>
-                    <CheckCircleOutlined className="ct-icon-success" />
-                    PostgreSQL (Bağlı)
-                  </>
-                ) : stats?.dbStatus === "in_memory" ? (
-                  <>
-                    <CheckCircleOutlined className="ct-icon-warning" />
-                    SQLite (Bellek İçi)
-                  </>
-                ) : (
-                  <>
-                    <CloseCircleOutlined className="ct-icon-danger" />
-                    PostgreSQL (Bağlantı Yok)
-                  </>
-                )}
-              </strong>
-            </div>
-
-            <div className="ct-admin-kv">
-              <span>LiveKit Video/Ses Sunucusu</span>
-              <strong>
-                {stats?.liveKitStatus === "connected" ? (
-                  <>
-                    <ThunderboltOutlined className="ct-icon-warning" />
-                    Aktif / Bağlı
-                  </>
-                ) : (
-                  <>
-                    <CloseCircleOutlined className="ct-icon-danger" />
-                    Bağlantı Yok
-                  </>
-                )}
-              </strong>
-            </div>
-
-            <div className="ct-admin-kv">
-              <span>Çalışma Modu</span>
-              <strong>
-                {stats?.envMode === "production"
-                  ? "Üretim (Production)"
-                  : stats?.envMode === "test"
-                    ? "Test"
-                    : "Geliştirme (Development)"}
-              </strong>
-            </div>
-          </div>
-
-          <div className="ct-admin-kv-grid">
-            <div className="ct-admin-kv plain">
-              <span>Bağlantı Adresi</span>
-              <strong>{stats?.apiUrl || "http://127.0.0.1:4000"}</strong>
-            </div>
-            <div className="ct-admin-kv plain">
-              <span>LiveKit URL</span>
-              <strong>{stats?.liveKitUrl || "wss://livekitservice..."}</strong>
-            </div>
-          </div>
+          <ul className="ct-admin-status-list">
+            <li>
+              <span className={`ct-admin-status-dot ${dbState.tone}`} />
+              <strong>Veritabanı</strong>
+              <span>{dbState.text}</span>
+            </li>
+            <li>
+              <span className={`ct-admin-status-dot ${liveKitState.tone}`} />
+              <strong>LiveKit ses/görüntü sunucusu</strong>
+              <span>{liveKitState.text}</span>
+            </li>
+            <li>
+              <span className="ct-admin-status-dot info" />
+              <strong>Çalışma modu</strong>
+              <Tag className="ct-tag">{modeText}</Tag>
+            </li>
+            <li>
+              <span className="ct-admin-status-dot" />
+              <strong>API adresi</strong>
+              <code className="ct-admin-mono">{stats?.apiUrl || "—"}</code>
+            </li>
+            <li>
+              <span className="ct-admin-status-dot" />
+              <strong>LiveKit adresi</strong>
+              <code className="ct-admin-mono">{stats?.liveKitUrl || "—"}</code>
+            </li>
+          </ul>
         </AdminSection>
       </div>
     </div>

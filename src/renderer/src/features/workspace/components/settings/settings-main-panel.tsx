@@ -17,6 +17,7 @@ import type {
 interface SettingsMainPanelProps {
   settingsSection: SettingsSection;
   currentUsername: string;
+  currentUserId: string;
   onLogout: () => void;
   isLoggingOut: boolean;
   cameraPreferences: CameraPreferences;
@@ -32,6 +33,7 @@ interface SettingsMainPanelProps {
 export function SettingsMainPanel({
   settingsSection,
   currentUsername,
+  currentUserId,
   onLogout,
   isLoggingOut,
   cameraPreferences,
@@ -67,6 +69,7 @@ export function SettingsMainPanel({
       {settingsSection === "profile" && (
         <SettingsProfile
           currentUsername={currentUsername}
+          currentUserId={currentUserId}
           onLogout={onLogout}
           isLoggingOut={isLoggingOut}
         />

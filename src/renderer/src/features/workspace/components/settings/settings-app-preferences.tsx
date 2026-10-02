@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "antd";
 import type { DesktopAppPreferences } from "@shared/desktop-api-types";
 import { toast } from "@/services/toast";
+import { SettingsRow } from "./settings-layout";
 
 const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -145,7 +146,21 @@ const toAccelerator = (event: KeyboardEvent): string | null => {
   return parts.join("+");
 };
 
+// What is stored is for Electron and KeyboardEvent; what is shown is what is
+// printed on the keys: "CommandOrControl+Shift+M" reads "Ctrl + Shift + M",
+// "KeyV" reads "V".
+const formatHotkey = (value: string): string =>
+  value
+    .split("+")
+    .map((part) =>
+      part === "CommandOrControl"
+        ? "Ctrl"
+        : part.replace(/^Key(?=[A-Z]$)/, "").replace(/^Digit(?=\d$)/, ""),
+    )
+    .join(" + ");
+
 interface HotkeyCaptureFieldProps {
+  icon?: ReactNode;
   label: string;
   hint: string;
   value: string;
@@ -161,6 +176,7 @@ interface HotkeyCaptureFieldProps {
 }
 
 export function HotkeyCaptureField({
+  icon,
   label,
   hint,
   value,
@@ -213,22 +229,18 @@ export function HotkeyCaptureField({
   }, [capturing, mode, onChange]);
 
   return (
-    <div className={`ct-settings-row${detail ? " detail" : ""}`}>
-      <div className="ct-settings-row-text">
-        <strong>{label}</strong>
-        <span>{hint}</span>
-      </div>
+    <SettingsRow icon={icon} title={label} description={hint} detail={detail}>
       <Button
         disabled={disabled}
         onClick={() => setCapturing((previous) => !previous)}
-        className="ct-hotkey-button"
+        className={`ct-hotkey-button${capturing ? " capturing" : ""}${value ? "" : " empty"}`}
         // The button's own label is the whole state of this control, and it
         // changes without the pointer moving -- a screen reader is told about
         // it here or not at all.
         aria-live="polite"
       >
-        {capturing ? "Tuşa basın…" : value || "Atanmadı"}
+        {capturing ? "Tuşa bas…" : value ? formatHotkey(value) : "Atanmadı"}
       </Button>
-    </div>
+    </SettingsRow>
   );
 }

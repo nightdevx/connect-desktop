@@ -20,8 +20,17 @@
    and the legend wraps under its own donut. Everything else on those screens
    is auto-fit and reflows without a query. */
 @media (max-width: 1100px) {
-  .ct-admin-grid-split {
+  .ct-admin-grid-split,
+  .ct-admin-minigames-toggles {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-admin-minigames-toggles > li:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .ct-admin-minigames-toggles > li:nth-last-child(2):nth-child(odd) {
+    border-bottom: 1px solid var(--ct-alpha-08);
   }
 
   /* The games rail narrows before anything else on that page does.
@@ -55,10 +64,6 @@
      gutter is a fifth of a 720px-wide panel. */
   .ct-admin-panel-shell {
     --ct-admin-block: 16px;
-  }
-
-  .ct-admin-sidebar-header {
-    @apply pb-3;
   }
 
   /* A 350px chat drawer beside the call stage leaves too little for video. */
@@ -223,10 +228,6 @@
     @apply hidden;
   }
 
-  .ct-lobby-room-action-label {
-    @apply hidden;
-  }
-
   /* The controls step down through their one size variable, so the stream
      chevron welded to the share button shrinks with it. */
   .ct-lobby-stage-actions {
@@ -234,9 +235,6 @@
     --ct-tool-size: 40px;
   }
 
-  .ct-chat-bubble {
-    max-width: 92%;
-  }
 }
 
 /* A short window (the minimum is 480px tall) has no room for the connection

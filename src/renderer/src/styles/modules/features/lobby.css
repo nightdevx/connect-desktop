@@ -335,9 +335,9 @@
 
 .ct-lobby-member-avatar.ant-avatar {
   @apply shrink-0 border;
-  border-color: var(--ct-alpha-12);
-  background: var(--ct-surface-3);
-  color: var(--ct-text-primary);
+  border-color: transparent;
+  background: oklch(0.55 0.12 var(--ct-name-h));
+  color: var(--ct-on-media);
   font-size: 8px;
   font-weight: 700;
   transition:
@@ -854,11 +854,6 @@
   color: var(--ct-warning);
 }
 
-.ct-lobby-room-meta {
-  @apply flex shrink-0 items-center gap-3 text-2xs font-medium;
-  color: var(--ct-text-muted);
-}
-
 .ct-lobby-room-meta-item {
   @apply inline-flex items-center gap-1.5 tabular-nums;
 }
@@ -881,6 +876,16 @@
   box-shadow: 0 0 8px color-mix(in srgb, var(--ct-success) 60%, transparent);
 }
 
+.ct-lobby-room-status {
+  @apply shrink-0 text-2xs font-medium;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-room-identity .ct-lobby-room-meta-item {
+  @apply ml-1 text-2xs font-medium;
+  color: var(--ct-text-muted);
+}
+
 /* The time spent in the room, in a pill like the other live counts. */
 .ct-lobby-room-status.timer {
   @apply h-6 rounded-full border px-2.5 text-xs font-semibold;
@@ -889,15 +894,8 @@
   background: var(--ct-panel-soft);
 }
 
-/* --------------------------------------------------------------------------
-   Pills: the room header's chat button, the stage's show/hide-others control,
-   and the call panel's own chat toggle. One geometry, declared once -- these
-   used to be two identical blocks that had to be kept in step by hand.
-   -------------------------------------------------------------------------- */
-
-.ct-lobby-room-action,
-.ct-lobby-stage-hint,
-.ct-lobby-chat-toggle {
+/* The stage's show/hide-others control, a pill over the stage. */
+.ct-lobby-stage-hint {
   @apply inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold;
   border-color: var(--ct-border);
   color: var(--ct-alpha-70);
@@ -906,26 +904,10 @@
   transition: all var(--ct-duration-fast) ease;
 }
 
-.ct-lobby-room-action:hover,
-.ct-lobby-stage-hint:hover,
-.ct-lobby-chat-toggle:hover {
+.ct-lobby-stage-hint:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
   background: var(--ct-panel-strong);
-}
-
-.ct-lobby-room-action.on {
-  color: var(--ct-text-primary);
-}
-
-.ct-lobby-room-action-label {
-  @apply truncate;
-}
-
-/* Still used by the direct-message call panel, which keeps its toggle over the
-   stage; the lobby's moved into the header above. */
-.ct-lobby-chat-toggle.in-stage {
-  @apply absolute right-4 top-4 z-30;
 }
 
 /* --------------------------------------------------------------------------
@@ -1139,25 +1121,17 @@
    Avatar writes its size inline, so these have to win with !important. */
 @container participant-tile (max-width: 520px) {
   .ct-lobby-tile-center-logo .ant-avatar {
-    width: 104px !important;
-    height: 104px !important;
-    font-size: 32px;
-  }
-}
-
-@container participant-tile (max-width: 420px) {
-  .ct-lobby-tile-center-logo .ant-avatar {
-    width: 88px !important;
-    height: 88px !important;
-    font-size: 27px;
+    width: 72px !important;
+    height: 72px !important;
+    font-size: 24px;
   }
 }
 
 @container participant-tile (max-width: 330px) {
   .ct-lobby-tile-center-logo .ant-avatar {
-    width: 68px !important;
-    height: 68px !important;
-    font-size: 21px;
+    width: 56px !important;
+    height: 56px !important;
+    font-size: 19px;
   }
 }
 
@@ -1167,22 +1141,17 @@
   }
 
   .ct-lobby-tile-center-logo .ant-avatar {
-    width: 52px !important;
-    height: 52px !important;
-    font-size: 16px;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 15px;
+  }
+
+  .ct-lobby-tile-userline {
+    @apply h-[22px] px-2;
   }
 
   .ct-lobby-tile-userline p {
     font-size: 11px;
-  }
-
-  .ct-lobby-flag {
-    width: 22px;
-    height: 22px;
-  }
-
-  .ct-lobby-tile-footer {
-    padding: 8px 10px;
   }
 }
 
@@ -1467,25 +1436,23 @@
   object-fit: contain;
 }
 
-/* Centred in what is LEFT of the tile, not in the tile: the footer covers the
-   bottom ~44px, and a face centred against the whole box sat low and, at the
-   larger avatar sizes, ran under the name. */
+/* Centred a little above the middle: the name pill sits at the bottom-left,
+   and a face centred against the whole box sat low beside it. */
 .ct-lobby-tile-center-logo {
-  @apply absolute inset-0 grid place-items-center pb-7;
+  @apply absolute inset-0 grid place-items-center pb-5;
   color: var(--ct-text-primary);
-  opacity: 0.88;
   transition: opacity 0.2s ease;
 }
 
+/* The face in its owner's colour (--ct-name-h, hueStyle), white initials. */
 .ct-lobby-avatar-container.ant-avatar {
-  border: 1.5px solid var(--ct-alpha-12);
-  background: var(--ct-surface-4);
-  color: var(--ct-text-primary);
+  border: 0;
+  background: oklch(0.55 0.12 var(--ct-name-h));
+  color: var(--ct-on-media);
   font-weight: 700;
-  box-shadow: var(--ct-shadow-sm);
-  transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+  text-transform: uppercase;
+  box-shadow: 0 10px 26px var(--ct-shadow-color);
+  transition: box-shadow 0.2s ease;
 }
 
 .ct-lobby-tile-center-logo.media-on {
@@ -1499,33 +1466,16 @@
     0 0 0 3px var(--ct-alpha-08);
 }
 
-/* The footer has two completely different grounds under it, and it used to
-   assume the first one always.
-     - Over a camera or a screen share the ground is a picture, so the scrim is
-       black and its contents are white — in BOTH themes, because the picture
-       has no theme.
-     - With no stream the ground is the tile itself, which is a dark panel in
-       the dark theme and a near-white one in the light theme. A black gradient
-       there was a black bar across the bottom of a white card, and the name and
-       icons on it are themed, so in the light theme they came out black on
-       black: a participant tile whose name simply could not be read.
-   :has() is what tells them apart — .ct-lobby-video-container is rendered only
-   when there is something to play. */
+/* The footer is one pill at the bottom-left on a dark glass: it carries its
+   own ground, so it reads over a camera, a screen and the bare tile alike, in
+   both themes. pointer-events only on the pill, so the rest of the strip still
+   reaches the tile (focus, the context menu). */
 .ct-lobby-tile-footer {
-  @apply absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3.5 py-2.5;
-  background: linear-gradient(
-    0deg,
-    var(--ct-panel-solid) 15%,
-    transparent 100%
-  );
-}
-
-.ct-lobby-participant-tile:has(.ct-lobby-video-container) .ct-lobby-tile-footer {
-  background: linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.88) 15%,
-    rgba(0, 0, 0, 0.12) 100%
-  );
+  @apply pointer-events-none absolute flex items-end;
+  left: var(--ct-tile-inset);
+  right: var(--ct-tile-inset);
+  bottom: var(--ct-tile-inset);
+  z-index: 11;
 }
 
 .ct-lobby-participant-tile.focused {
@@ -1542,98 +1492,54 @@
 }
 
 .ct-lobby-tile-userline {
-  @apply min-w-0;
+  @apply pointer-events-auto inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5;
+  height: 26px;
+  color: var(--ct-on-media);
+  background: var(--ct-scrim);
+  backdrop-filter: blur(8px);
 }
 
 .ct-lobby-tile-userline p {
-  @apply m-0 truncate text-sm font-semibold;
-  color: var(--ct-text-primary);
+  @apply m-0 min-w-0 truncate text-xs font-semibold;
+  color: inherit;
 }
 
-.ct-lobby-tile-flags {
-  @apply inline-flex shrink-0 items-center gap-1;
+/* "SEN" on your own tile. */
+.ct-lobby-tile-you {
+  @apply shrink-0 rounded-full px-1.5 font-bold leading-4;
+  font-size: 10px;
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
 }
 
+/* The status icons inside the pill: bare glyphs in the pill's white, coloured
+   only when they say something -- a closed microphone or deafened output red,
+   a voice you muted for yourself amber, a bad connection amber or red. */
 .ct-lobby-flag {
-  @apply inline-flex h-control-xs w-control-xs items-center justify-center rounded-sm border;
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: var(--ct-panel-strong);
-  font-size: var(--ct-icon-xs);
+  @apply inline-flex shrink-0 items-center justify-center;
+  color: inherit;
+  font-size: 12px;
 }
 
-/* The name is bare text with nothing behind it but the scrim, so it is the one
-   thing that has to switch grounds with it. See the footer above.
-
-   The status chips below do NOT need this: each one carries its own opaque
-   ground, so it reads on a picture and on a panel alike. */
-.ct-lobby-participant-tile:has(.ct-lobby-video-container)
-  .ct-lobby-tile-userline
-  p {
-  color: var(--ct-on-media);
-}
-
-/* The variant drives the icon colour, so the JSX stops passing a hex per
-   glyph. "muted" is the viewer's own choice, "inactive" is the participant's. */
 .ct-lobby-flag .anticon {
   color: inherit;
 }
 
-/* Every variant's wash is mixed into --ct-panel-strong rather than into
-   `transparent`, which is what keeps a chip opaque.
-   A transparent 10% wash means the ground shows through, and the ground here is
-   either a video frame or the tile — so in the light theme a dark-green "mic
-   open" icon ended up sitting on whatever black frame happened to be playing
-   behind it. Opaque, the chip carries its own contrast onto any ground and
-   needs no second set of rules for the media case. */
-.ct-lobby-flag.active {
-  border-color: color-mix(in srgb, var(--ct-success) 32%, transparent);
-  color: var(--ct-success);
-  background: color-mix(in srgb, var(--ct-success) 12%, var(--ct-panel-strong));
-}
-
 .ct-lobby-flag.inactive {
-  border-color: var(--ct-border);
-  color: var(--ct-text-muted);
-  background: var(--ct-panel-strong);
+  color: var(--ct-danger);
 }
 
-/* "I muted them", not "they are muted". Amber keeps it apart from a moderator
-   mute, and apart from the plain grey of a microphone the person closed
-   themselves — the same three-way the sidebar row draws. */
 .ct-lobby-flag.muted {
-  border-color: color-mix(in srgb, var(--ct-warning) 38%, transparent);
   color: var(--ct-warning);
-  background: color-mix(in srgb, var(--ct-warning) 14%, var(--ct-panel-strong));
 }
 
-.ct-lobby-flag.signal {
-  border-color: var(--ct-accent-strong);
-  color: var(--ct-text-primary);
-  background: color-mix(in srgb, var(--ct-accent) 10%, var(--ct-panel-strong));
-}
-
-/* Connection quality, straight off LiveKit's per-participant signal. Only the
-   bad states are drawn: a chip on everyone all the time is noise, and the whole
-   point is answering "is it them or is it me" at a glance. "good" is amber
-   rather than green for the same reason — it only appears when quality has
-   already dropped off excellent. */
-.ct-lobby-flag.ct-quality-good {
-  border-color: color-mix(in srgb, var(--ct-warning) 30%, transparent);
-  color: var(--ct-warning);
-  background: color-mix(in srgb, var(--ct-warning) 10%, var(--ct-panel-strong));
-}
-
+.ct-lobby-flag.ct-quality-good,
 .ct-lobby-flag.ct-quality-poor {
-  border-color: color-mix(in srgb, var(--ct-warning) 44%, transparent);
   color: var(--ct-warning);
-  background: color-mix(in srgb, var(--ct-warning) 18%, var(--ct-panel-strong));
 }
 
 .ct-lobby-flag.ct-quality-lost {
-  border-color: color-mix(in srgb, var(--ct-danger) 46%, transparent);
   color: var(--ct-danger);
-  background: color-mix(in srgb, var(--ct-danger) 18%, var(--ct-panel-strong));
 }
 
 .ct-lobby-flag.ct-quality-unknown,
@@ -1704,7 +1610,21 @@
   transform: scale(0.94);
 }
 
-/* Open right now (the emote board). */
+/* The unread count on the chat button, on its corner. */
+.ct-lobby-action-btn .ct-tool-badge {
+  @apply absolute;
+  top: -4px;
+  right: -4px;
+  margin: 0;
+  border: 2px solid var(--ct-panel-raised);
+  box-sizing: content-box;
+}
+
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn:has(.ct-tool-badge) {
+  position: relative;
+}
+
+/* Open right now (the emote board, the chat). */
 .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active,
 .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active:hover:not(:disabled) {
   color: var(--ct-text-inverse);
@@ -1770,6 +1690,7 @@
 @container lobby-stage (max-width: 700px) {
   .ct-lobby-stage-actions {
     @apply gap-1.5 px-2.5;
+    --ct-tool-size: 40px;
   }
 
   .ct-lobby-action-divider {

@@ -7,7 +7,8 @@ import {
   PlayCircleOutlined,
   YoutubeOutlined,
   VideoCameraOutlined,
-  LogoutOutlined,
+  MessageOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 
 import { AudioDeviceDropdown } from "../../common/AudioDeviceDropdown";
@@ -48,6 +49,14 @@ interface LobbyActionToolbarProps {
   musicDisabled?: boolean;
   onOpenWatch?: () => void;
   watchDisabled?: boolean;
+  // The chat column beside the stage, opened and closed from here -- the one
+  // row of controls for everything in the room. Absent where there is none.
+  onToggleChat?: () => void;
+  isChatOpen?: boolean;
+  /** Messages that arrived while the chat was closed. */
+  chatUnreadCount?: number;
+  /** "Lobiden Ayrıl" in a room, "Aramayı bitir" in a call. */
+  leaveLabel?: string;
 }
 
 export function LobbyActionToolbar({
@@ -78,6 +87,10 @@ export function LobbyActionToolbar({
   musicDisabled,
   onOpenWatch,
   watchDisabled,
+  onToggleChat,
+  isChatOpen = false,
+  chatUnreadCount = 0,
+  leaveLabel = "Lobiden Ayrıl",
 }: LobbyActionToolbarProps) {
   return (
     // Three groups, not one run of six. "Lobiden Ayrıl" used to sit flush
@@ -135,6 +148,22 @@ export function LobbyActionToolbar({
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />
 
+      {cameraDisabled && !cameraEnabled ? null : (
+        <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
+          {/* It used to look the same on and off. On, it is filled in the
+              brand blue with a red "live" dot in the corner. */}
+          <Button
+            size="large"
+            className={`ct-lobby-action-btn ${cameraEnabled ? "live-cam" : ""}`}
+            icon={<VideoCameraOutlined />}
+            onClick={onToggleCamera}
+            aria-pressed={cameraEnabled}
+          >
+            {cameraEnabled && <span className="ct-live-badge" aria-hidden="true" />}
+          </Button>
+        </Tooltip>
+      )}
+
       {/* While a share is live the single toggle splits in two: stopping it and
           adjusting it were the same click, so there was no way to change
           quality or screen without dropping the stream first. */}
@@ -168,23 +197,16 @@ export function LobbyActionToolbar({
         </Tooltip>
       )}
 
-      {cameraDisabled && !cameraEnabled ? null : (
-        <Tooltip title={cameraEnabled ? "Kamerayı Kapat" : "Kamerayı Aç"}>
-          {/* It used to look the same on and off. On, it is filled in the
-              brand blue with a red "live" dot in the corner. */}
-          <Button
-            size="large"
-            className={`ct-lobby-action-btn ${cameraEnabled ? "live-cam" : ""}`}
-            icon={<VideoCameraOutlined />}
-            onClick={onToggleCamera}
-            aria-pressed={cameraEnabled}
-          >
-            {cameraEnabled && <span className="ct-live-badge" aria-hidden="true" />}
-          </Button>
-        </Tooltip>
-      )}
-
       <span className="ct-lobby-action-divider" aria-hidden="true" />
+
+      {emotesDisabled ? null : (
+        <SoundEmoteMenu
+          onSend={onSendEmote}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          disabled={isLeavingLobby}
+        />
+      )}
 
       {onOpenMusic && !musicDisabled ? (
         <Tooltip title="Müzik">
@@ -208,22 +230,35 @@ export function LobbyActionToolbar({
         </Tooltip>
       ) : null}
 
-      {emotesDisabled ? null : (
-        <SoundEmoteMenu
-          onSend={onSendEmote}
-          currentUserId={currentUserId}
-          currentUserRole={currentUserRole}
-          disabled={isLeavingLobby}
-        />
-      )}
+      {onToggleChat ? (
+        <Tooltip title={isChatOpen ? "Sohbeti kapat" : "Sohbeti aç"}>
+          <Button
+            size="large"
+            className={`ct-lobby-action-btn ${isChatOpen ? "active" : ""}`}
+            icon={<MessageOutlined />}
+            onClick={onToggleChat}
+            aria-pressed={isChatOpen}
+            aria-label={isChatOpen ? "Sohbeti kapat" : "Sohbeti aç"}
+          >
+            {/* The one place a message can arrive with the chat right there and
+                still be invisible: the column is collapsed. */}
+            {!isChatOpen && chatUnreadCount > 0 && (
+              <span className="ct-count-badge ct-tool-badge">
+                {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+              </span>
+            )}
+          </Button>
+        </Tooltip>
+      ) : null}
 
       <span className="ct-lobby-action-divider" aria-hidden="true" />
 
-      <Tooltip title="Lobiden Ayrıl">
+      <Tooltip title={leaveLabel}>
         <Button
           size="large"
           className="ct-lobby-action-btn danger"
-          icon={<LogoutOutlined />}
+          icon={<PhoneOutlined rotate={225} />}
+          aria-label={leaveLabel}
           onClick={onLeaveLobby}
           loading={isLeavingLobby}
           disabled={isLeavingLobby}

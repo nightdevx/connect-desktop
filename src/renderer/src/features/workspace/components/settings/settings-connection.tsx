@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Steps } from "antd";
-import { ExperimentOutlined, MonitorOutlined } from "@ant-design/icons";
+import { ApiOutlined, ExperimentOutlined, MonitorOutlined } from "@ant-design/icons";
 import { toErrorMessage } from "@shared/error-message";
 import {
   runNetworkTest,
@@ -8,7 +8,7 @@ import {
   type NetworkTestStepId,
 } from "@/features/livekit";
 import { workspaceService } from "../../services";
-import { PageHeader } from "@/ui/page-header";
+import { SettingsGroup, SettingsPage } from "./settings-layout";
 
 // "Ağ testi": livekit-client's connection checks against the real server, in a
 // room of the user's own. The answer to "is it my network or the server" that
@@ -166,30 +166,39 @@ export function SettingsConnection() {
   const finished = Boolean(steps) && !running;
 
   return (
-    <div className="ct-settings-section">
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Bağlantı"
-        description="Sesin gelmiyor ya da kopuyorsa sorunun ağında mı sunucuda mı olduğunu buradan anlayabilirsin."
-      />
-
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Ağ Testi</h5>
-
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Bağlantını sunucuyla dene</strong>
-                <span>
-                  Sunucuya ulaşma, ses bağlantısı kurma, ses gönderme, kopan
-                  bağlantıyı toparlama ve UDP / TCP yolu adım adım denenir.
-                  Yaklaşık yarım dakika sürer ve kendi odanda yapılır: mikrofonun
-                  açılmaz, görüşmedeysen kimse bir şey duymaz.
-                </span>
-              </div>
-            </div>
-
+    <SettingsPage
+      title="Bağlantı"
+      description="Sesin gelmiyor ya da kopuyorsa sorunun ağında mı sunucuda mı olduğunu buradan anlayabilirsin."
+    >
+      <SettingsGroup
+        title="Ağ testi"
+        description="Sunucuya ulaşma, ses bağlantısı, ses gönderme, kopan bağlantıyı toparlama ve UDP / TCP yolu adım adım denenir."
+        action={
+          <Button
+            type="primary"
+            icon={<ExperimentOutlined />}
+            loading={running}
+            onClick={() => void start()}
+          >
+            {steps ? "Yeniden çalıştır" : "Testi başlat"}
+          </Button>
+        }
+        footerHint="Yaklaşık yarım dakika sürer ve kendi odanda yapılır: mikrofonun açılmaz, görüşmedeysen kimse bir şey duymaz."
+        footer={
+          // For support: every connection the app has open, with its
+          // candidates, codecs and graphs, and a button that saves it all.
+          <Button
+            type="text"
+            size="small"
+            icon={<MonitorOutlined />}
+            onClick={() => void window.desktopApi.openWebRtcInternals?.()}
+          >
+            WebRTC ayrıntıları
+          </Button>
+        }
+      >
+        {steps || error ? (
+          <div className="ct-settings-block">
             {steps ? (
               <Steps
                 orientation="vertical"
@@ -211,34 +220,20 @@ export function SettingsConnection() {
                 showIcon
                 title={
                   failed
-                    ? "Bağlantında sorun var: yukarıda kırmızı olan adım nedenini söylüyor."
+                    ? "Bağlantında sorun var: kırmızı olan adım nedenini söylüyor."
                     : "Bağlantın sunucuyla sorunsuz çalışıyor."
                 }
               />
             ) : null}
-
-            <div className="ct-settings-actions">
-              <Button
-                type="primary"
-                icon={<ExperimentOutlined />}
-                loading={running}
-                onClick={() => void start()}
-              >
-                {steps ? "Testi Yeniden Çalıştır" : "Testi Başlat"}
-              </Button>
-              {/* For support: every connection the app has open, with its
-                  candidates, codecs and graphs, and a button that saves it all. */}
-              <Button
-                type="text"
-                icon={<MonitorOutlined />}
-                onClick={() => void window.desktopApi.openWebRtcInternals?.()}
-              >
-                WebRTC ayrıntıları
-              </Button>
-            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        ) : (
+          <div className="ct-settings-empty">
+            <ApiOutlined />
+            <strong>Test henüz çalıştırılmadı</strong>
+            <span>Sonuçlar adım adım burada görünür.</span>
+          </div>
+        )}
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

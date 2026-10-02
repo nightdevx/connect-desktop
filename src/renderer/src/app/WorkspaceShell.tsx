@@ -1476,6 +1476,7 @@ function WorkspaceShell({
               clearSearch: clearLobbySearch,
             }}
             directMessagesProps={{
+              onCloseConversation: openFriendsHome,
               directMessagesQuery,
               directMessages,
               messageDraft,
@@ -1554,6 +1555,14 @@ function WorkspaceShell({
         onStopScreenShare={handleScreenToggle}
         onStopCamera={handleCameraToggle}
         onDisconnect={handleLeaveLobbyOrEndCall}
+        presenceStatus={effectivePresenceStatus}
+        whereLabel={
+          isInCallRoom
+            ? `Görüşmede: ${callState.peerUser?.displayName || callState.peerUser?.username || "arama"}`
+            : activeLobbyId
+              ? lobbiesQuery.data?.data?.lobbies.find((lobby) => lobby.id === activeLobbyId)?.name
+              : undefined
+        }
         // A call ringing out or running while the user is elsewhere: a row at
         // the top of the dock, where every other "you are live" reminder is.
         callStrip={

@@ -2,18 +2,20 @@ import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input, Button, Avatar } from "antd";
 import {
-  UserOutlined,
   UploadOutlined,
   DeleteOutlined,
   SaveOutlined,
   LogoutOutlined,
+  IdcardOutlined,
+  MailOutlined,
 } from "@ant-design/icons";
 import { authErrorToast, authService } from "@/features/auth";
 import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
 import type { UserRestriction } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import { useStillImage } from "../../hooks/media/use-still-image";
-import { PageHeader } from "@/ui/page-header";
+import { hueStyle } from "../../workspace-utils";
+import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
 interface ProfileSettings {
@@ -27,6 +29,8 @@ interface ProfileSettings {
 
 interface ProfileSettingsProps {
   currentUsername: string;
+  /** For the colour of the initials while there is no picture. */
+  currentUserId: string;
   onLogout?: () => void;
   isLoggingOut?: boolean;
 }
@@ -194,6 +198,7 @@ const downscaleImageDataURL = async (
 
 export function SettingsProfile({
   currentUsername,
+  currentUserId,
   onLogout,
   isLoggingOut,
 }: ProfileSettingsProps) {
@@ -521,9 +526,14 @@ export function SettingsProfile({
     );
   };
 
-  return (
-    <div className="ct-settings-section">
+  const isBusy = isProfileLoading || isSavingProfile;
+  const shownName = profileSettings.displayName || currentUsername;
 
+  return (
+    <SettingsPage
+      title="Profil"
+      description="Diğerlerinin seni nasıl gördüğü: adın, resmin, afişin ve hakkında yazdıkların."
+    >
       <ImageCropModal
         open={pendingBanner !== null}
         src={pendingBanner?.dataUrl ?? null}
@@ -534,34 +544,14 @@ export function SettingsProfile({
         onApply={(rect, cropped) => void handleBannerCropApply(rect, cropped)}
         onCancel={() => setPendingBanner(null)}
       />
-      <PageHeader
-        className="ct-settings-section-header"
-        title="Profil"
-        description="Hesap görünüm bilgilerini buradan yönetebilirsin."
-        actions={
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={() => {
-              void handleSaveProfile();
-            }}
-            loading={isSavingProfile}
-            disabled={isProfileLoading || isSavingProfile}
-          >
-            Profili Kaydet
-          </Button>
-        }
-      />
 
-      <div className="ct-settings-content">
-        <div className="ct-settings-subsection">
-          <h5>Profil Görünümü</h5>
-
-          {/* The card these two pictures end up on, drawn at the size and shape
-              it is drawn at, beside the buttons that change it. They used to be
-              a detached cover strip and two rows sharing one class but not one
-              skeleton -- the avatar row had a picture on the left and the
-              banner row had nothing there at all. */}
+      <SettingsGroup
+        title="Profil kartı"
+        description="Resim ve afiş seçtiğin anda kaydedilir; arkadaşların kartında hemen görür."
+      >
+        {/* The card these two pictures end up on, drawn at the size and shape
+            it is drawn at, beside the buttons that change it. */}
+        <div className="ct-settings-block">
           <div className="ct-settings-profile-card">
             <div className="ct-settings-profile-card-preview">
               <div
@@ -578,24 +568,27 @@ export function SettingsProfile({
                 <Avatar
                   size={72}
                   src={previewAvatarUrl}
-                  icon={!profileSettings.avatarUrl && <UserOutlined />}
-                  className="ct-settings-profile-avatar"
+                  className={`ct-settings-profile-avatar${profileSettings.avatarUrl ? "" : " ct-hued"}`}
+                  style={profileSettings.avatarUrl ? undefined : hueStyle(currentUserId)}
                 >
-                  {!profileSettings.avatarUrl &&
-                    getInitials(profileSettings.displayName || currentUsername)}
+                  {!profileSettings.avatarUrl && getInitials(shownName)}
                 </Avatar>
 
                 <div className="ct-settings-profile-card-names">
-                  <strong>
-                    {profileSettings.displayName || currentUsername}
-                  </strong>
+                  <strong>{shownName}</strong>
                   <span>@{currentUsername}</span>
                 </div>
               </div>
+
+              {profileSettings.bio.trim() ? (
+                <p className="ct-settings-profile-card-bio">{profileSettings.bio}</p>
+              ) : null}
             </div>
 
             <div className="ct-settings-profile-card-actions">
               <div className="ct-settings-profile-card-action">
+                <strong>Profil resmi</strong>
+                <small>PNG, JPG, WEBP veya GIF · En fazla 10 MB</small>
                 <input
                   ref={avatarInputRef}
                   type="file"
@@ -605,18 +598,13 @@ export function SettingsProfile({
                   }}
                   hidden
                 />
-
                 <div className="ct-settings-profile-card-action-buttons">
                   <Button
                     icon={<UploadOutlined />}
                     onClick={() => avatarInputRef.current?.click()}
-                    disabled={
-                      isProfileLoading ||
-                      isSavingProfile ||
-                      isRestricted(restrictions, "avatar")
-                    }
+                    disabled={isBusy || isRestricted(restrictions, "avatar")}
                   >
-                    Profil Resmi Yükle
+                    {profileSettings.avatarUrl ? "Değiştir" : "Yükle"}
                   </Button>
 
                   {profileSettings.avatarUrl && (
@@ -625,23 +613,17 @@ export function SettingsProfile({
                       type="text"
                       icon={<DeleteOutlined />}
                       onClick={() => void handleImageClear("avatarUrl")}
-                      disabled={
-                        isProfileLoading ||
-                        isSavingProfile ||
-                        isRestricted(restrictions, "avatar")
-                      }
+                      disabled={isBusy || isRestricted(restrictions, "avatar")}
                     >
                       Kaldır
                     </Button>
                   )}
                 </div>
-
-                <small>
-                  PNG/JPG/WEBP/GIF · En fazla 10 MB · Seçilince hemen uygulanır
-                </small>
               </div>
 
               <div className="ct-settings-profile-card-action">
+                <strong>Afiş</strong>
+                <small>Kartın kapağı · 16:9 çerçevede konumlandırırsın · En fazla 10 MB</small>
                 <input
                   ref={bannerInputRef}
                   type="file"
@@ -651,18 +633,13 @@ export function SettingsProfile({
                   }}
                   hidden
                 />
-
                 <div className="ct-settings-profile-card-action-buttons">
                   <Button
                     icon={<UploadOutlined />}
                     onClick={() => bannerInputRef.current?.click()}
-                    disabled={
-                      isProfileLoading ||
-                      isSavingProfile ||
-                      isRestricted(restrictions, "banner")
-                    }
+                    disabled={isBusy || isRestricted(restrictions, "banner")}
                   >
-                    Afiş Yükle
+                    {profileSettings.bannerUrl ? "Değiştir" : "Yükle"}
                   </Button>
 
                   {profileSettings.bannerUrl && (
@@ -671,228 +648,220 @@ export function SettingsProfile({
                       type="text"
                       icon={<DeleteOutlined />}
                       onClick={() => void handleImageClear("bannerUrl")}
-                      disabled={
-                        isProfileLoading ||
-                        isSavingProfile ||
-                        isRestricted(restrictions, "banner")
-                      }
+                      disabled={isBusy || isRestricted(restrictions, "banner")}
                     >
-                      Afişi Kaldır
+                      Kaldır
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Kişisel bilgiler"
+        footerHint="Kaydettiğinde herkes için güncellenir."
+        footer={
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => {
+              void handleSaveProfile();
+            }}
+            loading={isSavingProfile}
+            disabled={isBusy}
+          >
+            Kaydet
+          </Button>
+        }
+      >
+        <div className="ct-settings-block">
+          <div className="ct-settings-field measured">
+            <label className="ct-field-label" htmlFor="settings-display-name">
+              Görünen ad
+            </label>
+            <Input
+              id="settings-display-name"
+              value={profileSettings.displayName}
+              onChange={(event) =>
+                setProfileSettings((previous) => ({
+                  ...previous,
+                  displayName: event.target.value,
+                }))
+              }
+              maxLength={40}
+              showCount
+              disabled={isBusy || isRestricted(restrictions, "displayName")}
+            />
+            <small className="ct-field-hint">
+              {isRestricted(restrictions, "displayName")
+                ? RESTRICTED_HINT
+                : "Odalarda ve sohbetlerde görünen adın; en az 3 karakter."}
+            </small>
+          </div>
+
+          <div className="ct-settings-field">
+            <label className="ct-field-label" htmlFor="settings-profile-bio">
+              Hakkımda
+            </label>
+            <Input.TextArea
+              id="settings-profile-bio"
+              value={profileSettings.bio}
+              onChange={(event) =>
+                setProfileSettings((previous) => ({
+                  ...previous,
+                  bio: event.target.value,
+                }))
+              }
+              maxLength={220}
+              showCount
+              autoSize={{ minRows: 3, maxRows: 6 }}
+              placeholder="Kendinden kısaca bahset"
+              disabled={isBusy || isRestricted(restrictions, "bio")}
+            />
+            {isRestricted(restrictions, "bio") && (
+              <small className="ct-field-hint">{RESTRICTED_HINT}</small>
+            )}
+          </div>
+
+          {/* The address, its verification state and the OTP exchange are one
+              flow. The chip shares the label's line: written after a block
+              label it fell to a row of its own. */}
+          <div className="ct-settings-field measured">
+            <div className="ct-settings-field-header">
+              <label className="ct-field-label" htmlFor="settings-email">
+                E-posta
+              </label>
+              {profileSettings.email ? (
+                profileSettings.emailVerified ? (
+                  <span className="ct-status-chip ok">Doğrulanmış</span>
+                ) : (
+                  <span className="ct-status-chip warn">Doğrulanmamış</span>
+                )
+              ) : (
+                <span className="ct-status-chip danger">E-posta yok</span>
+              )}
+            </div>
+
+            <Input
+              id="settings-email"
+              prefix={<MailOutlined />}
+              value={profileSettings.email}
+              onChange={(event) =>
+                setProfileSettings((previous) => ({
+                  ...previous,
+                  email: event.target.value,
+                }))
+              }
+              placeholder="ornek@mail.com"
+              disabled={isBusy || isRestricted(restrictions, "email")}
+            />
+            <small className="ct-field-hint">
+              {isRestricted(restrictions, "email")
+                ? RESTRICTED_HINT
+                : "Şifreni unutursan hesabını bu adresle kurtarırsın."}
+            </small>
+          </div>
+
+          {profileSettings.email && profileSettings.email !== savedEmail && (
+            <div className="ct-inline-note">
+              Yeni adresi doğrulamak için önce kaydet.
+            </div>
+          )}
+
+          {profileSettings.email &&
+            profileSettings.email === savedEmail &&
+            !profileSettings.emailVerified && (
+              <div className="ct-inset-panel">
+                <div className="ct-inset-panel-row">
+                  <span>
+                    {verificationSent
+                      ? `${profileSettings.email} adresine gelen kodu yaz.`
+                      : "Adresini doğrulamak için bir kod gönder."}
+                  </span>
+                  {!verificationSent && (
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        void handleSendVerificationCode();
+                      }}
+                      loading={isSendingCode}
+                    >
+                      Kod gönder
                     </Button>
                   )}
                 </div>
 
-                <small>
-                  Profil kartının kapağı · Seçtikten sonra 16:9 çerçevede
-                  konumlandırırsın · En fazla 10 MB
-                </small>
-              </div>
-            </div>
-          </div>
-
-          <div className="ct-settings-grid">
-            <div className="ct-settings-field measured">
-              <label className="ct-field-label" htmlFor="settings-display-name">
-                Görünen Ad
-              </label>
-              <Input
-                id="settings-display-name"
-                value={profileSettings.displayName}
-                onChange={(event) =>
-                  setProfileSettings((previous) => ({
-                    ...previous,
-                    displayName: event.target.value,
-                  }))
-                }
-                maxLength={40}
-                disabled={
-                  isProfileLoading ||
-                  isSavingProfile ||
-                  isRestricted(restrictions, "displayName")
-                }
-              />
-              {isRestricted(restrictions, "displayName") && (
-                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
-              )}
-            </div>
-
-            <div className="ct-settings-field">
-              <label className="ct-field-label" htmlFor="settings-profile-bio">
-                Hakkımda
-              </label>
-              <Input.TextArea
-                id="settings-profile-bio"
-                value={profileSettings.bio}
-                onChange={(event) =>
-                  setProfileSettings((previous) => ({
-                    ...previous,
-                    bio: event.target.value,
-                  }))
-                }
-                maxLength={220}
-                rows={4}
-                disabled={
-                  isProfileLoading ||
-                  isSavingProfile ||
-                  isRestricted(restrictions, "bio")
-                }
-              />
-              {isRestricted(restrictions, "bio") && (
-                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Its own block: the address, its verification state and the OTP
-            exchange are one flow, and inline in the name/bio grid the code
-            panel read as a third profile field. */}
-        <div className="ct-settings-subsection">
-          <h5>E-posta</h5>
-
-          <div>
-            {/* The label and the chip that qualifies it, on one line. The label
-                is a block, so the chip written after it fell to a row of its
-                own and pushed this input 22px below every other input on the
-                page -- the one field on the page that did not line up. */}
-            <div className="ct-settings-field measured">
-              <div className="ct-settings-field-header">
-                <label className="ct-field-label" htmlFor="settings-email">
-                  E-posta Adresi
-                </label>
-                {profileSettings.email ? (
-                  profileSettings.emailVerified ? (
-                    <span className="ct-status-chip ok">Doğrulanmış</span>
-                  ) : (
-                    <span className="ct-status-chip warn">Doğrulanmamış</span>
-                  )
-                ) : (
-                  <span className="ct-status-chip danger">E-posta Yok</span>
+                {verificationSent && (
+                  <div className="ct-inset-panel-row">
+                    <Input
+                      placeholder={"0".repeat(OTP_CODE_LENGTH)}
+                      value={verificationCode}
+                      onChange={(e) =>
+                        setVerificationCode(
+                          e.target.value.replace(/\D/g, "").slice(0, OTP_CODE_LENGTH),
+                        )
+                      }
+                      maxLength={OTP_CODE_LENGTH}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      className="ct-code-input"
+                    />
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        void handleVerifyEmailCode();
+                      }}
+                      loading={isVerifyingCode}
+                      disabled={verificationCode.length !== OTP_CODE_LENGTH}
+                    >
+                      Doğrula
+                    </Button>
+                    <Button
+                      type="text"
+                      onClick={() => {
+                        void handleSendVerificationCode();
+                      }}
+                      loading={isSendingCode}
+                    >
+                      Yeniden gönder
+                    </Button>
+                  </div>
                 )}
               </div>
-
-              <Input
-                id="settings-email"
-                value={profileSettings.email}
-                onChange={(event) =>
-                  setProfileSettings((previous) => ({
-                    ...previous,
-                    email: event.target.value,
-                  }))
-                }
-                placeholder="örnek@mail.com"
-                disabled={
-                  isProfileLoading ||
-                  isSavingProfile ||
-                  isRestricted(restrictions, "email")
-                }
-              />
-              {isRestricted(restrictions, "email") && (
-                <small className="ct-field-hint">{RESTRICTED_HINT}</small>
-              )}
-            </div>
-
-            {profileSettings.email && profileSettings.email !== savedEmail && (
-              <div className="ct-inline-note">
-                E-posta adresini doğrulamak için önce profili kaydedin.
-              </div>
             )}
-
-            {profileSettings.email &&
-              profileSettings.email === savedEmail &&
-              !profileSettings.emailVerified && (
-                <div className="ct-inset-panel">
-                  <div className="ct-inset-panel-row">
-                    <span>
-                      E-posta adresinizi doğrulamak için bir doğrulama kodu
-                      gönderin.
-                    </span>
-                    {!verificationSent && (
-                      <Button
-                        type="primary"
-                        onClick={() => {
-                          void handleSendVerificationCode();
-                        }}
-                        loading={isSendingCode}
-                      >
-                        Doğrulama Kodu Gönder
-                      </Button>
-                    )}
-                  </div>
-
-                  {verificationSent && (
-                    <div className="ct-inset-panel-row">
-                      <Input
-                        placeholder={"0".repeat(OTP_CODE_LENGTH)}
-                        value={verificationCode}
-                        onChange={(e) =>
-                          setVerificationCode(
-                            e.target.value.replace(/\D/g, "").slice(0, OTP_CODE_LENGTH),
-                          )
-                        }
-                        maxLength={OTP_CODE_LENGTH}
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        className="ct-code-input"
-                      />
-                      <Button
-                        type="primary"
-                        onClick={() => {
-                          void handleVerifyEmailCode();
-                        }}
-                        loading={isVerifyingCode}
-                        disabled={verificationCode.length !== OTP_CODE_LENGTH}
-                      >
-                        Doğrula
-                      </Button>
-                      <Button
-                        type="text"
-                        onClick={() => {
-                          void handleSendVerificationCode();
-                        }}
-                        loading={isSendingCode}
-                      >
-                        Yeniden Gönder
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-          </div>
         </div>
+      </SettingsGroup>
 
-        <div className="ct-settings-subsection">
-          <h5>Hesap</h5>
+      <SettingsGroup title="Hesap">
+        <SettingsRow
+          icon={<IdcardOutlined />}
+          title="Kullanıcı adı"
+          description="Değiştirilemez; arkadaşların seni bu adla bulur."
+        >
+          <span className="ct-settings-value">@{currentUsername}</span>
+        </SettingsRow>
 
-          {/* One value does not need a grid. This was a bordered auto-fit
-              track holding a single username, stretched across the whole 820px
-              panel because that is what one column of auto-fit does. */}
-          <div className="ct-settings-card">
-            <div className="ct-settings-row">
-              <div className="ct-settings-row-text">
-                <strong>Kullanıcı Adı</strong>
-                <span>Bu ad değiştirilemez; seni bulmak için kullanılır.</span>
-              </div>
-              <strong>@{currentUsername}</strong>
-            </div>
-          </div>
-
-          {onLogout && (
-            <div className="ct-settings-actions">
-              <Button
-                danger
-                type="primary"
-                icon={<LogoutOutlined />}
-                onClick={onLogout}
-                loading={isLoggingOut}
-                disabled={isLoggingOut}
-              >
-                Hesaptan Çık
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+        {onLogout && (
+          <SettingsRow
+            icon={<LogoutOutlined />}
+            title="Çıkış yap"
+            description="Bu bilgisayardaki oturumunu kapatır; hesabın ve ayarların yerinde kalır."
+          >
+            <Button
+              danger
+              icon={<LogoutOutlined />}
+              onClick={onLogout}
+              loading={isLoggingOut}
+              disabled={isLoggingOut}
+            >
+              Çıkış yap
+            </Button>
+          </SettingsRow>
+        )}
+      </SettingsGroup>
+    </SettingsPage>
   );
 }

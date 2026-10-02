@@ -1,24 +1,30 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Table, Button, Input, Tag, Select } from "antd";
+import { Table, Button, Input, Select } from "antd";
 import type { TablePaginationConfig } from "antd";
-import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { HistoryOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminLobbyEvent } from "@shared/auth-contracts";
-import { AdminPageHeader } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+  type AdminTone,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
 const DEFAULT_PAGE_SIZE = 50;
 
-// The tone is a .ct-tag variant: the app's token colours, not antd's presets.
-const EVENT_TAGS: Record<string, { tone: string; text: string }> = {
-  join: { tone: "success", text: "GİRİŞ" },
-  leave: { tone: "danger", text: "ÇIKIŞ" },
-  create: { tone: "info", text: "YENİ ODA" },
-  delete: { tone: "warn", text: "ODA SİLİNDİ" },
-  edit: { tone: "info", text: "GÜNCELLEME" },
+const EVENT_STATES: Record<string, { tone: AdminTone; text: string }> = {
+  join: { tone: "ok", text: "Girdi" },
+  leave: { tone: "danger", text: "Çıktı" },
+  create: { tone: "info", text: "Oda açtı" },
+  delete: { tone: "warn", text: "Oda sildi" },
+  edit: { tone: "info", text: "Odayı düzenledi" },
 };
 
 export default function AdminActivity() {
@@ -121,50 +127,38 @@ export default function AdminActivity() {
 
   const columns = [
     {
-      title: "Tarih / Saat",
+      title: "Zaman",
       dataIndex: "occurredAt",
       key: "occurredAt",
-      width: 180,
+      width: 170,
       // First, not last. This is a log: the question asked of every row is
-      // "when", and it was the one column parked past the right edge of a
-      // table that scrolls horizontally.
-      render: (date: string) => new Date(date).toLocaleString("tr-TR"),
+      // "when".
+      render: (date: string) => <span className="ct-admin-muted">{adminDateTime(date, true)}</span>,
     },
     {
       title: "Olay",
       dataIndex: "eventType",
       key: "eventType",
-      width: 140,
-      // antd's preset names, not literal hex. A hex Tag is a solid block of one
-      // fixed colour with white text on it — the same five blocks whether the
-      // page is dark or light, and the only reason a log row could be brighter
-      // than the heading above it.
+      width: 150,
       render: (type: string) => {
-        const preset = EVENT_TAGS[type];
-        return preset ? (
-          <Tag className={`ct-tag ${preset.tone}`}>{preset.text}</Tag>
-        ) : (
-          <Tag className="ct-tag">{type.toUpperCase()}</Tag>
-        );
+        const state = EVENT_STATES[type];
+        return <AdminState tone={state?.tone ?? "muted"}>{state?.text ?? type}</AdminState>;
       },
     },
     {
-      title: "Kullanıcı",
+      title: "Kişi",
       key: "user",
-      width: 240,
+      ellipsis: true,
       render: (_value: unknown, record: AdminLobbyEvent) => (
-        <div className="ct-admin-cell">
-          <strong>@{record.username}</strong>
-          <span className="ct-admin-mono">{record.userId}</span>
-        </div>
+        <AdminPerson userId={record.userId} name={record.username} handle={`@${record.username}`} />
       ),
     },
     {
       title: "Oda",
       key: "lobby",
-      width: 240,
+      ellipsis: true,
       render: (_value: unknown, record: AdminLobbyEvent) => (
-        <div className="ct-admin-cell">
+        <div className="ct-admin-person-text">
           <strong>{record.lobbyName}</strong>
           <span className="ct-admin-mono">{record.lobbyId}</span>
         </div>
@@ -175,8 +169,8 @@ export default function AdminActivity() {
   return (
     <div className="ct-admin-page">
       <AdminPageHeader
-        title="Aktivite Logları"
-        description="Sistem genelinde lobilere giriş ve çıkış işlemlerinin denetim kaydı geçmişi."
+        title="Oda Etkinliği"
+        description="Odalara kim, ne zaman girdi ve çıktı; hangi oda açıldı, değişti ya da silindi."
         actions={
           <Button
             icon={<ReloadOutlined />}
@@ -188,86 +182,93 @@ export default function AdminActivity() {
         }
       />
 
-      {/* Filters */}
-      <div className="ct-admin-toolbar">
-        <Input
-          allowClear
-          placeholder="İsim, kullanıcı adı, oda adı ara..."
-          prefix={<SearchOutlined className="ct-admin-muted" />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="ct-admin-toolbar-search"
-        />
+      <AdminSection
+        title="Olaylar"
+        icon={<HistoryOutlined />}
+        hint={`${total} kayıt`}
+        flush
+        toolbar={
+          <>
+            <Input
+              allowClear
+              placeholder="İsim, kullanıcı adı, oda adı ara..."
+              prefix={<SearchOutlined className="ct-admin-muted" />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="ct-admin-toolbar-search"
+            />
 
-        <Select
-          value={eventTypeFilter}
-          onChange={setEventTypeFilter}
-          className="ct-admin-toolbar-filter"
-          options={[
-            { value: "all", label: "Tüm Olay Tipleri" },
-            { value: "join", label: "Giriş (Join)" },
-            { value: "leave", label: "Çıkış (Leave)" },
-            { value: "create", label: "Oda Oluşturma" },
-            { value: "delete", label: "Oda Silme" },
-            { value: "edit", label: "Oda Güncelleme" },
-          ]}
-        />
+            <Select
+              value={eventTypeFilter}
+              onChange={setEventTypeFilter}
+              className="ct-admin-toolbar-filter"
+              options={[
+                { value: "all", label: "Tüm olaylar" },
+                { value: "join", label: "Giriş" },
+                { value: "leave", label: "Çıkış" },
+                { value: "create", label: "Oda oluşturma" },
+                { value: "delete", label: "Oda silme" },
+                { value: "edit", label: "Oda güncelleme" },
+              ]}
+            />
 
-        <Select
-          showSearch
-          allowClear
-          placeholder="Oda seçin..."
-          value={lobbyFilter || undefined}
-          onOpenChange={(open) => open && void loadFilterOptions()}
-          onChange={(val) => setLobbyFilter(val || "")}
-          filterOption={(input, option) =>
-            (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-          }
-          options={lobbiesList.map(l => ({ value: l.id, label: `${l.name} (${l.id.substring(0, 8)})` }))}
-          className="ct-admin-toolbar-filter"
-        />
+            <Select
+              showSearch
+              allowClear
+              placeholder="Oda"
+              value={lobbyFilter || undefined}
+              onOpenChange={(open) => open && void loadFilterOptions()}
+              onChange={(val) => setLobbyFilter(val || "")}
+              filterOption={(input, option) =>
+                (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+              options={lobbiesList.map(l => ({ value: l.id, label: `${l.name} (${l.id.substring(0, 8)})` }))}
+              className="ct-admin-toolbar-filter"
+            />
 
-        <Select
-          showSearch
-          allowClear
-          placeholder="Kullanıcı seçin..."
-          value={userFilter || undefined}
-          onOpenChange={(open) => open && void loadFilterOptions()}
-          onChange={(val) => setUserFilter(val || "")}
-          filterOption={(input, option) =>
-            (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-          }
-          options={usersList.map(u => ({ value: u.id, label: `@${u.username}${u.displayName ? ` (${u.displayName})` : ""}` }))}
-          className="ct-admin-toolbar-filter"
+            <Select
+              showSearch
+              allowClear
+              placeholder="Kullanıcı"
+              value={userFilter || undefined}
+              onOpenChange={(open) => open && void loadFilterOptions()}
+              onChange={(val) => setUserFilter(val || "")}
+              filterOption={(input, option) =>
+                (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+              options={usersList.map(u => ({ value: u.id, label: `@${u.username}${u.displayName ? ` (${u.displayName})` : ""}` }))}
+              className="ct-admin-toolbar-filter"
+            />
+          </>
+        }
+      >
+        <Table
+          size="middle"
+          dataSource={events}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          onChange={handleTableChange}
+          locale={{
+            emptyText: hasFilter
+              ? "Bu filtrelerle eşleşen kayıt yok."
+              : "Henüz kayıt yok.",
+          }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (count) => `${count} kayıt`,
+          }}
+          // See admin-users: the viewport-height body cut the last row and hid
+          // the pagination. This page defaults to 50 rows, so it was the worst
+          // affected.
+          tableLayout="fixed"
+          className="ct-admin-table-wrap"
         />
-      </div>
-
-      {/* Audit Log Table */}
-      <Table
-        dataSource={events}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        onChange={handleTableChange}
-        locale={{
-          emptyText: hasFilter
-            ? "Bu filtrelerle eşleşen kayıt yok."
-            : "Henüz kayıt yok.",
-        }}
-        pagination={{
-          current: currentPage,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: ["10", "20", "50", "100"],
-          showTotal: (count) => `${count} kayıt`,
-        }}
-        // See admin-users: the viewport-height body cut the last row and hid
-        // the pagination. This page defaults to 50 rows, so it was the worst
-        // affected.
-        scroll={{ x: "max-content" }}
-        className="ct-admin-table-wrap"
-      />
+      </AdminSection>
     </div>
   );
 }

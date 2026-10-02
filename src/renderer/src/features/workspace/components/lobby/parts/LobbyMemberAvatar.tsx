@@ -1,6 +1,6 @@
 import { Avatar } from "antd";
 import { useIsSpeaking } from "@/features/livekit";
-import { getDisplayInitials } from "../../../workspace-utils";
+import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
 
 interface LobbyMemberAvatarProps {
   userId: string;
@@ -29,6 +29,7 @@ export function LobbyMemberAvatar({
       size={22}
       src={avatarUrl}
       className={`ct-lobby-member-avatar ${isSpeaking ? "speaking" : ""}`}
+      style={hueStyle(userId)}
     >
       {getDisplayInitials(username)}
     </Avatar>

@@ -3,8 +3,6 @@ import {
   KeyOutlined,
   LockOutlined,
   MessageOutlined,
-  RightOutlined,
-  LeftOutlined,
   SoundOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
@@ -21,9 +19,6 @@ interface LobbyRoomHeaderProps {
   connectedSince?: string | null;
   /** People in the room sharing a screen right now. */
   liveShareCount?: number;
-  isChatOpen: boolean;
-  unreadCount: number;
-  onToggleChat: () => void;
 }
 
 /**
@@ -36,8 +31,8 @@ interface LobbyRoomHeaderProps {
  * sidebar. A text room was worse still: it renders no stage, so it had no
  * chrome of its own whatsoever.
  *
- * It also takes over the chat toggle, which used to be a pill floating over the
- * top-right corner of the video area.
+ * The chat toggle lives in the stage toolbar now, with every other control
+ * for the room.
  */
 export function LobbyRoomHeader({
   lobby,
@@ -45,9 +40,6 @@ export function LobbyRoomHeader({
   isConnected,
   connectedSince,
   liveShareCount = 0,
-  isChatOpen,
-  unreadCount,
-  onToggleChat,
 }: LobbyRoomHeaderProps) {
   if (!lobby) {
     return null;
@@ -85,9 +77,7 @@ export function LobbyRoomHeader({
             <KeyOutlined className="ct-lobby-room-flag warn" />
           </Tooltip>
         )}
-      </div>
 
-      <div className="ct-lobby-room-meta">
         {isTextOnly ? (
           <span className="ct-lobby-room-meta-item">Mesaj odası</span>
         ) : (
@@ -106,51 +96,29 @@ export function LobbyRoomHeader({
                 {liveShareCount} yayın
               </span>
             )}
-
-            {/* Connected, it is how long you have been here -- the green dot
-                already says "connected". */}
-            <span
-              className={`ct-lobby-room-status ${isConnected ? "on" : ""} ${isConnected && connectedSince ? "timer" : ""}`}
-              role="status"
-              title={isConnected ? "Bağlı — odada geçen süre" : undefined}
-            >
-              <i aria-hidden="true" />
-              {isConnected && connectedSince ? (
-                <ElapsedTime since={connectedSince} />
-              ) : isConnected ? (
-                "Bağlı"
-              ) : (
-                "Bağlanıyor…"
-              )}
-            </span>
           </>
         )}
       </div>
 
-      {/* A text room IS its chat, so there is nothing to toggle it against. */}
       {!isTextOnly && (
-        <button
-          type="button"
-          className={`ct-lobby-room-action ${isChatOpen ? "on" : ""}`}
-          onClick={onToggleChat}
-          aria-pressed={isChatOpen}
+        // Connected, it is how long you have been here -- the green dot
+        // already says "connected".
+        <span
+          className={`ct-lobby-room-status ${isConnected ? "on" : ""} ${isConnected && connectedSince ? "timer" : ""}`}
+          role="status"
+          title={isConnected ? "Bağlı — odada geçen süre" : undefined}
         >
-          {isChatOpen ? <RightOutlined /> : <LeftOutlined />}
-          {/* Its own class, because the narrow layout drops the label and
-              keeps the count — and "> span" would have hidden both. */}
-          <span className="ct-lobby-room-action-label">
-            {isChatOpen ? "Sohbeti Kapat" : "Sohbeti Aç"}
-          </span>
-
-          {/* The one place a message can arrive with the chat right there and
-              still be invisible: the column is collapsed. */}
-          {!isChatOpen && unreadCount > 0 && (
-            <span className="ct-lobby-unread">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
+          <i aria-hidden="true" />
+          {isConnected && connectedSince ? (
+            <ElapsedTime since={connectedSince} />
+          ) : isConnected ? (
+            "Bağlı"
+          ) : (
+            "Bağlanıyor…"
           )}
-        </button>
+        </span>
       )}
+
     </header>
   );
 }
