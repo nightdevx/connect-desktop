@@ -143,7 +143,8 @@ export function LobbyActionToolbar({
               aria-label="Ekran paylaşımını durdur"
             >
               <span className="ct-live-dot" aria-hidden="true" />
-              Yayında
+              <DesktopOutlined className="ct-live-share-icon" aria-hidden="true" />
+              <span className="ct-live-share-label">Yayında</span>
             </Button>
           </Tooltip>
           <StreamControlMenu />

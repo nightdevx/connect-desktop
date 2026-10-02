@@ -944,6 +944,10 @@
   @apply relative flex h-full min-h-0 flex-col;
   --ct-stage-pad-y: 14px;
   --ct-stage-pad-x: 18px;
+  /* For the toolbar's narrow-stage rules: what decides whether the row fits
+     is the stage, which shrinks with the chat panel, not the window. */
+  container-type: inline-size;
+  container-name: lobby-stage;
   grid-area: stage;
   overflow: hidden;
   border: 0;
@@ -1728,6 +1732,55 @@
   border-color: transparent;
   background: linear-gradient(120deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
   filter: brightness(1.1);
+}
+
+/* The screen icon is for the folded pill below; the wide one says it in words. */
+.ct-lobby-action-btn .ct-live-share-icon {
+  display: none;
+}
+
+/* A narrow stage has no room for the word: in a 1280px window with the chat
+   open the stage is ~560px, and the pill wrapped the toolbar onto two lines
+   with "Lobiden Ayrıl" under the rest. The pill folds to a square the way the
+   camera shows it is live -- filled, its icon, the red dot in the corner --
+   and the tooltip and the aria-label still say what it does. The row gives
+   back its spacing too: tighter gaps and padding, dividers without margins.
+   The buttons keep their size: antd sizes an icon-only large button itself,
+   and out-shouting it would take !important. */
+@container lobby-stage (max-width: 700px) {
+  .ct-lobby-stage-actions {
+    @apply gap-1.5 px-2.5;
+  }
+
+  .ct-lobby-action-divider {
+    @apply mx-0;
+  }
+
+  .ct-lobby-action-btn.live-share {
+    @apply relative px-0;
+    width: auto;
+    aspect-ratio: 1;
+  }
+
+  .ct-lobby-action-btn .ct-live-share-icon {
+    display: inline-flex;
+    font-size: var(--ct-icon-lg);
+  }
+
+  .ct-live-share-label {
+    @apply hidden;
+  }
+
+  /* The same corner dot as the camera button's .ct-live-badge. */
+  .ct-lobby-action-btn.live-share .ct-live-dot {
+    @apply absolute border-2;
+    top: -4px;
+    right: -4px;
+    width: 12px;
+    height: 12px;
+    border-color: var(--ct-panel-solid);
+    background: var(--ct-danger);
+  }
 }
 
 /* "Leave the room" is a red button in both themes, so its label is white in
