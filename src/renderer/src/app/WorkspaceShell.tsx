@@ -1337,6 +1337,9 @@ function WorkspaceShell({
               lobbyMembersById,
               avatarByUserId,
               activeLobbyId: isInCallRoom ? null : activeLobbyId,
+              // The room the voice is in, call or lobby: the connection card
+              // reads this, and a call is a connection the lobby list hides.
+              voiceRoomId: activeLobbyId,
               openTextRoomId: openTextRoom?.id ?? null,
               joiningLobbyId,
               unreadByLobbyId,

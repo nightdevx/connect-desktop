@@ -67,6 +67,12 @@ interface WorkspaceSidebarProps {
     lobbyMembersById: Record<string, LobbyStateMember[]>;
     avatarByUserId: Record<string, string | null | undefined>;
     activeLobbyId: string | null;
+    /**
+     * The room the voice is connected to, a 1:1 call included. activeLobbyId is
+     * null during a call (the lobby list must not highlight a call room), and
+     * the connection card read it: a running call showed "Lobiye bağlı değil".
+     */
+    voiceRoomId?: string | null;
     /** The text room being read, which is never a connection — see WorkspaceShell. */
     openTextRoomId: string | null;
     joiningLobbyId: string | null;
@@ -382,7 +388,7 @@ export function WorkspaceSidebar({
 
       {workspaceSection !== "settings" && workspaceSection !== "free-games" && (
         <WorkspaceAudioStatus
-          activeLobbyId={lobbiesProps.activeLobbyId}
+          activeLobbyId={lobbiesProps.voiceRoomId ?? lobbiesProps.activeLobbyId}
           liveKitConnectionState={liveKitConnectionState}
           audioProcessingProps={audioProcessingProps}
         />
