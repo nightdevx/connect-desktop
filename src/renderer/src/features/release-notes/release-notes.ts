@@ -34,6 +34,53 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.0",
+    date: "2026-10-02",
+    summary: "Uygulamanın tamamı yeni tasarımda; aramalar artık sohbet geçmişinde.",
+    highlights: [
+      {
+        kind: "new",
+        text: "Aramalar sohbette görünüyor: biten aramalar süresiyle, cevapsız ve reddedilen aramalar kırmızıyla. Cevapsız bir aramanın yanındaki \"Geri ara\" ile tek tıkla geri arayabilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Lobi araç çubuğu yenilendi: düğmeler yuvarlak, kapalı mikrofon ve kulaklık kırmızı görünüyor. Sol alttaki kontroller de aynı kuralla çalışıyor.",
+      },
+      {
+        kind: "new",
+        text: "Oda başlığında odada ne kadar süredir olduğun görünüyor. Görüşmede de süre ve bağlantı kalitesi sahnenin köşesinde.",
+      },
+      {
+        kind: "improved",
+        text: "Başka bir sayfadayken çalan ya da süren arama sol alttaki kontrol alanında duruyor; tıklayınca görüşmeye dönersin. Gelen arama kartından o kişinin aramalarını tek tıkla sessize alabilirsin.",
+      },
+      {
+        kind: "new",
+        text: "Sohbet listesinde her sohbetin son mesajı görünüyor. Bekleyen arkadaşlık istekleri Arkadaşlar satırında sayılıyor; sohbet başlığında kişinin hangi odada ya da oyunda olduğu yazıyor.",
+      },
+      {
+        kind: "new",
+        text: "Arkadaşlar sayfasındaki menüden bir arkadaşının profilini açabilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Ayarlar ve Yönetim sayfaları yeni tasarıma geçti; tüm sayfalar aynı başlık ve seçim görünümünü kullanıyor. Tema artık iki kartla seçiliyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Büyük pencerede sohbet açıkken kutucuklar bazen tek sütuna düşüp oda başlığının altına giriyordu.",
+      },
+      {
+        kind: "fixed",
+        text: "Bir aramadan iki taraf da ayrıldığında, önce ayrılanda \"devam eden bir aramanız var\" bandı kalıyordu.",
+      },
+      {
+        kind: "fixed",
+        text: "Sohbetteki profil çekmecesi açık temada da koyu görünüyordu.",
+      },
+    ],
+  },
+  {
     version: "0.1.107",
     date: "2026-10-02",
     highlights: [
