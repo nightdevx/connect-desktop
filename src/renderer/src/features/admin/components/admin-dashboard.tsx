@@ -136,11 +136,26 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
+  // The page keeps its title through loading and failure, like every other
+  // page: a bare spinner or alert was the one screen with no heading.
+  const header = (
+    <AdminPageHeader
+      title="Genel Bakış"
+      description="Connect sunucu durumuna, veritabanına ve kullanım grafiklerine genel bakış. Sayfa 10 saniyede bir kendini yeniler."
+      actions={
+        <Button icon={<ReloadOutlined />} onClick={() => void fetchDashboardData()}>
+          Yenile
+        </Button>
+      }
+    />
+  );
+
   if (loading && !stats) {
     return (
       // `tip` only renders in antd's nested or fullscreen pattern, so on a bare
       // Spin it was dropped and the typo in it never showed up either.
       <div className="ct-admin-page">
+        {header}
         <div className="ct-admin-center-state">
           <Spin size="large" />
           <span>İstatistikler yükleniyor…</span>
@@ -152,9 +167,10 @@ export default function AdminDashboard() {
   if (error && !stats) {
     return (
       <div className="ct-admin-page">
+        {header}
         <Alert
           className="ct-alert"
-          message="Hata"
+          title="Hata"
           description={error}
           type="error"
           showIcon
@@ -391,7 +407,7 @@ export default function AdminDashboard() {
                         <Badge status={label.badge} />
                         <strong>@{item.username}</strong>
                         <span>{label.text}</span>
-                        <Tag>{item.lobbyName}</Tag>
+                        <Tag className="ct-tag">{item.lobbyName}</Tag>
                       </div>
                       <span className="ct-activity-time">
                         {new Date(item.occurredAt).toLocaleTimeString("tr-TR")}

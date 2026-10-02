@@ -215,6 +215,10 @@ export default function AdminMediaHealth() {
   if (loading && !health) {
     return (
       <div className="ct-admin-page">
+        <AdminPageHeader
+          title="Sunucu Medya Sağlığı"
+          description="LiveKit'in kendi ölçümleri: mikrofonların iki yöndeki kaybı, gecikmesi ve titreşimi, katılımların ve bağlantıların ne kadarının başarılı olduğu. 30 saniyede bir yenilenir."
+        />
         <div className="ct-admin-center-state">
           <Spin size="large" />
           <span>LiveKit ölçümleri okunuyor…</span>

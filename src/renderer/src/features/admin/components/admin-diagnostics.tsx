@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AdminPageHeader } from "./admin-primitives";
 import { Button, Descriptions, Drawer, Input, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined, DownloadOutlined, FileZipOutlined } from "@ant-design/icons";
@@ -27,12 +28,12 @@ const problemTone = (problem: string): string => {
     problem === "cpu-limited" ||
     problem === "bandwidth-limited"
   ) {
-    return "red";
+    return "danger";
   }
   if (problem === "receiver-freezes" || problem === "packet-loss" || problem === "audio-concealment") {
-    return "orange";
+    return "warn";
   }
-  return "blue";
+  return "info";
 };
 
 const formatDuration = (ms: number | undefined): string => {
@@ -167,7 +168,7 @@ export default function AdminDiagnostics() {
         const hardware = video.hardwareEncoderSamples >= video.softwareEncoderSamples;
         return (
           <span>
-            <Tag color={hardware ? "green" : "red"}>
+            <Tag className={`ct-tag ${hardware ? "success" : "danger"}`}>
               {hardware ? "donanım" : "yazılım"}
             </Tag>
             {codec}
@@ -180,11 +181,11 @@ export default function AdminDiagnostics() {
       key: "problems",
       render: (_: unknown, row) =>
         row.problems.length === 0 ? (
-          <Tag color="green">temiz</Tag>
+          <Tag className="ct-tag success">temiz</Tag>
         ) : (
           <span>
             {row.problems.map((item) => (
-              <Tag key={item} color={problemTone(item)}>
+              <Tag key={item} className={`ct-tag ${problemTone(item)}`}>
                 {MEDIA_DIAGNOSTIC_PROBLEM_LABELS[item] ?? item}
               </Tag>
             ))}
@@ -228,30 +229,28 @@ export default function AdminDiagnostics() {
   const verdicts = summary ? deriveVerdicts(summary) : [];
 
   return (
-    <div className="ct-admin-section">
-      <header className="ct-admin-section-header">
-        <div>
-          <h3>Yayın Tanılama</h3>
-          <p>
-            {enabled
-              ? `Ses ve görüntü oturumları sunucuda saklanıyor; ${retentionDays > 0 ? `${retentionDays} gün sonra siliniyor` : "süresiz saklanıyor"}.`
-              : "Toplama kapalı (MEDIA_DIAGNOSTICS_ENABLED=false)."}
-          </p>
-        </div>
-        <div className="ct-admin-section-actions">
-          <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
-            Yenile
-          </Button>
-          <Button
-            type="primary"
-            icon={<FileZipOutlined />}
-            loading={exporting}
-            onClick={() => void exportRange()}
-          >
-            Filtrelenenleri tek dosyaya indir
-          </Button>
-        </div>
-      </header>
+    <div className="ct-admin-page">
+      <AdminPageHeader
+        title="Yayın Tanılama"
+        description={enabled
+          ? `Ses ve görüntü oturumları sunucuda saklanıyor; ${retentionDays > 0 ? `${retentionDays} gün sonra siliniyor` : "süresiz saklanıyor"}.`
+          : "Toplama kapalı (MEDIA_DIAGNOSTICS_ENABLED=false)."}
+        actions={
+          <>
+            <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
+              Yenile
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileZipOutlined />}
+              loading={exporting}
+              onClick={() => void exportRange()}
+            >
+              Filtrelenenleri tek dosyaya indir
+            </Button>
+          </>
+        }
+      />
 
       <div className="ct-admin-filters">
         <Input.Search
@@ -274,25 +273,28 @@ export default function AdminDiagnostics() {
         />
       </div>
 
-      <Table
-        rowKey="sessionId"
-        size="small"
-        loading={loading}
-        dataSource={sessions}
-        columns={columns}
-        pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
-          total,
-          showSizeChanger: false,
-          onChange: setPage,
-        }}
-      />
+      <div className="ct-admin-table-wrap">
+        <Table
+          rowKey="sessionId"
+          size="small"
+          loading={loading}
+          dataSource={sessions}
+          columns={columns}
+          pagination={{
+            current: page,
+            pageSize: PAGE_SIZE,
+            total,
+            showSizeChanger: false,
+            onChange: setPage,
+          }}
+        />
+      </div>
 
       <Drawer
         open={selected !== null}
         onClose={() => setSelected(null)}
-        width={520}
+        rootClassName="ct-admin-drawer"
+        size={520}
         title={selected ? `${selected.username} · ${selected.lobbyId || "oda yok"}` : ""}
         extra={
           selected ? (

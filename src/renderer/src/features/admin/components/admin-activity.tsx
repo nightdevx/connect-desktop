@@ -12,12 +12,13 @@ import { toast } from "@/services/toast";
 // a page-size reset falls back to.
 const DEFAULT_PAGE_SIZE = 50;
 
-const EVENT_TAGS: Record<string, { color: string; text: string }> = {
-  join: { color: "green", text: "GİRİŞ" },
-  leave: { color: "red", text: "ÇIKIŞ" },
-  create: { color: "purple", text: "YENİ ODA" },
-  delete: { color: "orange", text: "ODA SİLİNDİ" },
-  edit: { color: "blue", text: "GÜNCELLEME" },
+// The tone is a .ct-tag variant: the app's token colours, not antd's presets.
+const EVENT_TAGS: Record<string, { tone: string; text: string }> = {
+  join: { tone: "success", text: "GİRİŞ" },
+  leave: { tone: "danger", text: "ÇIKIŞ" },
+  create: { tone: "info", text: "YENİ ODA" },
+  delete: { tone: "warn", text: "ODA SİLİNDİ" },
+  edit: { tone: "info", text: "GÜNCELLEME" },
 };
 
 export default function AdminActivity() {
@@ -141,9 +142,9 @@ export default function AdminActivity() {
       render: (type: string) => {
         const preset = EVENT_TAGS[type];
         return preset ? (
-          <Tag color={preset.color}>{preset.text}</Tag>
+          <Tag className={`ct-tag ${preset.tone}`}>{preset.text}</Tag>
         ) : (
-          <Tag>{type.toUpperCase()}</Tag>
+          <Tag className="ct-tag">{type.toUpperCase()}</Tag>
         );
       },
     },

@@ -1193,19 +1193,19 @@ export function LobbiesSidebarPanel({
                 <span>Gizlilik</span>
                 <span>
                   {editingLobby.isLocked ? (
-                    <Tag color="orange" icon={<LockOutlined />}>
+                    <Tag className="ct-tag warn" icon={<LockOutlined />}>
                       Kilitli
                     </Tag>
                   ) : (
-                    <Tag color="green">Herkese açık</Tag>
+                    <Tag className="ct-tag success">Herkese açık</Tag>
                   )}
                   {editingLobby.hasPassword && (
-                    <Tag color="gold" icon={<KeyOutlined />}>
+                    <Tag className="ct-tag warn" icon={<KeyOutlined />}>
                       Şifre korumalı
                     </Tag>
                   )}
                   {editingLobby.isTextOnly && (
-                    <Tag color="blue" icon={<MessageOutlined />}>
+                    <Tag className="ct-tag info" icon={<MessageOutlined />}>
                       Metin odası
                     </Tag>
                   )}
@@ -1216,12 +1216,12 @@ export function LobbiesSidebarPanel({
                 <span>Erişimi olanlar</span>
                 <span>
                   {allowedUserIds.length === 0 ? (
-                    <Tag color="default">Liste boş</Tag>
+                    <Tag className="ct-tag">Liste boş</Tag>
                   ) : (
                     // The raw id until its card lands, and permanently for an
                     // account the server will not name.
                     allowedUserIds.map((userId) => (
-                      <Tag color="blue" key={userId}>
+                      <Tag className="ct-tag info" key={userId}>
                         {allowedUserCards[userId]
                           ? `@${allowedUserCards[userId].username}`
                           : userId}

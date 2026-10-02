@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminPageHeader } from "./admin-primitives";
 import { Button, Input, InputNumber, Segmented, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -218,18 +219,18 @@ export default function AdminAccess() {
   ];
 
   return (
-    <div className="ct-admin-section">
-      <header className="ct-admin-section-header">
-        <div>
-          <h3>Erişim Denetimi</h3>
-          <p>IP yasakları ve davet kodları. Davet zorunluluğu Sunucu Ayarları'ndan açılır.</p>
-        </div>
-        <div className="ct-admin-section-actions">
-          <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
-            Yenile
-          </Button>
-        </div>
-      </header>
+    <div className="ct-admin-page">
+      <AdminPageHeader
+        title="Erişim Denetimi"
+        description={"IP yasakları ve davet kodları. Davet zorunluluğu Sunucu Ayarları'ndan açılır."}
+        actions={
+          <>
+            <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
+              Yenile
+            </Button>
+          </>
+        }
+      />
 
       <Segmented
         value={pane}
@@ -299,7 +300,9 @@ export default function AdminAccess() {
                 : "Adres, kişinin son girişinden alınır. Hiç giriş yapmamış hesaplarda kayıtlı adres olmaz."}
             </p>
           ) : null}
-          <Table rowKey="cidr" size="small" loading={loading} dataSource={bans} columns={banColumns} pagination={false} />
+          <div className="ct-admin-table-wrap">
+            <Table rowKey="cidr" size="small" loading={loading} dataSource={bans} columns={banColumns} pagination={false} />
+          </div>
         </>
       ) : (
         <>
@@ -323,7 +326,9 @@ export default function AdminAccess() {
               Oluştur
             </Button>
           </div>
-          <Table rowKey="code" size="small" loading={loading} dataSource={invites} columns={inviteColumns} pagination={false} />
+          <div className="ct-admin-table-wrap">
+            <Table rowKey="code" size="small" loading={loading} dataSource={invites} columns={inviteColumns} pagination={false} />
+          </div>
         </>
       )}
     </div>

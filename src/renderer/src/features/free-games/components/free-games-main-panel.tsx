@@ -1,4 +1,5 @@
 import { Alert, Button, Pagination, Select, Spin } from "antd";
+import { PageHeader } from "@/ui/page-header";
 import { GiftOutlined } from "@ant-design/icons";
 // Deliberately NOT workspace's getApiErrorMessage: the workspace shell imports
 // this feature, so importing back out of it would close a cycle that
@@ -55,32 +56,32 @@ export function FreeGamesMainPanel() {
 
   return (
     <div className="ct-free-games-panel">
-      <header className="ct-free-games-header">
-        <div>
-          <h4>{active?.label ?? "Ücretsiz Oyunlar"}</h4>
-          <p className="ct-free-games-header-description">{active?.description}</p>
-        </div>
-        <div className="ct-free-games-header-controls">
-          {/* Options are scoped to the bucket on screen, so this never offers a
-              store that has nothing in it — and never buries the stores that do
-              under the ~350 free-to-play titles that belong to no store. */}
-          <Select
-            value={store}
-            onChange={setStore}
-            className="ct-free-games-store-select"
-            size="small"
-            aria-label="Mağazaya göre filtrele"
-            options={storeOptions.map((option) => ({
-              value: option.value,
-              label: `${option.label} (${option.count})`,
-            }))}
-          />
-          <span className="ct-free-games-count">{visibleOffers.length} oyun</span>
-        </div>
-      </header>
+      <PageHeader
+        className="ct-free-games-header"
+        title={active?.label ?? "Ücretsiz Oyunlar"}
+        description={active?.description}
+        actions={
+          <>
+            {/* Options are scoped to the bucket on screen, so this never offers a
+                store that has nothing in it — and never buries the stores that do
+                under the ~350 free-to-play titles that belong to no store. */}
+            <Select
+              value={store}
+              onChange={setStore}
+              className="ct-free-games-store-select"
+              aria-label="Mağazaya göre filtrele"
+              options={storeOptions.map((option) => ({
+                value: option.value,
+                label: `${option.label} (${option.count})`,
+              }))}
+            />
+            <span className="ct-stat-chip">{visibleOffers.length} oyun</span>
+          </>
+        }
+      />
 
       {errorMessage ? (
-        <Alert type="error" showIcon message={errorMessage} className="ct-alert" />
+        <Alert type="error" showIcon title={errorMessage} className="ct-alert" />
       ) : null}
 
       {query.isPending && snapshot.offers.length === 0 ? (

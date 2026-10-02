@@ -110,7 +110,7 @@ export default function AdminMusic() {
       title: "Yetkiyi veren",
       key: "grantedBy",
       width: 200,
-      render: (_: unknown, record: MusicDJ) => <Tag color="blue">{nameOf(record.grantedBy)}</Tag>,
+      render: (_: unknown, record: MusicDJ) => <Tag className="ct-tag info">{nameOf(record.grantedBy)}</Tag>,
     },
     {
       title: "Tarih",
@@ -154,19 +154,19 @@ export default function AdminMusic() {
       />
 
       {disabled ? (
-        <Alert
+        <Alert className="ct-alert"
           type="warning"
           showIcon
-          message="Müzik botu kapalı"
+          title="Müzik botu kapalı"
           description="Sunucuda MUSIC_ENABLED=true değil ya da yt-dlp/ffmpeg kurulu değil. Komutlar ve bu ekran çalışmaz."
         />
       ) : null}
 
       {!disabled && !spotifyEnabled ? (
-        <Alert
+        <Alert className="ct-alert"
           type="info"
           showIcon
-          message="Spotify bağlantıları kapalı"
+          title="Spotify bağlantıları kapalı"
           description="SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET tanımlı değil. YouTube bağlantıları ve arama çalışmaya devam eder."
         />
       ) : null}
@@ -201,15 +201,17 @@ export default function AdminMusic() {
         }
         flush
       >
-        <Table
-          rowKey="userId"
-          size="small"
-          loading={loading}
-          dataSource={djs}
-          columns={columns}
-          pagination={false}
-          locale={{ emptyText: "Henüz DJ yetkisi verilmiş kimse yok" }}
-        />
+        <div className="ct-admin-table-wrap">
+          <Table
+            rowKey="userId"
+            size="small"
+            loading={loading}
+            dataSource={djs}
+            columns={columns}
+            pagination={false}
+            locale={{ emptyText: "Henüz DJ yetkisi verilmiş kimse yok" }}
+          />
+        </div>
       </AdminSection>
     </div>
   );

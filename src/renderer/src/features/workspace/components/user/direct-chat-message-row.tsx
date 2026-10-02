@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Input, Tooltip } from "antd";
+import { Button, Input, Tooltip } from "antd";
 import {
   DeleteOutlined,
   EditOutlined,
@@ -8,6 +8,12 @@ import {
 } from "@ant-design/icons";
 import type { ChatMessage } from "@shared/auth-contracts";
 import { formatTimeLabel } from "../../workspace-utils";
+import {
+  callLogKind,
+  formatCallDuration,
+  type CallLogInfo,
+  type CallLogKind,
+} from "../../hooks/user/call-log";
 import { renderMessageBody } from "../../mentions";
 import {
   ChatAttachmentView,
@@ -29,6 +35,10 @@ export interface DirectChatMessageRowProps {
   onReply: (message: ChatMessage) => void;
   onEdit: (messageId: string, body: string) => void;
   onToggleReaction: (messageId: string, emoji: string, add: boolean) => void;
+  /** For a call entry: folded into the next one, or how long it ran. */
+  callLog?: CallLogInfo;
+  /** "Geri ara" on a missed or declined call; absent while it cannot ring. */
+  onCallBack?: () => void;
 }
 
 // Every prop except the four callbacks. `message` is compared by reference
@@ -45,7 +55,10 @@ const areRowPropsEqual = (
   previous.deleteDisabled === next.deleteDisabled &&
   previous.peerLabel === next.peerLabel &&
   previous.currentUsername === next.currentUsername &&
-  previous.currentUserId === next.currentUserId;
+  previous.currentUserId === next.currentUserId &&
+  previous.callLog?.hidden === next.callLog?.hidden &&
+  previous.callLog?.durationSeconds === next.callLog?.durationSeconds &&
+  Boolean(previous.onCallBack) === Boolean(next.onCallBack);
 
 /**
  * One rendered direct message.
@@ -61,6 +74,80 @@ const areRowPropsEqual = (
  * being paid in full. Ignoring them is safe: they close over nothing but
  * `message`, which IS compared, and only forward to the panel's own handlers.
  */
+// What a call entry says, from this side of it. The sender of a "missed" is
+// the caller and of a "declined" the callee, so "own" decides the direction.
+const describeCall = (
+  kind: CallLogKind,
+  isOwn: boolean,
+  peer: string,
+  durationSeconds: number | undefined,
+): { label: string; detail: string; missed: boolean } => {
+  switch (kind) {
+    case "started":
+      return {
+        label: "Sesli arama başladı",
+        detail: isOwn ? "Giden arama" : "Gelen arama",
+        missed: false,
+      };
+    case "ended":
+      return {
+        label: "Sesli arama",
+        detail:
+          durationSeconds !== undefined
+            ? formatCallDuration(durationSeconds)
+            : "Arama sona erdi",
+        missed: false,
+      };
+    case "missed":
+      return isOwn
+        ? { label: `${peer || "Karşı taraf"} yanıt vermedi`, detail: "Giden arama", missed: true }
+        : { label: "Cevapsız arama", detail: "Gelen arama", missed: true };
+    case "declined":
+      return isOwn
+        ? { label: "Aramayı reddettin", detail: "Gelen arama", missed: true }
+        : { label: `${peer || "Karşı taraf"} aramayı reddetti`, detail: "Giden arama", missed: true };
+  }
+};
+
+function CallLogEntry({
+  kind,
+  isOwn,
+  peerLabel,
+  durationSeconds,
+  time,
+  onCallBack,
+}: {
+  kind: CallLogKind;
+  isOwn: boolean;
+  peerLabel: string;
+  durationSeconds?: number;
+  time: string;
+  onCallBack?: () => void;
+}) {
+  const { label, detail, missed } = describeCall(kind, isOwn, peerLabel, durationSeconds);
+
+  return (
+    <div className="ct-chat-row-system">
+      <div className={`ct-call-log ${missed ? "missed" : ""}`}>
+        <span className="ct-call-log-icon" aria-hidden="true">
+          <PhoneOutlined rotate={missed ? 225 : 0} />
+        </span>
+        <span className="ct-call-log-text">
+          <strong>{label}</strong>
+          <span>
+            {detail} · {time}
+          </span>
+        </span>
+        {missed && onCallBack && (
+          <Button size="small" icon={<PhoneOutlined />} onClick={onCallBack}>
+            Geri ara
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   message,
   isOwnMessage,
@@ -73,27 +160,26 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   onReply,
   onEdit,
   onToggleReaction,
+  callLog,
+  onCallBack,
 }: DirectChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
-  const isCallStart = message.body === "📞 Arama başladı";
-  const isCallEnd = message.body === "📞 Arama bitti";
+  const callKind = callLogKind(message.body);
 
-  if (isCallStart || isCallEnd) {
+  if (callKind) {
+    if (callLog?.hidden) {
+      return null;
+    }
     return (
-      <div className="ct-chat-row-system">
-        <div className="ct-chat-system-call-pill">
-          <span
-            className={`ct-chat-system-call-label ${isCallEnd ? "ended" : ""}`}
-          >
-            <PhoneOutlined />
-            {message.body}
-          </span>
-          <span className="ct-chat-system-call-time">
-            • {formatTimeLabel(message.createdAt)}
-          </span>
-        </div>
-      </div>
+      <CallLogEntry
+        kind={callKind}
+        isOwn={isOwnMessage}
+        peerLabel={peerLabel}
+        durationSeconds={callLog?.durationSeconds}
+        time={formatTimeLabel(message.createdAt)}
+        onCallBack={onCallBack}
+      />
     );
   }
 

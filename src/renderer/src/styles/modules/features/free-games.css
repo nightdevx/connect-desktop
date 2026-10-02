@@ -152,33 +152,13 @@
 }
 
 .ct-free-games-header {
-  @apply flex shrink-0 items-start justify-between gap-4;
-}
-
-.ct-free-games-header h4 {
-  @apply text-base font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-free-games-header-description {
-  @apply text-xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-free-games-header-controls {
-  @apply flex shrink-0 items-center gap-2;
+  @apply shrink-0;
 }
 
 .ct-free-games-store-select {
   min-width: 160px;
 }
 
-.ct-free-games-count {
-  @apply shrink-0 rounded-full border px-2.5 py-1 text-2xs font-semibold tabular-nums;
-  border-color: var(--ct-border);
-  color: var(--ct-text-secondary);
-  background: var(--ct-alpha-02);
-}
 
 /* Pinned under the grid, and it stays on screen while the cards scroll past it.
 
@@ -413,13 +393,13 @@
   }
 
   .ct-free-games-header {
-    @apply flex-col items-start gap-2;
+    @apply flex-col items-stretch gap-2;
   }
 
   /* The store select and the count fight for the last 160px once the header
      stacks; full width is the only honest answer at this size. */
-  .ct-free-games-header-controls {
-    @apply w-full justify-between;
+  .ct-free-games-header .ct-page-header-actions {
+    @apply ml-0 w-full justify-between;
   }
 
   .ct-free-games-pagination {

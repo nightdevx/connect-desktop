@@ -367,7 +367,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       key: "role",
       width: 110,
       render: (role: string) => (
-        <Tag color={role === "admin" ? "purple" : "blue"}>
+        <Tag className={`ct-tag ${role === "admin" ? "warn" : "info"}`}>
           {role === "admin" ? "Yönetici" : "Üye"}
         </Tag>
       ),
@@ -381,11 +381,11 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       // on with this account".
       render: (_value: unknown, record: AdminUserDetail) => (
         <Space size={4} wrap>
-          <Tag color={record.bannedAt ? "red" : "green"}>
+          <Tag className={`ct-tag ${record.bannedAt ? "danger" : "success"}`}>
             {record.bannedAt ? "Yasaklı" : "Aktif"}
           </Tag>
           {record.deletionScheduledAt ? (
-            <Tag color="orange">Silinecek</Tag>
+            <Tag className="ct-tag warn">Silinecek</Tag>
           ) : null}
         </Space>
       ),
@@ -587,7 +587,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         placement="right"
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
-        width={420}
+        size={420}
         extra={
           <Space>
             <Button onClick={() => setIsEditOpen(false)}>Kapat</Button>

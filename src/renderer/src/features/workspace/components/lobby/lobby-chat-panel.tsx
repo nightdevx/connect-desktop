@@ -501,7 +501,7 @@ export function LobbyChatPanel({
           {!lobbyMessagesQuery.isPending && lobbyMessagesQuery.isError && (
             <div className="ct-chat-notice">
               <Alert
-                message="Hata"
+                title="Hata"
                 description={`Sohbet alınamadı: ${lobbyMessagesQuery.error.message}`}
                 type="error"
                 showIcon
@@ -515,7 +515,7 @@ export function LobbyChatPanel({
             !lobbyMessagesQuery.data?.ok && (
               <div className="ct-chat-notice">
                 <Alert
-                  message="Hata"
+                  title="Hata"
                   description={`Sohbet alınamadı: ${getApiErrorMessage(lobbyMessagesQuery.data?.error)}`}
                   type="error"
                   showIcon
@@ -525,8 +525,8 @@ export function LobbyChatPanel({
             )}
 
           {searchResults === null && showEmptyState && (
-            <div className="ct-list-state ct-chat-empty-state" >
-              <p className="text-xs text-ct-text-muted">Bu lobide henüz mesaj yok. İlk mesajı sen gönder!</p>
+            <div className="ct-list-state ct-chat-empty-state">
+              <p>Bu lobide henüz mesaj yok. İlk mesajı sen gönder!</p>
             </div>
           )}
 

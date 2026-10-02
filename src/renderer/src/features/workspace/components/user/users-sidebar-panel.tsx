@@ -1,18 +1,21 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Badge, Select, Dropdown, Tooltip } from "antd";
+import { Select, Dropdown, Tooltip } from "antd";
 import {
   MessageOutlined,
   PhoneOutlined,
   CloseCircleOutlined,
   CloseOutlined,
-  HomeOutlined,
+  TeamOutlined,
   UserDeleteOutlined,
 } from "@ant-design/icons";
 import type {
+  ChatMessage,
   SelectablePresenceStatus,
   UserDirectoryEntry,
 } from "@shared/auth-contracts";
+import { useConversationPreviews } from "../../hooks/chat/use-conversation-previews";
+import { bareImageUrl } from "../common/chat-message-parts";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import type { CallSessionState } from "../../hooks/user/use-call-session";
@@ -36,9 +39,28 @@ interface UsersSidebarPanelProps {
   unreadByUserId: Record<string, number>;
   friends: FriendsController;
   callState?: CallSessionState;
+  /** Whose messages are "Sen:" in a row's preview line. */
+  currentUserId?: string;
   presenceStatus?: SelectablePresenceStatus;
   onPresenceStatusChange?: (status: SelectablePresenceStatus) => void;
 }
+
+// A thread's newest message as one line: what it was, not its raw body --
+// a picture, a file, a link to a GIF read as what they are.
+const describePreview = (
+  message: ChatMessage,
+  currentUserId: string | undefined,
+): string => {
+  const text = message.attachment
+    ? message.attachment.isImage
+      ? "Fotoğraf"
+      : `Dosya: ${message.attachment.name}`
+    : bareImageUrl(message.body)
+      ? "GIF"
+      : message.body.replace(/\s+/g, " ").trim();
+
+  return message.userId === currentUserId ? `Sen: ${text}` : text;
+};
 
 const PRESENCE_OPTIONS: Array<{
   value: SelectablePresenceStatus;
@@ -62,6 +84,7 @@ export function UsersSidebarPanel({
   unreadByUserId,
   friends,
   callState,
+  currentUserId,
   presenceStatus = "online",
   onPresenceStatusChange,
 }: UsersSidebarPanelProps) {
@@ -77,6 +100,11 @@ export function UsersSidebarPanel({
     () => new Map(directoryUsers.map((user) => [user.userId, user] as const)),
     [directoryUsers],
   );
+
+  const previews = useConversationPreviews(
+    conversations.map((conversation) => conversation.userId),
+  );
+  const incomingRequestCount = friends.incomingRequests.length;
 
   // Unfriending cannot be undone by the person doing it — the other side has to
   // accept a fresh request — so it goes through a confirmation.
@@ -137,9 +165,22 @@ export function UsersSidebarPanel({
         onClick={onOpenHome}
         aria-current={selectedUserId === null ? "page" : undefined}
       >
-        <HomeOutlined />
-        <span>Ana Sayfa</span>
+        <TeamOutlined />
+        <span>Arkadaşlar</span>
+        {/* A request is waiting on the page this row opens. */}
+        {incomingRequestCount > 0 && (
+          <Tooltip title={`${incomingRequestCount} bekleyen istek`}>
+            <span className="ct-count-badge">{incomingRequestCount}</span>
+          </Tooltip>
+        )}
       </button>
+
+      <p className="ct-list-group-title">
+        Özel Mesajlar
+        {conversations.length > 0 && (
+          <span className="ct-segmented-count">{conversations.length}</span>
+        )}
+      </p>
 
       <ul className="ct-list" role="listbox" aria-label="Sohbetler">
         {conversations.length === 0 && (
@@ -212,18 +253,24 @@ export function UsersSidebarPanel({
                       />
                     )}
                   </p>
+                  {/* The last thing said, and by whom; the status until the
+                      thread's newest message has been read. */}
                   <span>
-                    {getUserStatusLabel(
-                      directoryUser?.appOnline,
-                      directoryUser?.presence,
-                    )}
+                    {previews[userId]
+                      ? describePreview(previews[userId], currentUserId)
+                      : getUserStatusLabel(
+                          directoryUser?.appOnline,
+                          directoryUser?.presence,
+                        )}
                   </span>
                 </div>
               </div>
 
               <div className="ct-list-item-actions">
                 {unreadCount > 0 && (
-                  <Badge count={unreadCount} overflowCount={99} />
+                  <span className="ct-count-badge" aria-label={`${unreadCount} okunmamış`}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
                 )}
 
                 {/* Revealed on hover, next to the unread badge. The right-click

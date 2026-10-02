@@ -427,26 +427,6 @@
     var(--ct-lobby-surface);
 }
 
-.ct-lobby-selection-head {
-  @apply relative z-[1] flex flex-wrap items-end justify-between gap-4;
-}
-
-.ct-lobby-selection-head h2 {
-  @apply m-0 font-bold;
-  font-size: 22px;
-  letter-spacing: -0.01em;
-  color: var(--ct-text-primary);
-}
-
-.ct-lobby-selection-head p {
-  @apply m-0 mt-1.5 max-w-[52ch] text-sm;
-  color: var(--ct-text-muted);
-}
-
-.ct-lobby-selection-stats {
-  @apply flex gap-2;
-}
-
 /* flex-shrink 0: the screen scrolls, the sections do not — a shrinking section
    let the room grid spill over the heading below it on a crowded server. */
 .ct-lobby-selection-rooms {
@@ -846,14 +826,21 @@
 }
 
 .ct-lobby-room-icon {
-  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md;
+  @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md;
   font-size: var(--ct-icon-sm);
   color: var(--ct-text-secondary);
   background: var(--ct-alpha-08);
 }
 
+/* A voice room is the green of being connected, a message room stays grey. */
+.ct-lobby-room-icon.voice {
+  color: var(--ct-success);
+  background: color-mix(in srgb, var(--ct-success) 12%, transparent);
+}
+
 .ct-lobby-room-name {
-  @apply m-0 min-w-0 truncate text-base font-semibold;
+  @apply m-0 min-w-0 truncate font-semibold;
+  font-size: 15px;
   color: var(--ct-text-primary);
 }
 
@@ -892,6 +879,14 @@
 .ct-lobby-room-status.on i {
   background: var(--ct-success);
   box-shadow: 0 0 8px color-mix(in srgb, var(--ct-success) 60%, transparent);
+}
+
+/* The time spent in the room, in a pill like the other live counts. */
+.ct-lobby-room-status.timer {
+  @apply h-6 rounded-full border px-2.5 text-xs font-semibold;
+  border-color: var(--ct-border);
+  color: var(--ct-text-secondary);
+  background: var(--ct-panel-soft);
 }
 
 /* --------------------------------------------------------------------------
@@ -1656,14 +1651,23 @@
    toolbar's own height, at every breakpoint.
    ========================================================================== */
 
+/* A raised pill under the stage, round controls on it. The convention is
+   the one people know from every call app: a control that is ON is plain, and
+   the one that is OFF -- a muted microphone, deafened output -- is red,
+   because that is the state worth noticing. A toggle that opens something
+   (the emote board) lights in the accent while it is open.
+
+   --ct-tool-size is the one number: the stream chevron (stream-controls.css)
+   and the narrow-window rule (responsive.css) read and set it. */
 .ct-lobby-stage-actions {
-  @apply mx-auto mb-3.5 inline-flex shrink-0 flex-wrap items-center justify-center gap-2.5 rounded-lg border px-3 py-2;
+  @apply mx-auto mb-3.5 inline-flex shrink-0 flex-wrap items-center justify-center gap-2 rounded-full border p-2;
+  --ct-tool-size: 44px;
   align-self: center;
   max-width: calc(100% - 24px);
   border-color: var(--ct-border);
-  background: var(--ct-panel-solid);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--ct-shadow-md);
+  background: var(--ct-panel-raised);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--ct-shadow-lg);
 }
 
 /* "Lobiden Ayrıl" used to sit flush against the camera button: the two clicks
@@ -1673,63 +1677,79 @@
   background: var(--ct-border);
 }
 
-/* The primary in-call controls: control-lg with its paired icon-lg. */
-.ct-lobby-action-btn {
-  @apply inline-flex h-control-lg w-control-lg cursor-pointer items-center justify-center rounded-md border p-0;
-  border-color: var(--ct-border);
+/* Scoped to the toolbar and to .ant-btn: antd sizes a large icon-only button
+   itself, and these have to out-rank that rule rather than tie with it. */
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+  @apply inline-flex cursor-pointer items-center justify-center rounded-full border-0 p-0;
+  width: var(--ct-tool-size);
+  height: var(--ct-tool-size);
   color: var(--ct-text-primary);
-  background: var(--ct-alpha-04);
-  font-size: var(--ct-icon-lg);
-  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+  background: var(--ct-alpha-08);
+  font-size: var(--ct-icon-md);
+  box-shadow: none;
+  transition:
+    background var(--ct-duration-fast) ease,
+    color var(--ct-duration-fast) ease,
+    transform var(--ct-duration-fast) ease,
+    filter var(--ct-duration-fast) ease;
 }
 
-.ct-lobby-action-btn:hover:not(:disabled) {
-  border-color: var(--ct-border-strong);
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn:hover:not(:disabled) {
+  color: var(--ct-text-primary);
   background: var(--ct-alpha-12);
+  transform: translateY(-1px);
 }
 
-/* Scale on press only. The old hover lifted the button by 2px and grew it by
-   10%, which made a row of five controls shuffle as the pointer crossed it. */
-.ct-lobby-action-btn:active:not(:disabled) {
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn:active:not(:disabled) {
   transform: scale(0.94);
 }
 
-.ct-lobby-action-btn.active {
-  border-color: var(--ct-accent);
+/* Open right now (the emote board). */
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active,
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active:hover:not(:disabled) {
   color: var(--ct-text-inverse);
   background: var(--ct-accent);
-  box-shadow: 0 4px 14px var(--ct-accent-glow);
+}
+
+/* Off: the microphone or the output, switched off by you. */
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.off,
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.off:hover:not(:disabled) {
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+}
+
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.off:hover:not(:disabled) {
+  filter: brightness(1.1);
 }
 
 /* Camera on: filled in the brand blue, with the red "live" dot (.ct-live-badge)
    in its corner. Off, it is an ordinary control — it used to look the same in
    both states. White on the blue in both themes. */
-.ct-lobby-action-btn.live-cam {
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-cam {
   position: relative;
-  border-color: var(--ct-brand-blue);
   color: var(--ct-on-info);
   background: var(--ct-brand-blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-brand-blue) 28%, transparent);
 }
 
-.ct-lobby-action-btn.live-cam:hover:not(:disabled) {
-  border-color: var(--ct-brand-blue);
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-cam:hover:not(:disabled) {
+  color: var(--ct-on-info);
   background: color-mix(in srgb, var(--ct-brand-blue) 85%, white);
 }
 
 /* Sharing: the stop half of the share pair becomes a wide "Yayında" pill in
    the logo's two colours, with a pulsing dot. The loudest thing in the row,
    on purpose — it is the one state other people can see. */
-.ct-lobby-action-btn.live-share {
-  @apply w-auto gap-2 px-3.5 text-sm font-bold;
-  border-color: transparent;
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share {
+  @apply gap-2 px-4 text-sm font-bold;
+  width: auto;
   color: var(--ct-on-info);
   background: linear-gradient(120deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-brand-blue) 24%, transparent);
 }
 
-.ct-lobby-action-btn.live-share:hover:not(:disabled) {
-  border-color: transparent;
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share:hover:not(:disabled) {
+  color: var(--ct-on-info);
   background: linear-gradient(120deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
   filter: brightness(1.1);
 }
@@ -1756,10 +1776,9 @@
     @apply mx-0;
   }
 
-  .ct-lobby-action-btn.live-share {
+  .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share {
     @apply relative px-0;
-    width: auto;
-    aspect-ratio: 1;
+    width: var(--ct-tool-size);
   }
 
   .ct-lobby-action-btn .ct-live-share-icon {
@@ -1778,7 +1797,7 @@
     right: -4px;
     width: 12px;
     height: 12px;
-    border-color: var(--ct-panel-solid);
+    border-color: var(--ct-panel-raised);
     background: var(--ct-danger);
   }
 }
@@ -1787,18 +1806,19 @@
    both. --ct-text-primary flips to near-black under the light theme, which put
    black on #cc2b2b — 2.9:1, and the one control in the toolbar that must never
    be misread. */
-.ct-lobby-action-btn.danger {
-  border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
+  width: calc(var(--ct-tool-size) + 12px);
   color: var(--ct-on-danger);
   background: var(--ct-danger);
 }
 
-.ct-lobby-action-btn.danger:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--ct-danger) 82%, white);
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger:hover:not(:disabled) {
+  color: var(--ct-on-danger);
+  background: var(--ct-danger);
+  filter: brightness(1.1);
 }
 
-.ct-lobby-action-btn:disabled {
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
@@ -1808,11 +1828,11 @@
    user is most likely to be pressing at that moment, so this keeps it at full
    contrast and gives it the danger colour — it is refused, and it says why in
    its tooltip and its label. Ordered after :disabled so it wins. */
-.ct-lobby-action-btn.forced-muted:disabled {
+.ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.forced-muted:disabled {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
   color: var(--ct-danger);
-  background: color-mix(in srgb, var(--ct-danger) 12%, transparent);
+  background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-danger) 40%, transparent);
 }
 
 /* ==========================================================================

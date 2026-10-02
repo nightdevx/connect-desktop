@@ -50,7 +50,7 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
           {sessions.map((session) => (
             <li key={session.id}>
               <span className="ct-admin-plain-list-main">
-                {session.current ? <Tag color="green">Aktif</Tag> : <Tag>Kullanılmış</Tag>}
+                {session.current ? <Tag className="ct-tag success">Aktif</Tag> : <Tag className="ct-tag">Kullanılmış</Tag>}
                 <code>{session.id}</code>
               </span>
               <span className="ct-muted">

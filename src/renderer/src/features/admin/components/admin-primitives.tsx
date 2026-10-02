@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PageHeader } from "@/ui/page-header";
 
 /**
  * The two shapes every admin screen is built from.
@@ -17,8 +18,8 @@ import type { ReactNode } from "react";
 
 interface AdminPageHeaderProps {
   title: string;
-  /** One sentence on what the screen is for. Capped at 68ch by the stylesheet. */
-  description: string;
+  /** One sentence on what the screen is for. */
+  description: ReactNode;
   /** The screen's primary controls -- in practice, "Yenile". */
   actions?: ReactNode;
 }
@@ -28,16 +29,15 @@ export function AdminPageHeader({
   description,
   actions,
 }: AdminPageHeaderProps) {
+  // The app's one page title, ruled off from the page the way the settings
+  // pages are.
   return (
-    <header className="ct-admin-page-header">
-      <div className="ct-admin-page-header-text">
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {actions ? (
-        <div className="ct-admin-page-header-actions">{actions}</div>
-      ) : null}
-    </header>
+    <PageHeader
+      className="ct-admin-page-header"
+      title={title}
+      description={description}
+      actions={actions}
+    />
   );
 }
 

@@ -333,6 +333,7 @@ export function WorkspaceSidebar({
             presenceStatus={usersProps.presenceStatus}
             onPresenceStatusChange={usersProps.onPresenceStatusChange}
             callState={usersProps.callState}
+            currentUserId={lobbiesProps.currentUserId}
           />
         )}
 

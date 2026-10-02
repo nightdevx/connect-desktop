@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AdminPageHeader } from "./admin-primitives";
 import { Button, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DisconnectOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -52,9 +53,9 @@ export default function AdminMedia() {
       key: "tracks",
       render: (_: unknown, row) => (
         <span className="ct-admin-track-tags">
-          {row.microphone && <Tag color="blue">Mikrofon</Tag>}
-          {row.camera && <Tag color="green">Kamera</Tag>}
-          {row.screen && <Tag color="purple">Ekran</Tag>}
+          {row.microphone && <Tag className="ct-tag info">Mikrofon</Tag>}
+          {row.camera && <Tag className="ct-tag success">Kamera</Tag>}
+          {row.screen && <Tag className="ct-tag info">Ekran</Tag>}
           {!row.microphone && !row.camera && !row.screen && <span className="ct-muted">—</span>}
         </span>
       ),
@@ -98,28 +99,30 @@ export default function AdminMedia() {
   ];
 
   return (
-    <div className="ct-admin-section">
-      <header className="ct-admin-section-header">
-        <div>
-          <h3>Ses ve Video</h3>
-          <p>Şu anda yayında olan herkes. Sekiz saniyede bir kendiliğinden tazelenir.</p>
-        </div>
-        <div className="ct-admin-section-actions">
-          <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
-            Yenile
-          </Button>
-        </div>
-      </header>
-
-      <Table
-        rowKey={(row) => `${row.room}:${row.userId}`}
-        size="small"
-        loading={loading}
-        dataSource={publishers}
-        columns={columns}
-        pagination={false}
-        locale={{ emptyText: "Şu anda yayında kimse yok." }}
+    <div className="ct-admin-page">
+      <AdminPageHeader
+        title="Ses ve Video"
+        description={"Şu anda yayında olan herkes. Sekiz saniyede bir kendiliğinden tazelenir."}
+        actions={
+          <>
+            <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
+              Yenile
+            </Button>
+          </>
+        }
       />
+
+      <div className="ct-admin-table-wrap">
+        <Table
+          rowKey={(row) => `${row.room}:${row.userId}`}
+          size="small"
+          loading={loading}
+          dataSource={publishers}
+          columns={columns}
+          pagination={false}
+          locale={{ emptyText: "Şu anda yayında kimse yok." }}
+        />
+      </div>
     </div>
   );
 }

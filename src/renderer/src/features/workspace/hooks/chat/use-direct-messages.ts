@@ -32,6 +32,7 @@ export interface PendingAttachment {
   size: number;
 }
 import { mergeDirectMessagePages } from "./direct-message-merge";
+import { conversationPreviewKey } from "./use-conversation-previews";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { mentionsUser } from "../../mentions";
@@ -460,6 +461,15 @@ export const useDirectMessages = ({
           (message) => message.id !== streamEvent.message.id,
         ),
       );
+      // The sidebar's line for this thread, if it was the deleted message:
+      // re-read it rather than guess what came before.
+      const previewKey = conversationPreviewKey(streamEvent.peerUserId);
+      if (
+        queryClient.getQueryData<ChatMessage | null>(previewKey)?.id ===
+        streamEvent.message.id
+      ) {
+        void queryClient.invalidateQueries({ queryKey: previewKey });
+      }
       return;
     }
 
@@ -478,6 +488,13 @@ export const useDirectMessages = ({
       const incoming = streamEvent.message;
       setDirectMessagesCache(peerUserId, (currentMessages) =>
         upsertMessage(currentMessages, incoming),
+      );
+      // The newest message is the sidebar row's second line. An edit or a
+      // reaction only replaces it when it is that same message.
+      queryClient.setQueryData<ChatMessage | null>(
+        conversationPreviewKey(peerUserId),
+        (previous) =>
+          !incoming.updated || previous?.id === incoming.id ? incoming : previous,
       );
 
       // An edit or a reaction re-publishes an existing message. It is not new
@@ -546,6 +563,9 @@ export const useDirectMessages = ({
       if (streamDroppedRef.current) {
         streamDroppedRef.current = false;
         void queryClient.invalidateQueries({ queryKey: ["direct-messages"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["direct-message-preview"],
+        });
       }
       return;
     }

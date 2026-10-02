@@ -1,4 +1,5 @@
 import { Tooltip } from "antd";
+import type { ReactNode } from "react";
 import {
   AudioMutedOutlined,
   AudioOutlined,
@@ -48,6 +49,8 @@ interface QuickControlsProps {
   onStopScreenShare: () => void;
   onStopCamera: () => void;
   onDisconnect: () => void;
+  /** The call row (CallDock variant="strip"), above the reminders. */
+  callStrip?: ReactNode;
 }
 
 /**
@@ -84,9 +87,11 @@ export function QuickControls({
   onStopScreenShare,
   onStopCamera,
   onDisconnect,
+  callStrip,
 }: QuickControlsProps) {
   return (
     <div className="ct-quick-dock">
+      {callStrip}
       {/* Sits ABOVE the identity row on purpose: a share you have forgotten
           about is the one piece of state here with a privacy cost, so it gets
           its own box rather than a fourth icon in a row of icons. */}
@@ -177,7 +182,7 @@ export function QuickControls({
           >
             <button
               type="button"
-              className={`ct-quick-icon-button ${micLocked ? "forced-muted" : micEnabled ? "active" : ""}`}
+              className={`ct-quick-icon-button ${micLocked ? "forced-muted" : micEnabled ? "" : "off"}`}
               onClick={onToggleMic}
               disabled={micLocked}
               // The reason rides on the label rather than a tooltip: a disabled
@@ -208,7 +213,7 @@ export function QuickControls({
           >
             <button
               type="button"
-              className={`ct-quick-icon-button ${headphoneEnabled ? "active" : ""}`}
+              className={`ct-quick-icon-button ${headphoneEnabled ? "" : "off"}`}
               onClick={onToggleHeadphone}
               aria-label="Kulaklık"
               aria-pressed={headphoneEnabled}

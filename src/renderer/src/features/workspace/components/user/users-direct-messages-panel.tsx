@@ -8,7 +8,7 @@ import {
   type MouseEvent,
   type SetStateAction,
 } from "react";
-import { Drawer, Input, Button, Tag, Divider, Descriptions, Avatar, Tooltip } from "antd";
+import { Drawer, Input, Button, Tag, Avatar, Tooltip } from "antd";
 import type { InputRef } from "antd";
 import {
   SendOutlined,
@@ -33,8 +33,12 @@ import type { UseDirectMessagesResult } from "../../hooks/chat/use-direct-messag
 import {
   formatDateLabel,
   getApiErrorMessage,
+  getDisplayInitials,
+  getPresenceColor,
   getUserStatusLabel,
 } from "../../workspace-utils";
+import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
+import { ModalHeading } from "@/ui/modal-heading";
 import type { MentionCandidate } from "../../mentions";
 import {
   MentionPicker,
@@ -58,6 +62,7 @@ import { useLobbyStageLayout } from "../lobby/lobby-stage-layout";
 import { type LobbyParticipantView } from "../lobby/lobby-participant-tile";
 import { type StageParticipantSlot } from "../lobby/lobby-view-utils";
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
+import { useConnectionQuality, type ParticipantConnectionQuality } from "@/features/livekit";
 import type {
   LobbyStateMember,
 } from "@shared/desktop-api-types";
@@ -67,13 +72,49 @@ import workspaceService from "../../services";
 import { useUiStore } from "@/store/ui-store";
 import { DirectChatMessageRow } from "./direct-chat-message-row";
 import { useThreadScroll } from "./use-thread-scroll";
-import { CallElapsed } from "./parts/CallElapsed";
+import { ElapsedTime } from "../common/elapsed-time";
+import { pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
 
 // Mention matching, highlighting and "was I named" live in ../../mentions so the
 // lobby composer and this message list share one set of rules. Re-exported
 // because callers already import mentionsUser from here.
 export { mentionsUser } from "../../mentions";
 
+
+// The other side's connection, as three bars beside the call time. Nothing
+// until LiveKit has reported on it.
+const QUALITY_BARS: Record<ParticipantConnectionQuality, number> = {
+  excellent: 3,
+  good: 3,
+  poor: 2,
+  lost: 1,
+  unknown: 0,
+};
+
+const QUALITY_LABEL: Record<ParticipantConnectionQuality, string> = {
+  excellent: "Bağlantı iyi",
+  good: "Bağlantı iyi",
+  poor: "Bağlantı zayıf",
+  lost: "Bağlantı koptu",
+  unknown: "",
+};
+
+function CallQualityBars({ userId }: { userId: string }) {
+  const quality = useConnectionQuality(userId);
+  const bars = QUALITY_BARS[quality];
+  if (!bars) {
+    return null;
+  }
+  return (
+    <Tooltip title={QUALITY_LABEL[quality]}>
+      <span className={`ct-quality-bars level-${bars}`} aria-label={QUALITY_LABEL[quality]}>
+        <i />
+        <i />
+        <i />
+      </span>
+    </Tooltip>
+  );
+}
 
 // Stable fallbacks for the optional media props below.
 const EMPTY_SPEAKER_IDS: string[] = [];
@@ -320,37 +361,46 @@ export function UsersDirectMessagesPanel({
     [onSendMessage, focusComposer],
   );
 
-  // Mute toggle list management
+  // Whether this person's calls ring. Re-read when an incoming call changes
+  // state too: the ringing card can mute them from outside this panel.
   useEffect(() => {
-    if (!selectedUser) return;
-    try {
-      const mutedUsersStr = localStorage.getItem("connect_muted_call_users") || "[]";
-      const mutedIds = JSON.parse(mutedUsersStr);
-      setIsMuted(Array.isArray(mutedIds) && mutedIds.includes(selectedUser.userId));
-    } catch {
-      setIsMuted(false);
-    }
-  }, [selectedUser]);
+    setIsMuted(
+      selectedUser ? readMutedCallers().includes(selectedUser.userId) : false,
+    );
+  }, [selectedUser, callState?.isMuted]);
 
   const handleToggleMuteCalls = () => {
     if (!selectedUser) return;
-    try {
-      const mutedUsersStr = localStorage.getItem("connect_muted_call_users") || "[]";
-      let mutedIds = JSON.parse(mutedUsersStr);
-      if (!Array.isArray(mutedIds)) mutedIds = [];
-      
-      if (mutedIds.includes(selectedUser.userId)) {
-        mutedIds = mutedIds.filter((id: string) => id !== selectedUser.userId);
-        setIsMuted(false);
-      } else {
-        mutedIds.push(selectedUser.userId);
-        setIsMuted(true);
-      }
-      localStorage.setItem("connect_muted_call_users", JSON.stringify(mutedIds));
-    } catch (e) {
-      console.error("Mute toggle error:", e);
-    }
+    setCallerMuted(selectedUser.userId, !isMuted);
+    setIsMuted(!isMuted);
   };
+
+  // What the person in this conversation is doing, for the header's second
+  // line: the room before the game, as on the friends page.
+  const gameActivityByUser = useGameActivityByUser();
+  const headerActivity = (() => {
+    if (!selectedUser?.appOnline) {
+      return null;
+    }
+    const lobby = friendsHome?.lobbyByUserId?.[selectedUser.userId];
+    if (lobby) {
+      return `${lobby.name} odasında`;
+    }
+    const minigame = gameActivityByUser.get(selectedUser.userId);
+    if (minigame) {
+      return gameActivityLabel(minigame);
+    }
+    return selectedUser.activity?.name ? `${selectedUser.activity.name} oynuyor` : null;
+  })();
+
+  // One entry per finished call: the "ended" message carries the duration and
+  // the "started" one it closes is folded into it.
+  const callLogInfo = useMemo(() => pairCallLog(directMessages), [directMessages]);
+  // "Geri ara" on a missed or declined call, while nothing else is ringing.
+  const handleCallBack =
+    onInitiateCall && selectedUser?.appOnline && (!callState || callState.status === "idle")
+      ? () => onInitiateCall(selectedUser)
+      : undefined;
 
   // ----- PARTICIPANT & LAYOUT COMPUTATIONS (When call is active) -----
   const { lobbyParticipants } = useLobbyParticipants({
@@ -693,6 +743,8 @@ export function UsersDirectMessagesPanel({
                 <DirectChatMessageRow
                   key={message.id}
                   message={message}
+                  callLog={callLogInfo.get(message.id)}
+                  onCallBack={handleCallBack}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={deletingMessageId === message.id}
                   deleteDisabled={Boolean(deletingMessageId)}
@@ -913,7 +965,8 @@ export function UsersDirectMessagesPanel({
                     <>
                       <span className="ct-online-dot" aria-hidden="true" />
                       Görüşme sürüyor
-                      {callState.connectedAt && <CallElapsed since={callState.connectedAt} />}
+                      {callState.connectedAt && <ElapsedTime since={callState.connectedAt} />}
+                      {selectedUser && <CallQualityBars userId={selectedUser.userId} />}
                     </>
                   ) : (
                     <>
@@ -1045,78 +1098,89 @@ export function UsersDirectMessagesPanel({
           ) : (
             // STANDARD DIRECT MESSAGES CHAT SCREEN WITH UPPER REJOIN BANNER
             <>
-              <div className="ct-chat-user-header-premium" onClick={() => setIsUserPopupOpen(true)}>
-                <div className="ct-chat-user-header-left">
-                  <div className="relative">
-                    <Avatar
-                      size={42}
-                      src={selectedUser.avatarUrl}
-                      icon={!selectedUser.avatarUrl && <UserOutlined />}
-                      className="ct-chat-user-header-avatar"
-                    />
+              {/* The conversation's bar, the same height and surface as a
+                  room's: who, what they are doing, and the call controls. The
+                  identity half opens the profile drawer. */}
+              <header className="ct-dm-header">
+                <button
+                  type="button"
+                  className="ct-dm-header-identity"
+                  onClick={() => setIsUserPopupOpen(true)}
+                  aria-label={`${selectedUser.displayName || selectedUser.username} profilini aç`}
+                >
+                  <span className="ct-user-avatar with-presence" aria-hidden="true">
+                    <span className="ct-user-avatar-core">
+                      {selectedUser.avatarUrl ? (
+                        <img className="ct-user-avatar-image" src={selectedUser.avatarUrl} alt="" />
+                      ) : (
+                        <span className="ct-user-avatar-fallback">
+                          {getDisplayInitials(selectedUser.displayName || selectedUser.username)}
+                        </span>
+                      )}
+                    </span>
                     <span
-                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-ct-surface-1 ${
-                        selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
-                      }`}
+                      className="ct-presence-dot"
+                      style={{
+                        background: getPresenceColor(
+                          selectedUser.appOnline,
+                          selectedUser.presence,
+                        ),
+                      }}
                     />
-                  </div>
-
-                  <div className="ct-chat-user-header-main">
-                    <h3>{selectedUser.displayName || selectedUser.username}</h3>
-                    {/* A conversation seeded from history — or opened by a call
-                        — knows a non-friend's display name and nothing else, so
-                        a bare "@" is all this would render. */}
-                    {selectedUser.username && <span>@{selectedUser.username}</span>}
-                  </div>
-                </div>
-
-                <div className="ct-chat-user-header-actions">
-                  <span className="ct-status-chip">
-                    {getUserStatusLabel(selectedUser.appOnline)}
                   </span>
-                  
-                  {/* Call Mute Toggle Button */}
-                  <Tooltip title={isMuted ? "Aramaları Sesi Aç" : "Aramaları Sessize Al"}>
+
+                  <span className="ct-dm-header-text">
+                    <strong title={selectedUser.displayName || selectedUser.username}>
+                      {selectedUser.displayName || selectedUser.username}
+                    </strong>
+                    {/* A conversation seeded from history -- or opened by a
+                        call -- knows a non-friend's display name and nothing
+                        else, so the handle is only shown when it is known. */}
+                    <span>
+                      {headerActivity ??
+                        getUserStatusLabel(selectedUser.appOnline, selectedUser.presence)}
+                      {selectedUser.username && ` · @${selectedUser.username}`}
+                    </span>
+                  </span>
+                </button>
+
+                <div className="ct-dm-header-actions">
+                  <Tooltip title={isMuted ? "Aramaların sesini aç" : "Aramaları sessize al"}>
                     <Button
                       type="text"
-                      icon={
-                        isMuted ? (
-                          <BellFilled className="ct-icon-danger" />
-                        ) : (
-                          <BellOutlined />
-                        )
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleMuteCalls();
-                      }}
+                      className={`ct-row-action ${isMuted ? "danger" : "neutral"}`}
+                      icon={isMuted ? <BellFilled className="ct-icon-danger" /> : <BellOutlined />}
+                      aria-pressed={isMuted}
+                      aria-label="Aramaları sessize al"
+                      onClick={handleToggleMuteCalls}
                     />
                   </Tooltip>
 
-                  {onInitiateCall && (
-                    <Tooltip title="Ara">
+                  {/* Offline gets no button rather than a dead one, as on the
+                      friends page: the call would ring into nothing. */}
+                  {onInitiateCall && selectedUser.appOnline && (
+                    <Tooltip title="Sesli ara">
                       <Button
                         type="text"
-                        icon={<PhoneOutlined className="ct-icon-success" />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onInitiateCall(selectedUser);
-                        }}
+                        className="ct-row-action success"
+                        icon={<PhoneOutlined />}
+                        aria-label={`${selectedUser.displayName || selectedUser.username} kişisini ara`}
+                        onClick={() => onInitiateCall(selectedUser)}
                       />
                     </Tooltip>
                   )}
-                  <Tooltip title="Kullanıcı Bilgisi">
+
+                  <Tooltip title="Profil">
                     <Button
                       type="text"
+                      className="ct-row-action neutral"
                       icon={<InfoCircleOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsUserPopupOpen(true);
-                      }}
+                      aria-label="Profili aç"
+                      onClick={() => setIsUserPopupOpen(true)}
                     />
                   </Tooltip>
                 </div>
-              </div>
+              </header>
 
               {/* The same ringing call as the corner card, where the user is
                   already looking: in the conversation with the caller. */}
@@ -1184,112 +1248,67 @@ export function UsersDirectMessagesPanel({
           )}
 
           <Drawer
-            title={
-              <div className="flex items-center gap-2 text-white">
-                <UserOutlined />
-                <span className="font-bold text-[14px] tracking-wide uppercase">Kullanıcı Profili</span>
-              </div>
-            }
+            title={<ModalHeading icon={<UserOutlined />} title="Kullanıcı Profili" />}
             rootClassName="ct-user-drawer"
+            // Close at the right, where the modals keep theirs.
+            closable={{ placement: "end" }}
             placement="right"
             onClose={() => setIsUserPopupOpen(false)}
             open={isUserPopupOpen}
-            width={340}
-            styles={{
-              mask: {
-                backdropFilter: "blur(6px)",
-                background: "rgba(0, 0, 0, 0.6)",
-              },
-              content: {
-                background: "rgba(10, 10, 10, 0.98)",
-                borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
-                color: "var(--ct-text-primary)",
-              },
-              header: {
-                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                background: "rgba(10, 10, 10, 0.98)",
-                padding: "16px 24px",
-              },
-              body: {
-                padding: "24px",
-              }
-            }}
+            size={340}
           >
-            <div className="flex flex-col items-center text-center gap-4 pb-6">
-              <div className="relative">
+            <div className="ct-user-drawer-identity">
+              <span className="ct-user-drawer-avatar">
                 <Avatar
                   size={96}
                   src={selectedUser.avatarUrl}
                   icon={!selectedUser.avatarUrl && <UserOutlined />}
-                  className="ct-chat-user-header-avatar"
                 />
                 <span
-                  className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-ct-surface-1 ${
-                    selectedUser.appOnline ? "bg-emerald-500" : "bg-zinc-500"
-                  }`}
+                  className="ct-presence-dot"
+                  style={{
+                    background: getPresenceColor(
+                      selectedUser.appOnline,
+                      selectedUser.presence,
+                    ),
+                  }}
                 />
-              </div>
+              </span>
 
-              <div>
-                <h3 className="text-[17px] font-bold text-white leading-snug">
-                  {selectedUser.displayName || selectedUser.username}
-                </h3>
-                {selectedUser.username && (
-                  <p className="text-[13px] text-ct-text-muted mt-0.5">@{selectedUser.username}</p>
-                )}
-              </div>
+              <h3>{selectedUser.displayName || selectedUser.username}</h3>
+              {selectedUser.username && <p>@{selectedUser.username}</p>}
 
-              <Tag color={selectedUser.role === "admin" ? "gold" : "default"}>
+              <Tag className={`ct-tag ${selectedUser.role === "admin" ? "warn" : ""}`}>
                 {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
               </Tag>
             </div>
 
-            <Divider />
+            <dl className="ct-user-drawer-facts">
+              <div>
+                <dt>
+                  <SafetyOutlined /> Rol
+                </dt>
+                <dd>{selectedUser.role === "admin" ? "Yönetici" : "Üye"}</dd>
+              </div>
+              <div>
+                <dt>
+                  <CalendarOutlined /> Katılım tarihi
+                </dt>
+                <dd>{formatDateLabel(selectedUser.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <GlobalOutlined /> Durum
+                </dt>
+                <dd>
+                  {headerActivity ??
+                    getUserStatusLabel(selectedUser.appOnline, selectedUser.presence)}
+                </dd>
+              </div>
+            </dl>
 
-            <Descriptions title={null} column={1} layout="horizontal" size="small">
-              <Descriptions.Item
-                label={
-                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
-                    <SafetyOutlined /> Rol
-                  </span>
-                }
-              >
-                <span className="text-white text-[12px] font-medium">
-                  {selectedUser.role === "admin" ? "Yönetici" : "Üye"}
-                </span>
-              </Descriptions.Item>
-
-              <Descriptions.Item
-                label={
-                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
-                    <CalendarOutlined /> Katılım Tarihi
-                  </span>
-                }
-              >
-                <span className="text-white text-[12px] font-medium">
-                  {formatDateLabel(selectedUser.createdAt)}
-                </span>
-              </Descriptions.Item>
-
-              <Descriptions.Item
-                label={
-                  <span className="text-ct-text-muted text-[12px] flex items-center gap-2">
-                    <GlobalOutlined /> Durum
-                  </span>
-                }
-              >
-                <span className="text-white text-[12px] font-medium">
-                  {getUserStatusLabel(
-                    selectedUser.appOnline,
-                    selectedUser.presence,
-                  )}
-                </span>
-              </Descriptions.Item>
-            </Descriptions>
-
-            <div className="mt-8">
+            <div className="ct-user-drawer-actions">
               <Button
-                type="default"
                 icon={<CopyOutlined />}
                 block
                 // Nothing to copy when the handle is unknown, and a silent
@@ -1305,14 +1324,12 @@ export function UsersDirectMessagesPanel({
 
               {onToggleBlocked && (
                 <Button
-                  type="default"
                   danger={!isSelectedUserBlocked}
                   block
                   loading={isBlockUpdating}
                   onClick={() => {
                     void onToggleBlocked(selectedUser.userId);
                   }}
-                  className="mt-2.5"
                 >
                   {isSelectedUserBlocked
                     ? "Engeli Kaldır"
@@ -1321,7 +1338,7 @@ export function UsersDirectMessagesPanel({
               )}
 
               {isSelectedUserBlocked && (
-                <p className="ct-field-hint mt-2 text-center">
+                <p className="ct-field-hint">
                   Engellenen kullanıcıyla mesajlaşma ve arama karşılıklı olarak
                   kapalıdır.
                 </p>

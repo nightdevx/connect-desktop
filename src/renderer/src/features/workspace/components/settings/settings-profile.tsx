@@ -13,6 +13,7 @@ import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
 import type { UserRestriction } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import { useStillImage } from "../../hooks/media/use-still-image";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 interface ProfileSettings {
@@ -533,31 +534,24 @@ export function SettingsProfile({
         onApply={(rect, cropped) => void handleBannerCropApply(rect, cropped)}
         onCancel={() => setPendingBanner(null)}
       />
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <UserOutlined />
-          </div>
-          <div>
-            <h4>Profil Ayarları</h4>
-            <p className="ct-settings-section-description">
-              Hesap görünüm bilgilerini buradan yönetebilirsin.
-            </p>
-          </div>
-        </div>
-
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={() => {
-            void handleSaveProfile();
-          }}
-          loading={isSavingProfile}
-          disabled={isProfileLoading || isSavingProfile}
-        >
-          Profili Kaydet
-        </Button>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Profil"
+        description="Hesap görünüm bilgilerini buradan yönetebilirsin."
+        actions={
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => {
+              void handleSaveProfile();
+            }}
+            loading={isSavingProfile}
+            disabled={isProfileLoading || isSavingProfile}
+          >
+            Profili Kaydet
+          </Button>
+        }
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

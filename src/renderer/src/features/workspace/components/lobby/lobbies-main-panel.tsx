@@ -22,7 +22,7 @@ import { WatchModal, useWatchRoom } from "@/features/watch";
 import { watchStageIdentity, watchVideoRef } from "@shared/watch";
 import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
-import { UserDeleteOutlined } from "@ant-design/icons";
+import { MessageOutlined, UserDeleteOutlined } from "@ant-design/icons";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -749,6 +749,10 @@ export function LobbiesMainPanel({
             isConnected={lobbyMembers.some(
               (member) => member.userId === currentUserId,
             )}
+            connectedSince={
+              lobbyMembers.find((member) => member.userId === currentUserId)
+                ?.joinedAt
+            }
             liveShareCount={lobbyMembers.filter((member) => member.screenSharing).length}
             isChatOpen={isLobbyChatOpen}
             unreadCount={unreadLobbyMessages}
@@ -847,6 +851,14 @@ export function LobbiesMainPanel({
           )}
 
           <aside className={`ct-lobby-chat-slot ${isTextOnly || isLobbyChatOpen ? "open" : ""}`}>
+            {/* Beside a stage the column names itself; a message room IS its
+                chat, and the room header above already says so. */}
+            {!isTextOnly && (
+              <div className="ct-chat-column-head">
+                <MessageOutlined aria-hidden="true" />
+                Oda sohbeti
+              </div>
+            )}
             <LobbyChatPanel
               currentUserId={currentUserId}
               currentUsername={currentUsername}

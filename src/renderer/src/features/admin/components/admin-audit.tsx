@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AdminPageHeader } from "./admin-primitives";
 import { Button, Input, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined, DownloadOutlined } from "@ant-design/icons";
@@ -75,7 +76,7 @@ export default function AdminAudit() {
       key: "target",
       render: (_: unknown, row) => (
         <span>
-          <Tag>{row.targetType}</Tag>
+          <Tag className="ct-tag">{row.targetType}</Tag>
           {row.targetLabel || row.targetId || "—"}
         </span>
       ),
@@ -89,26 +90,26 @@ export default function AdminAudit() {
   ];
 
   return (
-    <div className="ct-admin-section">
-      <header className="ct-admin-section-header">
-        <div>
-          <h3>Denetim Kaydı</h3>
-          <p>Her yönetici eylemi: kim, kime, neden ve nereden.</p>
-        </div>
-        <div className="ct-admin-section-actions">
-          <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
-            Yenile
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => {
-              toast.info("CSV dökümü GET /admin/audit/export adresinden alınır.");
-            }}
-          >
-            CSV
-          </Button>
-        </div>
-      </header>
+    <div className="ct-admin-page">
+      <AdminPageHeader
+        title="Denetim Kaydı"
+        description={"Her yönetici eylemi: kim, kime, neden ve nereden."}
+        actions={
+          <>
+            <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
+              Yenile
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => {
+                toast.info("CSV dökümü GET /admin/audit/export adresinden alınır.");
+              }}
+            >
+              CSV
+            </Button>
+          </>
+        }
+      />
 
       <div className="ct-admin-filters">
         <Input.Search
@@ -131,20 +132,22 @@ export default function AdminAudit() {
         />
       </div>
 
-      <Table
-        rowKey="id"
-        size="small"
-        loading={loading}
-        dataSource={entries}
-        columns={columns}
-        pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
-          total,
-          showSizeChanger: false,
-          onChange: setPage,
-        }}
-      />
+      <div className="ct-admin-table-wrap">
+        <Table
+          rowKey="id"
+          size="small"
+          loading={loading}
+          dataSource={entries}
+          columns={columns}
+          pagination={{
+            current: page,
+            pageSize: PAGE_SIZE,
+            total,
+            showSizeChanger: false,
+            onChange: setPage,
+          }}
+        />
+      </div>
     </div>
   );
 }

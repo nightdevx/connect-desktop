@@ -38,10 +38,40 @@
     color: var(--ct-brand-blue);
   }
 
-  .ct-call-elapsed {
-    @apply shrink-0;
-    font-variant-numeric: tabular-nums;
-    color: var(--ct-text-primary);
+  /* Three rising bars, lit from the left: three green, two amber, one red. */
+  .ct-quality-bars {
+    @apply inline-flex items-end gap-0.5;
+    height: 12px;
+  }
+
+  .ct-quality-bars i {
+    @apply block rounded-sm;
+    width: 3px;
+    background: var(--ct-alpha-20);
+  }
+
+  .ct-quality-bars i:nth-child(1) {
+    height: 5px;
+  }
+
+  .ct-quality-bars i:nth-child(2) {
+    height: 8px;
+  }
+
+  .ct-quality-bars i:nth-child(3) {
+    height: 12px;
+  }
+
+  .ct-quality-bars.level-3 i {
+    background: var(--ct-success);
+  }
+
+  .ct-quality-bars.level-2 i:nth-child(-n + 2) {
+    background: var(--ct-warning);
+  }
+
+  .ct-quality-bars.level-1 i:nth-child(1) {
+    background: var(--ct-danger);
   }
 
   .ct-call-chat-drawer {
@@ -59,34 +89,131 @@
     border-left-color: transparent;
   }
 
+  /* The chat column's title, in a room and in a call alike. */
+  .ct-chat-column-head,
   .ct-call-chat-drawer-header {
-    @apply flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3;
+    @apply flex shrink-0 items-center gap-2 border-b px-3.5 text-sm font-semibold;
+    min-height: 44px;
     border-color: var(--ct-border);
+    color: var(--ct-text-primary);
+  }
+
+  .ct-call-chat-drawer-header {
+    @apply justify-between pr-2;
+  }
+
+  .ct-chat-column-head .anticon {
+    color: var(--ct-text-muted);
   }
 
   .ct-call-chat-drawer-header strong {
-    @apply inline-flex items-center gap-2.5 text-base font-semibold;
+    @apply inline-flex items-center gap-2 text-sm font-semibold;
     color: var(--ct-text-primary);
   }
 
-  /* Header shell: .ct-chat-user-header-premium in theme.css. */
-
-  .ct-chat-user-header-left {
-    @apply flex min-w-0 items-center gap-2;
+  /* The conversation's bar: the room header's height and surface, so moving
+     between a room and a conversation does not move the top of the page. */
+  .ct-dm-header {
+    @apply flex shrink-0 items-center justify-between gap-3 border-b px-3;
+    min-height: var(--ct-lobby-bar-height);
+    border-color: var(--ct-border);
+    background: var(--ct-panel-strong);
   }
 
-  .ct-chat-user-header-main {
-    @apply min-w-0;
+  .ct-dm-header-identity {
+    @apply flex min-w-0 cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-1.5 py-1 text-left;
+    transition: background var(--ct-duration-fast) ease;
   }
 
-  .ct-chat-user-header-main h3 {
-    @apply m-0 truncate text-sm font-semibold;
+  .ct-dm-header-identity:hover {
+    background: var(--ct-alpha-04);
+  }
+
+  .ct-dm-header-text {
+    @apply flex min-w-0 flex-col;
+  }
+
+  .ct-dm-header-text strong {
+    @apply truncate font-semibold leading-tight;
+    font-size: 15px;
     color: var(--ct-text-primary);
   }
 
-  .ct-chat-user-header-main span {
-    @apply mt-0.5 block truncate text-xs;
+  .ct-dm-header-text span {
+    @apply truncate text-2xs;
     color: var(--ct-text-muted);
+  }
+
+  .ct-dm-header-actions {
+    @apply flex shrink-0 items-center gap-0.5;
+  }
+
+  /* The profile drawer: the person, then three facts, then what you can do. */
+  .ct-user-drawer .ant-drawer-body {
+    padding: 24px;
+  }
+
+  .ct-user-drawer-identity {
+    @apply flex flex-col items-center gap-1 pb-5 text-center;
+  }
+
+  .ct-user-drawer-avatar {
+    @apply relative mb-2;
+  }
+
+  .ct-user-drawer-avatar .ant-avatar {
+    border: 2px solid var(--ct-alpha-12);
+    color: var(--ct-text-primary);
+    background: var(--ct-surface-3);
+  }
+
+  .ct-user-drawer-avatar .ct-presence-dot {
+    @apply absolute h-4 w-4 rounded-full border-2;
+    right: 4px;
+    bottom: 4px;
+    border-color: var(--ct-surface-2);
+  }
+
+  .ct-user-drawer-identity h3 {
+    @apply m-0 text-lg font-bold;
+    color: var(--ct-text-primary);
+  }
+
+  .ct-user-drawer-identity p {
+    @apply m-0 mb-2 text-sm;
+    color: var(--ct-text-muted);
+  }
+
+  .ct-user-drawer-facts {
+    @apply m-0 flex flex-col overflow-hidden rounded-md border;
+    border-color: var(--ct-border);
+    background: var(--ct-alpha-02);
+  }
+
+  .ct-user-drawer-facts > div {
+    @apply flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs;
+  }
+
+  .ct-user-drawer-facts > div + div {
+    border-top: 1px solid var(--ct-border);
+  }
+
+  .ct-user-drawer-facts dt {
+    @apply inline-flex items-center gap-2;
+    color: var(--ct-text-muted);
+  }
+
+  .ct-user-drawer-facts dd {
+    @apply m-0 truncate font-semibold;
+    color: var(--ct-text-primary);
+  }
+
+  .ct-user-drawer-actions {
+    @apply mt-6 flex flex-col gap-2.5;
+  }
+
+  .ct-user-drawer-actions .ct-field-hint {
+    @apply m-0 text-center;
   }
 
   /* No scroll-state container here anymore: the two sticky gradient bands it
@@ -331,25 +458,42 @@
     @apply flex w-full justify-center py-3;
   }
 
-  .ct-chat-system-call-pill {
-    @apply inline-flex items-center gap-2 rounded-full border px-4 py-1.5;
-    border-color: var(--ct-border);
-    background: var(--ct-alpha-04);
-    backdrop-filter: blur(8px);
+  /* A call in the conversation: what happened, from this side, and when. A
+     missed or declined one is red and offers to call back. */
+  .ct-call-log {
+    @apply inline-flex items-center gap-2.5 rounded-md border px-3 py-2;
+    border-color: var(--ct-alpha-08);
+    background: var(--ct-alpha-02);
   }
 
-  .ct-chat-system-call-label {
-    @apply inline-flex items-center gap-1.5 text-xs font-medium;
+  .ct-call-log-icon {
+    @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full;
+    font-size: 13px;
     color: var(--ct-success);
+    background: color-mix(in srgb, var(--ct-success) 14%, transparent);
   }
 
-  .ct-chat-system-call-label.ended {
+  .ct-call-log.missed .ct-call-log-icon {
     color: var(--ct-danger);
+    background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
   }
 
-  .ct-chat-system-call-time {
-    @apply text-micro font-medium;
+  .ct-call-log-text {
+    @apply flex min-w-0 flex-col text-left;
+  }
+
+  .ct-call-log-text strong {
+    @apply text-sm font-semibold;
+    color: var(--ct-text-primary);
+  }
+
+  .ct-call-log-text span {
+    @apply text-2xs;
     color: var(--ct-text-muted);
+  }
+
+  .ct-call-log .ant-btn {
+    @apply ml-1.5;
   }
 
   .ct-chat-row {
@@ -497,20 +641,10 @@
   .ct-chat-reaction,
   .ct-emoji-picker,
   .ct-chat-input .ant-input,
-  .ct-chat-system-call-label {
-    font-family:
-      "Space Grotesk", "IBM Plex Sans", "Segoe UI Emoji", "Apple Color Emoji",
-      "Noto Color Emoji", "Segoe UI", sans-serif;
-  }
-
   /* Emoji and GIF popovers. No padding of its own: both panels bring their own
      chrome and a border around a border reads as a double frame. */
   .ct-emoji-popover .ant-popover-inner {
     padding: 0;
-    border: 1px solid var(--ct-border);
-    border-radius: var(--ct-radius-md);
-    background: var(--ct-surface-2);
-    box-shadow: var(--ct-shadow-md);
     overflow: hidden;
   }
 
@@ -880,7 +1014,7 @@
   color: var(--ct-alpha-50);
 }
 
-.ct-chat-user-header-avatar.ant-avatar {
+.ct-incoming-call-banner .ant-avatar {
   border: 1.5px solid var(--ct-alpha-12);
   background: var(--ct-surface-3);
 }
@@ -973,25 +1107,7 @@
 /* items-center, not items-start: the button used to hang off the top of a
    two-line text block, which reads as a misalignment because it is one. */
 .ct-friends-home-header {
-  @apply flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-4;
-}
-
-.ct-friends-home-header h2 {
-  @apply m-0 text-xl font-bold;
-  color: var(--ct-text-primary);
-  letter-spacing: -0.01em;
-}
-
-/* 52ch, the same measure the lobby selection screen's description uses: long
-   enough to read as a sentence, short enough not to run under the button. */
-.ct-friends-home-header p {
-  @apply m-0 mt-1 max-w-[52ch] text-sm;
-  color: var(--ct-text-muted);
-}
-
-/* The online count and Arkadaş Ekle, side by side. */
-.ct-friends-home-header-actions {
-  @apply flex shrink-0 items-center gap-2;
+  @apply shrink-0 px-5 pb-3 pt-4;
 }
 
 /* align-items: stretch is what makes the tab strip and the search box the same
@@ -1205,7 +1321,11 @@
     @apply flex-col items-stretch gap-3;
   }
 
-  .ct-friends-home-header-actions .ant-btn {
+  .ct-friends-home-header .ct-page-header-actions {
+    @apply ml-0;
+  }
+
+  .ct-friends-home-header .ct-page-header-actions .ant-btn {
     @apply flex-1;
   }
 

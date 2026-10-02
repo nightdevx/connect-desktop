@@ -241,8 +241,8 @@
   width: 38px;
   height: 38px;
   font-size: var(--ct-icon-md);
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
+  color: var(--ct-on-info);
+  background: linear-gradient(135deg, var(--ct-brand-blue), var(--ct-brand-cyan-deep));
 }
 
 /* Grows, so everything after it is pushed to the far end of the header. The
@@ -252,8 +252,12 @@
   @apply flex min-w-0 flex-1 flex-col;
 }
 
+/* The page title's type (ui/page-header.tsx), a step smaller: the board
+   under it needs the height. */
 .ct-minigames-header h4 {
-  @apply m-0 text-base font-semibold;
+  @apply m-0 font-bold;
+  font-size: 20px;
+  letter-spacing: -0.01em;
   color: var(--ct-text-primary);
   line-height: 1.2;
 }
@@ -265,10 +269,12 @@
 
 /* The record, at the right-hand end with the picker. The header text does the
    pushing -- an ml-auto here only worked while the badge existed. */
+/* A stat chip, like the other pages' live counts. */
 .ct-minigames-best {
-  @apply flex shrink-0 flex-col items-end rounded-md border px-3 py-1;
+  @apply flex shrink-0 items-center gap-2 rounded-full border px-3;
+  height: 30px;
   border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
+  background: var(--ct-panel-soft);
 }
 
 .ct-minigames-best-label {
@@ -1927,85 +1933,17 @@
   transform: scale(1.08);
 }
 
-.ct-gameinfo-backdrop {
-  @apply fixed inset-0 flex items-center justify-center p-6;
-  z-index: 60;
-  background: rgb(0 0 0 / 0.55);
-  backdrop-filter: blur(2px);
-  animation: ct-gameinfo-fade var(--ct-duration-base) var(--ct-ease-premium);
-}
-
-@keyframes ct-gameinfo-fade {
-  from {
-    opacity: 0;
-  }
-}
-
+/* The body of the "Nasıl oynanır" dialog (a .ct-modal). */
 .ct-gameinfo {
-  @apply flex w-full flex-col gap-4 rounded-xl border p-5;
-  max-width: 34rem;
-  max-height: 80vh;
-  overflow-y: auto;
-  border-color: var(--ct-border-strong);
-  background: var(--ct-panel-solid);
-  box-shadow: var(--ct-shadow-lg);
-  animation: ct-gameinfo-rise var(--ct-duration-slow) var(--ct-ease-spring);
-}
-
-@keyframes ct-gameinfo-rise {
-  from {
-    transform: translateY(14px) scale(0.97);
-    opacity: 0;
-  }
-}
-
-.ct-gameinfo-header {
-  @apply flex items-start gap-3;
-}
-
-.ct-gameinfo-icon {
-  @apply flex h-11 w-11 flex-none items-center justify-center rounded-lg text-xl;
-  background: var(--ct-alpha-08);
-  color: var(--ct-text-primary);
-}
-
-.ct-gameinfo-title {
-  @apply flex min-w-0 flex-1 flex-col gap-0.5;
-}
-
-.ct-gameinfo-title h4 {
-  @apply m-0 text-lg font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-gameinfo-title p {
-  @apply m-0 text-sm;
-  color: var(--ct-text-muted);
-}
-
-.ct-gameinfo-close {
-  @apply flex h-8 w-8 flex-none items-center justify-center rounded-full;
-  color: var(--ct-text-muted);
-  transition: background var(--ct-duration-fast) linear;
-}
-
-.ct-gameinfo-close:hover {
-  background: var(--ct-alpha-08);
-  color: var(--ct-text-primary);
+  @apply flex flex-col gap-4;
 }
 
 .ct-gameinfo-meta {
   @apply flex flex-wrap items-center gap-2;
 }
 
-.ct-gameinfo-chip {
-  @apply rounded-full px-2.5 py-0.5 text-xs font-semibold;
-  background: var(--ct-alpha-08);
-  color: var(--ct-text-secondary);
-}
-
 .ct-gameinfo-subtitle {
-  @apply m-0 text-xs font-semibold uppercase tracking-wide;
+  @apply m-0 text-micro font-bold uppercase tracking-[0.12em];
   color: var(--ct-text-muted);
 }
 
@@ -2033,12 +1971,8 @@
   border-radius: 50%;
   font-size: 0.7rem;
   font-weight: 700;
-  background: var(--ct-accent-soft);
-  color: var(--ct-text-primary);
-}
-
-.ct-gameinfo-footer {
-  @apply flex justify-end;
+  color: var(--ct-on-info);
+  background: var(--ct-brand-blue);
 }
 
 .ct-game-activity-chip {
@@ -2085,11 +2019,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-gameinfo-backdrop,
-  .ct-gameinfo {
-    animation: none;
-  }
-
   .ct-minigames-info-button:hover {
     transform: none;
   }

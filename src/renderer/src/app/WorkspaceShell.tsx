@@ -364,6 +364,7 @@ function WorkspaceShell({
     rejectCall,
     cancelCall,
     endActiveCall,
+    muteIncomingCaller,
     rejoinCall,
   } = useCallSession({
     currentUserId,
@@ -1550,6 +1551,20 @@ function WorkspaceShell({
         onStopScreenShare={handleScreenToggle}
         onStopCamera={handleCameraToggle}
         onDisconnect={handleLeaveLobbyOrEndCall}
+        // A call ringing out or running while the user is elsewhere: a row at
+        // the top of the dock, where every other "you are live" reminder is.
+        callStrip={
+          <CallDock
+            variant="strip"
+            callState={callState}
+            isStageVisible={isCallStageVisible}
+            onAccept={handleAcceptCallAndOpen}
+            onReject={rejectCall}
+            onCancel={cancelCall}
+            onEnd={handleEndActiveCall}
+            onOpenConversation={openCallConversation}
+          />
+        }
       />
 
       <CallDock
@@ -1559,6 +1574,7 @@ function WorkspaceShell({
         onReject={rejectCall}
         onCancel={cancelCall}
         onEnd={handleEndActiveCall}
+        onMuteCaller={muteIncomingCaller}
         onOpenConversation={openCallConversation}
       />
 

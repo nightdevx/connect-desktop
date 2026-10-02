@@ -8,6 +8,7 @@ import {
   CopyOutlined,
   DesktopOutlined,
   EllipsisOutlined,
+  IdcardOutlined,
   InboxOutlined,
   MessageOutlined,
   PhoneOutlined,
@@ -25,7 +26,9 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { ConfirmActionModal } from "../common";
 import { ContextMenuPanel } from "../common/context-menu-panel";
+import { UserProfileCardAnchor } from "./user-profile-card";
 import { AuthLogoMark } from "@/features/auth";
+import { PageHeader } from "@/ui/page-header";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import {
   getDisplayInitials,
@@ -274,6 +277,7 @@ function RowAction({
 export function FriendsHomePanel({
   friends,
   directoryUsers,
+  currentUserId,
   onOpenConversation,
   onAddFriend,
   onInitiateCall,
@@ -292,6 +296,13 @@ export function FriendsHomePanel({
   // open conversation the moment someone typed here.
   const [search, setSearch] = useState("");
   const [pendingUnfriend, setPendingUnfriend] = useState<RequestRow | null>(null);
+  // The profile card, opened from a menu at the row it was asked about.
+  const [profileTarget, setProfileTarget] = useState<{
+    userId: string;
+    name: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const query = normalize(search.trim());
 
@@ -418,6 +429,20 @@ export function FriendsHomePanel({
     asRow: RequestRow,
   ): MenuProps["items"] => {
     const items: NonNullable<MenuProps["items"]> = [
+      {
+        key: "profile",
+        label: "Profili Gör",
+        icon: <IdcardOutlined />,
+        onClick: ({ domEvent }) => {
+          const rect = (domEvent.currentTarget as Element).getBoundingClientRect();
+          setProfileTarget({
+            userId: user.userId,
+            name: user.displayName || user.username,
+            x: rect.left,
+            y: rect.top,
+          });
+        },
+      },
       {
         key: "message",
         label: "Mesaj Gönder",
@@ -854,28 +879,24 @@ export function FriendsHomePanel({
     <div className="ct-friends-home">
       <AuthLogoMark className="ct-brand-mural" />
 
-      <header className="ct-friends-home-header">
-        <div>
-          <h2>Arkadaşlar</h2>
-          <p>
-            Kimin ne yaptığını görün, sohbet açın ya da sesli arayın; sağ tık
-            daha fazla seçenek gösterir.
-          </p>
-        </div>
-
-        <div className="ct-friends-home-header-actions">
-          {friendUsers.length > 0 && (
-            <span className="ct-stat-chip">
-              <span className="ct-online-dot" aria-hidden="true" />
-              {onlineCount} çevrimiçi
-            </span>
-          )}
-
-          <Button type="primary" icon={<UserAddOutlined />} onClick={onAddFriend}>
-            Arkadaş Ekle
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        className="ct-friends-home-header"
+        title="Arkadaşlar"
+        description="Kimin ne yaptığını görün, sohbet açın ya da sesli arayın; sağ tık daha fazla seçenek gösterir."
+        actions={
+          <>
+            {friendUsers.length > 0 && (
+              <span className="ct-stat-chip">
+                <span className="ct-online-dot" aria-hidden="true" />
+                {onlineCount} çevrimiçi
+              </span>
+            )}
+            <Button type="primary" icon={<UserAddOutlined />} onClick={onAddFriend}>
+              Arkadaş Ekle
+            </Button>
+          </>
+        }
+      />
 
       <div className="ct-friends-home-toolbar">
         <Segmented
@@ -906,6 +927,19 @@ export function FriendsHomePanel({
           </>
         )}
       </div>
+
+      {profileTarget && (
+        <UserProfileCardAnchor
+          key={`profile-card-${profileTarget.userId}`}
+          x={profileTarget.x}
+          y={profileTarget.y}
+          userId={profileTarget.userId}
+          fallbackName={profileTarget.name}
+          currentUserId={currentUserId}
+          friends={friends}
+          onClose={() => setProfileTarget(null)}
+        />
+      )}
 
       <ConfirmActionModal
         isOpen={pendingUnfriend !== null}

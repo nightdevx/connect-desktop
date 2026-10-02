@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Select, Button } from "antd";
-import { VideoCameraOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
+import { EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import type { CameraPreferences } from "./settings-main-panel-types";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 interface SettingsCameraProps {
@@ -290,19 +291,11 @@ export function SettingsCamera({
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <VideoCameraOutlined />
-          </div>
-          <div>
-            <h4>Kamera Ayarları</h4>
-            <p className="ct-settings-section-description">
-            Kamera açılırken kullanılacak kalite ayarlarını belirleyebilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Kamera"
+        description="Kamera açılırken kullanılacak kalite ayarlarını belirleyebilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

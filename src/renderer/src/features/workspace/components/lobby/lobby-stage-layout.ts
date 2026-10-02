@@ -36,9 +36,41 @@ const DEFAULT_STAGE_HEIGHT = 620;
 const MAX_COLUMNS = 7;
 const RESIZE_DELTA_THRESHOLD = 8;
 
-interface StageSize {
+export interface StageSize {
   width: number;
   height: number;
+}
+
+/**
+ * Which size to lay the tiles out for, given the one just measured.
+ *
+ * A few pixels of GROWTH is not worth reflowing every tile for; a shrink always
+ * is. The fit fills a row exactly, so a box even 1px narrower than the one it
+ * was fitted to drops a tile onto a row of its own. The room grid's 320ms
+ * column transition ends in steps smaller than the threshold, and they were all
+ * skipped: a stage that settled at 1086px stayed fitted to 1089, and three
+ * tiles wrapped into one column that overflowed under the room header.
+ */
+export function nextStageSize(
+  previous: StageSize,
+  next: StageSize,
+  force: boolean,
+): StageSize {
+  if (previous.width === next.width && previous.height === next.height) {
+    return previous;
+  }
+
+  const shrank = next.width < previous.width || next.height < previous.height;
+  if (
+    !force &&
+    !shrank &&
+    Math.abs(previous.width - next.width) < RESIZE_DELTA_THRESHOLD &&
+    Math.abs(previous.height - next.height) < RESIZE_DELTA_THRESHOLD
+  ) {
+    return previous;
+  }
+
+  return next;
 }
 
 function resolveGapPx(participantCount: number): number {
@@ -101,7 +133,7 @@ function calculateTileWidth(
   );
 }
 
-function resolveGridFit(
+export function resolveGridFit(
   participantCount: number,
   stageSize: StageSize,
   isLobbyChatOpen: boolean,
@@ -214,29 +246,9 @@ export function useLobbyStageLayout(
       };
     };
 
+    // The first measurement always lands; after that, see nextStageSize.
     const applySize = (nextSize: StageSize, force: boolean): void => {
-      setStageSize((previousSize) => {
-        if (
-          previousSize.width === nextSize.width &&
-          previousSize.height === nextSize.height
-        ) {
-          return previousSize;
-        }
-
-        // A few pixels of drift is not worth reflowing every tile for; the
-        // first measurement always is.
-        if (
-          !force &&
-          Math.abs(previousSize.width - nextSize.width) <
-            RESIZE_DELTA_THRESHOLD &&
-          Math.abs(previousSize.height - nextSize.height) <
-            RESIZE_DELTA_THRESHOLD
-        ) {
-          return previousSize;
-        }
-
-        return nextSize;
-      });
+      setStageSize((previousSize) => nextStageSize(previousSize, nextSize, force));
     };
 
     applySize(readContentBox(), true);

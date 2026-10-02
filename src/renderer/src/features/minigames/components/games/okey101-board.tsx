@@ -530,10 +530,10 @@ export function Okey101Aside({ table, mySeat }: VersusViewProps) {
       </ul>
 
       <div className="ct-okey101-legend">
-        <Tag>Bitiren −101</Tag>
-        <Tag>Açmayan +202</Tag>
-        <Tag color="gold">Okeyle bitiş ×2</Tag>
-        <Tag color="purple">Çiftten ×2</Tag>
+        <Tag className="ct-tag">Bitiren −101</Tag>
+        <Tag className="ct-tag">Açmayan +202</Tag>
+        <Tag className="ct-tag warn">Okeyle bitiş ×2</Tag>
+        <Tag className="ct-tag info">Çiftten ×2</Tag>
       </div>
 
       <p className="ct-versus-panel-note">

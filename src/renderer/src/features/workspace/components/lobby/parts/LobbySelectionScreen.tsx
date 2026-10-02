@@ -9,6 +9,7 @@ import {
 } from "@ant-design/icons";
 import type { LobbyDescriptor, LobbyStateMember } from "@shared/auth-contracts";
 import { AuthLogoMark } from "@/features/auth";
+import { PageHeader } from "@/ui/page-header";
 import { getDisplayInitials, getUsernameHue } from "../../../workspace-utils";
 
 interface LobbySelectionScreenProps {
@@ -66,27 +67,23 @@ export function LobbySelectionScreen({
     >
       <AuthLogoMark className="ct-brand-mural" />
 
-      <header className="ct-lobby-selection-head">
-        <div>
-          <h2>Lobiler</h2>
-          <p>
-            Bir odaya katılarak sesli, görüntülü veya yazılı olarak sohbet
-            edebilirsin.
-          </p>
-        </div>
-
-        {lobbiesCount > 0 && (
-          <div className="ct-lobby-selection-stats">
-            <span className="ct-stat-chip">
-              <SoundOutlined /> {activeRooms} oda aktif
-            </span>
-            <span className="ct-stat-chip">
-              <span className="ct-online-dot" aria-hidden="true" />
-              {peopleInRooms} kişi odalarda
-            </span>
-          </div>
-        )}
-      </header>
+      <PageHeader
+        title="Lobiler"
+        description="Bir odaya katılarak sesli, görüntülü veya yazılı olarak sohbet edebilirsin."
+        actions={
+          lobbiesCount > 0 && (
+            <>
+              <span className="ct-stat-chip">
+                <SoundOutlined /> {activeRooms} oda aktif
+              </span>
+              <span className="ct-stat-chip">
+                <span className="ct-online-dot" aria-hidden="true" />
+                {peopleInRooms} kişi odalarda
+              </span>
+            </>
+          )
+        }
+      />
 
       {lobbiesCount === 0 ? (
         <div className="ct-lobby-selection-empty">

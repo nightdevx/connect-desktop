@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AdminPageHeader } from "./admin-primitives";
 import { Button, Input, Modal, Segmented, Select, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
@@ -221,7 +222,7 @@ export default function AdminChat() {
       dataIndex: "status",
       width: 110,
       render: (value: AdminReportStatus) => (
-        <Tag color={value === "open" ? "orange" : value === "resolved" ? "green" : "default"}>{value}</Tag>
+        <Tag className={`ct-tag ${value === "open" ? "warn" : value === "resolved" ? "success" : ""}`}>{value}</Tag>
       ),
     },
     {
@@ -304,22 +305,19 @@ export default function AdminChat() {
   ];
 
   return (
-    <div className="ct-admin-section">
+    <div className="ct-admin-page">
       {modalHolder}
-      <header className="ct-admin-section-header">
-        <div>
-          <h3>Sohbet Moderasyonu</h3>
-          <p>
-            Oda mesajları, şikâyet kuyruğu ve ek dosyalar. Özel mesajlar yalnızca bir şikâyetle
-            buraya düşer.
-          </p>
-        </div>
-        <div className="ct-admin-section-actions">
-          <Button icon={<ReloadOutlined />} onClick={() => void refresh()} loading={loading}>
-            Yenile
-          </Button>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="Sohbet Moderasyonu"
+        description={"Oda mesajları, şikâyet kuyruğu ve ek dosyalar. Özel mesajlar yalnızca bir şikâyetle buraya düşer."}
+        actions={
+          <>
+            <Button icon={<ReloadOutlined />} onClick={() => void refresh()} loading={loading}>
+              Yenile
+            </Button>
+          </>
+        }
+      />
 
       <Segmented
         value={pane}
@@ -344,20 +342,22 @@ export default function AdminChat() {
               style={{ maxWidth: 320 }}
             />
           </div>
-          <Table
-            rowKey="id"
-            size="small"
-            loading={loading}
-            dataSource={messages}
-            columns={messageColumns}
-            pagination={{
-              current: page,
-              pageSize: PAGE_SIZE,
-              total: messagesTotal,
-              showSizeChanger: false,
-              onChange: setPage,
-            }}
-          />
+          <div className="ct-admin-table-wrap">
+            <Table
+              rowKey="id"
+              size="small"
+              loading={loading}
+              dataSource={messages}
+              columns={messageColumns}
+              pagination={{
+                current: page,
+                pageSize: PAGE_SIZE,
+                total: messagesTotal,
+                showSizeChanger: false,
+                onChange: setPage,
+              }}
+            />
+          </div>
         </>
       )}
 
@@ -375,26 +375,30 @@ export default function AdminChat() {
               ]}
             />
           </div>
-          <Table
-            rowKey="id"
-            size="small"
-            loading={loading}
-            dataSource={reports}
-            columns={reportColumns}
-            pagination={false}
-          />
+          <div className="ct-admin-table-wrap">
+            <Table
+              rowKey="id"
+              size="small"
+              loading={loading}
+              dataSource={reports}
+              columns={reportColumns}
+              pagination={false}
+            />
+          </div>
         </>
       )}
 
       {pane === "attachments" && (
-        <Table
-          rowKey="id"
-          size="small"
-          loading={loading}
-          dataSource={attachments}
-          columns={attachmentColumns}
-          pagination={false}
-        />
+        <div className="ct-admin-table-wrap">
+          <Table
+            rowKey="id"
+            size="small"
+            loading={loading}
+            dataSource={attachments}
+            columns={attachmentColumns}
+            pagination={false}
+          />
+        </div>
       )}
     </div>
   );

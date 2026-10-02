@@ -27,11 +27,12 @@
    that used to nudge tabs 2-4px sideways is gone: the ::before accent bar
    already carries the state without moving the text off the column. */
 .ct-settings-tab {
-  @apply relative flex items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left;
-  border-color: transparent;
+  @apply relative flex items-center gap-3 overflow-hidden rounded-md border-0 px-3 py-2.5 text-left;
   color: var(--ct-text-secondary);
   background: transparent;
-  transition: all var(--ct-duration-base) var(--ct-ease-spring);
+  transition:
+    color var(--ct-duration-fast) ease,
+    background var(--ct-duration-fast) ease;
 }
 
 .ct-settings-tab::before {
@@ -48,23 +49,14 @@
 }
 
 .ct-settings-tab:hover:not(.active) {
-  border-color: var(--ct-border);
   color: var(--ct-text-primary);
   background: var(--ct-alpha-04);
 }
 
+/* Selected: the wash and the bar every selected row in the app carries. */
 .ct-settings-tab.active {
-  border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
-  background: var(--ct-accent-soft);
-  /* The accent bar's light, cast INWARD.
-
-     This used to be `box-shadow: 0 0 12px var(--ct-accent-glow)` on the ::before
-     bar itself, and it never once rendered: the bar sits at left: 0 inside a tab
-     that carries overflow-hidden, so an outward glow is clipped on the side it
-     was meant to spill from. Same failure as the lobby tile's speaking ring. An
-     inset shadow is drawn inside the box that clips it, so it survives. */
-  box-shadow: inset 6px 0 14px -8px var(--ct-accent-glow);
+  background: var(--ct-alpha-08);
 }
 
 .ct-settings-tab.active::before {
@@ -159,33 +151,10 @@
   animation: fadeSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Title block on the left, the section's primary action on the right, both on
-   the same baseline. */
+/* The page title (PageHeader), ruled off from the page under it. */
 .ct-settings-section-header {
-  @apply flex items-center justify-between gap-4 border-b pb-4;
+  @apply border-b pb-4;
   border-color: var(--ct-border);
-}
-
-.ct-settings-section-header-main {
-  @apply flex min-w-0 items-start gap-3;
-}
-
-.ct-settings-section-header h4 {
-  @apply m-0 text-lg font-bold;
-  color: var(--ct-text-primary);
-}
-
-.ct-settings-section-header-icon {
-  @apply flex h-control-md w-control-md shrink-0 items-center justify-center rounded-md border;
-  border-color: var(--ct-border-strong);
-  background: var(--ct-alpha-08);
-  color: var(--ct-text-primary);
-  font-size: var(--ct-icon-lg);
-}
-
-.ct-settings-section-description {
-  @apply m-0 mt-1 text-sm;
-  color: var(--ct-text-muted);
 }
 
 /* This gap and the subsection's padding-top are one rhythm: the gap is the
@@ -257,10 +226,11 @@
   @apply relative -mx-3 -mt-3 grid place-items-center overflow-hidden rounded-t-lg text-2xs font-semibold;
   aspect-ratio: var(--ct-profile-banner-ratio);
   color: var(--ct-text-muted);
+  /* The same fallback band as the real card (workspace.css). */
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--ct-accent) 55%, transparent),
-    color-mix(in srgb, var(--ct-accent) 18%, transparent)
+    color-mix(in srgb, var(--ct-brand-blue) 28%, var(--ct-surface-3)),
+    color-mix(in srgb, var(--ct-brand-cyan) 10%, var(--ct-surface-2))
   );
 }
 
@@ -352,6 +322,72 @@
    profile, the push-to-talk key. The indent and the tick say "this belongs to
    that" -- these used to be dropped outside the card entirely, where nothing
    connected them to the switch that governs them. */
+/* A row whose control needs the width: the label above, the control under. */
+.ct-settings-row.stacked {
+  @apply flex-col items-stretch;
+}
+
+/* The theme picker: each card a small picture of the theme it chooses. */
+.ct-theme-cards {
+  @apply flex gap-3;
+}
+
+.ct-theme-card {
+  @apply flex flex-1 cursor-pointer flex-col overflow-hidden rounded-lg border-2 p-0;
+  max-width: 220px;
+  border-color: var(--ct-alpha-08);
+  background: transparent;
+  transition: border-color var(--ct-duration-fast) ease;
+}
+
+.ct-theme-card:hover {
+  border-color: var(--ct-alpha-20);
+}
+
+.ct-theme-card.active {
+  border-color: var(--ct-brand-blue);
+}
+
+.ct-theme-card:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
+}
+
+.ct-theme-card .ct-theme-swatch {
+  @apply flex h-16 items-center justify-center gap-1.5;
+}
+
+.ct-theme-card .ct-theme-swatch span {
+  @apply block h-2 rounded-full;
+  width: 34px;
+}
+
+.ct-theme-card .ct-theme-swatch.dark {
+  background: var(--ct-swatch-dark);
+}
+
+.ct-theme-card .ct-theme-swatch.dark span {
+  background: var(--ct-swatch-dark-ink);
+}
+
+.ct-theme-card .ct-theme-swatch.light {
+  background: var(--ct-swatch-light);
+}
+
+.ct-theme-card .ct-theme-swatch.light span {
+  background: var(--ct-swatch-light-ink);
+}
+
+.ct-theme-card .ct-theme-card-label {
+  @apply py-2 text-center text-xs font-semibold;
+  color: var(--ct-text-secondary);
+  background: var(--ct-panel-soft);
+}
+
+.ct-theme-card.active .ct-theme-card-label {
+  color: var(--ct-text-primary);
+}
+
 .ct-settings-row.detail {
   @apply relative py-3 pl-9;
 }
@@ -488,12 +524,6 @@
   .ct-settings-profile-card {
     @apply p-3;
   }
-
-  /* Icon, title and description in a column is three lines of header before any
-     setting. The icon is decoration here; the title carries the meaning. */
-  .ct-settings-section-header-icon {
-    @apply hidden;
-  }
 }
 
 .ct-settings-row strong {
@@ -606,8 +636,8 @@
    flex, because some of these carry a leading icon and a baseline-aligned
    anticon sits two pixels low next to uppercase text. */
 .ct-settings-subsection h5 {
-  @apply m-0 flex items-center gap-2 text-xs font-bold uppercase tracking-wider;
-  color: var(--ct-text-secondary);
+  @apply m-0 flex items-center gap-2 text-micro font-bold uppercase tracking-[0.12em];
+  color: var(--ct-text-muted);
 }
 
 /* ==========================================================================

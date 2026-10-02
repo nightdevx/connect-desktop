@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { Switch, Button, Alert, Segmented } from "antd";
-import { SettingOutlined, ReloadOutlined, BugOutlined } from "@ant-design/icons";
+import { ReloadOutlined, BugOutlined } from "@ant-design/icons";
 import type {
   AppUpdateEvent,
   AppUpdateSnapshot,
 } from "@shared/update-contracts";
 import type { ThemeMode } from "@/styles/theme-mode";
+
+const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
+  { value: "dark", label: "Koyu" },
+  { value: "light", label: "Açık" },
+];
 import type { GifPlayback } from "@/styles/gif-playback";
 import { useUiStore } from "@/store/ui-store";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 const getUpdateCheckBlockedReason = (reason?: string): string => {
@@ -229,27 +235,18 @@ export function SettingsApplication() {
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <SettingOutlined />
-          </div>
-          <div>
-            <h4>Uygulama Ayarları</h4>
-            <p className="ct-settings-section-description">
-              Connect'in bilgisayarında nasıl davranacağını ayarlayabilir ve
-              sürüm durumunu buradan takip edebilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Genel"
+        description="Connect'in bilgisayarında nasıl davranacağını ayarlayabilir ve sürüm durumunu buradan takip edebilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">
           <h5>Tema ve Görünüm</h5>
 
           <div className="ct-settings-card">
-            <div className="ct-settings-row">
+            <div className="ct-settings-row stacked">
               <div className="ct-settings-row-text">
                 <strong>Tema</strong>
                 <span>
@@ -259,16 +256,26 @@ export function SettingsApplication() {
               </div>
               {/* Local, not a server preference: it is a property of this
                   screen, and a person who uses the app on a laptop and a
-                  desktop rarely wants the same answer on both. */}
-              <Segmented
-                value={themeMode}
-                onChange={(value) => setThemeMode(value as ThemeMode)}
-                options={[
-                  { label: "Koyu", value: "dark" },
-                  { label: "Açık", value: "light" },
-                ]}
-                className="ct-segmented-premium"
-              />
+                  desktop rarely wants the same answer on both. Two cards that
+                  show the theme, rather than two words that name it. */}
+              <div className="ct-theme-cards" role="radiogroup" aria-label="Tema">
+                {THEME_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={themeMode === option.value}
+                    className={`ct-theme-card ${themeMode === option.value ? "active" : ""}`}
+                    onClick={() => setThemeMode(option.value)}
+                  >
+                    <span className={`ct-theme-swatch ${option.value}`} aria-hidden="true">
+                      <span />
+                      <span />
+                    </span>
+                    <span className="ct-theme-card-label">{option.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="ct-settings-row">
@@ -426,7 +433,7 @@ export function SettingsApplication() {
             <Alert
               type="warning"
               showIcon
-              message="Yeniden başlatma gerekli"
+              title="Yeniden başlatma gerekli"
               description="Donanım hızlandırma ayarının etkili olması için uygulamayı yeniden başlatın."
               action={
                 <Button
@@ -472,7 +479,7 @@ export function SettingsApplication() {
           <div className="ct-settings-update-alert">
             {nextVersionLabel ? (
               <Alert
-                message={`Yeni güncelleme bulundu: v${nextVersionLabel}`}
+                title={`Yeni güncelleme bulundu: v${nextVersionLabel}`}
                 description={updateState?.message}
                 type={updatePhase === "error" ? "error" : "success"}
                 showIcon
@@ -480,7 +487,7 @@ export function SettingsApplication() {
               />
             ) : (
               <Alert
-                message={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
+                title={updateState?.message ?? "Güncelleme bilgisi bekleniyor."}
                 type={
                   updatePhase === "error"
                     ? "error"

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import workspaceService from "../../services";
 import type { UserDirectoryEntry } from "@shared/auth-contracts";
+import { CALL_LOG_BODIES, readMutedCallers, setCallerMuted } from "./call-log";
 
 export type CallStatus = "idle" | "incoming" | "outgoing" | "active";
 
@@ -315,6 +316,10 @@ export const useCallSession = ({
     try {
       getSynth().stop();
       await workspaceService.rejectCall({ callId, callerId });
+      void workspaceService.sendDirectMessage({
+        peerUserId: callerId,
+        body: CALL_LOG_BODIES.declined,
+      });
     } catch {
       // Ignored
     } finally {
@@ -335,6 +340,10 @@ export const useCallSession = ({
     try {
       getSynth().stop();
       await workspaceService.cancelCall({ callId, targetUserId });
+      void workspaceService.sendDirectMessage({
+        peerUserId: targetUserId,
+        body: CALL_LOG_BODIES.missed,
+      });
     } catch {
       // Ignored
     } finally {
@@ -376,13 +385,21 @@ export const useCallSession = ({
 
     if (isHardEnd && resolvedCallId && (status === "active" || status === "outgoing" || status === "incoming")) {
       // Hard end: notify peer and record call end in DM history
+      // Hung up before it was answered: the caller leaves a missed call and
+      // the callee a declined one, not an "ended" with no start to pair with.
+      const body =
+        status === "outgoing"
+          ? CALL_LOG_BODIES.missed
+          : status === "incoming"
+            ? CALL_LOG_BODIES.declined
+            : CALL_LOG_BODIES.ended;
       try {
         if (currentUserId === resolvedCallerId && resolvedTargetUserId) {
           await workspaceService.cancelCall({ callId: resolvedCallId, targetUserId: resolvedTargetUserId });
-          void workspaceService.sendDirectMessage({ peerUserId: resolvedTargetUserId, body: "📞 Arama bitti" });
+          void workspaceService.sendDirectMessage({ peerUserId: resolvedTargetUserId, body });
         } else if (resolvedCallerId) {
           await workspaceService.rejectCall({ callId: resolvedCallId, callerId: resolvedCallerId });
-          void workspaceService.sendDirectMessage({ peerUserId: resolvedCallerId, body: "📞 Arama bitti" });
+          void workspaceService.sendDirectMessage({ peerUserId: resolvedCallerId, body });
         }
       } catch {
         // Ignored
@@ -462,15 +479,7 @@ export const useCallSession = ({
             };
           }
 
-          // Check if muted in local storage
-          let isMuted = false;
-          try {
-            const mutedUsersStr = localStorage.getItem("connect_muted_call_users") || "[]";
-            const mutedIds = JSON.parse(mutedUsersStr);
-            if (Array.isArray(mutedIds) && mutedIds.includes(callerId)) {
-              isMuted = true;
-            }
-          } catch {}
+          const isMuted = readMutedCallers().includes(callerId);
 
           setCallState({
             status: "incoming",
@@ -507,7 +516,7 @@ export const useCallSession = ({
           setActiveLobbyId(`call_${callId}`);
           setStatus("Arama kabul edildi.", "ok");
           if (targetUserId) {
-            void workspaceService.sendDirectMessage({ peerUserId: targetUserId, body: "📞 Arama başladı" });
+            void workspaceService.sendDirectMessage({ peerUserId: targetUserId, body: CALL_LOG_BODIES.started });
           }
         }
 
@@ -516,8 +525,14 @@ export const useCallSession = ({
         // Guard: ignore signals WE sent ourselves (targetUserId === currentUserId means we were the rejector)
         else if (type === "call-rejected") {
           if (targetUserId === currentUserId) return; // we sent this, ignore
-          // ...and only tear down if it is the call we are actually in.
-          if (callId !== callStateRef.current.callId) return;
+          // ...and only tear down if it is the call we are actually in. One we
+          // stepped out of only loses its "rejoin" banner.
+          if (callId !== callStateRef.current.callId) {
+            if (callId === ongoingCallRef.current?.callId) {
+              setOngoingCall(null);
+            }
+            return;
+          }
 
           getSynth().stop();
           setCallState(initialCallState);
@@ -531,7 +546,12 @@ export const useCallSession = ({
         // Guard: ignore signals WE sent ourselves (callerId === currentUserId means we were the canceller)
         else if (type === "call-cancelled") {
           if (callerId === currentUserId) return; // we sent this, ignore
-          if (callId !== callStateRef.current.callId) return;
+          if (callId !== callStateRef.current.callId) {
+            if (callId === ongoingCallRef.current?.callId) {
+              setOngoingCall(null);
+            }
+            return;
+          }
 
           getSynth().stop();
           setCallState(initialCallState);
@@ -589,9 +609,27 @@ export const useCallSession = ({
     }
   }, [getSynth, setActiveLobbyId, setStatus]);
 
+  // "Bu kişinin aramalarını sessize al", from the ringing card: stop the ring
+  // now and for every later call from them. The call itself is left to run out,
+  // so the caller sees a missed call rather than a rejection.
+  const muteIncomingCaller = useCallback((): void => {
+    const { status, callerId, callerName } = callStateRef.current;
+    if (status !== "incoming" || !callerId) {
+      return;
+    }
+    setCallerMuted(callerId, true);
+    getSynth().stop();
+    setCallState((prev) => ({ ...prev, isMuted: true }));
+    setStatus(
+      `${callerName || "Bu kişi"} sessize alındı; aramaları artık çalmayacak.`,
+      "ok",
+    );
+  }, [getSynth, setStatus]);
+
   return {
     callState,
     ongoingCall,
+    muteIncomingCaller,
     setOngoingCall,
     initiateCall,
     acceptCall,

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Select, Switch, Button, Progress, Slider } from "antd";
 import {
-  AudioOutlined,
   PlayCircleOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
@@ -13,6 +12,7 @@ import {
   useDesktopAppPreferences,
 } from "./settings-app-preferences";
 import { toast } from "@/services/toast";
+import { PageHeader } from "@/ui/page-header";
 
 interface SettingsAudioProps {
   audioPreferences: AudioPreferences;
@@ -374,20 +374,11 @@ export function SettingsAudio({
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <AudioOutlined />
-          </div>
-          <div>
-            <h4>Ses Ayarları</h4>
-            <p className="ct-settings-section-description">
-            Cihazlarını, seviyelerini, mikrofon kısayollarını ve lobiye giriş
-            varsayılanlarını buradan ayarlayabilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Ses"
+        description="Cihazlarını, seviyelerini, mikrofon kısayollarını ve lobiye giriş varsayılanlarını buradan ayarlayabilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">
@@ -733,8 +724,8 @@ export function SettingsAudio({
             <Progress
               percent={micLevelPercent}
               showInfo={false}
-              strokeColor="var(--ct-accent)"
-              trailColor="var(--ct-alpha-08)"
+              strokeColor={{ from: "var(--ct-brand-blue)", to: "var(--ct-brand-cyan)" }}
+              railColor="var(--ct-alpha-08)"
               aria-label="Mikrofon seviyesi"
             />
 

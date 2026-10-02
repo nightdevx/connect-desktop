@@ -227,20 +227,11 @@
     @apply hidden;
   }
 
+  /* The controls step down through their one size variable, so the stream
+     chevron welded to the share button shrinks with it. */
   .ct-lobby-stage-actions {
-    @apply mb-2 gap-2 px-2;
-  }
-
-  .ct-lobby-action-btn {
-    @apply h-control-md w-control-md;
-    font-size: var(--ct-icon-md);
-  }
-
-  /* The stop/settings pair reads as ONE control, so the chevron has to shrink
-     with the button it is welded to -- it stayed 48px against a 40px stop
-     button and the group came out lopsided. */
-  .ct-stream-menu-btn {
-    @apply h-control-md;
+    @apply mb-2 gap-1.5 p-1.5;
+    --ct-tool-size: 40px;
   }
 
   .ct-chat-bubble {

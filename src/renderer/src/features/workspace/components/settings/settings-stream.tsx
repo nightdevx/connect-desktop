@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Select, Switch, Button } from "antd";
 import {
-  DesktopOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
 } from "@ant-design/icons";
 import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "@/features/screen-share";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 interface SettingsStreamProps {
@@ -171,19 +171,11 @@ export function SettingsStream({
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <DesktopOutlined />
-          </div>
-          <div>
-            <h4>Yayın Ayarları</h4>
-            <p className="ct-settings-section-description">
-            Yayın başlatılırken kullanılacak varsayılan kaliteyi belirleyebilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Yayın"
+        description="Yayın başlatılırken kullanılacak varsayılan kaliteyi belirleyebilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

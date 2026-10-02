@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Select, Switch } from "antd";
-import { EyeInvisibleOutlined, SaveOutlined } from "@ant-design/icons";
+import { SaveOutlined } from "@ant-design/icons";
 import type {
   PrivacySettings,
   UpdatePrivacyRequest,
@@ -9,6 +9,7 @@ import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 // Mirrors the backend column defaults, so an account created before privacy
@@ -128,20 +129,11 @@ export function SettingsPrivacy() {
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <EyeInvisibleOutlined />
-          </div>
-          <div>
-            <h4>Gizlilik Ayarları</h4>
-            <p className="ct-settings-section-description">
-            Sana kimlerin mesaj gönderebileceğini, seni kimlerin arayabileceğini
-            ve arkadaşlık isteği alıp almayacağını buradan belirleyebilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Gizlilik"
+        description="Sana kimlerin mesaj gönderebileceğini, seni kimlerin arayabileceğini ve arkadaşlık isteği alıp almayacağını buradan belirleyebilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

@@ -13,16 +13,16 @@
   position: fixed;
   inset: auto;
   margin: 0;
-  padding: 4px;
-  border: 1px solid var(--ct-border);
-  border-radius: var(--ct-radius-md);
-  background: var(--ct-panel-solid);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 16px 36px var(--ct-shadow-color);
+  /* The context menus' surface (theme.css): same panel, edge and corners. */
+  padding: 6px;
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-3);
+  box-shadow: var(--ct-shadow-lg);
   color: var(--ct-text-primary);
-  font-size: 12px;
-  min-width: 180px;
-  max-width: 280px;
+  font-size: 13px;
+  min-width: 200px;
+  max-width: 300px;
   z-index: 10000;
 }
 
@@ -36,19 +36,24 @@
   gap: 1px;
 }
 
+/* A menu row: 32px, like every row in the app's context menus. */
 .ct-device-menu-item {
   display: block;
   width: 100%;
-  padding: 5px 9px;
-  border: 1px solid transparent;
-  line-height: 18px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  line-height: 20px;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--ct-radius-sm);
-  color: var(--ct-alpha-70);
+  border-radius: 8px;
+  color: var(--ct-text-secondary);
   background: transparent;
-  transition: all 0.15s ease;
+  transition:
+    background var(--ct-duration-fast) ease,
+    color var(--ct-duration-fast) ease;
   font-size: 13px;
+  font-weight: 500;
   user-select: none;
 }
 
@@ -57,24 +62,34 @@
   color: var(--ct-text-primary);
 }
 
-/* The border is on every row now, transparent when unselected: it used to
-   appear only here, so picking a device grew the row by 2px and shunted the
-   rest of the list down. */
+/* The device in use: the wash and the bar of every selected row. */
 .ct-device-menu-item.active {
-  border-color: var(--ct-accent-strong);
-  background: var(--ct-accent-soft);
+  position: relative;
+  background: var(--ct-alpha-08);
   color: var(--ct-text-primary);
   font-weight: 600;
 }
 
+.ct-device-menu-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 14px;
+  translate: 0 -50%;
+  border-radius: 0 3px 3px 0;
+  background: var(--ct-accent);
+}
+
 .ct-device-menu-divider {
   height: 1px;
-  background: var(--ct-border);
-  margin: 3px 0;
+  background: var(--ct-alpha-08);
+  margin: 5px 6px;
 }
 
 .ct-device-menu-empty {
-  padding: 3px 9px;
+  padding: 6px 10px;
   color: var(--ct-text-muted);
   font-size: 13px;
 }
@@ -385,14 +400,6 @@
   animation: ctCallDockIn 0.35s var(--ct-ease-spring) both;
 }
 
-.ct-call-dock.outgoing {
-  background: color-mix(in srgb, var(--ct-brand-blue) 9%, var(--ct-surface-3));
-}
-
-.ct-call-dock.active {
-  background: color-mix(in srgb, var(--ct-success) 9%, var(--ct-surface-3));
-}
-
 /* Incoming is a small card rather than a strip: who, then the two answers. */
 .ct-call-dock.incoming {
   @apply flex-col items-stretch gap-3.5 p-4;
@@ -440,18 +447,6 @@
   color: var(--ct-text-muted);
 }
 
-.ct-call-dock.outgoing .ct-call-dock-status {
-  color: var(--ct-brand-blue);
-}
-
-.ct-call-dock.active .ct-call-dock-status {
-  color: var(--ct-success);
-}
-
-.ct-call-dock-actions {
-  @apply flex shrink-0 items-center gap-2;
-}
-
 .ct-call-dock-btn {
   @apply grid h-control-sm w-control-sm cursor-pointer place-items-center rounded-full border-0;
   color: var(--ct-text-primary);
@@ -474,10 +469,6 @@
   outline-offset: 2px;
 }
 
-.ct-call-dock-btn.open {
-  background: var(--ct-alpha-12);
-}
-
 .ct-call-dock-btn.reject {
   color: var(--ct-on-danger);
   background: var(--ct-danger);
@@ -485,6 +476,59 @@
 
 .ct-call-dock-answer {
   @apply grid grid-cols-2 gap-2;
+}
+
+/* Quieter than the answers: it is the third option, not a peer of them. */
+.ct-call-dock-mute {
+  @apply cursor-pointer border-0 bg-transparent p-0 text-2xs underline underline-offset-4;
+  color: var(--ct-text-muted);
+}
+
+.ct-call-dock-mute:hover,
+.ct-call-dock-mute:focus-visible {
+  color: var(--ct-text-primary);
+}
+
+/* The call while you are elsewhere: a row at the top of the quick dock, tinted
+   the logo's blue while it rings out and green once it is connected. */
+.ct-call-strip {
+  @apply flex items-center gap-2 border-b px-3 py-2;
+  border-color: var(--ct-border);
+  background: color-mix(in srgb, var(--ct-success) 9%, transparent);
+}
+
+.ct-call-strip.outgoing {
+  background: color-mix(in srgb, var(--ct-brand-blue) 9%, transparent);
+}
+
+.ct-call-strip-main {
+  @apply flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md border-0 bg-transparent p-0.5 text-left;
+}
+
+.ct-call-strip-main:hover {
+  background: var(--ct-alpha-04);
+}
+
+.ct-call-strip .ct-call-dock-avatar {
+  @apply h-8 w-8 text-2xs;
+}
+
+.ct-call-strip-text {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-call-strip-text strong {
+  @apply truncate text-xs font-bold;
+  color: var(--ct-text-primary);
+}
+
+.ct-call-strip-text > span {
+  @apply flex items-center gap-1.5 text-2xs font-semibold;
+  color: var(--ct-success);
+}
+
+.ct-call-strip.outgoing .ct-call-strip-text > span {
+  color: var(--ct-brand-blue);
 }
 
 /* The answer pair, on the corner card and in the caller's conversation alike:

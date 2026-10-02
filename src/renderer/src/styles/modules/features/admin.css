@@ -32,13 +32,10 @@
 .ct-admin-panel-shell {
   display: contents;
 
-  /* The one hue that is only ever used here. It was written out as #c084fc /
-     #a855f7 in eight places across the stylesheet and the JSX, none of which
-     the light theme could reach -- and #c084fc on white is about 2:1,
-     unreadable. */
-  --ct-admin-accent: #c084fc;
-  --ct-admin-accent-strong: #a855f7;
-  --ct-admin-accent-soft: rgba(168, 85, 247, 0.15);
+  /* The admin charts' hue: the logo's blue, the brand colour the rest of the
+     app uses for "this is ours". It was a purple of its own, written out as
+     hex in eight places and unreadable on the light theme. */
+  --ct-admin-accent-strong: var(--ct-brand-blue);
 
   /* The vertical rhythm, as one number. Page blocks are this far apart; the
      page header's rule sits at half of it above the first block, so the
@@ -48,12 +45,6 @@
      table at a comfortable measure -- past this a table row is a scan across
      the whole monitor and the eye loses the row it is on. */
   --ct-admin-measure: 1440px;
-}
-
-:root[data-theme="light"] .ct-admin-panel-shell {
-  --ct-admin-accent: #7028b8;
-  --ct-admin-accent-strong: #8b3fd4;
-  --ct-admin-accent-soft: rgba(112, 40, 184, 0.1);
 }
 
 /* The main column, on both rows -- the same placement .ct-main-panel takes, so
@@ -91,7 +82,7 @@
 
 .ct-admin-sidebar-header h2 {
   @apply m-0 text-base font-bold;
-  color: var(--ct-admin-accent);
+  color: var(--ct-text-primary);
 }
 
 .ct-admin-sidebar-header span {
@@ -139,9 +130,10 @@
   background: var(--ct-alpha-04);
 }
 
+/* Selected: the wash and the bar every selected row in the app carries. */
 .ct-admin-nav-item.active {
-  color: var(--ct-admin-accent);
-  background: var(--ct-admin-accent-soft);
+  color: var(--ct-text-primary);
+  background: var(--ct-alpha-08);
   font-weight: 600;
 }
 
@@ -154,11 +146,11 @@
   height: 18px;
   translate: 0 -50%;
   border-radius: 0 2px 2px 0;
-  background: var(--ct-admin-accent);
+  background: var(--ct-accent);
 }
 
 .ct-admin-nav-item:focus-visible {
-  outline: 2px solid var(--ct-admin-accent);
+  outline: 2px solid var(--ct-accent);
   outline-offset: -2px;
 }
 
@@ -180,36 +172,9 @@
 /* items-end, not items-start: the button on the right lines up with the
    baseline of the description rather than floating beside the title. */
 .ct-admin-page-header {
-  @apply flex flex-wrap items-end justify-between gap-4 border-b;
+  @apply border-b;
   padding-bottom: calc(var(--ct-admin-block) / 2);
   border-color: var(--ct-border);
-}
-
-/* The title and its sentence are ONE column. They used to be direct children
-   of the flex row on the dashboard, which put the heading against the left
-   edge and its own description against the right one. */
-.ct-admin-page-header-text {
-  @apply flex min-w-0 flex-col gap-1;
-}
-
-.ct-admin-page-header h1 {
-  @apply m-0 text-xl font-bold;
-  color: var(--ct-text-primary);
-}
-
-.ct-admin-page-header p {
-  @apply m-0 text-sm;
-  max-width: 68ch;
-  color: var(--ct-text-muted);
-}
-
-/* ml-auto, not just justify-between on the parent: once the title block is
-   wide enough to push these onto a second line, `justify-between` has one item
-   on that line and parks it against the LEFT edge -- so on a narrow panel the
-   "Yenile" button jumped from the right of the header to under the
-   description. The auto margin keeps it right in both cases. */
-.ct-admin-page-header-actions {
-  @apply ml-auto flex shrink-0 flex-wrap items-center gap-2;
 }
 
 .ct-admin-center-state {
@@ -843,22 +808,13 @@
   color: var(--ct-text-muted);
 }
 
-.ct-admin-section-header h3 {
-  @apply m-0 text-sm font-semibold;
-  color: var(--ct-text-primary);
-}
-
-.ct-admin-section-header p {
-  @apply m-0 mt-1 text-xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-admin-section-actions {
-  @apply ml-auto flex shrink-0 items-center gap-2;
-}
-
 .ct-admin-filters {
-  @apply flex flex-wrap items-center gap-2 px-4 py-3;
+  @apply flex flex-wrap items-center gap-2;
+}
+
+/* A screen's pane switch sits at its natural width, not across the page. */
+.ct-admin-page > .ant-segmented {
+  align-self: flex-start;
 }
 
 .ct-admin-row-actions {

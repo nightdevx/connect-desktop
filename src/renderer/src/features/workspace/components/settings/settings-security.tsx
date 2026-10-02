@@ -8,6 +8,7 @@ import {
 } from "@ant-design/icons";
 import { authService } from "@/features/auth";
 import { ModalHeading } from "@/ui/modal-heading";
+import { PageHeader } from "@/ui/page-header";
 import { toast } from "@/services/toast";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
@@ -132,20 +133,11 @@ export function SettingsSecurity() {
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <SafetyOutlined />
-          </div>
-          <div>
-            <h4>Güvenlik Ayarları</h4>
-            <p className="ct-settings-section-description">
-            Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını
-            silebilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Güvenlik"
+        description="Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını silebilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

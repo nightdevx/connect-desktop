@@ -23,9 +23,9 @@ import { toast } from "@/services/toast";
  */
 const expiryTag = (expiresAt?: string | null) =>
   expiresAt ? (
-    <Tag color="orange">{new Date(expiresAt).toLocaleString("tr-TR")}</Tag>
+    <Tag className="ct-tag warn">{new Date(expiresAt).toLocaleString("tr-TR")}</Tag>
   ) : (
-    <Tag color="red">Süresiz</Tag>
+    <Tag className="ct-tag danger">Süresiz</Tag>
   );
 
 export default function AdminModeration() {
@@ -193,7 +193,7 @@ export default function AdminModeration() {
               key: "lobby",
               width: 220,
               render: (_value: unknown, row: AdminLobbyTimeout) => (
-                <Tag color="blue">{row.lobbyName}</Tag>
+                <Tag className="ct-tag info">{row.lobbyName}</Tag>
               ),
             },
             {

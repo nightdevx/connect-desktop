@@ -26,7 +26,7 @@ export function AuthErrorAlert({
       type="error"
       showIcon
       className="ct-auth-error"
-      message={info.title}
+      title={info.title}
       description={
         <div className="ct-auth-error-body">
           <p>{info.detail}</p>

@@ -55,17 +55,17 @@ const DEFAULT_PAGE_SIZE = 10;
 const privacyTags = (lobby: LobbyDescriptor) => {
   const tags = [
     lobby.isLocked ? (
-      <Tag key="locked" color="orange" icon={<LockOutlined />}>
+      <Tag key="locked" className="ct-tag warn" icon={<LockOutlined />}>
         Kilitli
       </Tag>
     ) : null,
     lobby.hasPassword ? (
-      <Tag key="password" color="volcano">
+      <Tag key="password" className="ct-tag danger">
         Şifreli
       </Tag>
     ) : null,
     lobby.isTextOnly ? (
-      <Tag key="text" color="purple">
+      <Tag key="text" className="ct-tag info">
         Metin odası
       </Tag>
     ) : null,
@@ -76,7 +76,7 @@ const privacyTags = (lobby: LobbyDescriptor) => {
       {tags}
     </Space>
   ) : (
-    <Tag color="green">Herkese açık</Tag>
+    <Tag className="ct-tag success">Herkese açık</Tag>
   );
 };
 
@@ -307,7 +307,7 @@ export default function AdminLobbies() {
       width: 160,
       render: (_value: unknown, record: AdminLobbySnapshot) => {
         const username = record.lobby.createdByUsername || record.lobby.createdBy;
-        return <Tag color="blue">@{username}</Tag>;
+        return <Tag className="ct-tag info">@{username}</Tag>;
       },
     },
     {
@@ -328,7 +328,7 @@ export default function AdminLobbies() {
             // The ceiling only shows when the server sent one; an older server
             // omits capacity and "3 / undefined" is worse than no ceiling.
             render: (size: number, record: AdminLobbySnapshot) => (
-              <Tag color={size > 0 ? "green" : "default"}>
+              <Tag className={`ct-tag ${size > 0 ? "success" : ""}`}>
                 {record.lobby.capacity ? `${size} / ${record.lobby.capacity}` : `${size} aktif üye`}
               </Tag>
             ),
@@ -412,7 +412,7 @@ export default function AdminLobbies() {
             {allowedUsers.length > 0 ? (
               <Space size={4} wrap>
                 {allowedUsers.map((allowed) => (
-                  <Tag key={allowed.id} color="blue" title={allowed.id}>
+                  <Tag key={allowed.id} className="ct-tag info" title={allowed.id}>
                     @{allowed.username}
                   </Tag>
                 ))}
@@ -468,21 +468,21 @@ export default function AdminLobbies() {
         render: (_value: unknown, member: LobbyStateMember) => (
           <Space size={4} wrap>
             {member.muted || member.serverMuted ? (
-              <Tag color="red" icon={<AudioMutedOutlined />}>
+              <Tag className="ct-tag danger" icon={<AudioMutedOutlined />}>
                 Sessiz
               </Tag>
             ) : (
-              <Tag color="green" icon={<SoundOutlined />}>
+              <Tag className="ct-tag success" icon={<SoundOutlined />}>
                 Ses açık
               </Tag>
             )}
             {/* A moderator mute the user cannot lift themselves — without its
                 own tag it looked exactly like a self mute. */}
             {member.serverMuted && (
-              <Tag color="volcano">Yönetici susturdu</Tag>
+              <Tag className="ct-tag danger">Yönetici susturdu</Tag>
             )}
             {member.deafened && (
-              <Tag color="volcano">Sağırlaştırılmış</Tag>
+              <Tag className="ct-tag danger">Sağırlaştırılmış</Tag>
             )}
           </Space>
         ),
@@ -493,14 +493,14 @@ export default function AdminLobbies() {
         render: (_value: unknown, member: LobbyStateMember) => (
           <Space size={4} wrap>
             {member.cameraEnabled ? (
-              <Tag color="purple" icon={<VideoCameraOutlined />}>
+              <Tag className="ct-tag info" icon={<VideoCameraOutlined />}>
                 Kamera açık
               </Tag>
             ) : (
-              <Tag color="default">Kamera kapalı</Tag>
+              <Tag className="ct-tag">Kamera kapalı</Tag>
             )}
             {member.screenSharing ? (
-              <Tag color="cyan" icon={<DesktopOutlined />}>
+              <Tag className="ct-tag info" icon={<DesktopOutlined />}>
                 Ekran paylaşıyor
               </Tag>
             ) : null}
@@ -669,9 +669,9 @@ export default function AdminLobbies() {
               key: "expiresAt",
               render: (_value: unknown, row: LobbyTimeout) =>
                 row.expiresAt ? (
-                  <Tag color="orange">{new Date(row.expiresAt).toLocaleString("tr-TR")}</Tag>
+                  <Tag className="ct-tag warn">{new Date(row.expiresAt).toLocaleString("tr-TR")}</Tag>
                 ) : (
-                  <Tag color="red">Süresiz</Tag>
+                  <Tag className="ct-tag danger">Süresiz</Tag>
                 ),
             },
             {

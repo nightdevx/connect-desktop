@@ -98,6 +98,13 @@
   --ct-brand-cyan: #2dd4e8;
   --ct-brand-cyan-deep: #0e7490;
 
+  /* What each theme looks like, for the theme picker's swatches: fixed, since
+     they show the OTHER theme as much as this one. */
+  --ct-swatch-dark: #0a0a0a;
+  --ct-swatch-dark-ink: rgba(255, 255, 255, 0.25);
+  --ct-swatch-light: #f4f4f5;
+  --ct-swatch-light-ink: rgba(0, 0, 0, 0.2);
+
   /* ---- Semantic -------------------------------------------------------- */
   --ct-success: #10b981;
   --ct-warning: #f59e0b;

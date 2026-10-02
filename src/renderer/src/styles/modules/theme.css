@@ -64,49 +64,25 @@
   background: var(--ct-danger);
 }
 
-/* Conversation header above the message thread. */
-.ct-chat-user-header-premium {
-  @apply flex h-14 shrink-0 cursor-pointer select-none items-center justify-between gap-3 border-b px-4;
-  border-color: var(--ct-border);
-  background: var(--ct-panel-soft);
-  transition: background var(--ct-duration-fast) ease;
+/* Drawers (the conversation's profile, the admin's user detail) on the
+   modals' surface: the elevated panel, a hairline edge, the scrim behind. */
+.ant-drawer .ant-drawer-mask {
+  background: var(--ct-scrim);
+  backdrop-filter: blur(6px);
 }
 
-.ct-chat-user-header-premium:hover {
-  background: var(--ct-alpha-02);
-}
-
-.ct-chat-user-header-left {
-  @apply flex min-w-0 items-center gap-3;
-}
-
-.ct-chat-user-header-main h3 {
-  @apply m-0 truncate text-base font-bold leading-none;
+.ant-drawer .ant-drawer-content {
   color: var(--ct-text-primary);
+  background: var(--ct-surface-2);
 }
 
-.ct-chat-user-header-main span {
-  @apply mt-1 block truncate text-2xs;
-  color: var(--ct-text-muted);
+.ant-drawer-right > .ant-drawer-content-wrapper {
+  border-left: 1px solid var(--ct-alpha-12);
+  box-shadow: var(--ct-shadow-lg);
 }
 
-.ct-chat-user-header-actions {
-  @apply flex shrink-0 items-center gap-1;
-}
-
-/* Scoped to the profile drawer rather than every Descriptions in the app. */
-.ct-user-drawer .ant-descriptions-item-label,
-.ct-user-drawer .ant-descriptions-item-content {
-  padding-bottom: 8px;
-  font-size: 12px;
-}
-
-.ct-user-drawer .ant-descriptions-item-label {
-  color: var(--ct-text-muted);
-}
-
-.ct-user-drawer .ant-descriptions-item-content {
-  color: var(--ct-text-primary);
+.ant-drawer .ant-drawer-header {
+  border-bottom-color: var(--ct-alpha-08);
 }
 
 .ct-spinner-small {
@@ -336,6 +312,25 @@
   cursor: default;
   color: var(--ct-text-muted);
   background: transparent;
+}
+
+/* Popovers (the emote board, the emoji and GIF pickers, profile cards) on the
+   same surface as the menus and the modals. Panels that bring their own chrome
+   drop the padding in their own rule. */
+.ant-popover .ant-popover-inner {
+  border: 1px solid var(--ct-alpha-12);
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-surface-3);
+  box-shadow: var(--ct-shadow-lg);
+}
+
+.ant-popover .ant-popover-arrow::before {
+  background: var(--ct-surface-3);
+}
+
+/* antd's empty states ("Veri yok" in a table) in the muted text colour. */
+.ant-empty .ant-empty-description {
+  color: var(--ct-text-muted);
 }
 
 /* A menu about one person (ContextMenuPanel): who, their volumes, then the

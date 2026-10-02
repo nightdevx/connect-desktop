@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Steps } from "antd";
-import { ApiOutlined, ExperimentOutlined, MonitorOutlined } from "@ant-design/icons";
+import { ExperimentOutlined, MonitorOutlined } from "@ant-design/icons";
 import { toErrorMessage } from "@shared/error-message";
 import {
   runNetworkTest,
@@ -8,6 +8,7 @@ import {
   type NetworkTestStepId,
 } from "@/features/livekit";
 import { workspaceService } from "../../services";
+import { PageHeader } from "@/ui/page-header";
 
 // "Ağ testi": livekit-client's connection checks against the real server, in a
 // room of the user's own. The answer to "is it my network or the server" that
@@ -166,20 +167,11 @@ export function SettingsConnection() {
 
   return (
     <div className="ct-settings-section">
-      <div className="ct-settings-section-header">
-        <div className="ct-settings-section-header-main">
-          <div className="ct-settings-section-header-icon">
-            <ApiOutlined />
-          </div>
-          <div>
-            <h4>Bağlantı</h4>
-            <p className="ct-settings-section-description">
-              Sesin gelmiyor ya da kopuyorsa sorunun ağında mı sunucuda mı
-              olduğunu buradan anlayabilirsin.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="ct-settings-section-header"
+        title="Bağlantı"
+        description="Sesin gelmiyor ya da kopuyorsa sorunun ağında mı sunucuda mı olduğunu buradan anlayabilirsin."
+      />
 
       <div className="ct-settings-content">
         <div className="ct-settings-subsection">

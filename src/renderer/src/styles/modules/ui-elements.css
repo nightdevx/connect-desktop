@@ -267,18 +267,34 @@ border-color: var(--ct-alpha-08);
 background: var(--ct-alpha-04);
 }
 
+/* The selected row is a wash, as the lobby rows and the settings tabs are:
+   an accent-filled row was the loudest thing in the sidebar for the one row
+   the user already knows about. */
 .ct-list-item.clickable.active {
-border-color: var(--ct-accent);
-color: var(--ct-text-inverse);
-background: var(--ct-accent);
-box-shadow: 0 4px 12px var(--ct-accent-glow);
+position: relative;
+background: var(--ct-alpha-08);
 }
 
-/* An inset shadow rather than a border-left: a real border would shift the
-   row's content by 3px, so unread rows would no longer line up with read ones. */
-.ct-list-item.unread:not(.active) {
-background: color-mix(in srgb, var(--ct-info) 8%, transparent);
-box-shadow: inset 3px 0 0 var(--ct-info);
+/* The bar every selected row carries: lobby rows, settings tabs, admin nav. */
+.ct-list-item.clickable.active::before {
+content: "";
+position: absolute;
+left: 0;
+top: 50%;
+width: 3px;
+height: 16px;
+translate: 0 -50%;
+border-radius: 0 3px 3px 0;
+background: var(--ct-accent);
+}
+
+/* A count on a row: unread messages, waiting requests. Red, because it asks
+   for attention -- the colour the rest of the app uses for exactly that. */
+.ct-count-badge {
+@apply inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-micro font-bold tabular-nums;
+margin-left: auto;
+color: var(--ct-on-danger);
+background: var(--ct-danger);
 }
 
 /* Kept close to a row's own height so the panel does not jump when the list
@@ -531,6 +547,36 @@ animation-delay: 0.4s;
    friends home
    -------------------------------------------------------------------------- */
 
+/* The page title (ui/page-header.tsx). z-index 1 keeps it over the brand
+   mural that some pages draw behind their top-right corner. */
+.ct-page-header {
+@apply relative z-[1] flex flex-wrap items-end justify-between gap-4;
+}
+
+.ct-page-header-text {
+@apply flex min-w-0 flex-col gap-1;
+}
+
+.ct-page-header h2 {
+@apply m-0 font-bold;
+font-size: 22px;
+line-height: 1.2;
+letter-spacing: -0.01em;
+color: var(--ct-text-primary);
+}
+
+.ct-page-header p {
+@apply m-0 text-sm;
+max-width: 60ch;
+color: var(--ct-text-muted);
+}
+
+/* ml-auto: once the title pushes these onto a line of their own they stay on
+   the right instead of dropping under the description on the left. */
+.ct-page-header-actions {
+@apply ml-auto flex shrink-0 flex-wrap items-center gap-2;
+}
+
 /* A live count beside a page title: "3 oda aktif", "5 çevrimiçi". */
 .ct-stat-chip {
 @apply inline-flex shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-semibold tabular-nums;
@@ -581,6 +627,51 @@ stroke: color-mix(in srgb, var(--ct-brand-cyan) 12%, transparent);
 .ct-brand-mural .ct-logomark-tail,
 .ct-brand-mural .ct-logomark-over {
 display: none;
+}
+
+/* A running time ("12:34"): fixed-width digits, so it does not jitter. */
+.ct-elapsed {
+@apply shrink-0;
+font-variant-numeric: tabular-nums;
+color: var(--ct-text-primary);
+}
+
+/* Tags from the tokens rather than antd's colour presets (gold, green,
+   purple...), which answer to neither theme. Neutral by default; the variants
+   say what kind of fact it is. */
+.ct-tag.ant-tag {
+@apply inline-flex items-center gap-1 rounded-full border px-2 py-0 text-2xs font-semibold leading-5;
+border-color: var(--ct-alpha-12);
+color: var(--ct-text-secondary);
+background: var(--ct-alpha-04);
+}
+
+.ct-tag.ant-tag .anticon {
+font-size: var(--ct-icon-xs);
+}
+
+.ct-tag.success.ant-tag {
+border-color: color-mix(in srgb, var(--ct-success) 40%, transparent);
+color: var(--ct-success);
+background: color-mix(in srgb, var(--ct-success) 14%, transparent);
+}
+
+.ct-tag.warn.ant-tag {
+border-color: color-mix(in srgb, var(--ct-warning) 40%, transparent);
+color: var(--ct-warning);
+background: color-mix(in srgb, var(--ct-warning) 14%, transparent);
+}
+
+.ct-tag.danger.ant-tag {
+border-color: color-mix(in srgb, var(--ct-danger) 40%, transparent);
+color: var(--ct-danger);
+background: color-mix(in srgb, var(--ct-danger) 14%, transparent);
+}
+
+.ct-tag.info.ant-tag {
+border-color: color-mix(in srgb, var(--ct-brand-blue) 40%, transparent);
+color: var(--ct-brand-blue);
+background: color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
 }
 
 /* The value a menu row is set to, flush right (the title column is flex:1 —

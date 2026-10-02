@@ -109,11 +109,11 @@ export default function AdminMinigames() {
                 key: "state",
                 render: (_, table) =>
                   table.finished ? (
-                    <Tag>bitti</Tag>
+                    <Tag className="ct-tag">bitti</Tag>
                   ) : table.started ? (
-                    <Tag color="green">oynanıyor</Tag>
+                    <Tag className="ct-tag success">oynanıyor</Tag>
                   ) : (
-                    <Tag color="gold">bekliyor</Tag>
+                    <Tag className="ct-tag warn">bekliyor</Tag>
                   ),
               },
               {
@@ -122,7 +122,7 @@ export default function AdminMinigames() {
                 render: (_, table) => (
                   <Space size={4} wrap>
                     {table.players.map((player: MinigamePlayer) => (
-                      <Tag key={player.userId} icon={<PlayCircleOutlined />}>
+                      <Tag className="ct-tag" key={player.userId} icon={<PlayCircleOutlined />}>
                         {player.username}
                       </Tag>
                     ))}
@@ -138,7 +138,7 @@ export default function AdminMinigames() {
                   ) : (
                     <Space size={4} wrap>
                       {table.spectators.map((watcher: MinigamePlayer) => (
-                        <Tag key={watcher.userId} icon={<EyeOutlined />} color="blue">
+                        <Tag className="ct-tag info" key={watcher.userId} icon={<EyeOutlined />}>
                           {watcher.username}
                         </Tag>
                       ))}

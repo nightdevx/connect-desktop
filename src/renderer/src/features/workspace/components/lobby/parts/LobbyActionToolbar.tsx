@@ -101,7 +101,10 @@ export function LobbyActionToolbar({
         >
           <Button
             size="large"
-            className={`ct-lobby-action-btn ${micLocked ? "forced-muted" : micEnabled ? "active" : ""}`}
+            // Plain while it is on; red when it is off -- the state worth
+            // noticing is a microphone that is not reaching anybody.
+            className={`ct-lobby-action-btn ${micLocked ? "forced-muted" : micEnabled ? "" : "off"}`}
+            aria-pressed={!micLocked && !micEnabled}
             icon={micLocked || !micEnabled ? <AudioMutedOutlined /> : <AudioOutlined />}
             disabled={micLocked}
             onClick={onToggleMic}
@@ -118,8 +121,13 @@ export function LobbyActionToolbar({
         <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat (Sağ tık: cihaz seç)" : "Kulaklığı Aç (Sağ tık: cihaz seç)"}>
           <Button
             size="large"
-            className={`ct-lobby-action-btn ${headphoneEnabled ? "active" : ""}`}
-            icon={<CustomerServiceOutlined />}
+            className={`ct-lobby-action-btn ${headphoneEnabled ? "" : "off"}`}
+            icon={
+              <CustomerServiceOutlined
+                className={headphoneEnabled ? undefined : "ct-icon-slashed"}
+              />
+            }
+            aria-pressed={!headphoneEnabled}
             onClick={onToggleHeadphone}
           />
         </Tooltip>

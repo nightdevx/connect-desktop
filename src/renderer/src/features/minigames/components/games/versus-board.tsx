@@ -81,7 +81,7 @@ export function VersusBoard({ game, currentUserId }: VersusBoardProps) {
       showIcon
       closable
       onClose={dismissError}
-      message={error}
+      title={error}
       className="ct-alert"
     />
   ) : null;

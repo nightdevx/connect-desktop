@@ -9,6 +9,7 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
+import { ElapsedTime } from "../../common/elapsed-time";
 
 interface LobbyRoomHeaderProps {
   lobby: LobbyDescriptor | null;
@@ -16,6 +17,8 @@ interface LobbyRoomHeaderProps {
   memberCount: number;
   /** Voice-connected to THIS room, as opposed to merely reading it. */
   isConnected: boolean;
+  /** When this user joined the room, from the server's roster. */
+  connectedSince?: string | null;
   /** People in the room sharing a screen right now. */
   liveShareCount?: number;
   isChatOpen: boolean;
@@ -40,6 +43,7 @@ export function LobbyRoomHeader({
   lobby,
   memberCount,
   isConnected,
+  connectedSince,
   liveShareCount = 0,
   isChatOpen,
   unreadCount,
@@ -61,7 +65,7 @@ export function LobbyRoomHeader({
             isTextOnly ? "Mesaj odası — sesli bağlantı yok" : "Sesli lobi"
           }
         >
-          <span className="ct-lobby-room-icon">
+          <span className={`ct-lobby-room-icon ${isTextOnly ? "" : "voice"}`}>
             {isTextOnly ? <MessageOutlined /> : <SoundOutlined />}
           </span>
         </Tooltip>
@@ -103,12 +107,21 @@ export function LobbyRoomHeader({
               </span>
             )}
 
+            {/* Connected, it is how long you have been here -- the green dot
+                already says "connected". */}
             <span
-              className={`ct-lobby-room-status ${isConnected ? "on" : ""}`}
+              className={`ct-lobby-room-status ${isConnected ? "on" : ""} ${isConnected && connectedSince ? "timer" : ""}`}
               role="status"
+              title={isConnected ? "Bağlı — odada geçen süre" : undefined}
             >
               <i aria-hidden="true" />
-              {isConnected ? "Bağlı" : "Bağlanıyor…"}
+              {isConnected && connectedSince ? (
+                <ElapsedTime since={connectedSince} />
+              ) : isConnected ? (
+                "Bağlı"
+              ) : (
+                "Bağlanıyor…"
+              )}
             </span>
           </>
         )}

@@ -7,6 +7,7 @@ import ReactDOM from "react-dom/client";
 import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme } from "antd";
+import trTR from "antd/locale/tr_TR";
 import App from "./App";
 import { AppErrorBoundary } from "./app/AppErrorBoundary";
 import { queryClient } from "./services/query-client";
@@ -115,7 +116,9 @@ function ThemedApp() {
   }, [themeMode]);
 
   return (
-    <ConfigProvider theme={antdTheme}>
+    // Turkish defaults for antd's own words ("Veri yok", the pager, the
+    // date pickers): every other string in the app is Turkish.
+    <ConfigProvider theme={antdTheme} locale={trTR}>
       <AppErrorBoundary>
         <App />
       </AppErrorBoundary>

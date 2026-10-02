@@ -127,7 +127,7 @@ export default function AdminSounds() {
       key: "owner",
       width: 180,
       render: (_: unknown, record: CustomEmoteSummary) => (
-        <Tag color="blue">
+        <Tag className="ct-tag info">
           {record.ownerUsername ? `@${record.ownerUsername}` : usernameOf(record.ownerId)}
         </Tag>
       ),
@@ -287,7 +287,7 @@ export default function AdminSounds() {
               {overrideRows.map((row) => (
                 <Tag
                   key={row.userId}
-                  color="purple"
+                  className="ct-tag info"
                   onClick={() => {
                     setOverrideUserId(row.userId);
                     setOverrideValue(row.quota);
