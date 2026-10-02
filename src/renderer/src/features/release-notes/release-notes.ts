@@ -34,6 +34,45 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.1",
+    date: "2026-10-03",
+    summary: "Ses daha erken geliyor, bağlantı kopmalara daha dayanıklı; Ayarlar, Yönetim, Oyunlar ve Kampanya sayfaları yenilendi.",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Bir odaya girdiğinde diğerlerinin sesi daha erken geliyor: bağlantı kurulurken ses de hazırlanıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Uygulama sunucuya artık tek bağlantıyla bağlanıyor. Kısa internet kopmalarında kendiliğinden ve daha hızlı toparlanıyor; arkadaşların seni bir anlığına çevrimdışı görmüyor.",
+      },
+      {
+        kind: "fixed",
+        text: "İnternet geri geldiğinde ya da bilgisayar uykudan uyandığında, sağlam olan bağlantılar gereksiz yere yeniden kurulmuyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Birebir görüşme sırasında sol alttaki bağlantı kartı \"Lobiye bağlı değil\" yazıyordu.",
+      },
+      {
+        kind: "fixed",
+        text: "Müzik botu: şarkıların son saniyesi artık kesilmiyor, ses sunucusu yeniden başlarsa müzik kaldığı yerden devam ediyor.",
+      },
+      {
+        kind: "improved",
+        text: "Ayarlar sayfaları tek düzende: her bölüm başlıklı kartlarda, simgeli satırlarla.",
+      },
+      {
+        kind: "improved",
+        text: "Yönetim paneli gruplanmış yan menüyle yenilendi; tablolar dizüstü ekranlarda da taşmıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Oyunlar ve Kampanya sayfaları uygulamanın geri kalanıyla aynı görünümde. Rekorlar, masa doluluğu ve kategori sayıları menü satırlarının sonunda.",
+      },
+    ],
+  },
+  {
     version: "0.2.0",
     date: "2026-10-02",
     summary: "Uygulamanın tamamı yeni tasarımda; aramalar artık sohbet geçmişinde.",
