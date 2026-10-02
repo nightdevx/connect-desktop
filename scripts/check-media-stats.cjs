@@ -367,6 +367,61 @@ assert.equal(inbound.kind, "audio");
 assert.equal(inbound.codec, "opus");
 assert.equal(inbound.jitterMs, 12, "jitter in ms");
 assert.equal(inbound.jitterBufferDelayMs, 40, "mean jitter buffer delay in ms");
+assert.equal(
+  inbound.jitterBufferWindowMs,
+  null,
+  "nothing came out of the buffer in the window: no window figure",
+);
+
+// The whole-call average barely moves; the window says what the buffer holds
+// now. 0.6 s held over the 10 samples emitted in the window is 60 ms, while the
+// call's average only creeps from 40 to 42.
+const bufferEntries = (timestamp, delaySec, emitted) => {
+  const entries = receiverEntries(timestamp, 12_500, 100, 0);
+  entries[1] = { ...entries[1], jitterBufferDelay: delaySec, jitterBufferEmittedCount: emitted };
+  return entries;
+};
+const bufferCache = new Map();
+summarizeReceiverReport(bufferEntries(1000, 4, 100), bufferCache, "peer-b");
+const buffered = summarizeReceiverReport(bufferEntries(2000, 4.6, 110), bufferCache, "peer-b");
+assert.equal(buffered.jitterBufferWindowMs, 60, "jitter buffer delay over the last window");
+assert.equal(buffered.jitterBufferDelayMs, 42, "jitter buffer delay over the whole call");
+
+// --- mouth-to-ear estimate -------------------------------------------------
+const { estimateMouthToEar, MOUTH_TO_EAR_FIXED_MS } = stats;
+assert.equal(
+  estimateMouthToEar({ rttMs: null, jitterBufferMs: 60, outputMs: 20, playbackDynamicsStages: 1 }),
+  null,
+  "no round trip, no estimate",
+);
+assert.equal(
+  estimateMouthToEar({ rttMs: 30, jitterBufferMs: null, outputMs: 20, playbackDynamicsStages: 1 }),
+  null,
+  "nobody else's voice arriving, no estimate",
+);
+const fixedPath =
+  MOUTH_TO_EAR_FIXED_MS.capture +
+  MOUTH_TO_EAR_FIXED_MS.noiseSuppression +
+  MOUTH_TO_EAR_FIXED_MS.microphoneLimiter +
+  MOUTH_TO_EAR_FIXED_MS.opus +
+  MOUTH_TO_EAR_FIXED_MS.playbackHandOver;
+const estimate = estimateMouthToEar({
+  rttMs: 30,
+  jitterBufferMs: 60,
+  outputMs: 20,
+  playbackDynamicsStages: 2,
+});
+assert.equal(estimate.networkMs, 30, "both one-way legs: the whole round trip, not half of it");
+assert.equal(
+  estimate.processingMs,
+  Math.round(fixedPath + 2 * MOUTH_TO_EAR_FIXED_MS.playbackDynamicsStage),
+  "each playback dynamics stage adds its look-ahead",
+);
+assert.equal(estimate.totalMs, Math.round(30 + 60 + 20 + fixedPath + 12), "the parts add up");
+assert.ok(
+  fixedPath > 50 && fixedPath < 80,
+  `the fixed path (${fixedPath} ms) is capture, RNNoise, a limiter and one Opus frame: tens of ms, not hundreds`,
+);
 
 // --- quality limitation ---------------------------------------------------
 const { findQualityLimitation } = stats;

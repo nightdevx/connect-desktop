@@ -479,6 +479,19 @@ export class RemoteMediaHandler {
     logLiveKitDebug("remote-media", "master-limiter", { inPath: wanted });
   }
 
+  /**
+   * What playback adds after the jitter buffer: the AudioContext's own
+   * buffering to the device, and how many dynamics stages, each with a 6 ms
+   * look-ahead, a voice passes through. Null output before the bus exists.
+   */
+  public playoutLatency(): { outputMs: number | null; dynamicsStages: number } {
+    const context = this.audioContext;
+    return {
+      outputMs: context ? ((context.baseLatency ?? 0) + (context.outputLatency ?? 0)) * 1000 : null,
+      dynamicsStages: (this.voiceLevelling ? 1 : 0) + (this.limiterInPath ? 1 : 0),
+    };
+  }
+
   // ---- Speaking level ----
 
   /**

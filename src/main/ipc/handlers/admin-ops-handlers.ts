@@ -144,6 +144,7 @@ export function registerAdminOpsHandlers(): void {
   ipcMain.handle("desktop:admin-disconnect-media", bind(schemas.sessions, (p, t) => ops().disconnectMedia(t, p.userId)));
   ipcMain.handle("desktop:admin-force-track-off", bind(schemas.trackOff, (p, t) => ops().forceTrackOff(t, p.userId, { kind: p.kind, reason: p.reason })));
   ipcMain.handle("desktop:admin-live-media", bind(z.object({}), (_p, t) => ops().liveMedia(t)));
+  ipcMain.handle("desktop:admin-media-health", bind(z.object({}), (_p, t) => ops().mediaHealth(t)));
 
   ipcMain.handle("desktop:admin-close-table", bind(schemas.table, (p, t) => ops().closeTable(t, p.tableId)));
   ipcMain.handle("desktop:admin-remove-table-player", bind(schemas.tablePlayer, (p, t) => ops().removeTablePlayer(t, p.tableId, p.userId)));

@@ -879,3 +879,9 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* The connection panel's fifth tile, the mouth-to-ear estimate, takes the
+   whole row so the two-column grid of the other four stays even. */
+.ct-metric-tile.wide {
+  grid-column: 1 / -1;
+}

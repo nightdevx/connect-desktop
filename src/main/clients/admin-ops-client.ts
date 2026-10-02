@@ -172,6 +172,10 @@ export class AdminOpsClient {
     return this.call<{ publishers: unknown[] }>(token, "GET", "/admin/media/live");
   }
 
+  public mediaHealth(token: string) {
+    return this.call<{ health: unknown }>(token, "GET", "/admin/media/health");
+  }
+
   public closeTable(token: string, tableId: string) {
     return this.call<{ closed: boolean }>(token, "POST", `/admin/minigames/tables/${encodeURIComponent(tableId)}/close`);
   }

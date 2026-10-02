@@ -58,6 +58,7 @@ export type AdminSection =
   | "audit"
   | "media"
   | "diagnostics"
+  | "media-health"
   | "access"
   | "settings";
 export type SettingsSection =
@@ -67,6 +68,7 @@ export type SettingsSection =
   | "camera"
   | "audio"
   | "stream"
+  | "connection"
   | "application";
 
 interface UiState {

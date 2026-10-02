@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Switch } from "antd";
+import { Switch, Tooltip } from "antd";
 import {
   ApiOutlined,
   CloseOutlined,
   DashboardOutlined,
   DisconnectOutlined,
   ExclamationCircleOutlined,
+  FieldTimeOutlined,
   LineChartOutlined,
   ThunderboltOutlined,
   WifiOutlined,
 } from "@ant-design/icons";
-import type { IcePathKind } from "@shared/media-stats";
+import type { IcePathKind, MouthToEarEstimate } from "@shared/media-stats";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import { useVideoQuality } from "../../hooks/lobby/use-video-quality";
 import {
@@ -18,6 +19,23 @@ import {
   useWorkspaceAudioConnection,
   type AudioConnectionTone,
 } from "../../hooks/lobby/use-workspace-audio-connection";
+
+// Past roughly this much, people start talking over each other (ITU-T G.114
+// puts the comfortable limit for conversation lower, at 150 ms one way).
+const MOUTH_TO_EAR_WARN_MS = 300;
+
+const describeLatency = (estimate: MouthToEarEstimate | null | undefined): string => {
+  if (!estimate) {
+    return "Başka birinin sesi gelmeye başlayınca hesaplanır.";
+  }
+  return [
+    `Konuşanın ağzından senin kulağına, tahmini:`,
+    `ağ ${estimate.networkMs} ms (iki yön; karşı tarafın bağlantısı seninkine benzer varsayılır)`,
+    `titreşim tamponu ${estimate.jitterBufferMs} ms`,
+    `ses kartı ${estimate.outputMs} ms`,
+    `ses işleme ~${estimate.processingMs} ms.`,
+  ].join(" · ");
+};
 
 interface WorkspaceAudioStatusProps {
   activeLobbyId: string | null;
@@ -224,6 +242,23 @@ export function WorkspaceAudioStatus({
                   : "-"}
               </strong>
             </div>
+
+            <Tooltip title={describeLatency(mediaStats.latency)}>
+              <div className="ct-metric-tile wide">
+                <span>
+                  <FieldTimeOutlined /> Tahmini Gecikme
+                </span>
+                <strong
+                  className={
+                    (mediaStats.latency?.totalMs ?? 0) > MOUTH_TO_EAR_WARN_MS
+                      ? "alarm"
+                      : undefined
+                  }
+                >
+                  {mediaStats.latency ? `~${mediaStats.latency.totalMs} ms` : "-"}
+                </strong>
+              </div>
+            </Tooltip>
           </div>
 
           {videoQualityProps.active && (

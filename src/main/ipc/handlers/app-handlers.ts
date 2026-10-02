@@ -21,6 +21,7 @@ import {
 } from "../../update";
 import { launchMockUpdaterWindow } from "../../update/helper-mode";
 import { getFreeGames } from "../../free-games-poller";
+import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
 
 export function registerAppHandlers(): void {
   ipcMain.handle("app:ping", async () => "pong");
@@ -147,6 +148,15 @@ export function registerAppHandlers(): void {
 
       const result = launchMockUpdaterWindow();
       return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:open-webrtc-internals", async () => {
+    try {
+      openWebRtcInternalsWindow();
+      return ok({ opened: true });
     } catch (error) {
       return fail(error);
     }

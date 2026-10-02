@@ -49,6 +49,7 @@ import type {
   AdminInviteCode,
   AdminIpBan,
   AdminLivePublisher,
+  AdminMediaHealth,
   AdminPurgeQuery,
   AdminReportStatus,
   AdminSessionSummary,
@@ -577,6 +578,8 @@ export interface DesktopApi {
       reason?: string;
     }>
   >;
+  /** chrome://webrtc-internals in a window of its own, for support. */
+  openWebRtcInternals: () => Promise<DesktopResult<{ opened: boolean }>>;
   getUpdateState: () => Promise<DesktopResult<{ state: AppUpdateSnapshot }>>;
   onUpdateEvent: (listener: (event: AppUpdateEvent) => void) => () => void;
   ping: () => Promise<string>;
@@ -812,6 +815,8 @@ export interface DesktopApi {
   createLiveKitToken: (payload?: {
     room?: string;
   }) => Promise<DesktopResult<LiveKitTokenPayload>>;
+  /** A short-lived token for a room of the user's own, for the network test. */
+  createNetworkTestToken: () => Promise<DesktopResult<LiveKitTokenPayload>>;
   uploadMediaDiagnostics: (
     payload: MediaDiagnosticsBatch,
   ) => Promise<DesktopResult<{ stored: boolean; enabled: boolean }>>;
@@ -1123,6 +1128,7 @@ export interface DesktopApi {
     disconnectMedia: (payload: { userId: string }) => Promise<DesktopResult<{ disconnected: boolean }>>;
     forceTrackOff: (payload: { userId: string; kind: "camera" | "screen" | "microphone"; reason?: string }) => Promise<DesktopResult<{ stopped: boolean }>>;
     liveMedia: () => Promise<DesktopResult<{ publishers: AdminLivePublisher[] }>>;
+    mediaHealth: () => Promise<DesktopResult<{ health: AdminMediaHealth }>>;
     closeTable: (payload: { tableId: string }) => Promise<DesktopResult<{ closed: boolean }>>;
     removeTablePlayer: (payload: { tableId: string; userId: string }) => Promise<DesktopResult<{ removed: boolean }>>;
     deleteScore: (payload: { game: string; userId: string }) => Promise<DesktopResult<{ deleted: boolean }>>;

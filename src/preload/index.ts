@@ -28,6 +28,7 @@ const desktopApi: DesktopApi = {
   installDownloadedUpdate: async () =>
     ipcRenderer.invoke("desktop:update-install"),
   launchMockUpdateDebug: async () => ipcRenderer.invoke("desktop:update-debug"),
+  openWebRtcInternals: async () => ipcRenderer.invoke("desktop:open-webrtc-internals"),
   getUpdateState: async () => ipcRenderer.invoke("desktop:update-state"),
   onUpdateEvent: (listener) => {
     const wrappedListener = (
@@ -173,6 +174,8 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:emotes-delete", payload),
   createLiveKitToken: async (payload) =>
     ipcRenderer.invoke("desktop:livekit-token", payload),
+  createNetworkTestToken: async () =>
+    ipcRenderer.invoke("desktop:livekit-network-test-token"),
   uploadMediaDiagnostics: async (payload) =>
     ipcRenderer.invoke("desktop:media-diagnostics-upload", payload),
   getMediaDiagnosticsContext: async () =>
@@ -406,6 +409,7 @@ const desktopApi: DesktopApi = {
     disconnectMedia: async (payload) => ipcRenderer.invoke("desktop:admin-disconnect-media", payload),
     forceTrackOff: async (payload) => ipcRenderer.invoke("desktop:admin-force-track-off", payload),
     liveMedia: async () => ipcRenderer.invoke("desktop:admin-live-media", {}),
+    mediaHealth: async () => ipcRenderer.invoke("desktop:admin-media-health", {}),
     closeTable: async (payload) => ipcRenderer.invoke("desktop:admin-close-table", payload),
     removeTablePlayer: async (payload) => ipcRenderer.invoke("desktop:admin-remove-table-player", payload),
     deleteScore: async (payload) => ipcRenderer.invoke("desktop:admin-delete-score", payload),

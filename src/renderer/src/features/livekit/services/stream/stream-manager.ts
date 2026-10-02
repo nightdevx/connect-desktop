@@ -59,9 +59,11 @@ import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector"
 import {
   EMPTY_ICE_PATHS,
   classifyIcePath,
+  estimateMouthToEar,
   findQualityLimitation,
   icePathKey,
   type MediaIcePaths,
+  type MouthToEarEstimate,
 } from "@shared/media-stats";
 import {
   guardedBitrate,
@@ -820,7 +822,10 @@ export class LiveKitMediaSession {
     this.audioGuard = initialAudioGuard();
     this.downlinkStreak = 0;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
-      this.callbacks.onMediaStats?.(snapshot);
+      this.callbacks.onMediaStats?.({
+        ...snapshot,
+        latency: this.estimateLatency(snapshot),
+      });
       mediaDiagnostics.recordStats(snapshot);
       this.trackIcePaths(snapshot.icePaths);
       this.evaluateAudioGuard(snapshot);
@@ -1641,6 +1646,29 @@ export class LiveKitMediaSession {
       }
     }
     this.loweredScreens.clear();
+  }
+
+  /**
+   * The connection panel's mouth-to-ear estimate: this machine's round trip,
+   * what its jitter buffers hold for the voices arriving now, and what the
+   * playback bus adds. estimateMouthToEar says what is assumed.
+   */
+  private estimateLatency(snapshot: MediaStatsSnapshot): MouthToEarEstimate | null {
+    const suffix = `:${Track.Source.Microphone}`;
+    const buffers = snapshot.inbound
+      .filter((entry) => entry.kind === "audio" && entry.trackKey.endsWith(suffix))
+      .map((entry) => entry.jitterBufferWindowMs ?? entry.jitterBufferDelayMs)
+      .filter((value): value is number => value !== null);
+    const playout = this.remoteMediaHandler?.playoutLatency();
+    return estimateMouthToEar({
+      rttMs: snapshot.rttMs,
+      jitterBufferMs:
+        buffers.length > 0
+          ? Math.round(buffers.reduce((sum, value) => sum + value, 0) / buffers.length)
+          : null,
+      outputMs: playout?.outputMs ?? null,
+      playbackDynamicsStages: playout?.dynamicsStages ?? 0,
+    });
   }
 
   private hasOutboundVideo(snapshot: MediaStatsSnapshot): boolean {

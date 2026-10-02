@@ -7,6 +7,7 @@ import { SettingsPrivacy } from "./settings-privacy";
 import { SettingsCamera } from "./settings-camera";
 import { SettingsAudio } from "./settings-audio";
 import { SettingsStream } from "./settings-stream";
+import { SettingsConnection } from "./settings-connection";
 import type {
   CameraPreferences,
   AudioPreferences,
@@ -97,6 +98,8 @@ export function SettingsMainPanel({
           onSaveStreamPreferences={onSaveStreamPreferences}
         />
       )}
+
+      {settingsSection === "connection" && <SettingsConnection />}
 
       {settingsSection === "application" && <SettingsApplication />}
     </div>

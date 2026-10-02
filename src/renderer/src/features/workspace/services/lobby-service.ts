@@ -306,6 +306,13 @@ export const lobbyService = {
 
     return window.desktopApi.createLiveKitToken(payload);
   },
+  createNetworkTestToken: () => {
+    if (typeof window.desktopApi.createNetworkTestToken !== "function") {
+      return Promise.resolve(desktopBridgeOutdatedError);
+    }
+
+    return window.desktopApi.createNetworkTestToken();
+  },
   listScreenCaptureSources: () => {
     if (typeof window.desktopApi.listScreenCaptureSources !== "function") {
       return Promise.resolve(desktopBridgeOutdatedError);

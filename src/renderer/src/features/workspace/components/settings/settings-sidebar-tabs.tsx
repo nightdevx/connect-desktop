@@ -8,6 +8,7 @@ import {
   AudioOutlined,
   DesktopOutlined,
   SettingOutlined,
+  ApiOutlined,
 } from "@ant-design/icons";
 
 interface SettingsSidebarTabsProps {
@@ -74,6 +75,12 @@ const TAB_GROUPS: TabGroupConfig[] = [
         label: "Yayın",
         description: "Ekran paylaşımı ve yayın kalitesi",
         icon: <DesktopOutlined />,
+      },
+      {
+        id: "connection",
+        label: "Bağlantı",
+        description: "Ağ testi ve bağlantı tanılama",
+        icon: <ApiOutlined />,
       },
     ],
   },

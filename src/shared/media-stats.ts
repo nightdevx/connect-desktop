@@ -54,6 +54,9 @@ export interface RateSample {
   // --- receiver side --------------------------------------------------------
   /** Packets that arrived but were thrown away (late, or buffer overrun). */
   packetsDiscarded?: number;
+  /** Cumulative seconds samples spent in the jitter buffer, and how many came out. */
+  jitterBufferDelaySec?: number;
+  jitterBufferEmitted?: number;
 }
 
 /**
@@ -301,6 +304,13 @@ export interface InboundTrackStats {
   packetsDiscarded: number | null;
   /** What the jitter buffer is aiming for, vs the delay it is achieving. */
   jitterBufferTargetMs: number | null;
+  /**
+   * The jitter buffer's delay over the LAST sampling window. jitterBufferDelayMs
+   * is the average over the whole call, which barely moves an hour in; this is
+   * what the buffer is holding now. Null without a comparable previous sample,
+   * or when nothing came out of the buffer in the window.
+   */
+  jitterBufferWindowMs: number | null;
   decoderImplementation: string | null;
   /**
    * Packets counted in the LAST sampling window, so several tracks can be
@@ -937,12 +947,16 @@ export const summarizeReceiverReport = (
     ...(silentConcealedSamples !== null ? { silentConcealedSamples } : {}),
     ...(totalSamplesReceived !== null ? { totalSamplesReceived } : {}),
     packetsDiscarded: num(inbound.packetsDiscarded) ?? 0,
+    ...(jitterBufferDelay !== null ? { jitterBufferDelaySec: jitterBufferDelay } : {}),
+    ...(jitterBufferEmittedCount !== null ? { jitterBufferEmitted: jitterBufferEmittedCount } : {}),
     sourceKey: buildSourceKey([inbound]),
   };
   const previous = cache.get(trackKey);
   cache.set(trackKey, sample);
 
   const jitter = num(inbound.jitter);
+  const emittedInWindow = delta(previous, sample, "jitterBufferEmitted");
+  const heldInWindow = delta(previous, sample, "jitterBufferDelaySec");
 
   return {
     trackKey,
@@ -966,7 +980,78 @@ export const summarizeReceiverReport = (
       jitterBufferEmittedCount > 0
         ? Math.round((jitterBufferTargetDelay / jitterBufferEmittedCount) * 1000)
         : null,
+    jitterBufferWindowMs:
+      emittedInWindow !== null && emittedInWindow > 0 && heldInWindow !== null
+        ? Math.round((heldInWindow / emittedInWindow) * 1000)
+        : null,
     decoderImplementation: str(inbound.decoderImplementation),
     window: packetWindow(previous, sample),
+  };
+};
+
+/**
+ * The fixed costs on a voice's way from one person's microphone to another's
+ * ear, in ms: the parts no getStats counter reports. Both ends are assumed to
+ * run this app with its defaults.
+ */
+export const MOUTH_TO_EAR_FIXED_MS = {
+  /** WASAPI's shared-mode buffer and Chromium's audio processing. */
+  capture: 10,
+  /** RNNoise reads 640 samples (13.3 ms at 48 kHz) behind its input. */
+  noiseSuppression: 13,
+  /** The look-ahead of the limiter at the end of the microphone chain. */
+  microphoneLimiter: 6,
+  /** One 20 ms Opus frame plus Opus's own 6.5 ms of look-ahead. */
+  opus: 26.5,
+  /** The remote track's hand-over into the WebAudio graph. */
+  playbackHandOver: 10,
+  /** Each DynamicsCompressorNode on the playback bus. */
+  playbackDynamicsStage: 6,
+} as const;
+
+export interface MouthToEarEstimate {
+  totalMs: number;
+  /**
+   * The two one-way legs, speaker to SFU and SFU to this machine. Only this
+   * machine's are measured; the speaker's uplink is taken to equal its own, so
+   * together they come to its round trip.
+   */
+  networkMs: number;
+  jitterBufferMs: number;
+  /** The AudioContext's buffering to the output device. */
+  outputMs: number;
+  /** Everything in MOUTH_TO_EAR_FIXED_MS that applies. */
+  processingMs: number;
+}
+
+/**
+ * How long a remote voice takes from the speaker's mouth to this user's ear.
+ * An estimate, not a measurement: null until there is both a round trip and a
+ * jitter buffer to read, which is to say until somebody else's voice arrives.
+ */
+export const estimateMouthToEar = (input: {
+  rttMs: number | null;
+  jitterBufferMs: number | null;
+  outputMs: number | null;
+  playbackDynamicsStages: number;
+}): MouthToEarEstimate | null => {
+  if (input.rttMs === null || input.jitterBufferMs === null) {
+    return null;
+  }
+  const fixed = MOUTH_TO_EAR_FIXED_MS;
+  const processingMs =
+    fixed.capture +
+    fixed.noiseSuppression +
+    fixed.microphoneLimiter +
+    fixed.opus +
+    fixed.playbackHandOver +
+    fixed.playbackDynamicsStage * input.playbackDynamicsStages;
+  const outputMs = input.outputMs ?? 0;
+  return {
+    totalMs: Math.round(input.rttMs + input.jitterBufferMs + outputMs + processingMs),
+    networkMs: input.rttMs,
+    jitterBufferMs: input.jitterBufferMs,
+    outputMs: Math.round(outputMs),
+    processingMs: Math.round(processingMs),
   };
 };

@@ -461,6 +461,17 @@ export function registerLobbyHandlers(): void {
     }
   });
 
+  ipcMain.handle("desktop:livekit-network-test-token", async () => {
+    try {
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.media.createNetworkTestToken(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
   ipcMain.handle("desktop:lobbies-state", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyStateSchema.parse(payload);

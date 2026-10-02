@@ -7,6 +7,7 @@ import {
   type IcePathStats,
   type InboundTrackStats,
   type MediaIcePaths,
+  type MouthToEarEstimate,
   type OutboundTrackStats,
   type RateCache,
   type RawStatEntry,
@@ -25,6 +26,11 @@ export interface MediaStatsSnapshot {
    * publishing connection, a receiver's the subscribing one.
    */
   icePaths: MediaIcePaths;
+  /**
+   * How long a remote voice takes to reach this user, estimated. Added by the
+   * session, which owns the playback bus; the collector leaves it out.
+   */
+  latency?: MouthToEarEstimate | null;
 }
 
 export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
@@ -34,6 +40,7 @@ export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
   outbound: [],
   inbound: [],
   icePaths: EMPTY_ICE_PATHS,
+  latency: null,
 };
 
 /**

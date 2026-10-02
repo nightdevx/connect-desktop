@@ -19,6 +19,15 @@ export class MediaClient {
     });
   }
 
+  public async createNetworkTestToken(accessToken: string): Promise<LiveKitTokenPayload> {
+    return this.baseClient.request<LiveKitTokenPayload>("/media/livekit/network-test", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  }
+
   public async initiateCall(
     accessToken: string,
     targetUserId: string,

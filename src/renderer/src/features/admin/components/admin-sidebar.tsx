@@ -13,6 +13,7 @@ import {
   MessageOutlined,
   VideoCameraOutlined,
   FileProtectOutlined,
+  CloudServerOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
       { key: "media", label: "Ses ve Video", icon: <VideoCameraOutlined /> },
       { key: "diagnostics", label: "Yayın Tanılama", icon: <FileProtectOutlined /> },
+      { key: "media-health", label: "Sunucu Medya Sağlığı", icon: <CloudServerOutlined /> },
       { key: "activity", label: "Aktivite Logları", icon: <HistoryOutlined /> },
       { key: "audit", label: "Denetim Kaydı", icon: <FileProtectOutlined /> },
     ],
