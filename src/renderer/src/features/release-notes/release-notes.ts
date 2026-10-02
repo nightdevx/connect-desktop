@@ -34,6 +34,16 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.1.107",
+    date: "2026-10-02",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Ekran paylaşırken dar pencerede (sohbet açıkken) araç çubuğu iki satıra taşıyor, \"Lobiden Ayrıl\" düğmesi alta düşüyordu. Artık \"Yayında\" düğmesi küçülüyor ve araç çubuğu tek satırda kalıyor.",
+      },
+    ],
+  },
+  {
     version: "0.1.106",
     date: "2026-10-02",
     summary: "Sesli görüşmeler daha sağlam ve daha hızlı; arayüz baştan yenilendi.",
