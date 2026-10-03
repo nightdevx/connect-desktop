@@ -446,6 +446,10 @@
   letter-spacing: 0.06em;
 }
 
+.ct-quick-idle-logo:has(img) {
+  background: none;
+}
+
 .ct-quick-idle-meta {
   @apply flex min-w-0 flex-col gap-0.5;
 }

@@ -1,3 +1,4 @@
+import type { UserProfile } from "@shared/auth-contracts";
 import type { DesktopResult } from "@shared/desktop-api-types";
 import type { MinigameLeaderboard, MinigameScoreMap } from "@shared/minigames";
 
@@ -20,6 +21,17 @@ const desktopBridgeOutdatedError = {
 } satisfies DesktopResult<never>;
 
 export const scoreService = {
+  /** A player's public card -- the board rows read their picture from it. */
+  getUserCard: (userId: string): Promise<DesktopResult<{ user: UserProfile }>> => {
+    if (typeof window.desktopApi.getUserCard !== "function") {
+      return Promise.resolve(
+        desktopBridgeOutdatedError as DesktopResult<{ user: UserProfile }>,
+      );
+    }
+
+    return window.desktopApi.getUserCard({ userId });
+  },
+
   /** Every solo game this account holds a record at. */
   listScores: (): Promise<DesktopResult<{ scores: MinigameScoreMap }>> => {
     if (typeof window.desktopApi.listMinigameScores !== "function") {

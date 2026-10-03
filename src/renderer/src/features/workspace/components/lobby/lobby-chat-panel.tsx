@@ -50,6 +50,7 @@ import { MentionPicker, useMentionPicker } from "../common/mention-picker";
 
 interface LobbyChatMessageRowProps {
   message: ChatMessage;
+  avatarUrl?: string | null;
   isOwnMessage: boolean;
   isDeleting: boolean;
   deleteDisabled: boolean;
@@ -71,6 +72,7 @@ const areRowPropsEqual = (
   next: LobbyChatMessageRowProps,
 ): boolean =>
   previous.message === next.message &&
+  previous.avatarUrl === next.avatarUrl &&
   previous.isOwnMessage === next.isOwnMessage &&
   previous.isDeleting === next.isDeleting &&
   previous.deleteDisabled === next.deleteDisabled &&
@@ -91,6 +93,7 @@ const areRowPropsEqual = (
 // handlers. Same reasoning, same shape as LobbyParticipantTile.
 const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
   message,
+  avatarUrl,
   isOwnMessage,
   isDeleting,
   deleteDisabled,
@@ -115,7 +118,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
   return (
     <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
       <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
-        {getDisplayInitials(message.username)}
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(message.username)}
       </span>
       <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
         <div className="ct-chat-bubble-meta">
@@ -268,6 +271,9 @@ interface LobbyChatPanelProps {
   isSearching?: boolean;
   onRunSearch?: (query: string) => void;
   onClearSearch?: () => void;
+  // Faces by user id: friends, the roster and you. An author outside all three
+  // keeps their initials.
+  avatarByUserId?: Record<string, string | null | undefined>;
 }
 
 export function LobbyChatPanel({
@@ -293,6 +299,7 @@ export function LobbyChatPanel({
   isSearching = false,
   onRunSearch,
   onClearSearch,
+  avatarByUserId,
 }: LobbyChatPanelProps) {
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<
     string | null
@@ -546,6 +553,7 @@ export function LobbyChatPanel({
                 <LobbyChatMessageRow
                   key={`search-${message.id}`}
                   message={message}
+                  avatarUrl={avatarByUserId?.[message.userId]}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={false}
                   deleteDisabled
@@ -568,6 +576,7 @@ export function LobbyChatPanel({
                 <LobbyChatMessageRow
                   key={message.id}
                   message={message}
+                  avatarUrl={avatarByUserId?.[message.userId]}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={deletingLobbyMessageId === message.id}
                   deleteDisabled={Boolean(deletingLobbyMessageId)}

@@ -355,11 +355,16 @@ letter-spacing: 0.04em;
 
 /* A face without a picture in its owner's colour (--ct-name-h, set inline by
    hueStyle): the same hue for the same person in every row, tile and message.
-   Mid lightness, so white initials read on it in both themes. A picture, when
-   there is one, simply covers it. */
+   Mid lightness, so white initials read on it in both themes. Only for a face
+   without one: a picture did not fully cover the circle -- it showed through
+   transparent corners and as a coloured fringe round the edge. */
 .ct-hued {
 background: oklch(0.55 0.12 var(--ct-name-h));
 color: var(--ct-on-media);
+}
+
+.ct-hued:has(img) {
+background: none;
 }
 
 .ct-hued .ct-user-avatar-fallback {

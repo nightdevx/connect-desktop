@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Button, Spin } from "antd";
 import { ReloadOutlined, TrophyOutlined } from "@ant-design/icons";
 import { toErrorMessage } from "@shared/error-message";
@@ -106,6 +107,20 @@ export function MinigameLeaderboard({
     };
   }, [key, syncedAt, reloadNonce]);
 
+  // Faces. The board carries no picture -- an avatar is base64 and the board
+  // polls -- so each row reads the profile card the rest of the app already
+  // caches under this same key and timings (workspace use-user-cards.ts). A
+  // player whose card is loaded elsewhere costs no request here.
+  const cards = useQueries({
+    queries: (board?.entries ?? []).map((entry) => ({
+      queryKey: ["user-card", entry.userId],
+      queryFn: () => scoreService.getUserCard(entry.userId),
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      retry: false,
+    })),
+  });
+
   return (
     <section className="ct-leaderboard" aria-label="Sıralama">
       <header className="ct-leaderboard-head">
@@ -171,29 +186,37 @@ export function MinigameLeaderboard({
         </p>
       ) : (
         <ol className="ct-leaderboard-list">
-          {board.entries.map((entry) => (
-            <li
-              key={entry.userId}
-              className="ct-leaderboard-row"
-              data-me={entry.userId === currentUserId ? "true" : undefined}
-            >
-              {/* The rank comes from the server and is NOT the list index: a
-                  deactivated account is dropped from the rows but keeps its
-                  place, so a gap here is the truth. */}
-              <span className="ct-leaderboard-position">{entry.rank}</span>
-              <span
-                className="ct-leaderboard-face ct-hued"
-                style={hueStyle(entry.userId)}
-                aria-hidden="true"
+          {board.entries.map((entry, index) => {
+            const card = cards[index]?.data;
+            const avatarUrl = card?.ok ? card.data?.user.avatarUrl : null;
+            return (
+              <li
+                key={entry.userId}
+                className="ct-leaderboard-row"
+                data-me={entry.userId === currentUserId ? "true" : undefined}
               >
-                {getDisplayInitials(entry.displayName || entry.username)}
-              </span>
-              <span className="ct-leaderboard-name">
-                {entry.displayName || entry.username}
-              </span>
-              <span className="ct-leaderboard-score">{formatScore(entry.score)}</span>
-            </li>
-          ))}
+                {/* The rank comes from the server and is NOT the list index: a
+                    deactivated account is dropped from the rows but keeps its
+                    place, so a gap here is the truth. */}
+                <span className="ct-leaderboard-position">{entry.rank}</span>
+                <span
+                  className="ct-leaderboard-face ct-hued"
+                  style={hueStyle(entry.userId)}
+                  aria-hidden="true"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" />
+                  ) : (
+                    getDisplayInitials(entry.displayName || entry.username)
+                  )}
+                </span>
+                <span className="ct-leaderboard-name">
+                  {entry.displayName || entry.username}
+                </span>
+                <span className="ct-leaderboard-score">{formatScore(entry.score)}</span>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>

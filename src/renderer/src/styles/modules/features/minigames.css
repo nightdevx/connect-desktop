@@ -1414,8 +1414,12 @@
 }
 
 .ct-leaderboard-face {
-  @apply grid h-7 w-7 shrink-0 place-items-center rounded-full font-bold uppercase;
+  @apply grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full font-bold uppercase;
   font-size: 10.5px;
+}
+
+.ct-leaderboard-face img {
+  @apply h-full w-full object-cover;
 }
 
 .ct-leaderboard-name {

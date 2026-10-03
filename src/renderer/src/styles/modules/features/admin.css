@@ -563,12 +563,12 @@
 
 /* A person's face: initials on their own colour (.ct-hued), as everywhere. */
 .ct-admin-face {
-  @apply grid h-8 w-8 shrink-0 place-items-center rounded-full font-bold uppercase;
+  @apply grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full font-bold uppercase;
   font-size: 11px;
 }
 
 .ct-admin-face.large {
-  @apply h-10 w-10 overflow-hidden;
+  @apply h-10 w-10;
   font-size: 14px;
 }
 

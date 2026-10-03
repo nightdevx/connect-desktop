@@ -292,6 +292,11 @@ export function UsersDirectMessagesPanel({
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
 
+  // Two people in the thread: the peer, and you -- whose picture comes from the
+  // directory, which carries your own entry.
+  const avatarFor = (userId: string) =>
+    userId === currentUserId ? avatarByUserId?.[currentUserId] : selectedUser?.avatarUrl;
+
   // A direct message has exactly one person to name. The picker still earns its
   // place here: it completes the username, which is what the notification and
   // the highlight match on — "@Ayşe" typed by hand matches no account.
@@ -708,6 +713,7 @@ export function UsersDirectMessagesPanel({
                 <DirectChatMessageRow
                   key={`search-${message.id}`}
                   message={message}
+                  avatarUrl={avatarFor(message.userId)}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={false}
                   deleteDisabled
@@ -748,7 +754,7 @@ export function UsersDirectMessagesPanel({
                   message={message}
                   callLog={callLogInfo.get(message.id)}
                   onCallBack={handleCallBack}
-                  avatarUrl={message.userId === currentUserId ? undefined : selectedUser?.avatarUrl}
+                  avatarUrl={avatarFor(message.userId)}
                   isOwnMessage={message.userId === currentUserId}
                   isDeleting={deletingMessageId === message.id}
                   deleteDisabled={Boolean(deletingMessageId)}

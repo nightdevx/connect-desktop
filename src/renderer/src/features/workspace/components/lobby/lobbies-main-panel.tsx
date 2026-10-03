@@ -860,6 +860,7 @@ export function LobbiesMainPanel({
               </div>
             )}
             <LobbyChatPanel
+              avatarByUserId={avatarByUserId}
               currentUserId={currentUserId}
               currentUsername={currentUsername}
               lobbyMembers={lobbyStateQuery.data?.data?.members}

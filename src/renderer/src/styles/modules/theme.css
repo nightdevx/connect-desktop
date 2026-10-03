@@ -368,6 +368,10 @@
   background: oklch(0.55 0.12 var(--ct-name-h));
 }
 
+.ct-menu-identity .ant-avatar-image {
+  background: none;
+}
+
 .ct-menu-identity-text {
   display: flex;
   min-width: 0;

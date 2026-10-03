@@ -2052,3 +2052,11 @@
   border: 1px solid var(--ct-border);
   cursor: pointer;
 }
+
+/* The owner's colour is for a face without a picture only (see .ct-hued):
+   last in the file so it outranks the face rules above at equal weight. */
+.ct-lobby-member-avatar.ant-avatar-image,
+.ct-lobby-select-face.ant-avatar-image,
+.ct-lobby-avatar-container.ant-avatar-image {
+  background: none;
+}
