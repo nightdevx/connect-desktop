@@ -25,10 +25,11 @@ try {
 const switchNames = (flags) => flags.switches.map(([name]) => name);
 const allNames = (flags) => [...switchNames(flags), ...flags.enableFeatures, ...flags.disableFeatures];
 
-// Windows, hardware acceleration on: WGC for screens, nothing disabled.
+// Windows, hardware acceleration on: WGC for screens, its zero-Hz mode off (a
+// still screen repeats its frame instead of going silent).
 const winOn = resolveMediaEngineFlags("win32", true);
 assert.deepEqual(winOn.enableFeatures, ["AllowWgcScreenCapturer"]);
-assert.deepEqual(winOn.disableFeatures, []);
+assert.deepEqual(winOn.disableFeatures, ["AllowWgcScreenZeroHz"]);
 assert.deepEqual(winOn.switches, []);
 
 // Windows, hardware acceleration off: encoding off through the feature,

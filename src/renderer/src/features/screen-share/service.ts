@@ -196,6 +196,13 @@ const startBrowserDisplayCapture = async (
   }
 };
 
+// Asked for 30 frames a second, Chromium's desktop capture delivered 21-24 on
+// the bench and 23 in production (2026-10-03); asked for 60, it delivers
+// 29-36. So the capture asks for twice the preset's rate, up to 60, and the
+// encoder keeps to the preset's own (its maxFramerate per encoding).
+const captureFrameRate = (frameRate: number): number =>
+  Math.min(60, frameRate * 2);
+
 const startElectronDesktopCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
@@ -253,16 +260,14 @@ const startElectronDesktopCapture = async (
     // full loopback and echo participants back to themselves.
     //
     // Ceilings only, no min*: pinning min == max made capture fail outright on
-    // sources that cannot hit the target, and forced Chromium to duplicate
-    // frames to keep a static screen at the requested rate — wasted encoding
-    // that Windows Graphics Capture's zero-Hz mode exists to avoid.
+    // sources that cannot hit the target.
     const constraints: DesktopCaptureConstraints = {
       audio: false,
       video: {
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: preferredSource.id,
-          maxFrameRate: options.frameRate,
+          maxFrameRate: captureFrameRate(options.frameRate),
           maxWidth: dimensions?.width,
           maxHeight: dimensions?.height,
         },
@@ -305,7 +310,7 @@ const startElectronDesktopCapture = async (
             mandatory: {
               chromeMediaSource: "desktop",
               chromeMediaSourceId: preferredSource.id,
-              maxFrameRate: options.frameRate,
+              maxFrameRate: captureFrameRate(options.frameRate),
               maxWidth: dimensions?.width,
               maxHeight: dimensions?.height,
             },

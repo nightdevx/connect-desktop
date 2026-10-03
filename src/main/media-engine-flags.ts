@@ -67,9 +67,15 @@ export const resolveMediaEngineFlags = (
     // always captured with WGC, and zero-Hz (no repeated frames while the
     // source is static) is on for them unconditionally. The window and zero-Hz
     // flags this list used to carry (AllowWgcWindowCapturer, AllowWgcZeroHz)
-    // do not exist in Chromium 142. Screen zero-Hz, AllowWgcScreenZeroHz, stays
-    // off until it is measured (docs/screen-share-quality-plan.md, K1).
+    // do not exist in Chromium 142.
     flags.enableFeatures.push("AllowWgcScreenCapturer");
+    // Screen zero-Hz is on by default, though. A still screen then delivers no
+    // frames at all (0.3 a second on the bench; 24 with this off): viewers
+    // counted every still moment as a freeze, and a "Hareket" share's encoder
+    // had nothing to sharpen its last frame with, since only the "Metin" mode
+    // repeats frames on its own. Off, a still screen repeats its frame, as
+    // DXGI always did.
+    flags.disableFeatures.push("AllowWgcScreenZeroHz");
 
     if (!hardwareAcceleration) {
       softwareEncode();
