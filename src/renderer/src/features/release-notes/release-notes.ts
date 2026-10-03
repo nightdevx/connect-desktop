@@ -36,6 +36,32 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.9",
+    date: "2026-10-04",
+    highlights: [
+      {
+        kind: "new",
+        text: "Birebir aramalar artık uçtan uca şifreli: konuşmanı sunucu dahil kimse dinleyemez. Aramadaki kilidin üzerine gelince güvenlik kodunu görürsün; karşı taraftaki kodla aynıysa arada kimse yok.",
+      },
+      {
+        kind: "new",
+        text: "Hesabını iki adımlı doğrulamayla koruyabilirsin: Ayarlar > Güvenlik. Açınca girişte telefonundaki doğrulama uygulamasının kodu da sorulur.",
+      },
+      {
+        kind: "new",
+        text: "Bir yayını izlemeden önce ne paylaşıldığını görebilirsin: CANLI etiketinin üzerine gelince küçük bir önizleme çıkıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Oyun oynarken yayın açtığında oyun daha az yavaşlıyor. Yayını başlatırken bir oyun açıksa, oyunu en az etkileyen kalite de gösteriliyor.",
+      },
+      {
+        kind: "fixed",
+        text: "\"Devam eden bir aramanız var\" uyarısı, arama bittiğinde artık kendiliğinden kayboluyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.8",
     date: "2026-10-03",
     highlights: [
