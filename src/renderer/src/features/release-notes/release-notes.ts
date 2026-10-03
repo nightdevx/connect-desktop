@@ -36,6 +36,20 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.7",
+    date: "2026-10-03",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Arkadaşlarının oynadığı oyunlar daha iyi tanınıyor. Marvel Rivals, Battlefield 6, Among Us, Zula, Metin2 ve Knight Online dahil 40'a yakın oyun eklendi.",
+      },
+      {
+        kind: "fixed",
+        text: "Bilgisayarda Minecraft dışında bir Java programı açıkken artık yanlışlıkla \"Minecraft oynuyor\" görünmüyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.6",
     date: "2026-10-03",
     highlights: [
