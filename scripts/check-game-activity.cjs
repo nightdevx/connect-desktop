@@ -11,7 +11,10 @@
 //   node scripts/check-game-activity.cjs
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const {
+  GAME_ART,
   KNOWN_GAME_PROCESSES,
   isMinecraftWindowTitle,
   matchKnownGame,
@@ -100,4 +103,25 @@ assert.ok(isMinecraftWindowTitle("Lunar Client 1.8.9 (v2.18.3-2451)"));
 assert.ok(!isMinecraftWindowTitle("N/A"));
 assert.ok(!isMinecraftWindowTitle("Eclipse IDE for Java Developers"));
 
-console.log(`game-activity self-check passed (${keys.length} executables)`);
+// Every game shows its square picture. A key that is not a title the matcher
+// can produce, or a file that is not on disk, fails just as silently as a
+// missing entry: the initials stand in and nobody can tell why.
+const titles = new Set(Object.values(KNOWN_GAME_PROCESSES));
+const artDir = path.join(__dirname, "..", "src", "renderer", "public", "games");
+for (const [title, file] of Object.entries(GAME_ART)) {
+  assert.ok(titles.has(title), `GAME_ART has "${title}", which no executable maps to`);
+  assert.ok(fs.existsSync(path.join(artDir, `${file}.jpg`)), `no picture public/games/${file}.jpg for "${title}"`);
+}
+// No logo to be had for these; they show their initials.
+const WITHOUT_ART = new Set(["Wolfteam"]);
+for (const title of titles) {
+  assert.ok(title in GAME_ART || WITHOUT_ART.has(title), `"${title}" has no picture in GAME_ART`);
+}
+const used = new Set(Object.values(GAME_ART));
+for (const file of fs.readdirSync(artDir)) {
+  assert.ok(used.has(file.replace(/\.jpg$/, "")), `public/games/${file} is not used by any game`);
+}
+
+console.log(
+  `game-activity self-check passed (${keys.length} executables, ${used.size} pictures)`,
+);

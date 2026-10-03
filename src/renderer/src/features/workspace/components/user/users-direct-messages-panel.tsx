@@ -71,6 +71,7 @@ import type { OngoingCallInfo } from "../../hooks/user/use-call-session";
 import workspaceService from "../../services";
 import { useUiStore } from "@/store/ui-store";
 import { DirectChatMessageRow } from "./direct-chat-message-row";
+import { GameArt } from "./game-art";
 import { useThreadScroll } from "./use-thread-scroll";
 import { ElapsedTime } from "../common/elapsed-time";
 import { pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
@@ -386,19 +387,20 @@ export function UsersDirectMessagesPanel({
   // What the person in this conversation is doing, for the header's second
   // line: the room before the game, as on the friends page.
   const gameActivityByUser = useGameActivityByUser();
-  const headerActivity = (() => {
+  const headerActivity = ((): { label: string; game?: string } | null => {
     if (!selectedUser?.appOnline) {
       return null;
     }
     const lobby = friendsHome?.lobbyByUserId?.[selectedUser.userId];
     if (lobby) {
-      return `${lobby.name} odasında`;
+      return { label: `${lobby.name} odasında` };
     }
     const minigame = gameActivityByUser.get(selectedUser.userId);
     if (minigame) {
-      return gameActivityLabel(minigame);
+      return { label: gameActivityLabel(minigame) };
     }
-    return selectedUser.activity?.name ? `${selectedUser.activity.name} oynuyor` : null;
+    const game = selectedUser.activity?.name;
+    return game ? { label: `${game} oynuyor`, game } : null;
   })();
 
   // One entry per finished call: the "ended" message carries the duration and
@@ -1132,7 +1134,8 @@ export function UsersDirectMessagesPanel({
                         call -- knows a non-friend's display name and nothing
                         else, so the handle is only shown when it is known. */}
                     <span>
-                      {headerActivity ??
+                      {headerActivity?.game && <GameArt name={headerActivity.game} size="xs" />}
+                      {headerActivity?.label ??
                         getUserStatusLabel(selectedUser.appOnline, selectedUser.presence)}
                       {selectedUser.username && ` · @${selectedUser.username}`}
                     </span>
@@ -1308,7 +1311,7 @@ export function UsersDirectMessagesPanel({
                   <GlobalOutlined /> Durum
                 </dt>
                 <dd>
-                  {headerActivity ??
+                  {headerActivity?.label ??
                     getUserStatusLabel(selectedUser.appOnline, selectedUser.presence)}
                 </dd>
               </div>

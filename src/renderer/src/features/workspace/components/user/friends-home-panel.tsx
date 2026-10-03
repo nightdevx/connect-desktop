@@ -6,7 +6,6 @@ import {
   CheckOutlined,
   CloseOutlined,
   CopyOutlined,
-  DesktopOutlined,
   EllipsisOutlined,
   IdcardOutlined,
   InboxOutlined,
@@ -21,11 +20,13 @@ import {
   UserDeleteOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
-import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
+import type { FriendEntry, UserActivity, UserDirectoryEntry } from "@shared/auth-contracts";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { ConfirmActionModal } from "../common";
 import { ContextMenuPanel } from "../common/context-menu-panel";
+import { ElapsedTime } from "../common/elapsed-time";
+import { GameArt } from "./game-art";
 import { UserProfileCardAnchor } from "./user-profile-card";
 import { AuthLogoMark } from "@/features/auth";
 import { PageHeader } from "@/ui/page-header";
@@ -72,12 +73,13 @@ interface FriendActivity {
   kind: "lobby" | "minigame" | "game";
   label: string;
   lobby?: { id: string; name: string };
+  game?: UserActivity;
 }
 
-const ACTIVITY_ICON: Record<FriendActivity["kind"], ReactNode> = {
+// A game shows its own picture instead (GameArt).
+const ACTIVITY_ICON: Record<Exclude<FriendActivity["kind"], "game">, ReactNode> = {
   lobby: <SoundOutlined />,
   minigame: <RocketOutlined />,
-  game: <DesktopOutlined />,
 };
 
 const normalize = (value: string): string => value.toLocaleLowerCase("tr-TR");
@@ -152,7 +154,9 @@ function PersonAvatar({
 function ActivityText({ activity }: { activity: FriendActivity }) {
   return (
     <span className={`ct-friends-activity ${activity.kind}`}>
-      {ACTIVITY_ICON[activity.kind]}
+      {activity.kind === "game"
+        ? activity.game && <GameArt name={activity.game.name} size="xs" />
+        : ACTIVITY_ICON[activity.kind]}
       {activity.label}
     </span>
   );
@@ -356,7 +360,7 @@ export function FriendsHomePanel({
     }
 
     if (user.activity?.name) {
-      return { kind: "game", label: `${user.activity.name} oynuyor` };
+      return { kind: "game", label: `${user.activity.name} oynuyor`, game: user.activity };
     }
 
     return null;
@@ -726,19 +730,46 @@ export function FriendsHomePanel({
           {activeFriends.map(({ user, activity }) => {
             const name = user.displayName || user.username;
             const lobby = activity.lobby;
+            const game = activity.game;
+            const avatar = (
+              <PersonAvatar
+                userId={user.userId}
+                name={name}
+                avatarUrl={user.avatarUrl}
+                presenceDot={getPresenceColor(user.appOnline, user.presence)}
+              />
+            );
 
             return (
               <li key={user.userId} className={`ct-friends-active-card ${activity.kind}`}>
-                <PersonAvatar
-                  userId={user.userId}
-                  name={name}
-                  avatarUrl={user.avatarUrl}
-                  presenceDot={getPresenceColor(user.appOnline, user.presence)}
-                />
+                {/* A game leads with its picture, the face pinned to its corner:
+                    the line beside it then has room for the game's name. */}
+                {game ? (
+                  <span className="ct-friends-active-art">
+                    <GameArt name={game.name} size="md" />
+                    {avatar}
+                  </span>
+                ) : (
+                  avatar
+                )}
 
                 <div className="ct-friends-active-meta">
-                  <strong title={name}>{name}</strong>
-                  <ActivityText activity={activity} />
+                  {game ? (
+                    <>
+                      <span className="ct-friends-active-head">
+                        <strong title={name}>{name}</strong>
+                        <ElapsedTime since={game.startedAt} className="ct-friends-active-time" />
+                      </span>
+                      <span className="ct-friends-active-game" title={game.name}>
+                        {game.name}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <strong title={name}>{name}</strong>
+                      <ActivityText activity={activity} />
+                    </>
+                  )}
                 </div>
 
                 {lobby && onJoinLobby ? (

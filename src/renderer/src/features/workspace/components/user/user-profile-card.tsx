@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useRef,
   useState,
   type ReactElement,
@@ -29,8 +28,9 @@ import { useUserCard } from "../../hooks/user/use-user-cards";
 import { useUserPresence } from "../../hooks/user/use-user-presence";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import workspaceService from "../../services";
+import { ElapsedTime } from "../common/elapsed-time";
+import { GameArt } from "./game-art";
 import {
-  formatActivityElapsed,
   formatDateLabel,
   formatMembershipLength,
   getApiErrorMessage,
@@ -495,26 +495,16 @@ function GameActivityRow({
   name: string;
   startedAt: string;
 }): ReactElement {
-  const [elapsed, setElapsed] = useState(() => formatActivityElapsed(startedAt));
-
-  useEffect(() => {
-    setElapsed(formatActivityElapsed(startedAt));
-
-    const interval = window.setInterval(() => {
-      setElapsed(formatActivityElapsed(startedAt));
-    }, 1_000);
-
-    return () => window.clearInterval(interval);
-  }, [startedAt]);
-
   return (
     <div className="ct-profile-card-game playing">
-      <span className="ct-profile-card-game-label" title={name}>
-        {name} oynuyor
-      </span>
-      {elapsed ? (
-        <span className="ct-profile-card-game-time">{elapsed}</span>
-      ) : null}
+      <GameArt name={name} size="lg" />
+      <div className="ct-profile-card-game-text">
+        <span className="ct-profile-card-game-kicker">Oynuyor</span>
+        <strong className="ct-profile-card-game-name" title={name}>
+          {name}
+        </strong>
+        <ElapsedTime since={startedAt} className="ct-profile-card-game-time" />
+      </div>
     </div>
   );
 }

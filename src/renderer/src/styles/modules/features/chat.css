@@ -166,6 +166,12 @@
     color: var(--ct-text-muted);
   }
 
+  .ct-dm-header-text .ct-game-art {
+    margin-inline-end: 5px;
+    vertical-align: -4px;
+    color: var(--ct-on-media);
+  }
+
   .ct-dm-header-actions {
     @apply flex shrink-0 items-center gap-0.5;
   }
@@ -1276,6 +1282,42 @@
   background: color-mix(in srgb, var(--ct-success) 5%, transparent);
 }
 
+/* In a game: the game's picture first with the face on its corner, then who,
+   for how long, and which game -- tinted the games' blue. */
+.ct-friends-active-card.game {
+  border-color: color-mix(in srgb, var(--ct-brand-blue) 30%, transparent);
+  background: color-mix(in srgb, var(--ct-brand-blue) 5%, transparent);
+}
+
+.ct-friends-active-art {
+  @apply relative shrink-0;
+}
+
+.ct-friends-active-art .ct-user-avatar {
+  @apply absolute h-avatar-xs w-avatar-xs border-2;
+  right: -6px;
+  bottom: -6px;
+  border-color: var(--ct-surface-1);
+}
+
+.ct-friends-active-art .ct-user-avatar-fallback {
+  font-size: 8px;
+}
+
+.ct-friends-active-head {
+  @apply flex min-w-0 items-baseline justify-between gap-2;
+}
+
+.ct-friends-active-time {
+  @apply shrink-0 text-2xs tabular-nums;
+  color: var(--ct-text-muted);
+}
+
+.ct-friends-active-game {
+  @apply truncate text-xs font-medium;
+  color: var(--ct-text-secondary);
+}
+
 .ct-friends-active-meta {
   @apply flex min-w-0 flex-1 flex-col;
 }
@@ -1305,8 +1347,13 @@
   color: var(--ct-text-secondary);
 }
 
-.ct-friends-activity .anticon {
+.ct-friends-activity .anticon,
+.ct-friends-activity .ct-game-art {
   margin-inline-end: 6px;
+}
+
+.ct-friends-activity .ct-game-art {
+  vertical-align: -3px;
 }
 
 .ct-friends-activity.lobby .anticon {
@@ -1315,10 +1362,6 @@
 
 .ct-friends-activity.minigame .anticon {
   color: var(--ct-brand-cyan);
-}
-
-.ct-friends-activity.game .anticon {
-  color: var(--ct-brand-blue);
 }
 
 /* An empty state that names a dead end and offers no way out is a dead end.

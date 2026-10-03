@@ -825,9 +825,11 @@
   background: var(--ct-alpha-04);
 }
 
+/* Playing a game: its picture, then what and for how long. */
 .ct-profile-card-game.playing {
-  border-color: var(--ct-success);
-  background: var(--ct-alpha-08);
+  @apply justify-start gap-3 p-2.5;
+  border-color: color-mix(in srgb, var(--ct-success) 45%, transparent);
+  background: color-mix(in srgb, var(--ct-success) 7%, transparent);
 }
 
 .ct-profile-card-game-label {
@@ -835,9 +837,55 @@
   color: var(--ct-text-secondary);
 }
 
-.ct-profile-card-game-time {
-  @apply shrink-0 text-xs font-semibold tabular-nums;
+.ct-profile-card-game-text {
+  @apply flex min-w-0 flex-col;
+}
+
+.ct-profile-card-game-kicker {
+  @apply text-2xs font-semibold uppercase tracking-wide;
+  color: var(--ct-success);
+}
+
+.ct-profile-card-game-name {
+  @apply truncate text-sm font-semibold;
   color: var(--ct-text-primary);
+}
+
+.ct-profile-card-game-time {
+  @apply text-xs font-semibold tabular-nums;
+  color: var(--ct-text-secondary);
+}
+
+/* A game's square picture (GameArt): one size per place and the same for every
+   game, so pictures line up. A game without one gets its initials on its own
+   colour (.ct-hued) in the same box. The ring keeps a dark picture from
+   melting into a dark panel. */
+.ct-game-art {
+  @apply inline-grid shrink-0 select-none place-items-center overflow-hidden font-bold uppercase;
+  object-fit: cover;
+  line-height: 1;
+  box-shadow: 0 0 0 1px var(--ct-alpha-08);
+}
+
+.ct-game-art.xs {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 7px;
+}
+
+.ct-game-art.md {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.ct-game-art.lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  font-size: 18px;
 }
 
 .ct-profile-card-stats {
