@@ -901,3 +901,33 @@
   border-color: color-mix(in srgb, var(--ct-danger) 20%, transparent);
   background: color-mix(in srgb, var(--ct-danger) 6%, transparent);
 }
+
+/* Two-step sign-in (settings-two-factor.tsx). */
+.ct-settings-two-factor-required {
+  @apply m-0 px-4 pb-3 text-xs font-semibold;
+  color: var(--ct-warning);
+}
+
+/* A QR code is read by a camera, not a person: it keeps its white ground in
+   both themes, with room around it. */
+.ct-two-factor-qr {
+  @apply flex justify-center rounded-lg p-3;
+  background: #ffffff;
+}
+
+.ct-two-factor-secret {
+  @apply flex items-center gap-2;
+}
+
+.ct-two-factor-secret code,
+.ct-two-factor-codes code {
+  @apply font-mono text-sm tracking-wider;
+  color: var(--ct-text-primary);
+}
+
+.ct-two-factor-codes {
+  @apply m-0 grid list-none gap-2 rounded-lg border p-3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-color: var(--ct-border);
+  background: var(--ct-alpha-04);
+}

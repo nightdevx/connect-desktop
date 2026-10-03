@@ -806,6 +806,7 @@ export function LobbiesMainPanel({
                   onWatchScreen={handleWatchScreen}
                   nameByUserId={nameByUserId}
                   watchTile={watchTile}
+                  streamPreviewLobbyId={activeLobbyId}
                 />
               )}
             </div>

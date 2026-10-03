@@ -324,6 +324,35 @@ export class LobbyClient {
     );
   }
 
+  public async putStreamPreview(
+    accessToken: string,
+    lobbyId: string,
+    image: string,
+  ): Promise<{ accepted: boolean }> {
+    return this.baseClient.request<{ accepted: boolean }>(
+      `/lobby/rooms/${encodeURIComponent(lobbyId)}/stream-preview`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ image }),
+      },
+    );
+  }
+
+  public async getStreamPreview(
+    accessToken: string,
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ image: string; capturedAt: string }> {
+    return this.baseClient.request<{ image: string; capturedAt: string }>(
+      `/lobby/rooms/${encodeURIComponent(lobbyId)}/stream-preview/${encodeURIComponent(userId)}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+  }
+
   // The emote id is validated server-side against a closed set; nothing here
   // needs to know what the sounds are.
   public async sendLobbyEmote(

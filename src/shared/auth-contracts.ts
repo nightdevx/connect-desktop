@@ -42,6 +42,9 @@ export interface AuthTokens {
 export interface LoginRequest {
   username: string;
   password: string;
+  // The second step for an account with two-step sign-in: a code from the
+  // authenticator app or a recovery code. Sent only after TOTP_REQUIRED.
+  totpCode?: string;
 }
 
 export interface RegisterRequest {
@@ -334,6 +337,26 @@ export interface ChatMessage {
   // Marks a re-publish of an existing message (edit or reaction) so the client
   // replaces by id instead of appending.
   updated?: boolean;
+}
+
+// Two-step sign-in, as GET /auth/2fa reports it. required: the account's rank
+// makes it mandatory (admin and owner), and the admin routes refuse it until on.
+export interface TwoFactorStatus {
+  enabled: boolean;
+  required: boolean;
+  recoveryCodesLeft: number;
+}
+
+// What the authenticator scans. Nothing is stored until a code from it comes
+// back through twoFactorEnable.
+export interface TwoFactorSetup {
+  secret: string;
+  otpauthUrl: string;
+}
+
+export interface TwoFactorConfirmRequest {
+  password: string;
+  code: string;
 }
 
 export interface AdminUserDetail {

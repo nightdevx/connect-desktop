@@ -16,6 +16,9 @@ import {
   loginSchema,
   registerSchema,
   changePasswordSchema,
+  twoFactorConfirmSchema,
+  twoFactorEnableSchema,
+  twoFactorSetupSchema,
   updateProfileSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -47,6 +50,65 @@ export function registerAuthHandlers(): void {
       const result = await backendClient.auth.register(parsed);
       persistAuthResult(result);
       return ok(getSessionSnapshot());
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-2fa-status", async () => {
+    try {
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.twoFactorStatus(accessToken),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-2fa-setup", async (_event, payload: unknown) => {
+    try {
+      const parsed = twoFactorSetupSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.twoFactorSetup(accessToken, parsed),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-2fa-enable", async (_event, payload: unknown) => {
+    try {
+      const parsed = twoFactorEnableSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.twoFactorEnable(accessToken, parsed),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-2fa-disable", async (_event, payload: unknown) => {
+    try {
+      const parsed = twoFactorConfirmSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.twoFactorDisable(accessToken, parsed),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:auth-2fa-recovery-codes", async (_event, payload: unknown) => {
+    try {
+      const parsed = twoFactorConfirmSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.auth.twoFactorRecoveryCodes(accessToken, parsed),
+      );
+      return ok(result);
     } catch (error) {
       return fail(error);
     }
@@ -679,6 +741,18 @@ export function registerAuthHandlers(): void {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminGetStats(accessToken);
+      });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:admin-reset-two-factor", async (_event, payload: unknown) => {
+    try {
+      const parsed = blockUserSchema.parse(payload);
+      const result = await withAccessToken((accessToken) => {
+        return backendClient.auth.adminResetTwoFactor(accessToken, parsed.userId);
       });
       return ok(result);
     } catch (error) {

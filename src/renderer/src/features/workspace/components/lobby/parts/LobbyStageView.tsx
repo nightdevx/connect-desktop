@@ -59,6 +59,8 @@ interface LobbyStageViewProps {
   nameByUserId: Record<string, string>;
   /** Set while the room is watching something. See WatchTileBinding. */
   watchTile?: WatchTileBinding | null;
+  /** The room on stage, for stream previews. Absent in a call. */
+  streamPreviewLobbyId?: string | null;
 }
 
 export function LobbyStageView({
@@ -86,6 +88,7 @@ export function LobbyStageView({
   onWatchScreen,
   nameByUserId,
   watchTile = null,
+  streamPreviewLobbyId = null,
 }: LobbyStageViewProps) {
   /**
    * One slot, drawn in whichever of the three places the stage puts it.
@@ -151,6 +154,7 @@ export function LobbyStageView({
         isWatchingScreen={isWatchingScreen(slot.participant.userId)}
         onWatchScreen={onWatchScreen}
         nameByUserId={nameByUserId}
+        streamPreviewLobbyId={streamPreviewLobbyId}
       />
     );
   };

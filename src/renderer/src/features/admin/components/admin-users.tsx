@@ -17,6 +17,7 @@ import {
   ThunderboltOutlined,
   CheckCircleFilled,
   ExclamationCircleOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { getDisplayInitials, hueStyle } from "@/ui/person-style";
 import { ModalHeading } from "@/ui/modal-heading";
@@ -90,6 +91,29 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   // Edit Drawer State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUserDetail | null>(null);
+  // Whether the open account has two-step sign-in. null: not known yet, or a
+  // server older than the feature -- the reset button then stays hidden.
+  const [editingTwoFactor, setEditingTwoFactor] = useState<boolean | null>(null);
+  const editingUserId = editingUser?.id ?? null;
+
+  useEffect(() => {
+    setEditingTwoFactor(null);
+    if (!editingUserId) {
+      return;
+    }
+    let cancelled = false;
+    adminService
+      .getUser(editingUserId)
+      .then((detail) => {
+        if (!cancelled && typeof detail.twoFactorEnabled === "boolean") {
+          setEditingTwoFactor(detail.twoFactorEnabled);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [editingUserId]);
   const [editForm] = Form.useForm();
 
   // Reset Password Modal State
@@ -244,6 +268,18 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       toast.success(`@${user.username} oturumları sonlandırıldı`);
     } catch (err) {
       toast.error(toErrorMessage(err, "Oturumlar sonlandırılamadı"));
+    }
+  };
+
+  // For someone who lost both the phone and the recovery codes: their next
+  // sign-in asks for the password only, and they can turn it on again.
+  const handleResetTwoFactor = async (user: AdminUserDetail): Promise<void> => {
+    try {
+      await adminService.resetTwoFactor(user.id);
+      setEditingTwoFactor(false);
+      toast.success(`@${user.username} için iki adımlı doğrulama sıfırlandı`);
+    } catch (err) {
+      toast.error(toErrorMessage(err, "İki adımlı doğrulama sıfırlanamadı"));
     }
   };
 
@@ -772,6 +808,23 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               >
                 <Button icon={<DisconnectOutlined />}>Oturumları Kapat</Button>
               </Popconfirm>
+
+              {editingTwoFactor === null ? null : editingTwoFactor ? (
+                <Popconfirm
+                  title={`@${editingUser.username} için iki adımlı doğrulama sıfırlansın mı? Bir sonraki girişte yalnızca şifre istenir.`}
+                  onConfirm={() => void handleResetTwoFactor(editingUser)}
+                  okText="Evet"
+                  cancelText="Hayır"
+                >
+                  <Button icon={<SafetyCertificateOutlined />}>
+                    İki Adımlı Doğrulamayı Sıfırla
+                  </Button>
+                </Popconfirm>
+              ) : (
+                <Button icon={<SafetyCertificateOutlined />} disabled>
+                  İki adımlı doğrulama kapalı
+                </Button>
+              )}
 
               <Button
                 icon={<MailOutlined />}

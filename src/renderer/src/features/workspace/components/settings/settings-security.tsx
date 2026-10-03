@@ -9,6 +9,7 @@ import {
 import { authService } from "@/features/auth";
 import { ModalHeading } from "@/ui/modal-heading";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
+import { SettingsTwoFactor } from "./settings-two-factor";
 import { toast } from "@/services/toast";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
@@ -134,7 +135,7 @@ export function SettingsSecurity() {
   return (
     <SettingsPage
       title="Güvenlik"
-      description="Şifreni değiştirebilir, hesap verilerini indirebilir ve hesabını silebilirsin."
+      description="Şifreni değiştirebilir, iki adımlı doğrulamayı açabilir, hesap verilerini indirebilir ve hesabını silebilirsin."
     >
       <SettingsGroup
         title="Şifre"
@@ -212,6 +213,8 @@ export function SettingsSecurity() {
           </div>
         </div>
       </SettingsGroup>
+
+      <SettingsTwoFactor />
 
       <SettingsGroup title="Hesap verileri">
         <SettingsRow

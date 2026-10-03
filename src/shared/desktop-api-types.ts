@@ -7,6 +7,9 @@ import type {
 import type {
   ChatMessage,
   ChangePasswordRequest,
+  TwoFactorConfirmRequest,
+  TwoFactorSetup,
+  TwoFactorStatus,
   LobbyDescriptor,
   LobbyStateMember,
   LobbyTimeout,
@@ -592,6 +595,13 @@ export interface DesktopApi {
     }>
   >;
   login: (payload: LoginRequest) => Promise<DesktopResult<SessionSnapshot>>;
+  twoFactorStatus: () => Promise<DesktopResult<TwoFactorStatus>>;
+  twoFactorSetup: (payload: { password: string }) => Promise<DesktopResult<TwoFactorSetup>>;
+  twoFactorEnable: (payload: { code: string }) => Promise<DesktopResult<{ recoveryCodes: string[] }>>;
+  twoFactorDisable: (payload: TwoFactorConfirmRequest) => Promise<DesktopResult<{ enabled: boolean }>>;
+  twoFactorRecoveryCodes: (
+    payload: TwoFactorConfirmRequest,
+  ) => Promise<DesktopResult<{ recoveryCodes: string[] }>>;
   forgotPassword: (payload: ForgotPasswordRequest) => Promise<DesktopResult<{ sent: boolean }>>;
   resetPassword: (payload: ResetPasswordRequest) => Promise<DesktopResult<{ reset: boolean }>>;
   sendVerificationOTP: (payload: SendVerificationOTPRequest) => Promise<DesktopResult<{ sent: boolean }>>;
@@ -743,6 +753,17 @@ export interface DesktopApi {
     lobbyId: string;
     enabled: boolean;
   }) => Promise<DesktopResult<{ accepted: boolean; lobbyId: string }>>;
+  // A small JPEG of the caller's own screen share, as a data URL, for others to
+  // see before they open the stream.
+  postStreamPreview: (payload: {
+    lobbyId: string;
+    image: string;
+  }) => Promise<DesktopResult<{ accepted: boolean }>>;
+  // The newest frame of someone's share, or STREAM_PREVIEW_NOT_FOUND.
+  getStreamPreview: (payload: {
+    lobbyId: string;
+    userId: string;
+  }) => Promise<DesktopResult<{ image: string; capturedAt: string }>>;
   // Fans a short synthesised noise out to the room. The reply only confirms the
   // broadcast; the sound itself arrives back over the lobby stream, like it does
   // for everyone else.
@@ -1025,7 +1046,11 @@ export interface DesktopApi {
   // a network handoff that keeps the interface up.
   onSystemResumed: (listener: (event: { at: number }) => void) => () => void;
   adminListUsers: (params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) => Promise<DesktopResult<{ users: AdminUserDetail[]; total: number }>>;
-  adminGetUser: (userId: string) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
+  // twoFactorEnabled is absent from a backend older than two-step sign-in.
+  adminGetUser: (
+    userId: string,
+  ) => Promise<DesktopResult<{ user: AdminUserDetail; twoFactorEnabled?: boolean }>>;
+  adminResetTwoFactor: (userId: string) => Promise<DesktopResult<{ twoFactorEnabled: boolean }>>;
   adminUpdateUser: (userId: string, payload: AdminUpdateUserRequest) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminResetPassword: (userId: string, newPassword: string) => Promise<DesktopResult<{ reset: boolean }>>;
   adminDeleteUser: (userId: string) => Promise<DesktopResult<{ deleted: boolean }>>;

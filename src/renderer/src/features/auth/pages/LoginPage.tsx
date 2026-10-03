@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Input, Button } from "antd";
-import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
+import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from "@ant-design/icons";
 import { OTP_CODE_LENGTH, type LoginRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { authErrorToast, describeAuthError } from "../auth-error-messages";
@@ -18,6 +18,14 @@ interface LoginFormValues {
 interface ForgotPasswordFormValues {
   email: string;
 }
+
+interface TotpFormValues {
+  totpCode: string;
+}
+
+// Six digits from the authenticator, or a recovery code ("abcd-efgh"); the
+// server strips spaces, dashes and capitals the same way.
+const TOTP_CODE_PATTERN = /^(\d{6}|[a-z0-9]{4}[- ]?[a-z0-9]{4})$/i;
 
 interface ResetPasswordFormValues {
   email?: string;
@@ -42,17 +50,27 @@ interface LoginPageProps {
 
 function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
   const [form] = Form.useForm();
-  const [mode, setMode] = useState<"login" | "forgot" | "reset">("login");
+  const [mode, setMode] = useState<"login" | "forgot" | "reset" | "totp">("login");
+  // The password step's answers, held for the code step: the server checks
+  // both in one request, so the second submit sends them again.
+  const [pendingLogin, setPendingLogin] = useState<LoginRequest | null>(null);
   const [resetEmail, setResetEmail] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [submitError, setSubmitError] = useState<ApiErrorPayload | null>(null);
 
   const handleSubmit = async (values: LoginFormValues): Promise<void> => {
     setSubmitError(null);
-    const failure = await onSubmit({
-      username: values.username,
-      password: values.password,
-    });
+    const credentials = { username: values.username, password: values.password };
+    const failure = await onSubmit(credentials);
+
+    // The password was right; the account wants its second step.
+    if (failure?.code === "TOTP_REQUIRED") {
+      setPendingLogin(credentials);
+      setMode("totp");
+      form.resetFields();
+      return;
+    }
+
     setSubmitError(failure);
 
     if (!failure) {
@@ -67,11 +85,27 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     }
   };
 
-  // Every manual jump between the three panes clears the remembered address as
-  // well as the fields. Leaving it behind hid the e-mail input on a second trip
-  // through "Kodum Var", which then submitted the address from the first trip.
+  const handleTotpSubmit = async (values: TotpFormValues): Promise<void> => {
+    if (!pendingLogin) {
+      goToMode("login");
+      return;
+    }
+    setSubmitError(null);
+    const failure = await onSubmit({ ...pendingLogin, totpCode: values.totpCode.trim() });
+    setSubmitError(failure);
+    if (failure) {
+      form.setFields([{ name: "totpCode", errors: [describeAuthError(failure, "login").title] }]);
+    }
+  };
+
+  // Every manual jump between the panes clears the remembered address and
+  // password as well as the fields. Leaving it behind hid the e-mail input on a
+  // second trip through "Kodum Var", which then submitted the address from the
+  // first trip.
   const goToMode = (next: "login" | "forgot" | "reset"): void => {
     setResetEmail("");
+    setPendingLogin(null);
+    setSubmitError(null);
     setMode(next);
     form.resetFields();
   };
@@ -116,6 +150,73 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
       setActionLoading(false);
     }
   };
+
+  if (mode === "totp") {
+    return (
+      <section className="ct-auth-pane" aria-label="İki adımlı doğrulama formu">
+        <div className="mb-8">
+          <h2 className="ct-auth-title">İki Adımlı Doğrulama</h2>
+          <p className="ct-auth-subtitle">
+            Doğrulama uygulamandaki 6 haneli kodu gir. Telefonun yanında değilse
+            kurtarma kodlarından birini yazabilirsin.
+          </p>
+        </div>
+
+        <AuthErrorAlert error={submitError} context="login" />
+
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleTotpSubmit}
+          requiredMark={false}
+          className="ct-premium-form"
+          onValuesChange={() => setSubmitError(null)}
+        >
+          <Form.Item
+            label="Doğrulama Kodu"
+            name="totpCode"
+            rules={[
+              { required: true, message: "Lütfen doğrulama kodunu girin!" },
+              {
+                pattern: TOTP_CODE_PATTERN,
+                message: "6 haneli kod ya da kurtarma kodu (abcd-efgh) girin!",
+              },
+            ]}
+          >
+            <Input
+              size="large"
+              placeholder="000000"
+              className="ct-input-premium ct-code-input"
+              prefix={<SafetyOutlined style={mutedIconStyle} />}
+              maxLength={9}
+              autoComplete="one-time-code"
+              autoFocus
+              spellCheck={false}
+            />
+          </Form.Item>
+
+          <Form.Item className="mt-6 mb-0">
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              block
+              size="large"
+              className="ct-btn-primary"
+            >
+              {loading ? "Doğrulanıyor..." : "Doğrula"}
+            </Button>
+          </Form.Item>
+        </Form>
+
+        <p className="mt-4 text-sm">
+          <button type="button" className="ct-link" onClick={() => goToMode("login")}>
+            Giriş Ekranına Dön
+          </button>
+        </p>
+      </section>
+    );
+  }
 
   if (mode === "forgot") {
     return (

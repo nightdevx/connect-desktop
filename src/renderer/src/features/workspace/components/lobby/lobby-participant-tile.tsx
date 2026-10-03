@@ -30,6 +30,7 @@ import {
   type ParticipantConnectionQuality,
 } from "@/features/livekit";
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
+import { StreamPreviewImage } from "./stream-preview-image";
 import { useLobbyEmoteFlash } from "@/store/lobby-emote-flash";
 
 // useWindowActive reports whether this app window is in the foreground.
@@ -99,6 +100,11 @@ interface LobbyParticipantTileProps {
    * re-rendering a live video element for.
    */
   nameByUserId?: Record<string, string>;
+  /**
+   * The room this tile is in, for the newest frame of a share this viewer has
+   * not opened. Absent in a call, where there are no previews.
+   */
+  streamPreviewLobbyId?: string | null;
 }
 
 function LobbyParticipantTileImpl({
@@ -122,6 +128,7 @@ function LobbyParticipantTileImpl({
   isWatchingScreen = false,
   onWatchScreen,
   nameByUserId,
+  streamPreviewLobbyId = null,
 }: LobbyParticipantTileProps) {
   const windowActive = useWindowActive();
 
@@ -421,9 +428,17 @@ function LobbyParticipantTileImpl({
 
       {showWatchPrompt && (
         <div
-          className="ct-lobby-tile-watch-prompt"
-          
+          className={`ct-lobby-tile-watch-prompt${streamPreviewLobbyId ? " with-preview" : ""}`}
         >
+          {/* Behind the prompt, mounted only while it shows: the frame is
+              polled for exactly as long as somebody can see it. */}
+          {streamPreviewLobbyId ? (
+            <StreamPreviewImage
+              lobbyId={streamPreviewLobbyId}
+              userId={participant.userId}
+              className="ct-lobby-tile-stream-preview"
+            />
+          ) : null}
           <DesktopOutlined  />
           <span className="ct-lobby-tile-watch-title">
             {participant.username} yayında
@@ -643,6 +658,7 @@ export const LobbyParticipantTile = memo(
       previous.localAudioMuted === next.localAudioMuted &&
       previous.localScreenAudioMuted === next.localScreenAudioMuted &&
       previous.isWatchingScreen === next.isWatchingScreen &&
+      previous.streamPreviewLobbyId === next.streamPreviewLobbyId &&
       previous.audioInputDevices === next.audioInputDevices &&
       previous.audioOutputDevices === next.audioOutputDevices &&
       previous.selectedAudioInputDeviceId === next.selectedAudioInputDeviceId &&

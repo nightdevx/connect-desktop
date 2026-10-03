@@ -1336,6 +1336,17 @@
   backdrop-filter: blur(2px);
 }
 
+/* With a preview: the newest frame of the share fills the tile under the
+   prompt, dimmed so the prompt still reads (stream-preview-image.tsx). */
+.ct-lobby-tile-watch-prompt.with-preview > :not(.ct-lobby-tile-stream-preview) {
+  @apply relative;
+}
+
+.ct-lobby-tile-stream-preview {
+  @apply pointer-events-none absolute inset-0 h-full w-full object-cover;
+  opacity: 0.4;
+}
+
 .ct-lobby-tile-watch-prompt .anticon {
   font-size: 22px;
   opacity: 0.7;
@@ -2051,6 +2062,29 @@
   background: var(--ct-surface-2);
   border: 1px solid var(--ct-border);
   cursor: pointer;
+}
+
+/* The sidebar's "CANLI" chip, hovered: what is on that screen right now. */
+.ct-sidebar-stream-preview {
+  @apply flex flex-col gap-1.5;
+  width: 240px;
+}
+
+.ct-sidebar-stream-preview-image {
+  @apply block w-full rounded-md object-cover;
+  aspect-ratio: 16 / 9;
+}
+
+.ct-sidebar-stream-preview-empty {
+  @apply grid w-full place-items-center rounded-md text-xs;
+  aspect-ratio: 16 / 9;
+  color: var(--ct-text-muted);
+  background: var(--ct-alpha-04);
+}
+
+.ct-sidebar-stream-preview-caption {
+  @apply truncate text-xs;
+  color: var(--ct-text-secondary);
 }
 
 /* The owner's colour is for a face without a picture only (see .ct-hued):

@@ -39,6 +39,10 @@ export const useAuthActions = () => {
   const loginMutation = useMutation({
     mutationFn: (payload: LoginRequest) => authService.login(payload),
     onSuccess: (result) => {
+      // Not a failure: the form moves on to ask for the code.
+      if (!result.ok && result.error?.code === "TOTP_REQUIRED") {
+        return;
+      }
       if (!result.ok || !result.data) {
         setStatus(
           `Giriş başarısız: ${summarizeAuthError(result.error, "login")}`,

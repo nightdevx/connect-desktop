@@ -6,6 +6,7 @@ import type { AdminRuntimeSettingsPatch } from "../../shared/auth-contracts";
 export const loginSchema = z.object({
   username: z.string().min(3).max(64),
   password: z.string().min(8).max(256),
+  totpCode: z.string().trim().min(1).max(32).optional(),
 });
 
 export const registerSchema = z.object({
@@ -37,6 +38,22 @@ export const sendVerificationOTPSchema = z.object({
 export const verifyEmailSchema = z.object({
   email: z.string().email().max(128),
   code: otpCode,
+});
+
+// Six digits or a recovery code; the server normalizes spaces, dashes, case.
+const twoFactorCode = z.string().trim().min(6).max(12);
+
+export const twoFactorSetupSchema = z.object({
+  password: z.string().min(8).max(72),
+});
+
+export const twoFactorEnableSchema = z.object({
+  code: twoFactorCode,
+});
+
+export const twoFactorConfirmSchema = z.object({
+  password: z.string().min(8).max(72),
+  code: twoFactorCode,
 });
 
 export const changePasswordSchema = z.object({
@@ -296,6 +313,17 @@ export const lobbyDeafenSchema = z.object({
 export const lobbyEnabledSchema = z.object({
   lobbyId: z.string().min(2).max(128),
   enabled: z.boolean(),
+});
+
+// The backend caps the JPEG at 160 KB; base64 adds a third.
+export const streamPreviewPutSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  image: z.string().startsWith("data:image/jpeg;base64,").max(230_000),
+});
+
+export const streamPreviewGetSchema = z.object({
+  lobbyId: z.string().min(2).max(128),
+  userId: z.string().min(2).max(128),
 });
 
 // The emote set is enforced by the backend, which is the only authority that

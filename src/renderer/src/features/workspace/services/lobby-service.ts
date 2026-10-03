@@ -246,6 +246,10 @@ export const lobbyService = {
 
     return window.desktopApi.setLobbyScreenSharing(payload);
   },
+  postStreamPreview: (payload: { lobbyId: string; image: string }) =>
+    window.desktopApi.postStreamPreview(payload),
+  getStreamPreview: (payload: { lobbyId: string; userId: string }) =>
+    window.desktopApi.getStreamPreview(payload),
   sendLobbyEmote: (payload: {
     lobbyId: string;
     emote: LobbySoundEmote | string;

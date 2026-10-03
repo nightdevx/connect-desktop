@@ -1,7 +1,7 @@
 import { LOBBY_FEATURES, type LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Dropdown, Modal, Input, InputNumber, Switch, Select, Tag } from "antd";
+import { Dropdown, Modal, Input, InputNumber, Popover, Switch, Select, Tag } from "antd";
 import {
   EditOutlined,
   DeleteOutlined,
@@ -30,6 +30,7 @@ import {
 } from "../user/user-profile-card";
 import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
 import { LobbyMemberAvatar } from "./parts/LobbyMemberAvatar";
+import { StreamPreviewImage } from "./stream-preview-image";
 import { fetchUserCard, useUserCards } from "../../hooks/user/use-user-cards";
 import {
   DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE,
@@ -896,12 +897,33 @@ export function LobbiesSidebarPanel({
                             )}
 
                             {member.screenSharing && (
-                              <span
-                                className="ct-lobby-member-live"
-                                title="Ekran paylaşımı açık"
+                              // Hovering the chip shows what is on the screen,
+                              // from any room's row. destroyOnHidden: the frame
+                              // is polled only while the card is open.
+                              <Popover
+                                placement="right"
+                                mouseEnterDelay={0.25}
+                                destroyOnHidden
+                                content={
+                                  <div className="ct-sidebar-stream-preview">
+                                    <StreamPreviewImage
+                                      lobbyId={lobby.id}
+                                      userId={member.userId}
+                                      className="ct-sidebar-stream-preview-image"
+                                      fallback={
+                                        <span className="ct-sidebar-stream-preview-empty">
+                                          Önizleme hazırlanıyor…
+                                        </span>
+                                      }
+                                    />
+                                    <span className="ct-sidebar-stream-preview-caption">
+                                      {member.username} ekranını paylaşıyor
+                                    </span>
+                                  </div>
+                                }
                               >
-                                CANLI
-                              </span>
+                                <span className="ct-lobby-member-live">CANLI</span>
+                              </Popover>
                             )}
                           </div>
                         </li>

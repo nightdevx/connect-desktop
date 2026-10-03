@@ -20,6 +20,8 @@ import {
   lobbyMuteSchema,
   lobbyDeafenSchema,
   lobbyEnabledSchema,
+  streamPreviewGetSchema,
+  streamPreviewPutSchema,
   lobbyEmoteSchema,
   minigameActionSchema,
   minigameLeaderboardSchema,
@@ -284,6 +286,30 @@ export function registerLobbyHandlers(): void {
           parsed.enabled,
         );
       });
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-stream-preview-put", async (_event, payload: unknown) => {
+    try {
+      const parsed = streamPreviewPutSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.lobby.putStreamPreview(accessToken, parsed.lobbyId, parsed.image),
+      );
+      return ok(result);
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:lobbies-stream-preview-get", async (_event, payload: unknown) => {
+    try {
+      const parsed = streamPreviewGetSchema.parse(payload);
+      const result = await withAccessToken((accessToken) =>
+        backendClient.lobby.getStreamPreview(accessToken, parsed.lobbyId, parsed.userId),
+      );
       return ok(result);
     } catch (error) {
       return fail(error);

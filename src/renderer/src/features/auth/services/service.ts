@@ -4,6 +4,7 @@ import type {
 } from "@shared/desktop-api-types";
 import type {
   ChangePasswordRequest,
+  TwoFactorConfirmRequest,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -38,6 +39,13 @@ export const authService = {
   changePassword: (payload: ChangePasswordRequest) => {
     return window.desktopApi.changePassword(payload);
   },
+  twoFactorStatus: () => window.desktopApi.twoFactorStatus(),
+  twoFactorSetup: (password: string) => window.desktopApi.twoFactorSetup({ password }),
+  twoFactorEnable: (code: string) => window.desktopApi.twoFactorEnable({ code }),
+  twoFactorDisable: (payload: TwoFactorConfirmRequest) =>
+    window.desktopApi.twoFactorDisable(payload),
+  twoFactorRecoveryCodes: (payload: TwoFactorConfirmRequest) =>
+    window.desktopApi.twoFactorRecoveryCodes(payload),
   logout: (): Promise<DesktopResult<SessionSnapshot>> => {
     return window.desktopApi.logout();
   },

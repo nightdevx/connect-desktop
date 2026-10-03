@@ -98,7 +98,9 @@ class AdminService {
     return res.data;
   }
 
-  public async getUser(userId: string): Promise<{ user: AdminUserDetail }> {
+  public async getUser(
+    userId: string,
+  ): Promise<{ user: AdminUserDetail; twoFactorEnabled?: boolean }> {
     const res = await window.desktopApi.adminGetUser(userId);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Kullanıcı yüklenemedi");
     return res.data;
@@ -156,6 +158,14 @@ class AdminService {
   public async getStats(): Promise<{ stats: AdminStats }> {
     const res = await window.desktopApi.adminGetStats();
     if (!res.ok || !res.data) throw new Error(res.error?.message || "İstatistikler yüklenemedi");
+    return res.data;
+  }
+
+  public async resetTwoFactor(userId: string): Promise<{ twoFactorEnabled: boolean }> {
+    const res = await window.desktopApi.adminResetTwoFactor(userId);
+    if (!res.ok || !res.data) {
+      throw new Error(res.error?.message || "İki adımlı doğrulama sıfırlanamadı");
+    }
     return res.data;
   }
 

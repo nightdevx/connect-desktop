@@ -5,6 +5,9 @@ import type {
   AdminVoiceMute,
   AuthResponse,
   ChangePasswordRequest,
+  TwoFactorConfirmRequest,
+  TwoFactorSetup,
+  TwoFactorStatus,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -287,6 +290,57 @@ export class AuthClient {
     );
   }
 
+  public async twoFactorStatus(accessToken: string): Promise<TwoFactorStatus> {
+    return this.baseClient.request<TwoFactorStatus>("/auth/2fa", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  public async twoFactorSetup(
+    accessToken: string,
+    payload: { password: string },
+  ): Promise<TwoFactorSetup> {
+    return this.baseClient.request<TwoFactorSetup>("/auth/2fa/setup", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async twoFactorEnable(
+    accessToken: string,
+    payload: { code: string },
+  ): Promise<{ recoveryCodes: string[] }> {
+    return this.baseClient.request<{ recoveryCodes: string[] }>("/auth/2fa/enable", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async twoFactorDisable(
+    accessToken: string,
+    payload: TwoFactorConfirmRequest,
+  ): Promise<{ enabled: boolean }> {
+    return this.baseClient.request<{ enabled: boolean }>("/auth/2fa/disable", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async twoFactorRecoveryCodes(
+    accessToken: string,
+    payload: TwoFactorConfirmRequest,
+  ): Promise<{ recoveryCodes: string[] }> {
+    return this.baseClient.request<{ recoveryCodes: string[] }>("/auth/2fa/recovery-codes", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  }
+
   public async changePassword(
     accessToken: string,
     payload: ChangePasswordRequest,
@@ -390,8 +444,13 @@ export class AuthClient {
     });
   }
 
-  public async adminGetUser(accessToken: string, userId: string): Promise<{ user: AdminUserDetail }> {
-    return this.baseClient.request<{ user: AdminUserDetail }>(`/admin/users/${userId}`, {
+  public async adminGetUser(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ user: AdminUserDetail; twoFactorEnabled?: boolean }> {
+    return this.baseClient.request<{ user: AdminUserDetail; twoFactorEnabled?: boolean }>(
+      `/admin/users/${userId}`,
+      {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -625,6 +684,19 @@ export class AuthClient {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  }
+
+  public async adminResetTwoFactor(
+    accessToken: string,
+    userId: string,
+  ): Promise<{ twoFactorEnabled: boolean }> {
+    return this.baseClient.request<{ twoFactorEnabled: boolean }>(
+      `/admin/users/${userId}/2fa/reset`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
   }
 
   public async adminForceLogout(accessToken: string, userId: string): Promise<{ loggedOut: boolean }> {

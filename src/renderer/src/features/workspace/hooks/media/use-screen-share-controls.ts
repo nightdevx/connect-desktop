@@ -22,6 +22,7 @@ import {
 } from "@/features/screen-share";
 import { logLiveKitDebug } from "@/services/debug-log";
 import workspaceService from "../../services";
+import { useStreamPreviewPublisher } from "./use-stream-preview";
 import { type StreamPreferences } from "../../components/settings/settings-main-panel-types";
 import {
   readStreamPreferences,
@@ -872,6 +873,9 @@ export const useScreenShareControls = ({
     setStatus,
     openScreenShareModal,
   ]);
+
+  // Others see a small frame of the share before they open it.
+  useStreamPreviewPublisher(localScreenStream, activeLobbyRef);
 
   return {
     screenEnabled,

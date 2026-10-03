@@ -1188,3 +1188,23 @@
   font-size: 12.5px;
   color: var(--ct-text-primary);
 }
+
+/* The panel's one screen for an admin without two-step sign-in. */
+.ct-admin-two-factor-gate {
+  @apply mx-auto mt-16 flex max-w-md flex-col items-center gap-3 text-center;
+}
+
+.ct-admin-two-factor-gate h3 {
+  @apply m-0 text-lg font-semibold;
+  color: var(--ct-text-primary);
+}
+
+.ct-admin-two-factor-gate p {
+  @apply m-0 text-sm;
+  color: var(--ct-text-secondary);
+}
+
+.ct-admin-two-factor-gate-icon {
+  font-size: 40px;
+  color: var(--ct-warning);
+}

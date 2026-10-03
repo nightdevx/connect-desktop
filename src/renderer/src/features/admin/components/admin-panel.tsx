@@ -1,3 +1,8 @@
+import { useEffect, useState } from "react";
+import { Button } from "antd";
+import { SafetyCertificateOutlined } from "@ant-design/icons";
+import type { TwoFactorStatus } from "@shared/auth-contracts";
+import { authService } from "@/features/auth";
 import { useUiStore } from "@/store/ui-store";
 import AdminSidebar from "./admin-sidebar";
 import AdminDashboard from "./admin-dashboard";
@@ -20,8 +25,55 @@ interface AdminPanelProps {
   currentUserId: string;
 }
 
+// Admin and owner accounts must have two-step sign-in on before the admin routes
+// answer them (TOTP_SETUP_REQUIRED). Rather than every page failing with that
+// error, the panel says it once and points at the switch.
+function AdminTwoFactorGate() {
+  const setWorkspaceSection = useUiStore((state) => state.setWorkspaceSection);
+  const setSettingsSection = useUiStore((state) => state.setSettingsSection);
+
+  return (
+    <div className="ct-admin-two-factor-gate">
+      <SafetyCertificateOutlined className="ct-admin-two-factor-gate-icon" />
+      <h3>İki adımlı doğrulama gerekli</h3>
+      <p>
+        Yönetici hesaplarında iki adımlı doğrulama zorunlu. Açana kadar yönetim
+        paneli kullanılamaz; telefonundaki bir doğrulama uygulamasıyla bir dakikada
+        açabilirsin.
+      </p>
+      <Button
+        type="primary"
+        icon={<SafetyCertificateOutlined />}
+        onClick={() => {
+          setSettingsSection("security");
+          setWorkspaceSection("settings");
+        }}
+      >
+        Güvenlik ayarlarını aç
+      </Button>
+    </div>
+  );
+}
+
 export default function AdminPanel({ currentUserId }: AdminPanelProps) {
   const adminSection = useUiStore((state) => state.adminSection);
+  // Read each time the panel opens: turning it on happens in Settings, which
+  // the panel is left for. null on a server that predates the feature.
+  const [twoFactor, setTwoFactor] = useState<TwoFactorStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void authService.twoFactorStatus().then((result) => {
+      if (!cancelled) {
+        setTwoFactor(result.ok && result.data ? result.data : null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const gated = Boolean(twoFactor?.required && !twoFactor.enabled);
 
   const renderContent = () => {
     switch (adminSection) {
@@ -63,7 +115,9 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
   return (
     <div className="ct-admin-panel-shell">
       <AdminSidebar />
-      <div className="ct-admin-panel-content">{renderContent()}</div>
+      <div className="ct-admin-panel-content">
+        {gated ? <AdminTwoFactorGate /> : renderContent()}
+      </div>
     </div>
   );
 }

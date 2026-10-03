@@ -81,6 +81,12 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:auth-register", payload),
   changePassword: async (payload) =>
     ipcRenderer.invoke("desktop:auth-change-password", payload),
+  twoFactorStatus: async () => ipcRenderer.invoke("desktop:auth-2fa-status"),
+  twoFactorSetup: async (payload) => ipcRenderer.invoke("desktop:auth-2fa-setup", payload),
+  twoFactorEnable: async (payload) => ipcRenderer.invoke("desktop:auth-2fa-enable", payload),
+  twoFactorDisable: async (payload) => ipcRenderer.invoke("desktop:auth-2fa-disable", payload),
+  twoFactorRecoveryCodes: async (payload) =>
+    ipcRenderer.invoke("desktop:auth-2fa-recovery-codes", payload),
   login: async (payload) => ipcRenderer.invoke("desktop:auth-login", payload),
   forgotPassword: async (payload) =>
     ipcRenderer.invoke("desktop:auth-forgot-password", payload),
@@ -162,6 +168,10 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:lobbies-camera", payload),
   setLobbyScreenSharing: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-screen", payload),
+  postStreamPreview: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-stream-preview-put", payload),
+  getStreamPreview: async (payload) =>
+    ipcRenderer.invoke("desktop:lobbies-stream-preview-get", payload),
   sendLobbyEmote: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-emote", payload),
   listMinigameTables: async () => ipcRenderer.invoke("desktop:minigame-list"),
@@ -425,6 +435,8 @@ const desktopApi: DesktopApi = {
   adminGetStats: async () => ipcRenderer.invoke("desktop:admin-get-stats"),
   adminKickUser: async (lobbyId, userId) => ipcRenderer.invoke("desktop:admin-kick-user", { lobbyId, userId }),
   adminForceLogout: async (userId) => ipcRenderer.invoke("desktop:admin-force-logout", { userId }),
+  adminResetTwoFactor: async (userId) =>
+    ipcRenderer.invoke("desktop:admin-reset-two-factor", { userId }),
   adminListEmotes: async () => ipcRenderer.invoke("desktop:admin-list-emotes"),
   adminDeleteEmote: async (emoteId) => ipcRenderer.invoke("desktop:admin-delete-emote", { emoteId }),
   adminSetEmoteQuota: async (payload) => ipcRenderer.invoke("desktop:admin-set-emote-quota", payload),

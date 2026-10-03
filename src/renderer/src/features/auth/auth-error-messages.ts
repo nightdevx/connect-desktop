@@ -86,6 +86,20 @@ const LOGIN: Record<string, AuthErrorInfo> = {
     hint: "Sunucu yöneticisine ulaşın.",
     retryable: false,
   },
+  // The form answers this one by asking for the code; the text is for a
+  // caller that cannot.
+  TOTP_REQUIRED: {
+    title: "Doğrulama kodu gerekli",
+    detail: "Bu hesapta iki adımlı doğrulama açık.",
+    hint: "Doğrulama uygulamandaki 6 haneli kodu gir.",
+    retryable: true,
+  },
+  TOTP_INVALID: {
+    title: "Doğrulama kodu yanlış",
+    detail: "Kod eşleşmedi ya da daha önce kullanılmış.",
+    hint: "Uygulamadaki güncel kodu ya da bir kurtarma kodunu gir.",
+    retryable: true,
+  },
 };
 
 const REGISTER: Record<string, AuthErrorInfo> = {
