@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { LOBBY_FEATURE_IDS, type LobbyFeatureId } from "../../shared/desktop-api-types";
+import type { AdminRuntimeSettingsPatch } from "../../shared/auth-contracts";
 
 export const loginSchema = z.object({
   username: z.string().min(3).max(64),
@@ -215,13 +216,38 @@ export const adminEmailVerifiedSchema = z.object({
   verified: z.boolean(),
 });
 
+// z.object STRIPS keys it does not list, silently. This schema named five of
+// the panel's fields, so eight more -- maintenance, read-only, invite-only,
+// e-mail domains, chat retention, queue size, music sources and the minimum
+// app version -- left the panel, reached the server as an empty patch, and
+// came back "Ayar uygulandı" unchanged. The type check below fails the build
+// if a field is added to AdminRuntimeSettingsPatch and not here.
 export const adminSettingsPatchSchema = z.object({
   registrationOpen: z.boolean().optional(),
   maxLobbies: z.number().int().min(1).max(1000).optional(),
   maxLobbiesPerUser: z.number().int().min(1).max(200).optional(),
   lobbyCapacity: z.number().int().min(2).max(100).optional(),
   disabledMinigames: z.array(z.string().min(1).max(32)).max(64).optional(),
+  maintenanceMode: z.boolean().optional(),
+  maintenanceMessage: z.string().max(280).optional(),
+  readOnly: z.boolean().optional(),
+  inviteOnly: z.boolean().optional(),
+  emailDomains: z.array(z.string().min(1).max(253)).max(64).optional(),
+  chatRetentionDays: z.number().int().min(0).max(3650).optional(),
+  maxQueuePerUser: z.number().int().min(1).max(500).optional(),
+  musicSources: z.array(z.string().min(1).max(32)).max(32).optional(),
+  minDesktopVersion: z
+    .string()
+    .regex(/^(\d+(\.\d+){1,3})?$/, "Sürüm 0.2.5 biçiminde olmalı.")
+    .optional(),
 });
+
+const adminSettingsPatchCoversEveryField: [
+  Exclude<keyof AdminRuntimeSettingsPatch, keyof typeof adminSettingsPatchSchema.shape>,
+] extends [never]
+  ? true
+  : never = true;
+void adminSettingsPatchCoversEveryField;
 
 export const lobbyBansSchema = z.object({
   lobbyId: z.string().min(2).max(128),
