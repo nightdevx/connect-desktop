@@ -34,41 +34,47 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.3",
+    date: "2026-10-03",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Geniş ekranlardan yapılan yayınlar, küçük pencereden izleyenlere de net gidiyor ve bilgisayarı daha az yoruyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.2",
     date: "2026-10-03",
     summary: "Ekran paylaşımı daha net ve daha akıcı; profil resimleri her yerde görünüyor.",
     highlights: [
       {
         kind: "improved",
-        text: "Ekran kartı olan bilgisayarlarda yayın H.264 High profille gidiyor: aynı bağlantıyla daha net görüntü.",
-      },
-      {
-        kind: "improved",
-        text: "Yayın kalitelerinin tavanı yükseldi (Dengeli 4, Yüksek 6,5, Net 10 Mbps). Küçük pencereden izleyenlere giden görüntü artık daha hafif; bu yüzden toplam yükleme ihtiyacı neredeyse aynı kaldı.",
+        text: "Ekran paylaşımı daha net görünüyor, özellikle oyun ve video gibi hareketli görüntülerde.",
       },
       {
         kind: "fixed",
-        text: "Bağlantı bir an yavaşladığında yayın artık kalıcı olarak düşük kaliteye inmiyor: görüntü bağlantıya kendiliğinden uyum sağlıyor ve toparlanınca geri geliyor.",
+        text: "İnternetin bir anlığına yavaşladığında yayının kalitesi artık kalıcı olarak düşmüyor; bağlantı düzelince kendiliğinden eski haline dönüyor.",
       },
       {
         kind: "improved",
-        text: "\"Otomatik\" içerik türü artık akıcılığı koruyor (oyun, video). Sunum ya da kod paylaşırken \"Metin\"i seçersen yazı net kalır.",
+        text: "Yayın başlatırken \"Otomatik\" seçeneği artık akıcılığı öne alıyor. Yazı ya da kod paylaşıyorsan \"Metin\"i seçersen yazılar net kalır.",
       },
       {
         kind: "improved",
-        text: "İzlediğin ekran paylaşımı daha az takılıyor: görüntü ve yayın sesi için küçük bir tampon eklendi.",
+        text: "İzlediğin yayınlar daha az takılıyor.",
       },
       {
         kind: "new",
-        text: "Yayın sırasında ekran kartının kodlayıcısı devre dışı kalırsa uyarı veriliyor. Ekran kartı sürücüsünü güncellemek ya da OBS gibi programları kapatmak çoğu zaman düzeltir.",
+        text: "Yayın sırasında bilgisayarın görüntüyü işlemekte zorlanırsa sana haber veriyoruz ve ne yapabileceğini söylüyoruz.",
       },
       {
         kind: "fixed",
-        text: "Genel › Performans'taki \"Donanım hızlandırma\" kapatıldığında video artık gerçekten ekran kartında kodlanmıyor.",
+        text: "Ayarlar'daki \"Donanım hızlandırma\" seçeneği kapatıldığında artık gerçekten kapanıyor.",
       },
       {
         kind: "fixed",
-        text: "Profil resimleri her yerde görünüyor: birebir sohbette kendi mesajlarında, oda sohbetinde ve liderlik tablosunda. Resmin arkasındaki renkli daire artık kenarlardan taşmıyor.",
+        text: "Profil resimleri artık her yerde görünüyor: kendi mesajlarında, oda sohbetinde ve liderlik tablosunda. Resimlerin kenarındaki renkli halka da kaldırıldı.",
       },
     ],
   },
