@@ -34,6 +34,24 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.4",
+    date: "2026-10-03",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Ekran paylaşımı çok daha akıcı. Ekran sabitken de izleyenlerde takılma olmuyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Lobideyken bağlantı kısa bir süre koptuğunda lobi görünümü kaybolmuyor. Uygulama kendiliğinden yeniden deniyor ve hata mesajları sadeleşti.",
+      },
+      {
+        kind: "improved",
+        text: "Yönetim panelinde aktif oturumlar her cihaz için tek satır olarak görünüyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.3",
     date: "2026-10-03",
     highlights: [
