@@ -20,6 +20,7 @@ import {
   CloseOutlined,
 } from "@ant-design/icons";
 import type { UseQueryResult } from "@tanstack/react-query";
+import { TransientQueryError } from "@/services/query-client";
 import type { ChatMessage } from "@shared/auth-contracts";
 import type {
   DesktopResult,
@@ -508,11 +509,21 @@ export function LobbyChatPanel({
             </div>
           )}
 
-          {!lobbyMessagesQuery.isPending && lobbyMessagesQuery.isError && (
+          {/* A failed refetch keeps the messages already here (react-query
+              holds the last good answer), so the notice is for an empty
+              column only. A request that never got an answer says so plainly
+              and is retried on its own. */}
+          {!lobbyMessagesQuery.isPending &&
+            lobbyMessagesQuery.isError &&
+            !lobbyMessagesQuery.data?.ok && (
             <div className="ct-chat-notice">
               <Alert
                 title="Hata"
-                description={`Sohbet alınamadı: ${lobbyMessagesQuery.error.message}`}
+                description={
+                  lobbyMessagesQuery.error instanceof TransientQueryError
+                    ? lobbyMessagesQuery.error.message
+                    : `Sohbet alınamadı: ${lobbyMessagesQuery.error.message}`
+                }
                 type="error"
                 showIcon
                 className="ct-alert"
@@ -522,7 +533,7 @@ export function LobbyChatPanel({
 
           {!lobbyMessagesQuery.isPending &&
             !lobbyMessagesQuery.isError &&
-            !lobbyMessagesQuery.data?.ok && (
+            lobbyMessagesQuery.data?.ok === false && (
               <div className="ct-chat-notice">
                 <Alert
                   title="Hata"

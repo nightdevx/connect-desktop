@@ -1,8 +1,20 @@
 import type { PresenceStatus } from "@shared/auth-contracts";
+import {
+  isTransientApiError,
+  TRANSIENT_API_ERROR_MESSAGE,
+} from "@shared/error-message";
 
 export type UserFilter = "all" | "online" | "offline";
 
-export const getApiErrorMessage = (error?: { message?: string }): string => {
+export const getApiErrorMessage = (error?: {
+  code?: string;
+  statusCode?: number;
+  message?: string;
+}): string => {
+  if (isTransientApiError(error)) {
+    return TRANSIENT_API_ERROR_MESSAGE;
+  }
+
   if (!error?.message?.trim()) {
     return "Bilinmeyen hata";
   }

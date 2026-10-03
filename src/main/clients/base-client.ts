@@ -107,7 +107,7 @@ export class BaseClient {
         throw new DesktopApiError(
           payload?.code ?? "REQUEST_FAILED",
           response.status,
-          payload?.message ?? payload?.error ?? "Backend istegi basarisiz",
+          payload?.message ?? payload?.error ?? "İstek başarısız oldu.",
         );
       }
 
@@ -119,20 +119,17 @@ export class BaseClient {
         throw error;
       }
 
+      // The message is what a person reads; the URL and the transport's
+      // reason are for the log. "Backend istegi zaman asimina ugradi
+      // (https://...)" on screen read like a crash, and it is a blip.
       if (controller.signal.aborted) {
-        throw new DesktopApiError(
-          "REQUEST_TIMEOUT",
-          504,
-          `Backend istegi zaman asimina ugradi (${targetUrl})`,
-        );
+        console.warn(`[backend] no answer in ${timeoutMs} ms: ${targetUrl}`);
+        throw new DesktopApiError("REQUEST_TIMEOUT", 504, "Sunucu yanıt vermedi.");
       }
 
       const reason = error instanceof Error ? error.message : "fetch failed";
-      throw new DesktopApiError(
-        "BACKEND_UNREACHABLE",
-        503,
-        `Backend baglantisi kurulamadi (${targetUrl}): ${reason}`,
-      );
+      console.warn(`[backend] unreachable: ${targetUrl}: ${reason}`);
+      throw new DesktopApiError("BACKEND_UNREACHABLE", 503, "Sunucuya bağlanılamadı.");
     } finally {
       clearTimeout(timeoutId);
     }
@@ -186,19 +183,13 @@ export class BaseClient {
       }
 
       if (controller.signal.aborted) {
-        throw new DesktopApiError(
-          "REQUEST_TIMEOUT",
-          504,
-          `Dosya indirme zaman asimina ugradi (${targetUrl})`,
-        );
+        console.warn(`[backend] download got no answer in ${timeoutMs} ms: ${targetUrl}`);
+        throw new DesktopApiError("REQUEST_TIMEOUT", 504, "Dosya indirilemedi: sunucu yanıt vermedi.");
       }
 
       const reason = error instanceof Error ? error.message : "fetch failed";
-      throw new DesktopApiError(
-        "BACKEND_UNREACHABLE",
-        503,
-        `Backend baglantisi kurulamadi (${targetUrl}): ${reason}`,
-      );
+      console.warn(`[backend] download unreachable: ${targetUrl}: ${reason}`);
+      throw new DesktopApiError("BACKEND_UNREACHABLE", 503, "Sunucuya bağlanılamadı.");
     } finally {
       clearTimeout(timeoutId);
     }

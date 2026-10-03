@@ -55,6 +55,7 @@ import {
   type MemberDragPayload,
 } from "./parts/member-move";
 import { toast } from "@/services/toast";
+import { TransientQueryError } from "@/services/query-client";
 
 interface LobbiesSidebarPanelProps {
   lobbiesQuery: UseQueryResult<
@@ -1016,6 +1017,20 @@ export function LobbiesSidebarPanel({
           );
   };
 
+  // The rooms come from the stream while it is up; this query is its backstop,
+  // so its failure is news only when there is nothing to list. An error line
+  // over a working list read as if the app had broken. A request that never got
+  // an answer says so plainly, and the query keeps trying on its own.
+  const lobbyListError = lobbiesQuery.isPending
+    ? null
+    : lobbiesQuery.isError
+      ? lobbiesQuery.error instanceof TransientQueryError
+        ? lobbiesQuery.error.message
+        : `Lobiler alınamadı: ${lobbiesQuery.error.message}`
+      : lobbiesQuery.data?.ok === false
+        ? `Lobiler alınamadı: ${getApiErrorMessage(lobbiesQuery.data.error)}`
+        : null;
+
   return (
     <>
       {/* Not role="listbox" any more: every row carries a button, a nested
@@ -1023,23 +1038,13 @@ export function LobbiesSidebarPanel({
           interactive content — a screen reader read the whole column as one
           broken select. A list of rooms is a list. */}
       <div className="ct-lobby-list">
-        {lobbiesQuery.isPending && (
+        {lobbies.length === 0 && lobbiesQuery.isPending && (
           <div className="ct-list-state">Lobiler yükleniyor...</div>
         )}
 
-        {!lobbiesQuery.isPending && lobbiesQuery.isError && (
-          <div className="ct-list-state error">
-            Lobiler alınamadı: {lobbiesQuery.error.message}
-          </div>
+        {lobbies.length === 0 && lobbyListError && (
+          <div className="ct-list-state error">{lobbyListError}</div>
         )}
-
-        {!lobbiesQuery.isPending &&
-          !lobbiesQuery.isError &&
-          !lobbiesQuery.data?.ok && (
-            <div className="ct-list-state error">
-              Lobiler alınamadı: {getApiErrorMessage(lobbiesQuery.data?.error)}
-            </div>
-          )}
 
         {!lobbiesQuery.isPending &&
           !lobbiesQuery.isError &&

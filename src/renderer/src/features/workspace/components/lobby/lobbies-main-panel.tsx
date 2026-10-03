@@ -45,6 +45,7 @@ import { ParticipantContextMenu } from "./parts/ParticipantContextMenu";
 import { describeDuration } from "./parts/moderation-durations";
 import { buildMoveTargets } from "./parts/member-move";
 import { toast } from "@/services/toast";
+import { TransientQueryError } from "@/services/query-client";
 
 interface LobbiesMainPanelProps {
   lobbiesCount: number;
@@ -435,19 +436,29 @@ export function LobbiesMainPanel({
   // failed, that the room is empty, or the tiles. These used to be four
   // siblings stacked ABOVE the grid, so a pending query pushed every tile down
   // by a line and an error pushed them down by two.
-  const stageStateMessage = lobbyStateQuery.isPending
-    ? "Üye durumları yükleniyor…"
-    : lobbyStateQuery.isError
-      ? `Üye durumları alınamadı: ${lobbyStateQuery.error.message}`
-      : !lobbyStateQuery.data?.ok
-        ? `Üye durumları alınamadı: ${getApiErrorMessage(lobbyStateQuery.data?.error)}`
-        : lobbyParticipants.length === 0
-          ? "Bu lobide henüz üye yok."
-          : null;
+  //
+  // The tiles come from the roster, which the stream feeds first; this query
+  // is its backstop. So a failed backstop never takes the tiles away: it used
+  // to replace the whole stage with "Backend istegi zaman asimina ugradi
+  // (https://...)" while everyone was still right there. It shows only when
+  // there is no one to show, plainly, and the query keeps trying on its own.
+  const stageStateMessage =
+    lobbyParticipants.length > 0
+      ? null
+      : lobbyStateQuery.isPending
+        ? "Üye durumları yükleniyor…"
+        : lobbyStateQuery.isError
+          ? lobbyStateQuery.error instanceof TransientQueryError
+            ? lobbyStateQuery.error.message
+            : `Üye durumları alınamadı: ${lobbyStateQuery.error.message}`
+          : lobbyStateQuery.data?.ok === false
+            ? `Üye durumları alınamadı: ${getApiErrorMessage(lobbyStateQuery.data.error)}`
+            : "Bu lobide henüz üye yok.";
 
   const isStageStateError =
+    lobbyParticipants.length === 0 &&
     !lobbyStateQuery.isPending &&
-    (lobbyStateQuery.isError || !lobbyStateQuery.data?.ok);
+    (lobbyStateQuery.isError || lobbyStateQuery.data?.ok === false);
 
   // The menu decides how long; this only reports what it chose. Saying "5
   // dakika susturuldu" rather than "susturuldu" is what stops a moderator

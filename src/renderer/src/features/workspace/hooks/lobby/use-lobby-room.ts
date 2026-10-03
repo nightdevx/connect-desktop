@@ -13,6 +13,7 @@ import type {
   DesktopResult,
   LobbyStateMember,
 } from "@shared/desktop-api-types";
+import { throwIfTransient } from "@/services/query-client";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import type { PendingAttachment } from "../chat/use-direct-messages";
@@ -121,10 +122,12 @@ export const useLobbyRoom = ({
 
   const lobbyStateQuery = useQuery({
     queryKey: ["lobby-state", activeLobbyId],
-    queryFn: () =>
-      workspaceService.getLobbyState({
-        lobbyId: activeLobbyId as string,
-      }),
+    queryFn: async () =>
+      throwIfTransient(
+        await workspaceService.getLobbyState({
+          lobbyId: activeLobbyId as string,
+        }),
+      ),
     // Not gated on the visible tab: the roster is also needed for the call
     // overlay and the quick controls, which live outside the Lobbies section.
     enabled: activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
@@ -142,11 +145,13 @@ export const useLobbyRoom = ({
 
   const lobbyMessagesQuery = useQuery({
     queryKey: ["lobby-messages", activeLobbyId],
-    queryFn: () =>
-      workspaceService.listLobbyMessages({
-        lobbyId: activeLobbyId as string,
-        limit: 150,
-      }),
+    queryFn: async () =>
+      throwIfTransient(
+        await workspaceService.listLobbyMessages({
+          lobbyId: activeLobbyId as string,
+          limit: 150,
+        }),
+      ),
     enabled: workspaceSection === "lobbies" && activeLobbyId !== null && !activeLobbyId.startsWith("call_"),
     // Messages arrive over the lobby websocket now; this only backfills after a
     // stream drop, so it no longer needs to run every 3 seconds.

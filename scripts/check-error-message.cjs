@@ -38,9 +38,8 @@ const main = async () => {
     },
   });
 
-  const { toErrorMessage } = await import(
-    pathToFileURL(path.join(outDir, "error-message.mjs")).href
-  );
+  const { toErrorMessage, isTransientApiError, TRANSIENT_API_ERROR_MESSAGE } =
+    await import(pathToFileURL(path.join(outDir, "error-message.mjs")).href);
 
   const FALLBACK = "Bilinmeyen hata";
 
@@ -100,8 +99,71 @@ const main = async () => {
     assert.ok(!result.includes("undefined"), "never the word undefined");
   }
 
+  // --- a request that never got an answer ------------------------------------
+  // The main process's timeout and transport errors, and the proxy's 502-504
+  // during a deploy: transient, said plainly, never with a URL in it.
+  const timeout = { code: "REQUEST_TIMEOUT", statusCode: 504, message: "Sunucu yanıt vermedi." };
+  for (const error of [
+    timeout,
+    { code: "BACKEND_UNREACHABLE", statusCode: 503, message: "Sunucuya bağlanılamadı." },
+    { code: "REQUEST_FAILED", statusCode: 502, message: "Bad Gateway" },
+    { code: "REQUEST_FAILED", statusCode: 503, message: "x" },
+  ]) {
+    assert.ok(isTransientApiError(error), `${error.code} ${error.statusCode} is transient`);
+  }
+  for (const error of [
+    undefined,
+    { code: "REQUEST_FAILED", statusCode: 500, message: "a server bug is not a blip" },
+    { code: "FORBIDDEN", statusCode: 403, message: "x" },
+    { code: "LOBBY_FULL", statusCode: 409, message: "Oda dolu" },
+  ]) {
+    assert.ok(!isTransientApiError(error), `${JSON.stringify(error)} is not transient`);
+  }
+  assert.equal(toErrorMessage(timeout, FALLBACK), TRANSIENT_API_ERROR_MESSAGE);
+  assert.ok(!/https?:|yeniden deneniyor/.test(TRANSIENT_API_ERROR_MESSAGE), "no URL, and no promise of a retry a one-shot action does not make");
+
+  // --- the lobby views: thrown, so the last good answer stays and is retried --
+  const queryOut = fs.mkdtempSync(path.join(cacheRoot, "ct-query-client-"));
+  await build({
+    root: projectRoot,
+    logLevel: "error",
+    configFile: false,
+    resolve: { alias: { "@shared": path.join(projectRoot, "src", "shared") } },
+    build: {
+      outDir: queryOut,
+      emptyOutDir: true,
+      ssr: true,
+      lib: {
+        entry: path.join(projectRoot, "src/renderer/src/services/query-client.ts"),
+        formats: ["es"],
+        fileName: () => "query-client.mjs",
+      },
+      rollupOptions: { external: ["@tanstack/react-query"] },
+    },
+  });
+  const { queryClient, throwIfTransient, TransientQueryError } = await import(
+    pathToFileURL(path.join(queryOut, "query-client.mjs")).href
+  );
+  const good = { ok: true, data: [1] };
+  assert.equal(throwIfTransient(good), good);
+  const refused = { ok: false, error: { code: "FORBIDDEN", statusCode: 403, message: "x" } };
+  assert.equal(throwIfTransient(refused), refused, "a refusal is an answer, shown as before");
+  assert.throws(
+    () => throwIfTransient({ ok: false, error: timeout }),
+    (error) => error instanceof TransientQueryError && /yeniden deneniyor/.test(error.message),
+    "a timeout is thrown, which keeps the last good data and earns retries",
+  );
+  const retry = queryClient.getDefaultOptions().queries.retry;
+  assert.deepEqual(
+    [0, 1, 2, 3].map((count) => retry(count, new TransientQueryError("x"))),
+    [true, true, true, false],
+    "three more tries for a request that never got an answer",
+  );
+  assert.deepEqual([0, 1].map((count) => retry(count, new Error("x"))), [true, false], "one for anything else, as before");
+  fs.rmSync(queryOut, { recursive: true, force: true });
+
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("error-message self-check passed");
+  console.log("error-message self-check passed (shapes, transient failures, lobby query retries)");
 };
 
 main().catch((error) => {

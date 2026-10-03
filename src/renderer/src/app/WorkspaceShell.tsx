@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { throwIfTransient } from "@/services/query-client";
 import type { UserRole } from "@shared/auth-contracts";
 // One import per feature, through its front door. This file is the composition
 // root — it is the only place allowed to know about every feature at once, and
@@ -742,9 +743,12 @@ function WorkspaceShell({
   // refetches on its own, because its data is stale by then.
   const lobbiesQuery = useQuery({
     queryKey: ["workspace-lobbies"],
-    queryFn: () => workspaceService.listLobbies(),
+    queryFn: async () => throwIfTransient(await workspaceService.listLobbies()),
     enabled: workspaceSection === "lobbies" && !isLobbyStreamLive,
     staleTime: 15_000,
+    // Nothing else re-runs this while the stream is down, so after its retries
+    // run out it keeps trying on its own until the server answers.
+    refetchInterval: (query) => (query.state.status === "error" ? 10_000 : false),
   });
 
   // One lock, claimed by the manual join/leave paths and respected by the

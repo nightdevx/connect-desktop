@@ -12,6 +12,15 @@
  * nothing is worse than one that says what failed.
  */
 export const toErrorMessage = (error: unknown, fallback: string): string => {
+  // An IPC envelope for a request that never got an answer.
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    isTransientApiError(error as { code?: string; statusCode?: number })
+  ) {
+    return TRANSIENT_API_ERROR_MESSAGE;
+  }
+
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
@@ -30,3 +39,35 @@ export const toErrorMessage = (error: unknown, fallback: string): string => {
 
   return fallback;
 };
+
+/**
+ * A request that never got an answer: the main process timed it out
+ * (REQUEST_TIMEOUT), could not reach the server (BACKEND_UNREACHABLE), or the
+ * proxy said the backend was away (502-504, as during a deploy). The network
+ * or the server is gone for a moment, and the same call a few seconds later is
+ * expected to work. Production showed stalls of tens of seconds for a few
+ * users at once, while the server answered everyone else in milliseconds.
+ */
+export const isTransientApiError = (error?: {
+  code?: string;
+  statusCode?: number;
+}): boolean => {
+  if (!error) {
+    return false;
+  }
+  return (
+    error.code === "REQUEST_TIMEOUT" ||
+    error.code === "BACKEND_UNREACHABLE" ||
+    error.statusCode === 502 ||
+    error.statusCode === 503 ||
+    error.statusCode === 504
+  );
+};
+
+/**
+ * What a person reads for a transient failure. The main process used to put
+ * its URL in the message ("Backend istegi zaman asimina ugradi (https://...)"),
+ * which on screen read like a crash. Neutral on purpose: one-shot actions do
+ * not retry, and the views that do say so themselves (TransientQueryError).
+ */
+export const TRANSIENT_API_ERROR_MESSAGE = "Sunucuya şu an ulaşılamıyor.";
