@@ -36,6 +36,24 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.5",
+    date: "2026-10-03",
+    highlights: [
+      {
+        kind: "new",
+        text: "Arkadaşlarının hangi oyunu oynadığı artık profil kartında, Arkadaşlar sayfasında ve sohbet başlığında görünüyor.",
+      },
+      {
+        kind: "fixed",
+        text: "\"Şifremi unuttum\" ve e-posta doğrulama kodları artık herkese ulaşıyor.",
+      },
+      {
+        kind: "new",
+        text: "Önemli bir güncelleme çıktığında uygulama bunu açıkça söylüyor ve \"Tamam\"a basınca kendini güncelliyor. Güncelleme bitene kadar uygulama kullanılamıyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.4",
     date: "2026-10-03",
     highlights: [
