@@ -67,6 +67,29 @@ const SCREEN_SHARE_LOW_LAYER_REFERENCE_PIXELS = 640 * 360;
 // Below this short side the low rung saves too little to be worth an encoder.
 const SCREEN_SHARE_LOW_LAYER_MIN_SOURCE_SHORT_SIDE = 540;
 
+// The low rung's scale is one of these, never the exact short side / 360.
+// With simulcast WebRTC crops the input to one alignment shared by every layer
+// (for H.264 a multiple of 2, at most 16) and moves any scale it cannot hit
+// exactly to the nearest one it can. 2.25, a 1920x810 capture's 810 / 360,
+// became 7/3 that way, and the rung came out 342 tall: under 360, so software.
+// Each of these is hit exactly beside the primary, and beside a half rung too.
+const SCREEN_SHARE_LOW_LAYER_SCALES = [1, 1.5, 2, 3, 4, 6, 8];
+
+/** The largest of those that keeps the low rung 360 or more on its short side. */
+const screenShareLowScale = (target: VideoLayerSpec): number => {
+  const exact =
+    Math.min(target.width, target.height) / SCREEN_SHARE_LOW_LAYER_SHORT_SIDE;
+  return (
+    SCREEN_SHARE_LOW_LAYER_SCALES.filter((scale) => scale <= exact).pop() ?? 1
+  );
+};
+
+// The middle rung's scale: half, unless the low rung is already that large.
+// Then it steps in between the low rung and the primary, on a scale that is
+// still hit exactly beside both (1.5 beside 2, 1.2 beside 1.5).
+const screenShareMidScale = (lowScale: number): number =>
+  lowScale > 2 ? 2 : lowScale > 1.5 ? 1.5 : 1.2;
+
 // At or above this width the share also gets a half-resolution rung (1280x720
 // of a 1440p share, 1920x1080 of a 4K one): a viewer on a 1080p stage between
 // the 360p rung and a full layer it may not have the downlink for.
@@ -116,7 +139,9 @@ export const buildSimulcastLayerSpecs = (
         extraLayerBudget >= 2 &&
         target.width >= SCREEN_SHARE_MID_LAYER_MIN_WIDTH
       ) {
-        layers.push(scaleLayer(target, 1 / 2, 30));
+        layers.push(
+          scaleLayer(target, 1 / screenShareMidScale(screenShareLowScale(target)), 30),
+        );
       }
     }
     return layers;
@@ -137,12 +162,11 @@ export const buildSimulcastLayerSpecs = (
   return layers;
 };
 
-/** The screen share's low rung for this target: 360 on the short side, 15 fps. */
+/** The screen share's low rung for this target: 360 or more on the short side, 15 fps. */
 const screenShareLowLayer = (target: VideoLayerSpec): VideoLayerSpec => {
-  const scale =
-    SCREEN_SHARE_LOW_LAYER_SHORT_SIDE / Math.min(target.width, target.height);
-  const width = toEven(target.width * scale);
-  const height = toEven(target.height * scale);
+  const scale = screenShareLowScale(target);
+  const width = toEven(target.width / scale);
+  const height = toEven(target.height / scale);
   const byArea = Math.round(
     SCREEN_SHARE_LOW_LAYER_BITRATE_BPS *
       ((width * height) / SCREEN_SHARE_LOW_LAYER_REFERENCE_PIXELS) **
@@ -191,23 +215,22 @@ export const screenShareLiveEncodings = (
     return [primary];
   }
 
+  const lowScale = screenShareLowScale(target);
   const low = screenShareLowLayer(target);
   const specs: LiveEncodingSpec[] = [
     {
-      scaleResolutionDownBy: Math.max(
-        1,
-        Math.min(target.width, target.height) / SCREEN_SHARE_LOW_LAYER_SHORT_SIDE,
-      ),
+      scaleResolutionDownBy: lowScale,
       maxBitrate: low.maxBitrateBps,
       maxFramerate: low.maxFramerate,
     },
   ];
-  const half = scaleLayer(target, 1 / 2, 30);
+  const midScale = screenShareMidScale(lowScale);
+  const mid = scaleLayer(target, 1 / midScale, 30);
   for (let index = 1; index < encodingCount - 1; index += 1) {
     specs.push({
-      scaleResolutionDownBy: 2,
-      maxBitrate: half.maxBitrateBps,
-      maxFramerate: half.maxFramerate,
+      scaleResolutionDownBy: midScale,
+      maxBitrate: mid.maxBitrateBps,
+      maxFramerate: mid.maxFramerate,
     });
   }
   specs.push(primary);

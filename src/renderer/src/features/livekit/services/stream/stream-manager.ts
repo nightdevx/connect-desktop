@@ -299,6 +299,9 @@ export class LiveKitMediaSession {
   private hardwareSvcProbe: Promise<void> | null = null;
   private screenCodecFallback: VideoCodec | null = null;
   private codecFallbackInFlight = false;
+  // The capture size the live screen ladder was laid out for. See
+  // evaluateScreenLadder.
+  private screenLadderSize: { width: number; height: number } | null = null;
   private encoderOverloadHandler: (() => void) | null = null;
   private encoderRecoveryHandler: (() => void) | null = null;
   private videoQueue: Promise<void> = Promise.resolve();
@@ -828,6 +831,7 @@ export class LiveKitMediaSession {
       this.evaluateQualityLimitation(snapshot);
       this.evaluateScreenEncoderCodec(snapshot);
       this.evaluateHardwareFallback(snapshot);
+      this.evaluateScreenLadder();
       this.evaluateDownlink(snapshot);
     });
 
@@ -1134,6 +1138,7 @@ export class LiveKitMediaSession {
       // included.
       this.encoderGuard = initialEncoderGuard();
       this.hardwareFallback = initialHardwareFallback();
+      this.screenLadderSize = null;
     }
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
@@ -1745,6 +1750,50 @@ export class LiveKitMediaSession {
   }
 
   /**
+   * Lays the live screen ladder out again once the capture shows its real size.
+   *
+   * An Electron desktop capture reports the size it was ASKED for (the max
+   * constraints) until its first frame: 1920x1080 for a 2560x1080 monitor whose
+   * frames come out 1920x810. The publish is sized from that report, here and in
+   * livekit-client alike, so on that monitor the low rung was laid out for 1080
+   * and came out 640x270, which Chromium encodes in software (production, 0.2.2).
+   * The track's settings are right once frames flow, and a window resized
+   * mid-share changes them again; either way the ladder follows on the live
+   * sender, the same way a quality change does.
+   */
+  private evaluateScreenLadder(): void {
+    const laidOut = this.screenLadderSize;
+    const publication = this.room?.localParticipant.getTrackPublication(
+      Track.Source.ScreenShare,
+    );
+    const track = publication?.track?.mediaStreamTrack;
+    if (!laidOut || !publication || !track || !this.desiredScreenEnabled) {
+      return;
+    }
+    const { width, height } = track.getSettings();
+    if (!width || !height || (width === laidOut.width && height === laidOut.height)) {
+      return;
+    }
+
+    this.screenLadderSize = { width, height };
+    const target = this.resolveScreenTarget(track);
+    logLiveKitDebug("stream-manager", "screen-ladder-resized", {
+      from: `${laidOut.width}x${laidOut.height}`,
+      to: `${width}x${height}`,
+    });
+    void this.enqueueVideo(async () => {
+      // A republish or a swap in between laid out its own ladder.
+      if (publication.track?.mediaStreamTrack !== track) {
+        return;
+      }
+      await this.applyLiveScreenEncodings(
+        publication,
+        resolveCodecTarget(target, this.resolveScreenCodec()),
+      );
+    });
+  }
+
+  /**
    * A share that ran on the GPU encoder and dropped to software mid-share (see
    * stepHardwareFallback). AV1 and VP9 are evaluateScreenEncoderCodec's: it
    * moves those to H.264 instead.
@@ -2156,6 +2205,7 @@ export class LiveKitMediaSession {
     });
 
     await this.applyLiveScreenEncodings(publication, resolveCodecTarget(target, codec));
+    this.screenLadderSize = { width: target.width, height: target.height };
 
     // livekit-client writes the degradation preference once, when the sender is
     // assigned at publish. A swap between "Hareket" and "Metin" changed the
@@ -2327,6 +2377,7 @@ export class LiveKitMediaSession {
         source: Track.Source.ScreenShare,
         ...plan,
       });
+      this.screenLadderSize = { width: target.width, height: target.height };
 
       this.verifyPublishedEncodings(
         "screen",

@@ -102,10 +102,14 @@ assert.deepEqual(
   [854, 360],
   "21:9 720p keeps a 360-tall low rung",
 );
-assert.deepEqual([lowRung(1920, 810).width, lowRung(1920, 810).height], [854, 360]);
+assert.deepEqual(
+  [lowRung(1920, 810).width, lowRung(1920, 810).height],
+  [960, 406],
+  "21:9 1080p: scale 2, not 810 / 360 = 2.25, which WebRTC turns into 7/3 (342 tall)",
+);
 assert.deepEqual(
   [lowRung(960, 1020).width, lowRung(960, 1020).height],
-  [360, 382],
+  [480, 510],
   "a portrait window scales by its short side, the width",
 );
 assert.ok(
@@ -444,6 +448,71 @@ assert.equal(
     .scaleResolutionDownBy,
   1,
   "a capture already under 360 is never scaled up",
+);
+
+// --- every low-rung scale survives WebRTC's simulcast alignment -------------
+// WebRTC's AlignmentAdjuster (video/alignment_adjuster.cc), with simulcast and
+// apply_alignment_to_all_simulcast_layers: every layer's scale is rounded to
+// the nearest alignment / i, i a multiple of the encoder's requested alignment
+// (2 for H.264), the alignment (at most 16) picked to change the scales least.
+// A scale the app sets has to come through it unchanged, or the rung moves.
+const webrtcAligned = (scales, requested = 2, maxAlignment = 16) => {
+  const roundTo = (alignment) =>
+    scales.map((scale) => {
+      let best = 1;
+      let distance = Infinity;
+      for (let i = requested; i <= alignment; i += requested) {
+        if (Math.abs(scale - alignment / i) <= distance) {
+          distance = Math.abs(scale - alignment / i);
+          best = alignment / i;
+        }
+      }
+      return best;
+    });
+  let alignment = requested;
+  let least = Infinity;
+  for (let candidate = requested; candidate <= maxAlignment; candidate += 1) {
+    const change = roundTo(candidate).reduce((sum, value, k) => sum + Math.abs(value - scales[k]), 0);
+    if (change < least) {
+      least = change;
+      alignment = candidate;
+    }
+  }
+  return roundTo(alignment);
+};
+assert.deepEqual(
+  webrtcAligned([2.25, 1]).map((scale) => Math.round(scale * 1000) / 1000),
+  [2.333, 1],
+  "the model reproduces production: 2.25 came out as 7/3, a 342-tall rung on a 1920x810 capture",
+);
+// What screens and windows really deliver under the presets: 16:9, 16:10,
+// 21:9 and 32:9 monitors at 720p, 1080p, 1440p and 2160p, and common laptops.
+for (const [width, height] of [
+  [1280, 720], [1920, 1080], [2560, 1440], [3840, 2160],
+  [1152, 720], [1728, 1080], [2304, 1440], [1920, 1200],
+  [1280, 540], [1920, 810], [2560, 1080], [2560, 1072], [3840, 1607],
+  [1920, 540], [2560, 720], [1600, 900], [1366, 768],
+]) {
+  const target = { width, height, maxBitrateBps: 4_000_000, maxFramerate: 30 };
+  for (const count of [2, 3]) {
+    const scales = screenShareLiveEncodings(target, count).map((spec) => spec.scaleResolutionDownBy);
+    assert.deepEqual(webrtcAligned(scales), scales, `${width}x${height}, ${count} encodings: WebRTC keeps ${scales}`);
+    assert.ok(
+      Math.min(width, height) / scales[0] >= 360,
+      `${width}x${height}: the low rung stays 360 or more on its short side`,
+    );
+    assert.ok(
+      scales.every((scale, k) => k === 0 || scale < scales[k - 1]),
+      `${width}x${height}, ${count} encodings: every rung is a different size (${scales})`,
+    );
+  }
+}
+assert.deepEqual(
+  screenShareLiveEncodings({ width: 2560, height: 1072, maxBitrateBps: 9_000_000, maxFramerate: 60 }, 3).map(
+    (spec) => spec.scaleResolutionDownBy,
+  ),
+  [2, 1.5, 1],
+  "21:9 1440p: the low rung is already half, so the middle one sits at 1.5",
 );
 
 console.log("video-layers self-check passed");
