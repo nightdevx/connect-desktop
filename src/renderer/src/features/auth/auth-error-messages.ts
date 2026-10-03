@@ -202,6 +202,16 @@ const VALIDATION: AuthErrorInfo = {
   retryable: true,
 };
 
+// The server's version gate. Matched on the status, not the code: the code is
+// REQUEST_FAILED on purpose, the one builds older than this mapping turn into
+// "uygulamayı güncelleyin".
+const UPDATE_REQUIRED: AuthErrorInfo = {
+  title: "Güncelleme gerekiyor",
+  detail: "Connect'in bu sürümü artık desteklenmiyor.",
+  hint: "Sağ üstte Güncelle düğmesi çıkınca ona bas.",
+  retryable: false,
+};
+
 const UNKNOWN: AuthErrorInfo = {
   title: "Bilinmeyen hata",
   detail: "Sunucu tanınmayan bir hata döndürdü.",
@@ -228,6 +238,10 @@ export const describeAuthError = (
   context: AuthErrorContext,
 ): AuthErrorInfo => {
   const code = error?.code?.trim();
+
+  if (error?.statusCode === 426) {
+    return UPDATE_REQUIRED;
+  }
 
   if (!code) {
     return UNKNOWN;

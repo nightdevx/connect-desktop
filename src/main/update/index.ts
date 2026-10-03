@@ -4,4 +4,5 @@ export {
   getAppUpdateSnapshot,
   initializeModularUpdater,
   installDownloadedAppUpdate,
+  requireAppUpdate,
 } from "./modular-updater";

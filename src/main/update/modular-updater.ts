@@ -94,6 +94,9 @@ const minimumVersionOf = (info: UpdateInfo): string | null => {
 const isBelow = (minimum: string | null): boolean =>
   minimum !== null && compareVersions(app.getVersion(), minimum) < 0;
 
+const higherOf = (a: string | null, b: string | null): string | null =>
+  a === null ? b : b === null ? a : compareVersions(a, b) >= 0 ? a : b;
+
 const resolveLogoDataUrl = (): string | null => {
   const candidates = [
     join(__dirname, "../../public/images/logo.png"),
@@ -463,6 +466,10 @@ export class ModularUpdater {
   private installing = false;
   // A mandatory update the user confirmed before its download finished.
   private installWhenDownloaded = false;
+  // The server's floor, from its version gate (426 CLIENT_OUTDATED). The
+  // operator can raise it from the admin panel without a release, so it is
+  // held beside latest.yml's and whichever is higher decides.
+  private serverMinimum: string | null = null;
   private updaterWindow: BrowserWindow | null = null;
   private updaterWindowLoaded = false;
   private pendingUpdaterWindowState: UpdaterWindowState | null = null;
@@ -638,6 +645,32 @@ export class ModularUpdater {
     return { accepted: true };
   }
 
+  /**
+   * The server turned this build away as older than its minimum. Lock as soon
+   * as there is a release to install: at once if one is already known, else
+   * after the check this starts.
+   */
+  public requireMinimumVersion(minimum: string | null): void {
+    if (!app.isPackaged || minimum === null || !isBelow(minimum)) {
+      return;
+    }
+    if (this.serverMinimum !== null && compareVersions(this.serverMinimum, minimum) >= 0) {
+      return;
+    }
+    this.serverMinimum = minimum;
+
+    const phase = this.snapshot.phase;
+    if (phase === "available" || phase === "downloading" || phase === "downloaded") {
+      writeKnownMinimumVersion(higherOf(readKnownMinimumVersion(), minimum));
+      this.snapshot = { ...this.snapshot, mandatory: true };
+      this.emitState();
+      return;
+    }
+    if (!this.installing && phase !== "checking") {
+      void this.checkForUpdates();
+    }
+  }
+
   private simulateDevUpdate(): void {
     this.setSnapshot("checking", "Yeni sürüm kontrol ediliyor (Simülasyon)...");
 
@@ -783,9 +816,19 @@ export class ModularUpdater {
     // Every answer from the feed re-decides it, "not available" included: that
     // is the feed saying this build is current, which lifts a lock left on
     // disk by a release that has since been installed or pulled.
-    const minimum = minimumVersionOf(info);
-    const mandatory = isBelow(minimum);
-    writeKnownMinimumVersion(mandatory ? minimum : null);
+    //
+    // The server's floor only counts once the feed has something newer to
+    // install. A floor set above the newest release would otherwise lock every
+    // window -- the admin's included -- behind an update that does not exist;
+    // the server still refuses the requests, with a message saying why.
+    const releaseMinimum = minimumVersionOf(info);
+    const updateExists = phase !== "not-available";
+    const minimum = higherOf(
+      isBelow(releaseMinimum) ? releaseMinimum : null,
+      updateExists && isBelow(this.serverMinimum) ? this.serverMinimum : null,
+    );
+    const mandatory = minimum !== null;
+    writeKnownMinimumVersion(minimum);
 
     this.snapshot = {
       ...this.snapshot,
@@ -1028,6 +1071,10 @@ export const installDownloadedAppUpdate = async (): Promise<InstallUpdateRespons
     return { accepted: false, reason: "NOT_INITIALIZED" };
   }
   return updaterInstance.installDownloadedUpdate();
+};
+
+export const requireAppUpdate = (minimumVersion: string | null): void => {
+  updaterInstance?.requireMinimumVersion(minimumVersion);
 };
 
 export const getAppUpdateSnapshot = (): AppUpdateSnapshot | null => {

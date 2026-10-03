@@ -100,6 +100,20 @@ const main = async () => {
   const describe = (code, context, statusCode = 400) =>
     describeAuthError({ code, message: "", statusCode }, context);
 
+  // The backend's version gate answers 426 with code REQUEST_FAILED, the code
+  // older builds turn into "uygulamayı güncelleyin". This build must read the
+  // status and say it outright, or it would show "Sunucudan geçersiz yanıt".
+  assert.equal(
+    describe("REQUEST_FAILED", "login", 426).title,
+    "Güncelleme gerekiyor",
+    "a 426 from the version gate must read as an update, not a bad response",
+  );
+  assert.equal(
+    describe("REQUEST_FAILED", "login", 400).title,
+    "Sunucudan geçersiz yanıt",
+    "an ordinary REQUEST_FAILED keeps its own text",
+  );
+
   // --- every real code says something specific ------------------------------
   for (const [codes, context] of [
     [LOGIN_CODES, "login"],

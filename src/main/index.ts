@@ -64,7 +64,9 @@ import {
   destroyModularUpdater,
   initializeModularUpdater,
   installDownloadedAppUpdate,
+  requireAppUpdate,
 } from "./update";
+import { setClientOutdatedHandler } from "./clients/base-client";
 import {
   isUpdaterHelperModeProcess,
   runUpdaterHelperMode,
@@ -426,6 +428,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       beforeInstall: cleanupBeforeAppQuit,
       periodicCheckMs: 15 * 60 * 1000,
     });
+    setClientOutdatedHandler(requireAppUpdate);
     registerIpcHandlers();
     registerStreamingIpcHandlers();
     installGlobalHotkeys();

@@ -236,6 +236,9 @@ export interface AdminRuntimeSettings {
   chatRetentionDays: number;
   maxQueuePerUser: number;
   musicSources: string[];
+  // Oldest desktop build let in; "" = no floor. Absent from a server older
+  // than the version gate.
+  minDesktopVersion?: string;
 }
 
 // Every field optional: omitted means "leave unchanged", so the panel can send
@@ -254,6 +257,7 @@ export interface AdminRuntimeSettingsPatch {
   chatRetentionDays?: number;
   maxQueuePerUser?: number;
   musicSources?: string[];
+  minDesktopVersion?: string;
 }
 
 // A voice mute as the admin panel sees it: the username resolved, because the

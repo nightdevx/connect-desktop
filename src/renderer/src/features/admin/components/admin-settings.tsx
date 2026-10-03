@@ -204,6 +204,34 @@ export default function AdminSettings() {
               className="ct-admin-setting-input"
             />
           </div>
+
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Minimum Uygulama Sürümü</strong>
+              <span>
+                Bundan eski sürümler giriş yapamaz ve güncelleme mesajı görür.
+                Boş bırakılırsa kapalı. Yalnızca o sürüm yayınlandıktan sonra
+                yükselt.
+              </span>
+            </div>
+            <Input
+              defaultValue={settings.minDesktopVersion ?? ""}
+              placeholder="Kapalı (ör. 0.2.5)"
+              disabled={saving}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value === (settings.minDesktopVersion ?? "")) {
+                  return;
+                }
+                if (value !== "" && !/^\d+(\.\d+){1,3}$/.test(value)) {
+                  toast.error("Sürüm 0.2.5 biçiminde olmalı.");
+                  return;
+                }
+                void apply({ minDesktopVersion: value });
+              }}
+              className="ct-admin-setting-input"
+            />
+          </div>
         </div>
       </AdminSection>
 

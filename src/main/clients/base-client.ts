@@ -4,7 +4,28 @@ export interface ErrorResponse {
   code?: string;
   error?: string;
   message?: string;
+  // Set by the backend's version gate (426): this build is below the
+  // operator's minimum.
+  reason?: string;
+  minimumVersion?: string;
 }
+
+// Who hears that the server turned this build away as too old. Set once at
+// startup (main/index.ts) to the updater, which locks the app behind its gate
+// as soon as there is a newer release to install.
+let clientOutdatedHandler: ((minimumVersion: string | null) => void) | null = null;
+
+export const setClientOutdatedHandler = (
+  handler: (minimumVersion: string | null) => void,
+): void => {
+  clientOutdatedHandler = handler;
+};
+
+const reportIfOutdated = (status: number, payload: ErrorResponse | null): void => {
+  if (status === 426 && payload?.reason === "CLIENT_OUTDATED") {
+    clientOutdatedHandler?.(payload.minimumVersion ?? null);
+  }
+};
 
 // Every request goes through Chromium's network stack, not Node's.
 //
@@ -104,6 +125,7 @@ export class BaseClient {
         const payload = (await this.tryParseJson(
           response,
         )) as ErrorResponse | null;
+        reportIfOutdated(response.status, payload);
         throw new DesktopApiError(
           payload?.code ?? "REQUEST_FAILED",
           response.status,
@@ -164,6 +186,7 @@ export class BaseClient {
         const payload = (await this.tryParseJson(
           response,
         )) as ErrorResponse | null;
+        reportIfOutdated(response.status, payload);
         throw new DesktopApiError(
           payload?.code ?? "REQUEST_FAILED",
           response.status,
