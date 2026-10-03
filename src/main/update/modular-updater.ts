@@ -1,10 +1,11 @@
 import { app, BrowserWindow } from "electron";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { autoUpdater } from "electron-updater";
 import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import {
   UPDATE_EVENT_CHANNEL,
+  compareVersions,
   type AppUpdateEvent,
   type AppUpdatePhase,
   type AppUpdateSnapshot,
@@ -35,6 +36,63 @@ export interface InstallUpdateResponse {
 
 const defaultStartupCheckDelayMs = 15_000;
 const defaultPeriodicCheckMs = 15 * 60 * 1_000;
+
+/* -------------------------------------------------------------------------
+   Mandatory updates
+
+   A release is mandatory for every build older than its minimum version:
+   electron-builder.yml's releaseInfo.vendor.minimumVersion, which
+   electron-builder copies into latest.yml and electron-updater hands back on
+   the UpdateInfo untouched. A minimum rather than a "this one is mandatory"
+   flag, because a client can skip releases: one on 0.2.3 that next sees an
+   optional 0.2.6 must still be held to a mandatory 0.2.5 in between.
+
+   The minimum is also kept on disk once seen. Otherwise a restart would make
+   the app usable again until the next check found the release a second time.
+   ------------------------------------------------------------------------- */
+
+const gateFilePath = (): string => join(app.getPath("userData"), "update-gate.json");
+
+const readKnownMinimumVersion = (): string | null => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(gateFilePath(), "utf-8"));
+    const value =
+      parsed && typeof parsed === "object"
+        ? (parsed as { minimumVersion?: unknown }).minimumVersion
+        : undefined;
+    return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeKnownMinimumVersion = (version: string | null): void => {
+  try {
+    if (version) {
+      writeFileSync(gateFilePath(), JSON.stringify({ minimumVersion: version }), "utf-8");
+    } else {
+      rmSync(gateFilePath(), { force: true });
+    }
+  } catch {
+    // Best effort: the next check finds the release again.
+  }
+};
+
+const minimumVersionOf = (info: UpdateInfo): string | null => {
+  const vendor: unknown = (info as UpdateInfo & { vendor?: unknown }).vendor;
+  const value =
+    vendor && typeof vendor === "object"
+      ? (vendor as { minimumVersion?: unknown }).minimumVersion
+      : undefined;
+  // YAML reads an unquoted "1.0" as the number 1.
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+};
+
+const isBelow = (minimum: string | null): boolean =>
+  minimum !== null && compareVersions(app.getVersion(), minimum) < 0;
 
 const resolveLogoDataUrl = (): string | null => {
   const candidates = [
@@ -403,6 +461,8 @@ export class ModularUpdater {
   private startupCheckTimer: NodeJS.Timeout | null = null;
   private periodicTimer: NodeJS.Timeout | null = null;
   private installing = false;
+  // A mandatory update the user confirmed before its download finished.
+  private installWhenDownloaded = false;
   private updaterWindow: BrowserWindow | null = null;
   private updaterWindowLoaded = false;
   private pendingUpdaterWindowState: UpdaterWindowState | null = null;
@@ -416,6 +476,7 @@ export class ModularUpdater {
     progressPercent: null,
     message: "Güncelleme henüz kontrol edilmedi",
     timestamp: new Date().toISOString(),
+    mandatory: false,
   };
 
   public constructor(private readonly options: ModularUpdaterOptions) {}
@@ -438,8 +499,25 @@ export class ModularUpdater {
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
 
+    // A mandatory update seen on an earlier run still applies until it is
+    // installed: lock from the first frame and check at once rather than after
+    // the usual startup delay.
+    const knownMinimum = readKnownMinimumVersion();
+    const lockedAtStart = isBelow(knownMinimum);
+    if (knownMinimum !== null && !lockedAtStart) {
+      writeKnownMinimumVersion(null);
+    }
+    if (lockedAtStart) {
+      this.snapshot = {
+        ...this.snapshot,
+        phase: "checking",
+        mandatory: true,
+        message: "Zorunlu güncelleme denetleniyor",
+      };
+    }
+
     this.bindListeners();
-    this.scheduleChecks();
+    this.scheduleChecks(lockedAtStart ? 0 : undefined);
   }
 
   public getSnapshot(): AppUpdateSnapshot {
@@ -524,11 +602,18 @@ export class ModularUpdater {
     }
 
     if (this.snapshot.phase !== "downloaded") {
+      // A mandatory update confirmed early installs the moment it lands; the
+      // app is locked until then either way.
+      if (this.snapshot.mandatory) {
+        this.installWhenDownloaded = true;
+        return { accepted: true, reason: "INSTALL_WHEN_DOWNLOADED" };
+      }
       return { accepted: false, reason: "UPDATE_NOT_READY" };
     }
 
     this.installing = true;
-    
+    this.installWhenDownloaded = false;
+
     this.setSnapshot(
       "installing",
       "Güncelleme kuruluyor ve uygulama yeniden başlatılacak...",
@@ -626,6 +711,9 @@ export class ModularUpdater {
         info,
         "Güncelleme indirildi, kurulum için hazır",
       );
+      if (this.installWhenDownloaded) {
+        void this.installDownloadedUpdate();
+      }
     });
 
     autoUpdater.on("update-not-available", (info) => {
@@ -637,9 +725,11 @@ export class ModularUpdater {
     });
   }
 
-  private scheduleChecks(): void {
+  private scheduleChecks(startupDelayOverrideMs?: number): void {
     const startupCheckDelayMs =
-      this.options.startupCheckDelayMs ?? defaultStartupCheckDelayMs;
+      startupDelayOverrideMs ??
+      this.options.startupCheckDelayMs ??
+      defaultStartupCheckDelayMs;
     const periodicCheckMs =
       this.options.periodicCheckMs ?? defaultPeriodicCheckMs;
 
@@ -690,9 +780,17 @@ export class ModularUpdater {
     info: UpdateInfo,
     message: string,
   ): void {
+    // Every answer from the feed re-decides it, "not available" included: that
+    // is the feed saying this build is current, which lifts a lock left on
+    // disk by a release that has since been installed or pulled.
+    const minimum = minimumVersionOf(info);
+    const mandatory = isBelow(minimum);
+    writeKnownMinimumVersion(mandatory ? minimum : null);
+
     this.snapshot = {
       ...this.snapshot,
       phase,
+      mandatory,
       nextVersion: info.version ?? this.snapshot.nextVersion,
       releaseName: info.releaseName ?? this.snapshot.releaseName,
       releaseDate: info.releaseDate ?? this.snapshot.releaseDate,

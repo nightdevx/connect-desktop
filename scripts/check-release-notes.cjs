@@ -60,6 +60,7 @@ const main = async () => {
     root: projectRoot,
     logLevel: "error",
     configFile: false,
+    resolve: { alias: { "@shared": path.join(projectRoot, "src/shared") } },
     build: {
       outDir,
       emptyOutDir: true,
@@ -158,6 +159,18 @@ const main = async () => {
   assert.ok(
     compareVersions(RELEASE_NOTES[0].version, packageVersion) <= 0,
     `the newest note is v${RELEASE_NOTES[0].version} but package.json ships ${packageVersion} — nobody would ever be shown it`,
+  );
+
+  // The mandatory-update minimum ships in latest.yml beside this version. Above
+  // it, the build being released would find itself too old and lock itself
+  // behind an update that does not exist -- every user, with no way out.
+  const minimumMatch = fs
+    .readFileSync(path.join(projectRoot, "electron-builder.yml"), "utf8")
+    .match(/^\s+minimumVersion:\s*["']?([0-9][0-9.]*)["']?\s*$/m);
+  assert.ok(minimumMatch, "electron-builder.yml must set releaseInfo.vendor.minimumVersion");
+  assert.ok(
+    compareVersions(minimumMatch[1], packageVersion) <= 0,
+    `minimumVersion ${minimumMatch[1]} is above the version being released (${packageVersion}) — that build would lock itself`,
   );
 
   // --- who gets shown what --------------------------------------------------

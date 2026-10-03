@@ -17,6 +17,7 @@ import {
 import { WhatsNewModal } from "./features/release-notes";
 import WorkspaceShell from "./app/WorkspaceShell";
 import { ToastHost } from "./app/ToastHost";
+import { UpdateGate } from "./app/UpdateGate";
 import { toast } from "@/services/toast";
 import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
@@ -44,6 +45,8 @@ function App() {
   const [windowIsMaximized, setWindowIsMaximized] = useState(false);
   const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(null);
+  const isUpdateLocked = Boolean(updateState?.mandatory);
+  const contentRef = useRef<HTMLElement>(null);
 
   // setStatus() is called from around fifty places -- device removed, mic
   // refresh failed, user blocked -- and nothing in the tree ever rendered the
@@ -140,6 +143,15 @@ function App() {
     void window.desktopApi.closeWindow();
   };
 
+  // A mandatory update takes the app out of reach, not just out of sight:
+  // inert keeps Tab and screen readers from wandering into what the gate
+  // covers. Set on the element because @types/react 18 does not know the prop.
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.inert = isUpdateLocked;
+    }
+  }, [isUpdateLocked]);
+
   const updatePhase = updateState?.phase;
 
   return (
@@ -152,7 +164,7 @@ function App() {
           cannot use any of what it is describing yet. */}
       <WhatsNewModal
         version={appVersion}
-        enabled={isAuthenticated && !isBooting}
+        enabled={isAuthenticated && !isBooting && !isUpdateLocked}
         manualOpen={isReleaseNotesOpen}
         onManualOpenChange={setIsReleaseNotesOpen}
       />
@@ -242,7 +254,7 @@ function App() {
           </div>
         </header>
 
-        <section className={mainWrapClassName}>
+        <section ref={contentRef} className={mainWrapClassName}>
           {/* The session check is a round trip, and until it answers we do not
               know which of the two screens is the right one. Rendering the
               login card while waiting meant a returning user saw it flash and
@@ -332,6 +344,8 @@ function App() {
             </div>
           )}
         </section>
+
+        {isUpdateLocked && updateState && <UpdateGate state={updateState} />}
       </div>
     </main>
   );

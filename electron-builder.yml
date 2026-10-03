@@ -42,6 +42,16 @@ publish:
   owner: nightdevx
   repo: connect-desktop
   releaseType: release
+# Mandatory updates. Every build older than minimumVersion is locked until it
+# installs the newest release (src/main/update/modular-updater.ts); electron-
+# builder copies this into latest.yml. To ship a release as mandatory, set this
+# to that release's version in the version-bump commit; leave it as it is for
+# an optional one. Quoted, because YAML reads an unquoted 1.0 as a number. Never
+# above package.json's version: that build would lock itself, and
+# scripts/check-release-notes.cjs refuses it.
+releaseInfo:
+  vendor:
+    minimumVersion: "0.2.4"
 win:
   icon: build/icon.ico
   artifactName: Connect-Setup-${version}.${ext}

@@ -1,3 +1,5 @@
+import { compareVersions } from "@shared/update-contracts";
+
 /**
  * What changed, per version, and the bookkeeping that decides when to say so.
  *
@@ -413,42 +415,9 @@ export const RELEASE_NOTES: ReleaseNote[] = [
   },
 ];
 
-/* -------------------------------------------------------------------------
-   Version comparison
-
-   Plain numeric compare over the dot-separated parts, with any `-beta.1` style
-   suffix dropped first. No semver dependency: these strings come from
-   package.json via app.getVersion(), so they are already well-formed, and the
-   one thing that must not happen is a string compare — "0.1.9" > "0.1.75" is
-   true alphabetically and false in every other sense, which would have hidden
-   every note after the tenth patch release.
-   ------------------------------------------------------------------------- */
-
-const parseVersion = (version: string): number[] =>
-  version
-    .trim()
-    .split("-")[0]
-    .split(".")
-    .map((part) => {
-      const parsed = Number.parseInt(part, 10);
-      return Number.isFinite(parsed) ? parsed : 0;
-    });
-
-/** Negative if a < b, positive if a > b, 0 if they are the same release. */
-export const compareVersions = (a: string, b: string): number => {
-  const left = parseVersion(a);
-  const right = parseVersion(b);
-  const length = Math.max(left.length, right.length);
-
-  for (let index = 0; index < length; index += 1) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference !== 0) {
-      return difference;
-    }
-  }
-
-  return 0;
-};
+// The compare lives with the update contracts: the updater in the main process
+// needs the same one to decide whether a release is mandatory for this build.
+export { compareVersions };
 
 /**
  * The notes to show somebody who last saw `lastSeenVersion` and is now running
