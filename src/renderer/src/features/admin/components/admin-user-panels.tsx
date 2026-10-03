@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Empty, Spin, Tag } from "antd";
+import { Button, Empty, Spin } from "antd";
 import { DeleteOutlined, KeyOutlined, ReloadOutlined, TeamOutlined } from "@ant-design/icons";
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import type {
@@ -9,6 +9,7 @@ import type {
 } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
+import { adminDateTime } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
@@ -22,7 +23,9 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
         adminService.ops.userSessions({ userId: user.id }),
         "Oturumlar yüklenemedi",
       );
-      setSessions(data.sessions);
+      // A server older than the fix also lists the spent links of each
+      // rotation chain -- one row per refresh. Only the live token is a session.
+      setSessions(data.sessions.filter((session) => session.current));
     } catch (error) {
       toast.error(toErrorMessage(error, "Oturumlar yüklenemedi"));
     } finally {
@@ -57,14 +60,14 @@ export function AdminUserSessions({ user }: { user: AdminUserDetail }) {
       ) : (
         <ul className="ct-admin-plain-list">
           {sessions.map((session) => (
+            // One row per signed-in device. Its token rotates on every refresh,
+            // so the id (a digest of that token) changes with it and is not
+            // shown, and the time is the device's last refresh, not its sign-in.
             <li key={session.id}>
               <span className="ct-admin-plain-list-main">
-                {session.current ? <Tag className="ct-tag success">Aktif</Tag> : <Tag className="ct-tag">Kullanılmış</Tag>}
-                <code>{session.id}</code>
+                Son yenileme {adminDateTime(session.createdAt)}
               </span>
-              <span className="ct-muted">
-                {session.expiresAt ? new Date(session.expiresAt).toLocaleString("tr-TR") : "—"}
-              </span>
+              <span className="ct-muted">Bitiş {adminDateTime(session.expiresAt)}</span>
               <Button
                 size="small"
                 type="text"
