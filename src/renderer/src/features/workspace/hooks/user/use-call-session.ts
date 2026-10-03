@@ -215,6 +215,52 @@ export const useCallSession = ({
     ongoingCallRef.current = ongoingCall;
   }, [ongoingCall]);
 
+  // The rejoin banner lives as long as ongoingCall, and only an incoming signal
+  // or our own hang-up clears that. A signal lost while the socket reconnected,
+  // a backend restart that forgot the call, or both sides stepping out softly
+  // left the banner up for good. While it can show, ask the server every 15 s
+  // (and on focus) whether the call is still there: CALL_FORBIDDEN means it
+  // ended, and nobody in it twice in a row means it is over in practice.
+  const bannerCandidate = ongoingCall !== null && callState.status !== "active";
+  useEffect(() => {
+    if (!bannerCandidate) {
+      return;
+    }
+    let cancelled = false;
+    let emptyReadings = 0;
+    const check = async (): Promise<void> => {
+      const call = ongoingCallRef.current;
+      if (!call) {
+        return;
+      }
+      const result = await workspaceService.getCallPeerStatus({ callId: call.callId });
+      if (cancelled || ongoingCallRef.current?.callId !== call.callId) {
+        return;
+      }
+      if (!result.ok) {
+        // Anything else (the media server unreachable, the bridge too old) is
+        // not an answer, and the banner stays.
+        if (result.error?.code === "CALL_FORBIDDEN") {
+          setOngoingCall(null);
+        }
+        return;
+      }
+      emptyReadings = result.data?.peerConnected ? 0 : emptyReadings + 1;
+      if (emptyReadings >= 2) {
+        setOngoingCall(null);
+      }
+    };
+    void check();
+    const interval = window.setInterval(() => void check(), 15_000);
+    const onFocus = (): void => void check();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [bannerCandidate]);
+
   // When a call becomes active, record it in ongoingCall (for rejoin capability)
   useEffect(() => {
     if (callState.status === "active" && callState.callId && callState.peerUser) {
@@ -590,6 +636,14 @@ export const useCallSession = ({
   const rejoinCall = useCallback(async () => {
     const active = ongoingCallRef.current;
     if (!active) return;
+    // A call that already ended would only fail at the token, with nothing on
+    // screen saying why.
+    const peer = await workspaceService.getCallPeerStatus({ callId: active.callId });
+    if (!peer.ok && peer.error?.code === "CALL_FORBIDDEN") {
+      setOngoingCall(null);
+      setStatus("Bu görüşme sona ermiş.", "warn");
+      return;
+    }
     try {
       getSynth().stop();
       setCallState({
