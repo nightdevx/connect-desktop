@@ -5,3 +5,4 @@ export * from "./store/paused-tracks-store";
 export * from "./store/screen-watchers-store";
 export * from "./store/speaking-store";
 export * from "./store/connection-quality-store";
+export * from "./store/call-encryption-store";

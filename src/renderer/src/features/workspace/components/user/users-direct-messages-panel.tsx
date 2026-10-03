@@ -72,6 +72,7 @@ import workspaceService from "../../services";
 import { useUiStore } from "@/store/ui-store";
 import { DirectChatMessageRow } from "./direct-chat-message-row";
 import { GameArt } from "./game-art";
+import { CallEncryptionBadge } from "./parts/CallEncryptionBadge";
 import { useThreadScroll } from "./use-thread-scroll";
 import { ElapsedTime } from "../common/elapsed-time";
 import { pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
@@ -961,6 +962,7 @@ export function UsersDirectMessagesPanel({
                       Görüşme sürüyor
                       {callState.connectedAt && <ElapsedTime since={callState.connectedAt} />}
                       {selectedUser && <CallQualityBars userId={selectedUser.userId} />}
+                      <CallEncryptionBadge />
                     </>
                   ) : (
                     <>

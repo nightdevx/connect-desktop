@@ -18,6 +18,7 @@ import {
   type VideoCodec,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
+import { createCallEncryptionOptions, startCallEncryption } from "./call-e2ee";
 import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
@@ -294,6 +295,10 @@ export class LiveKitMediaSession {
 
   private encoderGuard: EncoderGuardState = initialEncoderGuard();
   private hardwareFallback: HardwareFallbackState = initialHardwareFallback();
+  // End-to-end encryption of the current call room (call-e2ee.ts). Both null
+  // in a lobby, which is not encrypted.
+  private callEncryptionCleanup: (() => void) | null = null;
+  private callEncryptionWorker: Worker | null = null;
   private softwareSvcTicks = 0;
   private hardwareSvcCodec: VideoCodec | null = null;
   private hardwareSvcProbe: Promise<void> | null = null;
@@ -736,10 +741,16 @@ export class LiveKitMediaSession {
     // offers it, instead of Chromium's default Baseline.
     installH264HighPreference();
 
+    // 1:1 calls are end-to-end encrypted; lobbies are not (call-e2ee.ts).
+    this.endCallEncryption();
+    const callEncryption = lobbyId.startsWith("call_") ? createCallEncryptionOptions() : null;
+    this.callEncryptionWorker = callEncryption?.worker ?? null;
+
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },
       dynacast: true,
       singlePeerConnection: USE_SINGLE_PEER_CONNECTION,
+      ...(callEncryption ? { encryption: callEncryption } : {}),
       publishDefaults: {
         // Defaults only. Every video publish supplies its own codec, encoding
         // and layer ladder through buildVideoPublishPlan, derived from the
@@ -871,6 +882,24 @@ export class LiveKitMediaSession {
       if (this.room !== room || generation !== this.roomGeneration) {
         await room.disconnect();
         return;
+      }
+
+      // Encryption goes on before anything is published: turning it on later
+      // makes livekit republish every track. The key exchange runs from here.
+      if (callEncryption) {
+        this.callEncryptionCleanup = await startCallEncryption(
+          room,
+          callEncryption.keyProvider,
+          lobbyId.slice("call_".length),
+          (state) => {
+            if (this.room === room) {
+              this.callbacks.onCallEncryptionChanged?.(state);
+            }
+          },
+        );
+        if (this.room !== room || generation !== this.roomGeneration) {
+          return;
+        }
       }
 
       // A moderator move announced itself with expectRoomChange() so the old
@@ -1046,6 +1075,7 @@ export class LiveKitMediaSession {
     await this.updateLocalAudioSource(null);
 
     this.room = null;
+    this.endCallEncryption();
 
     navigator.mediaDevices.removeEventListener(
       "devicechange",
@@ -2552,7 +2582,16 @@ export class LiveKitMediaSession {
   // Lightweight teardown for an unexpected disconnect — releases the dead room
   // and remote media without the full manual-disconnect path (mic controller and
   // audio context stay alive for the imminent reconnect).
+  private endCallEncryption(): void {
+    this.callEncryptionCleanup?.();
+    this.callEncryptionCleanup = null;
+    this.callEncryptionWorker?.terminate();
+    this.callEncryptionWorker = null;
+    this.callbacks.onCallEncryptionChanged?.(null);
+  }
+
   private teardownRoomState(): void {
+    this.endCallEncryption();
     this.currentLobbyId = null;
     this.stopAudioMonitoring();
     this.statsCollector?.stop();

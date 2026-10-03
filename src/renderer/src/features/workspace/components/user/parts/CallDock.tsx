@@ -3,6 +3,7 @@ import { PhoneOutlined } from "@ant-design/icons";
 import type { CallSessionState } from "../../../hooks/user/use-call-session";
 import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
 import { ElapsedTime } from "../../common/elapsed-time";
+import { CallEncryptionBadge } from "./CallEncryptionBadge";
 
 interface CallDockProps {
   callState: CallSessionState;
@@ -144,6 +145,7 @@ export function CallDock({
               <>
                 Görüşme sürüyor
                 {connectedAt && <ElapsedTime since={connectedAt} />}
+                <CallEncryptionBadge />
               </>
             )}
           </span>

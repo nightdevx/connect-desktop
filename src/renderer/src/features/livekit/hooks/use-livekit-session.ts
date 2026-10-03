@@ -16,6 +16,7 @@ import type { ActiveNoiseSuppressionMode } from "../services/mic";
 import { useMediaStatsStore } from "../store/media-stats-store";
 import { usePausedTracksStore } from "../store/paused-tracks-store";
 import { useScreenWatchersStore } from "../store/screen-watchers-store";
+import { useCallEncryptionStore } from "../store/call-encryption-store";
 import { useSpeakingStore } from "../store/speaking-store";
 import {
   useConnectionQualityStore,
@@ -326,6 +327,9 @@ export function useLivekitSession(
       // the cue that reacts to it care who is watching.
       onScreenWatchersChanged: (watchers: ScreenWatcherMap) => {
         useScreenWatchersStore.getState().setWatchers(watchers);
+      },
+      onCallEncryptionChanged: (state) => {
+        useCallEncryptionStore.getState().setEncryption(state);
       },
       onPausedTracksChanged: (paused: PausedTrackMap) => {
         usePausedTracksStore.getState().setPaused(paused);

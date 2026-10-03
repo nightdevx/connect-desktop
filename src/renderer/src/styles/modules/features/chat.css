@@ -1455,3 +1455,19 @@
   @apply ml-auto shrink-0 text-micro;
   color: var(--ct-text-muted);
 }
+
+/* A 1:1 call's lock (CallEncryptionBadge): green once both sides hold the key,
+   muted while the exchange is still running. */
+.ct-call-encryption {
+  @apply inline-flex items-center gap-1 text-2xs font-semibold;
+  margin-inline-start: 8px;
+  color: var(--ct-success);
+}
+
+.ct-call-encryption.pending {
+  color: var(--ct-text-muted);
+}
+
+.ct-call-encryption-tip strong {
+  @apply font-mono tracking-wider;
+}

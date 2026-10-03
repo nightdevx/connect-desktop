@@ -6,6 +6,7 @@ import { type ActiveNoiseSuppressionMode } from "../mic";
 import type { NoiseSuppressionPreset } from "@/features/rnnoise";
 import type { MediaStatsSnapshot } from "./stats-collector";
 import type { ScreenWatcherMap } from "./screen-watchers";
+import type { CallEncryptionState } from "./call-e2ee";
 
 export type ScreenShareMode = "slides" | "motion";
 
@@ -121,6 +122,11 @@ export interface LiveKitConnectionStateDetail {
 }
 
 export interface LiveKitStreamManagerCallbacks {
+  /**
+   * A 1:1 call's end-to-end encryption: set up, keyed (with the safety code),
+   * or null when the session left the call room.
+   */
+  onCallEncryptionChanged?: (state: CallEncryptionState | null) => void;
   onRemoteStreamsChanged?: (media: ParticipantMediaMap) => void;
   onConnectionStateChanged?: (
     status: LiveKitConnectionStatus,
