@@ -13,6 +13,7 @@
 const assert = require("node:assert/strict");
 const {
   KNOWN_GAME_PROCESSES,
+  isMinecraftWindowTitle,
   matchKnownGame,
   normalizeProcessName,
 } = require("../dist/shared/game-activity.js");
@@ -70,5 +71,33 @@ assert.equal(matchKnownGame(["C:\\Games\\cs2.exe"]), "Counter-Strike 2");
 assert.equal(matchKnownGame(["chrome.exe", "code.exe", "Discord.exe"]), null);
 assert.equal(matchKnownGame([]), null);
 assert.equal(matchKnownGame(["", "   "]), null);
+
+// Executables as the games ship them, including the ones whose file name is
+// not the game's name: a space, an _x64 suffix, an engine name, a .bin.
+for (const [exe, title] of [
+  ["League of Legends.exe", "League of Legends"],
+  ["Among Us.exe", "Among Us"],
+  ["DayZ_x64.exe", "DayZ"],
+  ["SC2_x64.exe", "StarCraft II"],
+  ["D2R.exe", "Diablo II: Resurrected"],
+  ["MK12.exe", "Mortal Kombat 1"],
+  ["SoTGame.exe", "Sea of Thieves"],
+  ["Minecraft.Windows.exe", "Minecraft"],
+  ["Marvel-Win64-Shipping.exe", "Marvel Rivals"],
+  ["Stardew Valley.exe", "Stardew Valley"],
+  ["osu!.exe", "osu!"],
+  ["wolfteam.bin", "Wolfteam"],
+]) {
+  assert.equal(matchKnownGame([exe]), title, exe);
+}
+
+// javaw.exe is any Java program. Minecraft: Java Edition is told apart by its
+// window title (the poller asks tasklist /V only while a javaw.exe runs).
+assert.equal(matchKnownGame(["javaw.exe"]), null);
+assert.ok(isMinecraftWindowTitle("Minecraft 1.21.4"));
+assert.ok(isMinecraftWindowTitle("Minecraft* 1.21.4 - Multiplayer (3rd-party Server)"));
+assert.ok(isMinecraftWindowTitle("Lunar Client 1.8.9 (v2.18.3-2451)"));
+assert.ok(!isMinecraftWindowTitle("N/A"));
+assert.ok(!isMinecraftWindowTitle("Eclipse IDE for Java Developers"));
 
 console.log(`game-activity self-check passed (${keys.length} executables)`);

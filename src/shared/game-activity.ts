@@ -29,6 +29,22 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   doometernalx64vk: "DOOM Eternal",
   halo_infinite: "Halo Infinite",
   "deltaforceclient-win64-shipping": "Delta Force",
+  "marvel-win64-shipping": "Marvel Rivals",
+  bf6: "Battlefield 6",
+  squadgame: "Squad",
+  "hll-win64-shipping": "Hell Let Loose",
+  rainbowsix_be: "Rainbow Six Siege",
+  tf_win64: "Team Fortress 2",
+  deadlock: "Deadlock",
+  helldivers2: "HELLDIVERS 2",
+  huntgame: "Hunt: Showdown 1896",
+  arma3_x64: "Arma 3",
+  worldoftanks: "World of Tanks",
+  aces: "War Thunder",
+  "warframe.x64": "Warframe",
+  zula: "Zula",
+  pointblank: "Point Blank",
+  "wolfteam.bin": "Wolfteam",
 
   tslgame: "PUBG: Battlegrounds",
   fortniteclient: "Fortnite",
@@ -45,6 +61,13 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   palworld: "Palworld",
   "palworld-win64-shipping": "Palworld",
   "fsd-win64-shipping": "Deep Rock Galactic",
+  dayz_x64: "DayZ",
+  sonsoftheforest: "Sons of the Forest",
+  unturned: "Unturned",
+  "schedule i": "Schedule I",
+  peak: "PEAK",
+  "stalker2-win64-shipping": "S.T.A.L.K.E.R. 2",
+  dontstarve_steam_x64: "Don't Starve Together",
 
   "league of legends": "League of Legends",
   leagueclient: "League of Legends",
@@ -66,6 +89,8 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   factorio: "Factorio",
   factorygame: "Satisfactory",
   rimworldwin64: "RimWorld",
+  sc2_x64: "StarCraft II",
+  ts4_x64: "The Sims 4",
 
   wow: "World of Warcraft",
   wowclassic: "World of Warcraft Classic",
@@ -113,6 +138,16 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   stardewvalley: "Stardew Valley",
   terraria: "Terraria",
   noita: "Noita",
+  d2r: "Diablo II: Resurrected",
+  "hollow knight silksong": "Hollow Knight: Silksong",
+  "stardew valley": "Stardew Valley",
+  "b1-win64-shipping": "Black Myth: Wukong",
+  kingdomcome: "Kingdom Come: Deliverance",
+  "sandfall-win64-shipping": "Clair Obscur: Expedition 33",
+  "albion-online": "Albion Online",
+  knightonline: "Knight Online",
+  metin2client: "Metin2",
+  hearthstone: "Hearthstone",
 
   f1_24: "F1 24",
   f1_25: "F1 25",
@@ -129,8 +164,9 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   nba2k25: "NBA 2K25",
   pes2021: "eFootball PES 2021",
   efootball: "eFootball",
+  fc26: "EA SPORTS FC 26",
+  "beamng.drive.x64": "BeamNG.drive",
 
-  javaw: "Minecraft",
   minecraft: "Minecraft",
   minecraftlauncher: "Minecraft",
   amongus: "Among Us",
@@ -160,12 +196,26 @@ export const KNOWN_GAME_PROCESSES: Readonly<Record<string, string>> = {
   raft: "Raft",
   subnautica: "Subnautica",
   robloxplayerbeta: "Roblox",
+  "among us": "Among Us",
+  sotgame: "Sea of Thieves",
+  "minecraft.windows": "Minecraft",
+  "deadbydaylight-win64-shipping": "Dead by Daylight",
+  "osu!": "osu!",
+  geometrydash: "Geometry Dash",
 
   tekken8: "TEKKEN 8",
   "polaris-win64-shipping": "TEKKEN 8",
   streetfighter6: "Street Fighter 6",
   mk1: "Mortal Kombat 1",
+  mk12: "Mortal Kombat 1",
 };
+
+// javaw.exe runs every Java program, Minecraft: Java Edition among them, so it
+// is not in the list above: only the game's window title says which it is.
+// "Lunar Client" is the popular PvP client, which names its window after itself.
+export function isMinecraftWindowTitle(title: string): boolean {
+  return /minecraft|lunar client/i.test(title);
+}
 
 export function normalizeProcessName(value: string): string {
   const trimmed = value.trim();

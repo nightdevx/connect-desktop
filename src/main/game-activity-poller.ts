@@ -1,7 +1,12 @@
 import { execFile } from "node:child_process";
 import { getDesktopAppPreferences, onDesktopAppPreferencesChanged } from "./app-preferences";
 import { backendClient, getSessionStore, withAccessToken } from "./ipc/context";
-import { matchKnownGame, type GameActivity } from "../shared/game-activity";
+import {
+  isMinecraftWindowTitle,
+  matchKnownGame,
+  normalizeProcessName,
+  type GameActivity,
+} from "../shared/game-activity";
 
 const POLL_INTERVAL_MS = 20_000;
 const STARTUP_DELAY_MS = 10_000;
@@ -67,6 +72,41 @@ const listProcessNames = async (): Promise<string[]> => {
   return [];
 };
 
+// The window titles of running javaw.exe processes: the last CSV column of the
+// verbose listing, "N/A" for a process without a window. Asked only while a
+// javaw.exe runs, since /V is the slow form of tasklist.
+const listJavaWindowTitles = async (): Promise<string[]> => {
+  const stdout = await runCommand("tasklist", [
+    "/V",
+    "/FO",
+    "CSV",
+    "/NH",
+    "/FI",
+    "IMAGENAME eq javaw.exe",
+  ]);
+  const titles: string[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = /"([^"]*)"\s*$/.exec(line);
+    if (match?.[1]) {
+      titles.push(match[1]);
+    }
+  }
+  return titles;
+};
+
+const detectGame = async (): Promise<string | null> => {
+  const names = await listProcessNames();
+  const known = matchKnownGame(names);
+  if (
+    known ||
+    process.platform !== "win32" ||
+    !names.some((name) => normalizeProcessName(name) === "javaw")
+  ) {
+    return known;
+  }
+  return (await listJavaWindowTitles()).some(isMinecraftWindowTitle) ? "Minecraft" : null;
+};
+
 const isSameActivity = (
   a: GameActivity | null,
   b: GameActivity | null,
@@ -117,7 +157,7 @@ const runPoll = async (): Promise<void> => {
 
   inFlight = true;
   try {
-    const title = matchKnownGame(await listProcessNames());
+    const title = await detectGame();
     const next: GameActivity | null = title
       ? {
           name: title,
