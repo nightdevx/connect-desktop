@@ -66,12 +66,15 @@ const main = async () => {
     AUDIO_GUARD_FLOOR_BPS,
     DOWNLINK,
     ENCODER_GUARD,
+    HARDWARE_FALLBACK_TICKS,
     guardedBitrate,
     initialAudioGuard,
     initialEncoderGuard,
+    initialHardwareFallback,
     stepAudioGuard,
     stepDownlink,
     stepEncoderGuard,
+    stepHardwareFallback,
   } = guards;
 
   // Feeds RTT samples through the guard and returns the actions taken.
@@ -296,8 +299,46 @@ const main = async () => {
     assert.deepEqual(steps.map((s) => s.started), [false, false, false, true], "a gap restarts the dwell");
   }
 
+  // --- hardware encoder lost mid-share -----------------------------------------
+  // Each tick is [hardwareEncoder, width, height] of the share's top layer.
+  const fallback = (ticks) => {
+    let state = initialHardwareFallback();
+    return ticks.map(([hardware, width, height]) => {
+      const step = stepHardwareFallback(state, hardware, width, height);
+      state = step.state;
+      return step.fellBack;
+    });
+  };
+  const hw = [true, 1920, 1080];
+  const sw = [false, 1920, 1080];
+  {
+    const steps = fallback([hw, hw, ...times(HARDWARE_FALLBACK_TICKS + 5, sw)]);
+    assert.equal(steps.indexOf(true), 2 + HARDWARE_FALLBACK_TICKS - 1, "told after the dwell");
+    assert.equal(steps.filter(Boolean).length, 1, "once per share, not once per tick");
+  }
+  assert.ok(
+    !fallback(times(HARDWARE_FALLBACK_TICKS * 3, sw)).includes(true),
+    "a share that never had the hardware (no GPU encoder, acceleration off) is not a fallback",
+  );
+  assert.ok(
+    !fallback([hw, ...times(HARDWARE_FALLBACK_TICKS - 1, sw), hw, ...times(HARDWARE_FALLBACK_TICKS - 1, sw)]).includes(true),
+    "an encoder rebuild that comes back to the hardware is not one",
+  );
+  assert.ok(
+    !fallback([hw, ...times(HARDWARE_FALLBACK_TICKS * 3, [false, 640, 300])]).includes(true),
+    "a window shrunk under 360 tall goes to software by Chromium's design",
+  );
+  assert.ok(
+    !fallback([hw, ...times(HARDWARE_FALLBACK_TICKS * 3, [false, 300, 640])]).includes(true),
+    "and a portrait one under 360 wide",
+  );
+  assert.ok(
+    !fallback([hw, ...times(HARDWARE_FALLBACK_TICKS * 3, [null, null, null])]).includes(true),
+    "no verdict from Chromium is not a software verdict",
+  );
+
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("link-guards self-check passed (audio guard, encoder guard, downlink diagnosis)");
+  console.log("link-guards self-check passed (audio guard, encoder guard, hardware fallback, downlink diagnosis)");
 };
 
 main().catch((error) => {

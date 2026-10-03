@@ -225,6 +225,66 @@ export const stepEncoderGuard = (
   return { state: next, action: null };
 };
 
+// --- hardware encoder lost mid-share -------------------------------------------
+//
+// Chromium moves an encoder to software on its own when the GPU encoder fails
+// mid-stream: a driver error, a profile the driver turns down, or another app
+// holding the encoder's sessions. The share carries on, on the CPU, and nothing
+// said so. A share that ran on the hardware and has been on software this long
+// is told once.
+
+// 6 s at the 2 s stats interval: longer than a re-capture's encoder rebuild.
+export const HARDWARE_FALLBACK_TICKS = 3;
+
+// Chromium encodes every layer under this many pixels tall in software by
+// design (ForceSoftwareForLowResolutions), so a window shrunk below it moving
+// to software is no fault. Taken on the short side, which also covers a
+// portrait window.
+const HARDWARE_MIN_SHORT_SIDE = 360;
+
+export interface HardwareFallbackState {
+  wasHardware: boolean;
+  softwareTicks: number;
+  noticed: boolean;
+}
+
+export const initialHardwareFallback = (): HardwareFallbackState => ({
+  wasHardware: false,
+  softwareTicks: 0,
+  noticed: false,
+});
+
+/**
+ * One stats tick of the share's top layer. `fellBack` is true once per share:
+ * the tick the software run reaches HARDWARE_FALLBACK_TICKS.
+ */
+export const stepHardwareFallback = (
+  state: HardwareFallbackState,
+  hardware: boolean | null,
+  frameWidth: number | null,
+  frameHeight: number | null,
+): { state: HardwareFallbackState; fellBack: boolean } => {
+  if (hardware === true) {
+    return {
+      state: { ...state, wasHardware: true, softwareTicks: 0 },
+      fellBack: false,
+    };
+  }
+  const expectedSoftware =
+    frameWidth !== null &&
+    frameHeight !== null &&
+    Math.min(frameWidth, frameHeight) < HARDWARE_MIN_SHORT_SIDE;
+  if (hardware === null || expectedSoftware) {
+    return { state: { ...state, softwareTicks: 0 }, fellBack: false };
+  }
+  if (!state.wasHardware || state.noticed) {
+    return { state, fellBack: false };
+  }
+  const softwareTicks = state.softwareTicks + 1;
+  const fellBack = softwareTicks >= HARDWARE_FALLBACK_TICKS;
+  return { state: { ...state, softwareTicks, noticed: fellBack }, fellBack };
+};
+
 // --- downlink diagnosis --------------------------------------------------------
 //
 // Everybody arriving damaged at once is this machine's download, not everybody

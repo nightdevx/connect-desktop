@@ -70,11 +70,14 @@ import {
   guardedBitrate,
   initialAudioGuard,
   initialEncoderGuard,
+  initialHardwareFallback,
   stepAudioGuard,
   stepDownlink,
   stepEncoderGuard,
+  stepHardwareFallback,
   type AudioGuardState,
   type EncoderGuardState,
+  type HardwareFallbackState,
 } from "./link-guards";
 import {
   describeEncodingMismatch,
@@ -290,6 +293,7 @@ export class LiveKitMediaSession {
   private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
 
   private encoderGuard: EncoderGuardState = initialEncoderGuard();
+  private hardwareFallback: HardwareFallbackState = initialHardwareFallback();
   private softwareSvcTicks = 0;
   private hardwareSvcCodec: VideoCodec | null = null;
   private hardwareSvcProbe: Promise<void> | null = null;
@@ -808,6 +812,7 @@ export class LiveKitMediaSession {
     this.startAudioMonitoring();
 
     this.encoderGuard = initialEncoderGuard();
+    this.hardwareFallback = initialHardwareFallback();
     this.softwareSvcTicks = 0;
     this.lastIcePaths = EMPTY_ICE_PATHS;
     this.audioGuard = initialAudioGuard();
@@ -822,6 +827,7 @@ export class LiveKitMediaSession {
       this.evaluateAudioGuard(snapshot);
       this.evaluateQualityLimitation(snapshot);
       this.evaluateScreenEncoderCodec(snapshot);
+      this.evaluateHardwareFallback(snapshot);
       this.evaluateDownlink(snapshot);
     });
 
@@ -1127,6 +1133,7 @@ export class LiveKitMediaSession {
       // A new share (or none) starts with a clean record, the bandwidth note
       // included.
       this.encoderGuard = initialEncoderGuard();
+      this.hardwareFallback = initialHardwareFallback();
     }
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
@@ -1735,6 +1742,49 @@ export class LiveKitMediaSession {
         this.codecFallbackInFlight = false;
       }
     });
+  }
+
+  /**
+   * A share that ran on the GPU encoder and dropped to software mid-share (see
+   * stepHardwareFallback). AV1 and VP9 are evaluateScreenEncoderCodec's: it
+   * moves those to H.264 instead.
+   */
+  private evaluateHardwareFallback(snapshot: MediaStatsSnapshot): void {
+    if (!this.desiredScreenEnabled) {
+      return;
+    }
+    const codec = this.resolveScreenCodec();
+    if (codec === "av1" || codec === "vp9") {
+      return;
+    }
+    const screen = snapshot.outbound.find(
+      (entry) =>
+        entry.kind === "video" &&
+        entry.trackKey === `local:${Track.Source.ScreenShare}`,
+    );
+    if (!screen) {
+      return;
+    }
+
+    const step = stepHardwareFallback(
+      this.hardwareFallback,
+      screen.hardwareEncoder,
+      screen.frameWidth,
+      screen.frameHeight,
+    );
+    this.hardwareFallback = step.state;
+    if (!step.fellBack) {
+      return;
+    }
+
+    logLiveKitDebug("stream-manager", "encoder-fallback", {
+      codec: screen.codec,
+      implementation: screen.encoderImplementation,
+      resolution: `${screen.frameWidth}x${screen.frameHeight}`,
+    });
+    this.callbacks.onWarning?.(
+      "Ekran kartının kodlayıcısı yayının ortasında devre dışı kaldı, yayın artık işlemciyle kodlanıyor. Ekran kartı sürücüsünü güncellemek ya da kodlayıcıyı kullanan başka bir programı (OBS gibi) kapatmak çoğu zaman düzeltir.",
+    );
   }
 
   /** Called when a screen share has been CPU-limited long enough to step down. */
