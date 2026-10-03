@@ -277,6 +277,87 @@ export const buildVideoPublishPlan = (params: {
   );
 };
 
+// --- H.264 High profile ------------------------------------------------------
+//
+// livekit-client never calls setCodecPreferences, so Chromium's own order
+// decides which H.264 profile the SFU answers with, and Chromium lists Baseline
+// first. High compresses better (CABAC, 8x8 transform): on synthetic bench
+// content the same 4 Mbps came out at QP 36 instead of Baseline's 40. The SFU
+// has to register High for this to take; connect-backend's LiveKit config does.
+//
+// Chromium offers High only when a hardware encoder reports it. Main stays
+// where it is: libwebrtc lists Main for OpenH264 as well, so preferring it would
+// move a Baseline-only hardware encoder onto software. A layer under 360 tall
+// still goes to OpenH264 inside a High session, and subscribers decode it like
+// the rest (checked on the bench, in hardware).
+
+const isH264 = (codec: RTCRtpCodec): boolean =>
+  codec.mimeType.toLowerCase() === "video/h264";
+
+const isH264High = (codec: RTCRtpCodec): boolean =>
+  isH264(codec) && /profile-level-id=64/i.test(codec.sdpFmtpLine ?? "");
+
+/**
+ * The codec list with H.264 High ahead of the other H.264 profiles. Everything
+ * else keeps its order, and every other codec its slot, so a VP8, VP9 or AV1
+ * publish negotiates exactly as before. Without High the list is unchanged.
+ */
+export const preferH264High = <T extends RTCRtpCodec>(
+  codecs: readonly T[],
+): T[] => {
+  const h264 = codecs.filter(isH264);
+  const ordered = [
+    ...h264.filter(isH264High),
+    ...h264.filter((codec) => !isH264High(codec)),
+  ];
+  let next = 0;
+  return codecs.map((codec) => (isH264(codec) ? ordered[next++] : codec));
+};
+
+let h264HighInstalled = false;
+
+/**
+ * Applies preferH264High to every sending video transceiver this page adds, the
+ * only point at which livekit-client's publish path can be reached. Receiving
+ * ones are left alone: in single-peer-connection mode livekit-client adds
+ * recvonly video sections for what it subscribes to, and those must keep every
+ * profile this machine can decode. Idempotent.
+ */
+export const installH264HighPreference = (): void => {
+  if (
+    h264HighInstalled ||
+    typeof RTCPeerConnection === "undefined" ||
+    typeof RTCRtpTransceiver === "undefined" ||
+    typeof RTCRtpTransceiver.prototype.setCodecPreferences !== "function"
+  ) {
+    return;
+  }
+  h264HighInstalled = true;
+
+  const addTransceiver = RTCPeerConnection.prototype.addTransceiver;
+  RTCPeerConnection.prototype.addTransceiver = function (
+    this: RTCPeerConnection,
+    trackOrKind: MediaStreamTrack | string,
+    init?: RTCRtpTransceiverInit,
+  ): RTCRtpTransceiver {
+    const transceiver = addTransceiver.call(this, trackOrKind, init);
+    const kind =
+      typeof trackOrKind === "string" ? trackOrKind : trackOrKind.kind;
+    const sends = (init?.direction ?? "sendrecv").startsWith("send");
+    if (kind === "video" && sends) {
+      const codecs = RTCRtpSender.getCapabilities("video")?.codecs;
+      if (codecs?.some(isH264High)) {
+        try {
+          transceiver.setCodecPreferences(preferH264High(codecs));
+        } catch {
+          // A browser that rejects the list keeps its own order: Baseline.
+        }
+      }
+    }
+    return transceiver;
+  };
+};
+
 /**
  * Content mode for a screen capture. "auto" protects smoothness, like Discord's
  * "Smoother Video": under a short uplink the encoder sheds resolution and keeps

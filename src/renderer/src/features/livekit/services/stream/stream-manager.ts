@@ -84,6 +84,7 @@ import {
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
+  installH264HighPreference,
   resolveCodecTarget,
   resolveHardwareSvcCodec,
   resolveVideoCodec,
@@ -724,6 +725,9 @@ export class LiveKitMediaSession {
     );
 
     this.resolvedVideoCodec = resolveVideoCodec(this.videoPublishPreferences);
+    // Before the first publish: H.264 goes out as High where a hardware encoder
+    // offers it, instead of Chromium's default Baseline.
+    installH264HighPreference();
 
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },

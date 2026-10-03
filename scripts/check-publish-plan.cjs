@@ -64,9 +64,12 @@ const main = async () => {
   });
 
   const bundle = path.join(outDir, "video-profiles.mjs");
-  const { buildVideoPublishPlan, resolveScreenContentMode } = await import(
-    pathToFileURL(bundle).href
-  );
+  const {
+    buildVideoPublishPlan,
+    resolveScreenContentMode,
+    preferH264High,
+    installH264HighPreference,
+  } = await import(pathToFileURL(bundle).href);
 
   const target = {
     width: 1920,
@@ -190,6 +193,144 @@ const main = async () => {
   assert.equal(resolveScreenContentMode("auto"), "motion");
   assert.equal(resolveScreenContentMode("detail"), "detail");
   assert.equal(resolveScreenContentMode("motion"), "motion");
+
+  // --- H.264 High profile -------------------------------------------------
+  // The SFU answers with the first H.264 profile it registers, in the order the
+  // publisher offers them, and Chromium offers Baseline first.
+  const h264 = (profileLevelId, packetizationMode = 1) => ({
+    mimeType: "video/H264",
+    clockRate: 90000,
+    sdpFmtpLine: `level-asymmetry-allowed=1;packetization-mode=${packetizationMode};profile-level-id=${profileLevelId}`,
+  });
+  const codec = (mimeType, sdpFmtpLine) => ({
+    mimeType,
+    clockRate: 90000,
+    ...(sdpFmtpLine ? { sdpFmtpLine } : {}),
+  });
+  const label = (entry) => {
+    const fmtp = entry.sdpFmtpLine ?? "";
+    const profile = /profile-level-id=(\w+)/.exec(fmtp)?.[1] ?? "-";
+    const mode = /packetization-mode=(\d)/.exec(fmtp)?.[1] ?? "0";
+    return entry.mimeType === "video/H264"
+      ? `H264:${profile}/${mode}`
+      : entry.mimeType.slice("video/".length);
+  };
+  // Chromium 142's send list with webrtc-hw-encoding off: OpenH264 alone. Main
+  // is there too; libwebrtc lists it for OpenH264, which sends Constrained
+  // Baseline under it.
+  const softwareOnly = [
+    codec("video/VP8"),
+    codec("video/rtx"),
+    h264("42001f"),
+    h264("42001f", 0),
+    h264("42e01f"),
+    h264("42e01f", 0),
+    h264("4d001f"),
+    h264("4d001f", 0),
+    codec("video/AV1", "level-idx=5;profile=0;tier=0"),
+    codec("video/VP9", "profile-id=0"),
+    codec("video/VP9", "profile-id=2"),
+    codec("video/red"),
+    codec("video/ulpfec"),
+  ];
+  // The same with a hardware encoder (Intel Quick Sync, on the bench): it adds
+  // High, last.
+  const withHardware = [
+    ...softwareOnly.slice(0, 11),
+    h264("640020"),
+    ...softwareOnly.slice(11),
+  ];
+  const original = [...withHardware];
+  assert.deepEqual(
+    preferH264High(withHardware).map(label),
+    [
+      "VP8",
+      "rtx",
+      "H264:640020/1",
+      "H264:42001f/1",
+      "H264:42001f/0",
+      "H264:42e01f/1",
+      "H264:42e01f/0",
+      "H264:4d001f/1",
+      "AV1",
+      "VP9",
+      "VP9",
+      "H264:4d001f/0",
+      "red",
+      "ulpfec",
+    ],
+    "High first among the H.264 entries; every other codec keeps its slot",
+  );
+  assert.deepEqual(withHardware, original, "the caller's list is not touched");
+  assert.deepEqual(
+    preferH264High(softwareOnly),
+    softwareOnly,
+    "no High, no change: Main first would take a Baseline-only hardware encoder off the hardware",
+  );
+
+  // The publish hook: sending video only, installed once, never fatal. Node has
+  // no RTCPeerConnection, so the browser classes are stood in for.
+  let capabilities = withHardware;
+  let preferenceCalls = 0;
+  class FakeTransceiver {
+    constructor() {
+      this.preferences = null;
+    }
+    setCodecPreferences(codecs) {
+      preferenceCalls += 1;
+      this.preferences = codecs;
+    }
+  }
+  class FakePeerConnection {
+    addTransceiver() {
+      return new FakeTransceiver();
+    }
+  }
+  globalThis.RTCPeerConnection = FakePeerConnection;
+  globalThis.RTCRtpTransceiver = FakeTransceiver;
+  globalThis.RTCRtpSender = {
+    getCapabilities: (kind) =>
+      kind === "video" ? { codecs: capabilities } : null,
+  };
+  installH264HighPreference();
+  installH264HighPreference();
+  const pc = new FakePeerConnection();
+  const published = pc.addTransceiver(
+    { kind: "video" },
+    { direction: "sendonly", sendEncodings: [{ rid: "q" }, { rid: "f" }] },
+  );
+  assert.equal(preferenceCalls, 1, "installing twice hooks addTransceiver once");
+  assert.deepEqual(
+    published.preferences.map(label),
+    preferH264High(withHardware).map(label),
+  );
+  assert.ok(pc.addTransceiver("video").preferences, "the default direction sends");
+  assert.equal(
+    pc.addTransceiver("video", { direction: "recvonly" }).preferences,
+    null,
+    "a receive section keeps every profile this machine decodes",
+  );
+  assert.equal(
+    pc.addTransceiver({ kind: "audio" }, { direction: "sendonly" }).preferences,
+    null,
+  );
+  capabilities = softwareOnly;
+  assert.equal(
+    pc.addTransceiver({ kind: "video" }, { direction: "sendonly" }).preferences,
+    null,
+    "without High the transceiver is not touched at all",
+  );
+  capabilities = withHardware;
+  FakeTransceiver.prototype.setCodecPreferences = () => {
+    throw new Error("InvalidModificationError");
+  };
+  assert.ok(
+    pc.addTransceiver({ kind: "video" }, { direction: "sendonly" }),
+    "a browser that rejects the list still publishes, in its own order",
+  );
+  delete globalThis.RTCPeerConnection;
+  delete globalThis.RTCRtpTransceiver;
+  delete globalThis.RTCRtpSender;
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log("publish-plan self-check passed");
