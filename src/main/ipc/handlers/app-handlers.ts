@@ -21,6 +21,7 @@ import {
 } from "../../update";
 import { launchMockUpdaterWindow } from "../../update/helper-mode";
 import { getFreeGames } from "../../free-games-poller";
+import { detectGame } from "../../game-activity-poller";
 import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
 
 export function registerAppHandlers(): void {
@@ -182,6 +183,14 @@ export function registerAppHandlers(): void {
       }));
 
       return ok({ sources: mapped });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  ipcMain.handle("desktop:running-game", async () => {
+    try {
+      return ok({ name: await detectGame() });
     } catch (error) {
       return fail(error);
     }

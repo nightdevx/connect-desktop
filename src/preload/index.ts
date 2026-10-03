@@ -228,6 +228,7 @@ const desktopApi: DesktopApi = {
   stopWatch: async (payload) => ipcRenderer.invoke("desktop:watch-stop", payload),
   listScreenCaptureSources: async () =>
     ipcRenderer.invoke("desktop:screen-capture-sources"),
+  getRunningGame: async () => ipcRenderer.invoke("desktop:running-game"),
   getLobbyState: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-state", payload),
   listLobbyMessages: async (payload) =>

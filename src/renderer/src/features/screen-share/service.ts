@@ -196,13 +196,6 @@ const startBrowserDisplayCapture = async (
   }
 };
 
-// Asked for 30 frames a second, Chromium's desktop capture delivered 21-24 on
-// the bench and 23 in production (2026-10-03); asked for 60, it delivers
-// 29-36. So the capture asks for twice the preset's rate, up to 60, and the
-// encoder keeps to the preset's own (its maxFramerate per encoding).
-const captureFrameRate = (frameRate: number): number =>
-  Math.min(60, frameRate * 2);
-
 const startElectronDesktopCapture = async (
   options: StartScreenCaptureOptions,
 ): Promise<StartScreenCaptureResult> => {
@@ -261,13 +254,23 @@ const startElectronDesktopCapture = async (
     //
     // Ceilings only, no min*: pinning min == max made capture fail outright on
     // sources that cannot hit the target.
+    //
+    // The capture asks for exactly the preset's frame rate. It used to ask
+    // for twice that, up to 60, because a 30 fps request delivered 21-24
+    // while screen zero-Hz was on. Zero-Hz is off now (media-engine-flags.ts)
+    // and 30 delivers 29: on a still screen, on a live one and inside a
+    // League match (2026-10-04). The extra frames were never sent, the 30 fps
+    // encodings dropped them, but each one went through Chromium's
+    // capture-to-WebRTC path first, and that path is what a game running next
+    // to the share pays for. In the same match a 720p30 share cost League 11%
+    // of its frame rate, a 1080p share at 60 frames a second 30-40%.
     const constraints: DesktopCaptureConstraints = {
       audio: false,
       video: {
         mandatory: {
           chromeMediaSource: "desktop",
           chromeMediaSourceId: preferredSource.id,
-          maxFrameRate: captureFrameRate(options.frameRate),
+          maxFrameRate: options.frameRate,
           maxWidth: dimensions?.width,
           maxHeight: dimensions?.height,
         },
@@ -310,7 +313,7 @@ const startElectronDesktopCapture = async (
             mandatory: {
               chromeMediaSource: "desktop",
               chromeMediaSourceId: preferredSource.id,
-              maxFrameRate: captureFrameRate(options.frameRate),
+              maxFrameRate: options.frameRate,
               maxWidth: dimensions?.width,
               maxHeight: dimensions?.height,
             },

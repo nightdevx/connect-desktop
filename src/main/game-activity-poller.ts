@@ -94,7 +94,9 @@ const listJavaWindowTitles = async (): Promise<string[]> => {
   return titles;
 };
 
-const detectGame = async (): Promise<string | null> => {
+// Also asked directly by the share dialog, whatever the sharing setting: what
+// is running stays on this machine, only the poller publishes it.
+export const detectGame = async (): Promise<string | null> => {
   const names = await listProcessNames();
   const known = matchKnownGame(names);
   if (

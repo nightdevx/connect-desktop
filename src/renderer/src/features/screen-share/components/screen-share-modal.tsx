@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Modal, Button, Segmented, Switch, Tooltip } from "antd";
 import {
   CheckOutlined,
@@ -101,6 +102,26 @@ export function ScreenShareModal({
   const uplinkHeadroomBps = useMediaStatsStore((state) =>
     isOpen ? state.snapshot.availableOutgoingBitrateBps : null,
   );
+
+  // A game running next to the share pays for it in frame rate, and how much
+  // depends on the quality picked here (measured in a League match: 720p30
+  // cost it 11%, 1080p at 60 frames 30-40%). Asked once per opening.
+  const [runningGame, setRunningGame] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isOpen || typeof window.desktopApi.getRunningGame !== "function") {
+      setRunningGame(null);
+      return;
+    }
+    let cancelled = false;
+    void window.desktopApi.getRunningGame().then((result) => {
+      if (!cancelled) {
+        setRunningGame(result.ok ? (result.data?.name ?? null) : null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   const selectedSource =
     activeSources.find((source) => source.id === selectedSourceId) ?? null;
@@ -334,6 +355,14 @@ export function ScreenShareModal({
             <p className="ct-inline-note">
               Bu profil ölçülen bağlantına ağır gelebilir; yayın sırasında
               düşürülebilir.
+            </p>
+          )}
+
+          {runningGame && selectedQualityOption && selectedQualityOption.id !== "light" && (
+            <p className="ct-inline-note">
+              {runningGame} açık: yayın oyunun FPS'ini düşürür. Oyunu en az
+              Hafif (720p • 30 FPS) etkiler, en çok 60 FPS ve yüksek
+              çözünürlük.
             </p>
           )}
 

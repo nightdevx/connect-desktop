@@ -880,6 +880,9 @@ export interface DesktopApi {
   listScreenCaptureSources: () => Promise<
     DesktopResult<{ sources: ScreenCaptureSourceDescriptor[] }>
   >;
+  // A known game running on this machine right now, or null. Checked locally
+  // whatever the activity-sharing setting says; nothing is published.
+  getRunningGame: () => Promise<DesktopResult<{ name: string | null }>>;
   getLobbyState: (payload: { lobbyId: string }) => Promise<
     DesktopResult<{
       lobbyId: string;
