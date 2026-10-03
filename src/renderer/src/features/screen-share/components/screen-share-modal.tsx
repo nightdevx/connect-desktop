@@ -360,8 +360,9 @@ export function ScreenShareModal({
               />
 
               <p className="ct-field-hint">
-                Hareket: oyun/video, akıcılık korunur. Metin: sunum/kod, netlik
-                korunur.
+                Otomatik ve Hareket: oyun/video, akıcılık korunur; bağlantı
+                yetmezse çözünürlük düşer. Metin: sunum/kod, yazı net kalır;
+                bağlantı yetmezse kare hızı düşer.
               </p>
             </div>
 

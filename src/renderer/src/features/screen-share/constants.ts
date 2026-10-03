@@ -12,6 +12,14 @@ import {
 // Bitrates target a self-hosted SFU on a VDS, so they are set for quality
 // rather than for the lowest common denominator. The publisher still sheds
 // bitrate on its own when congestion control says so — these are ceilings.
+//
+// Raised on 2026-10-03, paid for by the cheaper low rung (see video-layers.ts):
+// a 1080p30 ladder costs about what it did (4.4 Mbps against 4.1) while its
+// primary layer gets a third more. This is the first of two steps; the ceilings
+// go further (1080p30 5 Mbps, 1080p60 8) once telemetry shows the bandwidth
+// estimates rising with hardware encoding (docs/screen-share-quality-plan.md
+// B1). For scale: LiveKit's own 1080p30 preset is 5 Mbps, Discord caps 720p30
+// at 3.5 and 1080p60 at 9.
 export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
   // The floor, and the only rung that is cheaper than "Dengeli" on BOTH axes.
   // Without it a CPU-limited 1080p30 share had nowhere to go: the next preset
@@ -24,7 +32,7 @@ export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
     description: "720p • 30 FPS",
     frameRate: 30,
     resolution: "720p",
-    maxBitrateBps: 1_500_000,
+    maxBitrateBps: 2_000_000,
   },
   {
     id: "smooth",
@@ -32,7 +40,7 @@ export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
     description: "720p • 60 FPS",
     frameRate: 60,
     resolution: "720p",
-    maxBitrateBps: 2_500_000,
+    maxBitrateBps: 3_200_000,
   },
   {
     id: "balanced",
@@ -40,7 +48,7 @@ export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
     description: "1080p • 30 FPS",
     frameRate: 30,
     resolution: "1080p",
-    maxBitrateBps: 3_000_000,
+    maxBitrateBps: 4_000_000,
   },
   {
     id: "high",
@@ -48,7 +56,7 @@ export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
     description: "1080p • 60 FPS",
     frameRate: 60,
     resolution: "1080p",
-    maxBitrateBps: 5_000_000,
+    maxBitrateBps: 6_500_000,
   },
   {
     id: "sharp",
@@ -56,7 +64,7 @@ export const SCREEN_SHARE_QUALITY_OPTIONS: ScreenShareQualityOption[] = [
     description: "1440p • 60 FPS",
     frameRate: 60,
     resolution: "1440p",
-    maxBitrateBps: 9_000_000,
+    maxBitrateBps: 10_000_000,
   },
   {
     id: "ultra",
@@ -91,24 +99,23 @@ const pixelRate = (option: ScreenShareQualityOption): number => {
 };
 
 /**
- * The next preset down that is genuinely cheaper for the reason we are stepping.
+ * The next preset down that genuinely costs the encoder less.
  *
  * Not simply `index - 1`. The list is ordered for the menu, and the menu order
  * is not monotonic in cost: "Akıcı" (720p60) sits below "Dengeli" (1080p30) but
  * runs at twice the framerate, so plain index arithmetic answered a CPU
  * overload by asking the encoder for more frames per second. That is what
- * happened in production, and it bought nothing.
+ * happened in production, and it bought nothing. A step therefore refuses to
+ * raise the framerate at all, on top of requiring a lower pixel rate.
  *
- * A CPU step therefore refuses to raise the framerate at all, on top of
- * requiring a lower pixel rate. A bandwidth step only has to lower the bitrate
- * ceiling, which is what the uplink actually cares about.
+ * CPU is the only reason left to step down. A bandwidth step used to exist and
+ * was nearly always wrong (see stepEncoderGuard in link-guards.ts).
  *
  * Null means the floor: the caller tells the user quality cannot drop further
  * rather than performing a swap that costs resolution and returns nothing.
  */
 export const getLowerScreenShareQuality = (
   preset: ScreenShareQualityPreset,
-  reason: "cpu" | "bandwidth" = "cpu",
 ): ScreenShareQualityPreset | null => {
   const index = SCREEN_SHARE_QUALITY_OPTIONS.findIndex(
     (option) => option.id === preset,
@@ -121,13 +128,6 @@ export const getLowerScreenShareQuality = (
 
   for (let candidate = index - 1; candidate >= 0; candidate -= 1) {
     const option = SCREEN_SHARE_QUALITY_OPTIONS[candidate];
-
-    if (reason === "bandwidth") {
-      if (option.maxBitrateBps < current.maxBitrateBps) {
-        return option.id;
-      }
-      continue;
-    }
 
     if (
       option.frameRate <= current.frameRate &&

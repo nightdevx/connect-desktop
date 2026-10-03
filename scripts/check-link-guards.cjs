@@ -11,6 +11,12 @@
 //   - cuts stop at a floor of the preset; restores stop at the preset
 //   - not sharing resets the ceiling
 //
+// ENCODER GUARD  which encoder limitations change anything.
+//   - CPU: a screen share steps down after the dwell, once per episode
+//   - bandwidth: never a step-down (the encoder adapts by itself); one note
+//     per share after a minute
+//   - recovery counts any tick without a CPU limit while sharing
+//
 // DOWNLINK     everybody arriving damaged at once is this machine's download.
 //   - needs two people actually speaking; one cannot tell the two apart
 //   - fires once per episode, after the dwell
@@ -59,10 +65,13 @@ const main = async () => {
     AUDIO_GUARD,
     AUDIO_GUARD_FLOOR_BPS,
     DOWNLINK,
+    ENCODER_GUARD,
     guardedBitrate,
     initialAudioGuard,
+    initialEncoderGuard,
     stepAudioGuard,
     stepDownlink,
+    stepEncoderGuard,
   } = guards;
 
   // Feeds RTT samples through the guard and returns the actions taken.
@@ -144,6 +153,95 @@ const main = async () => {
     assert.equal(guardedBitrate(100_000, 0.25), 100_000, "a layer under the floor keeps its own cap");
   }
 
+  // --- encoder guard ---------------------------------------------------------
+  // Feeds limitations through the guard; sharing is true unless said otherwise.
+  const guard = (limitations, sharing = () => true, from = initialEncoderGuard()) => {
+    let state = from;
+    const actions = [];
+    limitations.forEach((limitation, index) => {
+      const step = stepEncoderGuard(state, limitation, sharing(index));
+      state = step.state;
+      actions.push(step.action);
+    });
+    return { state, actions };
+  };
+  const times = (n, value) => Array.from({ length: n }, () => value);
+  const only = (actions) => actions.filter((a) => a !== null);
+
+  {
+    // CPU: nothing before the dwell, a step-down on it, then quiet while it lasts.
+    const { actions } = guard(times(ENCODER_GUARD.cpuTicks + 10, "cpu"));
+    assert.deepEqual(
+      actions.slice(0, ENCODER_GUARD.cpuTicks - 1),
+      times(ENCODER_GUARD.cpuTicks - 1, null),
+      "a CPU blip shorter than the dwell changes nothing",
+    );
+    assert.equal(actions[ENCODER_GUARD.cpuTicks - 1], "step-down");
+    assert.deepEqual(only(actions), ["step-down"], "one step-down per episode, not one per tick");
+  }
+  {
+    // Without a share there is nothing to step down: say so instead.
+    const { actions } = guard(times(ENCODER_GUARD.cpuTicks, "cpu"), () => false);
+    assert.deepEqual(only(actions), ["cpu-notice"]);
+  }
+  {
+    // A new episode after a clean tick can step down again.
+    const { actions } = guard([
+      ...times(ENCODER_GUARD.cpuTicks, "cpu"),
+      null,
+      ...times(ENCODER_GUARD.cpuTicks, "cpu"),
+    ]);
+    assert.deepEqual(only(actions), ["step-down", "step-down"]);
+  }
+  {
+    // The regression: a bandwidth limit never steps the share down, however
+    // long it lasts. It earns one note, after a minute, once per share.
+    const { actions } = guard(times(ENCODER_GUARD.bandwidthNoticeTicks * 3, "bandwidth"));
+    assert.ok(!actions.includes("step-down"), "bandwidth must never step a share down");
+    // step-up is the recovery heartbeat (a bandwidth tick is not a CPU one); at
+    // the preset the user chose it changes nothing.
+    assert.deepEqual(
+      only(actions).filter((a) => a !== "step-up"),
+      ["bandwidth-notice"],
+      "one note, not one per tick",
+    );
+    assert.equal(
+      actions.indexOf("bandwidth-notice"),
+      ENCODER_GUARD.bandwidthNoticeTicks - 1,
+      "the note waits a minute of sustained limitation",
+    );
+  }
+  {
+    // A short bandwidth limit, the kind a share has every time it goes from a
+    // still screen to motion, says nothing at all.
+    const { actions } = guard([
+      ...times(10, "bandwidth"),
+      null,
+      ...times(10, "bandwidth"),
+    ]);
+    assert.deepEqual(only(actions), []);
+  }
+  {
+    // Recovery after a CPU step: bandwidth ticks do not hold it back.
+    const mixed = Array.from({ length: ENCODER_GUARD.recoveryTicks }, (_, i) =>
+      i % 3 === 0 ? "bandwidth" : null,
+    );
+    const { actions } = guard(mixed);
+    assert.equal(actions.at(-1), "step-up", "recovery counts every tick without a CPU limit");
+    assert.equal(only(actions).filter((a) => a === "step-up").length, 1);
+  }
+  {
+    // A CPU tick restarts the recovery count; not sharing earns nothing.
+    const interrupted = guard([
+      ...times(ENCODER_GUARD.recoveryTicks - 1, null),
+      "cpu",
+      ...times(ENCODER_GUARD.recoveryTicks - 1, null),
+    ]);
+    assert.ok(!interrupted.actions.includes("step-up"), "a CPU limit restarts the recovery count");
+    const idle = guard(times(ENCODER_GUARD.recoveryTicks * 2, null), () => false);
+    assert.ok(!idle.actions.includes("step-up"), "no share, no step-up");
+  }
+
   // --- downlink --------------------------------------------------------------
   const speaking = (identity, packetLossPct) => ({ identity, packetLossPct, bitrateBps: 48_000 });
   const silent = (identity, packetLossPct) => ({ identity, packetLossPct, bitrateBps: 2_000 });
@@ -199,7 +297,7 @@ const main = async () => {
   }
 
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("link-guards self-check passed (audio guard and downlink diagnosis)");
+  console.log("link-guards self-check passed (audio guard, encoder guard, downlink diagnosis)");
 };
 
 main().catch((error) => {

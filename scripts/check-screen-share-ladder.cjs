@@ -73,8 +73,8 @@ for (const option of SCREEN_SHARE_QUALITY_OPTIONS) {
   assert.ok(dimensions[option.resolution], `${option.id} has an unknown resolution`);
   assert.ok(option.maxBitrateBps > 0, `${option.id} has no bitrate ceiling`);
 }
-// Bitrate is the one axis the menu order IS monotonic in, and the bandwidth
-// step-down leans on it.
+// Bitrate is the one axis the menu order IS monotonic in, and the uplink
+// estimate shown beside each preset reads that way.
 for (let i = 1; i < SCREEN_SHARE_QUALITY_OPTIONS.length; i += 1) {
   assert.ok(
     SCREEN_SHARE_QUALITY_OPTIONS[i].maxBitrateBps >
@@ -87,7 +87,7 @@ for (let i = 1; i < SCREEN_SHARE_QUALITY_OPTIONS.length; i += 1) {
 // The regression, stated directly. Every preset that can step down for CPU must
 // land somewhere cheaper on BOTH axes.
 for (const option of SCREEN_SHARE_QUALITY_OPTIONS) {
-  const lower = getLowerScreenShareQuality(option.id, "cpu");
+  const lower = getLowerScreenShareQuality(option.id);
   if (!lower) {
     continue;
   }
@@ -103,31 +103,23 @@ for (const option of SCREEN_SHARE_QUALITY_OPTIONS) {
 
 // The exact pair from the logs.
 assert.equal(
-  getLowerScreenShareQuality("balanced", "cpu"),
+  getLowerScreenShareQuality("balanced"),
   "light",
   "1080p30 under a CPU limit must not step to 720p60",
 );
-assert.equal(getLowerScreenShareQuality("high", "cpu"), "balanced");
+assert.equal(getLowerScreenShareQuality("high"), "balanced");
 // 1440p60 and 2160p30 must both skip past anything that would raise the rate.
-assert.equal(getLowerScreenShareQuality("ultra", "cpu"), "balanced");
+assert.equal(getLowerScreenShareQuality("ultra"), "balanced");
 
-// --- a bandwidth step only has to cost fewer bits ---------------------------
-for (const option of SCREEN_SHARE_QUALITY_OPTIONS) {
-  const lower = getLowerScreenShareQuality(option.id, "bandwidth");
-  if (!lower) {
-    continue;
-  }
-  assert.ok(
-    byId.get(lower).maxBitrateBps < option.maxBitrateBps,
-    `stepping down from ${option.id} for bandwidth does not lower the ceiling`,
-  );
-}
-assert.equal(getLowerScreenShareQuality("balanced", "bandwidth"), "smooth");
+// There is no bandwidth step any more: the encoder adapts to the uplink by
+// itself, and the old step (1080p30 -> 720p60, from a re-capture that almost
+// never came back) was the most common step in production. The function takes
+// no reason, so a caller cannot ask for one.
+assert.equal(getLowerScreenShareQuality.length, 1, "getLowerScreenShareQuality takes the preset only");
 
 // --- the floor is a floor ---------------------------------------------------
 const floor = SCREEN_SHARE_QUALITY_OPTIONS[0].id;
-assert.equal(getLowerScreenShareQuality(floor, "cpu"), null, "the floor has nowhere to go");
-assert.equal(getLowerScreenShareQuality(floor, "bandwidth"), null);
+assert.equal(getLowerScreenShareQuality(floor), null, "the floor has nowhere to go");
 
 // --- the way back up --------------------------------------------------------
 // Stepping down is cheap to trigger and used to be permanent: a thirty-second
@@ -146,7 +138,7 @@ assert.equal(
 
 // Down then up returns to where it started, which is the whole point.
 const start = "high";
-const stepped = getLowerScreenShareQuality(start, "cpu");
+const stepped = getLowerScreenShareQuality(start);
 assert.equal(getHigherScreenShareQuality(stepped, start), start, "a CPU dip is recoverable");
 
 // --- the fallback is by id, not by position ---------------------------------

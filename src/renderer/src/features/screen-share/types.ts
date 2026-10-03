@@ -11,9 +11,8 @@ export const SCREEN_SHARE_RESOLUTION_DIMENSIONS: Record<
   "2160p": { width: 3840, height: 2160 },
 };
 
-// What the encoder should protect under congestion. "auto" derives it from the
-// preset framerate: 60fps presets are gameplay/video, 30fps presets are
-// slides/code where sharp text matters more than smoothness.
+// What the encoder should protect under congestion. "auto" is "motion": frame
+// rate first, as Discord's default does. "detail" keeps text sharp instead.
 export type ScreenShareContentMode = "auto" | "motion" | "detail";
 
 export interface StartScreenCaptureOptions {

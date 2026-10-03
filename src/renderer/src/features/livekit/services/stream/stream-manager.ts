@@ -7,6 +7,7 @@ import {
   ConnectionState,
   DisconnectReason,
   LocalParticipant,
+  LocalVideoTrack,
   type LocalTrackPublication,
   type Participant,
   type RemoteTrack,
@@ -68,13 +69,17 @@ import {
 import {
   guardedBitrate,
   initialAudioGuard,
+  initialEncoderGuard,
   stepAudioGuard,
   stepDownlink,
+  stepEncoderGuard,
   type AudioGuardState,
+  type EncoderGuardState,
 } from "./link-guards";
 import {
   describeEncodingMismatch,
   scaleBitrateToResolution,
+  screenShareLiveEncodings,
 } from "@shared/video-layers";
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
@@ -83,7 +88,6 @@ import {
   resolveHardwareSvcCodec,
   resolveVideoCodec,
   type VideoContentMode,
-  type VideoPublishPlan,
   type VideoPublishPreferences,
   type VideoPublishTarget,
 } from "./video-profiles";
@@ -93,18 +97,6 @@ const AUDIO_LEVEL_SAMPLE_INTERVAL_MS = 100;
 // The mute is queued behind every other microphone operation, so without a
 // ceiling a slow one held the leave open with the user still audible.
 const DISCONNECT_MIC_MUTE_BUDGET_MS = 300;
-// Stats tick once a second; only warn after the limitation has persisted, so a
-// momentary spike while a share starts up does not fire a scary message.
-// Stats ticks, not seconds. Halved when the sampling interval doubled, so the
-// warning still needs about eight seconds of sustained limiting behind it.
-const QUALITY_LIMITATION_TICKS = 4;
-
-// Deliberately far longer than the step-down dwell. Coming back up costs a
-// re-capture and a republish, so a share flapping between two presets is worse
-// than one that stays a rung low for another minute — and the limitation that
-// caused the step-down is exactly the kind that returns. 90 ticks is ~3 minutes
-// of an unlimited encoder at the 2s stats interval.
-const QUALITY_RECOVERY_TICKS = 90;
 
 // NOTE: this is the budget BEFORE redundancy. Publishing sets red: true, which
 // sends every payload twice, so a speaking participant costs ~130 kbps on the
@@ -296,18 +288,14 @@ export class LiveKitMediaSession {
   private monitorTimer: number | null = null;
   private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
 
-  private limitedTicks = 0;
-  private limitationNotified = false;
+  private encoderGuard: EncoderGuardState = initialEncoderGuard();
   private softwareSvcTicks = 0;
   private hardwareSvcCodec: VideoCodec | null = null;
   private hardwareSvcProbe: Promise<void> | null = null;
   private screenCodecFallback: VideoCodec | null = null;
   private codecFallbackInFlight = false;
-  private encoderOverloadHandler:
-    | ((reason: "cpu" | "bandwidth") => void)
-    | null = null;
+  private encoderOverloadHandler: (() => void) | null = null;
   private encoderRecoveryHandler: (() => void) | null = null;
-  private healthyTicks = 0;
   private videoQueue: Promise<void> = Promise.resolve();
 
   public constructor(
@@ -815,8 +803,7 @@ export class LiveKitMediaSession {
     this.roomEventManager.registerEvents();
     this.startAudioMonitoring();
 
-    this.limitedTicks = 0;
-    this.limitationNotified = false;
+    this.encoderGuard = initialEncoderGuard();
     this.softwareSvcTicks = 0;
     this.lastIcePaths = EMPTY_ICE_PATHS;
     this.audioGuard = initialAudioGuard();
@@ -1133,6 +1120,9 @@ export class LiveKitMediaSession {
     if (!enabled || stream !== this.desiredScreenStream) {
       this.screenCodecFallback = null;
       this.softwareSvcTicks = 0;
+      // A new share (or none) starts with a clean record, the bandwidth note
+      // included.
+      this.encoderGuard = initialEncoderGuard();
     }
     this.desiredScreenEnabled = enabled;
     this.desiredScreenStream = stream;
@@ -1445,37 +1435,26 @@ export class LiveKitMediaSession {
   // Video quality problems are invisible to the person causing them: their own
   // preview looks fine. This turns "why is your stream blurry" into a concrete,
   // actionable message — and distinguishes a saturated uplink from a software
-  // encoder that cannot keep up, which look identical to a viewer.
+  // encoder that cannot keep up, which look identical to a viewer. What it acts
+  // on is stepEncoderGuard's call (link-guards.ts): a CPU limit steps a screen
+  // share down a preset; a bandwidth limit is the encoder's to handle.
   private evaluateQualityLimitation(snapshot: MediaStatsSnapshot): void {
     const limitation = findQualityLimitation(snapshot.outbound);
+    const step = stepEncoderGuard(
+      this.encoderGuard,
+      limitation?.kind ?? null,
+      // Recovery credit only while a share is actually publishing video, so an
+      // idle session does not earn a step-up it never needed.
+      this.desiredScreenEnabled && this.hasOutboundVideo(snapshot),
+    );
+    this.encoderGuard = step.state;
 
-    if (!limitation) {
-      this.limitedTicks = 0;
-      this.limitationNotified = false;
-
-      // The way back up. Stepping down is cheap to trigger and used to be
-      // permanent: a thirty-second background job cost the share its resolution
-      // until the user stopped sharing. Only counted while a share is actually
-      // publishing video, so an idle session does not accumulate credit toward
-      // a step-up it never earned.
-      if (this.desiredScreenEnabled && this.hasOutboundVideo(snapshot)) {
-        this.healthyTicks += 1;
-        if (this.healthyTicks >= QUALITY_RECOVERY_TICKS) {
-          this.healthyTicks = 0;
-          this.encoderRecoveryHandler?.();
-        }
-      } else {
-        this.healthyTicks = 0;
-      }
+    if (step.action === null) {
       return;
     }
 
-    this.healthyTicks = 0;
-    this.limitedTicks += 1;
-    if (
-      this.limitedTicks < QUALITY_LIMITATION_TICKS ||
-      this.limitationNotified
-    ) {
+    if (step.action === "step-up") {
+      this.encoderRecoveryHandler?.();
       return;
     }
 
@@ -1483,16 +1462,20 @@ export class LiveKitMediaSession {
     // made. Reading the old logs, a "quality-step-down" event said only what it
     // changed — reconstructing WHY meant finding the neighbouring stats samples
     // by timestamp and hoping the interesting one had not been dropped.
-    const culprit = snapshot.outbound.find(
-      (entry) => entry.trackKey === limitation.trackKey,
-    );
+    const culprit = limitation
+      ? snapshot.outbound.find((entry) => entry.trackKey === limitation.trackKey)
+      : undefined;
     logLiveKitDebug("stream-manager", "quality-limitation-detected", {
-      reason: limitation.kind,
-      trackKey: limitation.trackKey,
-      ticks: this.limitedTicks,
+      reason: limitation?.kind ?? null,
+      action: step.action,
+      trackKey: limitation?.trackKey ?? null,
+      ticks:
+        step.action === "bandwidth-notice"
+          ? step.state.bandwidthTicks
+          : step.state.cpuTicks,
       rttMs: snapshot.rttMs,
       availableOutgoingBitrateBps: snapshot.availableOutgoingBitrateBps,
-      softwareEncoderAtFault: limitation.softwareEncoderAtFault,
+      softwareEncoderAtFault: limitation?.softwareEncoderAtFault ?? false,
       encoderImplementation: culprit?.encoderImplementation ?? null,
       fps: culprit?.framesPerSecond ?? null,
       sourceFps: culprit?.sourceFramesPerSecond ?? null,
@@ -1505,31 +1488,27 @@ export class LiveKitMediaSession {
           : null,
     });
 
-    this.limitationNotified = true;
-
-    if (this.desiredScreenEnabled && this.encoderOverloadHandler) {
-      this.encoderOverloadHandler(
-        limitation.kind === "cpu" ? "cpu" : "bandwidth",
+    if (step.action === "bandwidth-notice") {
+      this.callbacks.onWarning?.(
+        "Yükleme hızın seçilen yayın kalitesine yetmiyor; görüntü bağlantına göre kendiliğinden ayarlanıyor.",
       );
       return;
     }
 
-    if (limitation.softwareEncoderAtFault) {
+    if (step.action === "step-down" && this.encoderOverloadHandler) {
+      this.encoderOverloadHandler();
+      return;
+    }
+
+    if (limitation?.softwareEncoderAtFault) {
       this.callbacks.onWarning?.(
         "Video yazılımla kodlanıyor ve işlemci yetişemiyor. Ayarlar → Uygulama'dan donanım hızlandırmayı açın.",
       );
       return;
     }
 
-    if (limitation.kind === "cpu") {
-      this.callbacks.onWarning?.(
-        "İşlemci yayın kalitesini karşılayamıyor; daha düşük bir yayın kalitesi seçin.",
-      );
-      return;
-    }
-
     this.callbacks.onWarning?.(
-      "Yükleme hızı seçilen yayın kalitesine yetmiyor, görüntü otomatik olarak düşürüldü.",
+      "İşlemci yayın kalitesini karşılayamıyor; daha düşük bir yayın kalitesi seçin.",
     );
   }
 
@@ -1754,23 +1733,24 @@ export class LiveKitMediaSession {
     });
   }
 
-  public setEncoderOverloadHandler(
-    handler: ((reason: "cpu" | "bandwidth") => void) | null,
-  ): void {
+  /** Called when a screen share has been CPU-limited long enough to step down. */
+  public setEncoderOverloadHandler(handler: (() => void) | null): void {
     this.encoderOverloadHandler = handler;
   }
 
   public setEncoderRecoveryHandler(handler: (() => void) | null): void {
     this.encoderRecoveryHandler = handler;
-    this.healthyTicks = 0;
+    this.encoderGuard = { ...this.encoderGuard, healthyTicks: 0 };
   }
 
   public resetEncoderOverloadNotice(): void {
-    this.limitedTicks = 0;
-    this.limitationNotified = false;
-    // A swap just republished the track; the encoder's health record starts
-    // over with it, in both directions.
-    this.healthyTicks = 0;
+    // A swap just replaced the track; the encoder's health record starts over
+    // with it, in both directions. The bandwidth note stays said: it is once
+    // per share, not once per preset.
+    this.encoderGuard = {
+      ...initialEncoderGuard(),
+      bandwidthNoticed: this.encoderGuard.bandwidthNoticed,
+    };
   }
 
   private async unpublishScreenTracks(): Promise<void> {
@@ -2024,42 +2004,34 @@ export class LiveKitMediaSession {
   }
 
   /**
-   * Re-applies an encoding ladder to a sender that is already live.
+   * Re-applies the screen-share ladder to a sender that is already live.
    *
    * Publish options are read once, when the track is published, so changing the
    * quality of a running share used to mean republishing it — which every
    * viewer sees as the stream going black while the SFU hands out a new track.
-   * The plan's layers are ordered lowest-first with the primary encoding last
-   * (the convention `describeEncodingMismatch` reads), so they line up with the
-   * sender's encodings from the end, whatever subset the browser kept.
+   * The sender keeps the encodings it was published with (lowest first);
+   * screenShareLiveEncodings gives each its bitrate, frame rate and, for the
+   * low rung, the scale that keeps it 360 on the short side of the new capture.
    */
-  private async applyLiveVideoEncodings(
+  private async applyLiveScreenEncodings(
     publication: LocalTrackPublication,
-    plan: VideoPublishPlan,
-    label: string,
+    target: VideoPublishTarget,
   ): Promise<void> {
     const sender = publication.track?.sender;
     if (!sender) {
       return;
     }
 
-    const ladder = [
-      ...(plan.screenShareSimulcastLayers ?? []).map((preset) => preset.encoding),
-      plan.screenShareEncoding ?? plan.videoEncoding,
-    ];
-
     try {
       const parameters = sender.getParameters();
       const encodings = parameters.encodings ?? [];
-      const offset = ladder.length - encodings.length;
+      const specs = screenShareLiveEncodings(target, encodings.length);
 
       encodings.forEach((encoding, index) => {
-        const spec = ladder[offset + index];
-        if (!spec) {
-          return;
-        }
+        const spec = specs[index];
         encoding.maxBitrate = spec.maxBitrate;
         encoding.maxFramerate = spec.maxFramerate;
+        encoding.scaleResolutionDownBy = spec.scaleResolutionDownBy;
       });
 
       await sender.setParameters(parameters);
@@ -2071,10 +2043,7 @@ export class LiveKitMediaSession {
         this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1 };
       }
     } catch (error) {
-      console.warn(
-        `[LiveKitMediaSession] ${label} live encoding update failed:`,
-        error,
-      );
+      console.warn("[LiveKitMediaSession] screen live encoding update failed:", error);
     }
   }
 
@@ -2132,7 +2101,15 @@ export class LiveKitMediaSession {
       isScreenShare: true,
     });
 
-    await this.applyLiveVideoEncodings(publication, plan, "screen");
+    await this.applyLiveScreenEncodings(publication, resolveCodecTarget(target, codec));
+
+    // livekit-client writes the degradation preference once, when the sender is
+    // assigned at publish. A swap between "Hareket" and "Metin" changed the
+    // content hint and left the old preference in force, so a text share kept
+    // dropping resolution (or a game kept dropping frames) under load.
+    if (publishedTrack instanceof LocalVideoTrack && plan.degradationPreference) {
+      await publishedTrack.setDegradationPreference(plan.degradationPreference);
+    }
 
     logLiveKitDebug("stream-manager", "replace-screen", {
       mode,

@@ -54,9 +54,12 @@ const main = async () => {
   });
 
   const bundle = path.join(outDir, "constants.mjs");
-  const { isScreenSource, shouldSubscribePublication } = await import(
-    pathToFileURL(bundle).href
-  );
+  const {
+    isScreenSource,
+    jitterBufferTargetFor,
+    shouldSubscribePublication,
+    SCREEN_SHARE_JITTER_BUFFER_TARGET_MS,
+  } = await import(pathToFileURL(bundle).href);
   const { Track } = await import("livekit-client");
 
   const MIC = Track.Source.Microphone;
@@ -122,6 +125,15 @@ const main = async () => {
       "deafen must not touch video",
     );
   }
+
+  // --- playout buffer ---------------------------------------------------------
+  // A watched share gets a deeper jitter buffer, picture and sound alike; a
+  // voice or a camera never does: that latency is the conversation's.
+  assert.equal(SCREEN_SHARE_JITTER_BUFFER_TARGET_MS, 120);
+  assert.equal(jitterBufferTargetFor(SCREEN), 120);
+  assert.equal(jitterBufferTargetFor(SCREEN_AUDIO), 120, "share audio keeps pace with its picture");
+  assert.equal(jitterBufferTargetFor(MIC), null, "voices keep the default buffer");
+  assert.equal(jitterBufferTargetFor(CAMERA), null, "cameras keep the default buffer");
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(

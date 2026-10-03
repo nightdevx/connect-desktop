@@ -47,36 +47,36 @@ const scaleLayer = (
 // encoders have a hard concurrent-session limit (consumer NVENC historically
 // 2-3, shared with whatever else is recording). A camera's half layer is already
 // small, so the quarter layer buys very little for a whole extra encode.
-//
-// A large screen share is the opposite case, which is why this no longer applies
-// to it: at 1440p the half layer is 1280x720 and at 2160p it is 1920x1080, so a
-// viewer whose tile is 400px wide — the grid, the rail, the new picture-in-
-// picture window — has nothing in the ladder to ask for and gets a layer many
-// times its own size or a stalled one. See SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH.
 const MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS = 2560;
 
-// Below this width a screen share stays on two encodings: the half layer is
-// already tile-sized and a third encode would be spent on nothing. At or above
-// it the quarter layer is what a small tile actually subscribes to (960x540 of
-// a 4K share, 640x360 of a 1440p one), and dynacast pauses it whenever nobody
-// is watching at that size — so the extra encoder only runs when it is wanted.
-const SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH = 2560;
+// --- the screen-share ladder ----------------------------------------------------
+//
+// The bottom rung of a screen share is 360 on its short side, at 15 fps. It is
+// what grid tiles, the picture-in-picture window and a viewer with a weak
+// downlink receive. 360 is not arbitrary: Chromium encodes anything shorter in
+// software (ForceSoftwareForLowResolutions), so this is the smallest layer that
+// stays on the hardware encoder. The rung it replaces was half the resolution at
+// 30 fps: a quarter of a 1080p ladder's uplink, and 270 tall on an ultrawide
+// monitor (640x270 of a 1280x540 share), which production showed going to
+// OpenH264 next to a hardware top layer.
+const SCREEN_SHARE_LOW_LAYER_SHORT_SIDE = 360;
+const SCREEN_SHARE_LOW_LAYER_FRAMERATE = 15;
+// LiveKit's own ScreenSharePresets.h360fps15, scaled by area for other aspects.
+const SCREEN_SHARE_LOW_LAYER_BITRATE_BPS = 400_000;
+const SCREEN_SHARE_LOW_LAYER_REFERENCE_PIXELS = 640 * 360;
+// Below this short side the low rung saves too little to be worth an encoder.
+const SCREEN_SHARE_LOW_LAYER_MIN_SOURCE_SHORT_SIDE = 540;
+
+// At or above this width the share also gets a half-resolution rung (1280x720
+// of a 1440p share, 1920x1080 of a 4K one): a viewer on a 1080p stage between
+// the 360p rung and a full layer it may not have the downlink for.
+const SCREEN_SHARE_MID_LAYER_MIN_WIDTH = 2560;
 
 /**
- * Encoding budget for a screen share.
- *
- * Uplink is spent on the SUM of the ladder, not on the top layer: a 1080p60
- * share asks for 5 Mbps at the top and roughly 1.8 more for the half layer.
- * Screen video is also the one source where a bottom layer can be useless — a
- * 480x270 desktop is unreadable, so nobody watching would rather have it than a
- * paused stream.
- *
- * The budget is three, but SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH is what decides
- * whether the third rung is ever built: below 1440p a screen share gets two
- * encodings and the quarter layer is skipped as unreadable, at 1440p and above
- * it is built because the half rung is still 720p or 1080p and no grid tile can
- * use one. Dynacast pauses it whenever nobody is watching at that size, so the
- * third encoder only runs when somebody actually asked for it.
+ * Encoding budget for a screen share: the low rung, the half rung only at
+ * 2560 wide and above, and the primary. Uplink is spent on the SUM of the
+ * ladder, so the cheap low rung is what lets the primary carry a higher
+ * ceiling for about the same total. Dynacast pauses any rung nobody watches.
  *
  * Camera keeps three for a different reason: those frames are small, and a
  * 320x180 face in a grid tile is perfectly usable.
@@ -105,18 +105,28 @@ export const buildSimulcastLayerSpecs = (
   const layers: VideoLayerSpec[] = [];
   const extraLayerBudget = Math.max(0, maxEncodings - 1);
 
-  // A big screen share earns its quarter layer precisely where a camera does
-  // not: the ladder's half rung is still 720p or 1080p, which no grid tile can
-  // use.
-  const allowQuarterLayer = isScreenShare
-    ? target.width >= SCREEN_SHARE_QUARTER_LAYER_MIN_WIDTH
-    : target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS;
+  if (isScreenShare) {
+    if (
+      extraLayerBudget >= 1 &&
+      Math.min(target.width, target.height) >=
+        SCREEN_SHARE_LOW_LAYER_MIN_SOURCE_SHORT_SIDE
+    ) {
+      layers.push(screenShareLowLayer(target));
+      if (
+        extraLayerBudget >= 2 &&
+        target.width >= SCREEN_SHARE_MID_LAYER_MIN_WIDTH
+      ) {
+        layers.push(scaleLayer(target, 1 / 2, 30));
+      }
+    }
+    return layers;
+  }
 
   // Quarter scale first (lowest quality), then half.
   if (
     extraLayerBudget >= 2 &&
     target.width / 4 >= MIN_LAYER_WIDTH &&
-    allowQuarterLayer
+    target.width < MAX_LADDER_WIDTH_FOR_THREE_ENCODINGS
   ) {
     layers.push(scaleLayer(target, 1 / 4, 15));
   }
@@ -125,6 +135,83 @@ export const buildSimulcastLayerSpecs = (
   }
 
   return layers;
+};
+
+/** The screen share's low rung for this target: 360 on the short side, 15 fps. */
+const screenShareLowLayer = (target: VideoLayerSpec): VideoLayerSpec => {
+  const scale =
+    SCREEN_SHARE_LOW_LAYER_SHORT_SIDE / Math.min(target.width, target.height);
+  const width = toEven(target.width * scale);
+  const height = toEven(target.height * scale);
+  const byArea = Math.round(
+    SCREEN_SHARE_LOW_LAYER_BITRATE_BPS *
+      ((width * height) / SCREEN_SHARE_LOW_LAYER_REFERENCE_PIXELS) **
+        BITRATE_PIXEL_EXPONENT,
+  );
+  return {
+    width,
+    height,
+    // Never more than half of what the primary may spend.
+    maxBitrateBps: Math.max(
+      80_000,
+      Math.min(byArea, Math.round(target.maxBitrateBps / 2)),
+    ),
+    maxFramerate: Math.min(target.maxFramerate, SCREEN_SHARE_LOW_LAYER_FRAMERATE),
+  };
+};
+
+export interface LiveEncodingSpec {
+  scaleResolutionDownBy: number;
+  maxBitrate: number;
+  maxFramerate: number;
+}
+
+/**
+ * Encodings for a live screen-share sender whose capture just changed.
+ *
+ * A quality change re-captures and replaces the track without republishing,
+ * so the sender keeps the encodings it was published with: their number is
+ * fixed, their scale is not. The low rung's scale has to follow the new
+ * capture or it stops being 360 on the short side. A 1440p publish's low rung
+ * is a scale of 4, which on a 1080p capture is 270 tall and back on OpenH264.
+ *
+ * Lowest first, like the sender's own list: of several encodings the first is
+ * the low rung, the last the primary, a middle one the half rung.
+ */
+export const screenShareLiveEncodings = (
+  target: VideoLayerSpec,
+  encodingCount: number,
+): LiveEncodingSpec[] => {
+  const primary: LiveEncodingSpec = {
+    scaleResolutionDownBy: 1,
+    maxBitrate: target.maxBitrateBps,
+    maxFramerate: target.maxFramerate,
+  };
+  if (encodingCount <= 1) {
+    return [primary];
+  }
+
+  const low = screenShareLowLayer(target);
+  const specs: LiveEncodingSpec[] = [
+    {
+      scaleResolutionDownBy: Math.max(
+        1,
+        Math.min(target.width, target.height) / SCREEN_SHARE_LOW_LAYER_SHORT_SIDE,
+      ),
+      maxBitrate: low.maxBitrateBps,
+      maxFramerate: low.maxFramerate,
+    },
+  ];
+  const half = scaleLayer(target, 1 / 2, 30);
+  for (let index = 1; index < encodingCount - 1; index += 1) {
+    specs.push({
+      scaleResolutionDownBy: 2,
+      maxBitrate: half.maxBitrateBps,
+      maxFramerate: half.maxFramerate,
+    });
+  }
+  specs.push(primary);
+  return specs;
 };
 
 /**

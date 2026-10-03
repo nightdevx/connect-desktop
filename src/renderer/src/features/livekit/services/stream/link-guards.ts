@@ -1,6 +1,6 @@
-// Two reactions to a congested link, decided once per stats tick. Pure: the
-// stream manager owns the senders and the subscriptions, this only decides.
-// scripts/check-link-guards.cjs holds the rules.
+// Reactions to a congested link and an overloaded encoder, decided once per
+// stats tick. Pure: the stream manager owns the senders and the subscriptions,
+// this only decides. scripts/check-link-guards.cjs holds the rules.
 
 import { MEDIA_DIAGNOSTIC_THRESHOLDS } from "@shared/media-diagnostics";
 
@@ -8,12 +8,12 @@ import { MEDIA_DIAGNOSTIC_THRESHOLDS } from "@shared/media-diagnostics";
 //
 // A screen share fills the uplink, the home router's queue fills behind it, and
 // the voice sitting in that same queue arrives late: production saw audio RTT
-// of 200-1890 ms in sessions with a share running, and none without. The preset
-// step-down that answers it needs eight seconds of sustained limitation and then
-// a re-capture. This is the fast layer in front of it: as soon as the
-// microphone's own round trip climbs well above its floor, the share's bitrate
-// ceiling is cut on the live sender -- no re-capture, no new track -- and handed
-// back a little at a time once the voice has been on time for a while.
+// of 200-1890 ms in sessions with a share running, and none without. The
+// encoder's own congestion control reacts too slowly for a voice. This is the
+// fast layer: as soon as the microphone's own round trip climbs well above its
+// floor, the share's bitrate ceiling is cut on the live sender -- no
+// re-capture, no new track -- and handed back a little at a time once the
+// voice has been on time for a while.
 
 export const AUDIO_GUARD = {
   // Above the floor by this much is queueing, not distance.
@@ -23,7 +23,7 @@ export const AUDIO_GUARD = {
   triggerSamples: 2,
   cutFactor: 0.7,
   // A quarter of the preset still carries a readable screen; below that the
-  // preset step-down is the better tool.
+  // encoder's own adaptation (fewer pixels or fewer frames) carries on alone.
   minFactor: 0.25,
   restoreStep: 0.1,
   // 10 s at the 2 s stats interval.
@@ -123,6 +123,107 @@ export const AUDIO_GUARD_FLOOR_BPS = 150_000;
  */
 export const guardedBitrate = (capBps: number, factor: number): number =>
   Math.min(capBps, Math.max(AUDIO_GUARD_FLOOR_BPS, Math.round(capBps * factor)));
+
+// --- the encoder guard ---------------------------------------------------------
+//
+// What the app does about an encoder that reports itself limited. Only a CPU
+// limit changes anything: the encoder cannot fix that one, and a lower preset
+// (a smaller capture) can. A "bandwidth" limit is the encoder already doing the
+// right thing. Its bitrate follows the bandwidth estimate, and it sheds pixels
+// (motion) or frames (text) on its own and takes them back when the estimate
+// recovers. The app used to answer it with a preset step-down that re-captured
+// the screen and almost never came back: 198 step-downs and 16 step-ups in 30
+// days, and in 87% of the bandwidth-limited samples the estimate was at least
+// twice what was being sent (docs/screen-share-quality-plan.md §2.1). A long
+// one is now only told to the user.
+
+export const ENCODER_GUARD = {
+  // 8 s at the 2 s stats interval before a CPU step-down.
+  cpuTicks: 4,
+  // ~3 minutes without a CPU limit before a step back up. Deliberately far
+  // longer than the step-down: coming back up costs a re-capture, and the load
+  // that caused the step is exactly the kind that returns.
+  recoveryTicks: 90,
+  // A bandwidth limit this long (a minute) earns one note per share.
+  bandwidthNoticeTicks: 30,
+} as const;
+
+export type EncoderLimitation = "cpu" | "bandwidth" | "other" | null;
+
+export interface EncoderGuardState {
+  cpuTicks: number;
+  cpuHandled: boolean;
+  healthyTicks: number;
+  bandwidthTicks: number;
+  bandwidthNoticed: boolean;
+}
+
+/**
+ * - step-down: a screen share has been CPU-limited long enough; lower the preset.
+ * - cpu-notice: the same, with nothing to step down (a camera alone).
+ * - step-up: a screen share has run free of CPU limits long enough to try the
+ *   rung above again.
+ * - bandwidth-notice: tell the user once that the uplink is short.
+ */
+export type EncoderGuardAction =
+  | "step-down"
+  | "cpu-notice"
+  | "step-up"
+  | "bandwidth-notice"
+  | null;
+
+export const initialEncoderGuard = (): EncoderGuardState => ({
+  cpuTicks: 0,
+  cpuHandled: false,
+  healthyTicks: 0,
+  bandwidthTicks: 0,
+  bandwidthNoticed: false,
+});
+
+export const stepEncoderGuard = (
+  state: EncoderGuardState,
+  limitation: EncoderLimitation,
+  // A screen share is live and actually sending video.
+  sharing: boolean,
+): { state: EncoderGuardState; action: EncoderGuardAction } => {
+  if (limitation === "cpu") {
+    const cpuTicks = state.cpuTicks + 1;
+    const due = cpuTicks >= ENCODER_GUARD.cpuTicks && !state.cpuHandled;
+    return {
+      state: {
+        ...state,
+        cpuTicks,
+        cpuHandled: state.cpuHandled || due,
+        healthyTicks: 0,
+        bandwidthTicks: 0,
+      },
+      action: due ? (sharing ? "step-down" : "cpu-notice") : null,
+    };
+  }
+
+  const next: EncoderGuardState = {
+    ...state,
+    cpuTicks: 0,
+    cpuHandled: false,
+    healthyTicks: sharing ? state.healthyTicks + 1 : 0,
+    bandwidthTicks: limitation === "bandwidth" ? state.bandwidthTicks + 1 : 0,
+  };
+
+  // A bandwidth limit does not count against recovery: the step being undone
+  // was a CPU one, and the encoder handles the bandwidth on its own.
+  if (next.healthyTicks >= ENCODER_GUARD.recoveryTicks) {
+    return { state: { ...next, healthyTicks: 0 }, action: "step-up" };
+  }
+
+  if (
+    next.bandwidthTicks >= ENCODER_GUARD.bandwidthNoticeTicks &&
+    !next.bandwidthNoticed
+  ) {
+    return { state: { ...next, bandwidthNoticed: true }, action: "bandwidth-notice" };
+  }
+
+  return { state: next, action: null };
+};
 
 // --- downlink diagnosis --------------------------------------------------------
 //

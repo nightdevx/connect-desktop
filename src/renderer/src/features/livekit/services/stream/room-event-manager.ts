@@ -12,6 +12,7 @@ import {
 import { logLiveKitDebug } from "@/services/debug-log";
 import { LiveKitStreamManagerCallbacks } from "./types";
 import {
+  jitterBufferTargetFor,
   resolveMicrophonePermission,
   shouldSubscribePublication,
 } from "./constants";
@@ -241,6 +242,15 @@ export class RoomEventManager {
     pub: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) => {
+    // Every subscription gets a fresh receiver, so this runs each time.
+    const targetMs = jitterBufferTargetFor(pub.source);
+    const receiver = track.receiver as
+      | (RTCRtpReceiver & { jitterBufferTarget?: number | null })
+      | undefined;
+    if (targetMs !== null && receiver && "jitterBufferTarget" in receiver) {
+      receiver.jitterBufferTarget = targetMs;
+    }
+
     this.remoteMediaHandler.handleTrackSubscribed(track, pub, participant, this.updateMediaMap);
   };
 

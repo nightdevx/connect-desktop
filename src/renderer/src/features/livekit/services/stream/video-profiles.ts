@@ -278,16 +278,14 @@ export const buildVideoPublishPlan = (params: {
 };
 
 /**
- * Content mode for a screen capture. 60fps presets are video/gameplay, where
- * dropped frames are more visible than softness; 30fps presets are treated as
- * slides/code, where sharp text matters more.
+ * Content mode for a screen capture. "auto" protects smoothness, like Discord's
+ * "Smoother Video": under a short uplink the encoder sheds resolution and keeps
+ * the frame rate. It used to mean "detail" for every 30 fps preset, so the
+ * default 1080p30 share dropped frames under load, and what this community
+ * shares is mostly games and video. "detail" stays a choice for text.
  */
 export const resolveScreenContentMode = (
   requested: "auto" | VideoContentMode,
-  frameRate: number,
 ): VideoContentMode => {
-  if (requested !== "auto") {
-    return requested;
-  }
-  return frameRate >= 60 ? "motion" : "detail";
+  return requested === "auto" ? "motion" : requested;
 };

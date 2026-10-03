@@ -22,6 +22,7 @@ const {
   describeEncodingMismatch,
   estimateLadderBitrateBps,
   scaleBitrateToResolution,
+  screenShareLiveEncodings,
   SCREEN_SHARE_MAX_ENCODINGS,
   CAMERA_MAX_ENCODINGS,
   CAMERA_MAX_ENCODINGS_WHILE_SHARING,
@@ -52,10 +53,8 @@ assert.deepEqual(
 assert.equal(sharp[0].maxFramerate, 30, "half layer is capped at 30fps");
 
 // --- 1440p60 SCREEN SHARE --------------------------------------------------
-// The opposite call, for the opposite reason: the half layer is still 1280x720,
-// which no grid tile, rail slot or picture-in-picture window can use. Without a
-// quarter layer adaptiveStream has nothing to ask for and the viewer gets a
-// stalled top layer. dynacast pauses the extra encode whenever nobody wants it.
+// The low rung (360 on the short side, 15 fps) for tiles and weak downlinks,
+// and at 2560 wide and above a half rung for a viewer between the two.
 const sharpScreen = buildSimulcastLayerSpecs(
   target1440p60,
   SCREEN_SHARE_MAX_ENCODINGS,
@@ -63,13 +62,14 @@ const sharpScreen = buildSimulcastLayerSpecs(
 );
 assert.equal(sharpScreen.length, 2, "1440p screen share gets three encodings");
 assert.deepEqual(
-  sharpScreen.map((layer) => [layer.width, layer.height]),
+  sharpScreen.map((layer) => [layer.width, layer.height, layer.maxFramerate]),
   [
-    [640, 360],
-    [1280, 720],
+    [640, 360, 15],
+    [1280, 720, 30],
   ],
-  "the ladder reaches a tile-sized layer, lowest first",
+  "a 360p rung at 15 fps, then the half rung, lowest first",
 );
+assert.equal(sharpScreen[0].maxBitrateBps, 400_000, "the low rung is LiveKit's h360fps15");
 
 // --- 2160p screen share ----------------------------------------------------
 const uhdScreen = buildSimulcastLayerSpecs(
@@ -79,9 +79,52 @@ const uhdScreen = buildSimulcastLayerSpecs(
 );
 assert.equal(uhdScreen.length, 2, "2160p screen share gets three encodings");
 assert.deepEqual(
-  [uhdScreen[0].width, uhdScreen[0].height],
-  [960, 540],
-  "the quarter layer of a 4K share is still tile-sized",
+  uhdScreen.map((layer) => [layer.width, layer.height]),
+  [
+    [640, 360],
+    [1920, 1080],
+  ],
+  "the low rung of a 4K share is 360p too, and its half rung is 1080p",
+);
+
+// --- the low rung is 360 on the SHORT side, whatever the aspect ------------
+// Chromium encodes anything under 360 tall in software. The half-resolution
+// rung this replaced was 640x270 on an ultrawide 720p share, and production
+// showed it on OpenH264 next to a hardware top layer.
+const lowRung = (width, height, maxBitrateBps = 4_000_000) =>
+  buildSimulcastLayerSpecs(
+    { width, height, maxBitrateBps, maxFramerate: 30 },
+    SCREEN_SHARE_MAX_ENCODINGS,
+    true,
+  )[0];
+assert.deepEqual(
+  [lowRung(1280, 540).width, lowRung(1280, 540).height],
+  [854, 360],
+  "21:9 720p keeps a 360-tall low rung",
+);
+assert.deepEqual([lowRung(1920, 810).width, lowRung(1920, 810).height], [854, 360]);
+assert.deepEqual(
+  [lowRung(960, 1020).width, lowRung(960, 1020).height],
+  [360, 382],
+  "a portrait window scales by its short side, the width",
+);
+assert.ok(
+  lowRung(1280, 540).maxBitrateBps > 400_000 && lowRung(1280, 540).maxBitrateBps < 520_000,
+  `a wider 360p rung gets a little more than 400 kbps, got ${lowRung(1280, 540).maxBitrateBps}`,
+);
+assert.equal(
+  lowRung(1920, 1080, 600_000).maxBitrateBps,
+  300_000,
+  "the low rung never takes more than half of the primary",
+);
+assert.equal(
+  buildSimulcastLayerSpecs(
+    { width: 960, height: 500, maxBitrateBps: 2_000_000, maxFramerate: 30 },
+    SCREEN_SHARE_MAX_ENCODINGS,
+    true,
+  ).length,
+  0,
+  "a share under 540 on its short side publishes one encoding",
 );
 // Sanity against LiveKit's own ladder: 1440p @ 9M -> 720p should land near 2-3M.
 assert.ok(
@@ -117,10 +160,7 @@ assert.ok(
 );
 assert.equal(high[0].maxFramerate, 15, "quarter layer is capped at 15fps");
 
-// A 1080p share still drops the quarter layer: 480x270 of a desktop is
-// unreadable, so nobody would rather have it than a paused stream, and the
-// uplink is spent on the sum of the ladder rather than the top layer alone.
-// Only 1440p and above earn the third encoding.
+// A 1080p share gets the low rung only: no half rung under 2560 wide.
 const highScreen = buildSimulcastLayerSpecs(
   target1080p60,
   SCREEN_SHARE_MAX_ENCODINGS,
@@ -147,9 +187,9 @@ assert.deepEqual(
   "and keeps the half layer, not the quarter one",
 );
 assert.deepEqual(
-  [highScreen[0].width, highScreen[0].height],
-  [960, 540],
-  "the surviving screen layer is the half one",
+  [highScreen[0].width, highScreen[0].height, highScreen[0].maxFramerate],
+  [640, 360, 15],
+  "the 1080p share's extra layer is the 360p rung at 15 fps",
 );
 
 // --- ladder cost is the sum, not the headline bitrate ----------------------
@@ -168,7 +208,12 @@ assert.ok(
 );
 assert.ok(
   screenCost < cameraCost,
-  "dropping the quarter layer lowers what the uplink has to carry",
+  "the screen ladder carries less than the camera's",
+);
+assert.equal(
+  screenCost,
+  5_400_000,
+  "a 1080p share costs its primary plus the 400 kbps rung",
 );
 // The uplink this was tuned against reported ~6.8 Mbps of headroom, and the
 // three-encoding ladder did not fit it.
@@ -357,5 +402,48 @@ assert.equal(
 
 // A browser that reports nothing must not be read as a failure.
 assert.equal(describeEncodingMismatch(screenTarget, [{}]), null);
+
+// --- a live quality change keeps the low rung at 360 -----------------------
+// The sender keeps the encodings it was published with. The low rung's scale
+// was set for the capture at publish time; on a new capture it has to follow,
+// or a 1440p publish (scale 4) re-captured at 1080p sends a 270-tall rung.
+const fullHd30 = { width: 1920, height: 1080, maxBitrateBps: 4_000_000, maxFramerate: 30 };
+assert.deepEqual(
+  screenShareLiveEncodings(fullHd30, 1),
+  [{ scaleResolutionDownBy: 1, maxBitrate: 4_000_000, maxFramerate: 30 }],
+  "a single encoding (SVC, or a small share) is the primary alone",
+);
+const liveTwo = screenShareLiveEncodings(fullHd30, 2);
+assert.deepEqual(
+  liveTwo,
+  [
+    { scaleResolutionDownBy: 3, maxBitrate: 400_000, maxFramerate: 15 },
+    { scaleResolutionDownBy: 1, maxBitrate: 4_000_000, maxFramerate: 30 },
+  ],
+  "two encodings: the 360p rung (1080 / 3) and the primary",
+);
+const liveThree = screenShareLiveEncodings(fullHd30, 3);
+assert.deepEqual(
+  liveThree.map((spec) => spec.scaleResolutionDownBy),
+  [3, 2, 1],
+  "a 1440p publish re-captured at 1080p: the low rung follows to scale 3, not 4",
+);
+assert.equal(
+  1080 / liveThree[0].scaleResolutionDownBy,
+  360,
+  "and stays 360 tall, on the hardware encoder",
+);
+assert.equal(
+  screenShareLiveEncodings({ width: 1280, height: 540, maxBitrateBps: 2_000_000, maxFramerate: 30 }, 2)[0]
+    .scaleResolutionDownBy,
+  1.5,
+  "ultrawide: 540 / 1.5 = 360",
+);
+assert.equal(
+  screenShareLiveEncodings({ width: 640, height: 300, maxBitrateBps: 1_000_000, maxFramerate: 30 }, 2)[0]
+    .scaleResolutionDownBy,
+  1,
+  "a capture already under 360 is never scaled up",
+);
 
 console.log("video-layers self-check passed");

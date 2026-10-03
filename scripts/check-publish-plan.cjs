@@ -64,7 +64,9 @@ const main = async () => {
   });
 
   const bundle = path.join(outDir, "video-profiles.mjs");
-  const { buildVideoPublishPlan } = await import(pathToFileURL(bundle).href);
+  const { buildVideoPublishPlan, resolveScreenContentMode } = await import(
+    pathToFileURL(bundle).href
+  );
 
   const target = {
     width: 1920,
@@ -96,7 +98,13 @@ const main = async () => {
     1,
     "screen share publishes two encodings: one extra layer plus the primary",
   );
-  assert.equal(screen.screenShareSimulcastLayers[0].width, 960);
+  assert.equal(screen.screenShareSimulcastLayers[0].width, 640);
+  assert.equal(screen.screenShareSimulcastLayers[0].height, 360);
+  assert.equal(
+    screen.screenShareSimulcastLayers[0].encoding.maxFramerate,
+    15,
+    "the low rung is 360p at 15 fps: tiles and weak downlinks, on the hardware encoder",
+  );
   assert.equal(screen.simulcast, true);
   assert.equal(
     screen.degradationPreference,
@@ -175,6 +183,13 @@ const main = async () => {
     5_000_000,
     "only SVC codecs get the reduction; H.264 has to keep the ceiling the preset promised",
   );
+
+  // "auto" protects smoothness whatever the frame rate (Discord's "Smoother
+  // Video"); it used to mean "detail" for every 30 fps preset, so the default
+  // 1080p30 share dropped frames under load.
+  assert.equal(resolveScreenContentMode("auto"), "motion");
+  assert.equal(resolveScreenContentMode("detail"), "detail");
+  assert.equal(resolveScreenContentMode("motion"), "motion");
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log("publish-plan self-check passed");

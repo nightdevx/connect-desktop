@@ -361,10 +361,7 @@ export const useScreenShareControls = ({
         return;
       }
 
-      const contentMode = resolveScreenContentMode(
-        selectedScreenShareContentMode,
-        qualityOption.frameRate,
-      );
+      const contentMode = resolveScreenContentMode(selectedScreenShareContentMode);
       const screenMode = contentMode === "motion" ? "motion" : "slides";
 
       try {
@@ -545,7 +542,7 @@ export const useScreenShareControls = ({
         // stream is what a reconnect would republish in full.
         live.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
 
-        const contentMode = resolveScreenContentMode(live.contentMode, frameRate);
+        const contentMode = resolveScreenContentMode(live.contentMode);
         const screenMode = contentMode === "motion" ? "motion" : "slides";
         const publishQuality = {
           maxBitrateBps: qualityOption.maxBitrateBps,
@@ -727,7 +724,9 @@ export const useScreenShareControls = ({
       return;
     }
 
-    session.setEncoderOverloadHandler((reason) => {
+    // Only a CPU limit lands here. A bandwidth limit is left to the encoder,
+    // which adapts on its own and comes back on its own (link-guards.ts).
+    session.setEncoderOverloadHandler(() => {
       const live = liveShareRef.current;
       if (!live) {
         return;
@@ -738,26 +737,22 @@ export const useScreenShareControls = ({
         return;
       }
 
-      const cause =
-        reason === "cpu"
-          ? "İşlemci yayına yetişemiyor"
-          : "Yükleme hızı yayına yetmiyor";
-      // Reason-aware: a CPU overload must not be answered with a preset that
-      // runs at a higher framerate, which is what plain "one rung down" did.
-      const lower = getLowerScreenShareQuality(live.quality, reason);
+      // A CPU overload must not be answered with a preset that runs at a
+      // higher framerate, which is what plain "one rung down" did.
+      const lower = getLowerScreenShareQuality(live.quality);
 
       if (!lower) {
-        setStatus(`${cause}; kalite daha fazla düşürülemiyor.`, "warn");
+        setStatus("İşlemci yayına yetişemiyor; kalite daha fazla düşürülemiyor.", "warn");
         return;
       }
 
       logLiveKitDebug("stream-manager", "quality-step-down", {
-        reason,
+        reason: "cpu",
         from: live.quality,
         to: lower,
       });
       setStatus(
-        `${cause}, yayın kalitesi "${getScreenShareQualityOption(lower).label}" seviyesine düşürüldü.`,
+        `İşlemci yayına yetişemiyor, yayın kalitesi "${getScreenShareQualityOption(lower).label}" seviyesine düşürüldü.`,
         "warn",
       );
 

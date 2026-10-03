@@ -43,6 +43,21 @@ export const shouldSubscribePublication = (params: {
   return !blockedByDeafen;
 };
 
+// A screen share is watched, not talked over, so it can afford a buffer a voice
+// cannot. ~120 ms on the receiver absorbs network jitter and gives NACK time to
+// replace a lost packet before its frame is due: smoother playback for latency
+// nobody watching a game or a film notices. Discord puts a playout delay on its
+// stream video for the same reason. LiveKit's room.playout_delay is disabled
+// for screen shares on the server, so this is set on the receiver
+// (RTCRtpReceiver.jitterBufferTarget, Chromium 123+). The share's audio gets
+// the same target so picture and sound stay together; voices and cameras are
+// left alone.
+export const SCREEN_SHARE_JITTER_BUFFER_TARGET_MS = 120;
+
+export const jitterBufferTargetFor = (source: Track.Source): number | null => {
+  return isScreenSource(source) ? SCREEN_SHARE_JITTER_BUFFER_TARGET_MS : null;
+};
+
 /**
  * Whether the master limiter belongs on the playback path.
  *
