@@ -387,6 +387,55 @@ const buffered = summarizeReceiverReport(bufferEntries(2000, 4.6, 110), bufferCa
 assert.equal(buffered.jitterBufferWindowMs, 60, "jitter buffer delay over the last window");
 assert.equal(buffered.jitterBufferDelayMs, 42, "jitter buffer delay over the whole call");
 
+// --- picture quality and smoothness ----------------------------------------
+// QP is pooled over the layers like the frame count, so the mean is per frame
+// encoded. Key frames, PLIs and NACKs are window counts.
+const qpEntries = (timestamp, frames, qpTop, qpLow, keyFrames, pli, nack) => [
+  { id: "C1", type: "codec", timestamp, mimeType: "video/H264" },
+  { id: "O-low", type: "outbound-rtp", timestamp, kind: "video", codecId: "C1", ssrc: 1,
+    bytesSent: frames * 100, packetsSent: frames, framesEncoded: frames, qpSum: qpLow,
+    keyFramesEncoded: keyFrames, pliCount: pli, nackCount: nack, frameWidth: 640, frameHeight: 360 },
+  { id: "O-top", type: "outbound-rtp", timestamp, kind: "video", codecId: "C1", ssrc: 2,
+    bytesSent: frames * 400, packetsSent: frames, framesEncoded: frames, qpSum: qpTop,
+    keyFramesEncoded: keyFrames, pliCount: pli, nackCount: nack, frameWidth: 1920, frameHeight: 1080 },
+];
+const qpCache = new Map();
+const qpFirst = summarizeSenderReport(qpEntries(1000, 100, 2500, 3000, 2, 0, 5), qpCache, "local:screen_share");
+assert.equal(qpFirst.qpAvg, null, "no QP before there is a window");
+const qpSecond = summarizeSenderReport(qpEntries(3000, 130, 3400, 3900, 3, 1, 9), qpCache, "local:screen_share");
+assert.equal(qpSecond.qpAvg, 30, "(900 + 900) QP over 60 frames encoded in the window");
+assert.equal(qpSecond.keyFrames, 2, "one key frame per layer in the window");
+assert.equal(qpSecond.pliCount, 2);
+assert.equal(qpSecond.nackCount, 8);
+const audioSender = summarizeSenderReport(
+  [{ id: "OA", type: "outbound-rtp", timestamp: 1, kind: "audio", bytesSent: 1, packetsSent: 1 }],
+  new Map(),
+  "local:microphone",
+);
+assert.equal(audioSender.qpAvg, null, "audio has no QP");
+assert.equal(audioSender.keyFrames, null, "audio has no key frames");
+
+const videoReceiverEntries = (timestamp, framesDecoded, interSec, squaresSec, freezeSec, dropped) => [
+  { id: "C3", type: "codec", timestamp, mimeType: "video/H264" },
+  { id: "IV", type: "inbound-rtp", timestamp, kind: "video", codecId: "C3", ssrc: 7,
+    bytesReceived: framesDecoded * 1000, packetsReceived: framesDecoded * 2, packetsLost: 0,
+    framesDecoded, totalInterFrameDelay: interSec, totalSquaredInterFrameDelay: squaresSec,
+    totalFreezesDuration: freezeSec, framesDropped: dropped, freezeCount: 1,
+    decoderImplementation: "ExternalDecoder (D3D11VideoDecoder)", powerEfficientDecoder: true },
+];
+const smoothCache = new Map();
+const smoothFirst = summarizeReceiverReport(videoReceiverEntries(1000, 100, 3.0, 0.1, 0.5, 1), smoothCache, "peer:screen_share");
+assert.equal(smoothFirst.freezeMs, null, "no window yet");
+assert.equal(smoothFirst.frameIntervalStdDevMs, null);
+assert.equal(smoothFirst.hardwareDecoder, true, "powerEfficientDecoder is read as it is");
+// 30 frames in the window, gaps alternating 20 and 40 ms: mean 30, deviation 10.
+const smooth = summarizeReceiverReport(videoReceiverEntries(3000, 130, 3.9, 0.13, 0.75, 3), smoothCache, "peer:screen_share");
+assert.equal(smooth.freezeMs, 250, "a quarter of a second frozen in the window");
+assert.equal(smooth.frameIntervalStdDevMs, 10, "20/40 ms alternating gaps deviate 10 ms");
+assert.equal(smooth.framesDropped, 2);
+assert.equal(inbound.hardwareDecoder, null, "an audio receiver reports no decoder efficiency");
+assert.equal(inbound.freezeMs, null, "audio has no freezes");
+
 // --- mouth-to-ear estimate -------------------------------------------------
 const { estimateMouthToEar, MOUTH_TO_EAR_FIXED_MS } = stats;
 assert.equal(

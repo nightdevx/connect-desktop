@@ -50,6 +50,12 @@ export interface RateSample {
   limitationOtherSec?: number;
   /** Packets the sender re-sent after a NACK. */
   retransmittedPackets?: number;
+  /** Sum of the QP of every frame encoded, all layers together. */
+  qpSum?: number;
+  keyFramesEncoded?: number;
+  /** Picture-loss and NACK requests the sender received from the SFU. */
+  pliCount?: number;
+  nackCount?: number;
 
   // --- receiver side --------------------------------------------------------
   /** Packets that arrived but were thrown away (late, or buffer overrun). */
@@ -57,6 +63,13 @@ export interface RateSample {
   /** Cumulative seconds samples spent in the jitter buffer, and how many came out. */
   jitterBufferDelaySec?: number;
   jitterBufferEmitted?: number;
+  /** Cumulative seconds the picture stood frozen. */
+  freezeDurationSec?: number;
+  /** Sum, and sum of squares, of the gaps between frames (seconds). */
+  interFrameDelaySec?: number;
+  interFrameDelaySquaredSec?: number;
+  /** Frames decoded but never shown. */
+  receivedFramesDropped?: number;
 }
 
 /**
@@ -176,6 +189,45 @@ export const computeRetransmittedPct = (
   return Math.round((retransmitted / packets) * 1000) / 10;
 };
 
+/**
+ * Mean QP of the frames encoded in this window, all layers together.
+ *
+ * The encoder's own verdict on picture quality: the higher, the coarser. For
+ * H.264 WebRTC treats 37 as "too coarse" (its quality scaler's upper line);
+ * VP9 and AV1 use another scale, so read it beside the codec.
+ */
+export const computeQpAvg = (
+  previous: RateSample | undefined,
+  current: RateSample,
+): number | null => {
+  const qp = delta(previous, current, "qpSum");
+  const frames = delta(previous, current, "frames");
+  if (qp === null || frames === null || frames <= 0) {
+    return null;
+  }
+  return Math.round((qp / frames) * 10) / 10;
+};
+
+/**
+ * How unevenly frames arrived in this window: the standard deviation of the
+ * gaps between them, in ms. A steady 30 fps is a few ms; a picture that
+ * stutters without ever counting as frozen shows up here, and nowhere else.
+ */
+export const computeFrameIntervalStdDevMs = (
+  previous: RateSample | undefined,
+  current: RateSample,
+): number | null => {
+  const frames = delta(previous, current, "frames");
+  const sum = delta(previous, current, "interFrameDelaySec");
+  const squares = delta(previous, current, "interFrameDelaySquaredSec");
+  if (frames === null || sum === null || squares === null || frames < 2) {
+    return null;
+  }
+  const mean = sum / frames;
+  const variance = Math.max(0, squares / frames - mean * mean);
+  return Math.round(Math.sqrt(variance) * 10000) / 10;
+};
+
 export interface LimitationSeconds {
   cpu: number;
   bandwidth: number;
@@ -266,6 +318,12 @@ export interface OutboundTrackStats {
   retransmittedPct: number | null;
   /** Seconds spent limited in this window, per cause. */
   limitationSeconds: LimitationSeconds | null;
+  /** Mean QP this window (video only). See computeQpAvg. */
+  qpAvg: number | null;
+  /** Key frames, PLIs and NACKs in this window (video only). */
+  keyFrames: number | null;
+  pliCount: number | null;
+  nackCount: number | null;
   /**
    * Packets counted in the LAST sampling window, so several tracks can be
    * pooled into one figure. packetLossPct is this window's ratio and is null
@@ -312,6 +370,16 @@ export interface InboundTrackStats {
    */
   jitterBufferWindowMs: number | null;
   decoderImplementation: string | null;
+  /** null when the browser reports nothing usable. */
+  hardwareDecoder: boolean | null;
+  /**
+   * Smoothness, video only: milliseconds the picture stood frozen this
+   * window, how unevenly the frames came (computeFrameIntervalStdDevMs), and
+   * frames decoded but never shown.
+   */
+  freezeMs: number | null;
+  frameIntervalStdDevMs: number | null;
+  framesDropped: number | null;
   /**
    * Packets counted in the LAST sampling window, so several tracks can be
    * pooled into one figure. packetLossPct is this window's ratio and is null
@@ -742,6 +810,10 @@ export const summarizeSenderReport = (
   let limitationCpuSec = 0;
   let limitationBandwidthSec = 0;
   let limitationOtherSec = 0;
+  let qpSum: number | null = null;
+  let keyFramesEncoded = 0;
+  let pliCount = 0;
+  let nackCount = 0;
   let bestPixels = -1;
   let frameWidth: number | null = null;
   let frameHeight: number | null = null;
@@ -760,6 +832,13 @@ export const summarizeSenderReport = (
     totalEncodeTimeSec += num(entry.totalEncodeTime) ?? 0;
     framesDropped += num(entry.framesDropped) ?? 0;
     retransmittedPackets += num(entry.retransmittedPacketsSent) ?? 0;
+    const entryQpSum = num(entry.qpSum);
+    if (entryQpSum !== null) {
+      qpSum = (qpSum ?? 0) + entryQpSum;
+    }
+    keyFramesEncoded += num(entry.keyFramesEncoded) ?? 0;
+    pliCount += num(entry.pliCount) ?? 0;
+    nackCount += num(entry.nackCount) ?? 0;
 
     // Cumulative durations, pooled the same way the byte counters are. A
     // simulcast send reports them per layer and any layer being held back holds
@@ -860,6 +939,10 @@ export const summarizeSenderReport = (
     limitationCpuSec,
     limitationBandwidthSec,
     limitationOtherSec,
+    ...(qpSum !== null ? { qpSum } : {}),
+    keyFramesEncoded,
+    pliCount,
+    nackCount,
     ...(mediaSource ? { sourceFrames: num(mediaSource.frames) ?? 0 } : {}),
     // Both sides of the loss ratio: `packets` is pooled over outbound-rtp and
     // `packetsLost` over remote-inbound-rtp, so either set changing shape
@@ -907,6 +990,10 @@ export const summarizeSenderReport = (
     framesDroppedPct: computeFramesDroppedPct(previous, sample),
     retransmittedPct: computeRetransmittedPct(previous, sample),
     limitationSeconds: computeLimitationSeconds(previous, sample),
+    qpAvg: kind === "video" ? computeQpAvg(previous, sample) : null,
+    keyFrames: kind === "video" ? delta(previous, sample, "keyFramesEncoded") : null,
+    pliCount: kind === "video" ? delta(previous, sample, "pliCount") : null,
+    nackCount: kind === "video" ? delta(previous, sample, "nackCount") : null,
   };
 };
 
@@ -936,6 +1023,10 @@ export const summarizeReceiverReport = (
   const concealedSamples = num(inbound.concealedSamples);
   const silentConcealedSamples = num(inbound.silentConcealedSamples);
   const totalSamplesReceived = num(inbound.totalSamplesReceived);
+  const freezeDurationSec = num(inbound.totalFreezesDuration);
+  const interFrameDelaySec = num(inbound.totalInterFrameDelay);
+  const interFrameDelaySquaredSec = num(inbound.totalSquaredInterFrameDelay);
+  const receivedFramesDropped = num(inbound.framesDropped);
 
   const sample: RateSample = {
     timestampMs: inbound.timestamp,
@@ -949,6 +1040,10 @@ export const summarizeReceiverReport = (
     packetsDiscarded: num(inbound.packetsDiscarded) ?? 0,
     ...(jitterBufferDelay !== null ? { jitterBufferDelaySec: jitterBufferDelay } : {}),
     ...(jitterBufferEmittedCount !== null ? { jitterBufferEmitted: jitterBufferEmittedCount } : {}),
+    ...(freezeDurationSec !== null ? { freezeDurationSec } : {}),
+    ...(interFrameDelaySec !== null ? { interFrameDelaySec } : {}),
+    ...(interFrameDelaySquaredSec !== null ? { interFrameDelaySquaredSec } : {}),
+    ...(receivedFramesDropped !== null ? { receivedFramesDropped } : {}),
     sourceKey: buildSourceKey([inbound]),
   };
   const previous = cache.get(trackKey);
@@ -957,6 +1052,7 @@ export const summarizeReceiverReport = (
   const jitter = num(inbound.jitter);
   const emittedInWindow = delta(previous, sample, "jitterBufferEmitted");
   const heldInWindow = delta(previous, sample, "jitterBufferDelaySec");
+  const frozenInWindow = delta(previous, sample, "freezeDurationSec");
 
   return {
     trackKey,
@@ -985,6 +1081,13 @@ export const summarizeReceiverReport = (
         ? Math.round((heldInWindow / emittedInWindow) * 1000)
         : null,
     decoderImplementation: str(inbound.decoderImplementation),
+    hardwareDecoder:
+      typeof inbound.powerEfficientDecoder === "boolean"
+        ? inbound.powerEfficientDecoder
+        : null,
+    freezeMs: frozenInWindow === null ? null : Math.round(frozenInWindow * 1000),
+    frameIntervalStdDevMs: computeFrameIntervalStdDevMs(previous, sample),
+    framesDropped: delta(previous, sample, "receivedFramesDropped"),
     window: packetWindow(previous, sample),
   };
 };

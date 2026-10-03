@@ -60,6 +60,9 @@ const emptyOutboundVideo = (): MediaDiagnosticsOutboundVideoSummary => ({
   sourceFps: null,
   sourceResolutions: {},
   retransmittedPct: null,
+  qp: null,
+  keyFrames: 0,
+  pli: 0,
 });
 
 interface RemoteAccumulator {
@@ -93,6 +96,10 @@ const emptyInboundVideo = (): MediaDiagnosticsInboundVideoSummary => ({
   bitrateBps: null,
   freezeCountMax: 0,
   jitterBufferMsMax: 0,
+  freezeMs: 0,
+  frameIntervalStdDevMs: null,
+  hardwareDecoderSamples: 0,
+  softwareDecoderSamples: 0,
 });
 
 const resolutionKey = (
@@ -328,6 +335,9 @@ class MediaDiagnosticsCollector {
           entry.retransmittedPct,
         );
         video.sourceFps = pushStat(video.sourceFps, entry.sourceFramesPerSecond);
+        video.qp = pushStat(video.qp ?? null, entry.qpAvg);
+        video.keyFrames = (video.keyFrames ?? 0) + (entry.keyFrames ?? 0);
+        video.pli = (video.pli ?? 0) + (entry.pliCount ?? 0);
         const sourceResolution = resolutionKey(
           entry.sourceFrameWidth,
           entry.sourceFrameHeight,
@@ -379,6 +389,12 @@ class MediaDiagnosticsCollector {
           encodeMsPerFrame: entry.encodeMsPerFrame,
           framesDroppedPct: entry.framesDroppedPct,
           retransmittedPct: entry.retransmittedPct,
+          // Picture quality as the encoder judges it, and what the SFU asked of
+          // it (key frames on a PLI, retransmissions on a NACK).
+          qp: entry.qpAvg,
+          keyFrames: entry.keyFrames,
+          pli: entry.pliCount,
+          nack: entry.nackCount,
         });
       }
 
@@ -450,6 +466,16 @@ class MediaDiagnosticsCollector {
           entry.jitterBufferDelayMs,
         );
       }
+      video.freezeMs = (video.freezeMs ?? 0) + (entry.freezeMs ?? 0);
+      video.frameIntervalStdDevMs = pushStat(
+        video.frameIntervalStdDevMs ?? null,
+        entry.frameIntervalStdDevMs,
+      );
+      if (entry.hardwareDecoder === true) {
+        video.hardwareDecoderSamples = (video.hardwareDecoderSamples ?? 0) + 1;
+      } else if (entry.hardwareDecoder === false) {
+        video.softwareDecoderSamples = (video.softwareDecoderSamples ?? 0) + 1;
+      }
 
       inboundVideoRows.push({
         trackKey: entry.trackKey,
@@ -466,6 +492,12 @@ class MediaDiagnosticsCollector {
             : Math.round(entry.jitterBufferDelayMs),
         jitterBufferTargetMs: entry.jitterBufferTargetMs,
         packetsDiscarded: entry.packetsDiscarded,
+        // Smoothness as the viewer sees it: how long the picture stood still,
+        // how unevenly frames came, and whether the GPU decoded them.
+        freezeMs: entry.freezeMs,
+        frameIntervalStdDevMs: entry.frameIntervalStdDevMs,
+        framesDropped: entry.framesDropped,
+        hardwareDecoder: entry.hardwareDecoder,
       });
     }
 
@@ -731,6 +763,7 @@ class MediaDiagnosticsCollector {
             encodeMsPerFrame: roundStat(this.outboundVideo.encodeMsPerFrame),
             framesDroppedPct: roundStat(this.outboundVideo.framesDroppedPct),
             retransmittedPct: roundStat(this.outboundVideo.retransmittedPct),
+            qp: roundStat(this.outboundVideo.qp ?? null),
             limitationSeconds: {
               cpu: Math.round(this.outboundVideo.limitationSeconds.cpu),
               bandwidth: Math.round(
@@ -746,6 +779,10 @@ class MediaDiagnosticsCollector {
             fps: roundStat(this.inboundVideo.fps),
             bitrateBps: roundStat(this.inboundVideo.bitrateBps),
             jitterBufferMsMax: Math.round(this.inboundVideo.jitterBufferMsMax),
+            freezeMs: Math.round(this.inboundVideo.freezeMs ?? 0),
+            frameIntervalStdDevMs: roundStat(
+              this.inboundVideo.frameIntervalStdDevMs ?? null,
+            ),
           }
         : null,
       inboundAudioConcealmentPct: roundStat(this.inboundAudioConcealmentPct),

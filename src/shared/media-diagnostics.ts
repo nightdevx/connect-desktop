@@ -139,6 +139,14 @@ export interface MediaDiagnosticsOutboundVideoSummary {
   sourceFps: MediaDiagnosticsStat | null;
   sourceResolutions: Record<string, number>;
   retransmittedPct: MediaDiagnosticsStat | null;
+  /**
+   * Mean QP per sample: the encoder's own measure of how coarse the picture
+   * is (H.264: above 37 is visibly blocky). Key frames and PLIs over the
+   * session. All three are absent from sessions recorded before they were.
+   */
+  qp?: MediaDiagnosticsStat | null;
+  keyFrames?: number;
+  pli?: number;
 }
 
 /**
@@ -196,6 +204,16 @@ export interface MediaDiagnosticsInboundVideoSummary {
   bitrateBps: MediaDiagnosticsStat | null;
   freezeCountMax: number;
   jitterBufferMsMax: number;
+  /**
+   * How long pictures stood frozen in all (ms), and how unevenly frames came
+   * per sample (standard deviation of the gap, ms). freezeCountMax counts a
+   * still screen sending one frame a second as freezing; these are what tell
+   * a stutter from that. Absent from sessions recorded before they were.
+   */
+  freezeMs?: number;
+  frameIntervalStdDevMs?: MediaDiagnosticsStat | null;
+  hardwareDecoderSamples?: number;
+  softwareDecoderSamples?: number;
 }
 
 export interface MediaDiagnosticsSummary {
