@@ -440,6 +440,10 @@ export const deriveVerdicts = (
     const limited = video.limitationSeconds;
     const encodeMs = video.encodeMsPerFrame?.mean ?? null;
     const sourceFps = video.sourceFps?.mean ?? null;
+    // The summary does not carry the preset's frame rate; the capture's own
+    // peak stands in for it, since a 60 fps preset shows 60 at its best. A
+    // fixed "under 45" called every 1080p30 share a starved capture.
+    const targetFps = (video.sourceFps?.max ?? 0) >= 50 ? 60 : 30;
     const encodedFps = video.fps?.mean ?? null;
     const software =
       video.softwareEncoderSamples > 0 && video.hardwareEncoderSamples === 0;
@@ -492,7 +496,7 @@ export const deriveVerdicts = (
       sourceFps !== null &&
       video.sourceResolutions &&
       sourceFps > 0 &&
-      sourceFps < 45 &&
+      sourceFps < targetFps * 0.8 &&
       Object.keys(video.sourceResolutions).some((key) => key.includes("1080") || key.includes("1440") || key.includes("2160"))
     ) {
       verdicts.push({
@@ -500,8 +504,38 @@ export const deriveVerdicts = (
         headline:
           "Ekran yakalama istenen kare hızını üretemedi; darboğaz kodlayıcıda değil, kaynakta.",
         evidence: [
-          `kaynak ortalama ${Math.round(sourceFps)} fps`,
+          `kaynak ortalama ${Math.round(sourceFps)} fps, hedef ${targetFps} fps`,
           `çözünürlük: ${Object.keys(video.sourceResolutions).join(", ")}`,
+        ],
+      });
+    }
+
+    // A coarse picture with the uplink to spare: the encoder spent its whole
+    // bitrate ceiling and it was not enough for the content, so the preset's
+    // ceiling is what to raise. H.264 only: 37 is libwebrtc's own high-QP mark
+    // for it, and VP8, VP9 and AV1 count QP on other scales.
+    const qp = video.qp ?? null;
+    const codecs = Object.keys(video.codecs);
+    if (
+      qp !== null &&
+      qp.n >= 15 &&
+      qp.mean >= 37 &&
+      codecs.length > 0 &&
+      codecs.every((codec) => codec.startsWith("H264")) &&
+      limited.bandwidth < shareSec * 0.1
+    ) {
+      verdicts.push({
+        code: "encoder-quality-bound",
+        headline:
+          "Yükleme yeterliyken görüntü kaba kodlandı; seçilen kalitenin bit hızı tavanı bu içeriğe yetmiyor.",
+        evidence: [
+          `QP ortalama ${qp.mean}, en yüksek ${qp.max} (H.264'te 37 üstü gözle görülür bloklanma)`,
+          ...(video.bitrateBps
+            ? [
+                `gönderilen ortalama ${Math.round(video.bitrateBps.mean / 100_000) / 10} Mbps`,
+              ]
+            : []),
+          `bant genişliği kısıtı ${seconds(limited.bandwidth * 1000)}`,
         ],
       });
     }

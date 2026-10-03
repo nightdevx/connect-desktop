@@ -396,15 +396,72 @@ assert.ok(
   "capture at 60 and encode at 27 is an encoder that cannot keep up",
 );
 const starved = codesOf(
-  baseSummary({ outboundVideo: video({ sourceFps: stat(27), fps: stat(27) }) }),
+  baseSummary({
+    outboundVideo: video({ sourceFps: stat(27, 20, 60), fps: stat(27, 20, 60) }),
+  }),
 );
 assert.ok(
   starved.includes("capture-starved"),
-  "capture and encode both at 27 on a 1080p share is a starved capture",
+  "capture and encode both averaging 27 on a 1080p60 share is a starved capture",
+);
+assert.ok(
+  !codesOf(
+    baseSummary({
+      outboundVideo: video({ sourceFps: stat(29, 25, 31), fps: stat(29, 25, 31) }),
+    }),
+  ).includes("capture-starved"),
+  "a 1080p30 share capturing 29 is doing what it was asked",
 );
 assert.ok(
   !starved.includes("encoder-drops-frames"),
   "a starved capture must not be blamed on the encoder",
+);
+
+// A coarse picture with the uplink to spare: the preset's ceiling is too low.
+const hardwareH264 = (overrides = {}) =>
+  video({
+    encoderImplementations: { "MediaFoundationVideoEncodeAccelerator": 100 },
+    hardwareEncoderSamples: 100,
+    softwareEncoderSamples: 0,
+    limitation: { none: 100, cpu: 0, bandwidth: 0, other: 0 },
+    // 720p, so the capture-starved rule (1080p and up under 45 fps) stays out.
+    resolutions: { "1280x720": 100 },
+    sourceResolutions: { "1280x720": 100 },
+    ...overrides,
+  });
+assert.ok(
+  codesOf(baseSummary({ outboundVideo: hardwareH264({ qp: stat(39, 31, 45) }) })).includes(
+    "encoder-quality-bound",
+  ),
+  "H.264 at QP 39 with no bandwidth limit is a ceiling too low for the content",
+);
+const uplinkShort = codesOf(
+  baseSummary({
+    outboundVideo: hardwareH264({
+      qp: stat(39),
+      limitationSeconds: { cpu: 0, bandwidth: 40, other: 0 },
+    }),
+  }),
+);
+assert.ok(
+  !uplinkShort.includes("encoder-quality-bound") && uplinkShort.includes("uplink-bound"),
+  "a coarse picture under a bandwidth limit is the uplink's, not the ceiling's",
+);
+assert.ok(
+  !codesOf(
+    baseSummary({ outboundVideo: hardwareH264({ codecs: { VP8: 100 }, qp: stat(60) }) }),
+  ).includes("encoder-quality-bound"),
+  "VP8 counts QP on another scale; 37 means nothing there",
+);
+assert.deepEqual(
+  codesOf(baseSummary({ outboundVideo: hardwareH264({ qp: stat(30) }) })),
+  [],
+  "QP 30 is a healthy picture",
+);
+assert.deepEqual(
+  codesOf(baseSummary({ outboundVideo: hardwareH264() })),
+  [],
+  "a session recorded before QP was is not judged on it",
 );
 
 // Whose fault is the bad audio. This is the inference that pooled numbers could
