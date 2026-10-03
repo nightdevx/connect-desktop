@@ -36,6 +36,16 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.6",
+    date: "2026-10-03",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Yönetim panelindeki sunucu ayarları (bakım modu, davetle kayıt, mesaj saklama süresi ve diğerleri) artık gerçekten kaydediliyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.5",
     date: "2026-10-03",
     highlights: [
