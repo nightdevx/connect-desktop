@@ -48,7 +48,8 @@ assert.ok(linux.enableFeatures.includes("WebRTCPipeWireCapturer"));
 assert.deepEqual(linux.switches.find(([name]) => name === "ozone-platform-hint"), ["ozone-platform-hint", "auto"]);
 
 // Names Chromium 142 no longer has. Passing them is a silent no-op.
-const dead = ["disable-webrtc-hw-encoding", "disable-webrtc-hw-decoding", "AllowWgcWindowCapturer", "AllowWgcZeroHz"];
+// MediaFoundationAV1Encoding became WebRtcAV1HWEncode in M136.
+const dead = ["disable-webrtc-hw-encoding", "disable-webrtc-hw-decoding", "AllowWgcWindowCapturer", "AllowWgcZeroHz", "MediaFoundationAV1Encoding"];
 for (const flags of [winOn, winOff, linux]) {
   for (const name of allNames(flags)) {
     assert.ok(!dead.includes(name), `${name} does not exist in this Chromium`);

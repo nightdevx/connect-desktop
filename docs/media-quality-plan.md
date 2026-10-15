@@ -442,7 +442,7 @@ Her madde için:
   (`[Media] video_encode` logu + panel). İzleyicide clumsy ile bant kısıldığında
   fps 60 → 30 → 15 inmeli, görüntü **duraklamamalı**. Korkuluk: sürücüde
   AV1 MFT devre dışı bırakılıp probe'un yalan söylediği simüle edilir
-  (`--disable-features=MediaFoundationAV1Encoding` benzeri), iki tik sonra
+  (`--disable-features=WebRtcAV1HWEncode`; eski ad `MediaFoundationAV1Encoding` M136'da kaldırıldı ve artık hiçbir şey yapmıyor), iki tik sonra
   H.264'e döndüğü ve toast'un çıktığı görülür.
 - **B-2:** Adım 1 logu `profile-level-id=64…` gösterene kadar shim/sunucu
   değişikliği "uygulandı" sayılmaz. Aynı preset ve içerikle
