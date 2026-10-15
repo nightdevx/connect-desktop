@@ -60,10 +60,19 @@ const toVideoPreset = (layer: VideoLayerSpec): VideoPreset => {
   });
 };
 
-const SVC_SCALABILITY_MODE: ScalabilityMode = "L1T3";
+// One spatial and one temporal layer per simulcast encoding ("rid simulcast").
+// Chromium 142's hardware AV1/VP9 encoders take L1T1 on every vendor, while
+// L1T3 is hardware only on Intel behind extra flags and silently encodes in
+// software everywhere else. Server 1.13.7+ forwards per-rid VP9/AV1 like
+// H.264 simulcast, so the stream allocator keeps managing the share.
+const SVC_SCALABILITY_MODE: ScalabilityMode = "L1T1";
 
+// Bitrate for the same picture, relative to H.264 High at the preset ceiling.
+// AV1 measured on League footage through Chromium's own encoder (connect
+// olcum/yayin-tezgah, 2026-10-16): equal VMAF at ~0.82x in team fights, lower
+// on calmer content. VP9 was not measured.
 const SVC_BITRATE_MULTIPLIER: Partial<Record<VideoCodec, number>> = {
-  av1: 0.7,
+  av1: 0.82,
   vp9: 0.85,
 };
 
@@ -198,7 +207,7 @@ const applySourceKeyedEncoding = (
  * Screen share used to publish a single non-simulcast layer, which meant the
  * weakest subscriber in the room dragged everyone's quality down — the SFU had
  * nothing lower to forward. Every track now ships a layer ladder: simulcast for
- * H.264/VP8, temporal SVC (L1T3) for VP9/AV1.
+ * every codec, with VP9/AV1 as one L1T1 encoding per rung.
  */
 export const buildVideoPublishPlan = (params: {
   target: VideoPublishTarget;
@@ -249,18 +258,21 @@ export const buildVideoPublishPlan = (params: {
     return applySourceKeyedEncoding(
       {
         videoCodec: codec,
-        // LiveKit ignores simulcast for SVC codecs; the ladder comes from
-        // scalabilityMode instead.
-        simulcast: false,
+        // The same ladder as H.264, each rung its own L1T1 encoding. A single
+        // L1T3 stream (the old plan) was exempt from the SFU's stream allocator
+        // for screen shares, so a weak viewer got the full stream and froze,
+        // and livekit-client forced contentHint "motion" on it.
+        simulcast: layers.length > 0,
         scalabilityMode: SVC_SCALABILITY_MODE,
-        // VP9/AV1 are not decodable everywhere. The default backup policy only
-        // spins up the VP8 track when a subscriber actually needs it, so this
-        // costs nothing in an all-Chromium fleet.
-        backupCodec: true,
+        // Every Connect client is Chromium and decodes VP9/AV1, in software if
+        // nothing else. A backup track would be a VP8 encode on demand, and in a
+        // room under five people one such subscriber regresses the track for
+        // everyone, permanently.
+        backupCodec: false,
         degradationPreference,
       },
       encoding,
-      undefined,
+      layers.length > 0 ? layers.map(toVideoPreset) : undefined,
     );
   }
 

@@ -737,6 +737,16 @@ export class LiveKitMediaSession {
     );
 
     this.resolvedVideoCodec = resolveVideoCodec(this.videoPublishPreferences);
+    if (this.resolvedVideoCodec === "av1" && lobbyId.startsWith("call_")) {
+      // livekit-client's E2EE worker throws on every AV1 frame (FrameCryptor
+      // has no AV1 path), so an encrypted call would carry no video at all.
+      this.resolvedVideoCodec = "h264";
+      logLiveKitDebug("stream-manager", "codec-override", {
+        from: "av1",
+        to: "h264",
+        reason: "e2ee",
+      });
+    }
     // Before the first publish: H.264 goes out as High where a hardware encoder
     // offers it, instead of Chromium's default Baseline.
     installH264HighPreference();
@@ -1726,7 +1736,9 @@ export class LiveKitMediaSession {
     if (
       !this.desiredScreenEnabled ||
       this.screenCodecFallback ||
-      this.codecFallbackInFlight
+      this.codecFallbackInFlight ||
+      // With hardware acceleration off a software encode is what was asked for.
+      !this.videoPublishPreferences.hardwareAcceleration
     ) {
       return;
     }
@@ -1753,7 +1765,10 @@ export class LiveKitMediaSession {
     }
 
     this.softwareSvcTicks = 0;
-    this.screenCodecFallback = this.resolvedVideoCodec;
+    // H.264, not resolvedVideoCodec: with av1/vp9 picked explicitly in settings
+    // that is the same codec, and the share was republished unchanged under a
+    // toast saying it had moved to H.264.
+    this.screenCodecFallback = "h264";
     this.codecFallbackInFlight = true;
 
     logLiveKitDebug("stream-manager", "screen-codec-fallback", {
@@ -1903,19 +1918,14 @@ export class LiveKitMediaSession {
     }
   }
 
+  /**
+   * The screen share's codec. The automatic setting no longer moves to VP9/AV1
+   * on its own: the encoder probe said "hardware" for paths that then encoded
+   * in software or froze (bench, 2026-10-16), so until AV1 is gated per machine
+   * class the probe only reports. A fallback, once taken, wins in every mode.
+   */
   private resolveScreenCodec(): VideoCodec {
-    if (
-      this.videoPublishPreferences.codec !== "auto" ||
-      !this.videoPublishPreferences.hardwareAcceleration
-    ) {
-      return this.resolvedVideoCodec;
-    }
-
-    return (
-      this.screenCodecFallback ??
-      this.hardwareSvcCodec ??
-      this.resolvedVideoCodec
-    );
+    return this.screenCodecFallback ?? this.resolvedVideoCodec;
   }
 
   public warmUpVideoEncoders(): Promise<void> {

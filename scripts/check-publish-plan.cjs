@@ -144,33 +144,43 @@ const main = async () => {
   });
   assert.equal(slides.degradationPreference, "maintain-resolution");
 
-  // --- SVC codecs: no simulcast array, ladder comes from scalabilityMode ---
+  // --- VP9/AV1: rid simulcast, one L1T1 encoding per rung ------------------
   const svc = buildVideoPublishPlan({
     target,
     codec: "av1",
     contentMode: "motion",
     isScreenShare: true,
   });
-  assert.equal(svc.simulcast, false);
+  assert.equal(
+    svc.simulcast,
+    true,
+    "a single-layer VP9/AV1 screen share is exempt from the SFU's stream allocator, so weak viewers get the full stream and freeze",
+  );
   assert.equal(
     svc.scalabilityMode,
-    "L1T3",
-    "temporal only: Chromium's MediaFoundation encoders have no spatial SVC, and asking for one drops the publish to a software encoder without saying so",
+    "L1T1",
+    "Chromium 142 encodes AV1/VP9 L1T1 in hardware on every vendor; L1T3 drops to libaom/libvpx outside Intel, without saying so",
   );
   assert.equal(
     svc.screenShareEncoding?.maxFramerate,
     60,
-    "SVC reads the same source-keyed encoding — it is picked before the branch",
+    "the codec branch reads the same source-keyed encoding",
   );
   assert.equal(
     svc.screenShareEncoding?.maxBitrate,
-    3_500_000,
-    "AV1 carries the same picture in ~30% fewer bits, and LiveKit only applies that factor when no explicit encoding is supplied — which this app always supplies",
+    4_100_000,
+    "AV1 matched H.264's picture at ~0.82x on League team fights through Chromium's encoder; LiveKit only applies its own factor when no explicit encoding is supplied, and this app always supplies one",
   );
   assert.equal(
-    svc.screenShareSimulcastLayers,
-    undefined,
-    "an SVC plan must not carry a simulcast ladder",
+    svc.screenShareSimulcastLayers?.length,
+    1,
+    "AV1 keeps the same two-rung ladder as H.264",
+  );
+  assert.equal(svc.screenShareSimulcastLayers[0].height, 360);
+  assert.equal(
+    svc.backupCodec,
+    false,
+    "every client decodes VP9/AV1; a backup would be an on-demand VP8 encode that regresses small rooms for good",
   );
 
   const svcVp9 = buildVideoPublishPlan({
