@@ -10,3 +10,6 @@ allowBuilds:
   "electron-winstaller": true
   "electron": true
   "sharp": true
+
+patchedDependencies:
+  livekit-client@2.22.4: patches/livekit-client@2.22.4.patch
