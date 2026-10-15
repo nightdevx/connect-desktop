@@ -141,6 +141,38 @@ export const probeHardwareVideoEncoder = async (
   }
 };
 
+const CAPABILITY_CONTENT_TYPES = ["video/H264", "video/H265", "video/AV1", "video/VP9"];
+
+/**
+ * What this machine could encode for WebRTC at 1080p60 in one L1T1 layer:
+ * "hw" (supported and power-efficient), "sw", "no", or "error". Reported in
+ * diagnostics only; nothing picks a codec from it. For H.264 the answer is
+ * about Constrained Baseline, which Chromium encodes in software on Windows
+ * even where High runs on the GPU, so the outbound encoderImplementation is
+ * the word on H.264.
+ */
+export const probeEncodeCapabilities = async (): Promise<Record<string, string> | null> => {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.mediaCapabilities?.encodingInfo !== "function"
+  ) {
+    return null;
+  }
+  const result: Record<string, string> = {};
+  for (const contentType of CAPABILITY_CONTENT_TYPES) {
+    try {
+      const info = await navigator.mediaCapabilities.encodingInfo({
+        type: "webrtc",
+        video: { contentType, ...HARDWARE_PROBE_FRAME, scalabilityMode: "L1T1" },
+      });
+      result[contentType] = !info.supported ? "no" : info.powerEfficient ? "hw" : "sw";
+    } catch {
+      result[contentType] = "error";
+    }
+  }
+  return result;
+};
+
 export const resolveHardwareSvcCodec = async (): Promise<VideoCodec | null> => {
   for (const codec of ["av1", "vp9"] as const) {
     if (await probeHardwareVideoEncoder(codec)) {

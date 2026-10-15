@@ -90,6 +90,7 @@ import {
   buildVideoPublishPlan,
   installH264HighPreference,
   resolveCodecTarget,
+  probeEncodeCapabilities,
   resolveHardwareSvcCodec,
   resolveVideoCodec,
   type VideoContentMode,
@@ -1934,9 +1935,10 @@ export class LiveKitMediaSession {
     }
 
     this.hardwareSvcProbe = resolveHardwareSvcCodec()
-      .then((codec) => {
+      .then(async (codec) => {
         this.hardwareSvcCodec = codec;
-        mediaDiagnostics.setClientContext({ hardwareSvcCodec: codec });
+        const encodeCapabilities = await probeEncodeCapabilities().catch(() => null);
+        mediaDiagnostics.setClientContext({ hardwareSvcCodec: codec, encodeCapabilities });
         logLiveKitDebug("stream-manager", "hardware-svc-probe", {
           codec: codec ?? "none",
         });

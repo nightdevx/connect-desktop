@@ -30,6 +30,8 @@ const {
   MIN_CONCEALMENT_WINDOW_SAMPLES,
   readAvailableOutgoingBitrate,
   BWE_PLACEHOLDER_BPS,
+  computePacketRate,
+  summarizeTransport,
 } = stats;
 
 // --- bitrate ---------------------------------------------------------------
@@ -721,5 +723,87 @@ assert.equal(
   10,
   "without silentConcealedSamples the old number stands",
 );
+
+// --- per-layer rows, packet rate, transport ---------------------------------
+// The pooled sender fields mix a 1080p top layer with a 360p thumbnail; a
+// content-aware cap and the padding estimate both need each rid on its own.
+const layerEntries = (timestamp, high, low, highQp, lowQp, lowActive) => [
+  { id: "C1", type: "codec", timestamp, mimeType: "video/H264" },
+  {
+    id: "O-q", type: "outbound-rtp", timestamp, kind: "video", codecId: "C1", rid: "q",
+    bytesSent: low.bytes, packetsSent: low.packets, framesEncoded: low.frames, qpSum: lowQp,
+    keyFramesEncoded: 1, frameWidth: 640, frameHeight: 360, framesPerSecond: 15,
+    targetBitrate: 400_000, active: lowActive, encoderImplementation: "OpenH264",
+  },
+  {
+    id: "O-h", type: "outbound-rtp", timestamp, kind: "video", codecId: "C1", rid: "h",
+    bytesSent: high.bytes, packetsSent: high.packets, framesEncoded: high.frames, qpSum: highQp,
+    keyFramesEncoded: high.kf, frameWidth: 1920, frameHeight: 1080, framesPerSecond: 60,
+    targetBitrate: 4_000_000, active: true,
+    encoderImplementation: "MediaFoundationVideoEncodeAccelerator", powerEfficientEncoder: true,
+  },
+  {
+    id: "CP", type: "candidate-pair", timestamp, state: "succeeded", nominated: true,
+    bytesSent: high.bytes + low.bytes + 50_000, packetsSent: high.packets + low.packets + 100,
+  },
+];
+const layerCache = new Map();
+const layersFirst = summarizeSenderReport(
+  layerEntries(1000, { bytes: 0, packets: 0, frames: 0, kf: 1 }, { bytes: 0, packets: 0, frames: 0 }, 0, 0, true),
+  layerCache,
+  "local:screen_share",
+);
+assert.equal(layersFirst.layers.length, 2, "one row per rid");
+assert.equal(layersFirst.layers[0].rid, "h", "top layer first, whatever order Chromium emits");
+assert.equal(layersFirst.layers[0].bitrateBps, null, "no rate before a second sample");
+const layersSecond = summarizeSenderReport(
+  layerEntries(3000, { bytes: 1_000_000, packets: 1000, frames: 120, kf: 2 }, { bytes: 100_000, packets: 100, frames: 30 }, 120 * 22, 30 * 30, false),
+  layerCache,
+  "local:screen_share",
+);
+const [top, thumb] = layersSecond.layers;
+assert.equal(top.bitrateBps, 4_000_000, "the top rid's own bitrate");
+assert.equal(top.packetsPerSecond, 500, "the top rid's own packet rate");
+assert.equal(top.qpAvg, 22, "the top rid's QP, not pooled with the thumbnail");
+assert.equal(thumb.qpAvg, 30, "the thumbnail's QP on its own");
+assert.equal(top.keyFrames, 1, "key frames per rid");
+assert.equal(top.targetBitrateBps, 4_000_000);
+assert.equal(top.hardwareEncoder, true);
+assert.equal(thumb.hardwareEncoder, false, "a software thumbnail is visible per layer");
+assert.equal(thumb.active, false, "a layer dynacast paused reads inactive");
+assert.equal(layersSecond.packetsPerSecond, 550, "packet rate for the whole track");
+assert.equal(
+  summarizeSenderReport(
+    [{ id: "A", type: "outbound-rtp", timestamp: 1, kind: "audio", bytesSent: 1, packetsSent: 1 }],
+    new Map(),
+    "local:microphone",
+  ).layers,
+  null,
+  "audio has no layer rows",
+);
+
+// A renegotiation gives a layer a new stat id: its rate restarts rather than
+// diffing a fresh counter against the old stream.
+const renamed = layerEntries(5000, { bytes: 10, packets: 1, frames: 1, kf: 0 }, { bytes: 10, packets: 1, frames: 1 }, 0, 0, true)
+  .map((entry) => (entry.id === "O-h" ? { ...entry, id: "O-h2" } : entry));
+assert.equal(
+  summarizeSenderReport(renamed, layerCache, "local:screen_share").layers[0].bitrateBps,
+  null,
+  "new stream, no delta",
+);
+
+const transportCache = new Map();
+const pair = (timestamp, bytesSent, packetsSent) => [
+  { id: "CP", type: "candidate-pair", timestamp, state: "succeeded", nominated: true, bytesSent, packetsSent },
+];
+assert.deepEqual(summarizeTransport(pair(1000, 0, 0), transportCache, "t"), { bitrateBps: null, packetsPerSecond: null });
+assert.deepEqual(
+  summarizeTransport(pair(3000, 1_500_000, 1200), transportCache, "t"),
+  { bitrateBps: 6_000_000, packetsPerSecond: 600 },
+  "everything the connection sent, padding included",
+);
+assert.equal(summarizeTransport([], new Map(), "t"), null, "no selected pair, no transport row");
+assert.equal(computePacketRate(undefined, sample(1000, 0, 10)), null);
+assert.equal(computePacketRate(sample(1000, 0, 10), sample(2000, 0, 5)), null, "a counter reset is not a negative rate");
 
 console.log("media-stats self-check passed");

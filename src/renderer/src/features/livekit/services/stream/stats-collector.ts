@@ -4,6 +4,7 @@ import {
   summarizeIcePath,
   summarizeReceiverReport,
   summarizeSenderReport,
+  summarizeTransport,
   type IcePathStats,
   type InboundTrackStats,
   type MediaIcePaths,
@@ -11,6 +12,7 @@ import {
   type OutboundTrackStats,
   type RateCache,
   type RawStatEntry,
+  type TransportStats,
 } from "@shared/media-stats";
 
 export interface MediaStatsSnapshot {
@@ -26,6 +28,8 @@ export interface MediaStatsSnapshot {
    * publishing connection, a receiver's the subscribing one.
    */
   icePaths: MediaIcePaths;
+  /** The publishing connection as a whole: media, retransmissions and padding. */
+  transport: TransportStats | null;
   /**
    * How long a remote voice takes to reach this user, estimated. Added by the
    * session, which owns the playback bus; the collector leaves it out.
@@ -40,6 +44,7 @@ export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
   outbound: [],
   inbound: [],
   icePaths: EMPTY_ICE_PATHS,
+  transport: null,
   latency: null,
 };
 
@@ -61,6 +66,8 @@ export const EMPTY_MEDIA_STATS: MediaStatsSnapshot = {
  * this number.
  */
 const DEFAULT_INTERVAL_MS = 2_000;
+
+const TRANSPORT_KEY = "transport:publisher";
 
 // getRTCStatsReport lives on LocalTrack / RemoteTrack, not on the Track base
 // class, and publication.track is typed as the base — so narrow it here rather
@@ -177,6 +184,7 @@ export class MediaStatsCollector {
       // that has a selected pair speaks for all of them.
       let publisherPath: IcePathStats | null = null;
       let subscriberPath: IcePathStats | null = null;
+      let transport: TransportStats | null = null;
 
       for (const report of localReports) {
         liveKeys.add(report.key);
@@ -188,6 +196,9 @@ export class MediaStatsCollector {
           outbound.push(summary);
         }
         publisherPath = publisherPath ?? summarizeIcePath(report.entries);
+        if (!transport) {
+          transport = summarizeTransport(report.entries, this.cache, TRANSPORT_KEY);
+        }
       }
 
       for (const report of remoteReports) {
@@ -205,8 +216,11 @@ export class MediaStatsCollector {
       // Drop baselines for tracks that went away, otherwise the cache grows for
       // the lifetime of the room and a re-published track would be diffed
       // against a stale counter.
+      // Per-layer baselines live under "<trackKey>#<rid>" and go with their
+      // track; the transport baseline stays while anything publishes.
+      liveKeys.add(TRANSPORT_KEY);
       for (const key of Array.from(this.cache.keys())) {
-        if (!liveKeys.has(key)) {
+        if (!liveKeys.has(key.split("#")[0])) {
           this.cache.delete(key);
         }
       }
@@ -232,6 +246,7 @@ export class MediaStatsCollector {
         outbound,
         inbound,
         icePaths: { publisher: publisherPath, subscriber: subscriberPath },
+        transport,
       });
     } finally {
       this.sampling = false;

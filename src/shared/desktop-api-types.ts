@@ -1,6 +1,7 @@
 import type {
   MediaDiagnosticsBatch,
   MediaDiagnosticsGpu,
+  MediaDiagnosticsGpuDevice,
   MediaDiagnosticsSessionQuery,
   MediaDiagnosticsSessionRow,
 } from "./media-diagnostics";
@@ -856,6 +857,7 @@ export interface DesktopApi {
       electronVersion: string;
       chromeVersion: string;
       gpu: MediaDiagnosticsGpu;
+      gpuDevices: MediaDiagnosticsGpuDevice[];
     }>
   >;
   initiateCall: (payload: {

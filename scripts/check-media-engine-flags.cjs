@@ -28,13 +28,18 @@ const allNames = (flags) => [...switchNames(flags), ...flags.enableFeatures, ...
 // Windows, hardware acceleration on: WGC for screens, its zero-Hz mode off (a
 // still screen repeats its frame instead of going silent).
 const winOn = resolveMediaEngineFlags("win32", true);
-assert.deepEqual(winOn.enableFeatures, ["AllowWgcScreenCapturer"]);
+assert.deepEqual(winOn.enableFeatures, ["AllowWgcScreenCapturer", "WebRtcAV1HWEncode"]);
+assert.ok(
+  ![...winOn.enableFeatures, ...winOn.disableFeatures].some((name) => name.startsWith("D3D12")),
+  "D3D12 encode takes over H.264 too, and broke it on the bench",
+);
 assert.deepEqual(winOn.disableFeatures, ["AllowWgcScreenZeroHz"]);
 assert.deepEqual(winOn.switches, []);
 
 // Windows, hardware acceleration off: encoding off through the feature,
 // decoding left on the GPU (the setting exists for broken encoders).
 const winOff = resolveMediaEngineFlags("win32", false);
+assert.ok(!winOff.enableFeatures.includes("WebRtcAV1HWEncode"), "HW off must not ask for hardware AV1");
 assert.ok(winOff.disableFeatures.includes("webrtc-hw-encoding"), "HW off must disable webrtc-hw-encoding");
 assert.ok(!winOff.disableFeatures.includes("webrtc-hw-decoding"), "HW off must keep hardware decode on Windows");
 assert.ok(switchNames(winOff).includes("disable-gpu-memory-buffer-video-frames"));

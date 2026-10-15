@@ -77,6 +77,36 @@ const timestampedName = (prefix: string): string => {
   return `${prefix}-${stamp}.ndjson`;
 };
 
+interface GpuInfoDevice {
+  vendorId?: number;
+  deviceId?: number;
+  active?: boolean;
+  driverVersion?: string;
+}
+
+const hexId = (value: number | undefined): string =>
+  typeof value === "number" ? `0x${value.toString(16).padStart(4, "0")}` : "";
+
+/**
+ * The adapters Chromium's GPU process sees. "basic" is the cheap query; a
+ * failure leaves the list empty rather than holding up the context call.
+ */
+const readGpuDevices = async (): Promise<
+  { vendorId: string; deviceId: string; active: boolean | null; driverVersion: string | null }[]
+> => {
+  try {
+    const info = (await app.getGPUInfo("basic")) as { gpuDevice?: GpuInfoDevice[] };
+    return (info.gpuDevice ?? []).map((device) => ({
+      vendorId: hexId(device.vendorId),
+      deviceId: hexId(device.deviceId),
+      active: typeof device.active === "boolean" ? device.active : null,
+      driverVersion: device.driverVersion ?? null,
+    }));
+  } catch {
+    return [];
+  }
+};
+
 export const registerMediaDiagnosticsHandlers = (): void => {
   ipcMain.handle("desktop:media-diagnostics-context", async () => {
     try {
@@ -86,6 +116,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
       } catch {
         gpu = {};
       }
+      const gpuDevices = await readGpuDevices();
 
       return ok({
         appVersion: app.getVersion(),
@@ -98,6 +129,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
           videoDecode: gpu.video_decode ?? "unknown",
           gpuCompositing: gpu.gpu_compositing ?? "unknown",
         },
+        gpuDevices,
       });
     } catch (error) {
       return fail(error);

@@ -2,6 +2,7 @@ import type {
   InboundTrackStats,
   MediaIcePaths,
   OutboundTrackStats,
+  TransportStats,
 } from "./media-stats";
 
 export const MEDIA_DIAGNOSTICS_SCHEMA_VERSION = 3;
@@ -14,6 +15,8 @@ export interface MediaDiagnosticsStatsInput {
   inbound: InboundTrackStats[];
   /** Optional so stats recorded by callers that predate it still type-check. */
   icePaths?: MediaIcePaths;
+  /** The publishing connection's own bitrate and packet rate. Optional likewise. */
+  transport?: TransportStats | null;
 }
 
 /**
@@ -68,6 +71,14 @@ export interface MediaDiagnosticsGpu {
   gpuCompositing: string;
 }
 
+/** One adapter, as Chromium's GPU process lists it. PCI ids in hex. */
+export interface MediaDiagnosticsGpuDevice {
+  vendorId: string;
+  deviceId: string;
+  active: boolean | null;
+  driverVersion: string | null;
+}
+
 export interface MediaDiagnosticsPrefs {
   videoCodec: string;
   hardwareAcceleration: boolean;
@@ -89,6 +100,18 @@ export interface MediaDiagnosticsClient {
   gpu: MediaDiagnosticsGpu | null;
   prefs: MediaDiagnosticsPrefs | null;
   hardwareSvcCodec: string | null;
+  /**
+   * Every adapter on the machine. On an Optimus laptop the encoder can sit on a
+   * different GPU than the one rendering, and which AV1/HEVC paths exist
+   * depends on both.
+   */
+  gpuDevices: MediaDiagnosticsGpuDevice[] | null;
+  /**
+   * mediaCapabilities.encodingInfo for WebRTC at 1080p60 L1T1, per codec:
+   * "hw" (supported and power-efficient), "sw", or "no". How many publishers
+   * could take AV1 in hardware comes from here.
+   */
+  encodeCapabilities: Record<string, string> | null;
   audioInputCount: number | null;
   audioOutputCount: number | null;
 }

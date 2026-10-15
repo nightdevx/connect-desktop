@@ -332,6 +332,38 @@ export interface OutboundTrackStats {
    * honest number. Null until there is a previous sample to subtract.
    */
   window: { packets: number; packetsLost: number } | null;
+  /** Packets per second this window, every layer together. */
+  packetsPerSecond: number | null;
+  /**
+   * One row per simulcast encoding, top layer first (video only).
+   *
+   * The track-level fields pool every layer: a QP of 18 could be a 1080p top
+   * layer near lossless or a 360p thumbnail that is easy to code, and nothing
+   * said which. This is what a content-aware bitrate cap has to read.
+   */
+  layers: OutboundLayerStats[] | null;
+}
+
+export interface OutboundLayerStats {
+  rid: string | null;
+  frameWidth: number | null;
+  frameHeight: number | null;
+  framesPerSecond: number | null;
+  bitrateBps: number | null;
+  packetsPerSecond: number | null;
+  qpAvg: number | null;
+  /** What the rate controller is aiming at for this layer right now. */
+  targetBitrateBps: number | null;
+  /** False while dynacast (or a quality change) has the layer paused. */
+  active: boolean | null;
+  hardwareEncoder: boolean | null;
+  keyFrames: number | null;
+}
+
+export interface TransportStats {
+  /** Everything the connection sent: media, retransmissions and padding. */
+  bitrateBps: number | null;
+  packetsPerSecond: number | null;
 }
 
 export interface InboundTrackStats {
@@ -504,6 +536,26 @@ export const computeBitrateBps = (
     return null;
   }
   return Math.round((deltaBytes * 8 * 1000) / elapsedMs);
+};
+
+/**
+ * Packets per second over the window. Wi-Fi uplink stalls track the packet
+ * rate a publisher pushes, not only its bitrate, so it is worth its own field.
+ * Null on the same conditions as computeBitrateBps.
+ */
+export const computePacketRate = (
+  previous: RateSample | undefined,
+  current: RateSample,
+): number | null => {
+  if (!previous || !sameSource(previous, current)) {
+    return null;
+  }
+  const elapsedMs = current.timestampMs - previous.timestampMs;
+  const deltaPackets = current.packets - previous.packets;
+  if (elapsedMs <= 0 || deltaPackets < 0) {
+    return null;
+  }
+  return Math.round((deltaPackets * 1000) / elapsedMs);
 };
 
 /**
@@ -788,6 +840,83 @@ export const summarizeIcePath = (
   };
 };
 
+/**
+ * One simulcast encoding on its own. Each layer keeps its own baseline in the
+ * cache under `<trackKey>#<rid>`; its sourceKey is the stat id, so a
+ * renegotiation that gives the layer a new SSRC starts it over instead of
+ * producing a bogus delta.
+ */
+const summarizeLayer = (
+  entry: RawStatEntry,
+  cache: RateCache,
+  trackKey: string,
+): OutboundLayerStats => {
+  const rid = str(entry.rid);
+  const key = `${trackKey}#${rid ?? str(entry.ssrc) ?? entry.id}`;
+  const qpSum = num(entry.qpSum);
+  const sample: RateSample = {
+    timestampMs: entry.timestamp,
+    bytes: num(entry.bytesSent) ?? 0,
+    packets: num(entry.packetsSent) ?? 0,
+    packetsLost: 0,
+    frames: num(entry.framesEncoded) ?? 0,
+    ...(qpSum !== null ? { qpSum } : {}),
+    keyFramesEncoded: num(entry.keyFramesEncoded) ?? 0,
+    sourceKey: entry.id,
+  };
+  const previous = cache.get(key);
+  cache.set(key, sample);
+  return {
+    rid,
+    frameWidth: num(entry.frameWidth),
+    frameHeight: num(entry.frameHeight),
+    framesPerSecond: num(entry.framesPerSecond),
+    bitrateBps: computeBitrateBps(previous, sample),
+    packetsPerSecond: computePacketRate(previous, sample),
+    qpAvg: computeQpAvg(previous, sample),
+    targetBitrateBps: num(entry.targetBitrate),
+    active: typeof entry.active === "boolean" ? entry.active : null,
+    hardwareEncoder: isHardwareImplementation(
+      str(entry.encoderImplementation),
+      entry.powerEfficientEncoder,
+    ),
+    keyFrames: delta(previous, sample, "keyFramesEncoded"),
+  };
+};
+
+const layerPixels = (layer: OutboundLayerStats): number =>
+  (layer.frameWidth ?? 0) * (layer.frameHeight ?? 0);
+
+/**
+ * The publishing connection as a whole, off its selected candidate pair. Its
+ * bytes include padding and retransmissions; the gap to what a viewer receives
+ * is how much of the upload carried no picture.
+ */
+export const summarizeTransport = (
+  entries: RawStatEntry[],
+  cache: RateCache,
+  key: string,
+): TransportStats | null => {
+  const pair = findSelectedCandidatePair(entries);
+  if (!pair) {
+    return null;
+  }
+  const sample: RateSample = {
+    timestampMs: pair.timestamp,
+    bytes: num(pair.bytesSent) ?? 0,
+    packets: num(pair.packetsSent) ?? 0,
+    packetsLost: 0,
+    frames: 0,
+    sourceKey: pair.id,
+  };
+  const previous = cache.get(key);
+  cache.set(key, sample);
+  return {
+    bitrateBps: computeBitrateBps(previous, sample),
+    packetsPerSecond: computePacketRate(previous, sample),
+  };
+};
+
 export const summarizeSenderReport = (
   entries: RawStatEntry[],
   cache: RateCache,
@@ -957,11 +1086,20 @@ export const summarizeSenderReport = (
   const previous = cache.get(trackKey);
   cache.set(trackKey, sample);
 
+  const layers =
+    kind === "video"
+      ? outbound
+          .map((entry) => summarizeLayer(entry, cache, trackKey))
+          .sort((a, b) => layerPixels(b) - layerPixels(a))
+      : null;
+
   return {
     trackKey,
     kind,
     codec,
     bitrateBps: computeBitrateBps(previous, sample),
+    packetsPerSecond: computePacketRate(previous, sample),
+    layers,
     frameWidth,
     frameHeight,
     framesPerSecond,

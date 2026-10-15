@@ -40,6 +40,8 @@ const emptyClient = (): MediaDiagnosticsClient => ({
   gpu: null,
   prefs: null,
   hardwareSvcCodec: null,
+  gpuDevices: null,
+  encodeCapabilities: null,
   audioInputCount: null,
   audioOutputCount: null,
 });
@@ -395,6 +397,27 @@ class MediaDiagnosticsCollector {
           keyFrames: entry.keyFrames,
           pli: entry.pliCount,
           nack: entry.nackCount,
+          // Packet rate (Wi-Fi stalls follow it) and each simulcast encoding on
+          // its own: the pooled qp above mixes the 1080p layer with the 360p one.
+          pps: entry.packetsPerSecond,
+          layers: entry.layers?.map((layer) => ({
+            rid: layer.rid,
+            res:
+              layer.frameWidth !== null && layer.frameHeight !== null
+                ? `${layer.frameWidth}x${layer.frameHeight}`
+                : null,
+            fps:
+              layer.framesPerSecond === null
+                ? null
+                : Math.round(layer.framesPerSecond),
+            bps: layer.bitrateBps,
+            pps: layer.packetsPerSecond,
+            qp: layer.qpAvg,
+            target: layer.targetBitrateBps,
+            active: layer.active,
+            hw: layer.hardwareEncoder,
+            kf: layer.keyFrames,
+          })) ?? null,
         });
       }
 
@@ -541,6 +564,9 @@ class MediaDiagnosticsCollector {
       // every sample and the per-entry budget is 4 KB. The full record is
       // written once, as stream-manager/ice-path-changed, when it changes.
       icePaths: { publisher: publisherPath, subscriber: subscriberPath },
+      // The whole publishing connection; its gap to what viewers receive is the
+      // padding and retransmissions the uplink carries for no picture.
+      transport: snapshot.transport ?? null,
       outbound: outboundVideoRows,
       inbound: inboundVideoRows,
       outboundAudio: snapshot.outbound

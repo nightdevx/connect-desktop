@@ -79,6 +79,16 @@ export const resolveMediaEngineFlags = (
 
     if (!hardwareAcceleration) {
       softwareEncode();
+    } else {
+      // Lets WebRTC reach the AV1 hardware encoder MediaFoundation already
+      // drives (Intel Arc/Core Ultra, RTX 40+, RX 7000). Off on Windows by
+      // default in every Chromium to date; without it AV1 is libaom on the CPU.
+      // Nothing moves to AV1 because of this: the automatic codec stays H.264,
+      // and the diagnostics probe only reports what the fleet could encode.
+      // D3D12VideoEncodeAccelerator is deliberately NOT here: it also takes
+      // over H.264, and on an Optimus Arrow Lake laptop that broke H.264
+      // outright (bench 2026-10-16: VMAF 24, 17 freezes in 25 s).
+      flags.enableFeatures.push("WebRtcAV1HWEncode");
     }
   }
 
