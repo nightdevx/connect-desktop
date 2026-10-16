@@ -95,6 +95,7 @@ import {
 import {
   DEFAULT_VIDEO_PUBLISH_PREFERENCES,
   buildVideoPublishPlan,
+  codecForRoom,
   installH264HighPreference,
   resolveCodecTarget,
   probeEncodeCapabilities,
@@ -777,14 +778,12 @@ export class LiveKitMediaSession {
       previousState,
     );
 
-    this.resolvedVideoCodec = resolveVideoCodec(this.videoPublishPreferences);
-    if (this.resolvedVideoCodec === "av1" && lobbyId.startsWith("call_")) {
-      // livekit-client's E2EE worker throws on every AV1 frame (FrameCryptor
-      // has no AV1 path), so an encrypted call would carry no video at all.
-      this.resolvedVideoCodec = "h264";
+    const preferredCodec = resolveVideoCodec(this.videoPublishPreferences);
+    this.resolvedVideoCodec = codecForRoom(preferredCodec, lobbyId);
+    if (this.resolvedVideoCodec !== preferredCodec) {
       logLiveKitDebug("stream-manager", "codec-override", {
-        from: "av1",
-        to: "h264",
+        from: preferredCodec,
+        to: this.resolvedVideoCodec,
         reason: "e2ee",
       });
     }

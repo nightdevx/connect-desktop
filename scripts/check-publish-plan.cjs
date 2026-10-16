@@ -70,6 +70,7 @@ const main = async () => {
     preferH264High,
     installH264HighPreference,
     withPerLayerPli,
+    codecForRoom,
   } = await import(pathToFileURL(bundle).href);
 
   const target = {
@@ -342,6 +343,13 @@ const main = async () => {
   delete globalThis.RTCPeerConnection;
   delete globalThis.RTCRtpTransceiver;
   delete globalThis.RTCRtpSender;
+
+  // An encrypted 1:1 call cannot carry AV1; everything else keeps its codec.
+  assert.equal(codecForRoom("av1", "call_ab12"), "h264", "AV1 in an E2EE call goes to H.264");
+  assert.equal(codecForRoom("av1", "main-lobby"), "av1", "lobbies are not encrypted");
+  for (const codec of ["h264", "vp8", "vp9"]) {
+    assert.equal(codecForRoom(codec, "call_ab12"), codec, `${codec} is fine in a call`);
+  }
 
   // Per-layer PLI: every H.264 payload of the answer, nothing else, once.
   {

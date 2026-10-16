@@ -51,6 +51,14 @@ export const resolveVideoCodec = (
   return preferences.hardwareAcceleration ? "h264" : "vp8";
 };
 
+/**
+ * The codec a room can actually carry. 1:1 calls (`call_` rooms) are end to
+ * end encrypted, and livekit-client's E2EE worker throws on every AV1 frame
+ * (FrameCryptor has no AV1 path), so an AV1 call would carry no video at all.
+ */
+export const codecForRoom = (codec: VideoCodec, lobbyId: string): VideoCodec =>
+  codec === "av1" && lobbyId.startsWith("call_") ? "h264" : codec;
+
 const toVideoPreset = (layer: VideoLayerSpec): VideoPreset => {
   return new VideoPreset({
     width: layer.width,
