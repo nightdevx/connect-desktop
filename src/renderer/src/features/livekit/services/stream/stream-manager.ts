@@ -204,6 +204,16 @@ const isSameParticipantMediaState = (
   );
 };
 
+// How long one signal (WebSocket) connect attempt may take, the first join and
+// every resume alike. livekit-client's default is 15 s, and a resume started
+// while the path is still coming back (a VPN or Wi-Fi switching routes) hangs
+// for all of it before the next attempt goes through at once: a quarter of
+// the long reconnects in production were 17.6-18.3 s with the media flowing
+// the whole time (PLAN F5.1). A local run with a 3 s signal blackout took
+// 17.3 s at 15 s and 8.3 s at 6 s. A healthy connect takes well under a
+// second, so 6 s still leaves several round trips of a slow link.
+const SIGNAL_CONNECT_TIMEOUT_MS = 6_000;
+
 export class LiveKitMediaSession {
   private room: Room | null = null;
   private currentLobbyId: string | null = null;
@@ -925,6 +935,7 @@ export class LiveKitMediaSession {
       // autoSubscribe and connectTimeout are ConnectOptions
       await room.connect(url, token, {
         autoSubscribe: false,
+        websocketTimeout: SIGNAL_CONNECT_TIMEOUT_MS,
         ...(iceServers && iceServers.length > 0
           ? { rtcConfig: { iceServers } }
           : {}),
