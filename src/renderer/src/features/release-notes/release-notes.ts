@@ -36,6 +36,32 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.2.10",
+    date: "2026-10-16",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Ekran paylaşımı, ekran durgunken (menüdeyken, beklerken, oyun duraklatılmışken) çok daha az internet kullanıyor. Görüntü kalitesi aynı kalıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Yayına biri katıldığında ya da biri yayını küçük pencerede izlemeye geçtiğinde, diğer izleyicilerde görülen anlık takılma azaldı.",
+      },
+      {
+        kind: "improved",
+        text: "Yayın yaparken internetin bir anlığına durursa (çoğunlukla Wi-Fi'da), senin sesin ve diğerlerinin sesi daha çabuk geri geliyor.",
+      },
+      {
+        kind: "improved",
+        text: "Bağlantın kısa bir süre gidip geldiğinde odaya daha hızlı dönüyorsun.",
+      },
+      {
+        kind: "fixed",
+        text: "Bazı Intel ekran kartlı bilgisayarlardan yapılan birebir görüntülü aramalarda görüntünün donup kalması düzeldi.",
+      },
+    ],
+  },
+  {
     version: "0.2.9",
     date: "2026-10-04",
     highlights: [
