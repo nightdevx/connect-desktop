@@ -521,6 +521,11 @@ class MediaDiagnosticsCollector {
         frameIntervalStdDevMs: entry.frameIntervalStdDevMs,
         framesDropped: entry.framesDropped,
         hardwareDecoder: entry.hardwareDecoder,
+        // What adaptiveStream sizes the request to: the element, not the window.
+        element: entry.element
+          ? `${entry.element.width}x${entry.element.height}`
+          : null,
+        visible: entry.element?.visible ?? null,
       });
     }
 

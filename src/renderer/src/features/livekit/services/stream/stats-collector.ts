@@ -102,6 +102,30 @@ const readReport = async (
   }
 };
 
+/** The largest element showing a remote video, in device pixels. */
+const readElement = (
+  publication: TrackPublication,
+): InboundTrackStats["element"] => {
+  const elements = publication.track?.attachedElements ?? [];
+  if (elements.length === 0) {
+    return null;
+  }
+  let width = 0;
+  let height = 0;
+  for (const element of elements) {
+    if (element.clientWidth * element.clientHeight > width * height) {
+      width = element.clientWidth;
+      height = element.clientHeight;
+    }
+  }
+  const density = window.devicePixelRatio || 1;
+  return {
+    width: Math.round(width * density),
+    height: Math.round(height * density),
+    visible: document.visibilityState === "visible" && width > 0,
+  };
+};
+
 /**
  * Samples real WebRTC stats off the LiveKit room on a fixed interval.
  *
@@ -173,6 +197,7 @@ export class MediaStatsCollector {
               .filter((publication) => publication.isSubscribed)
               .map(async (publication) => ({
                 key: `${participant.identity}:${publication.source}`,
+                publication,
                 entries: await readReport(publication),
               })),
           ),
@@ -208,6 +233,9 @@ export class MediaStatsCollector {
         }
         const summary = summarizeReceiverReport(report.entries, this.cache, report.key);
         if (summary) {
+          if (summary.kind === "video") {
+            summary.element = readElement(report.publication);
+          }
           inbound.push(summary);
         }
         subscriberPath = subscriberPath ?? summarizeIcePath(report.entries);

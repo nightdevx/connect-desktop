@@ -413,6 +413,13 @@ export interface InboundTrackStats {
   frameIntervalStdDevMs: number | null;
   framesDropped: number | null;
   /**
+   * Video only, added by the collector: the largest element showing the track,
+   * in device pixels, and whether the page is visible. adaptiveStream asks the
+   * SFU for a layer that fits this, so a viewer on the low layer with a small
+   * element is not a bandwidth problem. Null when nothing shows the track.
+   */
+  element?: { width: number; height: number; visible: boolean } | null;
+  /**
    * Packets counted in the LAST sampling window, so several tracks can be
    * pooled into one figure. packetLossPct is this window's ratio and is null
    * when the window is too small to divide by; the counts stay either way, and
