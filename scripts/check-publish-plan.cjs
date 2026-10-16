@@ -69,6 +69,7 @@ const main = async () => {
     resolveScreenContentMode,
     preferH264High,
     installH264HighPreference,
+    withPerLayerPli,
   } = await import(pathToFileURL(bundle).href);
 
   const target = {
@@ -341,6 +342,32 @@ const main = async () => {
   delete globalThis.RTCPeerConnection;
   delete globalThis.RTCRtpTransceiver;
   delete globalThis.RTCRtpSender;
+
+  // Per-layer PLI: every H.264 payload of the answer, nothing else, once.
+  {
+    const CRLF = String.fromCharCode(13, 10);
+    const answer = [
+      "v=0",
+      "m=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99",
+      "a=rtpmap:96 H264/90000",
+      "a=fmtp:96 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+      "a=rtpmap:97 rtx/90000",
+      "a=fmtp:97 apt=96",
+      "a=rtpmap:98 h264/90000",
+      "a=fmtp:98 packetization-mode=1;profile-level-id=640c1f",
+      "a=rtpmap:99 VP9/90000",
+      "a=fmtp:99 profile-id=0",
+      "",
+    ].join(CRLF);
+    const munged = withPerLayerPli(answer);
+    const fmtp = (pt) => munged.split(CRLF).find((line) => line.startsWith(`a=fmtp:${pt} `));
+    assert.ok(fmtp(96).endsWith(";x-google-per-layer-pli=1"), "H.264 gets it");
+    assert.ok(fmtp(98).endsWith(";x-google-per-layer-pli=1"), "case-insensitive codec name");
+    assert.equal(fmtp(97), "a=fmtp:97 apt=96", "rtx untouched");
+    assert.equal(fmtp(99), "a=fmtp:99 profile-id=0", "VP9 untouched");
+    assert.equal(munged.split(CRLF).length, answer.split(CRLF).length, "line endings kept");
+    assert.equal(withPerLayerPli(munged), munged, "idempotent");
+  }
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log("publish-plan self-check passed");

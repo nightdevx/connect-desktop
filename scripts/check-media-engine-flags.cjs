@@ -15,8 +15,9 @@ const path = require("node:path");
 
 const modulePath = path.join(__dirname, "..", "dist", "main", "media-engine-flags.js");
 let resolveMediaEngineFlags;
+let WEBRTC_FIELD_TRIALS;
 try {
-  ({ resolveMediaEngineFlags } = require(modulePath));
+  ({ resolveMediaEngineFlags, WEBRTC_FIELD_TRIALS } = require(modulePath));
 } catch (error) {
   console.error(`Could not load ${modulePath}. Run "pnpm build:main" first.\n${error.message}`);
   process.exit(1);
@@ -34,7 +35,13 @@ assert.ok(
   "D3D12 encode takes over H.264 too, and broke it on the bench",
 );
 assert.deepEqual(winOn.disableFeatures, ["AllowWgcScreenZeroHz"]);
-assert.deepEqual(winOn.switches, []);
+assert.deepEqual(winOn.switches, [["force-fieldtrials", WEBRTC_FIELD_TRIALS]]);
+
+// The padding fix travels as one --force-fieldtrials on every platform and
+// setting; a second one would replace the first.
+assert.match(WEBRTC_FIELD_TRIALS, /^([A-Za-z0-9-]+\/[^/]+\/)+$/, "field trials are Name/value/ pairs");
+assert.ok(WEBRTC_FIELD_TRIALS.includes("WebRTC-StrictPacingAndProbing/"), "ALR probing for motion shares (no padding)");
+const trialNames = WEBRTC_FIELD_TRIALS.split("/").filter((_, index) => index % 2 === 0 && _ !== "");
 
 // Windows, hardware acceleration off: encoding off through the feature,
 // decoding left on the GPU (the setting exists for broken encoders).
@@ -59,6 +66,11 @@ for (const flags of [winOn, winOff, linux]) {
   for (const name of allNames(flags)) {
     assert.ok(!dead.includes(name), `${name} does not exist in this Chromium`);
   }
+  assert.equal(
+    flags.switches.filter(([name]) => name === "force-fieldtrials").length,
+    1,
+    "exactly one --force-fieldtrials",
+  );
 }
 
 // Every name this platform would pass must exist in the installed Electron.
@@ -73,6 +85,7 @@ if (typeof binaryPath === "string" && fs.existsSync(binaryPath)) {
   const names = new Set([
     ...allNames(resolveMediaEngineFlags(process.platform, true)),
     ...allNames(resolveMediaEngineFlags(process.platform, false)),
+    ...trialNames,
   ]);
   for (const name of names) {
     assert.ok(binary.includes(name), `${name} is not in ${path.basename(binaryPath)}: Chromium renamed or removed it`);

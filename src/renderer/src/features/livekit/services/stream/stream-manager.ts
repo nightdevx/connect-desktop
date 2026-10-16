@@ -69,16 +69,23 @@ import {
 } from "@shared/media-stats";
 import {
   guardedBitrate,
+  inQpBandGroup,
   initialAudioGuard,
   initialEncoderGuard,
   initialHardwareFallback,
+  initialQpBand,
+  qpBandFloorBps,
   stepAudioGuard,
   stepDownlink,
   stepEncoderGuard,
   stepHardwareFallback,
+  stalledBitrate,
+  stepQpBand,
+  topEncodingIndex,
   type AudioGuardState,
   type EncoderGuardState,
   type HardwareFallbackState,
+  type QpBandState,
 } from "./link-guards";
 import {
   describeEncodingMismatch,
@@ -93,6 +100,7 @@ import {
   probeEncodeCapabilities,
   resolveHardwareSvcCodec,
   resolveVideoCodec,
+  withPerLayerPli,
   type VideoContentMode,
   type VideoPublishPreferences,
   type VideoPublishTarget,
@@ -264,6 +272,12 @@ export class LiveKitMediaSession {
   private audioGuard: AudioGuardState = initialAudioGuard();
   private audioGuardSender: RTCRtpSender | null = null;
   private audioGuardCaps: (number | null)[] | null = null;
+  // The publishing connection's ICE is disconnected: a stall, as far as the
+  // audio guard is concerned.
+  private publisherIceDisconnected = false;
+  // The QP band (link-guards.ts): the top layer's lowered ceiling on a calm
+  // screen. Reset with the audio guard's caps, which hold the preset it cuts from.
+  private qpBand: QpBandState = initialQpBand();
   // Downlink diagnosis: how many samples in a row everybody arrived damaged,
   // which watched shares were lowered for it, and when that ends.
   private downlinkStreak = 0;
@@ -567,6 +581,7 @@ export class LiveKitMediaSession {
    */
   private watchIceStates(room: Room, connectStartedAt: number): void {
     room.engine.on(EngineEvent.TransportsCreated, (publisher, subscriber) => {
+      this.publisherIceDisconnected = false;
       for (const [connection, transport] of [
         ["publisher", publisher],
         ["subscriber", subscriber],
@@ -580,6 +595,9 @@ export class LiveKitMediaSession {
           if (this.room !== room) {
             return;
           }
+          if (connection === "publisher") {
+            this.publisherIceDisconnected = state === "disconnected" || state === "failed";
+          }
           logLiveKitDebug("stream-manager", "ice-state", {
             connection,
             state,
@@ -587,6 +605,28 @@ export class LiveKitMediaSession {
           });
         };
       }
+    });
+  }
+
+  /**
+   * Puts `x-google-per-layer-pli=1` into every answer the SFU gives the
+   * publishing connection (video-profiles.ts, withPerLayerPli), so a keyframe
+   * request for one simulcast layer stops costing an IDR on all of them. A
+   * full reconnect builds a new publisher and raises TransportsCreated again.
+   */
+  private installPerLayerPli(room: Room): void {
+    room.engine.on(EngineEvent.TransportsCreated, (publisher) => {
+      if (!publisher) {
+        return;
+      }
+      const setRemoteDescription = publisher.setRemoteDescription.bind(publisher);
+      publisher.setRemoteDescription = (description, offerId) =>
+        setRemoteDescription(
+          description.type === "answer" && description.sdp
+            ? { ...description, sdp: withPerLayerPli(description.sdp) }
+            : description,
+          offerId,
+        );
     });
   }
 
@@ -785,6 +825,7 @@ export class LiveKitMediaSession {
     const room = new Room(options);
     this.room = room;
     this.watchIceStates(room, connectStartedAt);
+    this.installPerLayerPli(room);
     this.remoteMediaHandler = new RemoteMediaHandler(room, (identity) =>
       this.watchedScreenIdentities.has(identity),
     );
@@ -841,6 +882,8 @@ export class LiveKitMediaSession {
     this.softwareSvcTicks = 0;
     this.lastIcePaths = EMPTY_ICE_PATHS;
     this.audioGuard = initialAudioGuard();
+    this.qpBand = initialQpBand();
+    this.publisherIceDisconnected = false;
     this.downlinkStreak = 0;
     this.statsCollector = new MediaStatsCollector(room, (snapshot) => {
       this.callbacks.onMediaStats?.({
@@ -1581,31 +1624,78 @@ export class LiveKitMediaSession {
     if (sender !== this.audioGuardSender) {
       this.audioGuardSender = sender;
       this.audioGuardCaps = null;
-      this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1 };
+      this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1, stalled: false };
+      this.qpBand = initialQpBand();
     }
 
+    const bandChanged = sender !== null && this.stepShareQpBand(snapshot, sender);
     const step = stepAudioGuard(
       this.audioGuard,
       snapshot.rttMs,
       this.desiredScreenEnabled && sender !== null,
+      this.publisherIceDisconnected,
     );
     this.audioGuard = step.state;
-    if (!step.action || !sender) {
+    if (!sender || (!step.action && !bandChanged)) {
       return;
     }
 
-    logLiveKitDebug("stream-manager", "audio-guard", {
-      action: step.action,
-      factor: step.state.factor,
-      rttMs: snapshot.rttMs,
-      baselineMs: step.baselineMs,
-    });
-    void this.applyAudioGuardCeiling(sender, step.state.factor);
+    if (step.action) {
+      logLiveKitDebug("stream-manager", "audio-guard", {
+        action: step.action,
+        factor: step.state.factor,
+        rttMs: snapshot.rttMs,
+        baselineMs: step.baselineMs,
+        iceDisconnected: this.publisherIceDisconnected,
+      });
+    }
+    void this.applyAudioGuardCeiling(sender, step.state.factor, step.state.stalled);
+  }
+
+  /**
+   * One QP band tick on the share's top layer. H.264 only, and only for the
+   * half of publishers in the field trial (PLAN F8.2c). True when the top
+   * layer's ceiling changed and has to be applied.
+   */
+  private stepShareQpBand(snapshot: MediaStatsSnapshot, sender: RTCRtpSender): boolean {
+    const identity = this.room?.localParticipant.identity ?? "";
+    const stats = snapshot.outbound.find(
+      (entry) => entry.trackKey === `local:${Track.Source.ScreenShare}`,
+    );
+    const top = stats?.layers?.[0];
+    if (!identity || !inQpBandGroup(identity) || stats?.codec !== "H264" || !top || top.active === false) {
+      return false;
+    }
+    const encodings = sender.getParameters().encodings ?? [];
+    // The preset: nothing has cut the sender while the caps are unread.
+    this.audioGuardCaps ??= encodings.map((encoding) => encoding.maxBitrate ?? null);
+    const presetCapBps = this.audioGuardCaps[topEncodingIndex(encodings)];
+    if (typeof presetCapBps !== "number") {
+      return false;
+    }
+    const step = stepQpBand(
+      this.qpBand,
+      top.qpAvg,
+      top.bitrateBps,
+      presetCapBps,
+      qpBandFloorBps(top.framesPerSecond),
+    );
+    this.qpBand = step.state;
+    if (step.changed) {
+      logLiveKitDebug("stream-manager", "qp-band", {
+        capBps: step.state.capBps,
+        presetCapBps,
+        qp: top.qpAvg,
+        bitrateBps: top.bitrateBps,
+      });
+    }
+    return step.changed;
   }
 
   private async applyAudioGuardCeiling(
     sender: RTCRtpSender,
     factor: number,
+    stalled: boolean,
   ): Promise<void> {
     try {
       const parameters = sender.getParameters();
@@ -1615,10 +1705,19 @@ export class LiveKitMediaSession {
         this.audioGuardCaps = encodings.map((encoding) => encoding.maxBitrate ?? null);
       }
       const caps = this.audioGuardCaps;
+      const top = topEncodingIndex(encodings);
+      const bandCap = this.qpBand.capBps;
       encodings.forEach((encoding, index) => {
         const cap = caps[index];
         if (typeof cap === "number") {
-          encoding.maxBitrate = guardedBitrate(cap, factor);
+          // Everything cuts the same ceiling; the lowest one wins.
+          const guarded = guardedBitrate(cap, factor);
+          encoding.maxBitrate =
+            index !== top
+              ? guarded
+              : stalled
+                ? stalledBitrate(cap)
+                : Math.min(guarded, bandCap ?? guarded);
         }
       });
       await sender.setParameters(parameters);
@@ -2185,7 +2284,8 @@ export class LiveKitMediaSession {
       // its ceiling is re-read and it starts uncut.
       if (sender === this.audioGuardSender) {
         this.audioGuardCaps = null;
-        this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1 };
+        this.audioGuard = { ...this.audioGuard, over: 0, calm: 0, factor: 1, stalled: false };
+        this.qpBand = initialQpBand();
       }
     } catch (error) {
       console.warn("[LiveKitMediaSession] screen live encoding update failed:", error);

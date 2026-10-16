@@ -19,6 +19,18 @@ const GPU_REPORT_DEADLINE_MS = 8000;
 const WEBRTC_HW_ENCODING = "webrtc-hw-encoding";
 const WEBRTC_HW_DECODING = "webrtc-hw-decoding";
 
+// A share in the "motion" content mode (the default) has no ALR probing, so
+// whenever its encoder sends less than the top simulcast layer's minimum (a
+// still menu, a paused game) libwebrtc pads the upload up to it, to keep the
+// bandwidth estimate high enough for that layer. That padding was ~1.2 Mbps of
+// upload carrying no picture: on a local LiveKit a still screen sent 1248 kbps
+// for a viewer receiving 40. With ALR probing (the values Chromium already
+// uses for "detail" screens, the pacing factor unchanged) the same screen sent
+// 55 kbps, the top layer stayed on and the estimate held; a fight clip was
+// unchanged (4.8 vs 4.7 Mbps to the viewer, 30 fps). One string: Chromium reads
+// a single --force-fieldtrials.
+export const WEBRTC_FIELD_TRIALS = "WebRTC-StrictPacingAndProbing/1.1,2000,80,40,-60,3/";
+
 export interface MediaEngineFlags {
   /** Plain switches, each with an optional value. */
   switches: Array<[string] | [string, string]>;
@@ -35,7 +47,7 @@ export const resolveMediaEngineFlags = (
   hardwareAcceleration: boolean,
 ): MediaEngineFlags => {
   const flags: MediaEngineFlags = {
-    switches: [],
+    switches: [["force-fieldtrials", WEBRTC_FIELD_TRIALS]],
     enableFeatures: [],
     disableFeatures: [],
   };

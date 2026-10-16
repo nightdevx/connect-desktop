@@ -403,6 +403,27 @@ export const installH264HighPreference = (): void => {
 };
 
 /**
+ * The SFU's answer with `x-google-per-layer-pli=1` on every H.264 payload.
+ * Without it libwebrtc keeps one keyframe timer for the whole simulcast send:
+ * a viewer of the 360p layer asking for a keyframe made the 1080p layer send
+ * an IDR too, the largest frame there is, on the link already in trouble. With
+ * it each layer answers only its own requests. It tells this machine's sender
+ * how to treat a PLI and changes nothing the SFU does.
+ */
+export const withPerLayerPli = (sdp: string): string => {
+  const h264 = new Set(
+    Array.from(sdp.matchAll(/^a=rtpmap:(\d+) H264\/90000/gim), (match) => match[1]),
+  );
+  return sdp.replace(
+    /^(a=fmtp:(\d+) )(.*?)(\r?)$/gm,
+    (line, head: string, payload: string, params: string, cr: string) =>
+      h264.has(payload) && !params.includes("x-google-per-layer-pli")
+        ? `${head}${params};x-google-per-layer-pli=1${cr}`
+        : line,
+  );
+};
+
+/**
  * Content mode for a screen capture. "auto" protects smoothness, like Discord's
  * "Smoother Video": under a short uplink the encoder sheds resolution and keeps
  * the frame rate. It used to mean "detail" for every 30 fps preset, so the

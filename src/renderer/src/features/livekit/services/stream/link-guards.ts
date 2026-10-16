@@ -14,6 +14,16 @@ import { MEDIA_DIAGNOSTIC_THRESHOLDS } from "@shared/media-diagnostics";
 // floor, the share's bitrate ceiling is cut on the live sender -- no
 // re-capture, no new track -- and handed back a little at a time once the
 // voice has been on time for a while.
+//
+// A stall is different: the link itself stops (Wi-Fi mostly), every queue in
+// front of it fills, and when it comes back whatever was queued has to drain
+// before the voice gets through. Cutting 30% at a time did not shorten those
+// (p50 10 s either way). A round trip of a second or more, or the publishing
+// connection's ICE going disconnected, drops the top layer's ceiling to the
+// floor in one step, and it stays there until the voice has been on time for a
+// few samples in a row. Not a pause (`active: false`): the SFU does not move a
+// screen share's viewers to the low layer for many seconds (its tracker allows
+// for still screens), so a paused top layer froze their picture instead.
 
 export const AUDIO_GUARD = {
   // Above the floor by this much is queueing, not distance.
@@ -32,6 +42,10 @@ export const AUDIO_GUARD = {
   // that genuinely changed without forgetting what an idle link looks like.
   baselineWindow: 60,
   minBaselineSamples: 3,
+  // No queue a home router keeps is this deep; the link stopped.
+  stallRttMs: 1_000,
+  // 6 s at the 2 s stats interval.
+  resumeAfterSamples: 3,
 } as const;
 
 export interface AudioGuardState {
@@ -40,9 +54,11 @@ export interface AudioGuardState {
   calm: number;
   /** The share's bitrate ceiling as a fraction of its preset. */
   factor: number;
+  /** A stall: the top layer sits on the floor. */
+  stalled: boolean;
 }
 
-export type AudioGuardAction = "throttle" | "restore" | null;
+export type AudioGuardAction = "throttle" | "restore" | "stall" | "recover" | null;
 
 export interface AudioGuardStep {
   state: AudioGuardState;
@@ -55,6 +71,7 @@ export const initialAudioGuard = (): AudioGuardState => ({
   over: 0,
   calm: 0,
   factor: 1,
+  stalled: false,
 });
 
 const twoDecimals = (value: number): number => Math.round(value * 100) / 100;
@@ -63,6 +80,9 @@ export const stepAudioGuard = (
   state: AudioGuardState,
   rttMs: number | null,
   sharing: boolean,
+  // The publishing connection's ICE is disconnected: the round trip on hand
+  // is the last one measured before the link stopped, not a current one.
+  iceDisconnected = false,
 ): AudioGuardStep => {
   // Samples taken while not sharing are the best floor there is, so the
   // history is kept whatever else happens.
@@ -76,8 +96,35 @@ export const stepAudioGuard = (
       : null;
 
   if (!sharing) {
-    return { state: { recentRttMs, over: 0, calm: 0, factor: 1 }, action: null, baselineMs };
+    return {
+      state: { recentRttMs, over: 0, calm: 0, factor: 1, stalled: false },
+      action: null,
+      baselineMs,
+    };
   }
+
+  if (iceDisconnected || (rttMs !== null && rttMs >= AUDIO_GUARD.stallRttMs)) {
+    return {
+      state: { ...state, recentRttMs, over: 0, calm: 0, stalled: true },
+      action: state.stalled ? null : "stall",
+      baselineMs,
+    };
+  }
+  if (state.stalled) {
+    // With no floor yet, anything short of a stall counts as on time.
+    const onTime =
+      rttMs === null || baselineMs === null || rttMs <= baselineMs + AUDIO_GUARD.rttMarginMs;
+    const calm = onTime ? state.calm + 1 : 0;
+    if (calm >= AUDIO_GUARD.resumeAfterSamples) {
+      return {
+        state: { ...state, recentRttMs, over: 0, calm: 0, stalled: false },
+        action: "recover",
+        baselineMs,
+      };
+    }
+    return { state: { ...state, recentRttMs, calm }, action: null, baselineMs };
+  }
+
   if (rttMs === null || baselineMs === null) {
     return { state: { ...state, recentRttMs }, action: null, baselineMs };
   }
@@ -87,6 +134,7 @@ export const stepAudioGuard = (
     if (over >= AUDIO_GUARD.triggerSamples && state.factor > AUDIO_GUARD.minFactor) {
       return {
         state: {
+          ...state,
           recentRttMs,
           over: 0,
           calm: 0,
@@ -96,13 +144,14 @@ export const stepAudioGuard = (
         baselineMs,
       };
     }
-    return { state: { recentRttMs, over, calm: 0, factor: state.factor }, action: null, baselineMs };
+    return { state: { ...state, recentRttMs, over, calm: 0 }, action: null, baselineMs };
   }
 
   const calm = state.calm + 1;
   if (state.factor < 1 && calm >= AUDIO_GUARD.restoreAfterSamples) {
     return {
       state: {
+        ...state,
         recentRttMs,
         over: 0,
         calm: 0,
@@ -112,7 +161,7 @@ export const stepAudioGuard = (
       baselineMs,
     };
   }
-  return { state: { recentRttMs, over: 0, calm, factor: state.factor }, action: null, baselineMs };
+  return { state: { ...state, recentRttMs, over: 0, calm }, action: null, baselineMs };
 };
 
 export const AUDIO_GUARD_FLOOR_BPS = 150_000;
@@ -123,6 +172,103 @@ export const AUDIO_GUARD_FLOOR_BPS = 150_000;
  */
 export const guardedBitrate = (capBps: number, factor: number): number =>
   Math.min(capBps, Math.max(AUDIO_GUARD_FLOOR_BPS, Math.round(capBps * factor)));
+
+/** The top layer's ceiling during a stall: the floor, or its own cap if lower. */
+export const stalledBitrate = (capBps: number): number =>
+  Math.min(capBps, AUDIO_GUARD_FLOOR_BPS);
+
+// --- the QP band -----------------------------------------------------------------
+//
+// A calm screen (a menu, a map, a scene standing still) costs the encoder next
+// to nothing, yet the H.264 rate control still fills the preset's ceiling: it
+// sits at its QP floor and spends the rest on detail nobody can see. The bench
+// (League, 1080p60) spent 4.7 Mbps at QP 17 on a calm clip where 3.2 Mbps gave
+// VMAF 0.3 lower. While the top layer's QP stays under lowQp its ceiling is
+// stepped down toward what it really sends; as soon as the QP climbs over
+// highQp (the scene got busy) the full ceiling is back on the next tick. A
+// fight never sits under lowQp, so it never pays for this.
+//
+// H.264 only: AV1 and VP9 count QP on a 0-255 scale.
+
+export const QP_BAND = {
+  lowQp: 21,
+  highQp: 26,
+  // Each cut: 80% of the current ceiling, or straight to what is sent plus 15%
+  // when that is lower. The QP is what stops the descent.
+  step: 0.8,
+  headroom: 1.15,
+  // Two samples (4 s) under lowQp before a cut, and 6 s between cuts.
+  holdSamples: 2,
+  gapSamples: 3,
+} as const;
+
+/** Below this the picture of a 60 (or 30) fps share starts to suffer. */
+export const qpBandFloorBps = (framesPerSecond: number | null): number =>
+  framesPerSecond !== null && framesPerSecond <= 30 ? 1_000_000 : 1_500_000;
+
+export interface QpBandState {
+  /** The top layer's lowered ceiling; null is the preset's own. */
+  capBps: number | null;
+  low: number;
+  sinceChange: number;
+}
+
+/** Half the publishers, fixed per user, for the field A/B (PLAN F8.2c). */
+export const inQpBandGroup = (identity: string): boolean => {
+  let hash = 0;
+  for (const char of identity) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash % 2 === 0;
+};
+
+/** The full-size layer of a simulcast send: the least scaled-down encoding. */
+export const topEncodingIndex = (encodings: RTCRtpEncodingParameters[]): number =>
+  encodings.reduce(
+    (best, encoding, index) =>
+      (encoding.scaleResolutionDownBy ?? 1) < (encodings[best].scaleResolutionDownBy ?? 1)
+        ? index
+        : best,
+    0,
+  );
+
+export const initialQpBand = (): QpBandState => ({
+  capBps: null,
+  low: 0,
+  sinceChange: QP_BAND.gapSamples,
+});
+
+export const stepQpBand = (
+  state: QpBandState,
+  qp: number | null,
+  bitrateBps: number | null,
+  presetCapBps: number,
+  floorBps: number,
+): { state: QpBandState; changed: boolean } => {
+  const sinceChange = state.sinceChange + 1;
+  if (qp === null || bitrateBps === null) {
+    return { state: { ...state, sinceChange }, changed: false };
+  }
+  if (qp > QP_BAND.highQp) {
+    const changed = state.capBps !== null;
+    return {
+      state: { capBps: null, low: 0, sinceChange: changed ? 0 : sinceChange },
+      changed,
+    };
+  }
+  const low = qp < QP_BAND.lowQp ? state.low + 1 : 0;
+  if (low < QP_BAND.holdSamples || sinceChange < QP_BAND.gapSamples) {
+    return { state: { ...state, low, sinceChange }, changed: false };
+  }
+  const current = state.capBps ?? presetCapBps;
+  const next = Math.round(
+    Math.max(floorBps, Math.min(current * QP_BAND.step, bitrateBps * QP_BAND.headroom)),
+  );
+  if (next >= current * 0.95) {
+    return { state: { ...state, low: 0, sinceChange }, changed: false };
+  }
+  return { state: { capBps: next, low: 0, sinceChange: 0 }, changed: true };
+};
 
 // --- the encoder guard ---------------------------------------------------------
 //

@@ -10,6 +10,13 @@
 //   - the floor is the lowest recent RTT, including samples before the share
 //   - cuts stop at a floor of the preset; restores stop at the preset
 //   - not sharing resets the ceiling
+//   - a stall (RTT of a second, or ICE disconnected) drops the top layer to
+//     the floor once; it comes back after a few on-time samples in a row
+//
+// QP BAND      a calm screen's top layer gets a lower ceiling.
+//   - cuts only after holdSamples under lowQp, and gapSamples apart
+//   - each cut: step x the ceiling, or sent x headroom when lower; never under the floor
+//   - QP over highQp gives the whole preset back on that tick
 //
 // ENCODER GUARD  which encoder limitations change anything.
 //   - CPU: a screen share steps down after the dwell, once per episode
@@ -68,6 +75,7 @@ const main = async () => {
     ENCODER_GUARD,
     HARDWARE_FALLBACK_TICKS,
     guardedBitrate,
+    stalledBitrate,
     initialAudioGuard,
     initialEncoderGuard,
     initialHardwareFallback,
@@ -75,6 +83,12 @@ const main = async () => {
     stepDownlink,
     stepEncoderGuard,
     stepHardwareFallback,
+    QP_BAND,
+    initialQpBand,
+    inQpBandGroup,
+    qpBandFloorBps,
+    stepQpBand,
+    topEncodingIndex,
   } = guards;
 
   // Feeds RTT samples through the guard and returns the actions taken.
@@ -150,10 +164,90 @@ const main = async () => {
     assert.equal(run([...calm(5), null, null]).state.factor, 1, "a missing sample is not a late one");
   }
   {
+    // A stall drops the top layer at once, once, and leaves the factor alone.
+    const stalled = run([...calm(5), 1_200, 1_500, 1_300]);
+    assert.deepEqual(stalled.actions.slice(-3), ["stall", null, null], "one action per stall");
+    assert.equal(stalled.state.stalled, true);
+    assert.equal(stalled.state.factor, 1, "a stall is not a cut");
+    assert.equal(run([AUDIO_GUARD.stallRttMs]).actions[0], "stall", "a stall needs no floor");
+
+    // Back after resumeAfterSamples on-time samples in a row; a late one restarts the count.
+    const back = run(calm(AUDIO_GUARD.resumeAfterSamples), () => true, stalled.state);
+    assert.equal(back.actions.at(-1), "recover");
+    assert.equal(back.actions.filter((a) => a !== null).length, 1);
+    assert.equal(back.state.stalled, false);
+    const slow = run([30, 30, 300, ...calm(AUDIO_GUARD.resumeAfterSamples)], () => true, stalled.state);
+    assert.equal(slow.actions.indexOf("recover"), 2 + AUDIO_GUARD.resumeAfterSamples, "a late sample restarts the count");
+
+    // ICE disconnected is a stall even while the last round trip on hand looks fine.
+    const ice = stepAudioGuard(run(calm(5)).state, 30, true, true);
+    assert.equal(ice.action, "stall");
+    assert.equal(stepAudioGuard(ice.state, 30, true, true).action, null);
+
+    // Stopping the share clears the stall.
+    const stopped = run([30], () => false, stalled.state);
+    assert.equal(stopped.state.stalled, false);
+    assert.deepEqual(stopped.actions, [null]);
+  }
+  {
     assert.equal(guardedBitrate(4_000_000, 0.5), 2_000_000);
     assert.equal(guardedBitrate(4_000_000, 1), 4_000_000, "never above the preset");
     assert.equal(guardedBitrate(400_000, 0.25), AUDIO_GUARD_FLOOR_BPS, "never below the floor");
     assert.equal(guardedBitrate(100_000, 0.25), 100_000, "a layer under the floor keeps its own cap");
+    assert.equal(stalledBitrate(5_000_000), AUDIO_GUARD_FLOOR_BPS, "a stall puts the top layer on the floor");
+    assert.equal(stalledBitrate(100_000), 100_000, "never above its own cap");
+  }
+
+  // --- QP band ---------------------------------------------------------------
+  {
+    const PRESET = 5_240_000;
+    const FLOOR = qpBandFloorBps(60);
+    // Feeds [qp, bitrate] samples and returns the ceiling after each one.
+    const band = (samples, from = initialQpBand()) => {
+      let state = from;
+      const caps = samples.map(([qp, bps]) => {
+        state = stepQpBand(state, qp, bps, PRESET, FLOOR).state;
+        return state.capBps;
+      });
+      return { state, caps };
+    };
+    const calmScreen = (n) => Array.from({ length: n }, () => [17, 4_700_000]);
+
+    assert.deepEqual(band(calmScreen(QP_BAND.holdSamples - 1)).caps.at(-1), null, "one calm sample is not a calm screen");
+    const first = band(calmScreen(QP_BAND.holdSamples)).caps.at(-1);
+    assert.equal(first, Math.round(PRESET * QP_BAND.step), "the first cut is one step off the preset");
+
+    const long = band(calmScreen(60));
+    assert.equal(long.state.capBps, FLOOR, "a long calm scene ends on the floor");
+    const cutAt = long.caps.map((cap, i) => (cap !== (long.caps[i - 1] ?? null) ? i : -1)).filter((i) => i >= 0);
+    assert.ok(cutAt.every((at, i) => i === 0 || at - cutAt[i - 1] >= QP_BAND.gapSamples), "cuts stay gapSamples apart");
+
+    // A ceiling far above what is sent drops straight to sent x headroom.
+    const sending = band(Array.from({ length: QP_BAND.holdSamples }, () => [18, 2_200_000]));
+
+    assert.equal(sending.state.capBps, Math.round(2_200_000 * QP_BAND.headroom));
+
+    // A busy scene takes the whole preset back at once.
+    const busy = stepQpBand(long.state, QP_BAND.highQp + 1, 1_500_000, PRESET, FLOOR);
+    assert.equal(busy.changed, true);
+    assert.equal(busy.state.capBps, null);
+    assert.equal(stepQpBand(busy.state, QP_BAND.highQp + 3, 5_000_000, PRESET, FLOOR).changed, false, "once");
+
+    // Inside the band nothing moves; a fight never cuts.
+    assert.equal(band(Array.from({ length: 30 }, () => [23, 3_000_000])).state.capBps, null);
+    assert.equal(band(Array.from({ length: 30 }, () => [34, 5_000_000])).state.capBps, null);
+    assert.equal(band([[null, null], [null, 4_000_000], [17, null]]).state.capBps, null, "no sample, no judgement");
+    // A preset already at the floor has nothing to give.
+    assert.equal(stepQpBand({ ...initialQpBand(), low: 5 }, 17, 900_000, FLOOR, FLOOR).changed, false);
+
+    assert.equal(qpBandFloorBps(30), 1_000_000);
+    assert.equal(qpBandFloorBps(null), 1_500_000);
+    assert.equal(inQpBandGroup("user-a"), inQpBandGroup("user-a"), "fixed per user");
+    const ids = Array.from({ length: 400 }, (_, i) => `user-${i}`);
+    const share = ids.filter(inQpBandGroup).length / ids.length;
+    assert.ok(share > 0.4 && share < 0.6, `about half the publishers, got ${share}`);
+    assert.equal(topEncodingIndex([{ scaleResolutionDownBy: 3 }, { scaleResolutionDownBy: 1 }]), 1);
+    assert.equal(topEncodingIndex([{}]), 0);
   }
 
   // --- encoder guard ---------------------------------------------------------
@@ -338,7 +432,7 @@ const main = async () => {
   );
 
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("link-guards self-check passed (audio guard, encoder guard, hardware fallback, downlink diagnosis)");
+  console.log("link-guards self-check passed (audio guard, QP band, encoder guard, hardware fallback, downlink diagnosis)");
 };
 
 main().catch((error) => {
