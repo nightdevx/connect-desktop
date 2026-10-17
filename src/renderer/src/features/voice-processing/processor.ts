@@ -20,6 +20,8 @@ export interface VoiceProcessorStats {
   maxMs: number;
   underruns: number;
   vadMean: number;
+  /** Share of the second's frames the voice gate let through. */
+  gateOpenRatio: number;
   /** "date": whole-millisecond timing, so p99Ms and maxMs move in 1 ms steps. */
   clock: "performance" | "date";
 }
@@ -36,7 +38,8 @@ export interface VoiceProcessorStats {
 // from Xiph's release as a bare .wasm (assets/README.md). The model was
 // RNNoise's 2017 one, bundled by @sapphi-red/web-noise-suppressor; on the
 // noise test bench 0.2 lets keyboard noise through in 6% of the pauses between
-// words instead of 19%.
+// words instead of 19%. The worklet also gates, with its default settings:
+// between phrases it sends true silence, so Opus DTX stops sending packets.
 //
 // The limiter is what makes gain above 100% safe; without it, boosting a hot
 // microphone just clips into the encoder.

@@ -22,6 +22,43 @@ const PRIME = 448;
 const QUEUE = 4096;
 const PCM_SCALE = 32768;
 
+// Voice gate: between phrases nothing at all is sent, as in Discord's voice
+// activity mode. Decided once per frame from the model's voice probability and
+// the denoised frame's level; applied per sample as samples leave the queue.
+//
+//   auto:   open on vad >= openVad, or on a denoised level >= openDb with
+//           vad >= levelVad; stay open while vad >= keepVad; all only above
+//           minDb; hold for holdMs after the last voiced frame.
+//   manual: open while the denoised level is >= thresholdDb, same hold
+//   off:    always open
+//
+// The level rule is there for words the voice probability alone never opens
+// for: on the noise test bench, 27 of 445 word onsets stayed shut for 200 ms
+// with the voice probability rule alone, 6 with the level rule. Denoised noise
+// sits near -90 dBFS, so what is left at -52 is nearly always speech; the
+// small levelVad floor keeps loud clicks (voice probability ~0.01) out.
+//
+// Look-ahead: lookaheadFrames delays the output by that many frames (10 ms
+// each) and opens the gate when any frame up to that far ahead is voiced. On
+// the bench it bought nothing with RNNoise (word onsets open within 1 ms at
+// the 95th percentile without it), so it is 0. It is fixed when the processor
+// is built, since changing it means changing the delay.
+const DEFAULT_GATE = {
+  mode: "auto",
+  openVad: 0.6,
+  keepVad: 0.3,
+  holdMs: 250,
+  minDb: -60,
+  openDb: -52,
+  levelVad: 0.05,
+  thresholdDb: -50,
+  lookaheadFrames: 0,
+};
+const SAMPLE_RATE = 48000;
+const ATTACK = 1 - Math.exp(-1 / (0.002 * SAMPLE_RATE));
+const RELEASE = 1 - Math.exp(-1 / (0.08 * SAMPLE_RATE));
+const DECISIONS = 64; // frames of decision history, far more than the queue holds
+
 // Frame-time histogram for the report: 0.05 ms buckets up to 20 ms.
 const BUCKET_MS = 0.05;
 const BUCKETS = 400;
@@ -85,8 +122,18 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.frame = new Float32Array(FRAME);
     this.frameFill = 0;
     this.queue = new Float32Array(QUEUE);
+
+    this.gateOpen = false;
+    this.holdLeft = 0;
+    this.gain = 0;
+    this.setGate(opts.gate);
+    this.lookahead = this.gate.mode === "off" ? 0 : this.gate.lookaheadFrames;
+    this.prime = PRIME + this.lookahead * FRAME;
     this.readAt = 0;
-    this.writeAt = PRIME;
+    this.writeAt = this.prime;
+    this.decisions = new Uint8Array(DECISIONS);
+    this.framesWritten = 0;
+    this.openFrames = 0;
 
     this.histogram = new Uint32Array(BUCKETS + 1);
     this.frames = 0;
@@ -99,14 +146,68 @@ class VoiceProcessor extends AudioWorkletProcessor {
       if (event.data?.type === "destroy") {
         this.destroyed = true;
         this.denoiser.destroy();
+      } else if (event.data?.type === "gate") {
+        this.setGate(event.data.gate);
       }
     };
+  }
+
+  setGate(gate) {
+    this.gate = { ...DEFAULT_GATE, ...gate };
+    this.holdFrames = Math.round(this.gate.holdMs / 10);
+    // Off means untouched audio from the first sample, not a 2 ms fade-in.
+    if (this.gate.mode === "off") this.gain = 1;
+  }
+
+  // One decision per denoised frame, kept with the frame's index.
+  decide(vad) {
+    let energy = 0;
+    for (let i = 0; i < FRAME; i++) energy += this.frame[i] * this.frame[i];
+    const levelDb = 10 * Math.log10(energy / FRAME + 1e-12);
+    const g = this.gate;
+    let voice;
+    if (g.mode === "off") {
+      voice = true;
+    } else if (g.mode === "manual") {
+      voice = levelDb >= g.thresholdDb;
+    } else {
+      voice =
+        levelDb >= g.minDb &&
+        (vad >= g.openVad ||
+          (levelDb >= g.openDb && vad >= g.levelVad) ||
+          (this.gateOpen && vad >= g.keepVad));
+    }
+    if (voice) {
+      this.gateOpen = true;
+      this.holdLeft = this.holdFrames;
+    } else if (this.holdLeft > 0) {
+      this.holdLeft -= 1;
+    } else {
+      this.gateOpen = false;
+    }
+    this.decisions[this.framesWritten % DECISIONS] = this.gateOpen ? 1 : 0;
+    this.framesWritten += 1;
+    if (this.gateOpen) this.openFrames += 1;
+  }
+
+  // Open for a sample if its own frame or any of the next `lookahead` frames
+  // is open. A frame not decided yet counts as the latest decision.
+  gateTarget(sampleAt) {
+    if (this.gate.mode === "off") return 1;
+    if (sampleAt < this.prime) return 0;
+    const first = Math.floor((sampleAt - this.prime) / FRAME);
+    for (let f = first; f <= first + this.lookahead; f++) {
+      if (f >= this.framesWritten) return this.gateOpen ? 1 : 0;
+      if (this.decisions[f % DECISIONS]) return 1;
+    }
+    return 0;
   }
 
   denoiseFrame() {
     const started = now();
     const vad = this.denoiser.process(this.frame);
     const ms = now() - started;
+    this.decide(vad);
 
     for (let i = 0; i < FRAME; i++) {
       this.queue[(this.writeAt + i) % QUEUE] = this.frame[i];
@@ -141,6 +242,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
       maxMs: this.maxMs,
       underruns: this.underruns,
       vadMean: this.vadSum / this.frames,
+      gateOpenRatio: this.openFrames / this.frames,
       clock: HAS_PERFORMANCE ? "performance" : "date",
     });
     this.histogram.fill(0);
@@ -149,6 +251,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.maxMs = 0;
     this.underruns = 0;
     this.vadSum = 0;
+    this.openFrames = 0;
   }
 
   process(inputs, outputs) {
@@ -172,7 +275,11 @@ class VoiceProcessor extends AudioWorkletProcessor {
       return true;
     }
     for (let i = 0; i < output.length; i++) {
-      output[i] = this.queue[(this.readAt + i) % QUEUE];
+      const at = this.readAt + i;
+      const target = this.gateTarget(at);
+      this.gain += (target - this.gain) * (target > this.gain ? ATTACK : RELEASE);
+      if (target === 0 && this.gain < 1e-4) this.gain = 0; // true silence, so Opus DTX engages
+      output[i] = this.queue[at % QUEUE] * this.gain;
     }
     this.readAt += output.length;
     return true;
