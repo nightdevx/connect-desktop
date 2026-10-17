@@ -4,11 +4,25 @@ import {
   type TrackProcessor,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
-import { RnnoiseWorkletNode, loadRnnoise } from "@sapphi-red/web-noise-suppressor";
-import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
-import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
-import rnnoiseSimdWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
+import voiceWorkletPath from "./voice-worklet.js?url";
+import rnnoiseWasmPath from "./assets/rnnoise.wasm?url";
 import { type NoiseSuppressionPreset } from "./types";
+
+// voice-worklet.js registers this name.
+const VOICE_PROCESSOR = "connect-voice";
+
+/** What the worklet reports once a second (voice-worklet.js report()). */
+export interface VoiceProcessorStats {
+  model: string;
+  frames: number;
+  meanMs: number;
+  p99Ms: number;
+  maxMs: number;
+  underruns: number;
+  vadMean: number;
+  /** "date": whole-millisecond timing, so p99Ms and maxMs move in 1 ms steps. */
+  clock: "performance" | "date";
+}
 
 // A microphone processor that always runs, whether or not noise suppression is
 // on. It owns the output gain, which is why it is unconditional: the user's
@@ -16,17 +30,21 @@ import { type NoiseSuppressionPreset } from "./types";
 // meter, so moving it changed the meter and nothing else — the published audio
 // never saw it.
 //
-// Chain: source -> highpass -> [rnnoise -> lowpass] -> gain -> limiter
+// Chain: source -> highpass -> [voice worklet -> lowpass] -> gain -> limiter
+//
+// The voice worklet (voice-worklet.js) is the app's own: RNNoise 0.2, built
+// from Xiph's release as a bare .wasm (assets/README.md). The model was
+// RNNoise's 2017 one, bundled by @sapphi-red/web-noise-suppressor; on the
+// noise test bench 0.2 lets keyboard noise through in 6% of the pauses between
+// words instead of 19%.
 //
 // The limiter is what makes gain above 100% safe; without it, boosting a hot
 // microphone just clips into the encoder.
 //
-// There is no noise gate after RNNoise. There used to be one, but its worklet is
-// 1.1 kB, so Vite inlined it as a data: URL, which the app's CSP (script-src
-// 'self') refuses: in every production build it failed to load and the chain
-// ran without it. It only ever ran in development, at thresholds that had been
-// lowered to -62/-68 dBFS because anything higher cut the start of words. At
-// that level it only caught silence that RNNoise had already produced.
+// Worklet files must stay above Vite's inline limit, or they are inlined as
+// data: URLs that the app's CSP (script-src 'self') refuses. An earlier noise
+// gate was lost that way in every production build; vite.config.ts now never
+// inlines .js or .wasm assets.
 
 export interface MicrophoneProcessor
   extends TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
@@ -34,12 +52,14 @@ export interface MicrophoneProcessor
   setGainPercent: (percent: number) => void;
   /** Whether RNNoise actually came up (it can fail and fall back). */
   isNoiseSuppressionActive: () => boolean;
+  /** The worklet's latest one-second report, null before the first. */
+  getStats: () => VoiceProcessorStats | null;
 }
 
 interface ProcessorGraph {
   sourceNode: MediaStreamAudioSourceNode;
   inputHighPassNode: BiquadFilterNode;
-  rnnoiseNode: RnnoiseWorkletNode | null;
+  rnnoiseNode: AudioWorkletNode | null;
   outputLowPassNode: BiquadFilterNode | null;
   gainNode: GainNode;
   limiterNode: DynamicsCompressorNode;
@@ -106,7 +126,7 @@ export interface MicrophoneProcessorOptions {
 }
 
 export class MicrophoneTrackProcessorFactory {
-  private rnnoiseWasmBinaryPromise: Promise<ArrayBuffer> | null = null;
+  private rnnoiseModulePromise: Promise<WebAssembly.Module> | null = null;
   private wasmCompilationAllowed: boolean | null = null;
   private warnedAboutWasmCspBlock = false;
 
@@ -162,7 +182,7 @@ export class MicrophoneTrackProcessorFactory {
 
     try {
       await this.ensureWorkletRegistered(audioContext);
-      await this.getRnnoiseWasmBinary();
+      await this.getRnnoiseModule();
       return true;
     } catch (error) {
       logLiveKitDebug("mic-controller", "processor-prewarm-failed", { error });
@@ -198,6 +218,7 @@ export class MicrophoneTrackProcessorFactory {
     // raw microphone, with the browser's suppressor switched off because RNNoise
     // was meant to be running, until the next rejoin.
     let chainContext: AudioContext | null = null;
+    let stats: VoiceProcessorStats | null = null;
 
     const destroyGraph = (): void => {
       if (!graph) {
@@ -229,11 +250,9 @@ export class MicrophoneTrackProcessorFactory {
         }
       }
 
-      try {
-        graph.rnnoiseNode?.destroy();
-      } catch {
-        // no-op
-      }
+      // Frees the model's state inside the worklet; the node itself goes with
+      // the graph.
+      graph.rnnoiseNode?.port.postMessage({ type: "destroy" });
 
       graph = null;
     };
@@ -247,6 +266,7 @@ export class MicrophoneTrackProcessorFactory {
         }
       },
       isNoiseSuppressionActive: () => Boolean(graph?.rnnoiseNode),
+      getStats: () => stats,
       init: async (opts) => {
         destroyGraph();
 
@@ -286,24 +306,42 @@ export class MicrophoneTrackProcessorFactory {
 
           const destinationNode = context.createMediaStreamDestination();
           // Defaults to 2. Every stage in front of it is mono — the capture asks
-          // for channelCount 1, RNNoise is built with maxChannels 1 — so the
-          // default published a stereo microphone track
+          // for channelCount 1, the voice worklet has outputChannelCount [1] —
+          // so the default published a stereo microphone track
           // whose second channel was never anything but a copy, and handed the
           // receiver a layout it then had to guess at. One channel in, one out.
           destinationNode.channelCount = 1;
 
-          let rnnoiseNode: RnnoiseWorkletNode | null = null;
+          let rnnoiseNode: AudioWorkletNode | null = null;
           let outputLowPassNode: BiquadFilterNode | null = null;
 
           if (canUseRnnoise) {
             try {
               await this.ensureWorkletRegistered(context);
-              const wasmBinary = await this.getRnnoiseWasmBinary();
+              const wasmModule = await this.getRnnoiseModule();
 
-              rnnoiseNode = new RnnoiseWorkletNode(context, {
-                maxChannels: 1,
-                wasmBinary,
+              // Mono in, mono out: the model denoises one channel, and a
+              // stereo input would be down-mixed here rather than half-ignored.
+              rnnoiseNode = new AudioWorkletNode(context, VOICE_PROCESSOR, {
+                numberOfInputs: 1,
+                numberOfOutputs: 1,
+                channelCount: 1,
+                channelCountMode: "explicit",
+                outputChannelCount: [1],
+                processorOptions: { model: "rnnoise", wasmModule },
               });
+              rnnoiseNode.port.onmessage = (event: MessageEvent) => {
+                if (event.data?.type !== "stats") {
+                  return;
+                }
+                stats = event.data as VoiceProcessorStats;
+                // A missed quantum is an audible click; a slow frame is the
+                // warning before it. Neither is expected on any machine with
+                // RNNoise, so both are worth a line in the debug log.
+                if (stats.underruns > 0 || stats.p99Ms > 5) {
+                  logLiveKitDebug("mic-controller", "voice-worklet-slow", { ...stats });
+                }
+              };
 
               outputLowPassNode = context.createBiquadFilter();
               outputLowPassNode.type = "lowpass";
@@ -382,7 +420,7 @@ export class MicrophoneTrackProcessorFactory {
     audioContext: AudioContext,
   ): Promise<void> {
     if (!audioContext || !audioContext.audioWorklet) {
-      throw new Error("Invalid AudioContext provided for RNNoise registration");
+      throw new Error("Invalid AudioContext provided for voice worklet registration");
     }
 
     const existingPromise = this.registrationPromises.get(audioContext);
@@ -391,7 +429,7 @@ export class MicrophoneTrackProcessorFactory {
     }
 
     const registrationPromise =
-      audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
+      audioContext.audioWorklet.addModule(voiceWorkletPath);
 
     // Clear the cache on failure so a later attempt can retry.
     registrationPromise.catch(() => {
@@ -404,18 +442,23 @@ export class MicrophoneTrackProcessorFactory {
     return registrationPromise;
   }
 
-  private async getRnnoiseWasmBinary(): Promise<ArrayBuffer> {
-    if (!this.rnnoiseWasmBinaryPromise) {
-      this.rnnoiseWasmBinaryPromise = loadRnnoise({
-        url: rnnoiseWasmPath,
-        simdUrl: rnnoiseSimdWasmPath,
-      }).catch((error) => {
-        this.rnnoiseWasmBinaryPromise = null;
-        throw error;
-      });
+  /**
+   * Compiled here, on the main thread and asynchronously, then handed to the
+   * worklet already compiled: compiling 1.5 MB inside the worklet would stall
+   * the audio thread. Once per session; every processor reuses the module.
+   */
+  private async getRnnoiseModule(): Promise<WebAssembly.Module> {
+    if (!this.rnnoiseModulePromise) {
+      this.rnnoiseModulePromise = fetch(rnnoiseWasmPath)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => WebAssembly.compile(bytes))
+        .catch((error: unknown) => {
+          this.rnnoiseModulePromise = null;
+          throw error;
+        });
     }
 
-    return this.rnnoiseWasmBinaryPromise;
+    return this.rnnoiseModulePromise;
   }
 
   private async isWasmCompilationAllowed(): Promise<boolean> {

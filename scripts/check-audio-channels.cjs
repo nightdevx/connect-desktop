@@ -45,8 +45,8 @@ assert.ok(
     "track is a layout the receiver has to guess at",
 );
 assert.ok(
-  /maxChannels: 1/.test(processor),
-  "the RNNoise worklet is mono; if that changes the mono publish above is wrong too",
+  /outputChannelCount: \[1\]/.test(processor),
+  "the voice worklet is mono; if that changes the mono publish above is wrong too",
 );
 
 // --- playback: channel 0 reaches both ears ---------------------------------
