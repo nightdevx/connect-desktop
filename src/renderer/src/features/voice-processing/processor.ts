@@ -32,7 +32,7 @@ export interface VoiceProcessorStats {
 // meter, so moving it changed the meter and nothing else — the published audio
 // never saw it.
 //
-// Chain: source -> highpass -> [voice worklet -> lowpass] -> gain -> limiter
+// Chain: source -> highpass -> [voice worklet] -> gain -> limiter
 //
 // The voice worklet (voice-worklet.js) is the app's own: RNNoise 0.2, built
 // from Xiph's release as a bare .wasm (assets/README.md). The model was
@@ -63,7 +63,6 @@ interface ProcessorGraph {
   sourceNode: MediaStreamAudioSourceNode;
   inputHighPassNode: BiquadFilterNode;
   rnnoiseNode: AudioWorkletNode | null;
-  outputLowPassNode: BiquadFilterNode | null;
   gainNode: GainNode;
   limiterNode: DynamicsCompressorNode;
   destinationNode: MediaStreamAudioDestinationNode;
@@ -71,28 +70,37 @@ interface ProcessorGraph {
 
 interface RnnoiseProcessingProfile {
   inputHighPassHz: number;
-  outputLowPassHz: number;
+  /** voice-worklet.js: how far noise is lowered at most; 0 is no limit. */
+  attenLimitDb: number;
+  /** How long the voice gate stays open after the last voiced frame. */
+  gateHoldMs: number;
 }
 
-// The output lowpass used to sit at 6.8-9 kHz, which cut speech down to
-// telephone bandwidth and was the main reason the aggressive preset sounded
-// muffled. Opus carries fullband audio; these corners only trim the top end
-// where RNNoise artefacts live.
+// A lowpass after RNNoise (13-16 kHz by preset) used to be the only thing
+// telling the presets apart. On the noise test bench removing it changed no
+// score, so it is gone. Measured there instead: a 12 dB limit keeps some of
+// the room in Doğal (background score 3.59 against 3.83 unlimited, speech
+// 3.41 against 3.33). Agresif closes the gate 100 ms sooner, which lets mouse
+// clicks through in 8.7% of pauses instead of 9.7%; RNNoise has nothing
+// stronger to give it, DeepFilterNet will.
 const RNNOISE_PROCESSING_PROFILES: Record<
   NoiseSuppressionPreset,
   RnnoiseProcessingProfile
 > = {
   natural: {
     inputHighPassHz: 80,
-    outputLowPassHz: 16_000,
+    attenLimitDb: 12,
+    gateHoldMs: 250,
   },
   balanced: {
     inputHighPassHz: 100,
-    outputLowPassHz: 15_000,
+    attenLimitDb: 0,
+    gateHoldMs: 250,
   },
   aggressive: {
     inputHighPassHz: 120,
-    outputLowPassHz: 13_000,
+    attenLimitDb: 0,
+    gateHoldMs: 150,
   },
 };
 
@@ -239,7 +247,6 @@ export class MicrophoneTrackProcessorFactory {
         graph.sourceNode,
         graph.inputHighPassNode,
         graph.rnnoiseNode,
-        graph.outputLowPassNode,
         graph.gainNode,
         graph.limiterNode,
         graph.destinationNode,
@@ -290,7 +297,8 @@ export class MicrophoneTrackProcessorFactory {
             noiseSuppression: canUseRnnoise,
             gainPercent,
             highPass: `${profile.inputHighPassHz}Hz`,
-            lowPass: `${profile.outputLowPassHz}Hz`,
+            attenLimitDb: profile.attenLimitDb,
+            gateHoldMs: profile.gateHoldMs,
           });
 
           const sourceNode = context.createMediaStreamSource(
@@ -316,7 +324,6 @@ export class MicrophoneTrackProcessorFactory {
           destinationNode.channelCount = 1;
 
           let rnnoiseNode: AudioWorkletNode | null = null;
-          let outputLowPassNode: BiquadFilterNode | null = null;
 
           if (canUseRnnoise) {
             try {
@@ -331,7 +338,12 @@ export class MicrophoneTrackProcessorFactory {
                 channelCount: 1,
                 channelCountMode: "explicit",
                 outputChannelCount: [1],
-                processorOptions: { model: "rnnoise", wasmModule },
+                processorOptions: {
+                  model: "rnnoise",
+                  wasmModule,
+                  attenLimitDb: profile.attenLimitDb,
+                  gate: { holdMs: profile.gateHoldMs },
+                },
               });
               rnnoiseNode.port.onmessage = (event: MessageEvent) => {
                 if (event.data?.type !== "stats") {
@@ -345,15 +357,9 @@ export class MicrophoneTrackProcessorFactory {
                   logLiveKitDebug("mic-controller", "voice-worklet-slow", { ...stats });
                 }
               };
-
-              outputLowPassNode = context.createBiquadFilter();
-              outputLowPassNode.type = "lowpass";
-              outputLowPassNode.frequency.value = profile.outputLowPassHz;
-              outputLowPassNode.Q.value = 0.707;
             } catch (error) {
               // Degrade to gain + limiter rather than losing the mic entirely.
               rnnoiseNode = null;
-              outputLowPassNode = null;
               this.onWarning?.(
                 `RNNoise başlatılamadı, mikrofon filtresiz yayınlanıyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
               );
@@ -363,10 +369,9 @@ export class MicrophoneTrackProcessorFactory {
           // Wire the chain, skipping whichever optional stages are absent.
           let tail: AudioNode = inputHighPassNode;
           sourceNode.connect(inputHighPassNode);
-          if (rnnoiseNode && outputLowPassNode) {
+          if (rnnoiseNode) {
             tail.connect(rnnoiseNode);
-            rnnoiseNode.connect(outputLowPassNode);
-            tail = outputLowPassNode;
+            tail = rnnoiseNode;
           }
           tail.connect(gainNode);
           gainNode.connect(limiterNode);
@@ -378,7 +383,6 @@ export class MicrophoneTrackProcessorFactory {
             sourceNode,
             inputHighPassNode,
             rnnoiseNode,
-            outputLowPassNode,
             gainNode,
             limiterNode,
             destinationNode,

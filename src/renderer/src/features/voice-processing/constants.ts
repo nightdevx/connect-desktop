@@ -10,17 +10,17 @@ export const NOISE_SUPPRESSION_PRESET_OPTIONS: NoiseSuppressionPresetOption[] = 
   {
     id: "natural",
     label: "Doğal",
-    description: "Sesi daha canlı tutar, hafif arka plan temizliği yapar.",
+    description: "Arka plan sesini tamamen silmez, kısar. Sesin en doğal hâli.",
   },
   {
     id: "balanced",
     label: "Dengeli",
-    description: "Konuşma netliği ve gürültü bastırma arasında denge kurar.",
+    description: "Arka plan gürültüsünü siler. Konuşmadığında karşıya hiç ses gitmez.",
   },
   {
     id: "aggressive",
     label: "Agresif",
-    description: "Klavye, tıklama ve fan gibi sesleri daha sert bastırır.",
+    description: "Dengeli gibi; ayrıca konuşman bitince mikrofon daha çabuk susar.",
   },
 ];
 

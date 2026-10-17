@@ -41,8 +41,9 @@ const load = (src, webAssembly) => {
 };
 
 // A model that returns its input untouched, so output must equal input exactly,
-// shifted by the head start. Its voice probability follows `vadOf(frameIndex)`.
-const fakeModel = (vadOf = () => 0.5) => ({
+// shifted by the head start; or, with `silent`, removes everything. Its voice
+// probability follows `vadOf(frameIndex)`.
+const fakeModel = (vadOf = () => 0.5, silent = false) => ({
   Module: { imports: () => [] },
   Instance: class {
     constructor() {
@@ -54,7 +55,10 @@ const fakeModel = (vadOf = () => 0.5) => ({
         free: () => {},
         rnnoise_create: () => 1,
         rnnoise_destroy: () => {},
-        rnnoise_process_frame: () => vadOf(frame++),
+        rnnoise_process_frame: (state, out) => {
+          if (silent) new Float32Array(memory.buffer, out, 480).fill(0);
+          return vadOf(frame++);
+        },
       };
     }
   },
@@ -149,6 +153,20 @@ const ramp = (n) => Float32Array.from({ length: n }, (_, i) => ((i % 1000) - 500
   assert.ok(run(processor, quiet).subarray(9600).some((v) => v !== 0), "a lowered threshold opens the gate without a rebuild");
 }
 
+// --- suppression limit: what the model removes comes back at -attenLimitDb ---
+{
+  // A model that removes everything: the output is then the limit alone, the
+  // input at -12 dB, aligned to where the model's output would be.
+  const Processor = load(source, fakeModel(() => 0, true));
+  const processor = new Processor({ processorOptions: { wasmModule: {}, gate: GATE_OFF, attenLimitDb: 12 } });
+  const input = ramp(QUANTUM * 600);
+  const output = run(processor, input);
+  const delay = 448 + 960;
+  for (let i = delay; i < input.length; i++) {
+    assert.ok(Math.abs(output[i] - input[i - delay] * 10 ** (-12 / 20)) < 1e-6, `sample ${i}: not the input at -12 dB, ${delay} samples later`);
+  }
+}
+
 // --- the shipped model: white noise loses most of its energy -------------------
 {
   const module = new WebAssembly.Module(fs.readFileSync(wasmPath));
@@ -178,10 +196,40 @@ const ramp = (n) => Float32Array.from({ length: n }, (_, i) => ((i % 1000) - 500
   const clickStats = clicker.port.posted.filter((m) => m.type === "stats").slice(1);
   assert.ok(clickStats.every((s) => s.gateOpenRatio < 0.05), `clicks opened the gate: ${clickStats.map((s) => s.gateOpenRatio).join(", ")}`);
 
+  // A voiced, vowel-like signal: the model hands it back 960 samples late, as
+  // MODEL_DELAY says, and mixing the raw input back in at that delay leaves it
+  // intact. At the wrong delay the mix would comb-filter it and lose ~3 dB.
+  let phase = 0;
+  const vowel = Float32Array.from({ length: 48000 * 4 }, (_, i) => {
+    const t = i / 48000;
+    phase += (2 * Math.PI * (130 + 25 * Math.sin(2 * Math.PI * 1.3 * t))) / 48000;
+    let v = 0;
+    for (let h = 1; h <= 30; h++) v += (Math.sin(h * phase) / h) * (h < 6 ? 1 : 0.5);
+    return 0.08 * Math.max(0, Math.sin(2 * Math.PI * 2 * t)) ** 0.5 * v + 0.001 * rand();
+  });
+  const denoise = (attenLimitDb) =>
+    run(new Processor({ processorOptions: { model: "rnnoise", wasmModule: module, gate: GATE_OFF, attenLimitDb } }), vowel);
+  const plain = denoise(0);
+  const corr = (lag) => {
+    let xy = 0, xx = 0, yy = 0;
+    for (let i = 48000; i < vowel.length - 2000; i += 2) {
+      xy += vowel[i] * plain[i + lag];
+      xx += vowel[i] * vowel[i];
+      yy += plain[i + lag] * plain[i + lag];
+    }
+    return xy / Math.sqrt(xx * yy);
+  };
+  let bestLag = 0;
+  for (let lag = 0; lag < 2000; lag++) if (corr(lag) > corr(bestLag)) bestLag = lag;
+  assert.ok(Math.abs(bestLag - (448 + 960)) <= 4 && corr(bestLag) > 0.95, `RNNoise delay moved: output best matches input ${bestLag - 448} samples late (rho ${corr(bestLag).toFixed(3)}), MODEL_DELAY is 960`);
+  const limited = denoise(6);
+  const ratioDb = 10 * Math.log10(energy(limited.subarray(48000)) / energy(plain.subarray(48000)));
+  assert.ok(Math.abs(ratioDb) < 1, `a 6 dB limit changed a voiced signal's level by ${ratioDb.toFixed(2)} dB`);
+
   processor.port.onmessage({ data: { type: "destroy" } });
   const after = new Float32Array(QUANTUM);
   assert.equal(processor.process([[noise.subarray(0, QUANTUM)]], [[after]]), true, "a destroyed processor stays alive, silent");
   assert.ok(after.every((v) => v === 0));
 }
 
-console.log("voice-worklet self-check passed (448-sample head start exact and minimal; gate silent between phrases, opens before the first syllable, holds 250 ms, opens on loud words only, manual and live settings; RNNoise removes white noise, clicks keep the gate shut)");
+console.log("voice-worklet self-check passed (448-sample head start exact and minimal; gate silent between phrases, opens before the first syllable, holds 250 ms, opens on loud words only, manual and live settings; suppression limit aligned; RNNoise removes white noise, clicks keep the gate shut, delay 960)");

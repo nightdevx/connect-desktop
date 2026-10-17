@@ -21,6 +21,11 @@ const FRAME = 480;
 const PRIME = 448;
 const QUEUE = 4096;
 const PCM_SCALE = 32768;
+// RNNoise 0.2 hands each sample back 960 samples (20 ms) after it went in; the
+// check script measures it on the real model. The suppression limit below
+// needs the raw input aligned to that, or mixing the two comb-filters speech.
+const MODEL_DELAY = 960;
+const DRY = 2048; // raw input history, more than MODEL_DELAY + FRAME
 
 // Voice gate: between phrases nothing at all is sent, as in Discord's voice
 // activity mode. Decided once per frame from the model's voice probability and
@@ -123,6 +128,14 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.frameFill = 0;
     this.queue = new Float32Array(QUEUE);
 
+    // Suppression limit, as DeepFilterNet's atten_lim: the raw input, aligned
+    // with the model's output, is mixed back in at -attenLimitDb, so noise is
+    // lowered by at most that much while speech, which the model lets
+    // through, comes out as it went in. 0 or unset: no limit.
+    this.dryMix = opts.attenLimitDb > 0 ? 10 ** (-opts.attenLimitDb / 20) : 0;
+    this.dry = new Float32Array(DRY);
+    this.dryAt = 0;
+
     this.gateOpen = false;
     this.holdLeft = 0;
     this.gain = 0;
@@ -207,7 +220,15 @@ class VoiceProcessor extends AudioWorkletProcessor {
     const started = now();
     const vad = this.denoiser.process(this.frame);
     const ms = now() - started;
-    this.decide(vad);
+    this.decide(vad); // on the model's output alone, before the limit
+
+    if (this.dryMix > 0) {
+      const from = this.dryAt - FRAME - MODEL_DELAY;
+      for (let i = 0; i < FRAME; i++) {
+        const dry = from + i < 0 ? 0 : this.dry[(from + i) % DRY];
+        this.frame[i] += this.dryMix * (dry - this.frame[i]);
+      }
+    }
 
     for (let i = 0; i < FRAME; i++) {
       this.queue[(this.writeAt + i) % QUEUE] = this.frame[i];
@@ -263,6 +284,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < input.length; i++) {
       this.frame[this.frameFill++] = input[i];
+      this.dry[this.dryAt++ % DRY] = input[i];
       if (this.frameFill === FRAME) {
         this.denoiseFrame();
         this.frameFill = 0;
