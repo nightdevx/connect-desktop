@@ -34,7 +34,7 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 const handler = read(
   "src/renderer/src/features/livekit/services/stream/remote-media-handler.ts",
 );
-const processor = read("src/renderer/src/features/rnnoise/processor.ts");
+const processor = read("src/renderer/src/features/voice-processing/processor.ts");
 
 // --- publish: one channel leaves this machine ------------------------------
 

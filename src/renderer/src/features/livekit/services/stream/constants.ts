@@ -65,7 +65,7 @@ export const jitterBufferTargetFor = (source: Track.Source): number | null => {
  * something can push the mix past full scale: a volume above 100%, the master
  * or one person's, or audio that arrives unlevelled and may be mastered right
  * up to 0 dBFS, which is a screen share or the music bot. Voices arrive held
- * near -3 dBFS by the sender's own limiter (rnnoise/processor.ts).
+ * near -3 dBFS by the sender's own limiter (voice-processing/processor.ts).
  */
 export const needsMasterLimiter = (
   masterGain: number,

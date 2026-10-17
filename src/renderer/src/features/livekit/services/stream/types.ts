@@ -3,7 +3,7 @@ import type {
   Track,
 } from "livekit-client";
 import { type ActiveNoiseSuppressionMode } from "../mic";
-import type { NoiseSuppressionPreset } from "@/features/rnnoise";
+import type { NoiseSuppressionPreset } from "@/features/voice-processing";
 import type { MediaStatsSnapshot } from "./stats-collector";
 import type { ScreenWatcherMap } from "./screen-watchers";
 import type { CallEncryptionState } from "./call-e2ee";

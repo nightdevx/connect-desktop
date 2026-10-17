@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Self-check for resolveCaptureFilters in
-// src/renderer/src/features/rnnoise/capture-filters.ts.
+// src/renderer/src/features/voice-processing/capture-filters.ts.
 //
 // This decides which noise suppressor runs on the microphone, and the failure it
 // guards is the one that produced "when I first join a lobby everyone's voice
@@ -31,7 +31,7 @@ const projectRoot = path.join(__dirname, "..");
 // hardcoded, so a new preset is covered the day it is added.
 const readPresets = () => {
   const source = fs.readFileSync(
-    path.join(projectRoot, "src/renderer/src/features/rnnoise/types.ts"),
+    path.join(projectRoot, "src/renderer/src/features/voice-processing/types.ts"),
     "utf8",
   );
   const match = source.match(
@@ -63,7 +63,7 @@ const main = async () => {
       lib: {
         entry: path.join(
           projectRoot,
-          "src/renderer/src/features/rnnoise/capture-filters.ts",
+          "src/renderer/src/features/voice-processing/capture-filters.ts",
         ),
         formats: ["es"],
         fileName: () => "capture-filters.mjs",
@@ -141,7 +141,7 @@ const main = async () => {
   // --- the presets differ where they actually differ -----------------------
   // Not in the capture constraints: every preset captures the same way and the
   // difference lives in the processing profile (high-pass, low-pass) in
-  // features/rnnoise/processor.ts. Asserting a constraint-level difference here
+  // features/voice-processing/processor.ts. Asserting a constraint-level difference here
   // is what pinned the AGC bug in place.
   for (const preset of presets) {
     const decision = resolveCaptureFilters(true, true, preset);

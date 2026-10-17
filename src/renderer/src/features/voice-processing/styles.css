@@ -1,7 +1,7 @@
 /* ── NS Mode Badge ──────────────────────────────────────────────────────
    Which noise-suppression path is actually running. This is the single
    definition: common.css briefly carried a second copy, and since this file
-   is imported from features/rnnoise/index.ts rather than global.css, which
+   is imported from features/voice-processing/index.ts rather than global.css, which
    one won depended on module evaluation order.
    ---------------------------------------------------------------------- */
 

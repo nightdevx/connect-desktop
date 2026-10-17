@@ -14,7 +14,7 @@ import {
   type ActiveNoiseSuppressionMode,
   type MicrophoneProcessor,
   type NoiseSuppressionPreset,
-} from "@/features/rnnoise";
+} from "@/features/voice-processing";
 import { AudioContextManager } from "./audio-context-manager";
 import { DeviceResolver } from "./device-resolver";
 import {
