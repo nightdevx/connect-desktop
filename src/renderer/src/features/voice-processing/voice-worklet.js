@@ -1,4 +1,7 @@
-// The microphone's noise suppressor, as an AudioWorklet.
+// The microphone's processing, as an AudioWorklet: noise suppression, the
+// voice gate, the volume and a peak limiter. With model "none" (noise
+// suppression off) only the volume and the limiter run, sample for sample,
+// with no buffering and no delay.
 //
 // Plain JS loaded via addModule, self-contained on purpose: worklet modules are
 // standalone assets and cannot import shared helpers, and a bundled worklet
@@ -64,6 +67,14 @@ const ATTACK = 1 - Math.exp(-1 / (0.002 * SAMPLE_RATE));
 const RELEASE = 1 - Math.exp(-1 / (0.08 * SAMPLE_RATE));
 const DECISIONS = 64; // frames of decision history, far more than the queue holds
 
+// Peak limiter, after the volume: nothing leaves above -1 dBFS. It has no
+// look-ahead, so it adds no delay (the DynamicsCompressorNode it replaces
+// delayed every microphone by 6 ms, and still let peaks through to +0.3 dBFS
+// at 200% volume): a peak is caught by lowering the gain at that very sample,
+// and the gain comes back over 250 ms, as before.
+const LIMIT = 10 ** (-1 / 20);
+const LIMIT_RELEASE = 1 - Math.exp(-1 / (0.25 * SAMPLE_RATE));
+
 // Frame-time histogram for the report: 0.05 ms buckets up to 20 ms.
 const BUCKET_MS = 0.05;
 const BUCKETS = 400;
@@ -122,7 +133,9 @@ class VoiceProcessor extends AudioWorkletProcessor {
     super();
     const opts = options?.processorOptions ?? {};
     this.model = opts.model ?? "rnnoise";
-    this.denoiser = createRnnoise(opts.wasmModule);
+    this.denoiser = this.model === "none" ? null : createRnnoise(opts.wasmModule);
+    this.volume = opts.volume ?? 1;
+    this.limitGain = 1;
 
     this.frame = new Float32Array(FRAME);
     this.frameFill = 0;
@@ -138,7 +151,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
 
     this.gateOpen = false;
     this.holdLeft = 0;
-    this.gain = 0;
+    this.gateGain = 0;
     this.setGate(opts.gate);
     this.lookahead = this.gate.mode === "off" ? 0 : this.gate.lookaheadFrames;
     this.prime = PRIME + this.lookahead * FRAME;
@@ -158,9 +171,11 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (event) => {
       if (event.data?.type === "destroy") {
         this.destroyed = true;
-        this.denoiser.destroy();
+        this.denoiser?.destroy();
       } else if (event.data?.type === "gate") {
         this.setGate(event.data.gate);
+      } else if (event.data?.type === "volume") {
+        this.volume = event.data.volume;
       }
     };
   }
@@ -169,7 +184,16 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.gate = { ...DEFAULT_GATE, ...gate };
     this.holdFrames = Math.round(this.gate.holdMs / 10);
     // Off means untouched audio from the first sample, not a 2 ms fade-in.
-    if (this.gate.mode === "off") this.gain = 1;
+    if (this.gate.mode === "off") this.gateGain = 1;
+  }
+
+  // The volume, then the limiter, for one sample on its way out.
+  finish(sample) {
+    const out = sample * this.volume;
+    const peak = Math.abs(out);
+    const room = peak > LIMIT ? LIMIT / peak : 1;
+    this.limitGain = Math.min(room, this.limitGain + (1 - this.limitGain) * LIMIT_RELEASE);
+    return out * this.limitGain;
   }
 
   // One decision per denoised frame, kept with the frame's index.
@@ -281,6 +305,10 @@ class VoiceProcessor extends AudioWorkletProcessor {
     if (!input || !output || this.destroyed) {
       return true;
     }
+    if (!this.denoiser) {
+      for (let i = 0; i < input.length; i++) output[i] = this.finish(input[i]);
+      return true;
+    }
 
     for (let i = 0; i < input.length; i++) {
       this.frame[this.frameFill++] = input[i];
@@ -299,9 +327,9 @@ class VoiceProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < output.length; i++) {
       const at = this.readAt + i;
       const target = this.gateTarget(at);
-      this.gain += (target - this.gain) * (target > this.gain ? ATTACK : RELEASE);
-      if (target === 0 && this.gain < 1e-4) this.gain = 0; // true silence, so Opus DTX engages
-      output[i] = this.queue[at % QUEUE] * this.gain;
+      this.gateGain += (target - this.gateGain) * (target > this.gateGain ? ATTACK : RELEASE);
+      if (target === 0 && this.gateGain < 1e-4) this.gateGain = 0; // true silence, so Opus DTX engages
+      output[i] = this.finish(this.queue[at % QUEUE] * this.gateGain);
     }
     this.readAt += output.length;
     return true;

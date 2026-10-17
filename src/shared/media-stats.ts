@@ -1245,10 +1245,11 @@ export const summarizeReceiverReport = (
 export const MOUTH_TO_EAR_FIXED_MS = {
   /** WASAPI's shared-mode buffer and Chromium's audio processing. */
   capture: 10,
-  /** RNNoise reads 640 samples (13.3 ms at 48 kHz) behind its input. */
-  noiseSuppression: 13,
-  /** The look-ahead of the limiter at the end of the microphone chain. */
-  microphoneLimiter: 6,
+  /**
+   * The voice worklet's 448-sample head start plus RNNoise 0.2's own 960
+   * samples: 29.3 ms at 48 kHz. Its limiter has no look-ahead.
+   */
+  noiseSuppression: 29,
   /** One 20 ms Opus frame plus Opus's own 6.5 ms of look-ahead. */
   opus: 26.5,
   /** The remote track's hand-over into the WebAudio graph. */
@@ -1290,7 +1291,6 @@ export const estimateMouthToEar = (input: {
   const processingMs =
     fixed.capture +
     fixed.noiseSuppression +
-    fixed.microphoneLimiter +
     fixed.opus +
     fixed.playbackHandOver +
     fixed.playbackDynamicsStage * input.playbackDynamicsStages;

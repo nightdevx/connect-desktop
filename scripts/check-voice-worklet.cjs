@@ -153,6 +153,37 @@ const ramp = (n) => Float32Array.from({ length: n }, (_, i) => ((i % 1000) - 500
   assert.ok(run(processor, quiet).subarray(9600).some((v) => v !== 0), "a lowered threshold opens the gate without a rebuild");
 }
 
+// --- no model: volume and limiter only, without delay -------------------------
+{
+  const Processor = load(source, passThrough);
+  const processor = new Processor({ processorOptions: { model: "none", volume: 1.5 } });
+  const quiet = Float32Array.from({ length: QUANTUM * 400 }, (_, i) => Math.sin(i / 7) * 0.2);
+  let output = run(processor, quiet);
+  assert.ok(output.every((v, i) => Math.abs(v - quiet[i] * 1.5) < 1e-6), "the volume applies sample for sample, with no delay");
+  processor.port.onmessage({ data: { type: "volume", volume: 0.5 } });
+  output = run(processor, quiet);
+  assert.ok(output.every((v, i) => Math.abs(v - quiet[i] * 0.5) < 1e-6), "a volume change applies live");
+
+  // 200% on a hot microphone: a burst at 0.6 would leave at 1.2.
+  const limit = 10 ** (-1 / 20);
+  const loud = new Processor({ processorOptions: { model: "none", volume: 2 } });
+  const burst = Float32Array.from({ length: 48000 * 3 }, (_, i) => Math.sin(i / 7) * (i >= 48000 && i < 49000 ? 0.6 : 0.2));
+  output = run(loud, burst);
+  const peak = output.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+  assert.ok(peak <= limit + 1e-6, `the limiter let ${(20 * Math.log10(peak)).toFixed(2)} dBFS through, more than -1`);
+  assert.ok(peak > limit - 0.01, "the burst is limited to -1 dBFS, not below it");
+  // Released over 250 ms, not at once: 50-100 ms after the burst the gain is
+  // still about two thirds, where a 20 ms release would have it back at 0.97.
+  const after = output.subarray(49000 + 2400, 49000 + 4800).reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+  assert.ok(after < 0.35, `the limiter let go too fast: ${after.toFixed(3)} 50 ms after the burst`);
+  const tail = output.subarray(48000 * 2.5).reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+  assert.ok(Math.abs(tail - 0.4) < 0.004, `the gain comes back after the burst: ${tail.toFixed(3)} instead of 0.4`);
+  // The limiter sits after the gate in the denoising path too: its true
+  // silence stays silence (checked above), and a loud model output is held.
+  const denoising = new (load(source, passThrough))({ processorOptions: { wasmModule: {}, gate: GATE_OFF, volume: 2 } });
+  assert.ok(run(denoising, burst).every((v) => Math.abs(v) <= limit + 1e-6), "the denoising path is limited too");
+}
+
 // --- suppression limit: what the model removes comes back at -attenLimitDb ---
 {
   // A model that removes everything: the output is then the limit alone, the
@@ -232,4 +263,4 @@ const ramp = (n) => Float32Array.from({ length: n }, (_, i) => ((i % 1000) - 500
   assert.ok(after.every((v) => v === 0));
 }
 
-console.log("voice-worklet self-check passed (448-sample head start exact and minimal; gate silent between phrases, opens before the first syllable, holds 250 ms, opens on loud words only, manual and live settings; suppression limit aligned; RNNoise removes white noise, clicks keep the gate shut, delay 960)");
+console.log("voice-worklet self-check passed (448-sample head start exact and minimal; gate silent between phrases, opens before the first syllable, holds 250 ms, opens on loud words only, manual and live settings; volume and -1 dBFS limiter without delay; suppression limit aligned; RNNoise removes white noise, clicks keep the gate shut, delay 960)");

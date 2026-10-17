@@ -27,12 +27,16 @@ export interface VoiceProcessorStats {
 }
 
 // A microphone processor that always runs, whether or not noise suppression is
-// on. It owns the output gain, which is why it is unconditional: the user's
+// on. It owns the output volume, which is why it is unconditional: the user's
 // microphone volume slider previously fed a GainNode wired only to the level
 // meter, so moving it changed the meter and nothing else — the published audio
 // never saw it.
 //
-// Chain: source -> highpass -> [voice worklet] -> gain -> limiter
+// Chain: source -> highpass -> voice worklet -> destination
+//
+// The voice worklet does all the rest: noise suppression and the voice gate
+// when noise suppression is on, then the volume and a peak limiter in every
+// case (model "none" when noise suppression is off).
 //
 // The voice worklet (voice-worklet.js) is the app's own: RNNoise 0.2, built
 // from Xiph's release as a bare .wasm (assets/README.md). The model was
@@ -41,8 +45,10 @@ export interface VoiceProcessorStats {
 // words instead of 19%. The worklet also gates, with its default settings:
 // between phrases it sends true silence, so Opus DTX stops sending packets.
 //
-// The limiter is what makes gain above 100% safe; without it, boosting a hot
-// microphone just clips into the encoder.
+// The limiter is what makes volume above 100% safe; without it, boosting a hot
+// microphone just clips into the encoder. It used to be a DynamicsCompressorNode,
+// whose fixed 6 ms look-ahead delayed every microphone; the worklet's own has
+// none.
 //
 // Worklet files must stay above Vite's inline limit, or they are inlined as
 // data: URLs that the app's CSP (script-src 'self') refuses. An earlier noise
@@ -62,9 +68,9 @@ export interface MicrophoneProcessor
 interface ProcessorGraph {
   sourceNode: MediaStreamAudioSourceNode;
   inputHighPassNode: BiquadFilterNode;
-  rnnoiseNode: AudioWorkletNode | null;
-  gainNode: GainNode;
-  limiterNode: DynamicsCompressorNode;
+  voiceNode: AudioWorkletNode;
+  /** RNNoise is running in voiceNode, not just volume and limiter. */
+  denoising: boolean;
   destinationNode: MediaStreamAudioDestinationNode;
 }
 
@@ -104,21 +110,17 @@ const RNNOISE_PROCESSING_PROFILES: Record<
   },
 };
 
-const clampGainPercent = (percent: number): number => {
-  if (!Number.isFinite(percent)) {
-    return 1;
-  }
-  return Math.min(200, Math.max(0, percent)) / 100;
-};
+// The DynamicsCompressorNode this chain used to end in also raised everything
+// by a fixed 1.71 dB: Web Audio's makeup gain for its settings (threshold -3,
+// ratio 20), confirmed on the test bench to the hundredth. It stays, so 100%
+// is as loud as it always was.
+const OLD_LIMITER_MAKEUP = 10 ** (1.71 / 20);
 
-const configureLimiter = (node: DynamicsCompressorNode): void => {
-  // Brick-wall-ish: catches peaks introduced by boosting without audibly
-  // compressing normal speech.
-  node.threshold.value = -3;
-  node.knee.value = 0;
-  node.ratio.value = 20;
-  node.attack.value = 0.003;
-  node.release.value = 0.25;
+const volumeFromPercent = (percent: number): number => {
+  if (!Number.isFinite(percent)) {
+    return OLD_LIMITER_MAKEUP;
+  }
+  return (Math.min(200, Math.max(0, percent)) / 100) * OLD_LIMITER_MAKEUP;
 };
 
 const resolveProcessingProfile = (
@@ -131,7 +133,7 @@ const resolveProcessingProfile = (
 
 export interface MicrophoneProcessorOptions {
   preset: NoiseSuppressionPreset;
-  /** When false the graph is gain + limiter only, no RNNoise. */
+  /** When false the worklet runs volume and limiter only, no RNNoise. */
   noiseSuppressionEnabled: boolean;
   gainPercent: number;
 }
@@ -168,7 +170,19 @@ export class MicrophoneTrackProcessorFactory {
     audioContext: AudioContext,
     noiseSuppressionEnabled: boolean,
   ): Promise<boolean> {
-    if (!this.isSupported() || !noiseSuppressionEnabled) {
+    if (!this.isSupported()) {
+      return false;
+    }
+
+    // The worklet carries the volume and the limiter whether or not noise
+    // suppression is on.
+    try {
+      await this.ensureWorkletRegistered(audioContext);
+    } catch (error) {
+      logLiveKitDebug("mic-controller", "processor-prewarm-failed", { error });
+      return false;
+    }
+    if (!noiseSuppressionEnabled) {
       return false;
     }
 
@@ -192,7 +206,6 @@ export class MicrophoneTrackProcessorFactory {
     }
 
     try {
-      await this.ensureWorkletRegistered(audioContext);
       await this.getRnnoiseModule();
       return true;
     } catch (error) {
@@ -216,8 +229,8 @@ export class MicrophoneTrackProcessorFactory {
     // the graph and the constraints came to disagree; the WASM check stays as a
     // cheap backstop for a processor built without a prewarm.
     //
-    // RNNoise needs WASM; the gain/limiter half of the chain does not, so a
-    // CSP-blocked WASM only costs noise suppression, not the volume control.
+    // RNNoise needs WASM; the volume and the limiter do not, so a CSP-blocked
+    // WASM only costs noise suppression, not the volume control.
     const canUseRnnoise =
       noiseSuppressionEnabled && (await this.isWasmCompilationAllowed());
 
@@ -246,9 +259,7 @@ export class MicrophoneTrackProcessorFactory {
       const disconnectables: (AudioNode | null)[] = [
         graph.sourceNode,
         graph.inputHighPassNode,
-        graph.rnnoiseNode,
-        graph.gainNode,
-        graph.limiterNode,
+        graph.voiceNode,
         graph.destinationNode,
       ];
 
@@ -262,7 +273,7 @@ export class MicrophoneTrackProcessorFactory {
 
       // Frees the model's state inside the worklet; the node itself goes with
       // the graph.
-      graph.rnnoiseNode?.port.postMessage({ type: "destroy" });
+      graph.voiceNode.port.postMessage({ type: "destroy" });
 
       graph = null;
     };
@@ -271,11 +282,12 @@ export class MicrophoneTrackProcessorFactory {
       name: "connect-microphone-processor",
       setGainPercent: (percent: number) => {
         gainPercent = percent;
-        if (graph) {
-          graph.gainNode.gain.value = clampGainPercent(percent);
-        }
+        graph?.voiceNode.port.postMessage({
+          type: "volume",
+          volume: volumeFromPercent(percent),
+        });
       },
-      isNoiseSuppressionActive: () => Boolean(graph?.rnnoiseNode),
+      isNoiseSuppressionActive: () => Boolean(graph?.denoising),
       getStats: () => stats,
       init: async (opts) => {
         destroyGraph();
@@ -309,12 +321,6 @@ export class MicrophoneTrackProcessorFactory {
           inputHighPassNode.frequency.value = profile.inputHighPassHz;
           inputHighPassNode.Q.value = 0.707;
 
-          const gainNode = context.createGain();
-          gainNode.gain.value = clampGainPercent(gainPercent);
-
-          const limiterNode = context.createDynamicsCompressor();
-          configureLimiter(limiterNode);
-
           const destinationNode = context.createMediaStreamDestination();
           // Defaults to 2. Every stage in front of it is mono — the capture asks
           // for channelCount 1, the voice worklet has outputChannelCount [1] —
@@ -323,68 +329,65 @@ export class MicrophoneTrackProcessorFactory {
           // receiver a layout it then had to guess at. One channel in, one out.
           destinationNode.channelCount = 1;
 
-          let rnnoiseNode: AudioWorkletNode | null = null;
+          // Without it there is no volume and no limiter either: the outer
+          // catch publishes the raw microphone.
+          await this.ensureWorkletRegistered(context);
 
+          let wasmModule: WebAssembly.Module | null = null;
           if (canUseRnnoise) {
             try {
-              await this.ensureWorkletRegistered(context);
-              const wasmModule = await this.getRnnoiseModule();
-
-              // Mono in, mono out: the model denoises one channel, and a
-              // stereo input would be down-mixed here rather than half-ignored.
-              rnnoiseNode = new AudioWorkletNode(context, VOICE_PROCESSOR, {
-                numberOfInputs: 1,
-                numberOfOutputs: 1,
-                channelCount: 1,
-                channelCountMode: "explicit",
-                outputChannelCount: [1],
-                processorOptions: {
-                  model: "rnnoise",
-                  wasmModule,
-                  attenLimitDb: profile.attenLimitDb,
-                  gate: { holdMs: profile.gateHoldMs },
-                },
-              });
-              rnnoiseNode.port.onmessage = (event: MessageEvent) => {
-                if (event.data?.type !== "stats") {
-                  return;
-                }
-                stats = event.data as VoiceProcessorStats;
-                // A missed quantum is an audible click; a slow frame is the
-                // warning before it. Neither is expected on any machine with
-                // RNNoise, so both are worth a line in the debug log.
-                if (stats.underruns > 0 || stats.p99Ms > 5) {
-                  logLiveKitDebug("mic-controller", "voice-worklet-slow", { ...stats });
-                }
-              };
+              wasmModule = await this.getRnnoiseModule();
             } catch (error) {
-              // Degrade to gain + limiter rather than losing the mic entirely.
-              rnnoiseNode = null;
+              // Degrade to volume + limiter rather than losing the mic entirely.
               this.onWarning?.(
                 `RNNoise başlatılamadı, mikrofon filtresiz yayınlanıyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
               );
             }
           }
 
-          // Wire the chain, skipping whichever optional stages are absent.
-          let tail: AudioNode = inputHighPassNode;
+          const volume = volumeFromPercent(gainPercent);
+          // Mono in, mono out: the model denoises one channel, and a stereo
+          // input would be down-mixed here rather than half-ignored.
+          const voiceNode = new AudioWorkletNode(context, VOICE_PROCESSOR, {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            channelCount: 1,
+            channelCountMode: "explicit",
+            outputChannelCount: [1],
+            processorOptions: wasmModule
+              ? {
+                  model: "rnnoise",
+                  wasmModule,
+                  volume,
+                  attenLimitDb: profile.attenLimitDb,
+                  gate: { holdMs: profile.gateHoldMs },
+                }
+              : { model: "none", volume },
+          });
+          voiceNode.port.onmessage = (event: MessageEvent) => {
+            if (event.data?.type !== "stats") {
+              return;
+            }
+            stats = event.data as VoiceProcessorStats;
+            // A missed quantum is an audible click; a slow frame is the
+            // warning before it. Neither is expected on any machine with
+            // RNNoise, so both are worth a line in the debug log.
+            if (stats.underruns > 0 || stats.p99Ms > 5) {
+              logLiveKitDebug("mic-controller", "voice-worklet-slow", { ...stats });
+            }
+          };
+
           sourceNode.connect(inputHighPassNode);
-          if (rnnoiseNode) {
-            tail.connect(rnnoiseNode);
-            tail = rnnoiseNode;
-          }
-          tail.connect(gainNode);
-          gainNode.connect(limiterNode);
-          limiterNode.connect(destinationNode);
+          inputHighPassNode.connect(voiceNode);
+          voiceNode.connect(destinationNode);
 
           const processedTrack = destinationNode.stream.getAudioTracks()[0];
           processor.processedTrack = processedTrack ?? opts.track;
           graph = {
             sourceNode,
             inputHighPassNode,
-            rnnoiseNode,
-            gainNode,
-            limiterNode,
+            voiceNode,
+            denoising: wasmModule !== null,
             destinationNode,
           };
 
