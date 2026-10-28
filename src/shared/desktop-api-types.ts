@@ -552,6 +552,8 @@ export interface LobbyJoinResult {
 export type LobbyLeaveReason = "user" | "switch" | "kicked" | "quit";
 
 export interface DesktopApi {
+  // process.platform of the app, available synchronously.
+  platform: string;
   getAppVersion: () => Promise<string>;
   getAppPreferences: () => Promise<
     DesktopResult<{
@@ -968,6 +970,10 @@ export interface DesktopApi {
   minimizeWindow: () => Promise<DesktopResult<{ minimized: boolean }>>;
   toggleMaximizeWindow: () => Promise<DesktopResult<{ isMaximized: boolean }>>;
   closeWindow: () => Promise<DesktopResult<{ closed: boolean }>>;
+  // Recolours the system caption buttons drawn over the title bar (Windows).
+  setWindowTheme: (
+    mode: "dark" | "light",
+  ) => Promise<DesktopResult<{ applied: boolean }>>;
   setWindowAttention: (payload: {
     enabled: boolean;
   }) => Promise<DesktopResult<{ attention: boolean }>>;

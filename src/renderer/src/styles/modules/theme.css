@@ -79,6 +79,9 @@
 .ant-drawer-right > .ant-drawer-content-wrapper {
   border-left: 1px solid var(--ct-alpha-12);
   box-shadow: var(--ct-shadow-lg);
+  /* Below Windows' caption buttons, which are drawn over the page and would
+     sit on the drawer's own close button. 0 where there are none. */
+  top: env(titlebar-area-height, 0px);
 }
 
 .ant-drawer .ant-drawer-header {
