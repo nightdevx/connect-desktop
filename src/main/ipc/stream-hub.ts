@@ -1,16 +1,21 @@
-import type { WebContents } from "electron";
 import WebSocket from "ws";
-import { DesktopApiError } from "../backend-client";
+import { DesktopApiError } from "../clients/base-client";
 import { awaitSocketOpen } from "./await-socket-open";
-import { streamOfFrame, type StreamKind } from "./stream-frames";
+import { STREAM_EVENT_CHANNELS, streamOfFrame, type StreamKind } from "./stream-frames";
 
-export type { StreamKind } from "./stream-frames";
+export { STREAM_EVENT_CHANNELS, type StreamKind } from "./stream-frames";
 
-export const STREAM_EVENT_CHANNELS: Record<StreamKind, string> = {
-  lobby: "desktop:lobbies-stream-event",
-  users: "desktop:user-directory-event",
-  dm: "desktop:direct-messages-event",
-};
+/**
+ * What the hub and the per-stream sockets need of a window. In the stream host
+ * (stream-host.ts) this is the page's MessagePort, not its webContents: the
+ * sockets live in a utility process, which has no webContents to send to.
+ */
+export interface StreamSender {
+  readonly id: number;
+  send: (channel: string, payload: unknown) => void;
+  isDestroyed: () => boolean;
+  once: (event: "destroyed", listener: () => void) => unknown;
+}
 
 // The server pings every 20s and gives up on us after 40s of silence; this is
 // the backstop past both (see lobby-stream-manager.ts for how 35s went wrong).
@@ -26,7 +31,7 @@ export const PROBE_TIMEOUT_MS = 5_000;
  * its own socket; the hub only routes start, stop and probe to them.
  */
 export interface LegacyStreams {
-  start: (kind: StreamKind, sender: WebContents, accessToken: string) => Promise<void>;
+  start: (kind: StreamKind, sender: StreamSender, accessToken: string) => Promise<void>;
   stop: (kind: StreamKind, senderId: number) => void;
   probe: () => void;
   stopAll: () => void;
@@ -39,7 +44,7 @@ export interface LegacyStreams {
 }
 
 interface Session {
-  sender: WebContents;
+  sender: StreamSender;
   wanted: Set<StreamKind>;
   socket: WebSocket | null;
   opening: Promise<void> | null;
@@ -81,7 +86,7 @@ export class StreamHub {
     return this.legacyMode;
   }
 
-  public async start(kind: StreamKind, sender: WebContents, accessToken: string): Promise<void> {
+  public async start(kind: StreamKind, sender: StreamSender, accessToken: string): Promise<void> {
     if (this.legacyMode) {
       return this.legacy.start(kind, sender, accessToken);
     }
@@ -180,7 +185,7 @@ export class StreamHub {
     }
   }
 
-  private sessionFor(sender: WebContents): Session {
+  private sessionFor(sender: StreamSender): Session {
     let session = this.sessions.get(sender.id);
     if (!session) {
       session = { sender, wanted: new Set(), socket: null, opening: null, closing: false };

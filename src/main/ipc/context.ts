@@ -1,10 +1,8 @@
-import { BrowserWindow, net } from "electron";
+import { join } from "node:path";
+import { BrowserWindow } from "electron";
 import { BackendClient, DesktopApiError } from "../backend-client";
 import { backendBaseUrl } from "../config";
-import { DirectMessagesStreamManager } from "./direct-messages-stream-manager";
-import { LobbyStreamManager } from "./lobby-stream-manager";
-import { UserDirectoryStreamManager } from "./user-directory-stream-manager";
-import { StreamHub } from "./stream-hub";
+import { StreamHostClient } from "./stream-host-client";
 import { SessionStore } from "../session-store";
 import { isSessionFatal } from "../auth-failure";
 import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
@@ -13,46 +11,14 @@ import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shar
 
 export const backendClient = new BackendClient(backendBaseUrl);
 let sessionStore: SessionStore | null = null;
-export const directMessagesStreamManager = new DirectMessagesStreamManager(backendBaseUrl);
-export const lobbyStreamManager = new LobbyStreamManager(backendBaseUrl);
-export const userDirectoryStreamManager = new UserDirectoryStreamManager(backendBaseUrl);
 
-const legacyStreamManagers = {
-  lobby: lobbyStreamManager,
-  users: userDirectoryStreamManager,
-  dm: directMessagesStreamManager,
-} as const;
-
-// The renderer's three streams on one socket (/ws), or on the three sockets
-// above for a backend that predates it. See stream-hub.ts.
-export const streamHub = new StreamHub(backendBaseUrl, {
-  start: async (kind, sender, accessToken) => {
-    await legacyStreamManagers[kind].start(sender, accessToken);
-  },
-  stop: (kind, senderId) => {
-    legacyStreamManagers[kind].stop(senderId);
-  },
-  probe: () => {
-    for (const manager of Object.values(legacyStreamManagers)) {
-      manager.probe();
-    }
-  },
-  stopAll: () => {
-    for (const manager of Object.values(legacyStreamManagers)) {
-      manager.stopAll();
-    }
-  },
-  backendAnswers: async () => {
-    try {
-      const response = await net.fetch(new URL("/healthz", backendBaseUrl).toString(), {
-        signal: AbortSignal.timeout(5_000),
-      });
-      return response.ok && ((await response.json()) as { ok?: unknown }).ok === true;
-    } catch {
-      return false;
-    }
-  },
-});
+// The renderer's three streams on one socket (/ws), or on three per-stream
+// sockets for a backend that predates it (stream-hub.ts). They run in a utility
+// process, not here; this is main's handle on it (stream-host-client.ts).
+export const streamHub = new StreamHostClient(
+  join(__dirname, "../stream-host-process.js"),
+  backendBaseUrl,
+);
 
 export const getWindowFromSender = (sender: Electron.WebContents): BrowserWindow => {
   const win = BrowserWindow.fromWebContents(sender);

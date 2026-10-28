@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { DesktopApi } from "../shared/desktop-api-types";
 import type { StreamingApi } from "../shared/streaming-contracts";
+import type { StreamPortMessage } from "../shared/stream-host-contracts";
 
+const STREAM_PORT_REQUEST_CHANNEL = "desktop:stream-port-request";
+const STREAM_PORT_CHANNEL = "desktop:stream-port";
 const DIRECT_MESSAGES_EVENT_CHANNEL = "desktop:direct-messages-event";
 const LOBBY_STREAM_EVENT_CHANNEL = "desktop:lobbies-stream-event";
 const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
@@ -19,13 +22,20 @@ const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
 // each used to add its own ipcRenderer listener: past ten, Node's
 // MaxListenersExceededWarning fired on every session. One listener per
 // channel, added with the first subscriber and removed with the last.
+// Payloads that arrive on the stream port rather than over IPC, by channel.
+const portDispatchers = new Map<string, (payload: unknown) => void>();
+
 const createFanOut = <T>(channel: string) => {
   const listeners = new Set<(payload: T) => void>();
-  const dispatch = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+  const deliver = (payload: unknown): void => {
     for (const listener of [...listeners]) {
       listener(payload as T);
     }
   };
+  const dispatch = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+    deliver(payload);
+  };
+  portDispatchers.set(channel, deliver);
   return (listener: (payload: T) => void): (() => void) => {
     if (listeners.size === 0) {
       ipcRenderer.on(channel, dispatch);
@@ -43,6 +53,23 @@ const subscribeLobbyStream = createFanOut<never>(LOBBY_STREAM_EVENT_CHANNEL);
 const subscribeUserDirectory = createFanOut<never>(USER_DIRECTORY_EVENT_CHANNEL);
 const subscribeDirectMessages = createFanOut<never>(DIRECT_MESSAGES_EVENT_CHANNEL);
 const subscribeSystemResumed = createFanOut<never>(SYSTEM_RESUMED_EVENT_CHANNEL);
+
+// The three streams' events come straight from the stream host, the utility
+// process that holds their sockets, over a MessagePort: main is not on the
+// path, so a busy main process no longer holds them up. Main hands this page
+// its port when asked, and a new one whenever the host is restarted. Only a
+// host restart still arrives over IPC: main tells each stream it was closed.
+let streamPort: MessagePort | null = null;
+ipcRenderer.on(STREAM_PORT_CHANNEL, (event) => {
+  streamPort?.close();
+  streamPort = event.ports[0] ?? null;
+  if (streamPort) {
+    streamPort.onmessage = (message: MessageEvent<StreamPortMessage>) => {
+      portDispatchers.get(message.data.channel)?.(message.data.payload);
+    };
+  }
+});
+ipcRenderer.send(STREAM_PORT_REQUEST_CHANNEL);
 
 const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
 const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";

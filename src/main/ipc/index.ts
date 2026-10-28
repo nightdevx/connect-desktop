@@ -13,6 +13,7 @@ import {
   withAccessToken,
   backendClient,
 } from "./context";
+import { STREAM_PORT_REQUEST_CHANNEL } from "./stream-host-client";
 
 const IPC_INVOKE_CHANNELS = [
   "app:ping",
@@ -259,4 +260,11 @@ export function registerIpcHandlers(): void {
   registerMusicHandlers();
   registerWatchHandlers();
   registerMediaDiagnosticsHandlers();
+
+  // Every page load asks for its port to the stream host (see the preload).
+  // A listener rather than a handler: the answer is a port, posted back.
+  ipcMain.removeAllListeners(STREAM_PORT_REQUEST_CHANNEL);
+  ipcMain.on(STREAM_PORT_REQUEST_CHANNEL, (event) => {
+    streamHub.attach(event.sender);
+  });
 }

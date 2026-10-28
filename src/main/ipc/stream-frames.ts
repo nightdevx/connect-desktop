@@ -4,7 +4,17 @@
 // collide, so the type is the address. Pure and electron-free, so the
 // self-check can hold it against the stream event types in desktop-api-types.
 
-export type StreamKind = "lobby" | "users" | "dm";
+import type { StreamKind } from "../../shared/stream-host-contracts";
+
+export type { StreamKind };
+
+// The renderer channel each stream's events go out on. Kept as the address on
+// the page's port too, so the preload hands them to the same listeners.
+export const STREAM_EVENT_CHANNELS: Record<StreamKind, string> = {
+  lobby: "desktop:lobbies-stream-event",
+  users: "desktop:user-directory-event",
+  dm: "desktop:direct-messages-event",
+};
 
 const LOBBY_FRAMES = new Set([
   "lobbies-snapshot",

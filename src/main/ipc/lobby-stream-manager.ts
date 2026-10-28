@@ -1,4 +1,4 @@
-import type { WebContents } from "electron";
+import type { StreamSender } from "./stream-hub";
 import WebSocket from "ws";
 import type { LobbyStreamEvent } from "../../shared/desktop-api-types";
 import { awaitSocketOpen } from "./await-socket-open";
@@ -77,7 +77,7 @@ export class LobbyStreamManager {
   // base: every installed client re-dialled roughly once a second forever, and
   // each `closed` event also fired two fallback HTTP requests.
   public async start(
-    sender: WebContents,
+    sender: StreamSender,
     accessToken: string,
   ): Promise<{ started: boolean }> {
     // A live socket is kept, and one still connecting is joined: this used to
@@ -286,7 +286,7 @@ export class LobbyStreamManager {
     return { started: true };
   }
 
-  private emit(sender: WebContents, event: LobbyStreamEvent): void {
+  private emit(sender: StreamSender, event: LobbyStreamEvent): void {
     if (sender.isDestroyed()) {
       return;
     }

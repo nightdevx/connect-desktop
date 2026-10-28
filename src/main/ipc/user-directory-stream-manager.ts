@@ -1,4 +1,4 @@
-import type { WebContents } from "electron";
+import type { StreamSender } from "./stream-hub";
 import WebSocket from "ws";
 import type { UserDirectoryStreamEvent } from "../../shared/desktop-api-types";
 import { awaitSocketOpen } from "./await-socket-open";
@@ -76,7 +76,7 @@ export class UserDirectoryStreamManager {
 
   // Resolves once the socket is open; see await-socket-open.ts for why.
   public async start(
-    sender: WebContents,
+    sender: StreamSender,
     accessToken: string,
   ): Promise<{ started: boolean }> {
     // A live socket is kept, and one still connecting is joined: this used to
@@ -233,7 +233,7 @@ export class UserDirectoryStreamManager {
     return { started: true };
   }
 
-  private emit(sender: WebContents, event: UserDirectoryStreamEvent): void {
+  private emit(sender: StreamSender, event: UserDirectoryStreamEvent): void {
     if (sender.isDestroyed()) {
       return;
     }
