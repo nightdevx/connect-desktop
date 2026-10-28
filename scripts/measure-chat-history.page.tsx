@@ -340,7 +340,7 @@ const runScenario = async (name: "lobby" | "dm"): Promise<Record<string, unknown
 
 // The friends page is the longest list that is not a history. The directory is
 // friends-only, so this is one user's friend count; 500, all online, is far past
-// what anyone here has. Measured, not virtualized.
+// what anyone here has.
 const measureFriends = async (count: number): Promise<Record<string, unknown>> => {
   const users = Array.from({ length: count }, (_, index) => ({
     userId: `friend-${index}`,
@@ -382,10 +382,28 @@ const measureFriends = async (count: number): Promise<Record<string, unknown>> =
   );
   void host.offsetHeight;
   const mountMs = Math.round(performance.now() - start);
+  await sleep(300);
   const domNodes = host.querySelectorAll("*").length;
+  const renderedRows = host.querySelectorAll(".ct-list-item").length;
+
+  // The last friend is reachable, and drawn where the scrollbar says.
+  const body = host.querySelector<HTMLElement>(".ct-friends-home-body");
+  const lastName = users.map((user) => user.displayName).sort((a, b) => a.localeCompare(b, "tr")).at(-1) ?? "";
+  let lastRowVisible = false;
+  if (body) {
+    body.scrollTop = body.scrollHeight;
+    await sleep(300);
+    const bodyRect = body.getBoundingClientRect();
+    for (const row of body.querySelectorAll<HTMLElement>(".ct-list-item")) {
+      if (row.textContent?.includes(lastName)) {
+        const rect = row.getBoundingClientRect();
+        lastRowVisible = rect.bottom <= bodyRect.bottom + 1 && rect.top >= bodyRect.top;
+      }
+    }
+  }
   root.unmount();
   host.remove();
-  return { friends: count, mountMs, domNodes };
+  return { friends: count, mountMs, domNodes, renderedRows, lastRowVisible };
 };
 
 (window as unknown as { __run: () => Promise<unknown> }).__run = async () => ({

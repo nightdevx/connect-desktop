@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button, Dropdown, Input, Segmented, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -249,6 +250,87 @@ function PersonRow({
   );
 }
 
+// A friend row before one has been drawn. They are all one height -- avatar
+// beside two lines -- so the first row drawn sets it for the rest.
+const ESTIMATED_FRIEND_ROW_PX = 52;
+// .ct-list's gap-0.5, which also sits between a spacer and the first row.
+const FRIEND_ROW_GAP_PX = 2;
+
+/**
+ * One group of the friends list, drawing only the rows on screen.
+ *
+ * Every row carries an antd Dropdown, Tooltips and Buttons: measured with 500
+ * friends, the page took over a second to open. The rows that are drawn sit in
+ * flow between two spacer items standing in for the rest, so the row markup and
+ * the list's styling are untouched, and a row that is not quite the expected
+ * height pushes its neighbours instead of overlapping them.
+ */
+function VirtualFriendRows({
+  scrollElement,
+  users,
+  label,
+  renderRow,
+}: {
+  scrollElement: HTMLElement;
+  users: UserDirectoryEntry[];
+  label: string;
+  renderRow: (user: UserDirectoryEntry) => ReactNode;
+}) {
+  const listRef = useRef<HTMLUListElement>(null);
+  // Where this group's rows start inside the scroller: the header, the
+  // toolbar's gap, the "Şu an aktif" strip and any group above.
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const [rowHeight, setRowHeight] = useState(ESTIMATED_FRIEND_ROW_PX);
+
+  const virtualizer = useVirtualizer({
+    count: users.length,
+    getScrollElement: () => scrollElement,
+    initialOffset: () => scrollElement.scrollTop,
+    estimateSize: () => rowHeight,
+    getItemKey: (index) => users[index].userId,
+    gap: FRIEND_ROW_GAP_PX,
+    overscan: 10,
+    scrollMargin,
+  });
+
+  // Every render: what moves the list is markup above it that no prop here
+  // describes. Settles at once, since it only sets state on a change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+    if (list.offsetTop !== scrollMargin) {
+      setScrollMargin(list.offsetTop);
+    }
+    const row = list.querySelector<HTMLElement>(".ct-list-item");
+    if (row && row.offsetHeight > 0 && row.offsetHeight !== rowHeight) {
+      setRowHeight(row.offsetHeight);
+    }
+  });
+
+  // The estimate is read when positions are computed, which the virtualizer
+  // caches; a new row height has to throw them away.
+  useLayoutEffect(() => {
+    virtualizer.measure();
+  }, [rowHeight, virtualizer]);
+
+  const items = virtualizer.getVirtualItems();
+  const first = items[0];
+  const last = items[items.length - 1];
+  const before = first ? first.start - scrollMargin - FRIEND_ROW_GAP_PX : 0;
+  const after = last ? virtualizer.getTotalSize() - (last.end - scrollMargin) - FRIEND_ROW_GAP_PX : 0;
+
+  return (
+    <ul ref={listRef} className="ct-list" aria-label={label}>
+      {before > 0 && <li aria-hidden="true" style={{ height: before }} />}
+      {items.map((item) => renderRow(users[item.index]))}
+      {after > 0 && <li aria-hidden="true" style={{ height: after }} />}
+    </ul>
+  );
+}
+
 // One icon button on a row. Always the same 32px square, muted until it is
 // pointed at -- see .ct-row-action for why the colour waits for the hover.
 function RowAction({
@@ -306,6 +388,8 @@ export function FriendsHomePanel({
   // open conversation the moment someone typed here.
   const [search, setSearch] = useState("");
   const [pendingUnfriend, setPendingUnfriend] = useState<RequestRow | null>(null);
+  // The list's scroller, as state: the friend rows need a render once it exists.
+  const [bodyElement, setBodyElement] = useState<HTMLDivElement | null>(null);
   // The profile card, opened from a menu at the row it was asked about.
   const [profileTarget, setProfileTarget] = useState<{
     userId: string;
@@ -699,9 +783,14 @@ export function FriendsHomePanel({
           <span className="ct-segmented-count">{group.users.length}</span>
         </p>
 
-        <ul className="ct-list" aria-label={`${group.label} arkadaşlar`}>
-          {group.users.map(renderFriendRow)}
-        </ul>
+        {bodyElement && (
+          <VirtualFriendRows
+            scrollElement={bodyElement}
+            users={group.users}
+            label={`${group.label} arkadaşlar`}
+            renderRow={renderFriendRow}
+          />
+        )}
       </section>
     ));
   };
@@ -958,7 +1047,7 @@ export function FriendsHomePanel({
         />
       </div>
 
-      <div className="ct-friends-home-body">
+      <div className="ct-friends-home-body" ref={setBodyElement}>
         {tab === "requests" ? (
           renderRequests()
         ) : (
