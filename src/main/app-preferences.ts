@@ -199,6 +199,10 @@ const getStore = (): AppPreferencesStore => {
 // start the app twice at sign-in.
 const WINDOWS_LOGIN_ITEM_NAME = "electron.app.Connect";
 
+// Passed by the login item, so a launch at sign-in can be told apart from the
+// user opening the app (index.ts starts the former in the tray).
+export const AUTOSTART_FLAG = "--autostart";
+
 const readSystemLaunchOnStartup = (): boolean | null => {
   if (process.platform === "linux") {
     return null;
@@ -227,6 +231,7 @@ const applySystemLaunchOnStartup = (enabled: boolean): void => {
     app.setLoginItemSettings({
       openAtLogin: enabled,
       name: WINDOWS_LOGIN_ITEM_NAME,
+      args: [AUTOSTART_FLAG],
     });
   } catch {
     // no-op
@@ -267,6 +272,15 @@ export const saveWindowState = (state: SavedWindowState): void => {
 export const getDesktopAppPreferences = (): DesktopAppPreferences => {
   const current = getStore().get();
   return syncLaunchOnStartupWithSystem(current);
+};
+
+// Rewrites an enabled login item so it carries the current arguments: the
+// entries written before AUTOSTART_FLAG existed have none, and would keep
+// opening the window at sign-in. Cheap enough to do on every launch.
+export const refreshSystemLaunchOnStartup = (): void => {
+  if (getDesktopAppPreferences().launchOnStartup) {
+    applySystemLaunchOnStartup(true);
+  }
 };
 
 export const updateDesktopAppPreferences = (

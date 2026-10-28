@@ -13,10 +13,12 @@ import { join } from "node:path";
 import * as Sentry from "@sentry/electron/main";
 import { devServerUrl, isDev } from "./utils/is-dev";
 import {
+  AUTOSTART_FLAG,
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
   peekDesktopAppPreferences,
   peekSavedWindowState,
+  refreshSystemLaunchOnStartup,
   saveWindowState,
 } from "./app-preferences";
 import { restoreWindowState } from "./window-state";
@@ -83,6 +85,10 @@ let mainWindow: BrowserWindow | null = null;
 let quittingWithCleanup = false;
 let tray: Tray | null = null;
 let unsubscribePreferencesListener: (() => void) | null = null;
+// Started by the login item with tray mode on: the first window loads (and
+// signs in, so friends see the user online) without being shown, and the tray
+// icon is the way in. Narrowed to tray mode once the preferences can be read.
+let startHiddenInTray = process.argv.includes(AUTOSTART_FLAG);
 
 // Windows matches toasts, the taskbar button and the Start menu shortcut to an
 // app by this ID. Unset, Electron used "electron.app.Connect", which matches
@@ -387,6 +393,14 @@ function createMainWindow(): BrowserWindow {
   }
 
   win.once("ready-to-show", () => {
+    if (startHiddenInTray) {
+      startHiddenInTray = false;
+      // maximize() would show it, so that waits for the first show.
+      if (restored?.isMaximized) {
+        win.once("show", () => win.maximize());
+      }
+      return;
+    }
     if (restored?.isMaximized) {
       win.maximize();
     }
@@ -494,6 +508,9 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
         await installDownloadedAppUpdate();
       },
     });
+
+    startHiddenInTray &&= hasTrayBehaviorEnabled();
+    refreshSystemLaunchOnStartup();
 
     mainWindow = createMainWindow();
     syncTrayWithPreferences();
