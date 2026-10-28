@@ -65,9 +65,14 @@ module.exports = [
       "react-hooks": reactHooks,
     },
     rules: {
-      // The two that matter here. Everything below is noise control.
+      // Hook rules plus the React Compiler's. The compiler rules warn, like
+      // exhaustive-deps: ~100 findings predate the compiler, mostly setState in
+      // effects and refs read during render. None is a miscompile: where the
+      // compiler cannot keep a component's behaviour it leaves it uncompiled.
+      ...Object.fromEntries(
+        Object.keys(reactHooks.configs.flat.recommended.rules).map((rule) => [rule, "warn"]),
+      ),
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
 
       // TypeScript already reports these, and its version is more accurate.
       "no-undef": "off",

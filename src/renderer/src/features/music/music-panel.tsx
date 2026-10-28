@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Modal, Slider, Tooltip } from "antd";
 import type { InputRef } from "antd";

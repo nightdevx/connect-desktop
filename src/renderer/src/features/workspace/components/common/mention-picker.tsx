@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
 import type { InputRef } from "antd";
@@ -17,7 +18,7 @@ interface UseMentionPickerParams {
   draft: string;
   onDraftChange: (value: string) => void;
   candidates: MentionCandidate[];
-  inputRef: RefObject<InputRef>;
+  inputRef: RefObject<InputRef | null>;
 }
 
 interface UseMentionPickerResult {

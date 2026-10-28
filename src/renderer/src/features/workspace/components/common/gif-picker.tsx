@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Input, Popover, Tooltip } from "antd";
 import { GifOutlined, LoadingOutlined, SearchOutlined } from "@ant-design/icons";

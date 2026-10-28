@@ -1,11 +1,15 @@
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { resolve } from "node:path";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   root: resolve(__dirname, "src/renderer"),
-  plugins: [react(), sentryVitePlugin({
+  // React Compiler memoizes components and hooks at build time. plugin-react 6
+  // dropped its own `babel` option; @rolldown/plugin-babel runs the compiler,
+  // and the preset limits it to files that can hold components or hooks.
+  plugins: [react(), babel({ presets: [reactCompilerPreset()] }), sentryVitePlugin({
     org: "night-ki",
     project: "connect-desktop"
   })],

@@ -24,13 +24,15 @@ const WORK = path.join(ROOT, "node_modules", ".cache", "ct-chat-history");
 
 const build = async () => {
   const { build: viteBuild } = await import("vite");
-  const react = (await import("@vitejs/plugin-react")).default;
+  const { default: react, reactCompilerPreset } = await import("@vitejs/plugin-react");
+  const babel = (await import("@rolldown/plugin-babel")).default;
   await viteBuild({
     root: ROOT,
     configFile: false,
     logLevel: "error",
     publicDir: false,
-    plugins: [react()],
+    // The React Compiler, as in vite.config.ts: measure what ships.
+    plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
     css: { postcss: ROOT },
     resolve: {
       alias: {

@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Alert } from "antd";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { describeAuthError } from "../auth-error-messages";

@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { watchVideoRef } from "@shared/watch";
 import type { WatchRoom } from "./use-watch-room";

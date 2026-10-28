@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Fragment, type KeyboardEvent } from "react";
 import type { SettingsSection } from "@/store/ui-store";
 import {

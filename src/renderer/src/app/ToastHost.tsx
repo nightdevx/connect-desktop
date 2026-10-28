@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useState, useSyncExternalStore } from "react";
 import {
   CheckCircleFilled,

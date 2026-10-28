@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Modal } from "antd";
 import { PlayCircleOutlined } from "@ant-design/icons";
 import { ModalHeading } from "@/ui/modal-heading";

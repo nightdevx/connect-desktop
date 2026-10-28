@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   CaretRightFilled,

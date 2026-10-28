@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useCallback, useState } from "react";
 import { Button, Input } from "antd";
 import { CaretRightFilled, PlayCircleOutlined } from "@ant-design/icons";
