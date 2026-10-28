@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DesktopAppPreferences } from "../shared/desktop-api-types";
 import { writeFileAtomic } from "./utils/atomic-write";
+import type { SavedWindowState } from "./window-state";
 
 const defaultAppPreferences: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -118,6 +119,11 @@ class AppPreferencesStore {
     ...defaultAppPreferences,
   };
 
+  // Where the main window was, kept in the same file. Main-only: it is not part
+  // of DesktopAppPreferences, so the renderer never sees or sends it. It is
+  // checked against the attached screens when it is used, not here.
+  private windowState: unknown = null;
+
   public constructor() {
     this.filePath = path.join(app.getPath("userData"), "app-preferences.json");
     this.loadFromDisk();
@@ -132,14 +138,27 @@ class AppPreferencesStore {
     this.persist();
   }
 
+  public getWindowState(): unknown {
+    return this.windowState;
+  }
+
+  public setWindowState(state: SavedWindowState): void {
+    this.windowState = state;
+    this.persist();
+  }
+
   private loadFromDisk(): void {
     try {
       if (!fs.existsSync(this.filePath)) {
         return;
       }
 
-      const raw = fs.readFileSync(this.filePath, "utf-8");
-      this.currentPreferences = sanitizeLoadedPreferences(JSON.parse(raw));
+      const raw: unknown = JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
+      this.currentPreferences = sanitizeLoadedPreferences(raw);
+      this.windowState =
+        raw && typeof raw === "object"
+          ? ((raw as Record<string, unknown>).windowState ?? null)
+          : null;
     } catch {
       this.currentPreferences = { ...defaultAppPreferences };
     }
@@ -150,7 +169,11 @@ class AppPreferencesStore {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
       writeFileAtomic(
         this.filePath,
-        JSON.stringify(this.currentPreferences, null, 2),
+        JSON.stringify(
+          { ...this.currentPreferences, windowState: this.windowState },
+          null,
+          2,
+        ),
       );
     } catch {
       // no-op
@@ -232,6 +255,13 @@ const syncLaunchOnStartupWithSystem = (
 // switch setup, which must run before the GPU process spawns.
 export const peekDesktopAppPreferences = (): DesktopAppPreferences => {
   return getStore().get();
+};
+
+// Unvalidated: index.ts checks it against the screens attached at the time.
+export const peekSavedWindowState = (): unknown => getStore().getWindowState();
+
+export const saveWindowState = (state: SavedWindowState): void => {
+  getStore().setWindowState(state);
 };
 
 export const getDesktopAppPreferences = (): DesktopAppPreferences => {

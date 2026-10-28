@@ -5,6 +5,7 @@ import {
   Tray,
   nativeImage,
   powerMonitor,
+  screen,
   session,
   shell,
 } from "electron";
@@ -15,7 +16,10 @@ import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
   peekDesktopAppPreferences,
+  peekSavedWindowState,
+  saveWindowState,
 } from "./app-preferences";
+import { restoreWindowState } from "./window-state";
 import {
   applyMediaEngineSwitches,
   logMediaEngineStatus,
@@ -328,12 +332,20 @@ app.on("web-contents-created", (_event, contents) => {
   });
 });
 
+const MIN_WINDOW_SIZE = { width: 720, height: 480 };
+
 function createMainWindow(): BrowserWindow {
+  // Where the user left it, unless that spot is no longer on any screen.
+  const restored = restoreWindowState(
+    peekSavedWindowState(),
+    screen.getAllDisplays().map((display) => display.workArea),
+    MIN_WINDOW_SIZE,
+  );
+
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 720,
-    minHeight: 480,
+    ...(restored?.bounds ?? { width: 1280, height: 800 }),
+    minWidth: MIN_WINDOW_SIZE.width,
+    minHeight: MIN_WINDOW_SIZE.height,
     frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
@@ -373,6 +385,9 @@ function createMainWindow(): BrowserWindow {
   }
 
   win.once("ready-to-show", () => {
+    if (restored?.isMaximized) {
+      win.maximize();
+    }
     win.show();
     emitWindowState(win);
   });
@@ -381,6 +396,16 @@ function createMainWindow(): BrowserWindow {
   win.on("unmaximize", () => emitWindowState(win));
 
   win.on("close", (event) => {
+    // Saved on every close, including the one that only hides it to the tray.
+    // A window that is already hidden is skipped: quitting from the tray would
+    // otherwise record a window that was never shown as not maximized.
+    if (win.isVisible()) {
+      saveWindowState({
+        bounds: win.getNormalBounds(),
+        isMaximized: win.isMaximized(),
+      });
+    }
+
     if (quittingWithCleanup) {
       return;
     }
