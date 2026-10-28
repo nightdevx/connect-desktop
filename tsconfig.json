@@ -1,25 +1,7 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "strict": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "types": ["node", "vite/client"],
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": ["./src/renderer/src/*"],
-      "@shared/*": ["./src/shared/*"]
-    }
-  },
-  "include": [
-    "src/main/**/*",
-    "src/preload/**/*",
-    "src/renderer/src/**/*",
-    "src/shared/**/*"
-  ],
-  "exclude": ["node_modules", "dist"]
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.main.json" },
+    { "path": "./tsconfig.renderer.json" }
+  ]
 }

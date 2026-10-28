@@ -23,13 +23,13 @@ export class AppErrorBoundary extends Component<
   AppErrorBoundaryProps,
   AppErrorBoundaryState
 > {
-  public state: AppErrorBoundaryState = { error: null, componentStack: null };
+  public override state: AppErrorBoundaryState = { error: null, componentStack: null };
 
   public static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
     return { error, componentStack: null };
   }
 
-  public componentDidCatch(error: Error, info: ErrorInfo): void {
+  public override componentDidCatch(error: Error, info: ErrorInfo): void {
     this.setState({ componentStack: info.componentStack ?? null });
     // Reported here or not at all: in a production build React does not
     // rethrow an error a boundary caught, so the global handlers never see it,
@@ -49,7 +49,7 @@ export class AppErrorBoundary extends Component<
     this.setState({ error: null, componentStack: null });
   };
 
-  public render(): ReactNode {
+  public override render(): ReactNode {
     const { error, componentStack } = this.state;
     if (!error) {
       return this.props.children;

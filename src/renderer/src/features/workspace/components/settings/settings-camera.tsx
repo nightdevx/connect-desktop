@@ -369,7 +369,7 @@ export function SettingsCamera({
       >
         <div className="ct-settings-block">
           <div className="ct-media-preview">
-            {process.env.NODE_ENV === "development" && devStats && (
+            {import.meta.env.DEV && devStats && (
               <div className="ct-media-preview-badge">
                 {devStats.width}×{devStats.height} · {devStats.fps} FPS
               </div>

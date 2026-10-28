@@ -22,7 +22,7 @@ import { SENTRY_DATA_COLLECTION } from "@shared/sentry-data-collection";
 applyThemeMode(readThemeMode());
 
 // Initialize Sentry for renderer process. It automatically tunnels events to main process.
-if (process.env.NODE_ENV !== "development") {
+if (!import.meta.env.DEV) {
   Sentry.init({ dataCollection: SENTRY_DATA_COLLECTION });
 }
 

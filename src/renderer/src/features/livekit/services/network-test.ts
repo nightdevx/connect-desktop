@@ -162,7 +162,7 @@ class AudioPublishCheck extends Checker {
     }
   }
 
-  getInfo(): CheckInfo {
+  override getInfo(): CheckInfo {
     const info = super.getInfo();
     info.data = { audio: this.audio };
     return info;
@@ -220,7 +220,7 @@ class TransportPathCheck extends Checker {
     }
   }
 
-  getInfo(): CheckInfo {
+  override getInfo(): CheckInfo {
     const info = super.getInfo();
     info.data = { path: { ...this.path } };
     return info;

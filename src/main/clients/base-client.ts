@@ -47,7 +47,10 @@ const reportIfOutdated = (status: number, payload: ErrorResponse | null): void =
 //
 // no-store because these are API responses: react-query owns caching, and the
 // disk cache has no business holding a roster or a message list.
+// `cache` is spelled out because net.fetch honours it (Chromium's stack) while
+// the RequestInit type main compiles against (Node's fetch) has no such field.
 const requestInit = (init: RequestInit): RequestInit & {
+  cache?: "no-store";
   bypassCustomProtocolHandlers?: boolean;
 } => ({
   ...init,

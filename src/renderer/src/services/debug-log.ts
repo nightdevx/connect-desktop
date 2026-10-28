@@ -94,7 +94,7 @@ export const logLiveKitDebug = (
   mediaDiagnostics.record(scope, event, normalized);
 
   // Sadece development ortamında log basılmasına izin ver
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = import.meta.env.DEV;
   if (!isDev) {
     return;
   }

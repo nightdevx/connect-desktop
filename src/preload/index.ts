@@ -59,12 +59,19 @@ const subscribeSystemResumed = createFanOut<never>(SYSTEM_RESUMED_EVENT_CHANNEL)
 // path, so a busy main process no longer holds them up. Main hands this page
 // its port when asked, and a new one whenever the host is restarted. Only a
 // host restart still arrives over IPC: main tells each stream it was closed.
-let streamPort: MessagePort | null = null;
+//
+// The page's MessagePort, reduced to what is used here: the preload is compiled
+// with main's settings, which carry no DOM types.
+interface PagePort {
+  onmessage: ((message: { data: StreamPortMessage }) => void) | null;
+  close: () => void;
+}
+let streamPort: PagePort | null = null;
 ipcRenderer.on(STREAM_PORT_CHANNEL, (event) => {
   streamPort?.close();
-  streamPort = event.ports[0] ?? null;
+  streamPort = (event.ports[0] as PagePort | undefined) ?? null;
   if (streamPort) {
-    streamPort.onmessage = (message: MessageEvent<StreamPortMessage>) => {
+    streamPort.onmessage = (message) => {
       portDispatchers.get(message.data.channel)?.(message.data.payload);
     };
   }
