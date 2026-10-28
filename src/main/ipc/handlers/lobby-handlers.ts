@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { handle } from "../handle";
 import {
   backendClient,
   streamHub,
@@ -42,7 +42,7 @@ import {
 } from "../validators";
 
 export function registerLobbyHandlers(): void {
-  ipcMain.handle("desktop:lobbies-list", async () => {
+  handle("desktop:lobbies-list", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.lobby.listLobbies(accessToken);
@@ -53,7 +53,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-states", async () => {
+  handle("desktop:lobbies-states", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.lobby.listLobbyStates(accessToken);
@@ -64,7 +64,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-create", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-create", async (_event, payload: unknown) => {
     try {
       const parsed = createLobbySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -84,7 +84,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-update", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-update", async (_event, payload: unknown) => {
     try {
       const parsed = updateLobbySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -104,7 +104,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-delete", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-delete", async (_event, payload: unknown) => {
     try {
       const parsed = deleteLobbySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -116,7 +116,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-join", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-join", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyJoinSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -128,7 +128,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-kick", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-kick", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyModerateSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -140,7 +140,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-move-member", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-move-member", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyMoveSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -157,7 +157,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-timeout-member", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-timeout-member", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyTimeoutSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -174,7 +174,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-clear-timeout", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-clear-timeout", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyModerateSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -186,7 +186,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-list-timeouts", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-list-timeouts", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyBansSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -198,7 +198,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-mute-member", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-mute-member", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyModerateMuteSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -216,7 +216,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-leave", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-leave", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyLeaveSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -228,7 +228,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-mute", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-mute", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyMuteSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -244,7 +244,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-deafen", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-deafen", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyDeafenSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -260,7 +260,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-camera", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-camera", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyEnabledSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -276,7 +276,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-screen", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-screen", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyEnabledSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -292,7 +292,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-stream-preview-put", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-stream-preview-put", async (_event, payload: unknown) => {
     try {
       const parsed = streamPreviewPutSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -304,7 +304,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-stream-preview-get", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-stream-preview-get", async (_event, payload: unknown) => {
     try {
       const parsed = streamPreviewGetSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -316,7 +316,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:emotes-list", async () => {
+  handle("desktop:emotes-list", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.lobby.listEmotes(accessToken);
@@ -327,7 +327,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:emotes-sample", async (_event, payload: unknown) => {
+  handle("desktop:emotes-sample", async (_event, payload: unknown) => {
     try {
       const parsed = emoteIdSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -339,7 +339,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:emotes-upload", async (_event, payload: unknown) => {
+  handle("desktop:emotes-upload", async (_event, payload: unknown) => {
     try {
       const parsed = emoteUploadSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -355,7 +355,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:emotes-delete", async (_event, payload: unknown) => {
+  handle("desktop:emotes-delete", async (_event, payload: unknown) => {
     try {
       const parsed = emoteIdSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -367,7 +367,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-emote", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-emote", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyEmoteSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -386,7 +386,7 @@ export function registerLobbyHandlers(): void {
   // Games live beside the lobby handlers rather than in a file of their own:
   // their frames ride the lobby websocket, so this is where somebody tracing
   // one back from the renderer looks first.
-  ipcMain.handle("desktop:minigame-list", async () => {
+  handle("desktop:minigame-list", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.minigame.listTables(accessToken);
@@ -397,7 +397,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:minigame-play", async (_event, payload: unknown) => {
+  handle("desktop:minigame-play", async (_event, payload: unknown) => {
     try {
       const body = minigameActionSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -409,7 +409,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:minigame-scores", async () => {
+  handle("desktop:minigame-scores", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.minigame.listScores(accessToken);
@@ -420,7 +420,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle(
+  handle(
     "desktop:minigame-score-submit",
     async (_event, payload: unknown) => {
       try {
@@ -439,7 +439,7 @@ export function registerLobbyHandlers(): void {
     },
   );
 
-  ipcMain.handle("desktop:minigame-leaderboard", async (_event, payload: unknown) => {
+  handle("desktop:minigame-leaderboard", async (_event, payload: unknown) => {
     try {
       const parsed = minigameLeaderboardSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -455,7 +455,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-stream-start", async (event) => {
+  handle("desktop:lobbies-stream-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
         await streamHub.start("lobby", event.sender, accessToken);
@@ -468,7 +468,7 @@ export function registerLobbyHandlers(): void {
 
   // The network came back or the machine woke: ask every stream socket whether
   // it is still there instead of redialling a healthy one. See StreamHub.probe.
-  ipcMain.handle("desktop:streams-probe", async () => {
+  handle("desktop:streams-probe", async () => {
     try {
       streamHub.probe();
       return ok({ probed: true });
@@ -477,7 +477,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-stream-stop", async (event) => {
+  handle("desktop:lobbies-stream-stop", async (event) => {
     try {
       streamHub.stop("lobby", event.sender.id);
       return ok({ stopped: true });
@@ -486,7 +486,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:livekit-token", async (_event, payload: unknown) => {
+  handle("desktop:livekit-token", async (_event, payload: unknown) => {
     try {
       const parsed = liveKitTokenSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -498,7 +498,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:livekit-network-test-token", async () => {
+  handle("desktop:livekit-network-test-token", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.media.createNetworkTestToken(accessToken);
@@ -509,7 +509,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobbies-state", async (_event, payload: unknown) => {
+  handle("desktop:lobbies-state", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyStateSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -521,7 +521,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobby-messages-list", async (_event, payload: unknown) => {
+  handle("desktop:lobby-messages-list", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyMessagesListSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -537,7 +537,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobby-messages-send", async (_event, payload: unknown) => {
+  handle("desktop:lobby-messages-send", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyMessageSendSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -553,7 +553,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobby-messages-search", async (_event, payload: unknown) => {
+  handle("desktop:lobby-messages-search", async (_event, payload: unknown) => {
     try {
       const parsed = lobbySearchSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -570,7 +570,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:lobby-messages-delete", async (_event, payload: unknown) => {
+  handle("desktop:lobby-messages-delete", async (_event, payload: unknown) => {
     try {
       const parsed = lobbyMessageDeleteSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -585,7 +585,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:call-initiate", async (_event, payload: unknown) => {
+  handle("desktop:call-initiate", async (_event, payload: unknown) => {
     try {
       const parsed = initiateCallSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -597,7 +597,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:call-accept", async (_event, payload: unknown) => {
+  handle("desktop:call-accept", async (_event, payload: unknown) => {
     try {
       const parsed = acceptCallSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -609,7 +609,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:call-reject", async (_event, payload: unknown) => {
+  handle("desktop:call-reject", async (_event, payload: unknown) => {
     try {
       const parsed = rejectCallSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -621,7 +621,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:call-cancel", async (_event, payload: unknown) => {
+  handle("desktop:call-cancel", async (_event, payload: unknown) => {
     try {
       const parsed = cancelCallSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -633,7 +633,7 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:call-peer", async (_event, payload: unknown) => {
+  handle("desktop:call-peer", async (_event, payload: unknown) => {
     try {
       const parsed = callPeerSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {

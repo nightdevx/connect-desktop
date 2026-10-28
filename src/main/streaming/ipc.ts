@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { handle } from "../ipc/handle";
 import { DesktopApiError } from "../backend-client";
 import {
   STREAMING_LOOPBACK_START_CHANNEL,
@@ -36,12 +37,12 @@ const streamingInvokeChannels = [
 export const registerStreamingIpcHandlers = (): void => {
   clearStreamingHandlers();
 
-  ipcMain.handle(STREAMING_LOOPBACK_START_CHANNEL, async (event) => {
+  handle(STREAMING_LOOPBACK_START_CHANNEL, async (event) => {
     enforceRateLimit(STREAMING_LOOPBACK_START_CHANNEL, event.sender.id);
     return systemAudioLoopback.start(event.sender);
   });
 
-  ipcMain.handle(STREAMING_LOOPBACK_STOP_CHANNEL, async (event) => {
+  handle(STREAMING_LOOPBACK_STOP_CHANNEL, async (event) => {
     enforceRateLimit(STREAMING_LOOPBACK_STOP_CHANNEL, event.sender.id);
     systemAudioLoopback.stop();
   });

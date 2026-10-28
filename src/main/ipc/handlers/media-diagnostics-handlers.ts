@@ -1,4 +1,5 @@
-import { BrowserWindow, app, dialog, ipcMain } from "electron";
+import { BrowserWindow, app, dialog } from "electron";
+import { handle } from "../handle";
 import { writeFile } from "node:fs/promises";
 import { release } from "node:os";
 import { z } from "zod";
@@ -108,7 +109,7 @@ const readGpuDevices = async (): Promise<
 };
 
 export const registerMediaDiagnosticsHandlers = (): void => {
-  ipcMain.handle("desktop:media-diagnostics-context", async () => {
+  handle("desktop:media-diagnostics-context", async () => {
     try {
       let gpu: Record<string, string> = {};
       try {
@@ -136,7 +137,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
     }
   });
 
-  ipcMain.handle("desktop:media-diagnostics-upload", async (_event, payload: unknown) => {
+  handle("desktop:media-diagnostics-upload", async (_event, payload: unknown) => {
     try {
       const batch = batchSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -148,7 +149,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
     }
   });
 
-  ipcMain.handle("desktop:admin-diagnostics-sessions", async (_event, payload: unknown) => {
+  handle("desktop:admin-diagnostics-sessions", async (_event, payload: unknown) => {
     try {
       const query = sessionQuerySchema.parse(payload ?? {});
       const result = await withAccessToken((accessToken) =>
@@ -160,7 +161,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
     }
   });
 
-  ipcMain.handle("desktop:admin-diagnostics-session", async (_event, payload: unknown) => {
+  handle("desktop:admin-diagnostics-session", async (_event, payload: unknown) => {
     try {
       const { sessionId } = sessionIdSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -172,7 +173,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
     }
   });
 
-  ipcMain.handle("desktop:admin-diagnostics-export-session", async (event, payload: unknown) => {
+  handle("desktop:admin-diagnostics-export-session", async (event, payload: unknown) => {
     try {
       const { sessionId } = sessionIdSchema.parse(payload);
       const { bytes } = await withAccessToken((accessToken) =>
@@ -188,7 +189,7 @@ export const registerMediaDiagnosticsHandlers = (): void => {
     }
   });
 
-  ipcMain.handle("desktop:admin-diagnostics-export-range", async (event, payload: unknown) => {
+  handle("desktop:admin-diagnostics-export-range", async (event, payload: unknown) => {
     try {
       const { fileName, ...query } = exportRangeSchema.parse(payload ?? {});
       const { bytes } = await withAccessToken((accessToken) =>

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Self-check: every ipcMain.handle channel must be listed in
-// IPC_INVOKE_CHANNELS.
+// Self-check: every invoke channel goes through handle() (src/main/ipc/handle.ts),
+// which refuses calls from anything but the app's own page, and every channel
+// is listed in IPC_INVOKE_CHANNELS.
 //
 // That list is what clearIpcInvokeHandlers() walks before registerIpcHandlers()
 // runs again. A channel missing from it is not registered-twice-safe: the
@@ -27,7 +28,7 @@ for (const name of fs.readdirSync(handlersDir)) {
   }
 
   const source = fs.readFileSync(path.join(handlersDir, name), "utf8");
-  for (const match of source.matchAll(/ipcMain\.handle\(\s*["']([^"']+)["']/g)) {
+  for (const match of source.matchAll(/\bhandle\(\s*["']([^"']+)["']/g)) {
     handlerChannels.add(match[1]);
   }
 }
@@ -66,6 +67,28 @@ assert.deepEqual(
   stale,
   [],
   `these channels are listed but no longer handled:\n  ${stale.join("\n  ")}`,
+);
+
+// A channel registered straight on ipcMain skips the sender check.
+const mainDir = path.join(projectRoot, "src/main");
+const bypasses = [];
+const walk = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full);
+    } else if (entry.name.endsWith(".ts") && full !== path.join(mainDir, "ipc", "handle.ts")) {
+      if (/ipcMain\.(handle|handleOnce)\(/.test(fs.readFileSync(full, "utf8"))) {
+        bypasses.push(path.relative(projectRoot, full));
+      }
+    }
+  }
+};
+walk(mainDir);
+assert.deepEqual(
+  bypasses,
+  [],
+  `these files call ipcMain.handle directly instead of handle() from src/main/ipc/handle.ts:\n  ${bypasses.join("\n  ")}`,
 );
 
 console.log(`ipc-channels self-check passed (${handlerChannels.size} channels)`);

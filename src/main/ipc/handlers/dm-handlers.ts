@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog } from "electron";
+import { handle } from "../handle";
 import { writeFile } from "node:fs/promises";
 import { isAutoLoadableImageUrl } from "../../../shared/gif-hosts";
 import { DesktopApiError } from "../../backend-client";
@@ -38,7 +39,7 @@ import {
 } from "../validators";
 
 export function registerDMHandlers(): void {
-  ipcMain.handle("desktop:chat-message-edit", async (_event, payload: unknown) => {
+  handle("desktop:chat-message-edit", async (_event, payload: unknown) => {
     try {
       const parsed = messageEditSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -54,7 +55,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:chat-message-reaction", async (_event, payload: unknown) => {
+  handle("desktop:chat-message-reaction", async (_event, payload: unknown) => {
     try {
       const parsed = messageReactionSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -71,7 +72,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:chat-direct-search", async (_event, payload: unknown) => {
+  handle("desktop:chat-direct-search", async (_event, payload: unknown) => {
     try {
       const parsed = directSearchSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -88,7 +89,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:chat-attachment-get", async (_event, payload: unknown) => {
+  handle("desktop:chat-attachment-get", async (_event, payload: unknown) => {
     try {
       const parsed = attachmentFetchSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -102,7 +103,7 @@ export function registerDMHandlers(): void {
 
   // Save-as runs in the main process: the artifact sandbox and the renderer's
   // CSP both make a download link inert, and only main can open a file dialog.
-  ipcMain.handle("desktop:chat-attachment-save", async (event, payload: unknown) => {
+  handle("desktop:chat-attachment-save", async (event, payload: unknown) => {
     try {
       const parsed = saveAttachmentSchema.parse(payload);
       const { bytes } = await withAccessToken((accessToken) => {
@@ -141,7 +142,7 @@ export function registerDMHandlers(): void {
   // arbitrary-URL fetcher running in the main process with no CSP over it:
   // anyone could post a link and have every reader's machine GET it, and a
   // file:// or http://localhost URL would reach things the renderer cannot.
-  ipcMain.handle("desktop:chat-image-save", async (event, payload: unknown) => {
+  handle("desktop:chat-image-save", async (event, payload: unknown) => {
     try {
       const parsed = saveImageUrlSchema.parse(payload);
       if (!isAutoLoadableImageUrl(parsed.url)) {
@@ -208,7 +209,7 @@ export function registerDMHandlers(): void {
 
   // No payload: every peer this user has history with, which is what seeds the
   // sidebar's open-conversation list on a fresh install.
-  ipcMain.handle("desktop:chat-conversations", async () => {
+  handle("desktop:chat-conversations", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.chat.listConversations(accessToken);
@@ -219,7 +220,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-messages-list", async (_event, payload: unknown) => {
+  handle("desktop:direct-messages-list", async (_event, payload: unknown) => {
     try {
       const parsed = directMessagesListSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -236,7 +237,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-messages-send", async (_event, payload: unknown) => {
+  handle("desktop:direct-messages-send", async (_event, payload: unknown) => {
     try {
       const parsed = sendDirectMessageSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -252,7 +253,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-read", async (_event, payload: unknown) => {
+  handle("desktop:direct-read", async (_event, payload: unknown) => {
     try {
       const parsed = markDirectReadSchema.parse(payload);
       await withAccessToken((accessToken) => {
@@ -264,7 +265,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-unread", async (_event, payload: unknown) => {
+  handle("desktop:direct-unread", async (_event, payload: unknown) => {
     try {
       const parsed = unreadCountsSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -276,7 +277,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-typing", async (_event, payload: unknown) => {
+  handle("desktop:direct-typing", async (_event, payload: unknown) => {
     try {
       const parsed = directTypingSchema.parse(payload);
       await withAccessToken((accessToken) => {
@@ -289,7 +290,7 @@ export function registerDMHandlers(): void {
   });
 
   // No payload: one socket per window covers every conversation.
-  ipcMain.handle("desktop:direct-messages-start", async (event) => {
+  handle("desktop:direct-messages-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
         return streamHub.start("dm", event.sender, accessToken);
@@ -300,7 +301,7 @@ export function registerDMHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:direct-messages-stop", async (event) => {
+  handle("desktop:direct-messages-stop", async (event) => {
     try {
       streamHub.stop("dm", event.sender.id);
       return ok({ stopped: true });

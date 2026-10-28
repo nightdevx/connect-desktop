@@ -14,6 +14,7 @@ import {
   backendClient,
 } from "./context";
 import { STREAM_PORT_REQUEST_CHANNEL } from "./stream-host-client";
+import { isTrustedSender } from "./handle";
 
 const IPC_INVOKE_CHANNELS = [
   "app:ping",
@@ -266,6 +267,12 @@ export function registerIpcHandlers(): void {
   // A listener rather than a handler: the answer is a port, posted back.
   ipcMain.removeAllListeners(STREAM_PORT_REQUEST_CHANNEL);
   ipcMain.on(STREAM_PORT_REQUEST_CHANNEL, (event) => {
+    // A port to the stream host is as good as an invoke channel: the same
+    // test as handle() decides who gets one.
+    if (!isTrustedSender(event)) {
+      console.warn(`[security] refused a stream port to ${event.senderFrame?.url || "a frame that is gone"}`);
+      return;
+    }
     streamHub.attach(event.sender);
   });
 }

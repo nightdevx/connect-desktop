@@ -1,4 +1,5 @@
-import { app, ipcMain, desktopCapturer } from "electron";
+import { app, desktopCapturer } from "electron";
+import { handle } from "../handle";
 import { ok, fail, getWindowFromSender } from "../context";
 import {
   appPreferencesSchema,
@@ -26,11 +27,11 @@ import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
 import { setTitleBarTheme } from "../../titlebar";
 
 export function registerAppHandlers(): void {
-  ipcMain.handle("app:ping", async () => "pong");
-  ipcMain.handle("app:get-version", async () => app.getVersion());
-  ipcMain.handle("desktop:get-version", async () => app.getVersion());
+  handle("app:ping", async () => "pong");
+  handle("app:get-version", async () => app.getVersion());
+  handle("desktop:get-version", async () => app.getVersion());
 
-  ipcMain.handle("desktop:app-preferences-get", async () => {
+  handle("desktop:app-preferences-get", async () => {
     try {
       const preferences = getDesktopAppPreferences();
       return ok({ preferences });
@@ -39,7 +40,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:app-preferences-set", async (_event, payload) => {
+  handle("desktop:app-preferences-set", async (_event, payload) => {
     try {
       const parsed = appPreferencesSchema.parse(payload);
       const preferences = updateDesktopAppPreferences(parsed);
@@ -52,7 +53,7 @@ export function registerAppHandlers(): void {
   // Whether the button exists at all. A boolean, never the key: the renderer
   // has no legitimate use for the key and every way it could hold one ends with
   // Sentry recording it.
-  ipcMain.handle("desktop:gif-enabled", async () => {
+  handle("desktop:gif-enabled", async () => {
     try {
       return ok({ enabled: isKlipyConfigured });
     } catch (error) {
@@ -65,7 +66,7 @@ export function registerAppHandlers(): void {
   // default integrations, and its Breadcrumbs integration records fetch URLs
   // verbatim -- so a renderer-side search would have attached the key to every
   // unrelated error report the app ever sent.
-  ipcMain.handle("desktop:gif-search", async (_event, payload: unknown) => {
+  handle("desktop:gif-search", async (_event, payload: unknown) => {
     try {
       const parsed = gifSearchSchema.parse(payload);
       if (!klipyApiKey) {
@@ -85,7 +86,7 @@ export function registerAppHandlers(): void {
   // Epic's endpoint sends no CORS headers at all, so a renderer fetch is
   // blocked before it starts. The poller owns the cache and the cooldown;
   // this is only the door onto them.
-  ipcMain.handle("desktop:free-games", async (_event, payload: unknown) => {
+  handle("desktop:free-games", async (_event, payload: unknown) => {
     try {
       const parsed = freeGamesSchema.parse(payload);
       return ok(await getFreeGames({ refresh: parsed.refresh }));
@@ -94,7 +95,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:notify", async (_event, payload) => {
+  handle("desktop:notify", async (_event, payload) => {
     try {
       const parsed = notifySchema.parse(payload);
       return ok(showDesktopNotification(parsed));
@@ -105,7 +106,7 @@ export function registerAppHandlers(): void {
 
   // Hardware-acceleration switches are read once at GPU process spawn, so the
   // setting only takes effect after a full restart.
-  ipcMain.handle("desktop:app-relaunch", async () => {
+  handle("desktop:app-relaunch", async () => {
     try {
       app.relaunch();
       app.quit();
@@ -115,7 +116,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:update-check", async () => {
+  handle("desktop:update-check", async () => {
     try {
       const result = await checkForAppUpdates();
       return ok(result);
@@ -124,7 +125,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:update-install", async () => {
+  handle("desktop:update-install", async () => {
     try {
       const result = await installDownloadedAppUpdate();
       return ok(result);
@@ -133,7 +134,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:update-state", async () => {
+  handle("desktop:update-state", async () => {
     try {
       const result = getAppUpdateSnapshot();
       return ok({ state: result });
@@ -142,7 +143,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:update-debug", async () => {
+  handle("desktop:update-debug", async () => {
     try {
       if (app.isPackaged) {
         return ok({ started: false, reason: "NOT_DEV_MODE" });
@@ -155,7 +156,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:open-webrtc-internals", async () => {
+  handle("desktop:open-webrtc-internals", async () => {
     try {
       openWebRtcInternalsWindow();
       return ok({ opened: true });
@@ -164,7 +165,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:screen-capture-sources", async () => {
+  handle("desktop:screen-capture-sources", async () => {
     try {
       const sources = await desktopCapturer.getSources({
         types: ["window", "screen"],
@@ -189,7 +190,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:running-game", async () => {
+  handle("desktop:running-game", async () => {
     try {
       return ok({ name: await detectGame() });
     } catch (error) {
@@ -197,7 +198,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:window-minimize", async (event) => {
+  handle("desktop:window-minimize", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
       win.minimize();
@@ -207,7 +208,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:window-toggle-maximize", async (event) => {
+  handle("desktop:window-toggle-maximize", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
       // `isMaximized`, not `maximized`: the renderer and DesktopWindowState
@@ -225,7 +226,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:window-close", async (event) => {
+  handle("desktop:window-close", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
       win.close();
@@ -235,7 +236,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:window-theme", async (event, mode: unknown) => {
+  handle("desktop:window-theme", async (event, mode: unknown) => {
     try {
       setTitleBarTheme(getWindowFromSender(event.sender), mode);
       return ok({ applied: true });
@@ -244,7 +245,7 @@ export function registerAppHandlers(): void {
     }
   });
 
-  ipcMain.handle(
+  handle(
     "desktop:window-attention",
     async (event, payload: unknown) => {
       try {
@@ -262,7 +263,7 @@ export function registerAppHandlers(): void {
     },
   );
 
-  ipcMain.handle("desktop:window-state", async (event) => {
+  handle("desktop:window-state", async (event) => {
     try {
       const win = getWindowFromSender(event.sender);
       return ok({

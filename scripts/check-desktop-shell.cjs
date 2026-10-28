@@ -4,6 +4,8 @@
 //     file whole (session.json, app-preferences.json).
 //   - src/main/window-state.ts: a saved window position is used only while it
 //     is on an attached screen; a page that keeps crashing stops reloading.
+//   - src/main/ipc/handle.ts: an IPC call or a stream-port request from any
+//     frame but the app's own page is refused.
 //
 // Each module is bundled on its own with Vite, as check-access-token.cjs does,
 // and output goes under node_modules/.cache so bare specifiers resolve.
@@ -155,6 +157,45 @@ const main = async () => {
       assert.equal(spaced(0), true);
       assert.equal(spaced(50_000), true);
       assert.equal(spaced(120_000), true, "crashes older than the window no longer count");
+    }
+
+    // --- IPC sender check --------------------------------------------------
+    {
+      // A packaged build: no dev server, so only file:// is the app. The fake
+      // is bundled into handle.mjs, so its handlers live on globalThis.
+      const fakeElectron = path.join(outDir, "fake-electron.mjs");
+      fs.writeFileSync(
+        fakeElectron,
+        `const handlers = (globalThis.__fakeIpcHandlers ??= new Map());
+         export const app = { isPackaged: true };
+         export const ipcMain = { handle: (channel, fn) => handlers.set(channel, fn) };`,
+      );
+      const { handle, isTrustedSender } = await bundle(outDir, "src/main/ipc/handle.ts", "handle.mjs", {
+        alias: { electron: fakeElectron },
+      });
+
+      const calls = [];
+      handle("desktop:auth-session", (_event, payload) => {
+        calls.push(payload);
+        return "ok";
+      });
+      const invoke = globalThis.__fakeIpcHandlers.get("desktop:auth-session");
+      const from = (url) => ({ senderFrame: url === null ? null : { url } });
+
+      assert.equal(invoke(from("file:///C:/Program%20Files/Connect/resources/app.asar/dist/renderer/index.html"), 1), "ok");
+      assert.deepEqual(calls, [1], "the app's own page gets through, with its arguments");
+
+      const warn = console.warn;
+      console.warn = () => {};
+      try {
+        for (const url of ["https://evil.example/", "http://127.0.0.1:41234/player", "data:text/html,x", "", null]) {
+          assert.throws(() => invoke(from(url), 2), /refused/, `a call from ${JSON.stringify(url)} is refused`);
+          assert.equal(isTrustedSender(from(url)), false, `${JSON.stringify(url)} gets no stream port either`);
+        }
+      } finally {
+        console.warn = warn;
+      }
+      assert.deepEqual(calls, [1], "a refused call never reaches the listener");
     }
   } finally {
     fs.rmSync(outDir, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { handle } from "../handle";
 import { z } from "zod";
 
 import { backendClient, fail, ok, withAccessToken } from "../context";
@@ -104,22 +104,22 @@ export function registerAdminOpsHandlers(): void {
 
   const ops = () => backendClient.adminOps;
 
-  ipcMain.handle("desktop:admin-user-sessions", bind(schemas.sessions, (p, t) => ops().listSessions(t, p.userId)));
-  ipcMain.handle("desktop:admin-revoke-session", bind(schemas.revokeSession, (p, t) => ops().revokeSession(t, p.userId, p.sessionId)));
-  ipcMain.handle("desktop:admin-user-relations", bind(schemas.relations, (p, t) => ops().relations(t, p.userId)));
-  ipcMain.handle("desktop:admin-remove-friend", bind(schemas.peer, (p, t) => ops().removeFriend(t, p.userId, p.peerId)));
-  ipcMain.handle("desktop:admin-set-block", bind(schemas.setBlock, (p, t) => ops().setBlock(t, p.userId, p.peerId, p.blocked)));
-  ipcMain.handle("desktop:admin-send-password-reset", bind(schemas.sessions, (p, t) => ops().sendPasswordReset(t, p.userId)));
-  ipcMain.handle("desktop:admin-send-verification", bind(schemas.sessions, (p, t) => ops().sendVerification(t, p.userId)));
-  ipcMain.handle("desktop:admin-ban-user-detailed", bind(schemas.ban, (p, t) => ops().banUser(t, p.userId, { reason: p.reason, until: p.until ?? null })));
-  ipcMain.handle("desktop:admin-set-deletion", bind(schemas.deletion, (p, t) => ops().setDeletion(t, p.userId, { cancel: p.cancel, requestedAt: p.requestedAt ?? undefined, reason: p.reason })));
+  handle("desktop:admin-user-sessions", bind(schemas.sessions, (p, t) => ops().listSessions(t, p.userId)));
+  handle("desktop:admin-revoke-session", bind(schemas.revokeSession, (p, t) => ops().revokeSession(t, p.userId, p.sessionId)));
+  handle("desktop:admin-user-relations", bind(schemas.relations, (p, t) => ops().relations(t, p.userId)));
+  handle("desktop:admin-remove-friend", bind(schemas.peer, (p, t) => ops().removeFriend(t, p.userId, p.peerId)));
+  handle("desktop:admin-set-block", bind(schemas.setBlock, (p, t) => ops().setBlock(t, p.userId, p.peerId, p.blocked)));
+  handle("desktop:admin-send-password-reset", bind(schemas.sessions, (p, t) => ops().sendPasswordReset(t, p.userId)));
+  handle("desktop:admin-send-verification", bind(schemas.sessions, (p, t) => ops().sendVerification(t, p.userId)));
+  handle("desktop:admin-ban-user-detailed", bind(schemas.ban, (p, t) => ops().banUser(t, p.userId, { reason: p.reason, until: p.until ?? null })));
+  handle("desktop:admin-set-deletion", bind(schemas.deletion, (p, t) => ops().setDeletion(t, p.userId, { cancel: p.cancel, requestedAt: p.requestedAt ?? undefined, reason: p.reason })));
 
-  ipcMain.handle("desktop:admin-list-audit", bind(schemas.audit, (p, t) => ops().listAudit(t, p)));
+  handle("desktop:admin-list-audit", bind(schemas.audit, (p, t) => ops().listAudit(t, p)));
 
-  ipcMain.handle("desktop:admin-search-chat", bind(schemas.chatSearch, (p, t) => ops().searchChat(t, p)));
-  ipcMain.handle("desktop:admin-delete-chat-message", bind(schemas.messageAction, (p, t) => ops().deleteChatMessage(t, p.messageId, p.reason)));
-  ipcMain.handle("desktop:admin-redact-chat-message", bind(schemas.messageAction, (p, t) => ops().redactChatMessage(t, p.messageId, p.reason)));
-  ipcMain.handle("desktop:admin-purge-chat", bind(schemas.purge, (p, t) => ops().purgeChat(t, {
+  handle("desktop:admin-search-chat", bind(schemas.chatSearch, (p, t) => ops().searchChat(t, p)));
+  handle("desktop:admin-delete-chat-message", bind(schemas.messageAction, (p, t) => ops().deleteChatMessage(t, p.messageId, p.reason)));
+  handle("desktop:admin-redact-chat-message", bind(schemas.messageAction, (p, t) => ops().redactChatMessage(t, p.messageId, p.reason)));
+  handle("desktop:admin-purge-chat", bind(schemas.purge, (p, t) => ops().purgeChat(t, {
     userId: p.userId,
     lobbyId: p.lobbyId,
     channel: p.channel,
@@ -128,42 +128,42 @@ export function registerAdminOpsHandlers(): void {
     reason: p.reason,
     dryRun: p.dryRun ? "1" : undefined,
   })));
-  ipcMain.handle("desktop:admin-remove-chat-reaction", bind(schemas.reaction, (p, t) => ops().removeChatReaction(t, p.messageId, p.emoji)));
-  ipcMain.handle("desktop:admin-list-attachments", bind(schemas.attachments, (p, t) => ops().listAttachments(t, p)));
-  ipcMain.handle("desktop:admin-delete-attachment", bind(schemas.attachmentAction, (p, t) => ops().deleteAttachment(t, p.attachmentId, p.reason)));
-  ipcMain.handle("desktop:admin-list-reports", bind(schemas.reports, (p, t) => ops().listReports(t, p)));
-  ipcMain.handle("desktop:admin-update-report", bind(schemas.updateReport, (p, t) => ops().updateReport(t, p.reportId, { status: p.status, reason: p.reason })));
+  handle("desktop:admin-remove-chat-reaction", bind(schemas.reaction, (p, t) => ops().removeChatReaction(t, p.messageId, p.emoji)));
+  handle("desktop:admin-list-attachments", bind(schemas.attachments, (p, t) => ops().listAttachments(t, p)));
+  handle("desktop:admin-delete-attachment", bind(schemas.attachmentAction, (p, t) => ops().deleteAttachment(t, p.attachmentId, p.reason)));
+  handle("desktop:admin-list-reports", bind(schemas.reports, (p, t) => ops().listReports(t, p)));
+  handle("desktop:admin-update-report", bind(schemas.updateReport, (p, t) => ops().updateReport(t, p.reportId, { status: p.status, reason: p.reason })));
 
-  ipcMain.handle("desktop:admin-lobby-features", bind(z.object({}), (_p, t) => ops().lobbyFeatures(t)));
-  ipcMain.handle("desktop:admin-create-lobby", bind(schemas.createLobby, (p, t) => ops().createLobby(t, p)));
-  ipcMain.handle("desktop:admin-delete-lobby", bind(schemas.lobbyAction, (p, t) => ops().deleteLobby(t, p.lobbyId, p.reason)));
-  ipcMain.handle("desktop:admin-transfer-lobby", bind(schemas.lobbyUser, (p, t) => ops().transferLobby(t, p.lobbyId, p.userId)));
-  ipcMain.handle("desktop:admin-move-member", bind(schemas.lobbyUser, (p, t) => ops().moveMember(t, p.lobbyId, p.userId)));
-  ipcMain.handle("desktop:admin-announce", bind(schemas.announce, (p, t) => ops().announce(t, { body: p.body }, p.lobbyId)));
+  handle("desktop:admin-lobby-features", bind(z.object({}), (_p, t) => ops().lobbyFeatures(t)));
+  handle("desktop:admin-create-lobby", bind(schemas.createLobby, (p, t) => ops().createLobby(t, p)));
+  handle("desktop:admin-delete-lobby", bind(schemas.lobbyAction, (p, t) => ops().deleteLobby(t, p.lobbyId, p.reason)));
+  handle("desktop:admin-transfer-lobby", bind(schemas.lobbyUser, (p, t) => ops().transferLobby(t, p.lobbyId, p.userId)));
+  handle("desktop:admin-move-member", bind(schemas.lobbyUser, (p, t) => ops().moveMember(t, p.lobbyId, p.userId)));
+  handle("desktop:admin-announce", bind(schemas.announce, (p, t) => ops().announce(t, { body: p.body }, p.lobbyId)));
 
-  ipcMain.handle("desktop:admin-disconnect-media", bind(schemas.sessions, (p, t) => ops().disconnectMedia(t, p.userId)));
-  ipcMain.handle("desktop:admin-force-track-off", bind(schemas.trackOff, (p, t) => ops().forceTrackOff(t, p.userId, { kind: p.kind, reason: p.reason })));
-  ipcMain.handle("desktop:admin-live-media", bind(z.object({}), (_p, t) => ops().liveMedia(t)));
-  ipcMain.handle("desktop:admin-media-health", bind(z.object({}), (_p, t) => ops().mediaHealth(t)));
+  handle("desktop:admin-disconnect-media", bind(schemas.sessions, (p, t) => ops().disconnectMedia(t, p.userId)));
+  handle("desktop:admin-force-track-off", bind(schemas.trackOff, (p, t) => ops().forceTrackOff(t, p.userId, { kind: p.kind, reason: p.reason })));
+  handle("desktop:admin-live-media", bind(z.object({}), (_p, t) => ops().liveMedia(t)));
+  handle("desktop:admin-media-health", bind(z.object({}), (_p, t) => ops().mediaHealth(t)));
 
-  ipcMain.handle("desktop:admin-close-table", bind(schemas.table, (p, t) => ops().closeTable(t, p.tableId)));
-  ipcMain.handle("desktop:admin-remove-table-player", bind(schemas.tablePlayer, (p, t) => ops().removeTablePlayer(t, p.tableId, p.userId)));
-  ipcMain.handle("desktop:admin-delete-score", bind(schemas.score, (p, t) => ops().deleteScore(t, p.game, p.userId)));
-  ipcMain.handle("desktop:admin-reset-leaderboard", bind(schemas.leaderboard, (p, t) => ops().resetLeaderboard(t, p.game, p.reason)));
+  handle("desktop:admin-close-table", bind(schemas.table, (p, t) => ops().closeTable(t, p.tableId)));
+  handle("desktop:admin-remove-table-player", bind(schemas.tablePlayer, (p, t) => ops().removeTablePlayer(t, p.tableId, p.userId)));
+  handle("desktop:admin-delete-score", bind(schemas.score, (p, t) => ops().deleteScore(t, p.game, p.userId)));
+  handle("desktop:admin-reset-leaderboard", bind(schemas.leaderboard, (p, t) => ops().resetLeaderboard(t, p.game, p.reason)));
 
-  ipcMain.handle("desktop:admin-music-queue", bind(schemas.lobbyOnly, (p, t) => ops().musicQueue(t, p.lobbyId)));
-  ipcMain.handle("desktop:admin-clear-music-queue", bind(schemas.lobbyOnly, (p, t) => ops().clearMusicQueue(t, p.lobbyId)));
-  ipcMain.handle("desktop:admin-remove-music-track", bind(schemas.musicTrack, (p, t) => ops().removeMusicTrack(t, p.lobbyId, p.index)));
+  handle("desktop:admin-music-queue", bind(schemas.lobbyOnly, (p, t) => ops().musicQueue(t, p.lobbyId)));
+  handle("desktop:admin-clear-music-queue", bind(schemas.lobbyOnly, (p, t) => ops().clearMusicQueue(t, p.lobbyId)));
+  handle("desktop:admin-remove-music-track", bind(schemas.musicTrack, (p, t) => ops().removeMusicTrack(t, p.lobbyId, p.index)));
 
-  ipcMain.handle("desktop:admin-rename-emote", bind(schemas.renameEmote, (p, t) => ops().renameEmote(t, p.emoteId, p.name)));
-  ipcMain.handle("desktop:admin-upload-emote", bind(schemas.uploadEmote, (p, t) => ops().uploadEmote(t, p)));
+  handle("desktop:admin-rename-emote", bind(schemas.renameEmote, (p, t) => ops().renameEmote(t, p.emoteId, p.name)));
+  handle("desktop:admin-upload-emote", bind(schemas.uploadEmote, (p, t) => ops().uploadEmote(t, p)));
 
-  ipcMain.handle("desktop:admin-list-ip-bans", bind(z.object({}), (_p, t) => ops().listIpBans(t)));
-  ipcMain.handle("desktop:admin-ban-ip", bind(schemas.banIp, (p, t) => ops().banIp(t, { cidr: p.cidr, reason: p.reason, expiresAt: p.expiresAt ?? null })));
-  ipcMain.handle("desktop:admin-ban-user-ip", bind(schemas.banUserIp, (p, t) => ops().banUserIp(t, p.userId, { reason: p.reason, expiresAt: p.expiresAt ?? null })));
-  ipcMain.handle("desktop:admin-unban-ip", bind(schemas.cidr, (p, t) => ops().unbanIp(t, p.cidr)));
+  handle("desktop:admin-list-ip-bans", bind(z.object({}), (_p, t) => ops().listIpBans(t)));
+  handle("desktop:admin-ban-ip", bind(schemas.banIp, (p, t) => ops().banIp(t, { cidr: p.cidr, reason: p.reason, expiresAt: p.expiresAt ?? null })));
+  handle("desktop:admin-ban-user-ip", bind(schemas.banUserIp, (p, t) => ops().banUserIp(t, p.userId, { reason: p.reason, expiresAt: p.expiresAt ?? null })));
+  handle("desktop:admin-unban-ip", bind(schemas.cidr, (p, t) => ops().unbanIp(t, p.cidr)));
 
-  ipcMain.handle("desktop:admin-list-invites", bind(z.object({}), (_p, t) => ops().listInvites(t)));
-  ipcMain.handle("desktop:admin-create-invite", bind(schemas.createInvite, (p, t) => ops().createInvite(t, { code: p.code, maxUses: p.maxUses, expiresAt: p.expiresAt ?? null })));
-  ipcMain.handle("desktop:admin-delete-invite", bind(schemas.inviteCode, (p, t) => ops().deleteInvite(t, p.code)));
+  handle("desktop:admin-list-invites", bind(z.object({}), (_p, t) => ops().listInvites(t)));
+  handle("desktop:admin-create-invite", bind(schemas.createInvite, (p, t) => ops().createInvite(t, { code: p.code, maxUses: p.maxUses, expiresAt: p.expiresAt ?? null })));
+  handle("desktop:admin-delete-invite", bind(schemas.inviteCode, (p, t) => ops().deleteInvite(t, p.code)));
 }

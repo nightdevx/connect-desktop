@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog } from "electron";
+import { handle } from "../handle";
 import { writeFile } from "node:fs/promises";
 import {
   backendClient,
@@ -44,7 +45,7 @@ import {
 import { DesktopApiError } from "../../backend-client";
 
 export function registerAuthHandlers(): void {
-  ipcMain.handle("desktop:auth-register", async (_event, payload: unknown) => {
+  handle("desktop:auth-register", async (_event, payload: unknown) => {
     try {
       const parsed = registerSchema.parse(payload);
       const result = await backendClient.auth.register(parsed);
@@ -55,7 +56,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-2fa-status", async () => {
+  handle("desktop:auth-2fa-status", async () => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.twoFactorStatus(accessToken),
@@ -66,7 +67,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-2fa-setup", async (_event, payload: unknown) => {
+  handle("desktop:auth-2fa-setup", async (_event, payload: unknown) => {
     try {
       const parsed = twoFactorSetupSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -78,7 +79,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-2fa-enable", async (_event, payload: unknown) => {
+  handle("desktop:auth-2fa-enable", async (_event, payload: unknown) => {
     try {
       const parsed = twoFactorEnableSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -90,7 +91,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-2fa-disable", async (_event, payload: unknown) => {
+  handle("desktop:auth-2fa-disable", async (_event, payload: unknown) => {
     try {
       const parsed = twoFactorConfirmSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -102,7 +103,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-2fa-recovery-codes", async (_event, payload: unknown) => {
+  handle("desktop:auth-2fa-recovery-codes", async (_event, payload: unknown) => {
     try {
       const parsed = twoFactorConfirmSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -114,7 +115,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-change-password", async (_event, payload: unknown) => {
+  handle("desktop:auth-change-password", async (_event, payload: unknown) => {
     try {
       const parsed = changePasswordSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -127,7 +128,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-login", async (_event, payload: unknown) => {
+  handle("desktop:auth-login", async (_event, payload: unknown) => {
     try {
       const parsed = loginSchema.parse(payload);
       const result = await backendClient.auth.login(parsed);
@@ -138,7 +139,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-forgot-password", async (_event, payload: unknown) => {
+  handle("desktop:auth-forgot-password", async (_event, payload: unknown) => {
     try {
       const parsed = forgotPasswordSchema.parse(payload);
       const result = await backendClient.auth.forgotPassword(parsed);
@@ -148,7 +149,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-reset-password", async (_event, payload: unknown) => {
+  handle("desktop:auth-reset-password", async (_event, payload: unknown) => {
     try {
       const parsed = resetPasswordSchema.parse(payload);
       const result = await backendClient.auth.resetPassword(parsed);
@@ -158,7 +159,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-send-verification-otp", async (_event, payload: unknown) => {
+  handle("desktop:auth-send-verification-otp", async (_event, payload: unknown) => {
     try {
       const parsed = sendVerificationOTPSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -170,7 +171,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-verify-email", async (_event, payload: unknown) => {
+  handle("desktop:auth-verify-email", async (_event, payload: unknown) => {
     try {
       const parsed = verifyEmailSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -182,7 +183,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-logout", async () => {
+  handle("desktop:auth-logout", async () => {
     streamHub.stopAll();
 
     // Revoke server-side first, but never let that failure block the local
@@ -201,7 +202,7 @@ export function registerAuthHandlers(): void {
     return ok(getSessionSnapshot());
   });
 
-  ipcMain.handle("desktop:auth-delete-account", async (_event, payload: unknown) => {
+  handle("desktop:auth-delete-account", async (_event, payload: unknown) => {
     try {
       const parsed = deleteAccountSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -219,7 +220,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-export-data", async (event) => {
+  handle("desktop:auth-export-data", async (event) => {
     try {
       const data = await withAccessToken((accessToken) => {
         return backendClient.auth.exportAccountData(accessToken);
@@ -248,7 +249,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-session", async () => {
+  handle("desktop:auth-session", async () => {
     try {
       await ensureFreshSession();
       return ok(getSessionSnapshot());
@@ -275,7 +276,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-profile", async () => {
+  handle("desktop:auth-profile", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.getSettingsProfile(accessToken);
@@ -287,7 +288,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-profile-update", async (_event, payload: unknown) => {
+  handle("desktop:auth-profile-update", async (_event, payload: unknown) => {
     try {
       const parsed = updateProfileSchema.parse(payload);
       // Clean up zod null/undefined logic
@@ -323,7 +324,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-users", async () => {
+  handle("desktop:auth-users", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.getRegisteredUsers(accessToken);
@@ -336,7 +337,7 @@ export function registerAuthHandlers(): void {
 
   // The directory is friends-only, so a stranger is reachable only by typing
   // their handle exactly. Same bounds as a friend request: the same handles.
-  ipcMain.handle("desktop:auth-user-lookup", async (_event, payload: unknown) => {
+  handle("desktop:auth-user-lookup", async (_event, payload: unknown) => {
     try {
       const parsed = friendRequestSendSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -350,7 +351,7 @@ export function registerAuthHandlers(): void {
 
   // Same {userId} shape as a block, so the block schema is reused rather than
   // cloned — two copies of "what is a user id" is how they drift apart.
-  ipcMain.handle("desktop:auth-user-card", async (_event, payload: unknown) => {
+  handle("desktop:auth-user-card", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -362,7 +363,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-presence", async (_event, payload: unknown) => {
+  handle("desktop:auth-presence", async (_event, payload: unknown) => {
     try {
       const parsed = setPresenceSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -374,7 +375,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-blocks", async () => {
+  handle("desktop:auth-blocks", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.listBlockedUsers(accessToken);
@@ -385,7 +386,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-block", async (_event, payload: unknown) => {
+  handle("desktop:auth-block", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -397,7 +398,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-unblock", async (_event, payload: unknown) => {
+  handle("desktop:auth-unblock", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -409,7 +410,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-friends", async () => {
+  handle("desktop:auth-friends", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.listFriends(accessToken);
@@ -420,7 +421,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-friend-requests", async () => {
+  handle("desktop:auth-friend-requests", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.listFriendRequests(accessToken);
@@ -431,7 +432,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-friend-request-send", async (_event, payload: unknown) => {
+  handle("desktop:auth-friend-request-send", async (_event, payload: unknown) => {
     try {
       const parsed = friendRequestSendSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -443,7 +444,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-friend-accept", async (_event, payload: unknown) => {
+  handle("desktop:auth-friend-accept", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -456,7 +457,7 @@ export function registerAuthHandlers(): void {
   });
 
   // Unfriend, reject and cancel all land here: one edge, one delete.
-  ipcMain.handle("desktop:auth-friend-remove", async (_event, payload: unknown) => {
+  handle("desktop:auth-friend-remove", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -468,7 +469,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-privacy", async () => {
+  handle("desktop:auth-privacy", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.getPrivacySettings(accessToken);
@@ -479,7 +480,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:auth-privacy-update", async (_event, payload: unknown) => {
+  handle("desktop:auth-privacy-update", async (_event, payload: unknown) => {
     try {
       const parsed = updatePrivacySchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -491,7 +492,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:user-directory-stream-start", async (event) => {
+  handle("desktop:user-directory-stream-start", async (event) => {
     try {
       await withAccessToken(async (accessToken) => {
         // Awaited: start now resolves only once the socket is open, so a
@@ -505,7 +506,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:user-directory-stream-stop", async (event) => {
+  handle("desktop:user-directory-stream-stop", async (event) => {
     try {
       streamHub.stop("users", event.sender.id);
       return ok({ stopped: true });
@@ -514,7 +515,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-users", async (_event, params?: unknown) => {
+  handle("desktop:admin-list-users", async (_event, params?: unknown) => {
     try {
       const parsed = adminListUsersSchema.parse(params);
       const result = await withAccessToken((accessToken) => {
@@ -526,7 +527,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-get-user", async (_event, userId: string) => {
+  handle("desktop:admin-get-user", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminGetUser(accessToken, userId);
@@ -537,7 +538,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-update-user", async (_event, arg: unknown) => {
+  handle("desktop:admin-update-user", async (_event, arg: unknown) => {
     try {
       const { userId, payload } = adminUpdateUserSchema.parse(arg);
       const result = await withAccessToken((accessToken) => {
@@ -549,7 +550,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-reset-password", async (_event, arg: unknown) => {
+  handle("desktop:admin-reset-password", async (_event, arg: unknown) => {
     try {
       const { userId, newPassword } = adminResetPasswordSchema.parse(arg);
       const result = await withAccessToken((accessToken) => {
@@ -561,7 +562,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-delete-user", async (_event, userId: string) => {
+  handle("desktop:admin-delete-user", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminDeleteUser(accessToken, userId);
@@ -572,7 +573,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-ban-user", async (_event, userId: string) => {
+  handle("desktop:admin-ban-user", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminBanUser(accessToken, userId);
@@ -583,7 +584,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-unban-user", async (_event, userId: string) => {
+  handle("desktop:admin-unban-user", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminUnbanUser(accessToken, userId);
@@ -594,7 +595,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-voice-mutes", async () => {
+  handle("desktop:admin-list-voice-mutes", async () => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminListVoiceMutes(accessToken),
@@ -605,7 +606,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-set-voice-mute", async (_event, payload: unknown) => {
+  handle("desktop:admin-set-voice-mute", async (_event, payload: unknown) => {
     try {
       const parsed = adminVoiceMuteSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -622,7 +623,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-timeouts", async () => {
+  handle("desktop:admin-list-timeouts", async () => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminListTimeouts(accessToken),
@@ -633,7 +634,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-clear-timeout", async (_event, payload: unknown) => {
+  handle("desktop:admin-clear-timeout", async (_event, payload: unknown) => {
     try {
       const parsed = adminClearTimeoutSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -645,7 +646,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-get-settings", async () => {
+  handle("desktop:admin-get-settings", async () => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminGetSettings(accessToken),
@@ -656,7 +657,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-minigames", async () => {
+  handle("desktop:admin-list-minigames", async () => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminListMinigames(accessToken),
@@ -667,7 +668,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-update-settings", async (_event, payload: unknown) => {
+  handle("desktop:admin-update-settings", async (_event, payload: unknown) => {
     try {
       const parsed = adminSettingsPatchSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -679,7 +680,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-clear-profile-media", async (_event, userId: string) => {
+  handle("desktop:admin-clear-profile-media", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminClearProfileMedia(accessToken, userId),
@@ -690,7 +691,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-set-email-verified", async (_event, payload: unknown) => {
+  handle("desktop:admin-set-email-verified", async (_event, payload: unknown) => {
     try {
       const parsed = adminEmailVerifiedSchema.parse(payload);
       const result = await withAccessToken((accessToken) =>
@@ -702,7 +703,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-cancel-deletion", async (_event, userId: string) => {
+  handle("desktop:admin-cancel-deletion", async (_event, userId: string) => {
     try {
       const result = await withAccessToken((accessToken) =>
         backendClient.auth.adminCancelDeletion(accessToken, userId),
@@ -713,7 +714,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-lobbies", async (_event, params?: unknown) => {
+  handle("desktop:admin-list-lobbies", async (_event, params?: unknown) => {
     try {
       const parsed = adminListLobbiesSchema.parse(params);
       const result = await withAccessToken((accessToken) => {
@@ -725,7 +726,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-lobby-events", async (_event, payload: unknown) => {
+  handle("desktop:admin-list-lobby-events", async (_event, payload: unknown) => {
     try {
       const parsed = adminListLobbyEventsSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -737,7 +738,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-get-stats", async () => {
+  handle("desktop:admin-get-stats", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminGetStats(accessToken);
@@ -748,7 +749,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-reset-two-factor", async (_event, payload: unknown) => {
+  handle("desktop:admin-reset-two-factor", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -760,7 +761,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-force-logout", async (_event, payload: unknown) => {
+  handle("desktop:admin-force-logout", async (_event, payload: unknown) => {
     try {
       const parsed = blockUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -772,7 +773,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-list-emotes", async () => {
+  handle("desktop:admin-list-emotes", async () => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminListEmotes(accessToken);
@@ -783,7 +784,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-delete-emote", async (_event, payload: unknown) => {
+  handle("desktop:admin-delete-emote", async (_event, payload: unknown) => {
     try {
       const parsed = emoteIdSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -795,7 +796,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-set-emote-quota", async (_event, payload: unknown) => {
+  handle("desktop:admin-set-emote-quota", async (_event, payload: unknown) => {
     try {
       const parsed = adminEmoteQuotaSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
@@ -807,7 +808,7 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  ipcMain.handle("desktop:admin-kick-user", async (_event, { lobbyId, userId }: { lobbyId: string; userId: string }) => {
+  handle("desktop:admin-kick-user", async (_event, { lobbyId, userId }: { lobbyId: string; userId: string }) => {
     try {
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.adminKickUser(accessToken, lobbyId, userId);

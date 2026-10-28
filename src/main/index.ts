@@ -12,6 +12,7 @@ import {
 import { join } from "node:path";
 import * as Sentry from "@sentry/electron/main";
 import { devServerUrl, isDev } from "./utils/is-dev";
+import { isTrustedAppUrl } from "./utils/trusted-app-url";
 import {
   AUTOSTART_FLAG,
   getDesktopAppPreferences,
@@ -262,20 +263,6 @@ const syncTrayWithPreferences = (): void => {
 const hideWindowToTray = (win: BrowserWindow): void => {
   ensureTray();
   win.hide();
-};
-
-// The only pages this app may ever render: the packaged renderer bundle, and
-// the Vite dev server in a development run.
-const isTrustedAppUrl = (rawUrl: string): boolean => {
-  if (!rawUrl) {
-    return false;
-  }
-
-  if (devServerUrl && rawUrl.startsWith(devServerUrl)) {
-    return true;
-  }
-
-  return rawUrl.startsWith("file://");
 };
 
 // Nothing stopped the renderer from navigating away from the app bundle. Any
