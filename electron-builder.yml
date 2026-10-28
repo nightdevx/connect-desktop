@@ -60,6 +60,18 @@ files:
   - "!node_modules/zod/src/**"
   - "!node_modules/zod/v3/**"
 asar: true
+# Switches baked into the shipped Electron binary. With them, the installed
+# exe cannot be turned into a plain Node.js runtime (ELECTRON_RUN_AS_NODE,
+# NODE_OPTIONS, --inspect) by anyone who can set an environment variable or
+# write a shortcut, and it only runs the app from app.asar, whose contents are
+# checked against the hash built into the exe. grantFileProtocolExtraPrivileges
+# keeps its default: the page is still loaded from file://.
+electronFuses:
+  runAsNode: false
+  enableNodeCliInspectArguments: false
+  enableNodeOptionsEnvironmentVariable: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
 # Native .node must live outside the asar archive to be loadable at runtime.
 asarUnpack:
   - native/**
