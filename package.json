@@ -2,8 +2,13 @@
   "packageManager": "pnpm@11.15.1",
   "name": "connect-desktop",
   "version": "0.2.10",
-  "description": "Electron + React + TypeScript starter architecture",
-  "author": "nightdevx",
+  "description": "Connect: sesli sohbet, birlikte film, müzik ve mini oyunlar.",
+  "author": {
+    "name": "nightdijital",
+    "email": "iletisim@nightdijital.com",
+    "url": "https://nightdijital.com"
+  },
+  "homepage": "https://nightdijital.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/nightdevx/connect-desktop.git"

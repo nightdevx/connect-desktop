@@ -1,5 +1,8 @@
 appId: com.nightdevx.connect-desktop
 productName: Connect
+# Shown as the exe's copyright. The company name and the publisher in
+# Windows' installed-apps list come from package.json's author.
+copyright: Copyright © 2026 nightdijital
 icon: build/icon.ico
 compression: normal
 electronLanguages:
@@ -92,7 +95,7 @@ linux:
     - deb
 
 deb:
-  maintainer: nightdevx <nightdevx@github.com>
+  maintainer: nightdijital <iletisim@nightdijital.com>
 
 
 
