@@ -34,7 +34,7 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 const handler = read(
   "src/renderer/src/features/livekit/services/stream/remote-media-handler.ts",
 );
-const processor = read("src/renderer/src/features/rnnoise/processor.ts");
+const processor = read("src/renderer/src/features/voice-processing/processor.ts");
 
 // --- publish: one channel leaves this machine ------------------------------
 
@@ -45,8 +45,8 @@ assert.ok(
     "track is a layout the receiver has to guess at",
 );
 assert.ok(
-  /maxChannels: 1/.test(processor),
-  "the RNNoise worklet is mono; if that changes the mono publish above is wrong too",
+  /outputChannelCount: \[1\]/.test(processor),
+  "the voice worklet is mono; if that changes the mono publish above is wrong too",
 );
 
 // --- playback: channel 0 reaches both ears ---------------------------------

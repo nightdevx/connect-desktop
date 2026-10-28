@@ -28,7 +28,7 @@ import {
   NOISE_SUPPRESSION_PRESET_OPTIONS,
   DEFAULT_NOISE_SUPPRESSION_PRESET,
   normalizeNoiseSuppressionPreset,
-} from "../rnnoise";
+} from "../voice-processing";
 
 export { SCREEN_SHARE_QUALITY_OPTIONS };
 export { NOISE_SUPPRESSION_PRESET_OPTIONS, DEFAULT_NOISE_SUPPRESSION_PRESET };

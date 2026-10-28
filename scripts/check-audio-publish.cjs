@@ -227,7 +227,7 @@ assert.ok(
 // unplugged device, a device change at unmute) and passes no AudioContext. The
 // chain has to come back processed, not as a passthrough.
 const processorSource = fs.readFileSync(
-  path.join(projectRoot, "src/renderer/src/features/rnnoise/processor.ts"),
+  path.join(projectRoot, "src/renderer/src/features/voice-processing/processor.ts"),
   "utf8",
 );
 assert.ok(

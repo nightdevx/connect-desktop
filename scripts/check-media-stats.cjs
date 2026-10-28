@@ -453,7 +453,6 @@ assert.equal(
 const fixedPath =
   MOUTH_TO_EAR_FIXED_MS.capture +
   MOUTH_TO_EAR_FIXED_MS.noiseSuppression +
-  MOUTH_TO_EAR_FIXED_MS.microphoneLimiter +
   MOUTH_TO_EAR_FIXED_MS.opus +
   MOUTH_TO_EAR_FIXED_MS.playbackHandOver;
 const estimate = estimateMouthToEar({
@@ -471,7 +470,7 @@ assert.equal(
 assert.equal(estimate.totalMs, Math.round(30 + 60 + 20 + fixedPath + 12), "the parts add up");
 assert.ok(
   fixedPath > 50 && fixedPath < 80,
-  `the fixed path (${fixedPath} ms) is capture, RNNoise, a limiter and one Opus frame: tens of ms, not hundreds`,
+  `the fixed path (${fixedPath} ms) is capture, RNNoise and one Opus frame: tens of ms, not hundreds`,
 );
 
 // --- quality limitation ---------------------------------------------------

@@ -20,6 +20,12 @@ export default defineConfig({
     outDir: resolve(__dirname, "dist/renderer"),
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
+    // Scripts and WASM are never inlined as data: URLs. Worklets are loaded
+    // with addModule(url), and the CSP (script-src 'self') refuses a data: URL:
+    // an earlier 1.1 kB noise-gate worklet fell under the 4 kB default and never
+    // ran in a production build. Everything else keeps the default.
+    assetsInlineLimit: (file: string) =>
+      /\.(js|wasm)$/.test(file) ? false : undefined,
 
     rollupOptions: {
       output: {

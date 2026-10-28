@@ -90,13 +90,20 @@ module.exports = [
   {
     // AudioWorklet code runs in the worklet global scope, which has neither the
     // window nor the worker globals.
-    files: ["src/renderer/src/features/screen-share/loopback-worklet.js"],
+    files: [
+      "src/renderer/src/features/screen-share/loopback-worklet.js",
+      "src/renderer/src/features/voice-processing/voice-worklet.js",
+    ],
     languageOptions: {
       globals: {
         AudioWorkletProcessor: "readonly",
         registerProcessor: "readonly",
         sampleRate: "readonly",
         currentTime: "readonly",
+        // JS builtins the worklet scope has; performance only in some builds,
+        // which voice-worklet.js checks before use.
+        WebAssembly: "readonly",
+        performance: "readonly",
       },
     },
   },
