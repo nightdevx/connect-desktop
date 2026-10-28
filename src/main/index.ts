@@ -20,6 +20,7 @@ import {
   saveWindowState,
 } from "./app-preferences";
 import { restoreWindowState } from "./window-state";
+import { installPageRecovery } from "./page-recovery";
 import {
   applyMediaEngineSwitches,
   logMediaEngineStatus,
@@ -368,6 +369,7 @@ function createMainWindow(): BrowserWindow {
   });
 
   installNavigationGuards(win);
+  installPageRecovery(win);
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
