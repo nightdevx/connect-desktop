@@ -2,6 +2,7 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { DesktopAppPreferences } from "../shared/desktop-api-types";
+import { writeFileAtomic } from "./utils/atomic-write";
 
 const defaultAppPreferences: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -147,13 +148,9 @@ class AppPreferencesStore {
   private persist(): void {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      fs.writeFileSync(
+      writeFileAtomic(
         this.filePath,
         JSON.stringify(this.currentPreferences, null, 2),
-        {
-          encoding: "utf-8",
-          mode: 0o600,
-        },
       );
     } catch {
       // no-op

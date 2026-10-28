@@ -2,6 +2,7 @@ import { app, safeStorage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { UserProfile } from "../shared/auth-contracts";
+import { writeFileAtomic } from "./utils/atomic-write";
 
 export interface DesktopSession {
   user: UserProfile;
@@ -120,10 +121,7 @@ export class SessionStore {
         );
       }
 
-      fs.writeFileSync(this.filePath, contents, {
-        encoding: "utf-8",
-        mode: 0o600,
-      });
+      writeFileAtomic(this.filePath, contents);
     } catch {
       // no-op
     }
