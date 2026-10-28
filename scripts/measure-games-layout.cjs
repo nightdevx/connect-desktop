@@ -33,11 +33,7 @@ const say = (m) => lines.push(m);
 
 const assets = path.join(ROOT, "dist/renderer/assets");
 const cssFile = fs.readdirSync(assets).find((f) => f.endsWith(".css"));
-// The Google Fonts @import is dropped: a network fetch this harness has no use
-// for, and the geometry under test is not font-metric sensitive.
-const css = fs
-  .readFileSync(path.join(assets, cssFile), "utf8")
-  .replace(/@import url\("https:\/\/fonts\.googleapis[^"]*"\);/, "");
+const css = fs.readFileSync(path.join(assets, cssFile), "utf8");
 
 // The default userData dir is not writable here, and a session that cannot open
 // its cache fails every navigation with ERR_FAILED.
