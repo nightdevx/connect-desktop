@@ -168,13 +168,28 @@ const getStore = (): AppPreferencesStore => {
   return sharedStore;
 };
 
+// Windows keeps login items as values under HKCU\...\Run, and Electron names
+// the value after the AppUserModelID unless told otherwise. Every build from
+// before index.ts set that ID wrote "electron.app.Connect". Keeping the name
+// means turning the setting off removes the entry those builds left, and
+// turning it on overwrites it, instead of adding a second entry that would
+// start the app twice at sign-in.
+const WINDOWS_LOGIN_ITEM_NAME = "electron.app.Connect";
+
 const readSystemLaunchOnStartup = (): boolean | null => {
   if (process.platform === "linux") {
     return null;
   }
 
   try {
-    return app.getLoginItemSettings().openAtLogin;
+    const settings = app.getLoginItemSettings();
+    // openAtLogin only reads the value named after the current AppUserModelID,
+    // so the entry under the old name would read as off.
+    // executableWillLaunchAtLogin matches any entry that starts this
+    // executable, and is false when the user disabled it in Task Manager.
+    return process.platform === "win32"
+      ? settings.executableWillLaunchAtLogin
+      : settings.openAtLogin;
   } catch {
     return null;
   }
@@ -186,7 +201,10 @@ const applySystemLaunchOnStartup = (enabled: boolean): void => {
   }
 
   try {
-    app.setLoginItemSettings({ openAtLogin: enabled });
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      name: WINDOWS_LOGIN_ITEM_NAME,
+    });
   } catch {
     // no-op
   }

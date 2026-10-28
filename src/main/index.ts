@@ -79,6 +79,14 @@ let quittingWithCleanup = false;
 let tray: Tray | null = null;
 let unsubscribePreferencesListener: (() => void) | null = null;
 
+// Windows matches toasts, the taskbar button and the Start menu shortcut to an
+// app by this ID. Unset, Electron used "electron.app.Connect", which matches
+// nothing the installer creates (it stamps the shortcut with the appId): toasts
+// could carry a generic name and icon, and a pinned shortcut sat apart from the
+// running window. It has to stay equal to appId in electron-builder.yml.
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.nightdevx.connect-desktop");
+}
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 // Waking from sleep and moving between networks both leave every socket dead
