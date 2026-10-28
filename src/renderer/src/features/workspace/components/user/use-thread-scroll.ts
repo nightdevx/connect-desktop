@@ -36,11 +36,14 @@ export function useThreadScroll({
   hasMoreMessages,
   isLoadingOlderMessages,
   onLoadOlderMessages,
-}: ThreadScrollOptions): { handleChatScroll: () => void } {
+}: ThreadScrollOptions): {
+  handleChatScroll: () => void;
+  attachMessageList: (node: HTMLDivElement | null) => void;
+} {
   const atBottomRef = useRef(true);
-  // Distance from the bottom, captured before a prepend so the same message can
-  // be put back under the cursor once the page lands.
-  const prependAnchorRef = useRef<number | null>(null);
+  // Set from the moment the previous page is asked for until it lands, so one
+  // gesture asks once, and the landing is not mistaken for a new message.
+  const olderRequestedRef = useRef(false);
   const lastPeerIdRef = useRef<string | null>(null);
 
   const handleChatScroll = useCallback(() => {
@@ -57,10 +60,10 @@ export function useThreadScroll({
       container.scrollTop < LOAD_OLDER_TRIGGER_PX &&
       hasMoreMessages &&
       !isLoadingOlderMessages &&
-      prependAnchorRef.current === null &&
+      !olderRequestedRef.current &&
       messageCount > 0
     ) {
-      prependAnchorRef.current = container.scrollHeight - container.scrollTop;
+      olderRequestedRef.current = true;
       onLoadOlderMessages?.();
     }
   }, [
@@ -71,8 +74,8 @@ export function useThreadScroll({
     messageCount,
   ]);
 
-  // Layout effect, not effect: the correction has to land in the same frame as
-  // the prepend, or the thread visibly jumps before snapping back.
+  // Layout effect, not effect: a jump to the bottom has to land in the same
+  // frame as the message, or the thread visibly jumps.
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!peerUserId || !container) {
@@ -81,16 +84,19 @@ export function useThreadScroll({
 
     if (lastPeerIdRef.current !== peerUserId) {
       lastPeerIdRef.current = peerUserId;
-      prependAnchorRef.current = null;
+      olderRequestedRef.current = false;
       atBottomRef.current = true;
       container.scrollTop = container.scrollHeight;
       return;
     }
 
-    const anchor = prependAnchorRef.current;
-    if (anchor !== null) {
-      prependAnchorRef.current = null;
-      container.scrollTop = container.scrollHeight - anchor;
+    // The previous page landed. The message being read stays where it was:
+    // VirtualChatList anchors it by key. This used to put it back from the
+    // distance to the bottom, which is only right while every row's height is
+    // known; with only the visible rows measured, a row measured between the
+    // request and the landing moved the reader by its difference.
+    if (olderRequestedRef.current) {
+      olderRequestedRef.current = false;
       return;
     }
 
@@ -101,13 +107,39 @@ export function useThreadScroll({
     // this every render and pin the thread to the bottom.
   }, [containerRef, messageCount, peerUserId]);
 
-  // A request that came back empty (or failed) leaves the anchor set, which
+  // A request that came back empty (or failed) leaves the flag set, which
   // would freeze the next attempt. Clear it once the load settles.
   useEffect(() => {
     if (!isLoadingOlderMessages) {
-      prependAnchorRef.current = null;
+      olderRequestedRef.current = false;
     }
   }, [isLoadingOlderMessages]);
 
-  return { handleChatScroll };
+  // Stay on the newest message while the list grows under a reader who is
+  // there. Only the rows on screen are drawn, and each is measured once drawn:
+  // the jump to the bottom above is computed against estimated heights, and
+  // the list settles to its real height a frame later. A picture arriving does
+  // the same. Bound through a callback ref for the same reason as the lobby
+  // chat's observer: the list node comes and goes with search and empty state.
+  const listObserverRef = useRef<ResizeObserver | null>(null);
+  const attachMessageList = useCallback(
+    (node: HTMLDivElement | null): void => {
+      listObserverRef.current?.disconnect();
+      listObserverRef.current = null;
+      if (!node) {
+        return;
+      }
+      const observer = new ResizeObserver(() => {
+        const container = containerRef.current;
+        if (container && atBottomRef.current) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+      observer.observe(node);
+      listObserverRef.current = observer;
+    },
+    [containerRef],
+  );
+
+  return { handleChatScroll, attachMessageList };
 }

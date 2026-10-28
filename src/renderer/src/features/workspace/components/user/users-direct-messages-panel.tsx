@@ -53,6 +53,7 @@ import {
   formatAttachmentSize,
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
+import { VirtualChatList } from "../common/virtual-chat-list";
 import { useLobbyParticipants } from "../lobby/hooks/use-lobby-participants";
 import { useLobbyStageSlots } from "../lobby/hooks/use-lobby-stage-slots";
 import { LobbyStageView } from "../lobby/parts/LobbyStageView";
@@ -289,6 +290,12 @@ export function UsersDirectMessagesPanel({
   onStopWatchingScreen = () => undefined,
 }: UsersDirectMessagesPanelProps) {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  // The same node, as state: the virtual list needs a render once it exists.
+  const [chatScroller, setChatScroller] = useState<HTMLDivElement | null>(null);
+  const attachChatScroller = useCallback((node: HTMLDivElement | null): void => {
+    chatScrollRef.current = node;
+    setChatScroller(node);
+  }, []);
   const composerInputRef = useRef<InputRef>(null);
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
@@ -640,7 +647,7 @@ export function UsersDirectMessagesPanel({
     Boolean(directMessagesQuery.data?.ok) &&
     directMessages.length === 0;
 
-  const { handleChatScroll } = useThreadScroll({
+  const { handleChatScroll, attachMessageList } = useThreadScroll({
     containerRef: chatScrollRef,
     peerUserId: selectedUser?.userId ?? null,
     messageCount: directMessages.length,
@@ -673,7 +680,7 @@ export function UsersDirectMessagesPanel({
         )}
         <div
           className={`ct-chat-messages ${showEmptyState ? "empty" : ""}`}
-          ref={chatScrollRef}
+          ref={attachChatScroller}
           onScroll={handleChatScroll}
         >
           {directMessagesQuery.isPending && (
@@ -737,7 +744,7 @@ export function UsersDirectMessagesPanel({
           )}
 
           {searchResults === null && !showEmptyState && (
-            <div className="ct-chat-message-list">
+            <div className="ct-chat-message-list" ref={attachMessageList}>
               {hasMoreMessages && directMessages.length > 0 && (
                 <div className="ct-chat-load-older" aria-live="polite">
                   {isLoadingOlderMessages ? (
@@ -751,29 +758,34 @@ export function UsersDirectMessagesPanel({
                 </div>
               )}
 
-              {directMessages.map((message: ChatMessage) => (
-                <DirectChatMessageRow
-                  key={message.id}
-                  message={message}
-                  callLog={callLogInfo.get(message.id)}
-                  onCallBack={handleCallBack}
-                  avatarUrl={avatarFor(message.userId)}
-                  isOwnMessage={message.userId === currentUserId}
-                  isDeleting={deletingMessageId === message.id}
-                  deleteDisabled={Boolean(deletingMessageId)}
-                  peerLabel={
-                    selectedUser?.displayName || selectedUser?.username || ""
-                  }
-                  currentUsername={currentUsername}
-                  currentUserId={currentUserId}
-                  onRequestDelete={setPendingDeleteMessageId}
-                  onReply={(message) => onSetReplyTo?.(message)}
-                  onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
-                  onToggleReaction={(messageId, emoji, add) =>
-                    onToggleReaction?.(messageId, emoji, add)
-                  }
-                />
-              ))}
+              {/* Only the rows on screen are drawn; useThreadScroll still
+                  reads the list's full height. */}
+              <VirtualChatList
+                scrollElement={chatScroller}
+                messages={directMessages}
+                renderMessage={(message) => (
+                  <DirectChatMessageRow
+                    message={message}
+                    callLog={callLogInfo.get(message.id)}
+                    onCallBack={handleCallBack}
+                    avatarUrl={avatarFor(message.userId)}
+                    isOwnMessage={message.userId === currentUserId}
+                    isDeleting={deletingMessageId === message.id}
+                    deleteDisabled={Boolean(deletingMessageId)}
+                    peerLabel={
+                      selectedUser?.displayName || selectedUser?.username || ""
+                    }
+                    currentUsername={currentUsername}
+                    currentUserId={currentUserId}
+                    onRequestDelete={setPendingDeleteMessageId}
+                    onReply={(message) => onSetReplyTo?.(message)}
+                    onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
+                    onToggleReaction={(messageId, emoji, add) =>
+                      onToggleReaction?.(messageId, emoji, add)
+                    }
+                  />
+                )}
+              />
             </div>
           )}
         </div>

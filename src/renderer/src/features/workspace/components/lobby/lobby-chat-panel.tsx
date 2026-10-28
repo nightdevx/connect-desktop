@@ -38,6 +38,7 @@ import {
   formatAttachmentSize,
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
+import { VirtualChatList } from "../common/virtual-chat-list";
 import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import {
   formatTimeLabel,
@@ -306,7 +307,13 @@ export function LobbyChatPanel({
     string | null
   >(null);
 
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  // The same node, as state: the virtual list needs a render once it exists.
+  const [messagesScroller, setMessagesScroller] = useState<HTMLDivElement | null>(null);
+  const attachMessagesContainer = useCallback((node: HTMLDivElement | null): void => {
+    messagesContainerRef.current = node;
+    setMessagesScroller(node);
+  }, []);
   const composerInputRef = useRef<InputRef>(null);
 
   // Who can be named here: the voice roster plus everyone who has posted. The
@@ -498,7 +505,7 @@ export function LobbyChatPanel({
           </div>
         )}
         <div
-          ref={messagesContainerRef}
+          ref={attachMessagesContainer}
           className="ct-chat-messages"
           onScroll={handleMessagesScroll}
         >
@@ -581,26 +588,31 @@ export function LobbyChatPanel({
             </div>
           )}
 
+          {/* Only the rows on screen are drawn; the list keeps its full height,
+              so the scroll handling above reads it as before. */}
           {searchResults === null && !showEmptyState && (
             <div className="ct-chat-message-list" ref={attachMessageList}>
-              {lobbyMessages.map((message) => (
-                <LobbyChatMessageRow
-                  key={message.id}
-                  message={message}
-                  avatarUrl={avatarByUserId?.[message.userId]}
-                  isOwnMessage={message.userId === currentUserId}
-                  isDeleting={deletingLobbyMessageId === message.id}
-                  deleteDisabled={Boolean(deletingLobbyMessageId)}
-                  currentUserId={currentUserId}
-                  currentUsername={currentUsername}
-                  onRequestDelete={setPendingDeleteMessageId}
-                  onReply={(message) => onSetReplyTo?.(message)}
-                  onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
-                  onToggleReaction={(messageId, emoji, add) =>
-                    onToggleReaction?.(messageId, emoji, add)
-                  }
-                />
-              ))}
+              <VirtualChatList
+                scrollElement={messagesScroller}
+                messages={lobbyMessages}
+                renderMessage={(message) => (
+                  <LobbyChatMessageRow
+                    message={message}
+                    avatarUrl={avatarByUserId?.[message.userId]}
+                    isOwnMessage={message.userId === currentUserId}
+                    isDeleting={deletingLobbyMessageId === message.id}
+                    deleteDisabled={Boolean(deletingLobbyMessageId)}
+                    currentUserId={currentUserId}
+                    currentUsername={currentUsername}
+                    onRequestDelete={setPendingDeleteMessageId}
+                    onReply={(message) => onSetReplyTo?.(message)}
+                    onEdit={(messageId, body) => onEditMessage?.(messageId, body)}
+                    onToggleReaction={(messageId, emoji, add) =>
+                      onToggleReaction?.(messageId, emoji, add)
+                    }
+                  />
+                )}
+              />
             </div>
           )}
 
