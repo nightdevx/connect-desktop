@@ -52,6 +52,13 @@ files:
   - "!node_modules/minimatch/**"
   - "!node_modules/brace-expansion/**"
   - "!node_modules/balanced-match/**"
+  # Main reads one hls.js build, dist/hls.min.js (watch-player-host.ts); the
+  # other builds and the sources were 9 MB of the archive.
+  - "!node_modules/hls.js/src/**"
+  - "!node_modules/hls.js/dist/!(hls.min.js)"
+  # zod's TypeScript sources, and the v3 API nothing here imports.
+  - "!node_modules/zod/src/**"
+  - "!node_modules/zod/v3/**"
 asar: true
 # Native .node must live outside the asar archive to be loadable at runtime.
 asarUnpack:
