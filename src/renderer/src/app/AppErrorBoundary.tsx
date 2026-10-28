@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import * as Sentry from "@sentry/electron/renderer";
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -30,8 +31,13 @@ export class AppErrorBoundary extends Component<
 
   public componentDidCatch(error: Error, info: ErrorInfo): void {
     this.setState({ componentStack: info.componentStack ?? null });
-    // Sentry's renderer integration picks console.error up; keep the component
-    // stack in the message so a report is actionable without a source map.
+    // Reported here or not at all: in a production build React does not
+    // rethrow an error a boundary caught, so the global handlers never see it,
+    // and nothing turns console.error into an event. A no-op where Sentry was
+    // not initialised (development).
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: info.componentStack ?? null } },
+    });
     console.error("[renderer] unhandled render error:", error, info.componentStack);
   }
 

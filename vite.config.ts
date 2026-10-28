@@ -1,8 +1,13 @@
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import { defineConfig } from "vite";
+
+const { version } = JSON.parse(
+  readFileSync(resolve(__dirname, "package.json"), "utf8"),
+) as { version: string };
 
 export default defineConfig({
   root: resolve(__dirname, "src/renderer"),
@@ -11,7 +16,12 @@ export default defineConfig({
   // and the preset limits it to files that can hold components or hooks.
   plugins: [react(), babel({ presets: [reactCompilerPreset()] }), sentryVitePlugin({
     org: "night-ki",
-    project: "connect-desktop"
+    project: "connect-desktop",
+    // The release @sentry/electron gives every event: "<app name>@<version>",
+    // and the packaged app's name is productName in electron-builder.yml. The
+    // plugin defaulted to GITHUB_SHA, so the uploaded source maps sat under a
+    // release no event ever carried and stack traces stayed minified.
+    release: { name: `Connect@${version}` },
   })],
   base: "./",
   resolve: {
@@ -74,7 +84,9 @@ export default defineConfig({
       },
     },
 
-    sourcemap: true
+    // Uploaded to Sentry but not referenced from the bundle. electron-builder
+    // leaves *.map out of the package either way.
+    sourcemap: "hidden",
   },
   server: {
     port: 5173,

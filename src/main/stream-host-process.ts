@@ -1,4 +1,6 @@
+import { basename } from "node:path";
 import { net } from "electron";
+import * as Sentry from "@sentry/electron/utility";
 import { createStreamHost } from "./ipc/stream-host";
 import type { StreamHostRequest } from "../shared/stream-host-contracts";
 
@@ -14,6 +16,17 @@ import type { StreamHostRequest } from "../shared/stream-host-contracts";
 //
 // The backend's address is the one argument. The access token comes with each
 // start; nothing here reads the session store.
+
+// Errors here reach Sentry through main, under the same rule as main's own
+// (index.ts): a DSN, and a packaged build. app is main-only, so packaged is
+// worked out the way app.isPackaged does it. Before the parentPort listener
+// below: the SDK filters its own messages out of that channel.
+const isPackaged = !/^electron(\.exe)?$/i.test(basename(process.execPath));
+if (process.env.SENTRY_DSN && isPackaged) {
+  // Errors only; tracing would load OpenTelemetry into this process for
+  // nothing.
+  Sentry.init({ skipOpenTelemetrySetup: true });
+}
 
 const backendBaseUrl = process.argv[2] ?? "";
 
