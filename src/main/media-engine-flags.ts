@@ -74,20 +74,19 @@ export const resolveMediaEngineFlags = (
   }
 
   if (platform === "win32") {
-    // Screens are captured through DXGI by default before Windows 11 24H2;
-    // this turns Windows Graphics Capture on for them everywhere. Windows are
-    // always captured with WGC, and zero-Hz (no repeated frames while the
-    // source is static) is on for them unconditionally. The window and zero-Hz
-    // flags this list used to carry (AllowWgcWindowCapturer, AllowWgcZeroHz)
-    // do not exist in Chromium 142.
-    flags.enableFeatures.push("AllowWgcScreenCapturer");
-    // Screen zero-Hz is on by default, though. A still screen then delivers no
-    // frames at all (0.3 a second on the bench; 24 with this off): viewers
+    // No capture flags any more. This list used to turn Windows Graphics
+    // Capture on for screens (AllowWgcScreenCapturer) and screen zero-Hz off
+    // (AllowWgcScreenZeroHz); Chromium 156 (Electron 45) has neither. It now
+    // decides by OS version alone: from Windows 11 24H2 a screen goes through
+    // WGC with zero-Hz always on, before that through DXGI. Windows are always
+    // WGC with zero-Hz on.
+    //
+    // ponytail: zero-Hz on a still screen is what the off switch was for. It
+    // delivered 0.3 frames a second on the bench (24 with it off): viewers
     // counted every still moment as a freeze, and a "Hareket" share's encoder
     // had nothing to sharpen its last frame with, since only the "Metin" mode
-    // repeats frames on its own. Off, a still screen repeats its frame, as
-    // DXGI always did.
-    flags.disableFeatures.push("AllowWgcScreenZeroHz");
+    // repeats frames on its own. Measure a still and a live share on 24H2 again;
+    // if it is back, repeat frames in the renderer, since no switch is left.
 
     if (!hardwareAcceleration) {
       softwareEncode();

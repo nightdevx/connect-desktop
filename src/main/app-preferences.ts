@@ -189,10 +189,7 @@ const applySystemLaunchOnStartup = (enabled: boolean): void => {
   }
 
   try {
-    app.setLoginItemSettings({
-      openAtLogin: enabled,
-      openAsHidden: false,
-    });
+    app.setLoginItemSettings({ openAtLogin: enabled });
   } catch {
     // no-op
   }

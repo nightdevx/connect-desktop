@@ -257,9 +257,10 @@ const startElectronDesktopCapture = async (
     //
     // The capture asks for exactly the preset's frame rate. It used to ask
     // for twice that, up to 60, because a 30 fps request delivered 21-24
-    // while screen zero-Hz was on. Zero-Hz is off now (media-engine-flags.ts)
-    // and 30 delivers 29: on a still screen, on a live one and inside a
-    // League match (2026-10-04). The extra frames were never sent, the 30 fps
+    // while screen zero-Hz was on. With zero-Hz off, 30 delivered 29: on a
+    // still screen, on a live one and inside a League match (2026-10-04).
+    // Chromium 156 has no off switch for it any more (media-engine-flags.ts),
+    // so on Windows 11 24H2 that number needs measuring again. The extra frames were never sent, the 30 fps
     // encodings dropped them, but each one went through Chromium's
     // capture-to-WebRTC path first, and that path is what a game running next
     // to the share pays for. In the same match a 720p30 share cost League 11%

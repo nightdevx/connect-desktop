@@ -14,6 +14,7 @@ import { queryClient } from "./services/query-client";
 import { readTokens } from "./styles/design-tokens";
 import { applyThemeMode, readThemeMode } from "./styles/theme-mode";
 import { useUiStore } from "./store/ui-store";
+import { SENTRY_DATA_COLLECTION } from "@shared/sentry-data-collection";
 
 // Before the first paint, not in an effect: React's first frame would otherwise
 // render the default (dark) palette and swap a frame later, which on a light
@@ -22,7 +23,7 @@ applyThemeMode(readThemeMode());
 
 // Initialize Sentry for renderer process. It automatically tunnels events to main process.
 if (process.env.NODE_ENV !== "development") {
-  Sentry.init({});
+  Sentry.init({ dataCollection: SENTRY_DATA_COLLECTION });
 }
 
 // An error boundary cannot see these. Without them a rejected promise in a

@@ -22,11 +22,13 @@ import {
 } from "./media-engine-flags";
 import { backendConfig } from "./config";
 import { KLIPY_API_HOSTNAME } from "./clients/klipy-client";
+import { SENTRY_DATA_COLLECTION } from "../shared/sentry-data-collection";
 
 // Initialize Sentry for main process after env files are resolved by config
 if (process.env.SENTRY_DSN && !isDev) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
+    dataCollection: SENTRY_DATA_COLLECTION,
     // The GIF provider takes its API key as a URL PATH SEGMENT, and Sentry's
     // HTTP/fetch integrations record request URLs verbatim as breadcrumbs --
     // which then ride along on every unrelated error report. Dropping the
@@ -285,8 +287,12 @@ const installPermissionHandlers = (): void => {
   // "fullscreen" is what Electron asks for when the renderer calls
   // Element.requestFullscreen(). Leaving it out silently rejected every
   // request, so the tile fullscreen buttons did nothing at all.
+  // "display-capture" is how Electron 45+ reports a screen or window capture
+  // (getUserMedia with chromeMediaSource). It used to arrive as "media", so
+  // without it every screen share fails on the permission prompt.
   const allowed = new Set([
     "media",
+    "display-capture",
     "clipboard-sanitized-write",
     "notifications",
     "fullscreen",

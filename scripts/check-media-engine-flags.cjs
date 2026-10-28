@@ -26,15 +26,16 @@ try {
 const switchNames = (flags) => flags.switches.map(([name]) => name);
 const allNames = (flags) => [...switchNames(flags), ...flags.enableFeatures, ...flags.disableFeatures];
 
-// Windows, hardware acceleration on: WGC for screens, its zero-Hz mode off (a
-// still screen repeats its frame instead of going silent).
+// Windows, hardware acceleration on: hardware AV1 reachable, nothing else.
+// The capture flags (WGC for screens, screen zero-Hz off) are gone from
+// Chromium 156; it picks WGC and zero-Hz by Windows version on its own.
 const winOn = resolveMediaEngineFlags("win32", true);
-assert.deepEqual(winOn.enableFeatures, ["AllowWgcScreenCapturer", "WebRtcAV1HWEncode"]);
+assert.deepEqual(winOn.enableFeatures, ["WebRtcAV1HWEncode"]);
 assert.ok(
   ![...winOn.enableFeatures, ...winOn.disableFeatures].some((name) => name.startsWith("D3D12")),
   "D3D12 encode takes over H.264 too, and broke it on the bench",
 );
-assert.deepEqual(winOn.disableFeatures, ["AllowWgcScreenZeroHz"]);
+assert.deepEqual(winOn.disableFeatures, []);
 assert.deepEqual(winOn.switches, [["force-fieldtrials", WEBRTC_FIELD_TRIALS]]);
 
 // The padding fix travels as one --force-fieldtrials on every platform and
@@ -59,9 +60,10 @@ for (const name of ["webrtc-hw-encoding", "webrtc-hw-decoding", "WebRtcUseDmabuf
 assert.ok(linux.enableFeatures.includes("WebRTCPipeWireCapturer"));
 assert.deepEqual(linux.switches.find(([name]) => name === "ozone-platform-hint"), ["ozone-platform-hint", "auto"]);
 
-// Names Chromium 142 no longer has. Passing them is a silent no-op.
-// MediaFoundationAV1Encoding became WebRtcAV1HWEncode in M136.
-const dead = ["disable-webrtc-hw-encoding", "disable-webrtc-hw-decoding", "AllowWgcWindowCapturer", "AllowWgcZeroHz", "MediaFoundationAV1Encoding"];
+// Names Chromium no longer has. Passing them is a silent no-op.
+// MediaFoundationAV1Encoding became WebRtcAV1HWEncode in M136; the two
+// AllowWgcScreen* features are gone by M156.
+const dead = ["disable-webrtc-hw-encoding", "disable-webrtc-hw-decoding", "AllowWgcWindowCapturer", "AllowWgcZeroHz", "MediaFoundationAV1Encoding", "AllowWgcScreenCapturer", "AllowWgcScreenZeroHz"];
 for (const flags of [winOn, winOff, linux]) {
   for (const name of allNames(flags)) {
     assert.ok(!dead.includes(name), `${name} does not exist in this Chromium`);
