@@ -29,7 +29,11 @@ export class DirectMessagesStreamManager {
   >();
   private readonly senderDestroyBound = new Set<number>();
 
-  public constructor(private readonly backendBaseUrl: string) {}
+  public constructor(
+    private readonly backendBaseUrl: string,
+    // Sent at the upgrade, as StreamHub does: ws sends none of its own.
+    private readonly userAgent = "",
+  ) {}
 
   public stopAll(): void {
     for (const senderId of [...this.streamsBySender.keys()]) {
@@ -99,7 +103,10 @@ export class DirectMessagesStreamManager {
     }
     this.stop(sender.id);
 
-    const socket = new WebSocket(this.buildWebSocketUrl(accessToken), { handshakeTimeout: 10_000 });
+    const socket = new WebSocket(this.buildWebSocketUrl(accessToken), {
+      handshakeTimeout: 10_000,
+      headers: this.userAgent ? { "User-Agent": this.userAgent } : undefined,
+    });
     const opened = awaitSocketOpen(
       socket,
       "DIRECT_WS_CONNECTION_ERROR",
@@ -228,6 +235,7 @@ export class DirectMessagesStreamManager {
         type: "stream-status",
         status: "closed",
         detail: reason || `websocket closed (${code})`,
+        code,
         at: new Date().toISOString(),
       });
     });

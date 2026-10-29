@@ -77,12 +77,13 @@ export const createStreamHost = (
   backendBaseUrl: string,
   reply: (message: StreamHostReply) => void,
   backendAnswers: () => Promise<boolean>,
+  userAgent = "",
 ): ((message: StreamHostRequest, ports: PagePort[]) => void) => {
   // For a backend that predates /ws. See stream-hub.ts.
   const legacy = {
-    lobby: new LobbyStreamManager(backendBaseUrl),
-    users: new UserDirectoryStreamManager(backendBaseUrl),
-    dm: new DirectMessagesStreamManager(backendBaseUrl),
+    lobby: new LobbyStreamManager(backendBaseUrl, userAgent),
+    users: new UserDirectoryStreamManager(backendBaseUrl, userAgent),
+    dm: new DirectMessagesStreamManager(backendBaseUrl, userAgent),
   } as const;
 
   const hub = new StreamHub(backendBaseUrl, {
@@ -103,7 +104,7 @@ export const createStreamHost = (
       }
     },
     backendAnswers,
-  });
+  }, userAgent);
 
   const pages = new Map<number, PageSender>();
   const pageFor = (senderId: number): PageSender => {

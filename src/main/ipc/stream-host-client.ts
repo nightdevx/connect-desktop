@@ -1,4 +1,5 @@
 import {
+  app,
   MessageChannelMain,
   utilityProcess,
   type UtilityProcess,
@@ -148,7 +149,9 @@ export class StreamHostClient {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
-    const child = utilityProcess.fork(this.modulePath, [this.backendBaseUrl], {
+    // app.userAgentFallback is what net.fetch sends on every REST call; the
+    // sockets send the same, so the backend sees one client version.
+    const child = utilityProcess.fork(this.modulePath, [this.backendBaseUrl, app.userAgentFallback], {
       serviceName: "Connect streams",
     });
     this.child = child;

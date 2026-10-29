@@ -1,5 +1,10 @@
 export type StreamStatus = "connected" | "closed";
 
+// The close code the backend sends every socket when it shuts down for a
+// deploy ("service restart"). The new process is up within seconds, so the
+// streams reconnect at once with only their jitter, not their 1 -> 10 s backoff.
+export const SERVICE_RESTART_CLOSE_CODE = 1012;
+
 export const RECOVERY_COOLDOWN_MS = 5_000;
 
 export type RecoveryStream = "lobby" | "users" | "dm";

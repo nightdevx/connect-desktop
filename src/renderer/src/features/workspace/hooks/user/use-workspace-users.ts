@@ -10,6 +10,7 @@ import workspaceService from "../../services";
 import { useStillImages } from "../media/use-still-image";
 import { userCardQueryKey } from "./use-user-cards";
 import type { UserFilter } from "../../workspace-utils";
+import { SERVICE_RESTART_CLOSE_CODE } from "../core/backend-recovery";
 
 // Stable identity for "no directory yet"; see where it is used below.
 const EMPTY_DIRECTORY: UserDirectoryEntry[] = [];
@@ -115,7 +116,7 @@ export const useWorkspaceUsers = ({
     return false;
   };
 
-  const scheduleStreamReconnect = (immediate = false): void => {
+  const scheduleStreamReconnect = (immediate = false, restart = false): void => {
     if (!streamWantedRef.current) {
       return;
     }
@@ -126,7 +127,9 @@ export const useWorkspaceUsers = ({
 
     const delay = immediate
       ? 0
-      : getUserDirectoryReconnectDelayMs(reconnectAttemptRef.current);
+      : restart
+        ? Math.floor(Math.random() * USER_DIRECTORY_RECONNECT_JITTER_MAX_MS)
+        : getUserDirectoryReconnectDelayMs(reconnectAttemptRef.current);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
@@ -297,7 +300,7 @@ export const useWorkspaceUsers = ({
         }
 
         if (event.type === "stream-status" && event.status === "closed") {
-          scheduleStreamReconnect();
+          scheduleStreamReconnect(false, event.code === SERVICE_RESTART_CLOSE_CODE);
           return;
         }
 

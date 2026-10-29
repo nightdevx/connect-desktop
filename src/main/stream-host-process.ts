@@ -15,8 +15,9 @@ import type { StreamHostRequest } from "../shared/stream-host-contracts";
 // late, all at once. Here they are parsed off main's thread and go to each page
 // over a MessagePort main never touches.
 //
-// The backend's address is the one argument. The access token comes with each
-// start; nothing here reads the session store.
+// The arguments are the backend's address and main's User-Agent (the sockets
+// send it; see StreamHub). The access token comes with each start; nothing
+// here reads the session store.
 
 // Errors here reach Sentry through main, under the same rule as main's own
 // (index.ts): a DSN, and a packaged build. app is main-only, so packaged is
@@ -30,6 +31,7 @@ if (process.env.SENTRY_DSN && isPackaged) {
 }
 
 const backendBaseUrl = process.argv[2] ?? "";
+const userAgent = process.argv[3] ?? "";
 
 // Whether the backend itself is answering, for StreamHub's 404 rule. Through
 // Chromium's network stack, like every other request the app makes.
@@ -48,6 +50,7 @@ const handle = createStreamHost(
   backendBaseUrl,
   (reply) => process.parentPort.postMessage(reply),
   backendAnswers,
+  userAgent,
 );
 
 process.parentPort.on("message", (event) => {

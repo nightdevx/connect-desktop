@@ -14,7 +14,13 @@
 //   - a backend without /ws (404, and /healthz answers) hands the streams to
 //     the per-stream sockets; a 404 with the backend down (the proxy during a
 //     deploy) does not, and the next start tries /ws again;
-//   - a 401 comes back as a 401 for withAccessToken's refresh.
+//   - a 401 comes back as a 401 for withAccessToken's refresh;
+//   - the socket sends the desktop's User-Agent and asks for the v2 room list
+//     (proto=2); v2 snapshots and deltas reach the page as the whole list in
+//     the server's order, a reconnect resumes with since=<last seq>, a delta
+//     with no list under it drops the socket, and a page joining a live socket
+//     is handed the list;
+//   - a close says its code (1012: the server restarting).
 //
 //   node scripts/check-stream-hub.cjs
 const assert = require("node:assert/strict");
@@ -45,7 +51,9 @@ const startServer = async ({ mode = "ok", pong = true } = {}) => {
   const server = http.createServer();
   const wss = new WebSocketServer({ noServer: true, autoPong: pong });
   const connections = [];
+  const requests = [];
   server.on("upgrade", (request, socket, head) => {
+    requests.push({ url: new URL(request.url, "http://x"), userAgent: request.headers["user-agent"] });
     if (mode === "drop") {
       socket.destroy();
       return;
@@ -65,6 +73,7 @@ const startServer = async ({ mode = "ok", pong = true } = {}) => {
   return {
     url: `http://127.0.0.1:${port}`,
     connections,
+    requests,
     close: async () => {
       for (const ws of connections) ws.terminate();
       await new Promise((resolve) => server.close(resolve));
@@ -295,9 +304,70 @@ const main = async () => {
     await expired.close();
   }
 
+  // --- v2 room list, resume, User-Agent, 1012 --------------------------------
+  {
+    const server = await startServer();
+    const hub = new StreamHub(server.url, fakeLegacy(), "Mozilla/5.0 connect-desktop/0.3.0 Electron/45");
+    const sender = fakeSender(9);
+    const room = (id, createdAt, extra = {}) => ({ id, name: id, createdAt, members: [], ...extra });
+    const lobbyFrames = () =>
+      sender.framesOn(STREAM_EVENT_CHANNELS.lobby).filter((frame) => frame.type === "lobbies-snapshot");
+    const ids = (frame) => frame.lobbies.map((lobby) => lobby.id);
+
+    await hub.start("lobby", sender, "token");
+    assert.equal(server.requests[0].userAgent, "Mozilla/5.0 connect-desktop/0.3.0 Electron/45", "the socket did not send the desktop User-Agent");
+    assert.equal(server.requests[0].url.searchParams.get("proto"), "2", "the socket did not ask for v2");
+    assert.equal(server.requests[0].url.searchParams.has("since"), false, "a first connect sent since");
+
+    const ws = server.connections[0];
+    ws.send(JSON.stringify({ type: "lobbies-snapshot", seq: 100, at: "t0", lobbies: [room("b", "2026-01-02"), room("z", "2026-01-01"), room("main-lobby", "2026-03-01"), room("a", "2026-01-02")] }));
+    await sleep(80);
+    assert.deepEqual(ids(lobbyFrames().at(-1)), ["main-lobby", "z", "a", "b"], "the list is not in the server's order");
+
+    ws.send(JSON.stringify({ type: "lobby-delta", seq: 103, at: "t1", lobbies: [room("a", "2026-01-02", { memberCount: 2 }), room("c", "2026-02-01")], removed: ["z"] }));
+    await sleep(80);
+    const afterDelta = lobbyFrames().at(-1);
+    assert.deepEqual(ids(afterDelta), ["main-lobby", "a", "b", "c"], "a delta did not update, add and remove");
+    assert.equal(afterDelta.lobbies.find((lobby) => lobby.id === "a").memberCount, 2, "a changed room kept its old copy");
+    assert.equal(afterDelta.at, "t1");
+    assert.ok(!sender.framesOn(STREAM_EVENT_CHANNELS.lobby).some((frame) => frame.type === "lobby-delta"), "a raw delta reached the page");
+
+    // A second page load joins the live socket and is handed the list at once.
+    await hub.start("lobby", sender, "token");
+    assert.deepEqual(ids(lobbyFrames().at(-1)), ["main-lobby", "a", "b", "c"], "a page joining the socket was not handed the list");
+
+    ws.close(1012, "server restarting");
+    await sleep(120);
+    const closed = sender.framesOn(STREAM_EVENT_CHANNELS.lobby).at(-1);
+    assert.equal(closed.status, "closed");
+    assert.equal(closed.code, 1012, "the close did not carry its code");
+
+    await hub.start("lobby", sender, "token");
+    assert.equal(server.requests[1].url.searchParams.get("since"), "103", "a reconnect did not resume from the last seq");
+    const before = lobbyFrames().length;
+    server.connections[1].send(JSON.stringify({ type: "lobby-delta", seq: 103, at: "t2", lobbies: [], removed: [] }));
+    await sleep(80);
+    assert.equal(lobbyFrames().length, before + 1, "an empty resume delta did not hand the page its list");
+    assert.deepEqual(ids(lobbyFrames().at(-1)), ["main-lobby", "a", "b", "c"]);
+
+    // A v1 snapshot (an older backend) carries no seq: nothing to resume from.
+    server.connections[1].send(JSON.stringify({ type: "lobbies-snapshot", lobbies: [room("x", "2026-01-01")] }));
+    await sleep(80);
+    assert.deepEqual(ids(lobbyFrames().at(-1)), ["x"]);
+    server.connections[1].send(JSON.stringify({ type: "lobby-delta", seq: 5, lobbies: [room("y", "2026-01-01")], removed: [] }));
+    await sleep(120);
+    assert.notEqual(server.connections[1].readyState, 1, "a delta with no list under it did not drop the socket");
+    assert.deepEqual(ids(lobbyFrames().at(-1)), ["x"], "a delta with no list under it reached the page");
+    await hub.start("lobby", sender, "token");
+    assert.equal(server.requests[2].url.searchParams.has("since"), false, "a resync resumed instead of asking for the whole list");
+
+    hub.stopAll();
+    await server.close();
+  }
+
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    "stream-hub self-check passed (one socket for three streams, routing, stops, server close, probe, 404 fallback, 401)",
+    "stream-hub self-check passed (one socket for three streams, routing, stops, server close, probe, 404 fallback, 401, v2 list and resume, User-Agent, 1012)",
   );
 };
 

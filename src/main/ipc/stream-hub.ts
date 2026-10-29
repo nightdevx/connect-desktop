@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { DesktopApiError } from "../clients/base-client";
 import { awaitSocketOpen } from "./await-socket-open";
+import { LobbyList } from "./lobby-list";
 import { STREAM_EVENT_CHANNELS, streamOfFrame, type StreamKind } from "./stream-frames";
 
 export { STREAM_EVENT_CHANNELS, type StreamKind } from "./stream-frames";
@@ -52,6 +53,9 @@ interface Session {
   probeTimer?: NodeJS.Timeout;
   // Set when this hub closed the socket on purpose: its close is not news.
   closing: boolean;
+  // The v2 room list and its seq, kept across reconnects so the next connect
+  // resumes from where this one left off (lobby-list.ts).
+  lobbies: LobbyList;
 }
 
 /**
@@ -80,6 +84,11 @@ export class StreamHub {
   public constructor(
     private readonly backendBaseUrl: string,
     private readonly legacy: LegacyStreams,
+    // The desktop's own User-Agent, which `ws` does not send by itself. The
+    // backend reads the build's version from it at the upgrade: from
+    // core.DesktopPictureURLVersion on, the socket's profile events carry
+    // picture versions instead of base64 (auth.PicturesByURL).
+    private readonly userAgent = "",
   ) {}
 
   public isLegacy(): boolean {
@@ -95,8 +104,13 @@ export class StreamHub {
     session.wanted.add(kind);
 
     if (session.socket?.readyState === WebSocket.OPEN) {
-      // Joining a live socket: this stream is connected as of now.
+      // Joining a live socket: this stream is connected as of now. A page that
+      // reloaded joins the socket its last load opened, and v2 sends nothing
+      // until a room changes, so it is handed the list held here.
       this.emit(session, kind, { type: "stream-status", status: "connected", at: new Date().toISOString() });
+      if (kind === "lobby" && session.lobbies.known) {
+        this.emit(session, kind, session.lobbies.snapshot());
+      }
       return;
     }
 
@@ -188,7 +202,7 @@ export class StreamHub {
   private sessionFor(sender: StreamSender): Session {
     let session = this.sessions.get(sender.id);
     if (!session) {
-      session = { sender, wanted: new Set(), socket: null, opening: null, closing: false };
+      session = { sender, wanted: new Set(), socket: null, opening: null, closing: false, lobbies: new LobbyList() };
       this.sessions.set(sender.id, session);
     }
     if (!this.senderDestroyBound.has(sender.id)) {
@@ -208,7 +222,10 @@ export class StreamHub {
   }
 
   private async open(session: Session, accessToken: string): Promise<void> {
-    const socket = new WebSocket(this.buildUrl(accessToken), { handshakeTimeout: HANDSHAKE_TIMEOUT_MS });
+    const socket = new WebSocket(this.buildUrl(accessToken, session.lobbies.seq), {
+      handshakeTimeout: HANDSHAKE_TIMEOUT_MS,
+      headers: this.userAgent ? { "User-Agent": this.userAgent } : undefined,
+    });
     session.socket = socket;
     session.closing = false;
 
@@ -251,6 +268,18 @@ export class StreamHub {
       } catch {
         return;
       }
+      // The room list is kept here whether or not the page wants the lobby
+      // stream right now: its seq has to follow every step this socket sees.
+      if (frame.type === "lobbies-snapshot" || frame.type === "lobby-delta") {
+        const list = session.lobbies.apply(frame as { type: string });
+        if (list === "resync") {
+          // A delta with no list under it. Dropping the socket reconnects
+          // without since, which is answered with the whole list.
+          socket.terminate();
+          return;
+        }
+        frame = list;
+      }
       const kind = typeof frame.type === "string" ? streamOfFrame(frame.type) : null;
       if (kind && session.wanted.has(kind)) {
         this.emit(session, kind, frame);
@@ -283,6 +312,9 @@ export class StreamHub {
           type: "stream-status",
           status: "closed",
           detail: reason || `websocket closed (${code})`,
+          // 1012 is the server restarting for a deploy: the renderer
+          // reconnects at once instead of backing off.
+          code,
           at: new Date().toISOString(),
         });
       }
@@ -341,12 +373,18 @@ export class StreamHub {
     session.sender.send(STREAM_EVENT_CHANNELS[kind], payload);
   }
 
-  private buildUrl(accessToken: string): string {
+  private buildUrl(accessToken: string, lobbySeq: number | null): string {
     const url = new URL(this.backendBaseUrl);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.pathname = "/ws";
     url.search = "";
     url.searchParams.set("access_token", accessToken);
+    // The v2 room list (lobby-list.ts). A backend that predates it ignores
+    // both and sends v1 snapshots, which LobbyList takes as they are.
+    url.searchParams.set("proto", "2");
+    if (lobbySeq !== null) {
+      url.searchParams.set("since", String(lobbySeq));
+    }
     return url.toString();
   }
 }

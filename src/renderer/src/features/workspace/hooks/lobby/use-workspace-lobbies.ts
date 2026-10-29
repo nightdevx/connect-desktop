@@ -8,6 +8,7 @@ import {
 } from "@/features/livekit";
 import workspaceService from "../../services";
 import type { ReconnectStatusKey } from "../core/use-network-reconnect";
+import { SERVICE_RESTART_CLOSE_CODE } from "../core/backend-recovery";
 import {
   isLobbyTransitionBusy,
   type LobbyTransitionState,
@@ -249,7 +250,7 @@ export function useWorkspaceLobbies({
   // back" message could repeat past its own rate limit.
   const reconnectHandlesRef = useRef({
     clearLobbyReconnectTimer: () => {},
-    scheduleLobbyStreamReconnect: (_immediate?: boolean) => {},
+    scheduleLobbyStreamReconnect: (_immediate?: boolean, _restart?: boolean) => {},
     scheduleActiveLobbyMediaCheck: () => {},
   });
 
@@ -369,13 +370,15 @@ export function useWorkspaceLobbies({
     setKnownLobbies(sortLobbiesWithMainFirst(merged));
   }, []);
 
-  const scheduleLobbyStreamReconnect = useCallback((immediate = false): void => {
+  const scheduleLobbyStreamReconnect = useCallback((immediate = false, restart = false): void => {
     if (lobbyStreamReconnectTimerRef.current !== null) return;
     if (lobbyStreamStartInFlightRef.current) return;
 
     const delay = immediate
       ? 0
-      : withReconnectJitter(
+      : restart
+        ? withReconnectJitter(0)
+        : withReconnectJitter(
           Math.min(
             LOBBY_STREAM_RECONNECT_MAX_MS,
             LOBBY_STREAM_RECONNECT_BASE_MS *
@@ -680,7 +683,7 @@ export function useWorkspaceLobbies({
         // again until the next snapshot arrives.
         setLobbyStreamLive(false);
         void syncLobbiesFromFallback();
-        scheduleLobbyStreamReconnect();
+        scheduleLobbyStreamReconnect(false, event.code === SERVICE_RESTART_CLOSE_CODE);
         // Deliberately NOT a lobby re-join.
         //
         // The roster socket and the media transport are different connections;

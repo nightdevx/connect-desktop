@@ -19,7 +19,11 @@ export class LobbyStreamManager {
   private readonly streamsBySender = new Map<number, LobbyStreamState>();
   private readonly senderDestroyBound = new Set<number>();
 
-  public constructor(private readonly backendBaseUrl: string) {}
+  public constructor(
+    private readonly backendBaseUrl: string,
+    // Sent at the upgrade, as StreamHub does: ws sends none of its own.
+    private readonly userAgent = "",
+  ) {}
 
   public stopAll(): void {
     for (const senderId of this.streamsBySender.keys()) {
@@ -105,7 +109,10 @@ export class LobbyStreamManager {
     // us — has nothing left to re-arm. The lobby socket stays dead for the rest
     // of the session, which used to mean the server stopped seeing a heartbeat
     // and dropped the user out of the voice room.
-    const socket = new WebSocket(wsUrl, { handshakeTimeout: 10_000 });
+    const socket = new WebSocket(wsUrl, {
+      handshakeTimeout: 10_000,
+      headers: this.userAgent ? { "User-Agent": this.userAgent } : undefined,
+    });
     const streamState: LobbyStreamState = {
       socket,
       closing: false,
@@ -255,6 +262,7 @@ export class LobbyStreamManager {
         type: "stream-status",
         status: "closed",
         detail: reason || `websocket closed (${code})`,
+        code,
         at: new Date().toISOString(),
       });
     });

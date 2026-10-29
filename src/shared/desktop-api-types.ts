@@ -400,6 +400,9 @@ export type LobbyStreamEvent =
       type: "stream-status";
       status: "connected" | "closed";
       detail?: string;
+      // The close code of a "closed": 1012 is the server restarting for a
+      // deploy, which is reconnected at once instead of backed off.
+      code?: number;
       at?: string;
     };
 
@@ -439,6 +442,9 @@ export type DirectMessagesStreamEvent =
       type: "stream-status";
       status: "connected" | "closed";
       detail?: string;
+      // The close code of a "closed": 1012 is the server restarting for a
+      // deploy, which is reconnected at once instead of backed off.
+      code?: number;
       at?: string;
     };
 
@@ -526,6 +532,9 @@ export type UserDirectoryStreamEvent =
       type: "stream-status";
       status: "connected" | "closed";
       detail?: string;
+      // The close code of a "closed": 1012 is the server restarting for a
+      // deploy, which is reconnected at once instead of backed off.
+      code?: number;
       at?: string;
     };
 

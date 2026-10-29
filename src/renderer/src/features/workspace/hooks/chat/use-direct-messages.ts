@@ -36,6 +36,7 @@ import { conversationPreviewKey } from "./use-conversation-previews";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { mentionsUser } from "../../mentions";
+import { SERVICE_RESTART_CLOSE_CODE } from "../core/backend-recovery";
 
 const DIRECT_STREAM_RECONNECT_BASE_MS = 1_000;
 const DIRECT_STREAM_RECONNECT_MAX_MS = 10_000;
@@ -256,7 +257,7 @@ export const useDirectMessages = ({
     }
   };
 
-  const scheduleDirectStreamReconnect = (immediate = false): void => {
+  const scheduleDirectStreamReconnect = (immediate = false, restart = false): void => {
     if (!streamWantedRef.current) {
       return;
     }
@@ -267,7 +268,9 @@ export const useDirectMessages = ({
 
     const delay = immediate
       ? 0
-      : getDirectStreamReconnectDelayMs(reconnectAttemptRef.current);
+      : restart
+        ? Math.floor(Math.random() * DIRECT_STREAM_RECONNECT_JITTER_MAX_MS)
+        : getDirectStreamReconnectDelayMs(reconnectAttemptRef.current);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
@@ -592,7 +595,10 @@ export const useDirectMessages = ({
           "warn",
         );
       }
-      scheduleDirectStreamReconnect();
+      scheduleDirectStreamReconnect(
+        false,
+        streamEvent.code === SERVICE_RESTART_CLOSE_CODE,
+      );
     }
   };
 
