@@ -129,8 +129,9 @@ interface UiState {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   /**
-   * The Odak page is open: data-odak on <html> points the tokens at its
-   * palette (odak-overlays.css), and antd is rebuilt from them.
+   * The signed-in workspace is open (WorkspaceShell): data-odak on <html>
+   * points the tokens at the Odak palette (odak-overlays.css), and antd is
+   * rebuilt from them.
    */
   odakTheme: boolean;
   setOdakTheme: (on: boolean) => void;

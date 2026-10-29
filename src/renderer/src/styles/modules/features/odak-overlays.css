@@ -1,10 +1,10 @@
 /* ==========================================================================
    ODAK OVERLAYS -- the popups and notifications in the Odak design.
 
-   While the Odak page is open, <html> carries data-odak (ui-store
-   setOdakTheme). Modals, menus, popovers, tooltips, toasts and the call card
-   are portalled to <body>, so one attribute reaches all of them -- and the
-   shell's conversation panel beside the docked page as well.
+   While the signed-in workspace is open, <html> carries data-odak (ui-store
+   setOdakTheme, from WorkspaceShell). Modals, menus, popovers, tooltips,
+   toasts and the call card are portalled to <body>, so one attribute reaches
+   all of them -- and every section of the shell as well.
    ========================================================================== */
 
 /* The app's tokens pointed at the Odak palette. Everything already drawn from

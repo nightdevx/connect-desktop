@@ -43,7 +43,7 @@ window.addEventListener("error", (event) => {
 function ThemedApp() {
   // Out of the React Compiler: it cached readTokens() as a value with no
   // inputs, so antd kept the palette of the first render through every theme
-  // change (light/dark, and the Odak page's).
+  // change (light/dark, and the workspace's Odak palette).
   "use no memo";
   const themeMode = useUiStore((state) => state.themeMode);
   const odakTheme = useUiStore((state) => state.odakTheme);

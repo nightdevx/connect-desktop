@@ -1,11 +1,11 @@
 /* ==========================================================================
    ODAK -- the redesign, section by section, exactly as the mock-up draws it.
-   Its own palette, scoped to .ct-odak: the rest of the app keeps its theme
-   until the design is settled.
+   The signed-in workspace carries data-odak on <html> (WorkspaceShell), so
+   every section has the palette; sign-in and sign-up keep the old theme.
    ========================================================================== */
 
-/* The palette: on the page, and on <html> while the page is open (data-odak),
-   so the popups portalled to <body> share it (odak-overlays.css). */
+/* The palette: on the page, and on <html> while the workspace is open
+   (data-odak), so the popups portalled to <body> share it (odak-overlays.css). */
 .ct-odak,
 :root[data-odak] {
   --odak-bg: #0e0f11;
