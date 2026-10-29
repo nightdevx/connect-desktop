@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PageHeader } from "@/ui/page-header";
 import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { useUiStore } from "@/store/ui-store";
 
 /**
  * The shapes every admin screen is built from: the page title, the card every
@@ -72,9 +73,19 @@ export function AdminSection({
   className,
   children,
 }: AdminSectionProps) {
+  // Odak: rows rise in one after another only while the card is new
+  // (odak-yonetim.css). A refresh, a filter or the next page later mounts its
+  // rows without replaying it.
+  const [intro, setIntro] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIntro(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <section
       className={`ct-admin-section${flush ? " flush" : ""}${className ? ` ${className}` : ""}`}
+      data-intro={intro ? "" : undefined}
     >
       <header className="ct-admin-section-header">
         {icon ? (
@@ -108,8 +119,36 @@ export interface AdminStat {
   hint?: ReactNode;
 }
 
+/** Odak: a count runs up from zero once, when its tile first appears (600 ms,
+    easing out); a refresh afterwards just swaps the number. Not under reduced
+    motion. */
+function CountUp({ value }: { value: number }) {
+  const [shown, setShown] = useState<number | null>(() =>
+    value > 0 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : null,
+  );
+  const counting = shown !== null;
+
+  useEffect(() => {
+    if (!counting) {
+      return undefined;
+    }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / 600);
+      setShown(t < 1 ? Math.round(value * (1 - (1 - t) ** 3)) : null);
+      if (t < 1) {
+        frame = requestAnimationFrame(tick);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [counting, value]);
+
+  return <>{shown ?? value}</>;
+}
+
 /** A row of metric tiles: what the number is, the number, and what it counts. */
 export function AdminStatGrid({ stats }: { stats: AdminStat[] }) {
+  const odak = useUiStore((state) => state.odakTheme);
   return (
     <div className="ct-stat-grid">
       {stats.map((stat) => (
@@ -120,7 +159,9 @@ export function AdminStatGrid({ stats }: { stats: AdminStat[] }) {
               {stat.icon}
             </span>
           </div>
-          <span className="ct-stat-value">{stat.value}</span>
+          <span className="ct-stat-value">
+            {odak && typeof stat.value === "number" ? <CountUp value={stat.value} /> : stat.value}
+          </span>
           {stat.hint ? <div className="ct-stat-hint">{stat.hint}</div> : null}
         </article>
       ))}
