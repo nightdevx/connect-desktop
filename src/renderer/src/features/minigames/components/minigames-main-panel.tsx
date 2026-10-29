@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   FullscreenExitOutlined,
   FullscreenOutlined,
@@ -167,11 +167,16 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
           </button>
         </header>
 
-        <Component
-          key={`${selected}:${difficulty}`}
-          currentUserId={currentUserId}
-          difficulty={difficulty}
-        />
+        {/* A game's code arrives the first time it is opened (the catalogue
+            loads boards lazily). The empty stand-in holds the board's grid
+            cell, so the rail does not slide into it meanwhile. */}
+        <Suspense fallback={<div aria-busy="true" />}>
+          <Component
+            key={`${selected}:${difficulty}`}
+            currentUserId={currentUserId}
+            difficulty={difficulty}
+          />
+        </Suspense>
 
         {/* One rail, one card, and which card it is follows from what the game
           has to rank. A solo game keeps records and has no table to watch; a

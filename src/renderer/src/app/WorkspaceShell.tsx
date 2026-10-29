@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { throwIfTransient } from "@/services/query-client";
 import type { UserRole } from "@shared/auth-contracts";
@@ -1314,7 +1314,9 @@ function WorkspaceShell({
       />
 
       {workspaceSection === "admin" ? (
-        <AdminPanel currentUserId={currentUserId} />
+        <Suspense fallback={null}>
+          <AdminPanel currentUserId={currentUserId} />
+        </Suspense>
       ) : (
         <>
           <WorkspaceSidebar

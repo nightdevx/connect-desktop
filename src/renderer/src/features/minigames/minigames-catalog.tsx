@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import { lazy, type ComponentType, type ReactNode } from "react";
 import {
   AimOutlined,
   AppstoreAddOutlined,
@@ -40,21 +40,28 @@ import {
 } from "@shared/minigames";
 import { MINIGAME_IDS, type MinigameId } from "@/store/minigame-scores";
 import type { MinigameBoardProps } from "./board-props";
-import { FloodIt } from "./components/games/flood-it";
-import { Game2048 } from "./components/games/game-2048";
-import { Gunline } from "./components/games/gunline";
-import { LightsOut } from "./components/games/lights-out";
-import { MathSprint } from "./components/games/math-sprint";
-import { Memory } from "./components/games/memory";
-import { Minesweeper } from "./components/games/minesweeper";
-import { Nonogram } from "./components/games/nonogram";
-import { Puzzle15 } from "./components/games/puzzle15";
-import { Simon } from "./components/games/simon";
-import { Snake } from "./components/games/snake";
-import { Sudoku } from "./components/games/sudoku";
-import { Tetris } from "./components/games/tetris";
-import { Typing } from "./components/games/typing";
-import { VersusBoard } from "./components/games/versus-board";
+
+// Each game's code loads the first time it is opened. The catalogue itself is
+// needed at startup (game names on friends' activity badges), and importing the
+// boards from here put every one of them in the bundle that is parsed before
+// the first paint. The panel renders the board inside a Suspense boundary.
+const FloodIt = lazy(() => import("./components/games/flood-it").then((m) => ({ default: m.FloodIt })));
+const Game2048 = lazy(() => import("./components/games/game-2048").then((m) => ({ default: m.Game2048 })));
+const Gunline = lazy(() => import("./components/games/gunline").then((m) => ({ default: m.Gunline })));
+const LightsOut = lazy(() => import("./components/games/lights-out").then((m) => ({ default: m.LightsOut })));
+const MathSprint = lazy(() => import("./components/games/math-sprint").then((m) => ({ default: m.MathSprint })));
+const Memory = lazy(() => import("./components/games/memory").then((m) => ({ default: m.Memory })));
+const Minesweeper = lazy(() => import("./components/games/minesweeper").then((m) => ({ default: m.Minesweeper })));
+const Nonogram = lazy(() => import("./components/games/nonogram").then((m) => ({ default: m.Nonogram })));
+const Puzzle15 = lazy(() => import("./components/games/puzzle15").then((m) => ({ default: m.Puzzle15 })));
+const Simon = lazy(() => import("./components/games/simon").then((m) => ({ default: m.Simon })));
+const Snake = lazy(() => import("./components/games/snake").then((m) => ({ default: m.Snake })));
+const Sudoku = lazy(() => import("./components/games/sudoku").then((m) => ({ default: m.Sudoku })));
+const Tetris = lazy(() => import("./components/games/tetris").then((m) => ({ default: m.Tetris })));
+const Typing = lazy(() => import("./components/games/typing").then((m) => ({ default: m.Typing })));
+const VersusBoard = lazy(() =>
+  import("./components/games/versus-board").then((m) => ({ default: m.VersusBoard })),
+);
 
 /**
  * The list of games, and everything the two panels need to draw one.
