@@ -719,14 +719,16 @@ export function SettingsProfile({
               <label className="ct-field-label" htmlFor="settings-email">
                 E-posta
               </label>
+              {/* Keyed by state, so a chip that changes is a new one and pops
+                  in (odak-ayarlar.css) rather than swapping its text. */}
               {profileSettings.email ? (
                 profileSettings.emailVerified ? (
-                  <span className="ct-status-chip ok">Doğrulanmış</span>
+                  <span key="ok" className="ct-status-chip ok">Doğrulanmış</span>
                 ) : (
-                  <span className="ct-status-chip warn">Doğrulanmamış</span>
+                  <span key="warn" className="ct-status-chip warn">Doğrulanmamış</span>
                 )
               ) : (
-                <span className="ct-status-chip danger">E-posta yok</span>
+                <span key="none" className="ct-status-chip danger">E-posta yok</span>
               )}
             </div>
 

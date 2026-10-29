@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SettingsSection } from "@/store/ui-store";
 import { SettingsApplication } from "./settings-application";
 import { SettingsProfile } from "./settings-profile";
@@ -56,11 +56,20 @@ export function SettingsMainPanel({
     panelRef.current?.closest(".ct-main-panel-content")?.scrollTo({ top: 0 });
   }, [settingsSection]);
 
+  // A page rises in on a tab switch, not on the way into Ayarlar: the shell
+  // already raises this whole panel then, and two rises at once read as one
+  // long one. Kept while that entrance lasts (odak-ayarlar.css).
+  const [intro, setIntro] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIntro(false), 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     // The panel half of the tab pattern: the sidebar's tabs point here with
     // aria-controls, and this says which of them it is currently showing.
     <div
-      className="ct-settings-main-panel"
+      className={`ct-settings-main-panel${intro ? " intro" : ""}`}
       ref={panelRef}
       id="settings-panel"
       role="tabpanel"

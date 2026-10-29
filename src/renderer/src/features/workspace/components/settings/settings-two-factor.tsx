@@ -164,12 +164,13 @@ export function SettingsTwoFactor() {
         title="İki adımlı doğrulama"
         description="Girişte şifrenin yanında telefonundaki doğrulama uygulamasının (Google Authenticator, Microsoft Authenticator gibi) ürettiği kod da istenir. Şifren ele geçse bile hesabına girilemez."
         action={
+          // Keyed by state, so switching it on pops the new tag in.
           status.enabled ? (
-            <Tag color="success" icon={<SafetyCertificateOutlined />}>
+            <Tag key="on" color="success" icon={<SafetyCertificateOutlined />}>
               Açık
             </Tag>
           ) : (
-            <Tag icon={<StopOutlined />}>Kapalı</Tag>
+            <Tag key="off" icon={<StopOutlined />}>Kapalı</Tag>
           )
         }
       >

@@ -483,7 +483,8 @@ export function SettingsApplication() {
                 {nextVersionLabel ? ` · v${nextVersionLabel} bulundu` : ""}
               </span>
             </div>
-            <span className={`ct-status-chip${phaseTone}`}>
+            {/* Keyed by phase: each new state pops in (odak-ayarlar.css). */}
+            <span key={updatePhase} className={`ct-status-chip${phaseTone}`}>
               {getUpdatePhaseLabel(updatePhase)}
             </span>
           </div>
