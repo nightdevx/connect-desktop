@@ -328,10 +328,9 @@
    -------------------------------------------------------------------------- */
 
 /* The section draws its own edge to edge: the frame around the old room card
-   goes, and the chat drawer below 900px is measured from the same numbers. */
+   goes. */
 :root[data-odak] .ct-main-panel-content.lobby-mode {
   --ct-lobby-frame: 0px;
-  --ct-lobby-bar-height: 60px;
 }
 
 :root[data-odak] .ct-lobby-main-layer {
@@ -499,9 +498,10 @@
    -------------------------------------------------------------------------- */
 
 /* No card around the room: the header sits over the stage and the chat runs
-   the full height on the right, as in the mock-up. */
+   the full height on the right, as in the mock-up. The chat narrows before
+   the stage's content drops under the 240px the fit assumes at least. */
 :root[data-odak] .ct-lobby-room-grid-v2 {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, 25vw, 380px);
+  grid-template-columns: minmax(0, 1fr) clamp(260px, min(25vw, 100% - 284px), 380px);
   grid-template-areas:
     "head chat"
     "stage chat";
@@ -615,22 +615,44 @@
   --ct-stage-pad-y: 14px;
 }
 
-/* Below 900px the chat is a drawer over the stage (responsive.css): one
-   column again, and a tighter stage. The rules above outrank that file's, so
-   they are restated here. */
+/* Below 900px responsive.css turns the chat into a drawer over the stage, and
+   the tiles on the right ended up under it. Here it stays a column beside the
+   stage, narrower, and the stage gives up the width: the fit measures a
+   smaller box and no tile is ever behind the chat (user decision 2026-10-29).
+   The chat gives way before the stage drops under 264px: the fit treats
+   anything narrower than 240px of content as 240 and would overflow it.
+   The rules above outrank that file's, so they are restated here. */
 @media (max-width: 900px) {
-  :root[data-odak] .ct-lobby-room-grid-v2,
-  :root[data-odak] .ct-lobby-room-grid-v2.chat-closed {
-    grid-template-columns: minmax(0, 1fr);
+  :root[data-odak] .ct-lobby-room-grid-v2 {
+    grid-template-columns: minmax(0, 1fr) clamp(200px, min(30vw, 100% - 264px), 300px);
     grid-template-areas:
-      "head"
-      "stage";
+      "head chat"
+      "stage chat";
+  }
+
+  :root[data-odak] .ct-lobby-room-grid-v2.chat-closed {
+    grid-template-columns: minmax(0, 1fr) 0;
   }
 
   :root[data-odak] .ct-lobby-room-grid-v2.stage-closed {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "head"
       "chat";
+  }
+
+  /* The drawer undone: back in the grid, in the flow. */
+  :root[data-odak] .ct-lobby-chat-slot {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+    border-radius: 0;
+    backdrop-filter: none;
+    box-shadow: none;
+    transform: none;
+    transition: none;
+    pointer-events: auto;
   }
 
   :root[data-odak] .ct-lobby-stage-panel {
@@ -853,6 +875,52 @@
   box-shadow: none;
 }
 
+/* A thumbnail-sized tile (a crowded stage squeezed beside the chat, the
+   rail): a smaller face and pill, so the name never sits on the face. antd
+   writes the face's size inline, hence !important, as lobby.css does. */
+@container participant-tile (max-width: 170px) {
+  :root[data-odak] .ct-lobby-tile-center-logo .ant-avatar {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 11px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-footer {
+    right: 6px;
+    bottom: 6px;
+    left: 6px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-userline {
+    height: 20px;
+    gap: 4px;
+    padding: 0 6px;
+    border-radius: 7px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-userline p {
+    font-size: 10px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-you {
+    display: none;
+  }
+
+  :root[data-odak] .ct-lobby-tile-topbar {
+    top: 6px;
+    left: 6px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-kind-badge,
+  :root[data-odak] .ct-lobby-tile-kind-badge.camera,
+  :root[data-odak] .ct-lobby-tile-kind-badge.live {
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+}
+
 /* A share nobody here has opened yet. */
 :root[data-odak] .ct-lobby-tile-watch-prompt {
   gap: 10px;
@@ -1020,7 +1088,7 @@
 /* The words under the icons, where the stage is wide enough to carry them:
    folded to icons the row still fits beside an open chat. The label is the
    button's data-label, so the old design draws nothing new. */
-@container lobby-stage (min-width: 820px) {
+@container lobby-stage (min-width: 740px) {
   :root[data-odak] .ct-lobby-stage-actions {
     padding: 8px;
     border-radius: 22px;
@@ -1085,6 +1153,30 @@
 
   :root[data-odak] .ct-lobby-action-divider {
     margin: 0 1px;
+  }
+}
+
+/* A stage squeezed beside the chat in a small window: smaller controls, no
+   dividers, and the row may wrap rather than run off the stage. */
+@container lobby-stage (max-width: 420px) {
+  :root[data-odak] .ct-lobby-stage-actions {
+    --ct-tool-size: 36px;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
+    width: 44px;
+  }
+
+  :root[data-odak] .ct-lobby-action-divider {
+    display: none;
   }
 }
 
