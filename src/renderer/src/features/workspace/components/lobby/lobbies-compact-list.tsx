@@ -46,7 +46,9 @@ export function LobbiesCompactList({
       renamingLobbyId === lobby.id ||
       deletingLobbyId === lobby.id ||
       joiningLobbyId !== null;
-    const seatCount = (lobbyMembersById[lobby.id] ?? []).length;
+    const members = lobbyMembersById[lobby.id] ?? [];
+    const seatCount = members.length;
+    const isLive = members.some((member) => member.screenSharing);
     const unreadCount = unreadByLobbyId[lobby.id] ?? 0;
     const label = lobby.isTextOnly
       ? `# ${lobby.name}`
@@ -79,6 +81,11 @@ export function LobbiesCompactList({
             }}
           >
             {lobby.isTextOnly ? "#" : getDisplayInitials(lobby.name)}
+            {/* Somebody in there is sharing a screen: a red dot on the
+                corner, as the stage and the full row say "CANLI". */}
+            {isLive && (
+              <span className="ct-lobby-mini-live" aria-hidden="true" />
+            )}
             {unreadCount > 0 && (
               <span className="ct-lobby-mini-unread" aria-hidden="true">
                 {unreadCount > 99 ? "99+" : unreadCount}

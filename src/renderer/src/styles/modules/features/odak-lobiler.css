@@ -1,1 +1,325 @@
 /* Odak tasarımı: lobiler bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   ODAK LOBİLER -- the room list, the stage, its controls and the room chat,
+   as Odak.dc.html draws them. Colours mostly follow the --ct-* tokens that
+   odak-overlays.css points at the Odak palette; what is here is shape,
+   spacing and the states the tokens cannot say on their own.
+
+   The stage's geometry is not touched: the fit (useLobbyStageLayout) measures
+   .ct-lobby-stage-area and sizes the tiles itself, and lobby.css keeps the
+   size containers check-stage-resize.cjs holds. Motion is opacity and
+   transform only, so nothing here moves a box the fit has measured.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The room list (full sidebar)
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-lobby-list {
+  gap: 10px;
+}
+
+/* The section title of the strip: small capitals, no band. */
+:root[data-odak] .ct-lobby-category-header {
+  padding-block: 8px 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--odak-muted);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-lobby-category-header::after {
+  display: none;
+}
+
+:root[data-odak] .ct-lobby-category-header:hover {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-lobby-category-count {
+  height: 18px;
+  min-width: 18px;
+  border-radius: 9px;
+  font-size: 10px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-category-items,
+:root[data-odak] .ct-lobby-group {
+  gap: 2px;
+}
+
+:root[data-odak] .ct-lobby-group + .ct-lobby-group {
+  margin-top: 2px;
+}
+
+:root[data-odak] .ct-lobby-group.drop-target {
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--odak-accent);
+  background: rgba(198, 244, 50, 0.08);
+}
+
+/* A room: its badge, its name, what is true of it, how full it is. */
+:root[data-odak] .ct-lobby-row {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 10px 0 6px;
+  border-radius: 14px;
+  color: #c9ccd2;
+}
+
+:root[data-odak] .ct-lobby-row:hover {
+  color: var(--odak-text);
+  background: var(--odak-surface);
+  translate: 0 0;
+}
+
+:root[data-odak] .ct-lobby-row.active {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+/* The raised row says "on screen"; the bar was the old chrome's way. */
+:root[data-odak] .ct-lobby-row.active::before {
+  display: none;
+}
+
+/* The room's badge, as the folded strip draws it, small. */
+:root[data-odak] .ct-lobby-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  font-size: 15px;
+  color: var(--odak-muted);
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-lobby-row.text-room .ct-lobby-row-icon {
+  border: 1px dashed #3a3f48;
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-row-hash {
+  font-size: 15px;
+}
+
+:root[data-odak] .ct-lobby-row.active .ct-lobby-row-icon {
+  color: var(--odak-accent);
+  background: var(--odak-bg);
+}
+
+/* Connected: the room your microphone is in, in the accent. */
+:root[data-odak] .ct-lobby-row.joined .ct-lobby-row-icon {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-row.joined::after {
+  background: var(--odak-accent);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-row-name {
+  font-size: 14px;
+}
+
+:root[data-odak] .ct-lobby-row.text-room:not(.active) .ct-lobby-row-name {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-row-flag,
+:root[data-odak] .ct-lobby-row-flag.warn {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-row-flag.ok {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-row-count {
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  color: var(--odak-muted);
+}
+
+/* One unread pill in the whole section: the list's, the strip's, the chat
+   button's. Lime with the page's dark on it, popping in when it appears. */
+:root[data-odak] .ct-lobby-unread,
+:root[data-odak] .ct-lobby-mini-unread,
+:root[data-odak] .ct-lobby-action-btn .ct-tool-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  animation: odak-pop var(--odak-dur-2) var(--odak-ease-spring) backwards;
+}
+
+:root[data-odak] .ct-lobby-empty {
+  padding-left: 48px;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+/* Who is in a room: under its name, without the guide line. */
+:root[data-odak] .ct-lobby-members {
+  gap: 2px;
+  margin-left: 6px;
+  padding: 2px 0 4px 32px;
+  border-left: 0;
+}
+
+:root[data-odak] .ct-lobby-member {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-lobby-member:has(.ct-lobby-member-identity:hover) {
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-member-name {
+  font-size: 13px;
+  color: #c9ccd2;
+}
+
+:root[data-odak] .ct-lobby-member-avatar.ant-avatar {
+  font-size: 9px;
+}
+
+/* Talking: the stage's lime ring, around the face. */
+:root[data-odak] .ct-lobby-member-avatar.speaking.ant-avatar {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 2px rgba(198, 244, 50, 0.3);
+}
+
+/* A closed microphone or deafened output says so in red, as on the stage. */
+:root[data-odak] .ct-lobby-member-flag.off {
+  color: var(--odak-danger);
+  opacity: 1;
+}
+
+:root[data-odak] .ct-lobby-member-flag.on,
+:root[data-odak] .ct-lobby-member-flag.camera {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-member-live {
+  padding: 0 6px;
+  border-radius: 6px;
+  line-height: 16px;
+  color: #ffffff;
+  background: var(--odak-danger);
+}
+
+/* --------------------------------------------------------------------------
+   The folded strip: the mock-up's 76px column of room badges
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-lobby-compact,
+:root[data-odak] .ct-lobby-compact ul {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-lobby-compact {
+  padding-top: 4px;
+}
+
+:root[data-odak] .ct-lobby-compact-divider {
+  width: 32px;
+  margin: 6px 0;
+  border-color: var(--odak-border-strong);
+}
+
+/* Square-ish, neutral, the initials in light grey. The hue each room used
+   to wear is gone: the mock-up tells rooms apart by name, not colour. */
+:root[data-odak] .ct-lobby-mini {
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 16px;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: #d7dae0;
+  background: #1a1c21;
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--lobby-order, 0), 8) * var(--odak-stagger));
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-mini:hover {
+  color: var(--odak-text);
+  transform: translateY(-1px);
+}
+
+:root[data-odak] .ct-lobby-mini.text-room {
+  border: 1px dashed #3a3f48;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+/* On screen: lime, ringed. */
+:root[data-odak] .ct-lobby-mini.active {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+  box-shadow: 0 0 0 2px var(--odak-accent);
+}
+
+/* Connected but reading another room: the accent without the ring. */
+:root[data-odak] .ct-lobby-mini.joined:not(.active) {
+  color: var(--odak-accent);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-mini-unread {
+  top: -4px;
+  right: -4px;
+}
+
+:root[data-odak] .ct-lobby-mini-count {
+  right: -4px;
+  bottom: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--odak-strip);
+  border-radius: 9px;
+  box-sizing: content-box;
+  font-size: 10px;
+  color: var(--odak-text);
+  background: var(--odak-border-strong);
+  box-shadow: none;
+}
+
+/* Somebody in the room is sharing a screen. */
+:root[data-odak] .ct-lobby-mini-live {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--odak-strip);
+  border-radius: 50%;
+  box-sizing: content-box;
+  background: var(--odak-danger);
+}
+
+/* The strip is the 56px rail below 760px. */
+@media (max-width: 760px) {
+  :root[data-odak] .ct-lobby-mini {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+}
+
