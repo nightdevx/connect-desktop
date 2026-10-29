@@ -4,6 +4,8 @@
 //     file whole (session.json, app-preferences.json).
 //   - src/main/window-state.ts: a saved window position is used only while it
 //     is on an attached screen; a page that keeps crashing stops reloading.
+//   - src/main/taskbar-pins.ts: a taskbar pin of this exe under the old
+//     AppUserModelID is re-stamped, nothing else is touched.
 //   - src/main/ipc/handle.ts: an IPC call or a stream-port request from any
 //     frame but the app's own page is refused.
 //
@@ -157,6 +159,50 @@ const main = async () => {
       assert.equal(spaced(0), true);
       assert.equal(spaced(50_000), true);
       assert.equal(spaced(120_000), true, "crashes older than the window no longer count");
+    }
+
+    // --- taskbar pins -----------------------------------------------------
+    {
+      // A pin of this exe under the old ID is re-stamped; a pin of another app,
+      // one already right, a non-shortcut and an unreadable link are left alone.
+      const appData = fs.mkdtempSync(path.join(outDir, "appdata-"));
+      const pins = path.join(appData, "Microsoft", "Internet Explorer", "Quick Launch", "User Pinned", "TaskBar");
+      fs.mkdirSync(pins, { recursive: true });
+      for (const name of ["Connect.lnk", "Other.lnk", "Already.lnk", "notes.txt", "Broken.lnk"]) {
+        fs.writeFileSync(path.join(pins, name), "");
+      }
+      const fakeElectron = path.join(outDir, "fake-electron-pins.mjs");
+      fs.writeFileSync(
+        fakeElectron,
+        `const state = (globalThis.__fakePins ??= { links: new Map(), writes: [], appData: "" });
+         export const app = { getPath: () => state.appData };
+         export const shell = {
+           readShortcutLink: (p) => { const link = state.links.get(p.split(/[\\\\/]/).pop()); if (!link) throw new Error("unreadable"); return link; },
+           writeShortcutLink: (p, op, options) => { state.writes.push([p.split(/[\\\\/]/).pop(), op, options]); return true; },
+         };`,
+      );
+      const exe = process.execPath;
+      globalThis.__fakePins = {
+        appData,
+        writes: [],
+        links: new Map([
+          ["Connect.lnk", { target: exe.toUpperCase(), appUserModelId: "electron.app.Connect" }],
+          ["Other.lnk", { target: "C:\\Windows\\explorer.exe", appUserModelId: "Microsoft.Windows.Explorer" }],
+          ["Already.lnk", { target: exe, appUserModelId: "com.nightdevx.connect-desktop" }],
+          ["notes.txt", { target: exe, appUserModelId: "x" }],
+        ]),
+      };
+      const { fixPinnedTaskbarShortcuts } = await bundle(outDir, "src/main/taskbar-pins.ts", "taskbar-pins.mjs", {
+        alias: { electron: fakeElectron },
+      });
+      fixPinnedTaskbarShortcuts("com.nightdevx.connect-desktop");
+      assert.deepEqual(globalThis.__fakePins.writes, [
+        ["Connect.lnk", "update", { target: exe.toUpperCase(), appUserModelId: "com.nightdevx.connect-desktop" }],
+      ]);
+
+      globalThis.__fakePins.appData = path.join(appData, "missing");
+      fixPinnedTaskbarShortcuts("com.nightdevx.connect-desktop");
+      assert.equal(globalThis.__fakePins.writes.length, 1, "no pins folder is not an error");
     }
 
     // --- IPC sender check --------------------------------------------------

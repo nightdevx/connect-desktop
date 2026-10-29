@@ -25,6 +25,7 @@ import {
 import { restoreWindowState } from "./window-state";
 import { installPageRecovery } from "./page-recovery";
 import { titleBarWindowOptions } from "./titlebar";
+import { fixPinnedTaskbarShortcuts } from "./taskbar-pins";
 import {
   applyMediaEngineSwitches,
   logMediaEngineStatus,
@@ -98,8 +99,9 @@ let startHiddenInTray = process.argv.includes(AUTOSTART_FLAG);
 // nothing the installer creates (it stamps the shortcut with the appId): toasts
 // could carry a generic name and icon, and a pinned shortcut sat apart from the
 // running window. It has to stay equal to appId in electron-builder.yml.
+const APP_USER_MODEL_ID = "com.nightdevx.connect-desktop";
 if (process.platform === "win32") {
-  app.setAppUserModelId("com.nightdevx.connect-desktop");
+  app.setAppUserModelId(APP_USER_MODEL_ID);
 }
 
 const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
@@ -403,6 +405,15 @@ function createMainWindow(): BrowserWindow {
   win.on("maximize", () => emitWindowState(win));
   win.on("unmaximize", () => emitWindowState(win));
 
+  // The system minimise button, a taskbar click or Win+Down: with the tray
+  // option on, the window leaves the taskbar instead of staying there minimised.
+  // showMainWindowFromTray restores it.
+  win.on("minimize", () => {
+    if (getDesktopAppPreferences().minimizeToTray) {
+      hideWindowToTray(win);
+    }
+  });
+
   win.on("close", (event) => {
     // Saved on every close, including the one that only hides it to the tray.
     // A window that is already hidden is skipped: quitting from the tray would
@@ -504,6 +515,9 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
 
     startHiddenInTray &&= hasTrayBehaviorEnabled();
     refreshSystemLaunchOnStartup();
+    if (process.platform === "win32" && app.isPackaged) {
+      fixPinnedTaskbarShortcuts(APP_USER_MODEL_ID);
+    }
 
     mainWindow = createMainWindow();
     syncTrayWithPreferences();
