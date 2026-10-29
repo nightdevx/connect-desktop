@@ -243,6 +243,14 @@
   color: var(--ct-text-primary);
 }
 
+/* Local development only (LoginPage DEV_QUICK_LOGINS): a dashed box, so it
+   never reads as part of the real form. */
+.ct-auth-dev-login {
+  @apply mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs;
+  border-color: var(--ct-alpha-20);
+  color: var(--ct-text-muted);
+}
+
 .ct-auth-subtitle {
   @apply m-0 mt-2 text-base leading-relaxed;
   color: var(--ct-text-muted);

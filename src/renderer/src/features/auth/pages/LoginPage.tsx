@@ -38,6 +38,20 @@ const mutedIconStyle = { color: "var(--ct-text-muted)" };
 
 const OTP_PLACEHOLDER = "0".repeat(OTP_CODE_LENGTH);
 
+// Local development only: one button per account in VITE_DEV_QUICK_LOGIN
+// ("kullanici:parola,kullanici2:parola"), kept in the git-ignored
+// src/renderer/.env.development.local. import.meta.env.DEV is false in a
+// build, so the list is empty there and the buttons never render.
+const DEV_QUICK_LOGINS: LoginFormValues[] = import.meta.env.DEV
+  ? (import.meta.env.VITE_DEV_QUICK_LOGIN ?? "")
+      .split(",")
+      .map((entry) => {
+        const colon = entry.indexOf(":");
+        return { username: entry.slice(0, colon).trim(), password: entry.slice(colon + 1) };
+      })
+      .filter((account) => account.username && account.password)
+  : [];
+
 const normalizeOtp = (value: string | undefined): string =>
   (value ?? "").replace(/\D/g, "").slice(0, OTP_CODE_LENGTH);
 
@@ -467,6 +481,22 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           </Button>
         </Form.Item>
       </Form>
+
+      {DEV_QUICK_LOGINS.length > 0 && (
+        <div className="ct-auth-dev-login">
+          <span>Yerel hızlı giriş</span>
+          {DEV_QUICK_LOGINS.map((account) => (
+            <Button
+              key={account.username}
+              size="small"
+              disabled={loading}
+              onClick={() => void handleSubmit(account)}
+            >
+              {account.username}
+            </Button>
+          ))}
+        </div>
+      )}
 
       <p className="mt-6 text-sm">
         Hesabın yok mu?{" "}

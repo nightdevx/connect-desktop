@@ -9,6 +9,7 @@ yarn-error.log*
 pnpm-debug.log*
 .env
 .env.runtime
+.env*.local
 !.env.example
 
 # Sentry Config File
