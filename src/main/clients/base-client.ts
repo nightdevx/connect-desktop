@@ -161,6 +161,12 @@ export class BaseClient {
         throw errorFromResponse(response.status, payload, "İstek başarısız oldu.");
       }
 
+      // 204 No Content (marking a conversation read) has no body to parse;
+      // response.json() threw on it and the call was logged as unreachable.
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
       // A newer backend sends picture versions where the base64 used to be;
       // every response gets the addresses the page loads them from.
       return attachPictureUrls((await response.json()) as T);
