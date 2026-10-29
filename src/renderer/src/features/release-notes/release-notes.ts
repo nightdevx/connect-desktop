@@ -84,6 +84,10 @@ export const RELEASE_NOTES: ReleaseNote[] = [
         text: "Uygulama donar ya da çökerse sayfa kendiliğinden yeniden yükleniyor. Ayarların ve oturumun yarıda kalan bir kayıt yüzünden silinmiyor.",
       },
       {
+        kind: "fixed",
+        text: "\"Küçültünce sistem tepsisine gönder\" ayarı yeniden çalışıyor.",
+      },
+      {
         kind: "improved",
         text: "Uygulamanın altyapısı güncellendi; güvenlik düzeltmeleri bu sürümle geliyor.",
       },
