@@ -232,13 +232,9 @@ export const useFriends = (enabled: boolean): FriendsController => {
 
   // Either list failing is worth showing: they render side by side, and a
   // half-loaded friends section is still a broken one.
-  const loadError =
-    (friendsQuery.data && !friendsQuery.data.ok
-      ? (friendsQuery.data.error ?? null)
-      : null) ??
-    (requestsQuery.data && !requestsQuery.data.ok
-      ? (requestsQuery.data.error ?? null)
-      : null);
+  const failureOf = (result: DesktopResult<unknown> | undefined) =>
+    result && !result.ok ? (result.error ?? null) : null;
+  const loadError = failureOf(friendsQuery.data) ?? failureOf(requestsQuery.data);
 
   const refresh = useCallback((): void => {
     void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });

@@ -64,6 +64,7 @@
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
     "@typescript-eslint/parser": "^8.8.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-react": "^6.1.2",
     "antd": "^6.3.7",
     "autoprefixer": "^10.4.27",
@@ -87,7 +88,7 @@
     "sharp": "^0.35.5",
     "tailwindcss": "^3.4.17",
     "three": "^0.186.1",
-    "typescript": "^5.6.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^8.0.7",
     "wait-on": "^9.5.1",
     "zustand": "^5.0.12"
