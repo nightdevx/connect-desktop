@@ -1264,3 +1264,76 @@
   background: var(--odak-raised);
 }
 
+/* --------------------------------------------------------------------------
+   Motion (Hareket dili, H1.1). Opacity and transform only, on the shared
+   timings, so the fit's measurements never see any of it; the shared file
+   zeroes every duration under prefers-reduced-motion.
+   -------------------------------------------------------------------------- */
+
+/* A tile grows in from .96 as its person joins. Backwards fill only, so the
+   hover lift keeps the transform once the entrance is done. */
+@keyframes odak-lobiler-grow {
+  from {
+    scale: 0.96;
+  }
+}
+
+:root[data-odak] .ct-lobby-stage-grid > .ct-lobby-participant-tile,
+:root[data-odak] .ct-lobby-participant-rail > .ct-lobby-participant-tile {
+  animation:
+    odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards,
+    odak-lobiler-grow var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+/* The focused tile arrives with its slot, which fades. */
+:root[data-odak] .ct-lobby-focused-slot > .ct-lobby-participant-tile {
+  animation: none;
+}
+
+/* Focusing a share and letting it go cross-fades the stage: the grid swaps
+   between two names of one fade, so each change of layout restarts it. */
+@keyframes odak-lobiler-refade {
+  from {
+    opacity: 0;
+  }
+}
+
+:root[data-odak] .ct-lobby-stage-grid {
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-lobby-stage-grid.focused-layout {
+  animation-name: odak-lobiler-refade;
+}
+
+/* A control that changes state pops its icon. Same two-names trick for the
+   buttons whose icon stays mounted while their state class flips (output,
+   camera, the chat and emote toggles); a microphone swaps its icon outright. */
+@keyframes odak-lobiler-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ct-lobby-action-btn .anticon {
+  animation: odak-pop var(--odak-dur-2) var(--odak-ease-spring) backwards;
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ct-lobby-action-btn:is(.off, .active, .live-cam) .anticon {
+  animation-name: odak-lobiler-pop;
+}
+
+/* Hover and press, short. */
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+  transition:
+    background var(--odak-dur-1) var(--odak-ease-out),
+    color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-row {
+  transition:
+    background var(--odak-dur-1) var(--odak-ease-out),
+    color var(--odak-dur-1) var(--odak-ease-out);
+}
