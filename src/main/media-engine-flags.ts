@@ -161,7 +161,7 @@ export const logMediaEngineStatus = (hardwareAcceleration: boolean): void => {
     }
     reported = true;
 
-    let status: Record<string, string> = {};
+    let status: Record<string, string>;
     try {
       status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
     } catch {

@@ -76,7 +76,7 @@ export function SettingsStream({
       const elapsed = (now - lastTime) / 1000;
       if (elapsed <= 0) return;
 
-      let currentFps = 0;
+      let currentFps: number;
       if (videoEl.getVideoPlaybackQuality) {
         const quality = videoEl.getVideoPlaybackQuality();
         const totalFrames = quality.totalVideoFrames;

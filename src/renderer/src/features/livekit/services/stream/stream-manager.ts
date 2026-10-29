@@ -2183,8 +2183,7 @@ export class LiveKitMediaSession {
     }
 
     let encodings: RTCRtpEncodingParameters[];
-    let negotiatedCodec: { mimeType: string; sdpFmtpLine?: string } | null =
-      null;
+    let negotiatedCodec: { mimeType: string; sdpFmtpLine?: string } | null;
     try {
       const parameters = sender.getParameters();
       encodings = parameters.encodings ?? [];
