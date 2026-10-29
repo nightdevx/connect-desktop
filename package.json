@@ -42,6 +42,7 @@
     "check:package": "node scripts/check-packaged-deps.cjs",
     "dist:win": "pnpm build && pnpm build:native && pnpm clean:release && electron-builder --win nsis --publish never && pnpm check:package",
     "dist:win:publish": "pnpm build && pnpm build:native && pnpm clean:release && electron-builder --win nsis --publish always && pnpm check:package",
+    "dist:mac": "pnpm build && pnpm clean:release && electron-builder --mac --publish never && pnpm check:package",
     "dist:linux": "pnpm build && pnpm clean:release && electron-builder --linux --publish never",
     "dist:linux:publish": "pnpm build && pnpm clean:release && electron-builder --linux --publish always"
   },

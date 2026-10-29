@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Verifies every dependency declared inside the packed asar is actually in it.
-// Run after `pnpm dist:win`:
-//   node scripts/check-packaged-deps.cjs
+// Run after `pnpm dist:win` or `pnpm dist:mac` (it finds either archive), or
+// pass the archive's path:
+//   node scripts/check-packaged-deps.cjs [path/to/app.asar]
 //
 // Why this exists: 0.1.28 passed CI and then died on first launch with
 // "Cannot find module 'ms'". electron-builder had flattened pnpm's isolated
@@ -18,13 +19,17 @@ const path = require("node:path");
 const fs = require("node:fs");
 const asar = require("@electron/asar");
 
+const releaseDir = path.join(__dirname, "..", "release");
+const builtArchives = [
+  path.join(releaseDir, "win-unpacked", "resources", "app.asar"),
+  path.join(releaseDir, "mac-universal", "Connect.app", "Contents", "Resources", "app.asar"),
+];
 const archivePath =
-  process.argv[2] ??
-  path.join(__dirname, "..", "release", "win-unpacked", "resources", "app.asar");
+  process.argv[2] ?? builtArchives.find((candidate) => fs.existsSync(candidate)) ?? builtArchives[0];
 
 if (!fs.existsSync(archivePath)) {
   console.error(
-    `No asar at ${archivePath}. Run "pnpm dist:win" first, or pass the path as an argument.`,
+    `No asar at ${archivePath}. Run "pnpm dist:win" or "pnpm dist:mac" first, or pass the path as an argument.`,
   );
   process.exit(1);
 }
