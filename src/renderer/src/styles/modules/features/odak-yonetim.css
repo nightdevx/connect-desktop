@@ -1,1 +1,774 @@
 /* Odak tasarımı: yonetim bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   YÖNETİM -- the admin pages in the Odak design (OdakYonetim.dc.html).
+
+   Every admin page is built from the same few shapes (admin-primitives.tsx):
+   the page header, the card, the stat tiles, antd tables in a card. Restyling
+   those shapes here carries the mock-up's Genel Bakış to all fifteen pages:
+   #16181C cards with 18px corners on #0E0F11, a #22252B edge, the title in a
+   raised pill, numbers in JetBrains Mono, lime for "the one on screen".
+   ========================================================================== */
+
+:root[data-odak] .ct-admin-panel-shell {
+  --ct-admin-block: 16px;
+}
+
+/* --- the nav ----------------------------------------------------------- */
+/* Group titles in small capitals, rows of words: 36px, the one on screen
+   raised and lime. The icons only show on the folded strip. */
+:root[data-odak] .ct-admin-sidebar-nav {
+  gap: 2px;
+  padding: 4px 12px 16px;
+}
+
+:root[data-odak] .ct-admin-sidebar-nav > .ct-list-group-title {
+  margin: 12px 10px 6px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-admin-sidebar-nav > .ct-list-group-title:first-child {
+  margin-top: 4px;
+}
+
+:root[data-odak] .ct-admin-nav-item {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d7dae0;
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-admin-sidebar:not(.collapsed) .ct-admin-nav-item > .anticon {
+  display: none;
+}
+
+:root[data-odak] .ct-admin-nav-item:hover:not(.active) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-nav-item.active {
+  font-weight: 600;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-nav-item:active {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-admin-nav-item:focus-visible {
+  outline-color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-admin-sidebar.collapsed .ct-admin-sidebar-nav {
+  padding-inline: 0;
+}
+
+:root[data-odak] .ct-admin-sidebar.collapsed .ct-admin-nav-item {
+  width: 48px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+:root[data-odak] .ct-admin-sidebar.collapsed .ct-admin-nav-item > .anticon {
+  font-size: 17px;
+}
+
+/* --- the page ------------------------------------------------------------ */
+/* The column pads like the mock-up's main. The page itself does not animate:
+   the shell's entrance runs on the column, which admin-panel.tsx remounts on
+   every page switch. */
+:root[data-odak] .ct-admin-panel-content {
+  padding: 16px 24px 24px;
+}
+
+:root[data-odak] .ct-admin-page {
+  padding-bottom: 24px;
+  animation: none;
+}
+
+/* The header: the title in a raised pill with its one sentence beside it, the
+   page's controls at the far end. */
+:root[data-odak] .ct-admin-page-header {
+  align-items: center;
+  gap: 10px 16px;
+  padding: 0;
+}
+
+:root[data-odak] .ct-admin-page-header .ct-page-header-text {
+  flex: 1 1 320px;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+:root[data-odak] .ct-admin-page-header h2 {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: normal;
+  white-space: nowrap;
+  color: var(--odak-text);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-admin-page-header p {
+  flex: 1 1 220px;
+  max-width: 56ch;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-admin-page-header .ct-page-header-actions {
+  gap: 10px;
+}
+
+/* "Sunucu sağlıklı": a green pill with its dot, red when a service is down. */
+:root[data-odak] .ct-admin-health {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #86efac;
+  background: #16261a;
+}
+
+:root[data-odak] .ct-admin-health::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
+:root[data-odak] .ct-admin-health.down {
+  color: #fca5a5;
+  background: #2a1618;
+}
+
+:root[data-odak] .ct-admin-health.down::before {
+  background: var(--odak-danger);
+}
+
+/* "Güncellendi 21:04:31" in mono, without the old pill. */
+:root[data-odak] .ct-admin-refreshed {
+  height: auto;
+  padding: 0;
+  border: 0;
+  font-family: var(--ct-font-mono);
+  color: var(--odak-muted);
+  background: none;
+}
+
+:root[data-odak] .ct-admin-refreshed-dot {
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-admin-refreshed.failed {
+  color: var(--ct-warning);
+}
+
+/* --- buttons and fields -------------------------------------------------- */
+/* The mock-up's "Yönet": a raised button with a strong edge. Full-size ones
+   take the 12px corner of the Odak fields; small ones in table rows 9px. */
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn {
+  font-weight: 600;
+  box-shadow: none;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn:not(.ant-btn-sm) {
+  border-radius: 12px;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn-sm {
+  border-radius: 9px;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn-default:not(:disabled, .ant-btn-dangerous) {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn-default:not(:disabled, .ant-btn-dangerous):hover {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+:root[data-odak]
+  :is(.ct-admin-panel-content, .ct-admin-drawer)
+  :is(.ant-input-affix-wrapper, .ant-input-outlined, .ant-input-number, .ant-select, .ant-picker) {
+  border-radius: 12px;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-input-affix-wrapper > .ant-input {
+  border-radius: 0;
+}
+
+/* A page's pane switch: the Odak tabs, the one on screen raised and lime. */
+:root[data-odak] .ct-admin-panel-content .ct-segmented-premium.ant-segmented {
+  padding: 4px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-admin-panel-content .ct-segmented-premium :is(.ant-segmented-item, .ant-segmented-thumb) {
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-admin-panel-content .ct-segmented-premium .ant-segmented-item-label {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  line-height: 34px;
+}
+
+:root[data-odak] .ct-admin-panel-content .ct-segmented-premium :is(.ant-segmented-item-selected, .ant-segmented-thumb) {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-panel-content .ct-segmented-premium .ant-segmented-item:not(.ant-segmented-item-selected) {
+  color: var(--odak-muted);
+}
+
+/* --- the card ------------------------------------------------------------ */
+/* No hairlines between the title and what is under it, no icon tile: the
+   title, its sentence and a quiet count, then the content. */
+:root[data-odak] .ct-admin-section {
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-admin-section > * + * {
+  border-top: 0;
+}
+
+:root[data-odak] .ct-admin-section-header {
+  gap: 10px;
+  padding: 18px 18px 0;
+}
+
+:root[data-odak] .ct-admin-section-icon {
+  display: none;
+}
+
+:root[data-odak] .ct-admin-section-heading h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-admin-section-heading p {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-admin-section-hint {
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--odak-muted);
+  background: none;
+}
+
+:root[data-odak] .ct-admin-section-toolbar {
+  gap: 8px;
+  padding: 14px 18px 0;
+  background: none;
+}
+
+:root[data-odak] .ct-admin-section-body {
+  padding: 14px 18px 18px;
+}
+
+:root[data-odak] .ct-admin-section.flush > .ct-admin-section-body {
+  padding: 8px 0 4px;
+}
+
+:root[data-odak] .ct-admin-section-footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--odak-border);
+  background: none;
+}
+
+/* The mock-up's chart beside its 360px list; one column below 1100px, where
+   responsive.css stacks the old pair too. */
+@media (min-width: 1101px) {
+  :root[data-odak] .ct-admin-grid-split {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+:root[data-odak] :is(.ct-admin-grid-split, .ct-admin-grid-halves) {
+  gap: 12px;
+}
+
+/* --- stat tiles ------------------------------------------------------------ */
+/* The label, the number in mono, the line under it; no icon, no glow. The
+   number counts up once (CountUp in admin-primitives.tsx). */
+:root[data-odak] .ct-admin-page .ct-stat-grid {
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-card {
+  gap: 0;
+  padding: 16px;
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-icon {
+  display: none;
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-value {
+  margin-top: 8px;
+  font-family: var(--ct-font-mono);
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: normal;
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-admin-page .ct-stat-hint .anticon {
+  color: var(--tone);
+}
+
+/* "Anlık aktif bağlantı" is live: it breathes instead of pulsing. */
+:root[data-odak] .ct-admin-page .ct-stat-pulse-dot {
+  animation: odak-breathe 1.6s ease-in-out infinite;
+}
+
+/* --- Genel Bakış: the bar chart --------------------------------------------- */
+:root[data-odak] .ct-admin-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 170px;
+}
+
+:root[data-odak] .ct-admin-bar-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+}
+
+:root[data-odak] .ct-admin-bar-value {
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  color: var(--odak-muted);
+}
+
+/* Each bar grows from the bottom once, 28ms after the one before it. */
+:root[data-odak] .ct-admin-bar {
+  width: 100%;
+  border-radius: 8px 8px 4px 4px;
+  background: var(--odak-border-strong);
+  transform-origin: bottom;
+  animation: odak-yonetim-grow var(--odak-dur-4) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--odak-stagger));
+}
+
+:root[data-odak] .ct-admin-bar.now {
+  background: var(--odak-accent);
+}
+
+@keyframes odak-yonetim-grow {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+:root[data-odak] .ct-chart-axis {
+  padding: 0;
+  font-size: 11px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-donut-track {
+  stroke: var(--odak-border);
+}
+
+:root[data-odak] .ct-donut-center strong {
+  font-family: var(--ct-font-mono);
+}
+
+/* --- lists in a card: recent events, the system's services --------------- */
+:root[data-odak] .ct-admin-feed > li {
+  gap: 10px;
+  padding: 9px 18px;
+}
+
+:root[data-odak] .ct-admin-feed > li + li {
+  border-top: 0;
+}
+
+:root[data-odak] .ct-admin-feed-time {
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-admin-status-list > li {
+  padding: 11px 18px;
+}
+
+:root[data-odak] .ct-admin-status-list > li + li {
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-status-dot:is(.ok, .warn, .danger) {
+  box-shadow: none;
+}
+
+/* --- tables ---------------------------------------------------------------- */
+/* The mock-up's "Aktif odalar": headings in plain muted words, rows ruled
+   with the card's edge colour, names bold, the action at the far end. */
+:root[data-odak] .ct-admin-table-wrap {
+  border-color: var(--odak-border);
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-thead > tr > th {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--odak-muted);
+  background: none;
+  border-bottom-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-tbody > tr > td {
+  border-bottom-color: var(--odak-border);
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-admin-table-wrap.ant-table-wrapper .ant-table .ant-table-tbody > tr > td {
+  height: 50px;
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-tbody > tr.ant-table-row:last-child > td {
+  border-bottom: 0;
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-tbody > tr.ant-table-row:hover > td,
+:root[data-odak] .ct-admin-table-wrap .ant-table-tbody > tr > td.ant-table-cell-row-hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-expanded-row > td {
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-admin-table-wrap .ant-table-row-expand-icon {
+  border-color: var(--odak-border-strong);
+  border-radius: 6px;
+  background: transparent;
+}
+
+/* The pager on its own band: mono page numbers, the current one raised and
+   lime like the nav. */
+:root[data-odak] .ct-admin-table-wrap .ant-table-pagination.ant-pagination {
+  padding: 12px 18px;
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-panel-content .ant-pagination :is(.ant-pagination-item, .ant-pagination-prev, .ant-pagination-next) {
+  border-radius: 10px;
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-admin-panel-content .ant-pagination .ant-pagination-item-link {
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-admin-panel-content .ant-pagination .ant-pagination-item-active {
+  border-color: var(--odak-border-strong);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-panel-content .ant-pagination .ant-pagination-item-active a {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-admin-panel-content .ant-pagination-total-text {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+/* Rows rise in one after another while their card is new (data-intro, set
+   by AdminSection for its first moments), at most eight steps. */
+:root[data-odak] .ct-admin-section[data-intro] :is(.ant-table-tbody > tr.ant-table-row, .ct-admin-feed > li) {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i, 8), 8) * var(--odak-stagger));
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(1 of .ant-table-row), .ct-admin-feed > li:nth-child(1)) {
+  --i: 0;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(2 of .ant-table-row), .ct-admin-feed > li:nth-child(2)) {
+  --i: 1;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(3 of .ant-table-row), .ct-admin-feed > li:nth-child(3)) {
+  --i: 2;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(4 of .ant-table-row), .ct-admin-feed > li:nth-child(4)) {
+  --i: 3;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(5 of .ant-table-row), .ct-admin-feed > li:nth-child(5)) {
+  --i: 4;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(6 of .ant-table-row), .ct-admin-feed > li:nth-child(6)) {
+  --i: 5;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(7 of .ant-table-row), .ct-admin-feed > li:nth-child(7)) {
+  --i: 6;
+}
+
+:root[data-odak] .ct-admin-section :is(tr:nth-child(8 of .ant-table-row), .ct-admin-feed > li:nth-child(8)) {
+  --i: 7;
+}
+
+/* --- the smaller pieces ---------------------------------------------------- */
+:root[data-odak] :is(.ct-admin-code, .ct-audit-action) {
+  border-color: var(--odak-border);
+  border-radius: 7px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-admin-row-icon {
+  border-color: var(--odak-border);
+  border-radius: 10px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-fill {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-fill > span {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-admin-fill-count {
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-admin-kv {
+  border-color: var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-admin-kv > span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-admin-verdict {
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-admin-panel-content :is(.ct-alert, .ant-alert) {
+  border-radius: 14px;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-tag {
+  border-radius: 8px;
+}
+
+:root[data-odak] .ct-admin-descriptions .ant-descriptions-view {
+  border-color: var(--odak-border);
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-admin-descriptions :is(.ant-descriptions-row, .ant-descriptions-item-label, .ant-descriptions-item-content) {
+  border-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-descriptions .ant-descriptions-item-label {
+  color: var(--odak-muted);
+  background: var(--odak-bg);
+}
+
+/* Setting rows in a card: the card's own edge colour between them. */
+:root[data-odak] .ct-admin-section .ct-settings-card > * + * {
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-section .ct-settings-row-icon {
+  border-color: var(--odak-border);
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-admin-minigames-toggles > li {
+  border-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-plain-list li {
+  border-color: var(--odak-border);
+  border-radius: 10px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-admin-two-factor-gate-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  font-size: 30px;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+/* --- drawers ------------------------------------------------------------- */
+/* A card against the right edge: the surface, rounded on its open side, and
+   sliding in from the right on the Odak curve (antd's own slide, retimed). */
+:root[data-odak] .ct-admin-drawer .ant-drawer-content-wrapper {
+  overflow: hidden;
+  border: 1px solid var(--odak-border-strong);
+  border-right: 0;
+  border-radius: 20px 0 0 20px;
+}
+
+:root[data-odak] .ct-admin-drawer :is(.ant-drawer-content, .ant-drawer-section) {
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-admin-drawer :is(.ant-drawer-header, .ant-drawer-body) {
+  background: none;
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-header {
+  padding: 18px 20px;
+  border-bottom-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-body {
+  padding: 18px 20px 24px;
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-close:hover {
+  color: var(--odak-text);
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-admin-drawer :is(.ct-admin-drawer-block, .ct-admin-form-heading) {
+  border-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-admin-drawer .ct-admin-action-list .ant-btn {
+  height: 40px;
+}
+
+:root[data-odak]
+  .ct-admin-drawer
+  :is(
+    .ant-drawer-panel-motion-right-enter.ant-drawer-panel-motion-right-enter-active,
+    .ant-drawer-panel-motion-right-appear.ant-drawer-panel-motion-right-appear-active
+  ) {
+  transition:
+    transform var(--odak-dur-3) var(--odak-ease-out),
+    opacity var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-panel-motion-right-leave.ant-drawer-panel-motion-right-leave-active {
+  transition:
+    transform var(--odak-dur-2) var(--odak-ease-in),
+    opacity var(--odak-dur-2) var(--odak-ease-in);
+}
+
+:root[data-odak] .ct-admin-drawer :is(.ant-drawer-mask-motion-enter-active, .ant-drawer-mask-motion-appear-active) {
+  transition: opacity var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-admin-drawer .ant-drawer-mask-motion-leave-active {
+  transition: opacity var(--odak-dur-2) var(--odak-ease-in);
+}
+
+/* --- confirm popovers (Popconfirm is only used here) ----------------------- */
+:root[data-odak] .ant-popconfirm .ant-popconfirm-buttons .ant-btn {
+  height: 30px;
+  border-radius: 9px;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-admin-page .ct-stat-pulse-dot {
+    animation: none;
+  }
+}

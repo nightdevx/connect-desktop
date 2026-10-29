@@ -115,7 +115,9 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
   return (
     <div className="ct-admin-panel-shell">
       <AdminSidebar />
-      <div className="ct-admin-panel-content">
+      {/* Keyed by page: switching pages mounts a fresh column, so it opens at
+          the top and plays the shell's entrance (odak.css); a refresh keeps it. */}
+      <div key={adminSection} className="ct-admin-panel-content">
         {gated ? <AdminTwoFactorGate /> : renderContent()}
       </div>
     </div>

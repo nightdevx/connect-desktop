@@ -1,5 +1,5 @@
 import { toErrorMessage } from "@shared/error-message";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Spin, Alert, Tag, Tooltip, Button } from "antd";
 import {
   UserOutlined,
@@ -17,6 +17,7 @@ import {
 import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent } from "@shared/auth-contracts";
 import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { useUiStore } from "@/store/ui-store";
 import {
   AdminPageHeader,
   AdminRefreshedAt,
@@ -87,6 +88,7 @@ const DESCRIPTION =
   "Sunucunun anlık durumu, kullanıcılar ve oda hareketliliği. Sayfa 10 saniyede bir kendini yeniler.";
 
 export default function AdminDashboard() {
+  const isOdak = useUiStore((state) => state.odakTheme);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentEvents, setRecentEvents] = useState<AdminLobbyEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +131,12 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
+  // Odak: the server's state as one pill in the header, from the two services
+  // the "Sistem durumu" card lists (an in-memory database still counts as up).
+  const healthy =
+    (stats?.dbStatus === "connected" || stats?.dbStatus === "in_memory") &&
+    stats?.liveKitStatus === "connected";
+
   // The page keeps its title through loading and failure, like every other
   // page: a bare spinner or alert was the one screen with no heading.
   const header = (
@@ -137,6 +145,11 @@ export default function AdminDashboard() {
       description={DESCRIPTION}
       actions={
         <>
+          {isOdak && stats ? (
+            <span className={`ct-admin-health${healthy ? "" : " down"}`}>
+              {healthy ? "Sunucu sağlıklı" : "Sunucuda sorun var"}
+            </span>
+          ) : null}
           <AdminRefreshedAt at={refreshedAt} failed={Boolean(error)} />
           <Button icon={<ReloadOutlined />} onClick={() => void fetchDashboardData()}>
             Yenile
@@ -237,45 +250,72 @@ export default function AdminDashboard() {
           hint="Son 12 saat"
         >
           <div className="ct-chart-body">
-            <div className="ct-chart-plot">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                width="100%"
-                height="100%"
+            {isOdak ? (
+              // Odak: one bar per hour, the mock-up's bar chart; the last
+              // hour in lime. The bars grow once, when the card mounts.
+              <div
+                className="ct-admin-bars"
+                role="img"
+                aria-label={`Son 12 saatte saat başına oda olayları; en yüksek ${Math.max(...activityTrendData)}, son saat ${activityTrendData[activityTrendData.length - 1]}`}
               >
-                {/* Colours come from classes, not from stroke/fill
-                    attributes — an inline attribute is the one place a
-                    var() cannot reach, so the whole chart used to stay on the
-                    dark palette's white grid lines. */}
-                <defs>
-                  <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop className="ct-chart-area-stop" offset="0%" stopOpacity="0.45" />
-                    <stop className="ct-chart-area-stop" offset="100%" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Grid lines */}
-                <line className="ct-chart-grid" x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} strokeWidth="1" />
-                <line className="ct-chart-grid faint" x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} strokeWidth="1" strokeDasharray="3,3" />
-                <line className="ct-chart-grid faint" x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} strokeWidth="1" strokeDasharray="3,3" />
-
-                {/* Area path */}
-                <path d={areaPath} fill="url(#area-gradient)" />
-
-                {/* Line path */}
-                <path className="ct-chart-line" d={linePath} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-
-                {/* Data Point Circles */}
-                {points.map((p: { x: number; y: number; val: number }, idx: number) => (
-                  <g key={idx}>
-                    <circle className="ct-chart-dot" cx={p.x} cy={p.y} r="4.5" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <Tooltip title={`${activityTrendData.length - idx} saat önce: ${p.val} olay`}>
-                      <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
-                    </Tooltip>
-                  </g>
+                {activityTrendData.map((value: number, idx: number) => (
+                  <Tooltip key={idx} title={`${activityTrendData.length - idx} saat önce: ${value} olay`}>
+                    <div className="ct-admin-bar-col">
+                      <span className="ct-admin-bar-value">{value}</span>
+                      <span
+                        className={`ct-admin-bar${idx === activityTrendData.length - 1 ? " now" : ""}`}
+                        style={
+                          {
+                            "--i": idx,
+                            height: `${Math.max(4, Math.round((value / maxTrendVal) * 120))}px`,
+                          } as CSSProperties
+                        }
+                      />
+                    </div>
+                  </Tooltip>
                 ))}
-              </svg>
-            </div>
+              </div>
+            ) : (
+              <div className="ct-chart-plot">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  width="100%"
+                  height="100%"
+                >
+                  {/* Colours come from classes, not from stroke/fill
+                      attributes — an inline attribute is the one place a
+                      var() cannot reach, so the whole chart used to stay on the
+                      dark palette's white grid lines. */}
+                  <defs>
+                    <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop className="ct-chart-area-stop" offset="0%" stopOpacity="0.45" />
+                      <stop className="ct-chart-area-stop" offset="100%" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Grid lines */}
+                  <line className="ct-chart-grid" x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} strokeWidth="1" />
+                  <line className="ct-chart-grid faint" x1={padding} y1={padding} x2={chartWidth - padding} y2={padding} strokeWidth="1" strokeDasharray="3,3" />
+                  <line className="ct-chart-grid faint" x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} strokeWidth="1" strokeDasharray="3,3" />
+
+                  {/* Area path */}
+                  <path d={areaPath} fill="url(#area-gradient)" />
+
+                  {/* Line path */}
+                  <path className="ct-chart-line" d={linePath} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+
+                  {/* Data Point Circles */}
+                  {points.map((p: { x: number; y: number; val: number }, idx: number) => (
+                    <g key={idx}>
+                      <circle className="ct-chart-dot" cx={p.x} cy={p.y} r="4.5" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                      <Tooltip title={`${activityTrendData.length - idx} saat önce: ${p.val} olay`}>
+                        <circle cx={p.x} cy={p.y} r="10" fill="transparent" cursor="pointer" />
+                      </Tooltip>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+            )}
             <div className="ct-chart-axis">
               <span>12 saat önce</span>
               <span>8 saat önce</span>
