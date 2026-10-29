@@ -24,7 +24,6 @@ import {
   LobbyPasswordPromptModal,
   QuickControls,
   WorkspaceMainPanel,
-  WorkspaceRail,
   WorkspaceSidebar,
   createLobbyTransitionState,
   useBlockedUsers,
@@ -50,6 +49,7 @@ import {
   useWorkspacePreferences,
   useWorkspaceUsers,
   OdakFriendsPage,
+  OdakRail,
   workspaceService,
   type AudioPreferences,
   type LobbyTransitionState,
@@ -1329,6 +1329,22 @@ function WorkspaceShell({
     onCopyUsername: handleCopyUsername,
   };
 
+  // One rail for every section: the shell's, and the one the Arkadaşlar page
+  // draws over it.
+  const railProps = {
+    onSectionChange: handleSectionChange,
+    currentUserRole,
+    unreadLobbyMessages: totalUnreadLobbyMessages,
+    unreadDirectMessages: totalUnreadDirectMessages,
+    currentUserId,
+    currentUsername,
+    currentUserAvatarUrl,
+    presenceStatus: selectedPresenceStatus,
+    onPresenceStatusChange: setSelectedPresenceStatus,
+    onLogout,
+    isLoggingOut,
+  };
+
   // The Odak page shows the dock at the foot of its own strip; everywhere
   // else it sits under the sidebar column.
   const quickControls = (
@@ -1387,17 +1403,8 @@ function WorkspaceShell({
     <section
       className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}${workspaceSection === "users" ? " is-odak-users" : ""}`}
     >
-      <WorkspaceRail
-        workspaceSection={workspaceSection}
-        onSectionChange={handleSectionChange}
-        totalUnreadDirectMessages={totalUnreadDirectMessages}
-        totalUnreadLobbyMessages={totalUnreadLobbyMessages}
-        currentUserRole={currentUserRole}
-        currentUsername={currentUsername}
-        currentUserId={currentUserId}
-        onLogout={onLogout}
-        isLoggingOut={isLoggingOut}
-      />
+      {/* Arkadaşlar draws the same rail in the same place over the shell. */}
+      {workspaceSection !== "users" && <OdakRail activeSection={workspaceSection} {...railProps} />}
 
       {workspaceSection === "admin" ? (
         <Suspense fallback={null}>
@@ -1683,15 +1690,7 @@ function WorkspaceShell({
           conversation panel shows beside it. */}
       {workspaceSection === "users" && (
         <OdakFriendsPage
-          onSectionChange={handleSectionChange}
-          currentUserRole={currentUserRole}
-          unreadLobbyMessages={totalUnreadLobbyMessages}
-          unreadDirectMessages={totalUnreadDirectMessages}
-          currentUserId={currentUserId}
-          currentUsername={currentUsername}
-          currentUserAvatarUrl={currentUserAvatarUrl}
-          presenceStatus={selectedPresenceStatus}
-          onPresenceStatusChange={setSelectedPresenceStatus}
+          {...railProps}
           conversations={conversations}
           unreadByUserId={unreadByPeerIdWithCalls}
           selectedUserId={selectedUserId}
