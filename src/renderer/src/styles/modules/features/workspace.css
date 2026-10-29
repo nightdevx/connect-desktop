@@ -377,8 +377,8 @@
     .ct-minigames-tab-label,
     .ct-free-games-tab-label,
     .ct-list-user-meta,
-    .ct-list-home > span:not(.ct-count-badge),
-    .ct-admin-nav-item > span
+    .ct-list-home > span:not(.ct-count-badge, .anticon),
+    .ct-admin-nav-item > span:not(.anticon)
   ) {
   @apply sr-only;
 }
