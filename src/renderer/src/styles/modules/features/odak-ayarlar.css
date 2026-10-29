@@ -163,6 +163,11 @@
   font-size: 16px;
 }
 
+/* A person in the icon's place (Gizlilik's blocked list) stays round. */
+:root[data-odak] .ct-settings-row-icon.person {
+  border-radius: 50%;
+}
+
 :root[data-odak] .ct-settings-row-icon:not(.ct-hued) {
   color: var(--odak-muted);
   background: var(--odak-raised);
