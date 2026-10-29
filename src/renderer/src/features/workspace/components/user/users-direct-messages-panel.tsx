@@ -75,6 +75,7 @@ import { DirectChatMessageRow } from "./direct-chat-message-row";
 import { GameArt } from "./game-art";
 import { CallEncryptionBadge } from "./parts/CallEncryptionBadge";
 import { useThreadScroll } from "./use-thread-scroll";
+import { Avatar as OdakAvatar, GamepadIcon, SpeakerIcon, staggerStyle } from "../odak/odak-parts";
 import { ElapsedTime } from "../common/elapsed-time";
 import { callLogKind, pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
 
@@ -123,6 +124,9 @@ function CallQualityBars({ userId }: { userId: string }) {
 const EMPTY_SPEAKER_IDS: string[] = [];
 const EMPTY_MEDIA_MAP: ParticipantMediaMap = {};
 const NO_ARRIVALS: ReadonlySet<string> = new Set();
+
+// "Mart 2025", for when an account was opened.
+const MONTH_YEAR = new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" });
 
 // Consecutive messages of one author, this close together, read as one run.
 const RUN_GAP_MS = 5 * 60_000;
@@ -243,6 +247,8 @@ interface UsersDirectMessagesPanelProps {
   activeSpeakerIds?: string[];
   avatarByUserId?: Record<string, string | null | undefined>;
   lobbyMembers?: LobbyStateMember[];
+  /** Every room's roster, for the head count on Odak's "Şu an" card. */
+  lobbyMembersById?: Record<string, LobbyStateMember[]>;
   onToggleMic?: () => void;
   onToggleHeadphone?: () => void;
   onToggleScreen?: () => void;
@@ -323,6 +329,7 @@ export function UsersDirectMessagesPanel({
   activeSpeakerIds,
   avatarByUserId,
   lobbyMembers,
+  lobbyMembersById,
   onToggleMic,
   onToggleHeadphone,
   onToggleScreen,
@@ -452,13 +459,17 @@ export function UsersDirectMessagesPanel({
   // What the person in this conversation is doing, for the header's second
   // line: the room before the game, as on the friends page.
   const gameActivityByUser = useGameActivityByUser();
-  const headerActivity = ((): { label: string; game?: string } | null => {
+  const headerActivity = ((): {
+    label: string;
+    game?: string;
+    lobby?: { id: string; name: string };
+  } | null => {
     if (!selectedUser?.appOnline) {
       return null;
     }
     const lobby = friendsHome?.lobbyByUserId?.[selectedUser.userId];
     if (lobby) {
-      return { label: `${lobby.name} odasında` };
+      return { label: `${lobby.name} odasında`, lobby };
     }
     const minigame = gameActivityByUser.get(selectedUser.userId);
     if (minigame) {
@@ -1062,6 +1073,82 @@ export function UsersDirectMessagesPanel({
     );
   };
 
+  // Odak's right column beside the thread (OdakSohbet.dc.html): who this is
+  // and where they are now, from what the panel already has. No friendship
+  // date exists anywhere, so the card gives the account's age instead. The
+  // stylesheet drops the column below ~1100px; "Profili aç" stays the way in.
+  const peerName = selectedUser ? selectedUser.displayName || selectedUser.username : "";
+  const joinedAt = selectedUser ? Date.parse(selectedUser.createdAt) : Number.NaN;
+  const nowLobby = headerActivity?.lobby;
+  const nowCount = nowLobby ? lobbyMembersById?.[nowLobby.id]?.length : undefined;
+  const onJoinLobby = friendsHome?.onJoinLobby;
+  const profileAside = selectedUser && (
+    <aside className="ct-dm-aside" aria-label={`${peerName} hakkında`}>
+      <article className="ct-odak-card ct-dm-aside-profile" style={staggerStyle(0)}>
+        <OdakAvatar
+          userId={selectedUser.userId}
+          name={peerName}
+          avatarUrl={selectedUser.avatarUrl}
+          className="ct-dm-aside-avatar"
+        />
+        <h2>{peerName}</h2>
+        {selectedUser.username && (
+          <span className="ct-dm-aside-handle">@{selectedUser.username}</span>
+        )}
+        {!Number.isNaN(joinedAt) && (
+          <span className="ct-odak-muted">Katılım · {MONTH_YEAR.format(joinedAt)}</span>
+        )}
+      </article>
+
+      {/* A room first, with the way in; else a game; else no card. */}
+      {headerActivity && (
+        <article className="ct-odak-card ct-odak-activity ct-dm-aside-now" style={staggerStyle(1)}>
+          <h3 className="ct-dm-aside-title">ŞU AN</h3>
+          <div className="ct-odak-activity-row">
+            {nowLobby ? (
+              <span className="ct-odak-tile accent" aria-hidden="true">
+                <SpeakerIcon size={17} />
+              </span>
+            ) : headerActivity.game ? (
+              <span className="ct-odak-game-art">
+                <GameArt name={headerActivity.game} size="md" />
+              </span>
+            ) : (
+              <span className="ct-odak-tile game" aria-hidden="true">
+                <GamepadIcon size={20} />
+              </span>
+            )}
+            <div className="ct-odak-fill">
+              <div className="ct-odak-activity-name">
+                {nowLobby?.name ?? headerActivity.game ?? headerActivity.label}
+              </div>
+              {nowLobby && nowCount ? (
+                <div className="ct-odak-muted">{nowCount} kişi</div>
+              ) : (
+                !nowLobby && headerActivity.game && <div className="ct-odak-muted">Oynuyor</div>
+              )}
+            </div>
+            {nowLobby &&
+              (friendsHome?.currentLobbyId === nowLobby.id ? (
+                <span className="ct-odak-muted">Buradasın</span>
+              ) : (
+                onJoinLobby && (
+                  <button
+                    type="button"
+                    className="ct-odak-primary small"
+                    aria-label={`${nowLobby.name} odasına katıl`}
+                    onClick={() => onJoinLobby(nowLobby.id)}
+                  >
+                    Katıl
+                  </button>
+                )
+              ))}
+          </div>
+        </article>
+      )}
+    </aside>
+  );
+
   return (
     // friends-mode drops the panel's gutter: the friends home is banded --
     // header, toolbar, list -- and its dividers have to reach the panel edge.
@@ -1385,7 +1472,15 @@ export function UsersDirectMessagesPanel({
                 </div>
               )}
 
-              {renderChatBox(false)}
+              {/* Odak puts the profile column beside the thread. */}
+              {isOdak ? (
+                <div className="ct-dm-body">
+                  {renderChatBox(false)}
+                  {profileAside}
+                </div>
+              ) : (
+                renderChatBox(false)
+              )}
             </>
           )}
 

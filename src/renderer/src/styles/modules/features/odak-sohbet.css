@@ -969,6 +969,100 @@
   transform: scale(0.92);
 }
 
+/* --- the right column: who this is, and where they are now ------------- */
+/* The thread and the column side by side. The row is the container, so the
+   column goes when the conversation is narrower than ~1100px (the panel's
+   40px of padding off that), whatever the window and the strip are doing. */
+:root[data-odak] .ct-chat-panel .ct-dm-body {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-height: 0;
+  container: dm-body / inline-size;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-body > .ct-chat-thread-box {
+  min-width: 0;
+}
+
+:root[data-odak] .ct-dm-aside {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 12px;
+  width: 300px;
+  overflow-y: auto;
+}
+
+@container dm-body (max-width: 1059px) {
+  :root[data-odak] .ct-dm-aside {
+    display: none;
+  }
+}
+
+/* Inner pieces only: the panel itself already enters with the page. */
+:root[data-odak] .ct-dm-aside > .ct-odak-card {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--odak-stagger));
+}
+
+:root[data-odak] .ct-dm-aside-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+:root[data-odak] .ct-dm-aside-avatar {
+  width: 84px;
+  height: 84px;
+  font-size: 34px;
+  box-shadow:
+    0 0 0 4px var(--odak-surface),
+    0 0 0 6px var(--odak-accent);
+}
+
+:root[data-odak] .ct-dm-aside-profile h2 {
+  max-width: 100%;
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-dm-aside-handle {
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-dm-aside-now {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-dm-aside-now .ct-odak-activity-row {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-dm-aside-now .ct-odak-tile.accent {
+  width: 36px;
+  height: 36px;
+}
+
+:root[data-odak] .ct-dm-aside-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--odak-muted);
+}
+
 /* --- reduced motion: the loops stop (durations are zeroed in odak-hareket) */
 @media (prefers-reduced-motion: reduce) {
   :root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots i {

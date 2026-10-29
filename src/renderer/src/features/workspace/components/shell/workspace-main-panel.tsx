@@ -374,6 +374,7 @@ export function WorkspaceMainPanel({
             activeSpeakerIds={activeSpeakerIds}
             avatarByUserId={avatarByUserId}
             lobbyMembers={lobbyMembers}
+            lobbyMembersById={lobbyMembersById}
             onToggleMic={onToggleMic}
             onToggleHeadphone={onToggleHeadphone}
             onToggleScreen={onToggleScreen}
