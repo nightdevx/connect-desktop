@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ODAK -- the redesign, page by page, exactly as the mock-up draws it.
+   ODAK -- the redesign, section by section, exactly as the mock-up draws it.
    Its own palette, scoped to .ct-odak: the rest of the app keeps its theme
    until the design is settled.
    ========================================================================== */
@@ -10,15 +10,13 @@
   --odak-strip: #121316;
   --odak-surface: #16181c;
   --odak-raised: #1e2127;
-  --odak-sunken: #1a1c21;
   --odak-border: #22252b;
   --odak-border-strong: #2a2e35;
   --odak-text: #f2f3f5;
-  --odak-text-soft: #d7dae0;
   --odak-muted: #9aa0aa;
   --odak-accent: #c6f432;
   --odak-on-accent: #0e0f11;
-  --odak-live: #ff5c5c;
+  --odak-danger: #ff5c5c;
 
   /* Over the whole workspace, under the title bar: the shell stays mounted
      beneath it, so a call or a socket is never torn down by opening the page. */
@@ -33,9 +31,21 @@
   font-size: 14px;
 }
 
+/* A conversation is open: only the rail and the strip stay, and the shell's
+   conversation panel shows to their right (see .is-odak-users). */
+.ct-odak.docked {
+  right: auto;
+  width: 148px;
+}
+
 .ct-odak button {
   font-family: inherit;
   cursor: pointer;
+}
+
+.ct-odak button:disabled {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .ct-odak-fill {
@@ -52,8 +62,106 @@
   color: var(--odak-muted);
 }
 
-.ct-odak-mono {
-  font-family: "JetBrains Mono", monospace;
+/* An unread count or a request count, on whatever corner holds it. */
+.ct-odak-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+/* --- avatars ------------------------------------------------------------ */
+.ct-odak-avatar {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #ffffff;
+  background: oklch(0.55 0.12 var(--ct-name-h));
+}
+
+.ct-odak-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ct-odak-avatar.card {
+  width: 46px;
+  height: 46px;
+  font-size: 17px;
+}
+
+.ct-odak-avatar.strip {
+  width: 50px;
+  height: 50px;
+  font-size: 17px;
+}
+
+.ct-odak-avatar.me {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+}
+
+.ct-odak-avatar.request {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+}
+
+.ct-odak-avatar.face {
+  width: 28px;
+  height: 28px;
+  margin-right: -7px;
+  border: 2px solid var(--odak-surface);
+  font-size: 11px;
+}
+
+.ct-odak-avatar.face:last-child {
+  margin-right: 0;
+}
+
+/* A person's dot, ringed in the colour of whatever it sits on. */
+.ct-odak-presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--odak-surface);
+}
+
+.ct-odak-avatar.me .ct-odak-presence {
+  width: 12px;
+  height: 12px;
+  border-color: var(--odak-rail);
+}
+
+.ct-odak-avatar.strip .ct-odak-presence {
+  right: 0;
+  bottom: 0;
+  border-color: var(--odak-strip);
+}
+
+.ct-odak-menu-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
 }
 
 /* --- section rail ------------------------------------------------------ */
@@ -83,6 +191,7 @@
 }
 
 .ct-odak-rail-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -107,38 +216,16 @@
   background: var(--odak-raised);
 }
 
+.ct-odak-rail-item .ct-odak-count {
+  top: 2px;
+  right: 6px;
+}
+
 .ct-odak-me {
-  position: relative;
-  width: 40px;
-  height: 40px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  font-weight: 700;
-  color: #ffffff;
-  background: #3b82f6;
-}
-
-/* A person's dot, on whatever avatar holds it. */
-.ct-odak-presence {
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid var(--odak-rail);
-}
-
-.ct-odak-presence.online {
-  background: #34d399;
-}
-
-.ct-odak-presence.idle {
-  background: #fbbf24;
-}
-
-.ct-odak-presence.busy {
-  background: var(--odak-live);
+  background: transparent;
 }
 
 /* --- conversations strip ---------------------------------------------- */
@@ -155,56 +242,55 @@
 }
 
 .ct-odak-strip-home {
+  position: relative;
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 50px;
   height: 50px;
   border: 0;
   border-radius: 16px;
-  color: var(--odak-accent);
+  color: var(--odak-text);
   background: var(--odak-raised);
+}
+
+.ct-odak-strip-home.active {
+  color: var(--odak-accent);
   box-shadow: 0 0 0 2px var(--odak-accent);
 }
 
 .ct-odak-strip-divider {
   width: 32px;
   height: 1px;
+  flex-shrink: 0;
   background: var(--odak-border-strong);
+}
+
+.ct-odak-strip-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .ct-odak-strip-dm {
   position: relative;
-  width: 50px;
-  height: 50px;
+  flex-shrink: 0;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  font-size: 18px;
-  font-weight: 700;
-  color: #ffffff;
+  background: transparent;
 }
 
-.ct-odak-strip-dm .ct-odak-presence {
-  right: 0;
-  bottom: 0;
-  width: 13px;
-  height: 13px;
-  border-color: var(--odak-strip);
-}
-
-.ct-odak-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  display: grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--odak-on-accent);
-  background: var(--odak-accent);
+.ct-odak-strip-dm.active .ct-odak-avatar {
+  box-shadow:
+    0 0 0 2px var(--odak-strip),
+    0 0 0 4px var(--odak-accent);
 }
 
 /* --- page --------------------------------------------------------------- */
@@ -259,6 +345,10 @@
   background: transparent;
 }
 
+.ct-odak-tabs button.alert {
+  color: var(--odak-text);
+}
+
 .ct-odak-tabs button.active {
   color: var(--odak-accent);
   background: var(--odak-raised);
@@ -291,6 +381,7 @@
 .ct-odak-primary,
 .ct-odak-secondary {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   height: 40px;
@@ -332,7 +423,7 @@
   border: 1px solid var(--odak-border);
 }
 
-/* --- friends ------------------------------------------------------------ */
+/* --- friends and requests --------------------------------------------- */
 .ct-odak-friends {
   display: grid;
   flex: 1;
@@ -343,40 +434,59 @@
   overflow-y: auto;
 }
 
-.ct-odak-friend {
+.ct-odak-friends.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ct-odak-list-title {
+  grid-column: 1 / -1;
+  margin: 6px 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--odak-muted);
+}
+
+.ct-odak-friend,
+.ct-odak-request {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   padding: 14px;
 }
 
-.ct-odak-avatar {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  font-size: 18px;
-  font-weight: 700;
-  color: #ffffff;
+.ct-odak-friend.offline .ct-odak-friend-open {
+  opacity: 0.6;
 }
 
-.ct-odak-avatar .ct-odak-presence {
-  width: 13px;
-  height: 13px;
-  border-color: var(--odak-surface);
+/* The left half opens the conversation; the buttons on the right are their
+   own targets, so a click on them never lands on the row. */
+.ct-odak-friend-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  background: transparent;
 }
 
 .ct-odak-friend-meta {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
 }
 
 .ct-odak-friend-name {
+  overflow: hidden;
   font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .ct-odak-friend-status {
@@ -390,6 +500,7 @@
 
 .ct-odak-icon-button {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 38px;
   height: 38px;
@@ -397,6 +508,51 @@
   border-radius: 12px;
   color: var(--odak-text);
   background: var(--odak-raised);
+}
+
+.ct-odak-icon-button:hover {
+  color: var(--odak-accent);
+}
+
+.ct-odak-accept,
+.ct-odak-decline {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 11px;
+}
+
+.ct-odak-accept {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+.ct-odak-decline {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+.ct-odak-decline:hover {
+  color: var(--odak-danger);
+}
+
+.ct-odak-state {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--odak-muted);
+}
+
+.ct-odak-state strong {
+  font-size: 15px;
+  color: var(--odak-text);
 }
 
 /* --- right column ------------------------------------------------------- */
@@ -421,6 +577,12 @@
   margin-top: 10px;
 }
 
+.ct-odak-side-empty {
+  margin: 0 4px;
+  font-size: 13px;
+  color: var(--odak-muted);
+}
+
 .ct-odak-activity {
   padding: 16px;
 }
@@ -443,10 +605,10 @@
 
 .ct-odak-tile {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 40px;
   height: 40px;
-  flex-shrink: 0;
   border-radius: 12px;
 }
 
@@ -462,62 +624,28 @@
   background: #3a1f2b;
 }
 
-.ct-odak-live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--odak-live);
+.ct-odak-game-art {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 12px;
 }
 
 .ct-odak-faces {
   display: flex;
 }
 
-.ct-odak-faces span {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-right: -7px;
-  border-radius: 50%;
-  border: 2px solid var(--odak-surface);
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffffff;
+/* --- the shell under the docked page ---------------------------------- */
+/* The rail and the strip are the page's (148px, laid over the shell); the
+   old sidebar and dock step aside, and the conversation panel takes the rest. */
+.ct-workspace-shell.is-odak-users {
+  grid-template-columns: 148px 0 minmax(0, 1fr);
 }
 
-.ct-odak-faces span:last-child {
-  margin-right: 0;
-}
-
-.ct-odak-request-avatar {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  font-weight: 700;
-  color: #ffffff;
-  background: #475569;
-}
-
-.ct-odak-accept,
-.ct-odak-decline {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 11px;
-}
-
-.ct-odak-accept {
-  color: var(--odak-on-accent);
-  background: var(--odak-accent);
-}
-
-.ct-odak-decline {
-  color: var(--odak-muted);
-  background: var(--odak-raised);
+.ct-workspace-shell.is-odak-users > .ct-sidebar,
+.ct-workspace-shell.is-odak-users > .ct-quick-dock {
+  display: none;
 }

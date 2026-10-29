@@ -1,5 +1,4 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OdakFriendsPage } from "@/features/odak";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { throwIfTransient } from "@/services/query-client";
 import type { UserRole } from "@shared/auth-contracts";
@@ -50,6 +49,7 @@ import {
   useWorkspaceMediaControls,
   useWorkspacePreferences,
   useWorkspaceUsers,
+  OdakFriendsPage,
   workspaceService,
   type AudioPreferences,
   type LobbyTransitionState,
@@ -1305,9 +1305,23 @@ function WorkspaceShell({
     );
   }, [unreadByPeerIdWithCalls, friends.incomingRequests]);
 
+  // One object for both renderings of the friends home: the old panel and the
+  // Odak page take the same lists and the same actions.
+  const friendsHomeProps = {
+    friends,
+    directoryUsers,
+    onOpenConversation: selectConversation,
+    onAddFriend: () => setIsAddFriendOpen(true),
+    onInitiateCall: handleInitiateCall,
+    lobbyByUserId,
+    currentLobbyId: isInCallRoom ? null : activeLobbyId,
+    onJoinLobby: handleJoinFriendLobby,
+    onCopyUsername: handleCopyUsername,
+  };
+
   return (
     <section
-      className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}`}
+      className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}${workspaceSection === "users" ? " is-odak-users" : ""}`}
     >
       <WorkspaceRail
         workspaceSection={workspaceSection}
@@ -1465,17 +1479,7 @@ function WorkspaceShell({
             onToggleCamera={handleCameraToggle}
             onLeaveLobby={handleLeaveLobbyOrEndCall}
             selectedUser={resolvedSelectedUser}
-            friendsHome={{
-              friends,
-              directoryUsers,
-              onOpenConversation: selectConversation,
-              onAddFriend: () => setIsAddFriendOpen(true),
-              onInitiateCall: handleInitiateCall,
-              lobbyByUserId,
-              currentLobbyId: isInCallRoom ? null : activeLobbyId,
-              onJoinLobby: handleJoinFriendLobby,
-              onCopyUsername: handleCopyUsername,
-            }}
+            friendsHome={friendsHomeProps}
             onCopyUsername={handleCopyUsername}
             isWatchingScreen={isWatchingScreen}
             onWatchScreen={watchScreen}
@@ -1657,11 +1661,29 @@ function WorkspaceShell({
         onSubmit={(lobbyId, password) => void joinLobby(lobbyId, password)}
         onCancel={cancelPasswordPrompt}
       />
-      {/* The Odak redesign's Arkadaşlar page, on its own branch: the mock-up as
-          drawn, laid over the shell so the call, audio and sockets under it
-          keep running. Only its section rail is wired. */}
+      {/* The Odak redesign's Arkadaşlar section, on its own branch. Laid over
+          the shell so the call, audio and sockets under it keep running; with a
+          conversation open it docks to its rail and strip, and the shell's own
+          conversation panel shows beside it. */}
       {workspaceSection === "users" && (
-        <OdakFriendsPage onSectionChange={handleSectionChange} />
+        <OdakFriendsPage
+          onSectionChange={handleSectionChange}
+          currentUserRole={currentUserRole}
+          unreadLobbyMessages={totalUnreadLobbyMessages}
+          unreadDirectMessages={totalUnreadDirectMessages}
+          currentUserId={currentUserId}
+          currentUsername={currentUsername}
+          currentUserAvatarUrl={currentUserAvatarUrl}
+          presenceStatus={selectedPresenceStatus}
+          onPresenceStatusChange={setSelectedPresenceStatus}
+          conversations={conversations}
+          unreadByUserId={unreadByPeerIdWithCalls}
+          selectedUserId={selectedUserId}
+          onUserSelect={selectConversationById}
+          onOpenHome={openFriendsHome}
+          onCloseConversation={closeSelectedConversation}
+          home={friendsHomeProps}
+        />
       )}
     </section>
   );
