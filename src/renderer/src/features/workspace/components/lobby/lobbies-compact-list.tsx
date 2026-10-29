@@ -1,0 +1,103 @@
+import { Tooltip } from "antd";
+import type { LobbyDescriptor } from "@shared/auth-contracts";
+import type { LobbyStateMember } from "@shared/desktop-api-types";
+import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+
+interface LobbiesCompactListProps {
+  lobbies: LobbyDescriptor[];
+  lobbyMembersById: Record<string, LobbyStateMember[]>;
+  activeLobbyId: string | null;
+  openTextRoomId: string | null;
+  joiningLobbyId: string | null;
+  renamingLobbyId: string | null;
+  deletingLobbyId: string | null;
+  unreadByLobbyId?: Record<string, number>;
+  onJoinLobby: (lobbyId: string) => void;
+}
+
+/**
+ * The lobby list when the sidebar is folded to a strip: one badge per room, so
+ * a wider stage does not cost the way into another room. Voice rooms first,
+ * then message rooms, as in the full list. A click does what the full row's
+ * click does; settings, the roster and creating a room need the full sidebar.
+ */
+export function LobbiesCompactList({
+  lobbies,
+  lobbyMembersById,
+  activeLobbyId,
+  openTextRoomId,
+  joiningLobbyId,
+  renamingLobbyId,
+  deletingLobbyId,
+  unreadByLobbyId = {},
+  onJoinLobby,
+}: LobbiesCompactListProps) {
+  const voiceRooms = lobbies.filter((lobby) => !lobby.isTextOnly);
+  const textRooms = lobbies.filter((lobby) => lobby.isTextOnly);
+
+  const renderRoom = (lobby: LobbyDescriptor) => {
+    const isDisplayed = openTextRoomId
+      ? openTextRoomId === lobby.id
+      : activeLobbyId === lobby.id;
+    const isJoined = activeLobbyId === lobby.id;
+    const isDisabled =
+      renamingLobbyId === lobby.id ||
+      deletingLobbyId === lobby.id ||
+      joiningLobbyId !== null;
+    const seatCount = (lobbyMembersById[lobby.id] ?? []).length;
+    const unreadCount = unreadByLobbyId[lobby.id] ?? 0;
+    const label = lobby.isTextOnly
+      ? `# ${lobby.name}`
+      : `${lobby.name} · ${seatCount} kişi`;
+
+    return (
+      <li key={lobby.id}>
+        <Tooltip title={label} placement="right">
+          <button
+            type="button"
+            className={[
+              "ct-lobby-mini",
+              lobby.isTextOnly ? "text-room" : "",
+              isDisplayed ? "active" : "",
+              isJoined ? "joined" : "",
+              isDisabled ? "busy" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={hueStyle(lobby.id)}
+            aria-label={label}
+            aria-current={isDisplayed ? "true" : undefined}
+            aria-disabled={isDisabled || undefined}
+            onClick={() => {
+              if (!isDisabled && !isDisplayed) {
+                onJoinLobby(lobby.id);
+              }
+            }}
+          >
+            {lobby.isTextOnly ? "#" : getDisplayInitials(lobby.name)}
+            {unreadCount > 0 && (
+              <span className="ct-lobby-mini-unread" aria-hidden="true">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+            {!lobby.isTextOnly && seatCount > 0 && (
+              <span className="ct-lobby-mini-count" aria-hidden="true">
+                {seatCount}
+              </span>
+            )}
+          </button>
+        </Tooltip>
+      </li>
+    );
+  };
+
+  return (
+    <nav className="ct-lobby-compact" aria-label="Lobiler">
+      <ul>{voiceRooms.map(renderRoom)}</ul>
+      {voiceRooms.length > 0 && textRooms.length > 0 && (
+        <hr className="ct-lobby-compact-divider" />
+      )}
+      <ul>{textRooms.map(renderRoom)}</ul>
+    </nav>
+  );
+}

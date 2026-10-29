@@ -2094,3 +2094,76 @@
 .ct-lobby-avatar-container.ant-avatar-image {
   background: none;
 }
+
+/* --------------------------------------------------------------------------
+   Folded lobby list: one badge per room, the full row's states in miniature.
+   -------------------------------------------------------------------------- */
+.ct-lobby-compact {
+  @apply flex flex-col items-center gap-2;
+}
+
+.ct-lobby-compact ul {
+  @apply m-0 flex list-none flex-col items-center gap-2 p-0;
+}
+
+.ct-lobby-compact-divider {
+  @apply m-0 w-6 border-0 border-t;
+  border-color: var(--ct-border);
+}
+
+.ct-lobby-mini {
+  @apply relative grid h-10 w-10 cursor-pointer place-items-center border text-2xs font-bold;
+  border-radius: var(--ct-radius-md);
+  border-color: transparent;
+  color: var(--ct-on-media);
+  background: oklch(0.55 0.12 var(--ct-name-h));
+  letter-spacing: 0.04em;
+  transition:
+    border-color var(--ct-duration-fast) ease,
+    transform var(--ct-duration-fast) ease;
+}
+
+.ct-lobby-mini.text-room {
+  color: var(--ct-text-secondary);
+  background: var(--ct-alpha-08);
+  font-size: var(--ct-icon-sm);
+}
+
+.ct-lobby-mini:hover {
+  transform: translateY(-1px);
+}
+
+.ct-lobby-mini.active {
+  border-color: var(--ct-text-primary);
+}
+
+/* The room your microphone is in, as the full row marks it with its icon. */
+.ct-lobby-mini.joined {
+  box-shadow: 0 0 0 2px var(--ct-success);
+}
+
+.ct-lobby-mini.busy {
+  @apply cursor-progress opacity-60;
+}
+
+.ct-lobby-mini-unread,
+.ct-lobby-mini-count {
+  @apply absolute inline-flex h-4 items-center justify-center rounded-full px-1 text-micro font-bold tabular-nums;
+  min-width: 16px;
+  letter-spacing: 0;
+}
+
+.ct-lobby-mini-unread {
+  top: -5px;
+  right: -5px;
+  color: var(--ct-on-info);
+  background: var(--ct-info);
+}
+
+.ct-lobby-mini-count {
+  bottom: -5px;
+  right: -5px;
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-raised);
+  box-shadow: 0 0 0 1px var(--ct-border);
+}

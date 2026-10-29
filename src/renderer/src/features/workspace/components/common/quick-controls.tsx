@@ -118,9 +118,10 @@ export function QuickControls({
             type="button"
             className="ct-quick-share-stop"
             onClick={onStopScreenShare}
+            title="Ekran paylaşımını durdur"
           >
             <StopOutlined aria-hidden="true" />
-            Durdur
+            <span className="ct-quick-share-stop-label">Durdur</span>
           </button>
         </div>
       )}
@@ -138,9 +139,10 @@ export function QuickControls({
             type="button"
             className="ct-quick-share-stop"
             onClick={onStopCamera}
+            title="Kamerayı kapat"
           >
             <StopOutlined aria-hidden="true" />
-            Kapat
+            <span className="ct-quick-share-stop-label">Kapat</span>
           </button>
         </div>
       )}

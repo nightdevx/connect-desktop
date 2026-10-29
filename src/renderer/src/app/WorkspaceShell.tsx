@@ -109,6 +109,11 @@ function WorkspaceShell({
     (state) => state.viewPreferences.lobbyChatOpen,
   );
   const setViewPreference = useUiStore((state) => state.setViewPreference);
+  const isLobbySidebarOpen = useUiStore(
+    (state) => state.viewPreferences.lobbySidebarOpen,
+  );
+  // Only the lobbies sidebar folds; every other section keeps its full column.
+  const isSidebarCollapsed = workspaceSection === "lobbies" && !isLobbySidebarOpen;
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setFreeGamesFilter = useUiStore((state) => state.setFreeGamesFilter);
   const setStatus = useUiStore((state) => state.setStatus);
@@ -1300,7 +1305,9 @@ function WorkspaceShell({
   }, [unreadByPeerIdWithCalls, friends.incomingRequests]);
 
   return (
-    <section className="ct-workspace-shell">
+    <section
+      className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}`}
+    >
       <WorkspaceRail
         workspaceSection={workspaceSection}
         onSectionChange={handleSectionChange}
@@ -1322,6 +1329,10 @@ function WorkspaceShell({
           <WorkspaceSidebar
             sectionTitle={sectionTitle}
             workspaceSection={workspaceSection}
+            lobbiesCollapsed={isSidebarCollapsed}
+            onToggleLobbiesCollapsed={() =>
+              setViewPreference("lobbySidebarOpen", !isLobbySidebarOpen)
+            }
             usersProps={{
               conversations,
               onCloseConversation: closeSelectedConversation,

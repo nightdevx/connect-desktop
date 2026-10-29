@@ -1,7 +1,12 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useState } from "react";
 import { Switch, Modal, Select, Input, InputNumber } from "antd";
-import { PlusOutlined, UserAddOutlined } from "@ant-design/icons";
+import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PlusOutlined,
+  UserAddOutlined,
+} from "@ant-design/icons";
 import { ModalHeading } from "@/ui/modal-heading";
 import type {
   FriendEntry,
@@ -27,7 +32,7 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { FreeGamesSidebarPanel } from "@/features/free-games";
 import { MinigamesSidebarPanel } from "@/features/minigames";
-import { LobbiesSidebarPanel } from "../lobby";
+import { LobbiesCompactList, LobbiesSidebarPanel } from "../lobby";
 import { SettingsSidebarTabs } from "../settings";
 import { UsersSidebarPanel } from "../user";
 import { WorkspaceAudioStatus } from "./workspace-audio-status";
@@ -39,6 +44,9 @@ import { toast } from "@/services/toast";
 interface WorkspaceSidebarProps {
   sectionTitle: string;
   workspaceSection: WorkspaceSection;
+  /** Lobbies only: folded to a strip of room badges, so the stage gets the width. */
+  lobbiesCollapsed?: boolean;
+  onToggleLobbiesCollapsed?: () => void;
   usersProps: {
     conversations: OpenConversation[];
     onCloseConversation: (userId: string) => void;
@@ -132,6 +140,8 @@ interface WorkspaceSidebarProps {
 export function WorkspaceSidebar({
   sectionTitle,
   workspaceSection,
+  lobbiesCollapsed = false,
+  onToggleLobbiesCollapsed,
   usersProps,
   lobbiesProps,
   settingsProps,
@@ -293,6 +303,40 @@ export function WorkspaceSidebar({
     setIsCreateLobbyOpen(false);
   };
 
+  const isCollapsed = workspaceSection === "lobbies" && lobbiesCollapsed;
+
+  if (isCollapsed) {
+    return (
+      <aside className="ct-sidebar collapsed" aria-label="Yan panel">
+        <header className="ct-sidebar-header">
+          <button
+            type="button"
+            className="ct-sidebar-header-action"
+            onClick={onToggleLobbiesCollapsed}
+            title="Lobi listesini genişlet"
+            aria-label="Lobi listesini genişlet"
+            aria-expanded={false}
+          >
+            <MenuUnfoldOutlined />
+          </button>
+        </header>
+        <div className="ct-sidebar-body">
+          <LobbiesCompactList
+            lobbies={lobbiesProps.lobbies}
+            lobbyMembersById={lobbiesProps.lobbyMembersById}
+            activeLobbyId={lobbiesProps.activeLobbyId}
+            openTextRoomId={lobbiesProps.openTextRoomId}
+            joiningLobbyId={lobbiesProps.joiningLobbyId}
+            renamingLobbyId={lobbiesProps.renamingLobbyId}
+            deletingLobbyId={lobbiesProps.deletingLobbyId}
+            unreadByLobbyId={lobbiesProps.unreadByLobbyId}
+            onJoinLobby={lobbiesProps.onJoinLobby}
+          />
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="ct-sidebar" aria-label="Yan panel">
 
@@ -321,6 +365,19 @@ export function WorkspaceSidebar({
             aria-label="Lobi oluştur"
           >
             <PlusOutlined />
+          </button>
+        )}
+
+        {workspaceSection === "lobbies" && onToggleLobbiesCollapsed && (
+          <button
+            type="button"
+            className="ct-sidebar-header-action"
+            onClick={onToggleLobbiesCollapsed}
+            title="Lobi listesini daralt"
+            aria-label="Lobi listesini daralt"
+            aria-expanded={true}
+          >
+            <MenuFoldOutlined />
           </button>
         )}
       </header>

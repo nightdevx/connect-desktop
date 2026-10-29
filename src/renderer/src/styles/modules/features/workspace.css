@@ -9,6 +9,38 @@
   background: var(--ct-panel-solid);
 }
 
+/* Lobbies only: the sidebar folds to the rail's width and the stage takes the
+   rest. The column keeps the dock under it, so the microphone and the way out
+   of a room stay where they were, stacked to fit. */
+.ct-workspace-shell.is-sidebar-collapsed {
+  --ct-sidebar-width: var(--ct-rail-width);
+}
+
+.is-sidebar-collapsed .ct-quick-idle,
+.is-sidebar-collapsed .ct-quick-controls-inline,
+.is-sidebar-collapsed .ct-quick-share-bar,
+.is-sidebar-collapsed .ct-call-strip {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.is-sidebar-collapsed .ct-quick-idle,
+.is-sidebar-collapsed .ct-quick-share-bar,
+.is-sidebar-collapsed .ct-call-strip {
+  padding-inline: 0;
+}
+
+.is-sidebar-collapsed .ct-quick-idle-left {
+  margin: 0;
+}
+
+.is-sidebar-collapsed .ct-quick-idle-meta,
+.is-sidebar-collapsed .ct-quick-share-text,
+.is-sidebar-collapsed .ct-quick-share-stop-label,
+.is-sidebar-collapsed .ct-call-strip-text {
+  display: none;
+}
+
 /* Both axes stated, so the rail cannot be swept somewhere else by
    auto-placement once a sibling carries an explicit row. */
 .ct-workspace-shell > .ct-rail {
@@ -197,6 +229,22 @@
   border-radius: 3px;
   background: var(--ct-accent);
   box-shadow: 0 0 8px var(--ct-accent-glow);
+}
+
+/* The title takes the free space, so the header's buttons sit together on the
+   right however many a section has. */
+.ct-sidebar-header > h3 {
+  margin-right: auto;
+}
+
+/* Folded: no title, one button, centred over the strip of room badges. */
+.ct-sidebar.collapsed .ct-sidebar-header {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.ct-sidebar.collapsed .ct-sidebar-body {
+  padding-inline: 0;
 }
 
 .ct-sidebar-header-action {
