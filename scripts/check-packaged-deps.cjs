@@ -43,6 +43,10 @@ const nameOf = (entry) =>
 
 const packaged = new Set(manifests.map(nameOf));
 
+// Left out on purpose (electron-builder.yml): @sentry/node declares it for its
+// build-plugin subpaths only, and its whole subtree is excluded with it.
+const BUILD_TIME_ONLY = new Set(["@sentry/bundler-plugins"]);
+
 const missing = new Map();
 for (const manifest of manifests) {
   let parsed;
@@ -62,7 +66,7 @@ for (const manifest of manifests) {
     if (present.has(`/node_modules/${owner}/node_modules/${dep}/package.json`)) {
       continue;
     }
-    if (packaged.has(dep)) {
+    if (packaged.has(dep) || BUILD_TIME_ONLY.has(dep)) {
       continue;
     }
     if (!missing.has(dep)) {

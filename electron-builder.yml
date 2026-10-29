@@ -30,6 +30,25 @@ files:
   - "!**/__tests__/**"
   - "!**/test/**"
   - "!**/tests/**"
+  # Build-time only. @sentry/node 11 lists @sentry/bundler-plugins (its vite/
+  # rollup/webpack subpaths) as a dependency, and with it the Sentry CLI (15 MB),
+  # oxc-parser with its native binding, magic-string and glob. The runtime entry
+  # never loads any of them: 21 MB of the 53 MB archive. check-packaged-deps.cjs
+  # knows the one excluded root and still fails if anything else goes missing.
+  - "!node_modules/@sentry/bundler-plugins/**"
+  - "!node_modules/sentry/**"
+  - "!node_modules/oxc-parser/**"
+  - "!node_modules/@oxc-parser/**"
+  - "!node_modules/@oxc-project/**"
+  - "!node_modules/magic-string/**"
+  - "!node_modules/@jridgewell/sourcemap-codec/**"
+  - "!node_modules/glob/**"
+  - "!node_modules/path-scurry/**"
+  - "!node_modules/minipass/**"
+  - "!node_modules/lru-cache/**"
+  - "!node_modules/minimatch/**"
+  - "!node_modules/brace-expansion/**"
+  - "!node_modules/balanced-match/**"
 asar: true
 # Native .node must live outside the asar archive to be loadable at runtime.
 asarUnpack:
