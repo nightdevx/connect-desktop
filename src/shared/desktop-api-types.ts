@@ -350,7 +350,8 @@ export type LobbyStreamEvent =
       lobbyId: string;
       userId: string;
       username: string;
-      emote: LobbySoundEmote;
+      // A synthesised sound, or an upload by its library id.
+      emote: LobbySoundEmote | `${typeof CUSTOM_EMOTE_PREFIX}${string}`;
       label?: string;
       holdMs?: number;
       sentAt?: number;
