@@ -263,9 +263,10 @@ jobs:
 
   publish-release:
     needs: [detect-version, release-windows, release-macos]
-    # Windows decides: a failed or cancelled macOS job only leaves its files out
-    # of the release. release-windows carries the version-changed condition.
-    if: always() && needs.release-windows.result == 'success'
+    # Windows decides: a failed macOS job only leaves its files out of the
+    # release. !cancelled() rather than always(): a run stopped by hand still
+    # publishes nothing. release-windows carries the version-changed condition.
+    if: ${{ !cancelled() && needs.release-windows.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
