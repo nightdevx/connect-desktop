@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
@@ -18,6 +18,7 @@ import type {
   SelectablePresenceStatus,
   UserDirectoryEntry,
 } from "@shared/auth-contracts";
+import { useUiStore } from "@/store/ui-store";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { isAdminRole } from "@/features/auth";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
@@ -282,6 +283,12 @@ export function OdakFriendsPage({
     onCopyUsername,
   } = home;
   const gameActivityByUser = useGameActivityByUser();
+  const setOdakTheme = useUiStore((state) => state.setOdakTheme);
+  // Popups, toasts and the call card take the page's palette while it is open.
+  useLayoutEffect(() => {
+    setOdakTheme(true);
+    return () => setOdakTheme(false);
+  }, [setOdakTheme]);
   const [tab, setTab] = useState<Tab>("online");
   const [search, setSearch] = useState("");
   const [pendingUnfriend, setPendingUnfriend] = useState<Person | null>(null);

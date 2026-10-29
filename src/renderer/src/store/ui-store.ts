@@ -128,6 +128,12 @@ interface UiState {
   /** Drives the data-theme attribute on <html> and antd's algorithm. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /**
+   * The Odak page is open: data-odak on <html> points the tokens at its
+   * palette (odak-overlays.css), and antd is rebuilt from them.
+   */
+  odakTheme: boolean;
+  setOdakTheme: (on: boolean) => void;
   /** Whether GIFs in a conversation animate always, or only under the cursor. */
   gifPlayback: GifPlayback;
   setGifPlayback: (mode: GifPlayback) => void;
@@ -184,6 +190,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     applyThemeMode(mode);
     saveThemeMode(mode);
     set({ themeMode: mode });
+  },
+  odakTheme: false,
+  setOdakTheme: (on) => {
+    // In the same frame as the state, for the reason setThemeMode gives.
+    document.documentElement.toggleAttribute("data-odak", on);
+    set({ odakTheme: on });
   },
   gifPlayback: readGifPlayback(),
   setGifPlayback: (mode) => {

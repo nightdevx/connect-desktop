@@ -1,0 +1,456 @@
+/* ==========================================================================
+   ODAK OVERLAYS -- the popups and notifications in the Odak design.
+
+   While the Odak page is open, <html> carries data-odak (ui-store
+   setOdakTheme). Modals, menus, popovers, tooltips, toasts and the call card
+   are portalled to <body>, so one attribute reaches all of them -- and the
+   shell's conversation panel beside the docked page as well.
+   ========================================================================== */
+
+/* The app's tokens pointed at the Odak palette. Everything already drawn from
+   them follows without a rule of its own, and main.tsx reads them back for
+   antd, so its buttons, inputs and switches turn lime too. Dark only, like
+   the page: the light theme's alphas are black, so they are restated here. */
+:root[data-odak] {
+  --ct-surface-0: #0b0c0e;
+  --ct-surface-1: var(--odak-bg);
+  --ct-surface-2: var(--odak-strip);
+  --ct-surface-3: var(--odak-surface);
+  --ct-surface-4: var(--odak-raised);
+
+  --ct-panel-solid: var(--odak-strip);
+  --ct-panel-strong: var(--odak-strip);
+  --ct-panel: var(--odak-bg);
+  --ct-panel-soft: var(--odak-surface);
+  --ct-panel-raised: var(--odak-raised);
+
+  --ct-alpha-02: rgba(255, 255, 255, 0.02);
+  --ct-alpha-04: rgba(255, 255, 255, 0.04);
+  --ct-alpha-08: rgba(255, 255, 255, 0.07);
+  --ct-alpha-12: rgba(255, 255, 255, 0.1);
+  --ct-alpha-20: rgba(255, 255, 255, 0.16);
+  --ct-alpha-32: rgba(255, 255, 255, 0.28);
+  --ct-alpha-50: rgba(255, 255, 255, 0.5);
+  --ct-alpha-70: rgba(255, 255, 255, 0.7);
+
+  --ct-border: var(--odak-border);
+  --ct-border-strong: var(--odak-border-strong);
+
+  --ct-text-primary: var(--odak-text);
+  --ct-text-secondary: #c9ccd2;
+  --ct-text-muted: var(--odak-muted);
+  --ct-text-inverse: var(--odak-on-accent);
+
+  --ct-accent: var(--odak-accent);
+  --ct-accent-dim: #a9d41f;
+  --ct-accent-soft: rgba(198, 244, 50, 0.12);
+  --ct-accent-strong: rgba(198, 244, 50, 0.32);
+  --ct-accent-glow: rgba(198, 244, 50, 0.18);
+
+  --ct-danger: var(--odak-danger);
+  /* The logo's two colours (ringing, the call row, ambient washes) become the
+     accent and a deeper lime. */
+  --ct-brand-blue: var(--odak-accent);
+  --ct-brand-cyan: #8fb81f;
+  --ct-scrim: rgba(5, 6, 7, 0.72);
+  --ct-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --ct-scrollbar-thumb: rgba(255, 255, 255, 0.14);
+
+  color-scheme: dark;
+}
+
+/* --------------------------------------------------------------------------
+   Modals
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-modal .ant-modal-mask {
+  backdrop-filter: blur(8px);
+}
+
+:root[data-odak] .ct-modal .ant-modal-container {
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 22px;
+  background: var(--odak-surface);
+}
+
+/* The logo's gradient line belongs to the old chrome. */
+:root[data-odak] .ct-modal .ant-modal-container::before {
+  display: none;
+}
+
+:root[data-odak] .ct-modal .ant-modal-header {
+  padding: 24px 68px 0 24px;
+}
+
+:root[data-odak] .ct-modal .ant-modal-close {
+  top: 20px;
+  inset-inline-end: 20px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-modal .ant-modal-close:hover {
+  color: var(--odak-text);
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-modal .ant-modal-body {
+  padding: 20px 24px 24px;
+}
+
+:root[data-odak] .ct-modal .ant-modal-container:not(:has(> .ant-modal-header)) > .ant-modal-body {
+  padding-top: 24px;
+}
+
+/* No band of its own: the buttons sit at the card's foot, right-aligned. */
+:root[data-odak] .ct-modal .ant-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 24px 24px;
+  border-top: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-modal .ant-modal-footer .ant-btn {
+  height: 40px;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-modal .ant-modal-footer .ant-btn-default:not(:disabled) {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-modal .ant-modal-footer .ant-btn-default:not(:disabled):hover {
+  border-color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+/* A send button waiting for input reads as waiting, not as broken. */
+:root[data-odak] .ct-modal .ant-modal-footer .ant-btn:disabled {
+  border-color: transparent;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-modal-heading {
+  gap: 14px;
+}
+
+:root[data-odak] .ct-modal-heading-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 19px;
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+:root[data-odak] .ct-modal-heading-icon.danger {
+  color: var(--odak-danger);
+  background: rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] .ct-modal-heading-title {
+  font-size: 17px;
+}
+
+:root[data-odak] .ct-modal-heading-description {
+  font-size: 13px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-modal-note {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--odak-raised);
+}
+
+/* Fields: the page's search box, taller. */
+:root[data-odak] .ct-field > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-input {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border-color: var(--odak-border-strong);
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-input:hover {
+  border-color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-input:focus {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+/* --------------------------------------------------------------------------
+   Menus (dropdowns, right-click menus, the menu about one person)
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu,
+:root[data-odak] .ct-menu-panel {
+  padding: 6px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 16px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ant-dropdown .ct-menu-panel .ant-dropdown-menu {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #c9ccd2;
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item:hover,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-open > .ant-dropdown-menu-submenu-title {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item:hover .anticon,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover .anticon {
+  color: var(--odak-accent);
+}
+
+/* Destructive rows: red, and a red tint under the pointer rather than a
+   solid red slab. */
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled):hover,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled):hover .anticon {
+  color: var(--odak-danger);
+  background: rgba(255, 92, 92, 0.12);
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-divider {
+  margin: 6px 8px;
+  background: var(--odak-border);
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-group-title {
+  padding: 10px 12px 4px;
+  font-size: 11px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-menu-identity {
+  gap: 12px;
+  padding: 8px 10px 12px;
+  margin-bottom: 6px;
+  border-bottom-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-menu-identity-text strong {
+  font-size: 14px;
+}
+
+:root[data-odak] .ct-menu-identity-text span {
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Popovers and tooltips
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ant-popover .ant-popover-inner {
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ant-popover .ant-popover-arrow::before {
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-profile-card-popover .ant-popover-inner {
+  border-radius: 20px;
+}
+
+/* The card's band in the page's lime instead of the logo's blue. */
+:root[data-odak] .ct-profile-card-banner {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--odak-accent) 22%, var(--odak-surface)),
+    var(--odak-raised)
+  );
+}
+
+:root[data-odak] .ant-tooltip .ant-tooltip-container {
+  min-height: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-text);
+  /* The surface colour antd also paints the arrow with (colorBgSpotlight). */
+  background: var(--odak-surface);
+}
+
+/* --------------------------------------------------------------------------
+   Toasts
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-toasts {
+  width: min(400px, calc(100vw - 32px));
+  gap: 10px;
+}
+
+:root[data-odak] .ct-toast {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 14px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 16px;
+  background: var(--odak-surface);
+}
+
+/* Success is the page's accent; plain news is the text colour, not blue. */
+:root[data-odak] .ct-toast.success {
+  --ct-toast-tone: var(--odak-accent);
+}
+
+:root[data-odak] .ct-toast.info {
+  --ct-toast-tone: var(--odak-text);
+}
+
+:root[data-odak] .ct-toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 16px;
+  background: color-mix(in srgb, var(--ct-toast-tone) 14%, transparent);
+}
+
+:root[data-odak] .ct-toast-text {
+  padding-top: 0;
+}
+
+:root[data-odak] .ct-toast-text strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-toast-text span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-toast-action {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-toast-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+
+:root[data-odak] .ct-toast-close:hover {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-toast-timer {
+  left: 12px;
+  bottom: 5px;
+  width: calc(100% - 24px);
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+/* --------------------------------------------------------------------------
+   Calls: the corner card and the row at the top of the dock
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-call-dock {
+  width: 340px;
+  border-color: var(--odak-border-strong);
+  border-radius: 20px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-call-dock.incoming {
+  gap: 16px;
+  padding: 18px;
+}
+
+:root[data-odak] .ct-call-dock.incoming .ct-call-dock-avatar {
+  width: 52px;
+  height: 52px;
+  border-color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-call-dock.incoming .ct-call-dock-name {
+  font-size: 17px;
+}
+
+:root[data-odak] .ct-call-dock-status {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-call-dock-answer {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-call-answer {
+  height: 42px;
+  border-radius: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-call-answer.accept {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-call-answer.reject {
+  color: #ffffff;
+  background: var(--odak-danger);
+}
+
+:root[data-odak] .ct-call-dock-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+:root[data-odak] .ct-call-strip,
+:root[data-odak] .ct-call-strip.outgoing {
+  background: rgba(198, 244, 50, 0.08);
+}
+
+:root[data-odak] .ct-call-strip-text > span,
+:root[data-odak] .ct-call-strip.outgoing .ct-call-strip-text > span {
+  color: var(--odak-accent);
+}

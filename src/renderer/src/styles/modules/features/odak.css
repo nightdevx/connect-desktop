@@ -4,7 +4,10 @@
    until the design is settled.
    ========================================================================== */
 
-.ct-odak {
+/* The palette: on the page, and on <html> while the page is open (data-odak),
+   so the popups portalled to <body> share it (odak-overlays.css). */
+.ct-odak,
+:root[data-odak] {
   --odak-bg: #0e0f11;
   --odak-rail: #0b0c0e;
   --odak-strip: #121316;
@@ -17,7 +20,9 @@
   --odak-accent: #c6f432;
   --odak-on-accent: #0e0f11;
   --odak-danger: #ff5c5c;
+}
 
+.ct-odak {
   /* Over the whole workspace, under the title bar: the shell stays mounted
      beneath it, so a call or a socket is never torn down by opening the page. */
   position: fixed;

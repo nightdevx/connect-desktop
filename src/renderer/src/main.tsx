@@ -42,13 +42,14 @@ window.addEventListener("error", (event) => {
 // reading them back is what keeps the two halves of the palette in step.
 function ThemedApp() {
   const themeMode = useUiStore((state) => state.themeMode);
+  const odakTheme = useUiStore((state) => state.odakTheme);
 
   const antdTheme = useMemo(() => {
     const tokens = readTokens();
 
     return {
       algorithm:
-        themeMode === "light" ? theme.defaultAlgorithm : theme.darkAlgorithm,
+        themeMode === "light" && !odakTheme ? theme.defaultAlgorithm : theme.darkAlgorithm,
       token: {
         colorPrimary: tokens.accent,
         colorBgBase: tokens.surface0,
@@ -114,7 +115,7 @@ function ThemedApp() {
         },
       },
     };
-  }, [themeMode]);
+  }, [themeMode, odakTheme]);
 
   return (
     // Turkish defaults for antd's own words ("Veri yok", the pager, the
