@@ -1157,7 +1157,7 @@ const main = async () => {
   // --- the seat counts, against the server's own catalogue --------------------
 
   // @shared/minigames states how many chairs each table has, and so does
-  // internal/minigame/hub.go. Two statements of the same fact, and this is what
+  // internal/minigame/catalog.go. Two statements of the same fact, and this is what
   // keeps them one fact: the browser has to draw "2/4 kişi" and decide whether
   // to offer a Başlat button before it has ever seen a table, so it cannot ask.
   //
@@ -1170,29 +1170,27 @@ const main = async () => {
   // machine and absent in this repo's CI, where the workflow clones only this
   // one -- so they are skipped rather than fatal when it is missing, and the
   // skip is announced. A silent skip would read as a passing check.
-  const backendRoot = path.join(projectRoot, "..", "backend-go");
+  const backendRoot = require("./backend-dir.cjs");
   const backendFile = (...parts) => path.join(backendRoot, ...parts);
   const backendPresent = fs.existsSync(
-    backendFile("internal", "minigame", "hub.go"),
+    backendFile("internal", "minigame", "catalog.go"),
   );
   if (!backendPresent) {
     console.log(
-      "check-minigames: backend-go is not checked out beside this repo — " +
+      "check-minigames: connect-backend is not checked out beside this repo — " +
         "the seat-count and score-bound cross-checks were SKIPPED",
     );
   }
 
   if (backendPresent) {
-    const hub = fs.readFileSync(
-      backendFile("internal", "minigame", "hub.go"),
+    const catalogGo = fs.readFileSync(
+      backendFile("internal", "minigame", "catalog.go"),
       "utf8",
     );
 
-    const catalogue = hub.slice(
-      hub.indexOf("var catalog = map[string]gameSpec{"),
-      hub.indexOf("\n}", hub.indexOf("var catalog = map[string]gameSpec{")),
-    );
-    assert.ok(catalogue.length > 0, "could not find the catalogue in hub.go");
+    const catalogStart = catalogGo.indexOf("var catalog = map[string]gameSpec{");
+    assert.ok(catalogStart !== -1, "could not find the catalogue in catalog.go");
+    const catalogue = catalogGo.slice(catalogStart, catalogGo.indexOf("\n}", catalogStart));
 
     const serverSeats = {};
     // Each row is `"id": {…}`, possibly spread over several lines, so the body

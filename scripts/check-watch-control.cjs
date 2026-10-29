@@ -5,10 +5,10 @@
  *
  * The rule is written down twice and it has to be, which is why this exists.
  *
- * The server is the authority: watch.Manager.CanControlSession answers "may this
- * account pause, seek or stop what is playing", and CanStart answers "may it
- * open a video, or replace the one already running". Both are re-derived on
- * every write, so a client cannot talk its way past them.
+ * The server is the authority: watch.Manager.mayDriveLocked answers "may this
+ * account pause, seek, stop or replace what is playing", and Start lets a member
+ * open a video when nothing is playing or when they may drive what is. Both are
+ * re-derived on every write, so a client cannot talk its way past them.
  *
  * But the wire deliberately does NOT carry those answers. It carries the
  * MODERATOR half only — watch/handler.go writeState sends
@@ -146,13 +146,13 @@ assert.equal(
 
 // ---------------------------------------------------------------- the Go half
 
-const backendRoot = path.join(projectRoot, "..", "backend-go");
+const backendRoot = require("./backend-dir.cjs");
 const managerPath = path.join(backendRoot, "internal", "watch", "manager.go");
 const handlerPath = path.join(backendRoot, "internal", "watch", "handler.go");
 
 if (!fs.existsSync(managerPath)) {
   console.log(
-    "check-watch-control: backend-go is not checked out beside this repo — " +
+    "check-watch-control: connect-backend is not checked out beside this repo — " +
       "the client half passed, the cross-repo half was skipped",
   );
   process.exit(0);
@@ -168,7 +168,7 @@ function goFunc(name) {
   return managerSource.slice(start, end === -1 ? undefined : end);
 }
 
-// The rule itself lives in one place, and both public predicates defer to it.
+// The rule itself lives in one place, and every write defers to it.
 const mayDrive = goFunc("mayDriveLocked");
 assert.match(
   mayDrive,
@@ -176,30 +176,24 @@ assert.match(
   "check-watch-control: mayDriveLocked no longer answers 'moderator, or whoever started it'",
 );
 
-const canControlSession = goFunc("CanControlSession");
+// canStart: nothing playing, or a session this account may drive.
 assert.match(
-  canControlSession,
-  /if m\.CanControl\(actor\) \{\s*return true/,
-  "check-watch-control: CanControlSession no longer honours the moderator override",
-);
-assert.match(
-  canControlSession,
-  /return exists && m\.mayDriveLocked\(/,
-  "check-watch-control: CanControlSession no longer defers to mayDriveLocked",
-);
-
-const canStart = goFunc("CanStart");
-assert.match(
-  canStart,
-  /return !exists \|\| m\.mayDriveLocked\(/,
-  "check-watch-control: CanStart no longer matches the client's canStart",
+  goFunc("Start"),
+  /if exists && !m\.mayDriveLocked\(lobbyID, active, actor, moderator\)/,
+  "check-watch-control: Start no longer matches the client's canStart",
 );
 
 // Every write re-derives the rule against the session it is about to change,
-// under the lock that protects it. Checking before the lock is not the same
-// question a moment later: a moderator replacing the video hands the session to
-// somebody else, and a stale answer would let the previous starter stop it.
+// under the lock that protects it, with the moderator override read from
+// CanControl. Checking before the lock is not the same question a moment later:
+// a moderator replacing the video hands the session to somebody else, and a
+// stale answer would let the previous starter stop it.
 for (const name of ["transition", "Stop", "Start"]) {
+  assert.match(
+    goFunc(name),
+    /moderator := m\.CanControl\(actor\)/,
+    `check-watch-control: watch.Manager.${name} no longer honours the moderator override`,
+  );
   assert.match(
     goFunc(name),
     /m\.mayDriveLocked\(lobbyID, active, actor, moderator\)/,

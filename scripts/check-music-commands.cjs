@@ -74,7 +74,7 @@ assert.ok(
 
 // The backend is a SIBLING CHECKOUT, not part of this repository: present on a
 // developer's machine, absent in this repo's CI. Skip loudly rather than fail.
-const backendRoot = path.join(projectRoot, "..", "backend-go");
+const backendRoot = require("./backend-dir.cjs");
 const backendFile = (...parts) => path.join(backendRoot, ...parts);
 const backendPresent = fs.existsSync(
   backendFile("internal", "music", "commands.go"),
@@ -82,7 +82,7 @@ const backendPresent = fs.existsSync(
 
 if (!backendPresent) {
   console.log(
-    "check-music-commands: backend-go is not checked out beside this repo — " +
+    "check-music-commands: connect-backend is not checked out beside this repo — " +
       "the cross-repo command, prefix and guard checks were SKIPPED",
   );
 } else {
@@ -142,8 +142,8 @@ if (!backendPresent) {
     backendFile("internal", "media", "livekit", "reconciler.go"),
     "utf8",
   );
-  const mediaHandler = fs.readFileSync(
-    backendFile("internal", "media", "livekit", "handler.go"),
+  const webhookGo = fs.readFileSync(
+    backendFile("internal", "media", "livekit", "webhook.go"),
     "utf8",
   );
 
@@ -153,7 +153,7 @@ if (!backendPresent) {
     "the reconciler no longer skips the music bot: it will be admitted as a user, fail the lookup and be evicted every tick",
   );
   assert.match(
-    mediaHandler,
+    webhookGo,
     /music\.IsBotIdentity\(/,
     "the LiveKit webhook path no longer skips the music bot: participant_joined will try to put it on the roster",
   );

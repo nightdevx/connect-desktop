@@ -24,14 +24,7 @@ const read = (relativePath) =>
 const shared = read("src/shared/media-diagnostics.ts");
 const collector = read("src/renderer/src/services/media-diagnostics.ts");
 const debugLog = read("src/renderer/src/services/debug-log.ts");
-const goSharedPath = path.join(
-  projectRoot,
-  "..",
-  "backend-go",
-  "internal",
-  "mediadiag",
-  "mediadiag.go",
-);
+const goSharedPath = path.join(require("./backend-dir.cjs"), "internal", "mediadiag", "mediadiag.go");
 const goShared = fs.existsSync(goSharedPath)
   ? fs.readFileSync(goSharedPath, "utf8")
   : null;
@@ -138,7 +131,7 @@ if (goShared) {
   crossRepo = "caps aligned";
 } else {
   console.log(
-    "check-media-diagnostics: backend-go is not checked out beside this repo — " +
+    "check-media-diagnostics: connect-backend is not checked out beside this repo — " +
       "the schema-version and entry-cap parity checks were SKIPPED",
   );
 }
