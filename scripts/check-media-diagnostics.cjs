@@ -77,7 +77,7 @@ assert.ok(
 
 // --- the collector is fed in EVERY build -----------------------------------
 const recordIndex = debugLog.indexOf("mediaDiagnostics.record(");
-const devGateIndex = debugLog.indexOf('process.env.NODE_ENV === \'development\'');
+const devGateIndex = debugLog.indexOf("import.meta.env.DEV");
 assert.notEqual(recordIndex, -1, "logLiveKitDebug no longer feeds the collector");
 assert.notEqual(devGateIndex, -1, "the development console gate went missing");
 assert.ok(
