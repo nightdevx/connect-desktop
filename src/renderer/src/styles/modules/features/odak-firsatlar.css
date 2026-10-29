@@ -38,6 +38,13 @@
   color: var(--odak-text);
 }
 
+:root[data-odak] .ct-free-games-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
 :root[data-odak] .ct-free-games-head .ct-free-games-store-select {
   min-width: 170px;
   height: 40px;
@@ -98,7 +105,7 @@
 /* Another bucket, store or page is a new grid, which fades in; the first one
    opens with its cards rising in one after another (data-intro). */
 :root[data-odak] .ct-free-games-grid {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   /* Room for a hovered card's lift inside the scroller. */
   padding: 2px 2px 8px;
@@ -273,6 +280,7 @@
 
 :root[data-odak] .ct-free-game-remaining {
   flex-basis: 100%;
+  white-space: nowrap;
   font-family: var(--ct-font-mono);
   font-size: 12px;
   color: var(--odak-muted);
@@ -300,6 +308,10 @@
     transform var(--odak-dur-1) var(--odak-ease-out);
 }
 
+:root[data-odak] .ct-free-game-action .anticon {
+  display: none;
+}
+
 :root[data-odak] .ct-free-game-action:hover {
   color: var(--odak-on-accent);
   background: #d6ff5c;
@@ -317,7 +329,7 @@
 /* --- loading, refreshing, empty ------------------------------------------ */
 /* The first load: card-sized blocks with a soft sheen. */
 :root[data-odak] .ct-free-game-skeleton {
-  height: 236px;
+  height: 284px;
   border: 1px solid var(--odak-border);
   border-radius: 20px;
   background: linear-gradient(

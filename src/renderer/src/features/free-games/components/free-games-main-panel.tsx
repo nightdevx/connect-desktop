@@ -113,33 +113,36 @@ export function FreeGamesMainPanel() {
               </button>
             ))}
           </div>
-          <div className="ct-odak-fill" />
-          {storeSelect}
-          {snapshot.failedSources.length > 0 ? (
-            <Tooltip
-              title={`Şu kaynaklar yanıt vermedi: ${snapshot.failedSources
-                .map((source) => SOURCE_LABELS[source])
-                .join(", ")}. Liste eksik olabilir.`}
+          {/* At the far end, and still there when a narrow page wraps it
+              under the tabs. */}
+          <div className="ct-free-games-head-tools">
+            {storeSelect}
+            {snapshot.failedSources.length > 0 ? (
+              <Tooltip
+                title={`Şu kaynaklar yanıt vermedi: ${snapshot.failedSources
+                  .map((source) => SOURCE_LABELS[source])
+                  .join(", ")}. Liste eksik olabilir.`}
+              >
+                <span className="ct-free-games-head-warning">
+                  <WarningOutlined aria-hidden="true" />
+                  {snapshot.failedSources.length} kaynak yanıt vermedi
+                </span>
+              </Tooltip>
+            ) : null}
+            <span className="ct-free-games-head-updated">
+              Güncelleme: {formatFetchedAt(snapshot.fetchedAt, nowMs)}
+            </span>
+            <button
+              type="button"
+              className="ct-free-games-head-refresh"
+              aria-label="Listeyi yenile"
+              title="Listeyi yenile"
+              onClick={refresh}
+              disabled={isRefreshing}
             >
-              <span className="ct-free-games-head-warning">
-                <WarningOutlined aria-hidden="true" />
-                {snapshot.failedSources.length} kaynak yanıt vermedi
-              </span>
-            </Tooltip>
-          ) : null}
-          <span className="ct-free-games-head-updated">
-            Güncelleme: {formatFetchedAt(snapshot.fetchedAt, nowMs)}
-          </span>
-          <button
-            type="button"
-            className="ct-free-games-head-refresh"
-            aria-label="Listeyi yenile"
-            title="Listeyi yenile"
-            onClick={refresh}
-            disabled={isRefreshing}
-          >
-            <ReloadOutlined aria-hidden="true" />
-          </button>
+              <ReloadOutlined aria-hidden="true" />
+            </button>
+          </div>
         </header>
       ) : (
         <PageHeader
