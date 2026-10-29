@@ -36,6 +36,60 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.0",
+    date: "2026-10-29",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Gürültü engelleme yenilendi: klavye, fan ve arka plan sesleri daha iyi temizleniyor. Konuşmadığın anlarda mikrofonundan karşıya ses gitmiyor.",
+      },
+      {
+        kind: "improved",
+        text: "Gürültü engellemedeki Doğal, Dengeli ve Agresif seçenekleri artık gerçekten ne kadar gürültü temizleneceğini belirliyor.",
+      },
+      {
+        kind: "new",
+        text: "Gönderdiğin mesaj anında görünüyor. Gitmezse yanında \"Tekrar dene\" çıkıyor; mesaj kaybolmuyor, iki kez de gitmiyor.",
+      },
+      {
+        kind: "improved",
+        text: "Uzun sohbet geçmişleri ve kalabalık arkadaş listeleri beklemeden açılıyor, kaydırırken takılmıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Odalardaki değişiklikler (biri girdiğinde, çıktığında, susturulduğunda) listeye anında yansıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Profil resimleri bir kez indirilip saklanıyor; uygulama daha hızlı açılıyor ve daha az internet kullanıyor.",
+      },
+      {
+        kind: "new",
+        text: "Uygulama kapattığın yerde ve boyutta açılıyor. Windows 11'de büyüt düğmesinin üstüne gelince pencere yerleşimleri çıkıyor.",
+      },
+      {
+        kind: "new",
+        text: "Bilgisayar açılırken başlatılırsa uygulama pencere açmadan sistem tepsisinde başlıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Sunucu güncellenirken bağlantı beklemeden geri geliyor.",
+      },
+      {
+        kind: "improved",
+        text: "E-posta adresini değiştirirken şifren soruluyor; şifreni değiştirince oturumun kapanmıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Uygulama donar ya da çökerse sayfa kendiliğinden yeniden yükleniyor. Ayarların ve oturumun yarıda kalan bir kayıt yüzünden silinmiyor.",
+      },
+      {
+        kind: "improved",
+        text: "Uygulamanın altyapısı güncellendi; güvenlik düzeltmeleri bu sürümle geliyor.",
+      },
+    ],
+  },
+  {
     version: "0.2.10",
     date: "2026-10-16",
     highlights: [
