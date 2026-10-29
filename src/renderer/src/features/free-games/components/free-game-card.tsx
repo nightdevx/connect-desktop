@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, type CSSProperties } from "react";
 import { Tooltip } from "antd";
 import {
   ClockCircleOutlined,
@@ -7,12 +7,15 @@ import {
   TagOutlined,
 } from "@ant-design/icons";
 import type { FreeGameOffer } from "@shared/free-games";
+import { useUiStore } from "@/store/ui-store";
 import { formatRemaining, formatStartsIn } from "../free-games-utils";
 
 interface FreeGameCardProps {
   offer: FreeGameOffer;
   /** Shared minute clock, so every card on the page ticks in step. */
   nowMs: number;
+  /** Place in the grid, for the staggered entrance when the grid first opens. */
+  index?: number;
 }
 
 // Under this much time left the countdown turns urgent.
@@ -26,7 +29,7 @@ const isUrgent = (offer: FreeGameOffer, nowMs: number): boolean => {
   return Number.isFinite(end) && end - nowMs <= URGENT_WINDOW_MS;
 };
 
-function FreeGameCardImpl({ offer, nowMs }: FreeGameCardProps) {
+function FreeGameCardImpl({ offer, nowMs, index = 0 }: FreeGameCardProps) {
   // Artwork comes from four third-party CDNs and any one of them can 404 or be
   // blocked. Falling back to the gradient is what keeps a dead image from
   // leaving a torn box where the cover should be.
@@ -39,9 +42,15 @@ function FreeGameCardImpl({ offer, nowMs }: FreeGameCardProps) {
 
   const urgent = offer.kind === "free-now" && isUrgent(offer, nowMs);
   const showImage = Boolean(offer.imageUrl) && !imageFailed;
+  // Odak (OdakFirsatlar.dc.html): a "Son gün" tag on the cover when the
+  // giveaway ends within a day, and "Ücretsiz" said beside the struck price.
+  const isOdak = useUiStore((state) => state.odakTheme);
 
   return (
-    <article className={`ct-free-game-card ${offer.kind}`}>
+    <article
+      className={`ct-free-game-card ${offer.kind}`}
+      style={{ "--i": index } as CSSProperties}
+    >
       <div className="ct-free-game-cover">
         {showImage ? (
           <img
@@ -62,7 +71,9 @@ function FreeGameCardImpl({ offer, nowMs }: FreeGameCardProps) {
         {/* What kind of offer this is, in the corner where the eye lands: the
             sidebar bucket says it once, the card has to say it on its own when
             it is one of many. */}
-        {offer.kind === "deal" && offer.discountPercent !== null ? (
+        {isOdak && urgent ? (
+          <span className="ct-free-game-badge last">Son gün</span>
+        ) : offer.kind === "deal" && offer.discountPercent !== null ? (
           <span className="ct-free-game-badge deal">-%{offer.discountPercent}</span>
         ) : offer.kind === "free-now" ? (
           <span className="ct-free-game-badge free">Ücretsiz</span>
@@ -98,6 +109,10 @@ function FreeGameCardImpl({ offer, nowMs }: FreeGameCardProps) {
             </span>
           ) : offer.originalPrice ? (
             <span className="ct-free-game-price struck">{offer.originalPrice}</span>
+          ) : null}
+
+          {isOdak && (offer.kind === "free-now" || offer.kind === "always-free") ? (
+            <strong className="ct-free-game-free">Ücretsiz</strong>
           ) : null}
 
           {remaining ? (

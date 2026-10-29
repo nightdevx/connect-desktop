@@ -1,1 +1,410 @@
 /* Odak tasarımı: firsatlar bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   FIRSATLAR -- the buckets as tabs over a grid of offer cards
+   (OdakFirsatlar.dc.html): the cover carries the store, the "Son gün" tag and
+   the title; under it the price, the time left and the store button.
+   ========================================================================== */
+
+:root[data-odak] .ct-free-games-panel {
+  gap: 16px;
+}
+
+/* --- the header ---------------------------------------------------------- */
+/* Title, tabs, then the store filter, the last update and refresh at the far
+   end; on a narrow page the far end wraps under the tabs. */
+:root[data-odak] .ct-free-games-head {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-free-games-head .ct-odak-tabs {
+  flex-wrap: wrap;
+}
+
+:root[data-odak] .ct-free-games-head .ct-odak-tabs button {
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-free-games-head .ct-odak-tabs button:hover:not(.active) {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-free-games-head .ct-free-games-store-select {
+  min-width: 170px;
+  height: 40px;
+}
+
+:root[data-odak] .ct-free-games-head-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--ct-warning);
+}
+
+:root[data-odak] .ct-free-games-head-updated {
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-games-head-refresh {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  font-size: 16px;
+  color: var(--odak-text);
+  background: var(--odak-surface);
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-free-games-head-refresh:hover:not(:disabled) {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-free-games-head-refresh:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-free-games-head-refresh:disabled {
+  color: var(--odak-muted);
+  cursor: default;
+}
+
+:root[data-odak] .ct-free-games-head-refresh:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+/* --- the grid ------------------------------------------------------------ */
+/* Another bucket, store or page is a new grid, which fades in; the first one
+   opens with its cards rising in one after another (data-intro). */
+:root[data-odak] .ct-free-games-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  /* Room for a hovered card's lift inside the scroller. */
+  padding: 2px 2px 8px;
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-free-games-grid[data-intro] {
+  animation: none;
+}
+
+:root[data-odak] .ct-free-games-grid[data-intro] .ct-free-game-card {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i), 8) * var(--odak-stagger));
+}
+
+/* --- a card -------------------------------------------------------------- */
+:root[data-odak] .ct-free-game-card {
+  position: relative;
+  border-color: var(--odak-border);
+  border-radius: 20px;
+  background: var(--odak-surface);
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-free-game-card:hover {
+  border-color: var(--odak-border-strong);
+  transform: translateY(-2px);
+}
+
+:root[data-odak] .ct-free-game-cover {
+  height: 150px;
+  aspect-ratio: auto;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(198, 244, 50, 0.1), transparent 62%),
+    linear-gradient(140deg, #1f2a35, #1d1630);
+}
+
+/* The title sits on the cover; the shade under it keeps it readable on any
+   artwork. */
+:root[data-odak] .ct-free-game-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(14, 15, 17, 0.88));
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-free-game-cover img,
+:root[data-odak] .ct-free-game-cover-fallback {
+  transition: transform var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-free-game-card:hover .ct-free-game-cover img,
+:root[data-odak] .ct-free-game-card:hover .ct-free-game-cover-fallback {
+  transform: scale(1.03);
+}
+
+:root[data-odak] .ct-free-game-cover-fallback {
+  align-items: flex-start;
+  padding-top: 34px;
+  font-size: 34px;
+  color: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-odak] .ct-free-game-store,
+:root[data-odak] .ct-free-game-badge {
+  z-index: 2;
+  top: 12px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: none;
+  text-shadow: none;
+}
+
+:root[data-odak] .ct-free-game-store {
+  left: 12px;
+  color: var(--odak-text);
+  background: rgba(14, 15, 17, 0.78);
+}
+
+:root[data-odak] .ct-free-game-badge {
+  right: 12px;
+}
+
+/* A giveaway says "Ücretsiz" by its price; the tag on the cover is for what
+   needs one: the last day, a discount, a giveaway still to come. */
+:root[data-odak] .ct-free-game-badge.free {
+  display: none;
+}
+
+:root[data-odak] .ct-free-game-badge.last {
+  color: var(--odak-on-accent);
+  background: var(--odak-danger);
+}
+
+:root[data-odak] .ct-free-game-badge.deal {
+  font-family: var(--ct-font-mono);
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-free-game-badge.soon {
+  color: var(--odak-accent);
+  background: rgba(14, 15, 17, 0.78);
+}
+
+/* The title, laid over the foot of the cover (150px tall, 16px in). */
+:root[data-odak] .ct-free-game-title {
+  position: absolute;
+  z-index: 2;
+  top: 134px;
+  right: 16px;
+  left: 16px;
+  translate: 0 -100%;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* The price and the time left on the left, the store button on the right. */
+:root[data-odak] .ct-free-game-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px 16px;
+}
+
+:root[data-odak] .ct-free-game-description {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-game-meta {
+  grid-column: 1;
+  align-items: baseline;
+  gap: 3px 6px;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+:root[data-odak] .ct-free-game-price {
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-free-game-price .anticon,
+:root[data-odak] .ct-free-game-remaining .anticon {
+  display: none;
+}
+
+:root[data-odak] .ct-free-game-price.struck,
+:root[data-odak] .ct-free-game-price-was {
+  font-weight: 400;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-game-free {
+  font-weight: 700;
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-free-game-remaining {
+  flex-basis: 100%;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-game-remaining.urgent {
+  font-weight: 500;
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-free-game-action {
+  grid-column: 2;
+  height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  transition:
+    background-color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-free-game-action:hover {
+  color: var(--odak-on-accent);
+  background: #d6ff5c;
+}
+
+:root[data-odak] .ct-free-game-action:active {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-free-game-action:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+/* --- loading, refreshing, empty ------------------------------------------ */
+/* The first load: card-sized blocks with a soft sheen. */
+:root[data-odak] .ct-free-game-skeleton {
+  height: 236px;
+  border: 1px solid var(--odak-border);
+  border-radius: 20px;
+  background: linear-gradient(
+      100deg,
+      var(--odak-surface) 30%,
+      var(--odak-raised) 50%,
+      var(--odak-surface) 70%
+    )
+    0 0 / 200% 100%;
+  animation: odak-sheen 1.6s ease-in-out infinite;
+}
+
+/* A refresh keeps the cards; the same sheen passes over their covers. */
+:root[data-odak] .ct-free-games-grid[aria-busy="true"] .ct-free-game-cover::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(
+      100deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.09) 50%,
+      transparent 70%
+    )
+    0 0 / 200% 100%;
+  animation: odak-sheen 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-free-games-state {
+  gap: 12px;
+  font-size: 13px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-games-state > .anticon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  font-size: 20px;
+  color: var(--odak-accent);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-free-games-state p {
+  max-width: 46ch;
+  margin: 0;
+  line-height: 1.5;
+}
+
+:root[data-odak] .ct-free-games-panel > .ct-alert {
+  flex-shrink: 0;
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-free-games-attribution {
+  border-color: var(--odak-border);
+  font-size: 11.5px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-free-games-attribution a {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-free-games-attribution a:hover {
+  color: var(--odak-accent);
+}
+
+/* --- the sidebar's numbers ------------------------------------------------ */
+:root[data-odak] .ct-free-games-tab-count {
+  font-family: var(--ct-font-mono);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-free-games-tab.active .ct-free-games-tab-count {
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+/* The sheen loops only while something loads, and not at all here. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-free-game-skeleton,
+  :root[data-odak] .ct-free-games-grid[aria-busy="true"] .ct-free-game-cover::before {
+    animation: none;
+  }
+}
