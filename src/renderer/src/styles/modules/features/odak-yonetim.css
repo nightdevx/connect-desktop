@@ -203,7 +203,7 @@
   box-shadow: none;
 }
 
-:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn:not(.ant-btn-sm) {
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-btn:not(.ant-btn-sm, [class*="compact-item"]) {
   border-radius: 12px;
 }
 
@@ -229,8 +229,19 @@
 
 :root[data-odak]
   :is(.ct-admin-panel-content, .ct-admin-drawer)
-  :is(.ant-input-affix-wrapper, .ant-input-outlined, .ant-input-number, .ant-select, .ant-picker) {
+  :is(.ant-input-affix-wrapper, .ant-input-outlined, .ant-input-number, .ant-select, .ant-picker):not([class*="compact-item"]) {
   border-radius: 12px;
+}
+
+/* A search box joined to its button (Input.Search): only the outer corners. */
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) [class*="compact-first-item"] {
+  border-start-start-radius: 12px;
+  border-end-start-radius: 12px;
+}
+
+:root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) [class*="compact-last-item"] {
+  border-start-end-radius: 12px;
+  border-end-end-radius: 12px;
 }
 
 :root[data-odak] :is(.ct-admin-panel-content, .ct-admin-drawer) .ant-input-affix-wrapper > .ant-input {
@@ -729,6 +740,14 @@
 
 :root[data-odak] .ct-admin-drawer :is(.ct-admin-drawer-block, .ct-admin-form-heading) {
   border-color: var(--odak-border);
+}
+
+/* The face in the drawer's title: admin.css's rule for the title's spans
+   made it a block, which pushed the initials into its corner. */
+:root[data-odak] .ct-admin-drawer-title .ct-admin-face {
+  display: grid;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 :root[data-odak] .ct-admin-drawer .ct-admin-action-list .ant-btn {
