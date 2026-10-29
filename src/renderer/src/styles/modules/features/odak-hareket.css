@@ -1,0 +1,115 @@
+/* ==========================================================================
+   ODAK MOTION -- the shared vocabulary every Odak section animates with
+   (ODAK-TASARIM-PLANI.md, "Hareket dili").
+
+   Soft and short: opacity and transform only, never layout; entrances ease
+   out, exits are shorter and ease in; nothing loops except what is live
+   (speaking, ringing, a live dot). Everything stops under
+   prefers-reduced-motion.
+   ========================================================================== */
+
+:root[data-odak] {
+  /* Durations: a hover or a press; a menu or a tooltip; a panel, a card, a
+     page; something that draws attention once (a chart growing, a count). */
+  --odak-dur-1: 120ms;
+  --odak-dur-2: 180ms;
+  --odak-dur-3: 260ms;
+  --odak-dur-4: 420ms;
+
+  /* Entrances decelerate into place; exits accelerate away; the spring
+     overshoots a hair, for small things popping in (a badge, a check). */
+  --odak-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --odak-ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --odak-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* How far things travel: an entrance rises this much. */
+  --odak-rise: 6px;
+  /* List entrances step by this much per item, capped by the caller. */
+  --odak-stagger: 28ms;
+}
+
+/* Fade and rise into place: pages, cards, rows, panels. */
+@keyframes odak-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--odak-rise, 6px));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Fade only, for things that should not move (an overlay's mask, a swap of
+   tab content in place). */
+@keyframes odak-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* A small pop: a badge appearing, a check landing, a reaction. */
+@keyframes odak-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A surface opening from its anchor: menus, popovers, modals. */
+@keyframes odak-open {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Loading placeholders: a soft sheen across a block, not a blink. */
+@keyframes odak-sheen {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* A live thing breathing: the speaking ring, a ringing call. Slow. */
+@keyframes odak-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* One switch for every Odak animation and transition. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] {
+    --odak-dur-1: 0ms;
+    --odak-dur-2: 0ms;
+    --odak-dur-3: 0ms;
+    --odak-dur-4: 0ms;
+    --odak-stagger: 0ms;
+    --odak-rise: 0px;
+  }
+}
