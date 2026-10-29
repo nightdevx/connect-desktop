@@ -23,6 +23,7 @@ const assert = require("node:assert/strict");
 const {
   STREAM_PREFIX,
   isPrivateAddress,
+  reachesPrivateNetwork,
   rewriteDashManifest,
   rewriteHlsManifest,
   streamKind,
@@ -165,6 +166,40 @@ for (const address of allowed) {
   assert.equal(isPrivateAddress(address), false, `${address} should be allowed`);
 }
 
-console.log(
-  `watch-proxy self-check passed (${roundTrip.length} round trips, manifests rewritten both ways, ${blocked.length} addresses refused)`,
-);
+// What the watch resolver's request filter decides: the host as written, then
+// what it resolves to.
+const fakeDns = {
+  "cdn.example.com": ["93.184.216.34"],
+  "rebind.example.com": ["192.168.1.1"],
+  "mixed.example.com": ["93.184.216.34", "127.0.0.1"],
+  "v6local.example.com": ["fd12::1"],
+};
+const resolve = async (hostname) => {
+  if (!(hostname in fakeDns)) {
+    throw new Error("ENOTFOUND");
+  }
+  return fakeDns[hostname];
+};
+const verdicts = [
+  ["https://cdn.example.com/a.m3u8", false],
+  ["https://8.8.8.8/x", false],
+  ["https://rebind.example.com/", true],
+  ["https://mixed.example.com/", true],
+  ["https://v6local.example.com/", true],
+  ["http://127.0.0.1:8080/", true],
+  ["http://[::1]/", true],
+  ["http://0x7f.1/", true],
+  ["https://nowhere.example.com/", true],
+  ["not a url", true],
+];
+(async () => {
+  for (const [url, blocked] of verdicts) {
+    assert.equal(await reachesPrivateNetwork(url, resolve), blocked, `${url} should be ${blocked ? "blocked" : "allowed"}`);
+  }
+  console.log(
+    `watch-proxy self-check passed (${roundTrip.length} round trips, manifests rewritten both ways, ${blocked.length} addresses refused)`,
+  );
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

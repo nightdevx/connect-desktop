@@ -1,7 +1,12 @@
 import { BrowserWindow, session as electronSession, type Session } from "electron";
 import { lookup } from "node:dns/promises";
 
-import { isPrivateAddress, streamKind, type StreamKind } from "./watch-stream-url";
+import {
+  isPrivateAddress,
+  reachesPrivateNetwork,
+  streamKind,
+  type StreamKind,
+} from "./watch-stream-url";
 
 export interface ResolvedStream {
   streamUrl: string;
@@ -206,8 +211,39 @@ async function runResolve(pageUrl: string): Promise<ResolvedStream> {
 
   const filter = { urls: ["*://*/*"] };
 
+  // The page is someone else's code. assertPublicPage checked the address it
+  // was opened at; everything it loads after that (frames, scripts, images,
+  // fetches, redirects) is checked here, against what Chromium's own resolver
+  // says the host is, so a page cannot reach the viewer's router or a service
+  // on this machine. One answer per host for the life of this resolve.
+  const verdicts = new Map<string, Promise<boolean>>();
+  const resolveHost = async (hostname: string): Promise<string[]> =>
+    (await partition.resolveHost(hostname)).endpoints.map((endpoint) => endpoint.address);
   partition.webRequest.onBeforeRequest(filter, (details, callback) => {
-    callback({ cancel: AD_PATTERN.test(details.url) });
+    if (AD_PATTERN.test(details.url)) {
+      callback({ cancel: true });
+      return;
+    }
+    let host = "";
+    try {
+      host = new URL(details.url).host;
+    } catch {
+      // reachesPrivateNetwork refuses it.
+    }
+    let verdict = verdicts.get(host);
+    if (!verdict) {
+      verdict = reachesPrivateNetwork(details.url, resolveHost);
+      verdicts.set(host, verdict);
+    }
+    void verdict.then(
+      (blocked) => {
+        if (blocked) {
+          console.warn(`[watch-resolver] blocked a request to the local network: ${host}`);
+        }
+        callback({ cancel: blocked });
+      },
+      () => callback({ cancel: true }),
+    );
   });
 
   partition.webRequest.onBeforeSendHeaders(filter, (details, callback) => {

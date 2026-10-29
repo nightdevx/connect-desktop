@@ -62,6 +62,31 @@ export function isPrivateAddress(address: string): boolean {
   return false;
 }
 
+/**
+ * Whether a request would land on the viewer's own network: a host that is a
+ * private, loopback, link-local or CGNAT address, or a name that resolves to
+ * one. The backend refuses a shared link whose host is written that way
+ * (requirePublicHost), but a public name can resolve to 127.0.0.1 or the
+ * router, and only the viewer's machine sees what it resolves to. A host that
+ * does not resolve is refused too: the request could not go anywhere anyway.
+ */
+export async function reachesPrivateNetwork(
+  rawUrl: string,
+  resolve: (hostname: string) => Promise<string[]>,
+): Promise<boolean> {
+  let hostname: string;
+  try {
+    hostname = new URL(rawUrl).hostname.replace(/^\[|\]$/g, "");
+  } catch {
+    return true;
+  }
+  if (!hostname) {
+    return true;
+  }
+  const addresses = isIP(hostname) ? [hostname] : await resolve(hostname).catch(() => []);
+  return addresses.length === 0 || addresses.some(isPrivateAddress);
+}
+
 export function streamProxyPath(absoluteUrl: string, sid: string): string {
   let parsed: URL;
   try {

@@ -11,7 +11,7 @@ import type { AddressInfo } from "node:net";
 import { Readable } from "node:stream";
 
 import {
-  isPrivateAddress,
+  reachesPrivateNetwork,
   rewriteDashManifest,
   rewriteHlsManifest,
   STREAM_PREFIX,
@@ -488,6 +488,11 @@ async function serveHlsLibrary(response: ServerResponse): Promise<void> {
   }
 }
 
+const MAX_REDIRECTS = 5;
+
+const resolveAll = async (hostname: string): Promise<string[]> =>
+  (await lookup(hostname, { all: true })).map((entry) => entry.address);
+
 async function serveStream(
   request: IncomingMessage,
   response: ServerResponse,
@@ -517,15 +522,6 @@ async function serveStream(
     return;
   }
 
-  // The same gate the resolver applies to the page: a manifest is remote data,
-  // and a segment URL inside it must not be able to walk this proxy onto the
-  // viewer's own network.
-  const addresses = await lookup(target.hostname, { all: true }).catch(() => []);
-  if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
-    endWith(response, 403, "blocked address");
-    return;
-  }
-
   const outgoing: Record<string, string> = { ...session.headers, "accept-encoding": "identity" };
   if (typeof request.headers.range === "string") {
     outgoing.range = request.headers.range;
@@ -534,13 +530,30 @@ async function serveStream(
   const controller = new AbortController();
   request.on("close", () => controller.abort());
 
+  // The same gate the resolver applies to the page: a manifest is remote data,
+  // and a segment URL inside it must not be able to walk this proxy onto the
+  // viewer's own network. Redirects are followed here, one hop at a time, so
+  // each one passes the gate too: fetch following them itself let a public
+  // address hand the proxy a 302 to the router.
   let upstream: Response;
   try {
-    upstream = await fetch(target.href, {
-      headers: outgoing,
-      redirect: "follow",
-      signal: controller.signal,
-    });
+    for (let hop = 0; ; hop += 1) {
+      if (await reachesPrivateNetwork(target.href, resolveAll)) {
+        endWith(response, 403, "blocked address");
+        return;
+      }
+      upstream = await fetch(target.href, {
+        headers: outgoing,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      const location = upstream.headers.get("location");
+      if (upstream.status < 300 || upstream.status > 399 || !location || hop >= MAX_REDIRECTS) {
+        break;
+      }
+      await upstream.body?.cancel();
+      target = new URL(location, target);
+    }
   } catch {
     if (!controller.signal.aborted) {
       endWith(response, 502, "upstream unreachable");
@@ -549,7 +562,7 @@ async function serveStream(
   }
 
   const contentType = upstream.headers.get("content-type") ?? "";
-  const kind = streamKind(upstream.url || target.href, contentType);
+  const kind = streamKind(target.href, contentType);
 
   const headers: Record<string, string> = { "Cache-Control": "no-store" };
   for (const name of PASS_THROUGH_HEADERS) {
@@ -561,7 +574,7 @@ async function serveStream(
 
   if (kind === "hls" || kind === "dash") {
     const text = await upstream.text();
-    const base = upstream.url || target.href;
+    const base = target.href;
     const body =
       kind === "hls" ? rewriteHlsManifest(text, base, sid) : rewriteDashManifest(text, sid);
     delete headers["content-length"];
