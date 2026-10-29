@@ -8,6 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "zustand";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage } from "@shared/auth-contracts";
 import type {
@@ -37,6 +38,13 @@ import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { mentionsUser } from "../../mentions";
 import { SERVICE_RESTART_CLOSE_CODE } from "../core/backend-recovery";
+import {
+  newClientNonce,
+  pendingMessage,
+  pendingSends,
+  startSend,
+  withPendingMessages,
+} from "./pending-sends";
 
 const DIRECT_STREAM_RECONNECT_BASE_MS = 1_000;
 const DIRECT_STREAM_RECONNECT_MAX_MS = 10_000;
@@ -173,11 +181,14 @@ export const useDirectMessages = ({
   // loaded message changes; a timeout or a 500 is NOT latched, since scrolling
   // again is exactly the right thing to do after a blip.
   const deadOlderCursorRef = useRef<string | null>(null);
-  // Set the instant a send starts, not a render later. react-query defers its
-  // observer notification through a 0ms timer, so `isPending` read off the
-  // committed render is still false for at least one task after mutate() — long
-  // enough for a double Enter to post the same message twice.
-  const sendInFlightRef = useRef(false);
+  // The draft the last send took, until the composer has rendered empty: a
+  // double Enter in between would otherwise post it twice.
+  const consumedDraftRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (messageDraft !== consumedDraftRef.current) {
+      consumedDraftRef.current = null;
+    }
+  }, [messageDraft]);
   // The thread the directMessagesQuery below actually owns, mirrored into a ref
   // so the socket handler — whose subscription lags a commit behind — never
   // reads a stale answer. Written during render on purpose: it must be current
@@ -406,10 +417,14 @@ export const useDirectMessages = ({
     staleTime: 60_000,
   });
 
-  const directMessages =
+  const sends = useStore(pendingSends, (state) => state.sends);
+  const directMessages = withPendingMessages(
     directMessagesQuery.data?.ok && directMessagesQuery.data.data
       ? directMessagesQuery.data.data.messages
-      : [];
+      : [],
+    sends,
+    `dm:${selectedUserId}`,
+  );
 
   const setDirectMessagesCache = (
     peerUserId: string,
@@ -617,85 +632,11 @@ export const useDirectMessages = ({
     }
   };
 
-  const sendDirectMessageMutation = useMutation({
-    mutationFn: (payload: {
-      peerUserId: string;
-      body: string;
-      replyToId?: string;
-      attachment?: ChatAttachmentUpload;
-      // Local flag, not part of the request. Field-by-field below rather than
-      // passing `payload` through so it can never reach the IPC validator.
-      keepComposer?: boolean;
-    }) => {
-      return workspaceService.sendDirectMessage({
-        peerUserId: payload.peerUserId,
-        body: payload.body,
-        replyToId: payload.replyToId,
-        attachment: payload.attachment,
-      });
-    },
-    onSuccess: (result, variables) => {
-      if (!result.ok) {
-        setStatus(
-          `Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`,
-          "error",
-        );
-        return;
-      }
-
-      if (result.data?.message && selectedUserId) {
-        const nextMessage = result.data.message;
-        setDirectMessagesCache(selectedUserId, (currentMessages) =>
-          upsertMessage(currentMessages, nextMessage),
-        );
-      }
-
-      // A GIF send did not come out of the composer, so it must not empty it.
-      // Clearing here unconditionally is what destroyed the user's half-typed
-      // message the moment they picked a GIF.
-      if (variables.keepComposer) {
-        return;
-      }
-
-      // Strip exactly what went out, not the whole box: the composer stays
-      // editable during a send now, so clearing blindly ate the next sentence —
-      // and leaving it whole re-sent the delivered half on the next Enter.
-      setMessageDraft((current) => {
-        const rest = current.trimStart();
-        return rest.startsWith(variables.body)
-          ? rest.slice(variables.body.length)
-          : current;
-      });
-      // Same reasoning: a reply target picked while the request was in flight
-      // belongs to the next message, not to this one.
-      setReplyTo((current) =>
-        current && current.id === variables.replyToId ? null : current,
-      );
-      setPendingAttachment(null);
-    },
-    onError: (error) => {
-      setStatus(
-        `Mesaj gönderilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-        "error",
-      );
-    },
-    onSettled: () => {
-      sendInFlightRef.current = false;
-    },
-  });
-
   // bodyOverride is the GIF picker: the URL goes out as its own message and the
   // composer is left exactly as it was. Writing it into the draft instead is
   // what silently ate whatever the user had typed ("şuna bak" + a GIF sent
   // "şuna bak" and threw the GIF away).
   const handleSendMessage = (bodyOverride?: string): void => {
-    // The composer used to be disabled while a send was in flight, which was
-    // also the double-send guard. It stays editable now — that is what keeps
-    // the caret — so the guard lives here instead.
-    if (sendInFlightRef.current || sendDirectMessageMutation.isPending) {
-      return;
-    }
-
     const isOverride = typeof bodyOverride === "string";
     const body = (isOverride ? bodyOverride : messageDraft).trim();
 
@@ -710,17 +651,61 @@ export const useDirectMessages = ({
       return;
     }
 
-    sendInFlightRef.current = true;
-    sendDirectMessageMutation.mutate({
-      peerUserId: selectedUserId,
+    // A second Enter before the cleared composer has rendered reads the same
+    // draft again; that one already went.
+    if (!isOverride && consumedDraftRef.current === messageDraft) {
+      return;
+    }
+
+    const peerUserId = selectedUserId;
+    // A staged file belongs to the draft, not to the GIF.
+    const attachment = isOverride ? undefined : pendingAttachment?.upload;
+    const nonce = newClientNonce();
+    const shown = pendingMessage({
+      nonce,
+      channel: `dm:${peerUserId}`,
+      userId: currentUserId,
+      username: currentUsername,
+      body: body || (attachment ? `📎 ${attachment.name}` : ""),
+      replyTo,
+    });
+    const request = {
+      peerUserId,
       body,
       // The reply target is honoured (a GIF is a fine reply) but not consumed:
-      // keepComposer leaves the chip up for the draft that is still sitting
-      // there.
+      // a GIF leaves the chip up for the draft that is still sitting there.
       replyToId: replyTo?.id,
-      // A staged file belongs to the draft, not to the GIF.
-      attachment: isOverride ? undefined : pendingAttachment?.upload,
-      keepComposer: isOverride,
+      attachment,
+      clientNonce: nonce,
+    };
+
+    // The message is on screen from here on, so the composer is free at once.
+    if (!isOverride) {
+      consumedDraftRef.current = messageDraft;
+      setMessageDraft("");
+      setReplyTo(null);
+      setPendingAttachment(null);
+    }
+
+    void startSend(`dm:${peerUserId}`, shown, async () => {
+      const result = await workspaceService.sendDirectMessage(request).catch(
+        (error: unknown) => ({
+          ok: false as const,
+          error: {
+            code: "UNEXPECTED_ERROR",
+            statusCode: 500,
+            message: error instanceof Error ? error.message : "Bilinmeyen hata",
+          },
+          data: undefined,
+        }),
+      );
+      const sent = result.ok ? result.data?.message : undefined;
+      if (!sent) {
+        setStatus(`Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`, "error");
+        return false;
+      }
+      setDirectMessagesCache(peerUserId, (currentMessages) => upsertMessage(currentMessages, sent));
+      return true;
     });
   };
 
@@ -1127,7 +1112,9 @@ export const useDirectMessages = ({
     directMessages,
     messageDraft,
     setMessageDraft,
-    isSendingMessage: sendDirectMessageMutation.isPending,
+    isSendingMessage: sends.some(
+      (send) => send.scope === `dm:${selectedUserId}` && send.state === "sending",
+    ),
     handleSendMessage,
     handleDeleteMessage,
     deletingMessageId,

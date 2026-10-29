@@ -24,7 +24,13 @@ import {
   PaperClipOutlined,
   SmileOutlined,
 } from "@ant-design/icons";
-import type { ChatAttachment, ChatReplyPreview, ChatReaction } from "@shared/auth-contracts";
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatReplyPreview,
+  ChatReaction,
+} from "@shared/auth-contracts";
+import { discardSend, retrySend } from "../../hooks/chat/pending-sends";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
 import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
 import { useUiStore } from "@/store/ui-store";
@@ -37,6 +43,29 @@ import chatService from "../../services/chat-service";
 // Matches the backend's maxAttachmentBytes. Checked here too so a 40 MB video
 // fails instantly instead of after a 60-second upload.
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+/**
+ * In place of the actions on a message of ours the server does not have yet:
+ * "sending", or "failed" with a retry (same nonce, so never a second copy)
+ * and a way to drop it.
+ */
+export function PendingSendStatus({ message }: { message: ChatMessage }): JSX.Element {
+  const nonce = message.clientNonce ?? "";
+  if (message.localState !== "failed") {
+    return <span className="ct-chat-pending">Gönderiliyor…</span>;
+  }
+  return (
+    <span className="ct-chat-pending failed">
+      Gönderilemedi
+      <button type="button" className="ct-link" onClick={() => void retrySend(nonce)}>
+        Tekrar dene
+      </button>
+      <button type="button" className="ct-link" onClick={() => discardSend(nonce)}>
+        Vazgeç
+      </button>
+    </span>
+  );
+}
 
 export const formatAttachmentSize = (bytes: number): string => {
   if (bytes < 1024) {

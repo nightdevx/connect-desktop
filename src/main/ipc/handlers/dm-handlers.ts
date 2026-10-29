@@ -245,6 +245,7 @@ export function registerDMHandlers(): void {
           body: parsed.body,
           replyToId: parsed.replyToId,
           attachment: parsed.attachment,
+          clientNonce: parsed.clientNonce,
         });
       });
       return ok(result);

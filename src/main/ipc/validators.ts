@@ -285,11 +285,16 @@ export const lobbyMessagesListSchema = z.object({
   limit: z.number().int().min(1).max(200).optional().default(80),
 });
 
+// The sender's id for one send, kept across its retries: the backend answers a
+// repeat with the first message instead of a second copy. At most 64.
+const clientNonce = z.string().min(1).max(64).optional();
+
 export const lobbyMessageSendSchema = z.object({
   lobbyId: z.string().min(2).max(128),
   body: messageBody,
   replyToId: messageId.optional(),
   attachment: attachmentUploadSchema.optional(),
+  clientNonce,
 });
 
 export const lobbyMessageDeleteSchema = z.object({
@@ -472,6 +477,7 @@ export const sendDirectMessageSchema = z.object({
   body: messageBody,
   replyToId: messageId.optional(),
   attachment: attachmentUploadSchema.optional(),
+  clientNonce,
 });
 
 export const windowAttentionSchema = z.object({

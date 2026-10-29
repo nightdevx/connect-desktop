@@ -919,6 +919,9 @@ export interface DesktopApi {
     body: string;
     replyToId?: string;
     attachment?: ChatAttachmentUpload;
+    // Same nonce on every retry of one send: the server answers a repeat
+    // with the first message.
+    clientNonce?: string;
   }) => Promise<DesktopResult<{ message: ChatMessage }>>;
   deleteLobbyMessage: (payload: {
     messageId: string;
@@ -975,6 +978,7 @@ export interface DesktopApi {
     body: string;
     replyToId?: string;
     attachment?: ChatAttachmentUpload;
+    clientNonce?: string;
   }) => Promise<DesktopResult<{ message: ChatMessage }>>;
   startDirectMessagesStream: () => Promise<DesktopResult<{ started: boolean }>>;
   stopDirectMessagesStream: () => Promise<DesktopResult<{ stopped: boolean }>>;

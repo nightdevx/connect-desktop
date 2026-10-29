@@ -6,17 +6,25 @@ import {
   type SetStateAction,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "zustand";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ChatMessage } from "@shared/auth-contracts";
 import type {
-  ChatAttachmentUpload,
   DesktopResult,
   LobbyStateMember,
+  SessionSnapshot,
 } from "@shared/desktop-api-types";
 import { throwIfTransient } from "@/services/query-client";
 import workspaceService from "../../services";
 import { getApiErrorMessage } from "../../workspace-utils";
 import type { PendingAttachment } from "../chat/use-direct-messages";
+import {
+  newClientNonce,
+  pendingMessage,
+  pendingSends,
+  startSend,
+  withPendingMessages,
+} from "../chat/pending-sends";
 
 interface UseLobbyRoomParams {
   activeLobbyId: string | null;
@@ -119,6 +127,14 @@ export const useLobbyRoom = ({
   // Whether the socket has dropped since the last connect. The first connect of
   // a session has nothing to backfill — the query is loading anyway.
   const lobbyStreamDroppedRef = useRef(false);
+  // The draft the last send took, until the composer has rendered empty: a
+  // double Enter in between would otherwise post it twice.
+  const consumedDraftRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (lobbyMessageDraft !== consumedDraftRef.current) {
+      consumedDraftRef.current = null;
+    }
+  }, [lobbyMessageDraft]);
 
   const lobbyStateQuery = useQuery({
     queryKey: ["lobby-state", activeLobbyId],
@@ -302,10 +318,14 @@ export const useLobbyRoom = ({
       ? lobbyStateQuery.data.data.members
       : [];
 
-  const lobbyMessages =
+  const sends = useStore(pendingSends, (state) => state.sends);
+  const lobbyMessages = withPendingMessages(
     lobbyMessagesQuery.data?.ok && lobbyMessagesQuery.data.data
       ? lobbyMessagesQuery.data.data.messages
-      : [];
+      : [],
+    sends,
+    `lobby:${activeLobbyId}`,
+  );
 
   const setLobbyMessagesCache = (
     updater: (currentMessages: ChatMessage[]) => ChatMessage[],
@@ -323,60 +343,6 @@ export const useLobbyRoom = ({
       },
     );
   };
-
-  const sendLobbyMessageMutation = useMutation({
-    mutationFn: (payload: {
-      lobbyId: string;
-      body: string;
-      replyToId?: string;
-      attachment?: ChatAttachmentUpload;
-      // Local flag, not part of the request. Field-by-field below rather than
-      // passing `payload` through so it can never reach the IPC validator.
-      keepComposer?: boolean;
-    }) => {
-      return workspaceService.sendLobbyMessage({
-        lobbyId: payload.lobbyId,
-        body: payload.body,
-        replyToId: payload.replyToId,
-        attachment: payload.attachment,
-      });
-    },
-    onSuccess: (result, variables) => {
-      if (!result.ok) {
-        setStatus(
-          `Lobi mesajı gönderilemedi: ${getApiErrorMessage(result.error)}`,
-          "error",
-        );
-        return;
-      }
-
-      const sentMessage = result.data?.message;
-      if (!sentMessage || !activeLobbyId) {
-        return;
-      }
-
-      setLobbyMessagesCache((currentMessages) =>
-        upsertMessage(currentMessages, sentMessage),
-      );
-
-      // A GIF send did not come out of the composer, so it must not empty it.
-      // Clearing here unconditionally is what destroyed the user's half-typed
-      // message the moment they picked a GIF.
-      if (variables.keepComposer) {
-        return;
-      }
-
-      setLobbyMessageDraft("");
-      setLobbyReplyTo(null);
-      setLobbyPendingAttachment(null);
-    },
-    onError: (error) => {
-      setStatus(
-        `Lobi mesajı gönderilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-        "error",
-      );
-    },
-  });
 
   const [deletingLobbyMessageId, setDeletingLobbyMessageId] = useState<
     string | null
@@ -450,16 +416,69 @@ export const useLobbyRoom = ({
       return;
     }
 
-    sendLobbyMessageMutation.mutate({
-      lobbyId: activeLobbyId,
+    if (!isOverride && consumedDraftRef.current === lobbyMessageDraft) {
+      return;
+    }
+
+    const lobbyId = activeLobbyId;
+    // A staged file belongs to the draft, not to the GIF.
+    const attachment = isOverride ? undefined : lobbyPendingAttachment?.upload;
+    const nonce = newClientNonce();
+    const me = queryClient.getQueryData<DesktopResult<SessionSnapshot>>(["auth-session"])?.data?.user;
+    const shown = pendingMessage({
+      nonce,
+      channel: `lobby:${lobbyId}`,
+      userId: me?.id ?? "",
+      username: me?.displayName || me?.username || "",
+      body: body || (attachment ? `📎 ${attachment.name}` : ""),
+      replyTo: lobbyReplyTo,
+    });
+    const request = {
+      lobbyId,
       body,
       // The reply target is honoured (a GIF is a fine reply) but not consumed:
-      // keepComposer leaves the chip up for the draft that is still sitting
-      // there.
+      // a GIF leaves the chip up for the draft that is still sitting there.
       replyToId: lobbyReplyTo?.id,
-      // A staged file belongs to the draft, not to the GIF.
-      attachment: isOverride ? undefined : lobbyPendingAttachment?.upload,
-      keepComposer: isOverride,
+      attachment,
+      clientNonce: nonce,
+    };
+
+    // The message is on screen from here on, so the composer is free at once.
+    // A GIF did not come out of the composer and leaves it as it is.
+    if (!isOverride) {
+      consumedDraftRef.current = lobbyMessageDraft;
+      setLobbyMessageDraft("");
+      setLobbyReplyTo(null);
+      setLobbyPendingAttachment(null);
+    }
+
+    void startSend(`lobby:${lobbyId}`, shown, async () => {
+      const result = await workspaceService.sendLobbyMessage(request).catch(
+        (error: unknown) => ({
+          ok: false as const,
+          error: {
+            code: "UNEXPECTED_ERROR",
+            statusCode: 500,
+            message: error instanceof Error ? error.message : "Bilinmeyen hata",
+          },
+          data: undefined,
+        }),
+      );
+      const sent = result.ok ? result.data?.message : undefined;
+      if (!sent) {
+        setStatus(`Lobi mesajı gönderilemedi: ${getApiErrorMessage(result.error)}`, "error");
+        return false;
+      }
+      queryClient.setQueryData<DesktopResult<{ messages: ChatMessage[] }>>(
+        ["lobby-messages", lobbyId],
+        (previous) => ({
+          ok: true,
+          data: {
+            messages: upsertMessage(previous?.ok && previous.data ? previous.data.messages : [], sent),
+          },
+        }),
+      );
+      return true;
     });
   };
 
@@ -627,7 +646,9 @@ export const useLobbyRoom = ({
     setLobbyMessageDraft,
     sendLobbyMessage,
     deleteLobbyMessage,
-    isSendingLobbyMessage: sendLobbyMessageMutation.isPending,
+    isSendingLobbyMessage: sends.some(
+      (send) => send.scope === `lobby:${activeLobbyId}` && send.state === "sending",
+    ),
     deletingLobbyMessageId,
     patchLobbyMemberState,
     lobbyReplyTo,

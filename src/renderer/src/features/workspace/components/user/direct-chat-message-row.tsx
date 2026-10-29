@@ -21,6 +21,7 @@ import {
   ChatReactionBar,
   ChatReactionButton,
   ChatReplyQuote,
+  PendingSendStatus,
 } from "../common/chat-message-parts";
 
 export interface DirectChatMessageRowProps {
@@ -204,7 +205,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
       <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
         {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(authorName)}
       </span>
-      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
+      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
         <div className="ct-chat-bubble-meta">
           <span>
             <b>{authorName}</b>
@@ -212,6 +213,9 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 
+          {message.localState ? (
+            <PendingSendStatus message={message} />
+          ) : (
           <span className="ct-chat-message-actions">
             <ChatReactionButton
               onPick={(emoji) => {
@@ -270,6 +274,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
               </Tooltip>
             )}
           </span>
+          )}
         </div>
         {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
 

@@ -35,6 +35,7 @@ import {
   ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
+  PendingSendStatus,
   formatAttachmentSize,
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
@@ -122,7 +123,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
       <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
         {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(message.username)}
       </span>
-      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""}`}>
+      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
         <div className="ct-chat-bubble-meta">
           <span>
             {/* <b>, not a <span>: `.ct-chat-bubble span` sets a muted colour and
@@ -139,6 +140,9 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
             {message.editedAt ? " • düzenlendi" : ""}
           </span>
 
+          {message.localState ? (
+            <PendingSendStatus message={message} />
+          ) : (
           <span className="ct-chat-message-actions">
             <ChatReactionButton
               onPick={(emoji) => {
@@ -195,6 +199,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
               </Tooltip>
             )}
           </span>
+          )}
         </div>
         {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
 

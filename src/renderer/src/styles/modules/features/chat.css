@@ -638,6 +638,20 @@
     cursor: not-allowed;
   }
 
+  /* A message of ours the server does not have yet (pending-sends.ts). */
+  .ct-chat-bubble.pending {
+    opacity: 0.6;
+  }
+
+  .ct-chat-pending {
+    @apply inline-flex items-center gap-2;
+    color: var(--ct-text-muted);
+  }
+
+  .ct-chat-pending.failed {
+    color: var(--ct-danger);
+  }
+
   /* --- Emoji rendering ---------------------------------------------------
      Reported as "emojiler düzgün gözükmüyor". Not a size or a clipping bug:
      --ct-font-sans (base.css) ends in "Segoe UI", sans-serif and names no emoji

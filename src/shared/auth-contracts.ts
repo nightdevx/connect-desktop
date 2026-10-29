@@ -345,8 +345,11 @@ export interface ChatMessage {
   deleted?: boolean;
   purged?: boolean;
   // The sender's id for the send, echoed so its own client can match the event
-  // to the message it is already showing (see chat/pending-messages.ts).
+  // to the message it is already showing (see hooks/chat/pending-sends.ts).
   clientNonce?: string;
+  // Client-only, never from the server: a message of ours shown before the
+  // server has it (pending-sends.ts).
+  localState?: "sending" | "failed";
 }
 
 // Two-step sign-in, as GET /auth/2fa reports it. required: the account's rank

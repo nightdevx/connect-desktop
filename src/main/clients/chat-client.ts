@@ -1,6 +1,6 @@
 import type { ChatMessage, FriendEntry } from "../../shared/auth-contracts";
 import type { ChatAttachmentUpload } from "../../shared/desktop-api-types";
-import type { BaseClient } from "./base-client";
+import { DesktopApiError, type BaseClient } from "./base-client";
 
 // A send may carry a 5 MB attachment as base64. The client's default 8s budget
 // is sized for small control-plane calls and would abort a legitimate upload on
@@ -11,10 +11,44 @@ interface SendMessagePayload {
   body: string;
   replyToId?: string;
   attachment?: ChatAttachmentUpload;
+  clientNonce?: string;
 }
 
 export class ChatClient {
+  // Cleared the first time a backend refuses clientNonce as an unknown field
+  // and takes the same send without it: one from before the nonce, which
+  // refuses every field it does not know. Back on at the next launch.
+  private nonceSupported = true;
+
   public constructor(private readonly baseClient: BaseClient) {}
+
+  // A send, with its nonce while the backend takes one.
+  private async send(path: string, accessToken: string, payload: SendMessagePayload): Promise<{ message: ChatMessage }> {
+    const post = (body: SendMessagePayload) =>
+      this.baseClient.request<{ message: ChatMessage }>(
+        path,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify(body),
+        },
+        SEND_TIMEOUT_MS,
+      );
+    const { clientNonce, ...withoutNonce } = payload;
+    if (!clientNonce || !this.nonceSupported) {
+      return post(withoutNonce);
+    }
+    try {
+      return await post(payload);
+    } catch (error) {
+      if (!(error instanceof DesktopApiError) || error.code !== "INVALID_REQUEST_BODY") {
+        throw error;
+      }
+      const sent = await post(withoutNonce);
+      this.nonceSupported = false;
+      return sent;
+    }
+  }
 
   public async listLobbyMessages(
     accessToken: string,
@@ -38,18 +72,7 @@ export class ChatClient {
     lobbyId: string,
     payload: SendMessagePayload,
   ): Promise<{ message: ChatMessage }> {
-    const encodedLobbyId = encodeURIComponent(lobbyId);
-    return this.baseClient.request<{ message: ChatMessage }>(
-      `/chat/lobbies/${encodedLobbyId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      },
-      SEND_TIMEOUT_MS,
-    );
+    return this.send(`/chat/lobbies/${encodeURIComponent(lobbyId)}/messages`, accessToken, payload);
   }
 
   public async searchLobbyMessages(
@@ -206,18 +229,7 @@ export class ChatClient {
     peerUserId: string,
     payload: SendMessagePayload,
   ): Promise<{ message: ChatMessage }> {
-    const encodedPeerUserId = encodeURIComponent(peerUserId);
-    return this.baseClient.request<{ message: ChatMessage }>(
-      `/chat/direct/${encodedPeerUserId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      },
-      SEND_TIMEOUT_MS,
-    );
+    return this.send(`/chat/direct/${encodeURIComponent(peerUserId)}/messages`, accessToken, payload);
   }
 
   public async markDirectRead(
