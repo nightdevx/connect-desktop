@@ -1,1 +1,932 @@
 /* Odak tasarımı: sohbet bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   ODAK -- the one-to-one conversation (OdakSohbet.dc.html, right side).
+
+   The shell's conversation panel beside the docked Odak page. Everything here
+   sits under .ct-chat-panel, which only the direct-message panel draws: the
+   room chat shares the rows, the composer and the stage, and keeps its own
+   look (odak-lobiler.css).
+   ========================================================================== */
+
+/* --- the panel: no card of its own; a bar, then the thread's card ------- */
+:root[data-odak] .ct-chat-panel-plain.dm {
+  gap: 14px;
+  margin: 0;
+  padding: 16px 20px 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--odak-bg);
+}
+
+/* --- the bar: who, then search and the actions ------------------------- */
+:root[data-odak] .ct-chat-panel .ct-dm-header {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-identity {
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px 0 8px;
+  border: 1px solid var(--odak-border);
+  border-radius: 16px;
+  background: var(--odak-surface);
+  transition: background var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-identity:hover {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-identity:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header .ct-user-avatar {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  font-size: 14px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header .ct-user-avatar-fallback {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header .ct-presence-dot {
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-color: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-text strong {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-text span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+/* The search field: the friends page's, at the bar's right. */
+:root[data-odak] .ct-chat-panel .ct-dm-header .ct-chat-search {
+  flex: 0 1 240px;
+  min-width: 120px;
+  margin-left: auto;
+  padding: 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-search .ant-input-affix-wrapper {
+  height: 40px;
+  padding: 0 12px;
+  border-color: var(--odak-border);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-search .ant-input-affix-wrapper:hover {
+  border-color: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-search .ant-input-affix-wrapper-focused {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-search .ant-input-prefix {
+  margin-inline-end: 8px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions {
+  gap: 10px;
+}
+
+/* Square buttons on the page's surface; the call is the lime one. */
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.ant-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  font-size: 16px;
+  color: var(--odak-text);
+  background: var(--odak-surface);
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    background var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.ant-btn:hover {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.ant-btn:active {
+  transform: scale(0.96);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.danger.ant-btn {
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.success.ant-btn {
+  order: -1;
+  display: inline-flex;
+  width: auto;
+  gap: 8px;
+  padding: 0 16px;
+  border: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-dm-header-actions .ct-row-action.success.ant-btn:hover {
+  color: var(--odak-on-accent);
+  background: #d4ff52;
+}
+
+/* --- call banners: the corner card's shape, inside the conversation ----- */
+:root[data-odak] .ct-chat-panel .ct-incoming-call-banner,
+:root[data-odak] .ct-chat-panel .ct-rejoin-banner {
+  /* The answers beside the name, not at the far right where the corner
+     card would cover them. */
+  justify-content: flex-start;
+  gap: 28px;
+  margin: 0;
+  padding: 14px 14px 14px 18px;
+  border: 1px solid rgba(198, 244, 50, 0.28);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+:root[data-odak] .ct-chat-panel .ct-incoming-call-banner .ant-avatar {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-text-content {
+  gap: 14px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-lines strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-lines span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-rejoin-banner .ct-banner-text-content {
+  font-weight: 600;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-chat-panel .ct-rejoin-banner .ct-icon-success {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-actions .ct-call-answer {
+  padding: 0 18px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-rejoin-btn {
+  height: 38px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-banner-rejoin-btn:hover {
+  background: #d4ff52;
+}
+
+/* --- the thread's card --------------------------------------------------- */
+:root[data-odak] .ct-chat-panel .ct-chat-thread-box {
+  border: 1px solid var(--odak-border);
+  border-radius: 20px;
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-messages {
+  padding: 20px 24px;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-thread-box > .ct-chat-search {
+  padding: 14px 16px 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-empty-state p {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-empty-state span,
+:root[data-odak] .ct-chat-panel .ct-chat-load-older,
+:root[data-odak] .ct-chat-panel .ct-chat-search-summary {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-search-summary {
+  padding: 0 0 10px;
+}
+
+/* A new day: a hairline either side of its name. */
+:root[data-odak] .ct-chat-panel .ct-chat-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-day::before,
+:root[data-odak] .ct-chat-panel .ct-chat-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--odak-border);
+}
+
+/* --- messages: theirs on the left in grey, yours on the right in lime ---- */
+:root[data-odak] .ct-chat-panel .ct-chat-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 3px 0;
+  border-radius: 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row:hover,
+:root[data-odak] .ct-chat-panel .ct-chat-row:focus-within {
+  background: transparent;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row.own {
+  align-items: flex-end;
+}
+
+/* Two people: the side already says who wrote it. */
+:root[data-odak] .ct-chat-panel .ct-chat-avatar,
+:root[data-odak] .ct-chat-panel .ct-chat-bubble-meta b {
+  display: none;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 70%;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble.own {
+  align-items: flex-end;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble > p {
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble.own > p {
+  border-radius: 16px 16px 4px 16px;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+/* A run of one author's messages: closer together, and only the last one
+   keeps the corner that points at its side. */
+:root[data-odak] .ct-chat-panel .ct-chat-row.joins-previous {
+  padding-top: 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row.joins-next .ct-chat-bubble > p {
+  border-bottom-left-radius: 16px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row.joins-previous .ct-chat-bubble > p {
+  border-top-left-radius: 6px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row.own.joins-next .ct-chat-bubble > p {
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-row.own.joins-previous .ct-chat-bubble > p {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 6px;
+}
+
+/* The time (and "düzenlendi") under the bubble, in the mono face. */
+:root[data-odak] .ct-chat-panel .ct-chat-bubble-meta {
+  order: 9;
+  margin: 4px 6px 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble-meta > span:first-child {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-pending {
+  font-size: 11px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-pending.failed {
+  color: var(--odak-danger);
+}
+
+/* Mentions and links, readable on both bubbles. */
+:root[data-odak] .ct-chat-panel .ct-chat-bubble > p .ct-chat-mention {
+  display: inline;
+  padding: 0 3px;
+  border-radius: 5px;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble > p .ct-chat-mention.self {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble.own > p .ct-chat-mention {
+  color: var(--odak-on-accent);
+  background: rgba(14, 15, 17, 0.12);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble > p .ct-chat-link {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble.own > p .ct-chat-link {
+  color: var(--odak-on-accent);
+}
+
+/* What it answers: a quiet block above the bubble, on the bubble's side. */
+:root[data-odak] .ct-chat-panel .ct-chat-bubble .ct-chat-reply-quote {
+  max-width: 100%;
+  margin: 0 0 4px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--odak-accent);
+  border-radius: 10px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-reply-quote-icon {
+  flex: none;
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble .ct-chat-reply-quote strong {
+  color: var(--odak-text);
+}
+
+/* Pictures (an upload, a GIF) and files, rounded like the bubbles. */
+:root[data-odak] .ct-chat-panel .ct-chat-inline-image,
+:root[data-odak] .ct-chat-panel .ct-chat-attachment-image,
+:root[data-odak] .ct-chat-panel .ct-chat-image-poster {
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-image-root .ant-image-mask {
+  border-radius: 14px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-attachment {
+  margin-top: 4px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-attachment-loading {
+  border-radius: 14px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-attachment-file {
+  gap: 10px;
+  padding: 10px 12px;
+  border-color: var(--odak-border-strong);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-attachment-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-attachment-size {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+}
+
+/* Reactions under the bubble; yours in lime. */
+:root[data-odak] .ct-chat-panel .ct-chat-reactions {
+  margin-top: 4px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-reaction {
+  height: 26px;
+  padding: 0 8px;
+  border-color: var(--odak-border-strong);
+  border-radius: 9px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-reaction.mine {
+  border-color: rgba(198, 244, 50, 0.45);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-reaction.mine .ct-chat-reaction-count {
+  color: var(--odak-accent);
+}
+
+/* Editing in place. */
+:root[data-odak] .ct-chat-panel .ct-chat-bubble textarea.ant-input {
+  min-width: 260px;
+  padding: 10px 14px;
+  border-color: var(--odak-accent);
+  border-radius: 14px;
+  font-size: 14px;
+  background: var(--odak-raised);
+}
+
+/* A call in the conversation: a small card in the middle. */
+:root[data-odak] .ct-chat-panel .ct-call-log {
+  gap: 12px;
+  padding: 10px 12px 10px 10px;
+  border-color: var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-log-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-log.missed .ct-call-log-icon {
+  color: var(--odak-danger);
+  background: rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-log-text strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-log-text span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-log .ant-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+/* --- the actions over a message ----------------------------------------- */
+/* Beside the bubble, at its top: right of theirs, left of yours. */
+:root[data-odak] .ct-chat-panel .ct-chat-message-actions {
+  top: 2px;
+  right: auto;
+  left: calc(100% + 8px);
+  gap: 2px;
+  padding: 3px;
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  background: var(--odak-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: opacity var(--odak-dur-1) var(--odak-ease-in);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-bubble.own .ct-chat-message-actions {
+  right: calc(100% + 8px);
+  left: auto;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-action {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 14px;
+  color: var(--odak-muted);
+  transition:
+    color var(--odak-dur-1) var(--odak-ease-out),
+    background var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-action .anticon {
+  font-size: 15px;
+  color: inherit;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-action:hover:not(:disabled) {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-action:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-action.danger:hover:not(:disabled) {
+  color: var(--odak-danger);
+  background: rgba(255, 92, 92, 0.12);
+}
+
+/* --- typing: three dots in a soft wave, then the name ------------------- */
+:root[data-odak] .ct-chat-panel .ct-chat-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 10px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots {
+  gap: 3px;
+  margin: 0;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots i {
+  width: 5px;
+  height: 5px;
+  background: var(--odak-muted);
+}
+
+
+/* --- composer: one pill -- attach, the field, GIF, emoji, send ----------- */
+:root[data-odak] .ct-chat-panel .ct-chat-composer {
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row {
+  position: relative;
+  gap: 8px;
+  height: 48px;
+  padding: 0 6px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 16px;
+  background: #1a1c21;
+}
+
+/* The focus ring, faded in rather than snapped on. */
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 1px var(--odak-accent),
+    0 0 0 4px rgba(198, 244, 50, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row:has(.ct-chat-input:focus)::after {
+  opacity: 1;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ant-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 17px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ant-btn:hover:not(:disabled) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+/* Attach leads, on a raised square. */
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ant-btn:first-of-type {
+  color: #d7dae0;
+  background: var(--odak-border);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-input.ant-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  font-size: 14px;
+  color: var(--odak-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-input.ant-input::placeholder {
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ct-chat-send-btn.ant-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 16px;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    opacity var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ct-chat-send-btn.ant-btn:hover:not(:disabled) {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  transform: translateY(-1px);
+}
+
+/* Nothing to send yet: the same lime, held back. */
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ct-chat-send-btn.ant-btn:disabled {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  opacity: 0.35;
+}
+
+/* The reply and the file waiting to go, above the pill. */
+:root[data-odak] .ct-chat-panel .ct-composer-chip {
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 13px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-composer-chip.reply {
+  border-left: 3px solid var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-composer-chip-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-composer-chip-text {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-chat-panel .ct-composer-chip .ant-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-composer-chip .ant-btn:hover {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+/* @-name suggestions over the composer. */
+:root[data-odak] .ct-chat-panel .ct-mention-popup {
+  padding: 6px;
+  border-color: var(--odak-border-strong);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-chat-panel .ct-mention-option {
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-mention-option.active {
+  background: var(--odak-raised);
+}
+
+/* --- the profile drawer -------------------------------------------------- */
+:root[data-odak] .ct-user-drawer .ant-drawer-content {
+  border-left: 1px solid var(--odak-border-strong);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-user-drawer .ant-drawer-header {
+  border-bottom-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-user-drawer-avatar .ant-avatar {
+  border: 0;
+  background: var(--odak-raised);
+  box-shadow:
+    0 0 0 4px var(--odak-surface),
+    0 0 0 6px var(--odak-accent);
+}
+
+:root[data-odak] .ct-user-drawer-avatar .ct-presence-dot {
+  border-color: var(--odak-surface);
+}
+
+:root[data-odak] .ct-user-drawer-identity h3 {
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+:root[data-odak] .ct-user-drawer-identity p {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-user-drawer-facts {
+  border-color: var(--odak-border);
+  border-radius: 16px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-user-drawer-facts > div + div {
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-user-drawer-actions .ant-btn {
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+/* --- the call: stage and chat as two cards -------------------------------- */
+:root[data-odak] .ct-chat-panel-plain.in-call {
+  padding: 16px 20px 20px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-stage {
+  border: 1px solid var(--odak-border);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(198, 244, 50, 0.07), transparent 60%),
+    var(--odak-strip);
+}
+
+/* Top-left: ringing in the text colour with lime dots, then lime and the
+   running time. */
+:root[data-odak] .ct-chat-panel .ct-call-stage-status {
+  top: 16px;
+  left: 16px;
+  height: 34px;
+  padding: 0 14px;
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-accent);
+  background: rgba(14, 15, 17, 0.72);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-stage-status.ringing {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-stage-status.ringing .ct-ring-dots {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-stage-status .ct-online-dot {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-stage-status .ct-elapsed {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer {
+  margin-left: 16px;
+  border: 1px solid var(--odak-border);
+  border-radius: 20px;
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer.closed {
+  margin-left: 0;
+  border-color: transparent;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer-header {
+  min-height: 52px;
+  padding: 0 8px 0 16px;
+  border-bottom-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer-header strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer-header strong .anticon {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer-header .ant-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+/* Inside the drawer the drawer is the card. */
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-thread-box {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-messages {
+  padding: 16px;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-bubble {
+  max-width: 85%;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-composer {
+  padding: 12px;
+}
+
+/* No room beside a bubble in the drawer: the actions sit on its top edge. */
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-message-actions {
+  top: -14px;
+  left: 0;
+  right: auto;
+}
+
+:root[data-odak] .ct-chat-panel .ct-call-chat-drawer .ct-chat-bubble.own .ct-chat-message-actions {
+  left: auto;
+  right: 0;
+}
+
+/* --- the call row in the strip, while the conversation is elsewhere ------- */
+:root[data-odak] .ct-call-strip-main {
+  border-radius: 12px;
+}
+
+:root[data-odak] .ct-call-strip .ct-call-dock-avatar {
+  border-color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-call-strip .ct-call-dock-btn.reject {
+  border-radius: 11px;
+  color: #ffffff;
+  background: var(--odak-danger);
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-call-strip .ct-call-dock-btn.reject:active {
+  transform: scale(0.92);
+}

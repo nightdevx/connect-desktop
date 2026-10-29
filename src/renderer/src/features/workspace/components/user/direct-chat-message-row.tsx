@@ -42,6 +42,8 @@ export interface DirectChatMessageRowProps {
   onCallBack?: () => void;
   /** The author's picture, when there is one; their initials otherwise. */
   avatarUrl?: string | null;
+  /** Odak: a new day's line above it, and its place in its author's run. */
+  place?: { day?: string; joinsPrevious: boolean; joinsNext: boolean };
 }
 
 // Every prop except the four callbacks. `message` is compared by reference
@@ -62,7 +64,10 @@ const areRowPropsEqual = (
   previous.callLog?.hidden === next.callLog?.hidden &&
   previous.callLog?.durationSeconds === next.callLog?.durationSeconds &&
   Boolean(previous.onCallBack) === Boolean(next.onCallBack) &&
-  previous.avatarUrl === next.avatarUrl;
+  previous.avatarUrl === next.avatarUrl &&
+  previous.place?.day === next.place?.day &&
+  previous.place?.joinsPrevious === next.place?.joinsPrevious &&
+  previous.place?.joinsNext === next.place?.joinsNext;
 
 /**
  * One rendered direct message.
@@ -167,24 +172,29 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   callLog,
   onCallBack,
   avatarUrl,
+  place,
 }: DirectChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
   const callKind = callLogKind(message.body);
+  const dayLine = place?.day ? <div className="ct-chat-day">{place.day}</div> : null;
 
   if (callKind) {
     if (callLog?.hidden) {
       return null;
     }
     return (
-      <CallLogEntry
-        kind={callKind}
-        isOwn={isOwnMessage}
-        peerLabel={peerLabel}
-        durationSeconds={callLog?.durationSeconds}
-        time={formatTimeLabel(message.createdAt)}
-        onCallBack={onCallBack}
-      />
+      <>
+        {dayLine}
+        <CallLogEntry
+          kind={callKind}
+          isOwn={isOwnMessage}
+          peerLabel={peerLabel}
+          durationSeconds={callLog?.durationSeconds}
+          time={formatTimeLabel(message.createdAt)}
+          onCallBack={onCallBack}
+        />
+      </>
     );
   }
 
@@ -199,124 +209,130 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   };
 
   return (
-    <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
-      {/* A transcript, not two columns of bubbles: every message under its
-          author's face and name, the way the room chat reads. */}
-      <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(authorName)}
-      </span>
-      <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
-        <div className="ct-chat-bubble-meta">
-          <span>
-            <b>{authorName}</b>
-            {formatTimeLabel(message.createdAt)}
-            {message.editedAt ? " • düzenlendi" : ""}
-          </span>
+    <>
+      {dayLine}
+      <div
+        className={`ct-chat-row ${isOwnMessage ? "own" : ""} ${place?.joinsPrevious ? "joins-previous" : ""} ${place?.joinsNext ? "joins-next" : ""}`}
+      >
+        {/* A transcript, not two columns of bubbles: every message under its
+            author's face and name, the way the room chat reads. Odak draws
+            the two columns instead and hides the face (odak-sohbet.css). */}
+        <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(authorName)}
+        </span>
+        <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
+          <div className="ct-chat-bubble-meta">
+            <span>
+              <b>{authorName}</b>
+              {formatTimeLabel(message.createdAt)}
+              {message.editedAt ? " • düzenlendi" : ""}
+            </span>
 
-          {message.localState ? (
-            <PendingSendStatus message={message} />
-          ) : (
-          <span className="ct-chat-message-actions">
-            <ChatReactionButton
-              onPick={(emoji) => {
-                const existing = (message.reactions ?? []).find(
-                  (reaction) => reaction.emoji === emoji,
-                );
-                // Picking an emoji you already used removes it, so the picker
-                // doubles as a toggle rather than being a one-way action.
-                const mine = existing?.userIds.includes(currentUserId) ?? false;
-                onToggleReaction(message.id, emoji, !mine);
-              }}
-            />
+            {message.localState ? (
+              <PendingSendStatus message={message} />
+            ) : (
+            <span className="ct-chat-message-actions">
+              <ChatReactionButton
+                onPick={(emoji) => {
+                  const existing = (message.reactions ?? []).find(
+                    (reaction) => reaction.emoji === emoji,
+                  );
+                  // Picking an emoji you already used removes it, so the picker
+                  // doubles as a toggle rather than being a one-way action.
+                  const mine = existing?.userIds.includes(currentUserId) ?? false;
+                  onToggleReaction(message.id, emoji, !mine);
+                }}
+              />
 
-            <Tooltip title="Yanıtla">
-              <button
-                type="button"
-                className="ct-chat-action"
-                onClick={() => onReply(message)}
-                aria-label="Yanıtla"
-              >
-                <EnterOutlined />
-              </button>
-            </Tooltip>
-
-            {isOwnMessage && message.body && (
-              <Tooltip title="Düzenle">
+              <Tooltip title="Yanıtla">
                 <button
                   type="button"
                   className="ct-chat-action"
-                  onClick={() => {
-                    setEditDraft(message.body);
-                    setIsEditing(true);
-                  }}
-                  aria-label="Mesajı düzenle"
+                  onClick={() => onReply(message)}
+                  aria-label="Yanıtla"
                 >
-                  <EditOutlined />
+                  <EnterOutlined />
                 </button>
               </Tooltip>
-            )}
 
-            {isOwnMessage && (
-              <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
-                <button
-                  type="button"
-                  className="ct-chat-action danger"
-                  onClick={() => onRequestDelete(message.id)}
-                  disabled={deleteDisabled}
-                  aria-label="Mesajı sil"
-                >
-                  {isDeleting ? (
-                    <div className="ct-spinner-small" />
-                  ) : (
-                    <DeleteOutlined />
-                  )}
-                </button>
-              </Tooltip>
+              {isOwnMessage && message.body && (
+                <Tooltip title="Düzenle">
+                  <button
+                    type="button"
+                    className="ct-chat-action"
+                    onClick={() => {
+                      setEditDraft(message.body);
+                      setIsEditing(true);
+                    }}
+                    aria-label="Mesajı düzenle"
+                  >
+                    <EditOutlined />
+                  </button>
+                </Tooltip>
+              )}
+
+              {isOwnMessage && (
+                <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
+                  <button
+                    type="button"
+                    className="ct-chat-action danger"
+                    onClick={() => onRequestDelete(message.id)}
+                    disabled={deleteDisabled}
+                    aria-label="Mesajı sil"
+                  >
+                    {isDeleting ? (
+                      <div className="ct-spinner-small" />
+                    ) : (
+                      <DeleteOutlined />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+            </span>
             )}
-          </span>
+          </div>
+          {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
+
+          {isEditing ? (
+            <Input.TextArea
+              autoFocus
+              value={editDraft}
+              autoSize={{ minRows: 1, maxRows: 6 }}
+              onChange={(event) => setEditDraft(event.target.value)}
+              onBlur={commitEdit}
+              onPressEnter={(event) => {
+                if (event.shiftKey) {
+                  return;
+                }
+                event.preventDefault();
+                commitEdit();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setEditDraft(message.body);
+                  setIsEditing(false);
+                }
+              }}
+            />
+          ) : (
+            message.body && (
+              <ChatMessageBody body={message.body}>
+                {renderMessageBody(message.body, currentUsername)}
+              </ChatMessageBody>
+            )
           )}
-        </div>
-        {message.replyTo && <ChatReplyQuote replyTo={message.replyTo} />}
 
-        {isEditing ? (
-          <Input.TextArea
-            autoFocus
-            value={editDraft}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            onChange={(event) => setEditDraft(event.target.value)}
-            onBlur={commitEdit}
-            onPressEnter={(event) => {
-              if (event.shiftKey) {
-                return;
-              }
-              event.preventDefault();
-              commitEdit();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setEditDraft(message.body);
-                setIsEditing(false);
-              }
-            }}
+          {message.attachment && (
+            <ChatAttachmentView attachment={message.attachment} />
+          )}
+
+          <ChatReactionBar
+            reactions={message.reactions ?? []}
+            currentUserId={currentUserId}
+            onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
           />
-        ) : (
-          message.body && (
-            <ChatMessageBody body={message.body}>
-              {renderMessageBody(message.body, currentUsername)}
-            </ChatMessageBody>
-          )
-        )}
-
-        {message.attachment && (
-          <ChatAttachmentView attachment={message.attachment} />
-        )}
-
-        <ChatReactionBar
-          reactions={message.reactions ?? []}
-          currentUserId={currentUserId}
-          onToggle={(emoji, add) => onToggleReaction(message.id, emoji, add)}
-        />
+        </div>
       </div>
-    </div>
+    </>
   );
 }, areRowPropsEqual);

@@ -76,7 +76,7 @@ import { GameArt } from "./game-art";
 import { CallEncryptionBadge } from "./parts/CallEncryptionBadge";
 import { useThreadScroll } from "./use-thread-scroll";
 import { ElapsedTime } from "../common/elapsed-time";
-import { pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
+import { callLogKind, pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
 
 // Mention matching, highlighting and "was I named" live in ../../mentions so the
 // lobby composer and this message list share one set of rules. Re-exported
@@ -122,6 +122,62 @@ function CallQualityBars({ userId }: { userId: string }) {
 // Stable fallbacks for the optional media props below.
 const EMPTY_SPEAKER_IDS: string[] = [];
 const EMPTY_MEDIA_MAP: ParticipantMediaMap = {};
+
+// Consecutive messages of one author, this close together, read as one run.
+const RUN_GAP_MS = 5 * 60_000;
+
+const dayKey = (value: string): string => new Date(value).toDateString();
+
+// "Bugün", "Dün", or the date, for the line where a new day starts.
+const dayLabel = (value: string): string => {
+  const date = new Date(value);
+  const today = new Date();
+  if (dayKey(value) === today.toDateString()) {
+    return "Bugün";
+  }
+  today.setDate(today.getDate() - 1);
+  if (dayKey(value) === today.toDateString()) {
+    return "Dün";
+  }
+  return new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric" }).format(date);
+};
+
+interface ThreadPlace {
+  day?: string;
+  joinsPrevious: boolean;
+  joinsNext: boolean;
+}
+
+// Where each message sits in the drawn thread: under a new day's line, and
+// whether it continues the previous one's run or is continued by the next. A
+// folded call entry is skipped, as it is not drawn.
+const shapeThread = (
+  messages: ChatMessage[],
+  callLog: Map<string, { hidden?: boolean }>,
+): Map<string, ThreadPlace> => {
+  const places = new Map<string, ThreadPlace>();
+  let previous: { message: ChatMessage; place: ThreadPlace } | null = null;
+  for (const message of messages) {
+    if (callLog.get(message.id)?.hidden) {
+      continue;
+    }
+    const newDay = !previous || dayKey(previous.message.createdAt) !== dayKey(message.createdAt);
+    const joins =
+      !newDay &&
+      previous !== null &&
+      previous.message.userId === message.userId &&
+      !callLogKind(previous.message.body) &&
+      !callLogKind(message.body) &&
+      Date.parse(message.createdAt) - Date.parse(previous.message.createdAt) < RUN_GAP_MS;
+    const place: ThreadPlace = { day: newDay ? dayLabel(message.createdAt) : undefined, joinsPrevious: joins, joinsNext: false };
+    if (joins && previous) {
+      previous.place.joinsNext = true;
+    }
+    places.set(message.id, place);
+    previous = { message, place };
+  }
+  return places;
+};
 
 interface UsersDirectMessagesPanelProps {
   currentUserId: string;
@@ -641,6 +697,15 @@ export function UsersDirectMessagesPanel({
     void workspaceService.sendLobbyEmote({ lobbyId: activeLobbyId, emote });
   };
 
+  // Odak draws the thread as two columns of bubbles, with a line where the day
+  // changes and one author's run of messages held together. Display only: it
+  // reads the list, it does not change it.
+  const isOdak = useUiStore((state) => state.odakTheme);
+  const threadShape = useMemo(
+    () => (isOdak ? shapeThread(directMessages, callLogInfo) : null),
+    [isOdak, directMessages, callLogInfo],
+  );
+
   const showEmptyState =
     !directMessagesQuery.isPending &&
     !directMessagesQuery.isError &&
@@ -656,28 +721,32 @@ export function UsersDirectMessagesPanel({
     onLoadOlderMessages,
   });
 
-  const renderChatBox = () => {
+  const searchField = onRunSearch && (
+    <div className="ct-chat-search">
+      <Input
+        allowClear
+        size="small"
+        value={searchQuery}
+        placeholder="Bu sohbette ara…"
+        prefix={<SearchOutlined />}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (!value.trim()) {
+            onClearSearch?.();
+            return;
+          }
+          onRunSearch(value);
+        }}
+      />
+    </div>
+  );
+
+  // The search field sits in the conversation's bar; during a call there is no
+  // bar, so the chat drawer keeps it above the thread.
+  const renderChatBox = (withSearch: boolean) => {
     return (
       <div className="ct-chat-thread-box">
-        {onRunSearch && (
-          <div className="ct-chat-search">
-            <Input
-              allowClear
-              size="small"
-              value={searchQuery}
-              placeholder="Bu sohbette ara…"
-              prefix={<SearchOutlined />}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (!value.trim()) {
-                  onClearSearch?.();
-                  return;
-                }
-                onRunSearch(value);
-              }}
-            />
-          </div>
-        )}
+        {withSearch && searchField}
         <div
           className={`ct-chat-messages ${showEmptyState ? "empty" : ""}`}
           ref={attachChatScroller}
@@ -766,6 +835,7 @@ export function UsersDirectMessagesPanel({
                 renderMessage={(message) => (
                   <DirectChatMessageRow
                     message={message}
+                    place={threadShape?.get(message.id)}
                     callLog={callLogInfo.get(message.id)}
                     onCallBack={handleCallBack}
                     avatarUrl={avatarFor(message.userId)}
@@ -792,6 +862,11 @@ export function UsersDirectMessagesPanel({
 
         {isPeerTyping && (
           <div className="ct-chat-typing-indicator" aria-live="polite">
+            <span className="ct-ring-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
             {selectedUser?.displayName || selectedUser?.username} yazıyor…
           </div>
         )}
@@ -848,22 +923,8 @@ export function UsersDirectMessagesPanel({
           )}
 
           <div className="ct-chat-composer-row">
-            <ChatComposerEmojiButton
-              // Updater, not `messageDraft + emoji`: the picker stays open, so a
-              // burst of picks shares one render and every closure would read
-              // the same stale draft — each emoji overwriting the previous one.
-              onPick={(emoji) =>
-                onMessageDraftChange((previous) => previous + emoji)
-              }
-            />
-            {/* The GIF goes out as its own message. It used to be written into
-                the draft and sent a render later, which silently destroyed
-                whatever the user had typed: "şuna bak" + pick a GIF = "şuna
-                bak" gone, with no undo. */}
-            <ChatGifButton
-              disabled={isSendingMessage}
-              onPick={(url) => sendAndRefocus(url)}
-            />
+            {/* Attach, the field, then GIF, emoji and send: the order the
+                eye and the Tab key take, left to right. */}
             <ChatAttachButton
               onSelect={(upload, file) =>
                 onSetPendingAttachment?.({
@@ -924,24 +985,38 @@ export function UsersDirectMessagesPanel({
               // keystrokes with no visual or screen-reader signal at all. The
               // double-send guard sits in handleSendMessage.
               className="ct-chat-input"
-              suffix={
-                <Button
-                  type="text"
-                  size="small"
-                  className="ct-chat-send-btn"
-                  icon={<SendOutlined />}
-                  // Wrapped, not passed directly: onClick hands the handler a
-                  // MouseEvent, which would arrive as the body override and be
-                  // sent as the message.
-                  onClick={() => sendAndRefocus()}
-                  loading={isSendingMessage}
-                  disabled={
-                    isSendingMessage ||
-                    (!messageDraft.trim() && !pendingAttachment)
-                  }
-                  aria-label="Gönder"
-                />
+            />
+            {/* The GIF goes out as its own message. It used to be written into
+                the draft and sent a render later, which silently destroyed
+                whatever the user had typed: "şuna bak" + pick a GIF = "şuna
+                bak" gone, with no undo. */}
+            <ChatGifButton
+              disabled={isSendingMessage}
+              onPick={(url) => sendAndRefocus(url)}
+            />
+            <ChatComposerEmojiButton
+              // Updater, not `messageDraft + emoji`: the picker stays open, so a
+              // burst of picks shares one render and every closure would read
+              // the same stale draft — each emoji overwriting the previous one.
+              onPick={(emoji) =>
+                onMessageDraftChange((previous) => previous + emoji)
               }
+            />
+            <Button
+              type="text"
+              size="small"
+              className="ct-chat-send-btn"
+              icon={<SendOutlined />}
+              // Wrapped, not passed directly: onClick hands the handler a
+              // MouseEvent, which would arrive as the body override and be
+              // sent as the message.
+              onClick={() => sendAndRefocus()}
+              loading={isSendingMessage}
+              disabled={
+                isSendingMessage ||
+                (!messageDraft.trim() && !pendingAttachment)
+              }
+              aria-label="Gönder"
             />
           </div>
         </div>
@@ -1072,7 +1147,7 @@ export function UsersDirectMessagesPanel({
                     aria-label="Sohbeti kapat"
                   />
                 </div>
-                {renderChatBox()}
+                {renderChatBox(true)}
               </aside>
 
               {/* Context Menu */}
@@ -1156,6 +1231,8 @@ export function UsersDirectMessagesPanel({
                   </span>
                 </button>
 
+                {searchField}
+
                 <div className="ct-dm-header-actions">
                   <Tooltip title={isMuted ? "Aramaların sesini aç" : "Aramaları sessize al"}>
                     <Button
@@ -1178,7 +1255,10 @@ export function UsersDirectMessagesPanel({
                         icon={<PhoneOutlined />}
                         aria-label={`${selectedUser.displayName || selectedUser.username} kişisini ara`}
                         onClick={() => onInitiateCall(selectedUser)}
-                      />
+                      >
+                        {/* Odak spells the main action out, as its mock-up does. */}
+                        {isOdak && "Sesli ara"}
+                      </Button>
                     </Tooltip>
                   )}
 
@@ -1267,7 +1347,7 @@ export function UsersDirectMessagesPanel({
                 </div>
               )}
 
-              {renderChatBox()}
+              {renderChatBox(false)}
             </>
           )}
 
