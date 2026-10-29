@@ -186,9 +186,86 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
-  publish-release:
-    needs: [detect-version, release-windows]
+  # Same trigger as the Windows job and run beside it. It never holds up a
+  # release: publish-release waits for it but does not need it to succeed.
+  release-macos:
+    needs: detect-version
     if: github.event_name == 'workflow_dispatch' || needs.detect-version.outputs.version_changed == 'true'
+    runs-on: macos-latest
+    environment:
+      name: release-env
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install desktop dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The Windows job's step, unchanged: pwsh is on the macOS runners too.
+      - name: Create .env from GitHub Secrets
+        shell: pwsh
+        env:
+          CT_BACKEND_URL: ${{ secrets.CT_BACKEND_URL }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          CT_KLIPY_API_KEY: ${{ secrets.CT_KLIPY_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CT_BACKEND_URL)) {
+            throw "Missing secret: CT_BACKEND_URL"
+          }
+
+          $lines = @("CT_BACKEND_URL=$($env:CT_BACKEND_URL)")
+          if (-not [string]::IsNullOrWhiteSpace($env:SENTRY_DSN)) {
+            $lines += "SENTRY_DSN=$($env:SENTRY_DSN)"
+          } else {
+            Write-Host "SENTRY_DSN not set: this build will report no crashes."
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:CT_KLIPY_API_KEY)) {
+            $lines += "CT_KLIPY_API_KEY=$($env:CT_KLIPY_API_KEY)"
+          } else {
+            Write-Host "CT_KLIPY_API_KEY not set: this build will have no GIF button."
+          }
+          $lines | Set-Content -Path .env -Encoding UTF8
+
+      # Universal dmg + zip, ad hoc signed (electron-builder.yml, mac). No
+      # build:native: the loopback addon is Windows-only.
+      - name: Build macOS release artifacts
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm dist:mac
+
+      - name: Validate the build and start it once
+        run: bash scripts/check-mac-release.sh
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            release/Connect-*-mac.dmg
+            release/Connect-*-mac.dmg.blockmap
+            release/Connect-*-mac.zip
+            release/Connect-*-mac.zip.blockmap
+            release/latest-mac.yml
+          if-no-files-found: error
+
+  publish-release:
+    needs: [detect-version, release-windows, release-macos]
+    # Windows decides: a failed or cancelled macOS job only leaves its files out
+    # of the release. release-windows carries the version-changed condition.
+    if: always() && needs.release-windows.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -202,6 +279,15 @@ jobs:
           name: windows-artifacts
           path: release
 
+      - name: Download macOS artifacts
+        if: needs.release-macos.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: release
+
+      # The macOS patterns match nothing when that job failed, which the action
+      # only warns about (fail_on_unmatched_files is off).
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -217,4 +303,8 @@ jobs:
             release/Connect-Setup-*.exe
             release/Connect-Setup-*.exe.blockmap
             release/latest.yml
-
+            release/Connect-*-mac.dmg
+            release/Connect-*-mac.dmg.blockmap
+            release/Connect-*-mac.zip
+            release/Connect-*-mac.zip.blockmap
+            release/latest-mac.yml

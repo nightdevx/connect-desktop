@@ -1,0 +1,56 @@
+name: macOS Build
+
+# The macOS release job's build and checks, without a release: for trying the
+# macOS build on a branch before it reaches main. No secrets: the backend
+# address is a placeholder (the smoke start only needs the window to load, and
+# the app shows its offline screen), so nothing here can reach production or
+# print its address.
+on:
+  push:
+    branches:
+      - mac-release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install desktop dependencies
+        run: pnpm install --frozen-lockfile
+
+      # generate-runtime-env.js refuses to build without a backend URL.
+      - name: Build macOS artifacts
+        env:
+          CT_BACKEND_URL: https://backend.invalid
+        run: pnpm dist:mac
+
+      - name: Validate the build and start it once
+        run: bash scripts/check-mac-release.sh
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-test-build
+          path: |
+            release/Connect-*-mac.dmg
+            release/Connect-*-mac.zip
+            release/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 7

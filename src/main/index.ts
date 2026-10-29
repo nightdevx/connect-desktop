@@ -370,6 +370,11 @@ function createMainWindow(): BrowserWindow {
 
   installNavigationGuards(win);
   installPageRecovery(win);
+  // The macOS build's start check waits for this line
+  // (scripts/check-mac-release.sh).
+  win.webContents.once("did-finish-load", () => {
+    console.info("[window] main page loaded");
+  });
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
