@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type MutableRefObject,
-} from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 export type LobbyStageLayoutStyle = CSSProperties & {
   "--ct-stage-columns"?: string;
@@ -24,8 +17,16 @@ interface UseLobbyStageLayoutResult {
    * numbers (28/28/76/96) that no stylesheet agreed with — the CSS spent
    * 18/18/66/94, and 10/10 below 900px — so every tile was fitted to an area
    * that did not exist.
+   *
+   * A callback ref, not a ref object: the box is not there for the hook's whole
+   * life. A text room unmounts the stage and coming back mounts a new one, and
+   * a 1:1 call's stage only appears once the call starts. Read once on mount, a
+   * ref object left the observer on the removed box — whose last report was
+   * 0x0, so every room after a visit to a text room was fitted to the 1040x620
+   * fallback: one tile per row, wider than the stage — and the call stage was
+   * never measured at all.
    */
-  stageAreaRef: MutableRefObject<HTMLDivElement | null>;
+  stageAreaRef: (stageArea: HTMLDivElement | null) => void;
   stageLayoutStyle: LobbyStageLayoutStyle;
 }
 
@@ -218,15 +219,14 @@ export function useLobbyStageLayout(
   participantCount: number,
   isLobbyChatOpen: boolean,
 ): UseLobbyStageLayoutResult {
-  const stageAreaRef = useRef<HTMLDivElement | null>(null);
-  const resizeFrameRef = useRef<number | null>(null);
+  // The mounted box, held in state so that a new one re-runs the effect below.
+  const [stageArea, setStageArea] = useState<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState<StageSize>({
     width: 0,
     height: 0,
   });
 
   useEffect(() => {
-    const stageArea = stageAreaRef.current;
     if (!stageArea) {
       return;
     }
@@ -253,14 +253,25 @@ export function useLobbyStageLayout(
 
     applySize(readContentBox(), true);
 
+    // One reflow per frame, of the LATEST size. This used to keep the first size
+    // reported while a frame was pending and drop the rest, and a window resize
+    // reports more than once before the next frame: at 900px the stage ended at
+    // 542px but stayed fitted to 556, and the tiles ran 14px under the edge.
+    let pendingSize: StageSize | null = null;
+    let resizeFrame: number | null = null;
+
     const scheduleResize = (nextSize: StageSize): void => {
-      if (resizeFrameRef.current !== null) {
+      pendingSize = nextSize;
+      if (resizeFrame !== null) {
         return;
       }
 
-      resizeFrameRef.current = window.requestAnimationFrame(() => {
-        resizeFrameRef.current = null;
-        applySize(nextSize, false);
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+        if (pendingSize) {
+          applySize(pendingSize, false);
+          pendingSize = null;
+        }
       });
     };
 
@@ -280,12 +291,11 @@ export function useLobbyStageLayout(
     return () => {
       observer.disconnect();
 
-      if (resizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-        resizeFrameRef.current = null;
+      if (resizeFrame !== null) {
+        window.cancelAnimationFrame(resizeFrame);
       }
     };
-  }, []);
+  }, [stageArea]);
 
   const stageLayoutStyle = useMemo<LobbyStageLayoutStyle>(() => {
     const safeParticipantCount = Math.max(1, participantCount);
@@ -305,7 +315,7 @@ export function useLobbyStageLayout(
   }, [isLobbyChatOpen, participantCount, stageSize]);
 
   return {
-    stageAreaRef,
+    stageAreaRef: setStageArea,
     stageLayoutStyle,
   };
 }
