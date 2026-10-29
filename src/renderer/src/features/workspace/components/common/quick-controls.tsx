@@ -1,4 +1,5 @@
 import { Tooltip } from "antd";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AudioMutedOutlined,
@@ -15,7 +16,9 @@ import {
   hueStyle,
 } from "../../workspace-utils";
 import type { PresenceStatus } from "@shared/auth-contracts";
+import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
+import { useWorkspaceAudioConnection } from "../../hooks/lobby/use-workspace-audio-connection";
 import { UserProfileCardPopover } from "../user/user-profile-card";
 
 import { AudioDeviceDropdown } from "./AudioDeviceDropdown";
@@ -61,6 +64,54 @@ interface QuickControlsProps {
   presenceStatus?: PresenceStatus;
   /** Where they are: the room's name, or "Görüşmede: …". */
   whereLabel?: string;
+  /** The room the voice is in, a call's included; with the transport state
+      it drives the connection dot. */
+  voiceRoomId?: string | null;
+  liveKitConnectionState?: LiveKitConnectionStatus;
+}
+
+const VOICE_DOT: Record<LiveKitConnectionStatus, "connected" | "reconnecting" | "disconnected"> = {
+  connected: "connected",
+  connecting: "reconnecting",
+  reconnecting: "reconnecting",
+  disconnected: "disconnected",
+  closed: "disconnected",
+};
+
+/**
+ * The voice connection at a glance, in the dock, so it shows with the
+ * sidebar folded too (the full status card is the open sidebar's). Coloured by
+ * the transport state; the tooltip is the card's own wording. Its own
+ * component because that wording reads the once-a-second media sample, and
+ * only this dot should re-render for it.
+ */
+function VoiceConnectionDot({
+  voiceRoomId,
+  state,
+}: {
+  voiceRoomId: string;
+  state: LiveKitConnectionStatus;
+}) {
+  // Between two reconnect attempts the session passes through "disconnected"
+  // for a few dozen milliseconds; the dot turns red only once that holds, so
+  // it does not blink red and amber while the app is still retrying.
+  const [shown, setShown] = useState(state);
+  useEffect(() => {
+    const down = state === "disconnected" || state === "closed";
+    const timer = window.setTimeout(() => setShown(state), down ? 1000 : 0);
+    return () => window.clearTimeout(timer);
+  }, [state]);
+  const mediaStats = useMediaStats();
+  const { statusText } = useWorkspaceAudioConnection({
+    activeLobbyId: voiceRoomId,
+    liveKitConnectionState: shown,
+    mediaStats,
+  });
+  return (
+    <Tooltip title={statusText}>
+      <span className={`ct-quick-voice ${VOICE_DOT[shown]}`} role="img" aria-label={statusText} />
+    </Tooltip>
+  );
 }
 
 /**
@@ -100,7 +151,15 @@ export function QuickControls({
   callStrip,
   presenceStatus = "online",
   whereLabel,
+  voiceRoomId,
+  liveKitConnectionState = "disconnected",
 }: QuickControlsProps) {
+  // Two of them: open, the dot stands in for the presence dot on the "where"
+  // line, so the room's name keeps its width; folded, the identity row is
+  // hidden and the one among the controls shows (odak.css).
+  const voiceDot = voiceRoomId ? (
+    <VoiceConnectionDot voiceRoomId={voiceRoomId} state={liveKitConnectionState} />
+  ) : null;
   return (
     <div className="ct-quick-dock">
       {callStrip}
@@ -178,11 +237,13 @@ export function QuickControls({
             {/* Where you are, or how you appear to everyone else when you are
                 nowhere in particular. */}
             <span className="ct-quick-idle-status">
-              <span
-                className="ct-quick-idle-dot"
-                style={{ background: getPresenceColor(true, presenceStatus) }}
-                aria-hidden="true"
-              />
+              {voiceDot ?? (
+                <span
+                  className="ct-quick-idle-dot"
+                  style={{ background: getPresenceColor(true, presenceStatus) }}
+                  aria-hidden="true"
+                />
+              )}
               <span className="ct-quick-idle-where">
                 {whereLabel ?? getUserStatusLabel(true, presenceStatus)}
               </span>
@@ -192,6 +253,7 @@ export function QuickControls({
       </UserProfileCardPopover>
 
       <div className="ct-quick-controls-inline" aria-label="İşlevler">
+        {voiceDot}
         <AudioDeviceDropdown
           kind="input"
           devices={audioInputDevices}

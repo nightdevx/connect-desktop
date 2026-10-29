@@ -976,6 +976,45 @@
   background: var(--odak-surface);
 }
 
+/* The voice connection in the dock, open or folded: an 8px dot on a 20px
+   target, green connected, amber reconnecting, red disconnected. */
+:root[data-odak] .ct-quick-voice {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+:root[data-odak] .ct-quick-voice::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ct-success);
+}
+
+:root[data-odak] .ct-quick-voice.reconnecting::before {
+  background: var(--ct-warning);
+  animation: odak-breathe 1.6s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-quick-voice.disconnected::before {
+  background: var(--odak-danger);
+}
+
+/* Open, it is the presence dot's size on the "where" line, and the one among
+   the controls stays only for screen readers; folded, the identity row is
+   hidden and the controls' one shows. */
+:root[data-odak] .ct-quick-idle-status .ct-quick-voice,
+:root[data-odak] .ct-quick-idle-status .ct-quick-voice::before {
+  width: 6px;
+  height: 6px;
+}
+
+:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-controls-inline > .ct-quick-voice {
+  @apply sr-only;
+}
 
 /* ==========================================================================
    Motion -- the tokens and keyframes are odak-hareket.css's.
@@ -1119,7 +1158,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-odak] .ct-odak-skeleton {
+  :root[data-odak] .ct-odak-skeleton,
+  :root[data-odak] .ct-quick-voice.reconnecting::before {
     animation: none;
   }
 }

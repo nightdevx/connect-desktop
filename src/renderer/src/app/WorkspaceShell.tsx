@@ -1375,6 +1375,8 @@ function WorkspaceShell({
       onStopCamera={handleCameraToggle}
       onDisconnect={handleLeaveLobbyOrEndCall}
       presenceStatus={effectivePresenceStatus}
+      voiceRoomId={activeLobbyId}
+      liveKitConnectionState={liveKitConnectionState}
       whereLabel={
         isInCallRoom
           ? `Görüşmede: ${callState.peerUser?.displayName || callState.peerUser?.username || "arama"}`
