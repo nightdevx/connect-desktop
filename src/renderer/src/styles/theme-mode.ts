@@ -24,9 +24,6 @@ export const readThemeMode = (): ThemeMode => {
  */
 export const applyThemeMode = (mode: ThemeMode): void => {
   document.documentElement.setAttribute("data-theme", mode);
-  // The system caption buttons over the title bar (Windows) are not part of the
-  // page; main recolours them. Absent outside the app (preview pages).
-  void window.desktopApi?.setWindowTheme(mode);
 };
 
 export const saveThemeMode = (mode: ThemeMode): void => {

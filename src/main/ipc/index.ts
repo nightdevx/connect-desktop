@@ -37,7 +37,6 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:window-minimize",
   "desktop:window-toggle-maximize",
   "desktop:window-close",
-  "desktop:window-theme",
   "desktop:window-attention",
   "desktop:window-state",
   "desktop:auth-register",

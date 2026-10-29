@@ -71,16 +71,6 @@
   user-select: none;
 }
 
-/* Windows draws its caption buttons over the right end of the bar; the
-   titlebar-area-* variables give their width (136 px at 100 %), and the
-   fallback covers a Chromium that does not set them. */
-.ct-titlebar--native-controls {
-  padding-right: calc(
-    100vw - env(titlebar-area-x, 0px) -
-      env(titlebar-area-width, calc(100vw - 136px)) + 8px
-  );
-}
-
 .ct-titlebar-brand {
   @apply flex min-w-0 items-center gap-2.5;
 }

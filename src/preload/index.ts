@@ -85,7 +85,6 @@ const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
 
 
 const desktopApi: DesktopApi = {
-  platform: process.platform,
   getAppVersion: async () => ipcRenderer.invoke("desktop:get-version"),
   getAppPreferences: async () =>
     ipcRenderer.invoke("desktop:app-preferences-get"),
@@ -309,8 +308,6 @@ const desktopApi: DesktopApi = {
   toggleMaximizeWindow: async () =>
     ipcRenderer.invoke("desktop:window-toggle-maximize"),
   closeWindow: async () => ipcRenderer.invoke("desktop:window-close"),
-  setWindowTheme: async (mode) =>
-    ipcRenderer.invoke("desktop:window-theme", mode),
   setWindowAttention: async (payload) =>
     ipcRenderer.invoke("desktop:window-attention", payload),
   getWindowState: async () => ipcRenderer.invoke("desktop:window-state"),

@@ -24,7 +24,6 @@ import { launchMockUpdaterWindow } from "../../update/helper-mode";
 import { getFreeGames } from "../../free-games-poller";
 import { detectGame } from "../../game-activity-poller";
 import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
-import { setTitleBarTheme } from "../../titlebar";
 
 export function registerAppHandlers(): void {
   handle("app:ping", async () => "pong");
@@ -231,15 +230,6 @@ export function registerAppHandlers(): void {
       const win = getWindowFromSender(event.sender);
       win.close();
       return ok({ closed: true });
-    } catch (error) {
-      return fail(error);
-    }
-  });
-
-  handle("desktop:window-theme", async (event, mode: unknown) => {
-    try {
-      setTitleBarTheme(getWindowFromSender(event.sender), mode);
-      return ok({ applied: true });
     } catch (error) {
       return fail(error);
     }

@@ -24,7 +24,6 @@ import {
 } from "./app-preferences";
 import { restoreWindowState } from "./window-state";
 import { installPageRecovery } from "./page-recovery";
-import { titleBarWindowOptions } from "./titlebar";
 import { fixPinnedTaskbarShortcuts } from "./taskbar-pins";
 import {
   applyMediaEngineSwitches,
@@ -347,7 +346,7 @@ function createMainWindow(): BrowserWindow {
     ...(restored?.bounds ?? { width: 1280, height: 800 }),
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
-    ...titleBarWindowOptions(),
+    frame: false,
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
     // Matches --ct-surface-0. It was a navy that appears nowhere in the app, so

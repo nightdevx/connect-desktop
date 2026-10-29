@@ -24,11 +24,6 @@ import { toast } from "@/services/toast";
 import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
-// On Windows the system draws minimise, maximise and close over the right end
-// of the title bar (src/main/titlebar.ts makes the same test), so the page
-// leaves that corner empty instead of drawing its own.
-const usesNativeWindowControls = window.desktopApi.platform === "win32";
-
 function App() {
   const {
     activePage,
@@ -199,13 +194,7 @@ function App() {
       />
 
       <div className="ct-app-content">
-        <header
-          className={
-            usesNativeWindowControls
-              ? "ct-titlebar ct-titlebar--native-controls"
-              : "ct-titlebar"
-          }
-        >
+        <header className="ct-titlebar">
           <div className="ct-titlebar-brand">
             <img src={logo} alt="" className="ct-titlebar-logo" />
             <span className="ct-titlebar-name">Connect</span>
@@ -254,40 +243,38 @@ function App() {
               <QuestionCircleOutlined />
             </button>
 
-            {!usesNativeWindowControls && (
-              <div className="ct-window-controls" aria-label="Pencere kontrolleri">
-                <button
-                  type="button"
-                  className="ct-window-control"
-                  onClick={handleMinimize}
-                  aria-label="Pencereyi küçült"
-                >
-                  <MinusOutlined />
-                </button>
+            <div className="ct-window-controls" aria-label="Pencere kontrolleri">
+              <button
+                type="button"
+                className="ct-window-control"
+                onClick={handleMinimize}
+                aria-label="Pencereyi küçült"
+              >
+                <MinusOutlined />
+              </button>
 
-                <button
-                  type="button"
-                  className="ct-window-control"
-                  onClick={handleToggleMaximize}
-                  aria-label={
-                    windowIsMaximized
-                      ? "Pencereyi eski boyuta döndür"
-                      : "Pencereyi büyüt"
-                  }
-                >
-                  {windowIsMaximized ? <CompressOutlined /> : <ExpandOutlined />}
-                </button>
+              <button
+                type="button"
+                className="ct-window-control"
+                onClick={handleToggleMaximize}
+                aria-label={
+                  windowIsMaximized
+                    ? "Pencereyi eski boyuta döndür"
+                    : "Pencereyi büyüt"
+                }
+              >
+                {windowIsMaximized ? <CompressOutlined /> : <ExpandOutlined />}
+              </button>
 
-                <button
-                  type="button"
-                  className="ct-window-control danger"
-                  onClick={handleClose}
-                  aria-label="Pencereyi kapat"
-                >
-                  <CloseOutlined />
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                className="ct-window-control danger"
+                onClick={handleClose}
+                aria-label="Pencereyi kapat"
+              >
+                <CloseOutlined />
+              </button>
+            </div>
           </div>
         </header>
 
