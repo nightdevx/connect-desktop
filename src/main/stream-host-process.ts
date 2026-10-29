@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { net } from "electron";
 import * as Sentry from "@sentry/electron/utility";
 import { createStreamHost } from "./ipc/stream-host";
+import { SENTRY_DATA_COLLECTION } from "../shared/sentry-data-collection";
 import type { StreamHostRequest } from "../shared/stream-host-contracts";
 
 // Entry point of the stream host: an Electron utility process that holds the
@@ -23,9 +24,9 @@ import type { StreamHostRequest } from "../shared/stream-host-contracts";
 // below: the SDK filters its own messages out of that channel.
 const isPackaged = !/^electron(\.exe)?$/i.test(basename(process.execPath));
 if (process.env.SENTRY_DSN && isPackaged) {
-  // Errors only; tracing would load OpenTelemetry into this process for
-  // nothing.
-  Sentry.init({ skipOpenTelemetrySetup: true });
+  // Errors only: OpenTelemetry stays off (opt-in in @sentry/electron 8), and
+  // the same restrictive data collection as main and the page.
+  Sentry.init({ dataCollection: SENTRY_DATA_COLLECTION });
 }
 
 const backendBaseUrl = process.argv[2] ?? "";
