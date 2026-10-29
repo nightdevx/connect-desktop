@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
+    # Dependabot puts an update in the first group that matches, so Electron
+    # majors land on their own PR before the catch-all major group sees them.
+    groups:
+      electron-major:
+        patterns: ["electron"]
+        update-types: ["major"]
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+      major:
+        update-types: ["major"]
+    ignore:
+      # Upgraded by hand: patches/livekit-client@2.22.4.patch is pinned to the
+      # exact version, so any bump breaks the install until it is redone.
+      - dependency-name: livekit-client
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
