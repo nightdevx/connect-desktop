@@ -48,7 +48,7 @@ const main = async () => {
   // DesktopApiError comes from the bundle too: instanceof between two copies of
   // the same class is silently always false, which would make every error look
   // non-fatal and every assertion below pass for the wrong reason.
-  const { isSessionFatal, statusFromSocketError, DesktopApiError } =
+  const { isSessionFatal, statusFromSocketError, redeemRefreshToken, DesktopApiError } =
     await import(pathToFileURL(path.join(outDir, "auth-failure.mjs")).href);
 
   assert.equal(typeof DesktopApiError, "function", "DesktopApiError re-export");
@@ -109,6 +109,49 @@ const main = async () => {
   );
   assert.equal(statusFromSocketError(undefined), 503);
   assert.equal(statusFromSocketError(""), 503);
+
+  // --- redeemRefreshToken: 409 REFRESH_IN_PROGRESS is a wait, not a failure --
+  {
+    assert.equal(
+      isSessionFatal(new DesktopApiError("REFRESH_IN_PROGRESS", 409, "busy")),
+      false,
+      "a refresh race must not end the session",
+    );
+    const waits = [];
+    const wait = async (ms) => {
+      waits.push(ms);
+    };
+    let calls = 0;
+    const tokens = await redeemRefreshToken(async () => {
+      calls += 1;
+      if (calls < 3) {
+        throw new DesktopApiError("REFRESH_IN_PROGRESS", 409, "busy");
+      }
+      return "tokens";
+    }, wait);
+    assert.equal(tokens, "tokens", "the retry's answer is the refresh's answer");
+    assert.deepEqual(waits, [500, 1000], "retried without waiting, or waited the wrong amounts");
+
+    // Anything else fails at once, and the race gives up after ~5 s.
+    calls = 0;
+    await assert.rejects(
+      redeemRefreshToken(async () => {
+        calls += 1;
+        throw new DesktopApiError("INVALID_REFRESH_TOKEN", 401, "used");
+      }, wait),
+      (error) => error.code === "INVALID_REFRESH_TOKEN",
+    );
+    assert.equal(calls, 1, "a dead refresh token was retried");
+    calls = 0;
+    await assert.rejects(
+      redeemRefreshToken(async () => {
+        calls += 1;
+        throw new DesktopApiError("REFRESH_IN_PROGRESS", 409, "busy");
+      }, wait),
+      (error) => error.code === "REFRESH_IN_PROGRESS",
+    );
+    assert.equal(calls, 5, "a race that never settles is retried forever");
+  }
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log("auth-failure self-check passed");

@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import { PICTURE_SCHEME } from "@shared/picture-urls";
 import { useWindowActive } from "./use-window-active";
 
 /**
@@ -48,8 +49,11 @@ const publish = (): void => {
   }
 };
 
+// A picture by address (shared/picture-urls.ts) may be a GIF too; freeze()
+// asks for its type before drawing anything.
 export const isAnimatedImageSource = (src: string | null | undefined): boolean =>
-  typeof src === "string" && src.startsWith("data:image/gif");
+  typeof src === "string" &&
+  (src.startsWith("data:image/gif") || src.startsWith(`${PICTURE_SCHEME}:`));
 
 const remember = (src: string, still: string): void => {
   if (stills.size >= MAX_CACHED_STILLS) {
@@ -62,11 +66,38 @@ const remember = (src: string, still: string): void => {
   stills.set(src, still);
 };
 
+// The address names its type nowhere, so the bytes are read (from main's disk
+// cache) and only a GIF is drawn. Anything else is remembered as its own still.
+const freezeByAddress = (src: string): void => {
+  void fetch(src)
+    .then((response) => (response.ok ? response.blob() : null))
+    .then(async (blob) => {
+      if (!blob || blob.type !== "image/gif") {
+        remember(src, src);
+        return;
+      }
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      remember(src, canvas.toDataURL("image/png"));
+      publish();
+    })
+    .catch(() => undefined)
+    .finally(() => inFlight.delete(src));
+};
+
 const freeze = (src: string): void => {
   if (inFlight.has(src) || stills.has(src)) {
     return;
   }
   inFlight.add(src);
+  if (src.startsWith(`${PICTURE_SCHEME}:`)) {
+    freezeByAddress(src);
+    return;
+  }
 
   const image = document.createElement("img");
   image.onload = () => {

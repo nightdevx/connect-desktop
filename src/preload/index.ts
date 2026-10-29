@@ -12,6 +12,7 @@ const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 const SYSTEM_RESUMED_EVENT_CHANNEL = "desktop:system-resumed";
 const UPDATE_EVENT_CHANNEL = "desktop:update-event";
 const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
+const EMAIL_VERIFICATION_REQUIRED_CHANNEL = "desktop:email-verification-required";
 
 
 
@@ -150,6 +151,13 @@ const desktopApi: DesktopApi = {
 
     return () => {
       ipcRenderer.removeListener(SESSION_EXPIRED_CHANNEL, wrappedListener);
+    };
+  },
+  onEmailVerificationRequired: (listener) => {
+    const wrappedListener = (): void => listener();
+    ipcRenderer.on(EMAIL_VERIFICATION_REQUIRED_CHANNEL, wrappedListener);
+    return () => {
+      ipcRenderer.removeListener(EMAIL_VERIFICATION_REQUIRED_CHANNEL, wrappedListener);
     };
   },
   getAuthProfile: async () => ipcRenderer.invoke("desktop:auth-profile"),

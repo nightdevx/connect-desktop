@@ -85,6 +85,7 @@ export const updateProfileSchema = z.object({
       height: z.number().min(0).max(1),
     })
     .optional(),
+  currentPassword: z.string().min(1).max(256).optional(),
 });
 
 export const deleteAccountSchema = z.object({

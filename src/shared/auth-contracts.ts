@@ -129,6 +129,9 @@ export interface UpdateProfileRequest {
   // Only ever sent with an ANIMATED cover. Anything a canvas can re-encode is
   // cropped before it leaves, so a rect here as well would crop it twice.
   bannerCrop?: ImageCropRect;
+  // Required by the backend when the email changes or is removed: the address
+  // is where password resets go (CURRENT_PASSWORD_REQUIRED without it).
+  currentPassword?: string;
 }
 
 export const OTP_CODE_LENGTH = 8;
@@ -337,6 +340,13 @@ export interface ChatMessage {
   // Marks a re-publish of an existing message (edit or reaction) so the client
   // replaces by id instead of appending.
   updated?: boolean;
+  // On a deletion event: purged (with an empty id) says a bulk purge removed
+  // messages from this channel, and the client reloads it.
+  deleted?: boolean;
+  purged?: boolean;
+  // The sender's id for the send, echoed so its own client can match the event
+  // to the message it is already showing (see chat/pending-messages.ts).
+  clientNonce?: string;
 }
 
 // Two-step sign-in, as GET /auth/2fa reports it. required: the account's rank

@@ -30,3 +30,30 @@ export const statusFromSocketError = (message: string | undefined): number => {
   const match = /Unexpected server response: (\d{3})/.exec(message ?? "");
   return match ? Number(match[1]) : 503;
 };
+
+// The server's answer to two refreshes of one token at once: the other one
+// consumed it a moment ago and has not linked its successor yet, and asking
+// again shortly after is answered with that successor (tokens.go). Up to ~5 s,
+// well inside the server's 10 s window.
+const REFRESH_IN_PROGRESS_RETRY_MS = [500, 1_000, 1_500, 2_000];
+
+export const redeemRefreshToken = async <T>(
+  redeem: () => Promise<T>,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<T> => {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await redeem();
+    } catch (error) {
+      const delay = REFRESH_IN_PROGRESS_RETRY_MS[attempt];
+      if (
+        delay === undefined ||
+        !(error instanceof DesktopApiError) ||
+        error.code !== "REFRESH_IN_PROGRESS"
+      ) {
+        throw error;
+      }
+      await wait(delay);
+    }
+  }
+};

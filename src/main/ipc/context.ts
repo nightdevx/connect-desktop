@@ -4,7 +4,7 @@ import { BackendClient, DesktopApiError } from "../backend-client";
 import { backendBaseUrl } from "../config";
 import { StreamHostClient } from "./stream-host-client";
 import { SessionStore } from "../session-store";
-import { isSessionFatal } from "../auth-failure";
+import { isSessionFatal, redeemRefreshToken } from "../auth-failure";
 import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
@@ -43,6 +43,7 @@ export const toErrorPayload = (error: unknown): ApiErrorPayload => {
       code: error.code,
       message: error.message,
       statusCode: error.statusCode,
+      ...error.details,
     };
   }
 
@@ -102,6 +103,22 @@ export const persistAuthResult = (result: {
 let refreshInFlight: Promise<void> | null = null;
 
 export const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
+export const EMAIL_VERIFICATION_REQUIRED_CHANNEL = "desktop:email-verification-required";
+
+// With an email-domain allowlist on, an account whose address is unverified is
+// refused everything but /auth/me, the two verification steps, refresh and
+// logout, sockets included. Whichever request meets that first tells every
+// window, which puts the verification screen in front of the workspace.
+const reportIfVerificationRequired = (error: unknown): void => {
+  if (error instanceof DesktopApiError && error.code === "EMAIL_VERIFICATION_REQUIRED") {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(EMAIL_VERIFICATION_REQUIRED_CHANNEL);
+      }
+    }
+  }
+};
+
 
 // Ends the session everywhere at once, and tells the renderer.
 //
@@ -113,7 +130,7 @@ export const SESSION_EXPIRED_CHANNEL = "desktop:session-expired";
 // mount — left the whole workspace mounted behind an authentication that no
 // longer existed. The user saw "refresh token is invalid or already used" in a
 // toast and could keep clicking through lobbies, DMs and settings.
-export const endSession = (reason: string): void => {
+export const endSession = (reason: string, bannedUntil?: string): void => {
   if (!getSessionStore().get()) {
     // Already ended. Do not broadcast a second time — the renderer would
     // re-announce an expiry the user has already been told about.
@@ -125,7 +142,7 @@ export const endSession = (reason: string): void => {
 
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
-      win.webContents.send(SESSION_EXPIRED_CHANNEL, { reason });
+      win.webContents.send(SESSION_EXPIRED_CHANNEL, { reason, bannedUntil });
     }
   }
 };
@@ -141,8 +158,7 @@ const refreshSession = async (): Promise<void> => {
     throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
   }
 
-  refreshInFlight = backendClient.auth
-    .refresh(current.refreshToken)
+  refreshInFlight = redeemRefreshToken(() => backendClient.auth.refresh(current.refreshToken))
     .then((refreshed) => {
       persistAuthResult(refreshed);
     })
@@ -150,6 +166,7 @@ const refreshSession = async (): Promise<void> => {
       if (isSessionFatal(error)) {
         endSession(
           error instanceof DesktopApiError ? error.code : "UNAUTHORIZED",
+          error instanceof DesktopApiError ? error.details?.bannedUntil : undefined,
         );
       }
 
@@ -193,6 +210,17 @@ export const ensureFreshSession = async (): Promise<void> => {
 };
 
 export const withAccessToken = async <T>(
+  operation: (accessToken: string) => Promise<T>,
+): Promise<T> => {
+  try {
+    return await withFreshAccessToken(operation);
+  } catch (error) {
+    reportIfVerificationRequired(error);
+    throw error;
+  }
+};
+
+const withFreshAccessToken = async <T>(
   operation: (accessToken: string) => Promise<T>,
 ): Promise<T> => {
   const current = getSessionStore().get();

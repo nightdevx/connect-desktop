@@ -13,6 +13,7 @@ import { authErrorToast, authService } from "@/features/auth";
 import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
 import type { UserRestriction } from "@shared/auth-contracts";
 import { ImageCropModal, type CropRect } from "./image-crop-modal";
+import DownscaleWorker from "./downscale-worker?worker";
 import { useStillImage } from "../../hooks/media/use-still-image";
 import { hueStyle } from "../../workspace-utils";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
@@ -71,10 +72,9 @@ const prepareImageUpload = async (
   maxDimension: number,
 ): Promise<string> => {
   assertUploadable(file);
-  const dataUrl = await readFileAsDataURL(file);
-  return isAnimatableType(file.type)
-    ? dataUrl
-    : downscaleImageDataURL(dataUrl, maxDimension);
+  return readFileAsDataURL(
+    isAnimatableType(file.type) ? file : await downscaleImage(file, maxDimension),
+  );
 };
 
 // Split out because the cover path needs the SAME rules against the SAME file
@@ -111,7 +111,7 @@ const getInitials = (value: string): string => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const readFileAsDataURL = (file: File): Promise<string> => {
+const readFileAsDataURL = (file: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -141,7 +141,8 @@ const AVATAR_MAX_DIMENSION = 256;
 const BANNER_MAX_DIMENSION = 1024;
 
 /**
- * Downscales the chosen picture before it is sent.
+ * Downscales the chosen picture before it is sent, in a worker
+ * (downscale-worker.ts).
  *
  * The file used to go up exactly as it came off disk, so a photo from a phone was
  * stored at full camera resolution inside the user row — and that row is read by
@@ -152,49 +153,26 @@ const BANNER_MAX_DIMENSION = 1024;
  * The server normalises anything that gets past this anyway; doing it here as
  * well is what keeps the several megabytes off the wire in the first place.
  */
-const downscaleImageDataURL = async (
-  dataUrl: string,
-  maxDimension: number,
-): Promise<string> => {
-  const image = document.createElement("img");
-  const loaded = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Görsel çözümlenemedi"));
+const downscaleImage = (file: File, maxDimension: number): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const worker = new DownscaleWorker();
+    worker.onmessage = (event: MessageEvent<{ blob?: Blob | null; error?: string }>) => {
+      worker.terminate();
+      if (event.data.error) {
+        reject(new Error("Görsel çözümlenemedi"));
+        return;
+      }
+      // An already-efficient picture can come out larger; keeping the original
+      // is then both smaller and lossless.
+      const blob = event.data.blob;
+      resolve(blob && blob.size < file.size ? blob : file);
+    };
+    worker.onerror = () => {
+      worker.terminate();
+      reject(new Error("Görsel çözümlenemedi"));
+    };
+    worker.postMessage({ file, maxDimension });
   });
-  image.src = dataUrl;
-  await loaded;
-
-  const { naturalWidth: width, naturalHeight: height } = image;
-  if (!width || !height) {
-    return dataUrl;
-  }
-  if (width <= maxDimension && height <= maxDimension) {
-    return dataUrl;
-  }
-
-  const scale = maxDimension / Math.max(width, height);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return dataUrl;
-  }
-
-  // JPEG has no alpha, so a transparent PNG would encode its transparent pixels
-  // as black. Every surface clips the avatar to a circle, which hides white
-  // corners and would not hide black ones.
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.imageSmoothingQuality = "high";
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-  const encoded = canvas.toDataURL("image/jpeg", 0.82);
-  // An already-efficient picture can come out larger; keeping the original is
-  // then both smaller and lossless.
-  return encoded.length < dataUrl.length ? encoded : dataUrl;
-};
 
 export function SettingsProfile({
   currentUsername,
@@ -220,6 +198,10 @@ export function SettingsProfile({
   // a change and failing on save.
   const [restrictions, setRestrictions] = useState<UserRestriction[]>([]);
   const [savedEmail, setSavedEmail] = useState("");
+  // Asked for when the address changes or is removed: it is where password
+  // resets go, and the server will not move it on an access token alone.
+  const [currentPassword, setCurrentPassword] = useState("");
+  const emailChanged = profileSettings.email.trim() !== savedEmail.trim();
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -348,6 +330,8 @@ export function SettingsProfile({
         avatarUrl: next.avatarUrl,
         bannerUrl: next.bannerUrl,
         bannerCrop,
+        currentPassword:
+          next.email.trim() !== savedEmail.trim() && currentPassword ? currentPassword : undefined,
       });
 
       if (!result.ok || !result.data?.profile) {
@@ -371,6 +355,7 @@ export function SettingsProfile({
         bannerUrl: profile.bannerUrl ?? null,
       });
       setSavedEmail(profile.email ?? "");
+      setCurrentPassword("");
 
       // The directory carries the avatar; the card carries both pictures. The
       // users-WS updates other people's copies, but it does not come back to the
@@ -765,9 +750,23 @@ export function SettingsProfile({
             </small>
           </div>
 
-          {profileSettings.email && profileSettings.email !== savedEmail && (
-            <div className="ct-inline-note">
-              Yeni adresi doğrulamak için önce kaydet.
+          {emailChanged && (
+            <div className="ct-settings-field measured">
+              <label className="ct-field-label" htmlFor="settings-email-password">
+                Mevcut şifre
+              </label>
+              <Input.Password
+                id="settings-email-password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+                disabled={isBusy}
+              />
+              <small className="ct-field-hint">
+                {profileSettings.email.trim()
+                  ? "E-posta adresini değiştirmek için şifreni gir. Yeni adresi doğrulamak için önce kaydet."
+                  : "E-posta adresini kaldırmak için şifreni gir."}
+              </small>
             </div>
           )}
 

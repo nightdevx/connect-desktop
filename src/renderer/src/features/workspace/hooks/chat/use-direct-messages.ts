@@ -43,6 +43,10 @@ const DIRECT_STREAM_RECONNECT_MAX_MS = 10_000;
 const DIRECT_STREAM_RECONNECT_MAX_EXPONENT = 5;
 const DIRECT_STREAM_RECONNECT_JITTER_MAX_MS = 350;
 
+// The server restarting (close code 1012): at once, only the jitter.
+const getRestartReconnectDelayMs = (): number =>
+  Math.floor(Math.random() * DIRECT_STREAM_RECONNECT_JITTER_MAX_MS);
+
 const getDirectStreamReconnectDelayMs = (attempt: number): number => {
   const baseDelay = Math.min(
     DIRECT_STREAM_RECONNECT_MAX_MS,
@@ -269,7 +273,7 @@ export const useDirectMessages = ({
     const delay = immediate
       ? 0
       : restart
-        ? Math.floor(Math.random() * DIRECT_STREAM_RECONNECT_JITTER_MAX_MS)
+        ? getRestartReconnectDelayMs()
         : getDirectStreamReconnectDelayMs(reconnectAttemptRef.current);
 
     reconnectTimerRef.current = window.setTimeout(() => {
@@ -447,6 +451,9 @@ export const useDirectMessages = ({
     streamEvent: DirectMessagesStreamEvent,
   ): void => {
     if (streamEvent.type === "direct-chat-typing") {
+      // The ping carries the sender's display name: someone typing before
+      // their first message is still named.
+      rememberPeerName(streamEvent.peerUserId, streamEvent.message.username);
       setTypingByPeerId((previous) => ({
         ...previous,
         [streamEvent.peerUserId]: Date.now(),
@@ -459,6 +466,14 @@ export const useDirectMessages = ({
     // conversation open kept rendering a deleted message until they switched
     // threads or restarted the app.
     if (streamEvent.type === "direct-chat-message-deleted") {
+      // A bulk purge names the conversation, not the messages: re-read it.
+      if (streamEvent.message.purged) {
+        void queryClient.invalidateQueries({ queryKey: ["direct-messages", streamEvent.peerUserId] });
+        void queryClient.invalidateQueries({
+          queryKey: conversationPreviewKey(streamEvent.peerUserId),
+        });
+        return;
+      }
       setDirectMessagesCache(streamEvent.peerUserId, (currentMessages) =>
         currentMessages.filter(
           (message) => message.id !== streamEvent.message.id,

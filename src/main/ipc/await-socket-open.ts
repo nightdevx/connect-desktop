@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import type WebSocket from "ws";
 import { DesktopApiError } from "../backend-client";
 import { statusFromSocketError } from "../auth-failure";
@@ -19,9 +20,11 @@ import { statusFromSocketError } from "../auth-failure";
 // each attempt stamping the same expired token into the query string, and the
 // session only recovered if some unrelated IPC call happened to refresh it.
 //
-// Parsing the message is not elegant, but the alternative — subscribing to
-// `unexpected-response` — suppresses the `error` event entirely and makes this
-// function responsible for tearing the half-open request down.
+// A refused upgrade is read through `unexpected-response`, which hands over the
+// response itself: the backend's JSON says why (EMAIL_VERIFICATION_REQUIRED and
+// USER_BANNED are both 403). Handling that event suppresses ws's own error, so
+// the socket is torn down here once the body is in. The message parse below is
+// for every other failure, which still arrives as an error.
 export const awaitSocketOpen = (
   socket: WebSocket,
   code: string,
@@ -31,7 +34,34 @@ export const awaitSocketOpen = (
     const onOpen = (): void => {
       socket.off("error", onError);
       socket.off("close", onClose);
+      socket.off("unexpected-response", onRefused);
       resolve();
+    };
+
+    const onRefused = (_request: unknown, response: IncomingMessage): void => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        body = (body + chunk).slice(0, 8_192);
+      });
+      response.on("end", () => {
+        let payload: { code?: unknown; error?: unknown } = {};
+        try {
+          payload = JSON.parse(body) as typeof payload;
+        } catch {
+          // Not the backend answering (a proxy page): the status is all there is.
+        }
+        const statusCode = response.statusCode ?? 503;
+        reject(
+          new DesktopApiError(
+            typeof payload.code === "string" ? payload.code : statusCode === 401 ? "UNAUTHORIZED" : code,
+            statusCode,
+            typeof payload.error === "string" ? payload.error : `Unexpected server response: ${statusCode}`,
+          ),
+        );
+        // Its error and close come after this and settle nothing.
+        socket.terminate();
+      });
     };
 
     const onError = (error: Error): void => {
@@ -58,4 +88,5 @@ export const awaitSocketOpen = (
     socket.once("open", onOpen);
     socket.once("error", onError);
     socket.once("close", onClose);
+    socket.once("unexpected-response", onRefused);
   });

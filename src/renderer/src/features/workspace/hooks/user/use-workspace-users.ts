@@ -23,6 +23,10 @@ const USER_DIRECTORY_RECONNECT_MAX_MS = 10_000;
 const USER_DIRECTORY_RECONNECT_MAX_EXPONENT = 5;
 const USER_DIRECTORY_RECONNECT_JITTER_MAX_MS = 350;
 
+// The server restarting (close code 1012): at once, only the jitter.
+const getRestartReconnectDelayMs = (): number =>
+  Math.floor(Math.random() * USER_DIRECTORY_RECONNECT_JITTER_MAX_MS);
+
 const getUserDirectoryReconnectDelayMs = (attempt: number): number => {
   const baseDelay = Math.min(
     USER_DIRECTORY_RECONNECT_MAX_MS,
@@ -128,7 +132,7 @@ export const useWorkspaceUsers = ({
     const delay = immediate
       ? 0
       : restart
-        ? Math.floor(Math.random() * USER_DIRECTORY_RECONNECT_JITTER_MAX_MS)
+        ? getRestartReconnectDelayMs()
         : getUserDirectoryReconnectDelayMs(reconnectAttemptRef.current);
 
     reconnectTimerRef.current = window.setTimeout(() => {

@@ -168,6 +168,15 @@ const RECOVERY: Record<string, AuthErrorInfo> = {
     field: "email",
     retryable: true,
   },
+  // Registration and verification both, when the server only takes addresses
+  // from a list of domains.
+  EMAIL_DOMAIN_NOT_ALLOWED: {
+    title: "Bu e-posta alan adı kabul edilmiyor",
+    detail: "Bu sunucu yalnızca belirli alan adlarındaki adreslere izin veriyor.",
+    hint: "İzin verilen bir alan adındaki adresini gir.",
+    field: "email",
+    retryable: true,
+  },
   EMAIL_ALREADY_EXISTS: {
     title: "Bu e-posta başkasına ait",
     detail: "Adres başka bir hesapta kayıtlı.",
@@ -247,7 +256,28 @@ const TABLE_ORDER: Record<AuthErrorContext, Array<Record<string, AuthErrorInfo>>
   recovery: [RECOVERY, REGISTER, LOGIN],
 };
 
+/**
+ * When a timed ban ends, in this computer's time zone. The backend sends the
+ * instant (bannedUntil, RFC 3339) beside a message that has it in Turkey's.
+ */
+export const banEndText = (bannedUntil?: string): string | null => {
+  const end = bannedUntil ? new Date(bannedUntil) : null;
+  if (!end || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  return `Yasak ${end.toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" })} tarihinde bitiyor.`;
+};
+
 export const describeAuthError = (
+  error: ApiErrorPayload | undefined,
+  context: AuthErrorContext,
+): AuthErrorInfo => {
+  const info = describeAuthErrorCode(error, context);
+  const banEnd = error?.code === "USER_BANNED" ? banEndText(error.bannedUntil) : null;
+  return banEnd ? { ...info, detail: banEnd } : info;
+};
+
+const describeAuthErrorCode = (
   error: ApiErrorPayload | undefined,
   context: AuthErrorContext,
 ): AuthErrorInfo => {

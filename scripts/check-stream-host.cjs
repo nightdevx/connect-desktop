@@ -109,6 +109,7 @@ export class MessageChannelMain {
   }
 }
 export const net = {};
+export const app = { userAgentFallback: "Mozilla/5.0 connect-desktop/0.3.0 Electron/45" };
 `;
 
 const fakePage = (id) => {
@@ -233,7 +234,11 @@ const main = async () => {
     const lobby = client.start("lobby", page, "tok-7");
     assert.equal(forks.length, 1, "the first start did not start the host");
     const host = forks[0];
-    assert.deepEqual(host.args, ["https://backend.example"], "the host was not told the backend");
+    assert.deepEqual(
+      host.args,
+      ["https://backend.example", "Mozilla/5.0 connect-desktop/0.3.0 Electron/45"],
+      "the host was not told the backend and the User-Agent its sockets send",
+    );
     assert.deepEqual(
       host.sent.map((entry) => entry.message.type),
       ["attach", "start"],

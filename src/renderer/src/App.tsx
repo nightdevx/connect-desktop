@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CloseOutlined,
   CompressOutlined,
@@ -10,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import {
   AuthLogoMark,
+  EmailVerificationPage,
   LoginPage,
   RegisterPage,
   useAuthController,
@@ -47,6 +49,28 @@ function App() {
   } = useAuthController();
 
   const isAuthenticated = Boolean(session.authenticated && session.user);
+  // The backend refused a request with EMAIL_VERIFICATION_REQUIRED: until the
+  // address is verified it answers nothing else, so the workspace gives way to
+  // the verification screen.
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const queryClient = useQueryClient();
+
+  useEffect(
+    () => window.desktopApi.onEmailVerificationRequired(() => setVerificationRequired(true)),
+    [],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setVerificationRequired(false);
+    }
+  }, [isAuthenticated]);
+
+  const finishVerification = (): void => {
+    // Everything cached while the server was refusing is a refusal.
+    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "auth-session" });
+    setVerificationRequired(false);
+  };
   const [windowIsMaximized, setWindowIsMaximized] = useState(false);
   const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
   const [updateState, setUpdateState] = useState<AppUpdateSnapshot | null>(null);
@@ -299,7 +323,7 @@ function App() {
                 <ReloadOutlined spin /> Tekrar Dene
               </button>
             </section>
-          ) : isAuthenticated && session.user ? (
+          ) : isAuthenticated && session.user && !verificationRequired ? (
             <WorkspaceShell
               currentUserId={session.user.id}
               currentUsername={session.user.username}
@@ -339,7 +363,9 @@ function App() {
                     <span className="ct-auth-wordmark">Connect</span>
                   </div>
 
-                  {activePage === "login" ? (
+                  {isAuthenticated && verificationRequired ? (
+                    <EmailVerificationPage onVerified={finishVerification} onLogout={logout} />
+                  ) : activePage === "login" ? (
                     <LoginPage
                       loading={isLoading}
                       onSubmit={login}

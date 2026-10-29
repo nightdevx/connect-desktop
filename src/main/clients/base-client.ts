@@ -1,4 +1,5 @@
 import { net } from "electron";
+import { attachPictureUrls } from "../../shared/picture-urls";
 
 export interface ErrorResponse {
   code?: string;
@@ -8,7 +9,34 @@ export interface ErrorResponse {
   // operator's minimum.
   reason?: string;
   minimumVersion?: string;
+  // USER_BANNED with an end: the instant, RFC 3339, for the client to show in
+  // its own time zone (the message has it in Turkey's).
+  bannedUntil?: string;
 }
+
+// The rate limiter answers in English ("too many requests, please slow down"),
+// and the message is shown as it comes. The other 429s (the diagnostics quota)
+// are already Turkish.
+const TOO_MANY_REQUESTS_MESSAGE = "Çok sık istek gönderildi. Biraz bekleyip tekrar dene.";
+
+const errorFromResponse = (
+  status: number,
+  payload: ErrorResponse | null,
+  fallback: string,
+): DesktopApiError => {
+  reportIfOutdated(status, payload);
+  const code = payload?.code ?? "REQUEST_FAILED";
+  const message =
+    code === "TOO_MANY_REQUESTS"
+      ? TOO_MANY_REQUESTS_MESSAGE
+      : payload?.message ?? payload?.error ?? fallback;
+  return new DesktopApiError(
+    code,
+    status,
+    message,
+    typeof payload?.bannedUntil === "string" ? { bannedUntil: payload.bannedUntil } : undefined,
+  );
+};
 
 // Who hears that the server turned this build away as too old. Set once at
 // startup (main/index.ts) to the updater, which locks the app behind its gate
@@ -65,6 +93,8 @@ export class DesktopApiError extends Error {
     public readonly code: string,
     public readonly statusCode: number,
     message: string,
+    // What the backend put beside code and error that a client acts on.
+    public readonly details?: { bannedUntil?: string },
   ) {
     super(message);
     this.name = "DesktopApiError";
@@ -128,15 +158,12 @@ export class BaseClient {
         const payload = (await this.tryParseJson(
           response,
         )) as ErrorResponse | null;
-        reportIfOutdated(response.status, payload);
-        throw new DesktopApiError(
-          payload?.code ?? "REQUEST_FAILED",
-          response.status,
-          payload?.message ?? payload?.error ?? "İstek başarısız oldu.",
-        );
+        throw errorFromResponse(response.status, payload, "İstek başarısız oldu.");
       }
 
-      return (await response.json()) as T;
+      // A newer backend sends picture versions where the base64 used to be;
+      // every response gets the addresses the page loads them from.
+      return attachPictureUrls((await response.json()) as T);
     } catch (error) {
       // A DesktopApiError from the !response.ok branch above is already the
       // shape callers expect; do not rewrap it as a transport failure.
@@ -189,12 +216,7 @@ export class BaseClient {
         const payload = (await this.tryParseJson(
           response,
         )) as ErrorResponse | null;
-        reportIfOutdated(response.status, payload);
-        throw new DesktopApiError(
-          payload?.code ?? "REQUEST_FAILED",
-          response.status,
-          payload?.message ?? payload?.error ?? "Dosya indirilemedi",
-        );
+        throw errorFromResponse(response.status, payload, "Dosya indirilemedi");
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());

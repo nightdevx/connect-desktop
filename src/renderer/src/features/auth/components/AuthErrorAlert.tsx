@@ -1,11 +1,11 @@
 import type { JSX } from "react";
 import { Alert } from "antd";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
-import { describeAuthError } from "../auth-error-messages";
+import { describeAuthError, type AuthErrorContext } from "../auth-error-messages";
 
 interface AuthErrorAlertProps {
   error: ApiErrorPayload | null;
-  context: "login" | "register";
+  context: AuthErrorContext;
 }
 
 // Sits above the form, not in the app's status bar. The status bar is a strip

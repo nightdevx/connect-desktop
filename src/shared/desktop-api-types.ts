@@ -75,6 +75,8 @@ export interface ApiErrorPayload {
   code: string;
   message: string;
   statusCode: number;
+  // USER_BANNED with an end (RFC 3339), shown in the viewer's own time.
+  bannedUntil?: string;
 }
 
 export interface DesktopResult<T> {
@@ -606,6 +608,9 @@ export interface DesktopApi {
       changed: boolean;
     }>
   >;
+  // Fires when the backend refuses a request with EMAIL_VERIFICATION_REQUIRED:
+  // the account's address must be verified before anything but that works.
+  onEmailVerificationRequired: (listener: () => void) => () => void;
   login: (payload: LoginRequest) => Promise<DesktopResult<SessionSnapshot>>;
   twoFactorStatus: () => Promise<DesktopResult<TwoFactorStatus>>;
   twoFactorSetup: (payload: { password: string }) => Promise<DesktopResult<TwoFactorSetup>>;
@@ -636,7 +641,7 @@ export interface DesktopApi {
   // recovered — the refresh token was rejected, the account was banned, or it
   // was deactivated. `reason` is the backend error code.
   onSessionExpired: (
-    listener: (payload: { reason: string }) => void,
+    listener: (payload: { reason: string; bannedUntil?: string }) => void,
   ) => () => void;
   getAuthProfile: () => Promise<
     DesktopResult<{ profile: UserSettingsProfile }>

@@ -11,3 +11,4 @@ export * from "./hooks/use-auth-controller";
 export { AuthLogoMark } from "./components/AuthLogoMark";
 export { default as LoginPage } from "./pages/LoginPage";
 export { default as RegisterPage } from "./pages/RegisterPage";
+export { default as EmailVerificationPage } from "./pages/EmailVerificationPage";

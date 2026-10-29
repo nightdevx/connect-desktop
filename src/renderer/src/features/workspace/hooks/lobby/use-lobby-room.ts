@@ -247,6 +247,14 @@ export const useLobbyRoom = ({
         return;
       }
 
+      // A bulk purge (a moderator removing someone's messages) says only which
+      // room it touched: whatever is held for that room is re-read, the room
+      // on screen at once and any other on its next open.
+      if (event.type === "lobby-message-deleted" && event.message.purged) {
+        void queryClient.invalidateQueries({ queryKey: ["lobby-messages", event.lobbyId] });
+        return;
+      }
+
       if (event.lobbyId !== activeLobbyId) {
         return;
       }

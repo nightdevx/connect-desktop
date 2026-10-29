@@ -118,9 +118,21 @@ export function registerAuthHandlers(): void {
   handle("desktop:auth-change-password", async (_event, payload: unknown) => {
     try {
       const parsed = changePasswordSchema.parse(payload);
-      const result = await withAccessToken((accessToken) => {
+      const { tokens, ...result } = await withAccessToken((accessToken) => {
         return backendClient.auth.changePassword(accessToken, parsed);
       });
+
+      // The change revoked this device's tokens with every other session's;
+      // the new pair is what keeps it signed in. The sockets were opened with
+      // the old token and are closed by the server; they reconnect with this.
+      const current = getSessionStore().get();
+      if (tokens && current) {
+        getSessionStore().set({
+          ...current,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+      }
 
       return ok(result);
     } catch (error) {
@@ -268,7 +280,7 @@ export function registerAuthHandlers(): void {
         // endSession rather than a bare clear(): the websocket managers have to
         // stop retrying with the dead token, and every window has to hear about
         // it, not just the one that happened to ask.
-        endSession(error.code);
+        endSession(error.code, error.details?.bannedUntil);
         return ok(getSessionSnapshot());
       }
 
@@ -299,10 +311,30 @@ export function registerAuthHandlers(): void {
         avatarUrl: parsed.avatarUrl ?? null,
         bannerUrl: parsed.bannerUrl ?? null,
         bannerCrop: parsed.bannerCrop,
+        currentPassword: parsed.currentPassword,
       };
 
-      const result = await withAccessToken((accessToken) => {
-        return backendClient.auth.updateSettingsProfile(accessToken, req);
+      const result = await withAccessToken(async (accessToken) => {
+        try {
+          return await backendClient.auth.updateSettingsProfile(accessToken, req);
+        } catch (error) {
+          // A backend from before the email rule refuses every field it does
+          // not know (VALIDATION_ERROR), currentPassword included, and needs
+          // none to change the email. Asked once more without it.
+          if (
+            req.currentPassword !== undefined &&
+            error instanceof DesktopApiError &&
+            error.code === "VALIDATION_ERROR" &&
+            // The decoder's refusal, not a field rule.
+            error.message === "invalid profile payload"
+          ) {
+            return backendClient.auth.updateSettingsProfile(accessToken, {
+              ...req,
+              currentPassword: undefined,
+            });
+          }
+          throw error;
+        }
       });
 
       const current = getSessionStore().get();

@@ -54,6 +54,7 @@ if (process.env.SENTRY_DSN && !isDev) {
 }
 import { cleanupBeforeAppQuit, registerIpcHandlers } from "./ipc";
 import { streamHub } from "./ipc/context";
+import { installPictureProtocol, registerPictureScheme } from "./picture-protocol";
 import {
   startFreeGamesPoller,
   stopFreeGamesPoller,
@@ -135,6 +136,9 @@ const applyUserDataOverride = (): void => {
 };
 
 applyUserDataOverride();
+
+// Privileged schemes are fixed before the app is ready.
+registerPictureScheme();
 
 // Must run after the userData override (the preference file lives there) and
 // before app.whenReady() — command-line switches are read at GPU process spawn.
@@ -456,6 +460,7 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
     logMediaEngineStatus(peekDesktopAppPreferences().hardwareAcceleration);
 
     installPermissionHandlers();
+    installPictureProtocol();
 
     // Every socket the renderer holds is dead after a suspend, and nothing in
     // the page can tell: window "online" does not fire on wake, and neither does

@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { DesktopApiError } from "../clients/base-client";
 import { awaitSocketOpen } from "./await-socket-open";
 import { LobbyList } from "./lobby-list";
+import { attachPictureUrls } from "../../shared/picture-urls";
 import { STREAM_EVENT_CHANNELS, streamOfFrame, type StreamKind } from "./stream-frames";
 
 export { STREAM_EVENT_CHANNELS, type StreamKind } from "./stream-frames";
@@ -279,6 +280,11 @@ export class StreamHub {
           return;
         }
         frame = list;
+      }
+      // From core.DesktopPictureURLVersion on, a profile event names its
+      // pictures by version (see shared/picture-urls.ts).
+      if (frame.type === "user-profile-updated") {
+        attachPictureUrls(frame);
       }
       const kind = typeof frame.type === "string" ? streamOfFrame(frame.type) : null;
       if (kind && session.wanted.has(kind)) {

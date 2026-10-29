@@ -344,8 +344,13 @@ export class AuthClient {
   public async changePassword(
     accessToken: string,
     payload: ChangePasswordRequest,
-  ): Promise<{ changed: boolean }> {
-    return this.baseClient.request<{ changed: boolean }>("/auth/change-password", {
+  ): Promise<{ changed: boolean; tokens?: { accessToken: string; refreshToken: string } }> {
+    // tokens: the backend revokes every session on a password change, this
+    // device's included, and hands it a new pair (older backends send none).
+    return this.baseClient.request<{
+      changed: boolean;
+      tokens?: { accessToken: string; refreshToken: string };
+    }>("/auth/change-password", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,

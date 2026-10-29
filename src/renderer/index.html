@@ -17,7 +17,9 @@
          not match bare klipy.com: without it, gif-hosts.ts would accept an
          apex-hosted URL, main's "every row dropped" warning would stay quiet,
          and the user would get a grid of broken cells with nothing logged
-         anywhere. Avatars and attachments are data: URLs.
+         anywhere. Attachments are data: URLs; avatars and banners are data:
+         URLs from an older backend and connect-picture: addresses from a newer
+         one (answered by the main process, src/main/picture-protocol.ts).
 
          The six hosts after it are the free-games page's cover art. They are
          enumerated rather than folded into a blanket `https:` for one reason:
@@ -34,7 +36,7 @@
          placeholder: a missing cover, never a broken layout. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: https://klipy.com https://*.klipy.com https://cdn1.epicgames.com https://cdn2.epicgames.com https://www.gamerpower.com https://www.freetogame.com https://shared.fastly.steamstatic.com https://cdn.akamai.steamstatic.com; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; frame-src 'self' http://127.0.0.1:*; connect-src 'self' ws://localhost:5173 http://localhost:5173 ws://127.0.0.1:7880 http://127.0.0.1:7880 https: wss:"
+      content="default-src 'self'; img-src 'self' data: connect-picture: https://klipy.com https://*.klipy.com https://cdn1.epicgames.com https://cdn2.epicgames.com https://www.gamerpower.com https://www.freetogame.com https://shared.fastly.steamstatic.com https://cdn.akamai.steamstatic.com; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; frame-src 'self' http://127.0.0.1:*; connect-src 'self' connect-picture: ws://localhost:5173 http://localhost:5173 ws://127.0.0.1:7880 http://127.0.0.1:7880 https: wss:"
     />
     <title>Connect</title>
     <!-- No font host: Space Grotesk and JetBrains Mono ship with the app

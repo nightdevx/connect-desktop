@@ -4,6 +4,7 @@ import type { SessionSnapshot } from "@shared/desktop-api-types";
 import { authService } from "../services/service";
 import { useUiStore } from "@/store/ui-store";
 import { toast } from "@/services/toast";
+import { banEndText } from "../auth-error-messages";
 
 const getErrorMessage = (error?: { message?: string }): string => {
   if (!error?.message?.trim()) {
@@ -21,10 +22,10 @@ const emptySession: SessionSnapshot = {
 // Why the session ended, in the user's terms. Main sends the backend's error
 // code; "refresh token is invalid or already used" is not something to show
 // anyone.
-const sessionEndedMessage = (reason: string): string => {
+const sessionEndedMessage = (reason: string, bannedUntil?: string): string => {
   switch (reason) {
     case "USER_BANNED":
-      return "Hesabınız yasaklandı. Sunucu yöneticisine ulaşın.";
+      return `Hesabınız yasaklandı. ${banEndText(bannedUntil) ?? "Sunucu yöneticisine ulaşın."}`;
     case "ACCOUNT_DEACTIVATED":
       return "Hesabınız kapatıldı. Giriş yaparak geri açabilirsiniz.";
     default:
@@ -41,7 +42,7 @@ export const useAuthSession = () => {
   // looks unreachable, so an expiry discovered by some unrelated IPC call used
   // to leave the workspace mounted and every request failing.
   useEffect(() => {
-    return window.desktopApi.onSessionExpired(({ reason }) => {
+    return window.desktopApi.onSessionExpired(({ reason, bannedUntil }) => {
       // Main has already cleared the tokens and stopped the sockets, so this is
       // an announcement, not a request — write the answer straight into the
       // query instead of refetching it.
@@ -62,7 +63,7 @@ export const useAuthSession = () => {
       void toast.open({
         type: "warning",
         key: "session-expired",
-        content: sessionEndedMessage(reason),
+        content: sessionEndedMessage(reason, bannedUntil),
       });
     });
   }, [queryClient]);
