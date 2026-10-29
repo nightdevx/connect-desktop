@@ -16,6 +16,8 @@ import {
   CloudServerOutlined,
   SafetyCertificateOutlined,
   AuditOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 
 // Grouped by what the screen is FOR, the way the settings menu is: the people
@@ -76,11 +78,29 @@ const NAV_GROUPS = [
 
 export default function AdminSidebar() {
   const { adminSection, setAdminSection } = useUiStore();
+  // The workspace sidebar's fold, shared: the admin nav sits in the same column.
+  const collapsed = !useUiStore((state) => state.viewPreferences.sidebarOpen);
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
+  const toggleLabel = collapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt";
 
   return (
-    <aside className="ct-admin-sidebar" aria-label="Yönetim navigasyonu">
+    <aside
+      key={collapsed ? "folded" : "full"}
+      className={`ct-admin-sidebar ${collapsed ? "collapsed" : ""}`}
+      aria-label="Yönetim navigasyonu"
+    >
       <header className="ct-sidebar-header">
-        <h3>Yönetim</h3>
+        {!collapsed && <h3>Yönetim</h3>}
+        <button
+          type="button"
+          className="ct-sidebar-header-action"
+          onClick={() => setViewPreference("sidebarOpen", collapsed)}
+          title={toggleLabel}
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+        </button>
       </header>
 
       <nav className="ct-admin-sidebar-nav">
@@ -95,6 +115,7 @@ export default function AdminSidebar() {
                   type="button"
                   className={`ct-admin-nav-item ${active ? "active" : ""}`}
                   aria-current={active ? "page" : undefined}
+                  title={item.label}
                   onClick={() => setAdminSection(item.key)}
                 >
                   {item.icon}

@@ -24,8 +24,9 @@ export interface ViewPreferences {
   lobbyVoiceCategoryOpen: boolean;
   /** The "Mesaj Odaları" category in the lobbies sidebar. */
   lobbyTextCategoryOpen: boolean;
-  /** The lobbies sidebar at full width; folded, it is a strip of room badges. */
-  lobbySidebarOpen: boolean;
+  /** The sidebar at full width, in every section; folded, it is a strip of
+      icons (room badges in Lobiler). */
+  sidebarOpen: boolean;
 }
 
 const VIEW_PREFERENCES_STORAGE_KEY = "ct.settings.view";
@@ -36,7 +37,7 @@ export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   participantRailVisible: true,
   lobbyVoiceCategoryOpen: true,
   lobbyTextCategoryOpen: true,
-  lobbySidebarOpen: true,
+  sidebarOpen: true,
 };
 
 export const readViewPreferences = (): ViewPreferences => {

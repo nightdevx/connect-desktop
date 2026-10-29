@@ -19,7 +19,8 @@
   transition: grid-template-columns var(--ct-duration-slow) var(--ct-ease-spring);
 }
 
-.ct-sidebar {
+.ct-sidebar,
+.ct-admin-sidebar {
   overflow: hidden;
 }
 
@@ -49,11 +50,13 @@
 
 /* Backwards fill only: once the entrance is over, hover transforms are the
    elements' own again. */
-.ct-sidebar > * {
+.ct-sidebar > *,
+.ct-admin-sidebar > * {
   animation: ct-sidebar-unfold var(--ct-duration-slow) var(--ct-ease-premium) 70ms backwards;
 }
 
-.ct-sidebar.collapsed > * {
+.ct-sidebar.collapsed > *,
+.ct-admin-sidebar.collapsed > * {
   animation-name: ct-sidebar-fold;
   animation-delay: 0ms;
 }
@@ -93,6 +96,7 @@
   }
 
   .ct-sidebar > *,
+  .ct-admin-sidebar > *,
   .ct-quick-dock > * {
     animation: none;
   }
@@ -336,6 +340,78 @@
      scrolls a long list. */
   scrollbar-width: none;
 }
+
+/* --------------------------------------------------------------------------
+   Folded, every section but Lobiler (which draws its own strip of badges):
+   the same rows, down to their icons. The labels stay for screen readers, and
+   each row's title names it on hover.
+   -------------------------------------------------------------------------- */
+.ct-admin-sidebar.collapsed .ct-sidebar-header {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.ct-admin-sidebar.collapsed .ct-admin-sidebar-nav {
+  padding-inline: 0;
+  scrollbar-width: none;
+}
+
+:is(.ct-sidebar.collapsed, .ct-admin-sidebar.collapsed)
+  :is(
+    .ct-list-group-title,
+    .ct-presence-picker,
+    .ct-list-state,
+    .ct-list-item-close,
+    .ct-minigames-sidebar-note,
+    .ct-minigames-tab-best,
+    .ct-minigames-tab-seats,
+    .ct-free-games-tab-count,
+    .ct-free-games-sidebar-footer
+  ) {
+  display: none;
+}
+
+:is(.ct-sidebar.collapsed, .ct-admin-sidebar.collapsed)
+  :is(
+    .ct-settings-tab-label,
+    .ct-minigames-tab-label,
+    .ct-free-games-tab-label,
+    .ct-list-user-meta,
+    .ct-list-home > span:not(.ct-count-badge),
+    .ct-admin-nav-item > span
+  ) {
+  @apply sr-only;
+}
+
+:is(.ct-sidebar.collapsed, .ct-admin-sidebar.collapsed)
+  :is(
+    .ct-settings-tab,
+    .ct-minigames-tab,
+    .ct-free-games-tab,
+    .ct-list-home,
+    .ct-list-item,
+    .ct-admin-nav-item
+  ) {
+  position: relative;
+  justify-content: center;
+  width: 48px;
+  margin-inline: auto;
+  padding-inline: 0;
+  gap: 0;
+}
+
+.ct-sidebar.collapsed .ct-list-user {
+  flex: none;
+}
+
+/* An unread count rides the icon's corner instead of the row's end. */
+.ct-sidebar.collapsed :is(.ct-list-home, .ct-list-item) .ct-count-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+}
+
 
 .ct-sidebar-header-action {
   @apply inline-flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-full border;

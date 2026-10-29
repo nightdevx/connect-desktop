@@ -163,6 +163,7 @@ export function UsersSidebarPanel({
       <button
         type="button"
         className={`ct-list-home ${selectedUserId === null ? "active" : ""}`}
+        title="Arkadaşlar"
         onClick={onOpenHome}
         aria-current={selectedUserId === null ? "page" : undefined}
       >
@@ -211,6 +212,7 @@ export function UsersSidebarPanel({
           const row = (
             <li
               className={`ct-list-item clickable ${isSelected ? "active" : ""} ${isUnread ? "unread" : ""}`}
+              title={name}
               role="option"
               aria-selected={isSelected}
               tabIndex={0}

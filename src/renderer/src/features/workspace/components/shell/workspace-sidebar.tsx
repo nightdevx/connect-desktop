@@ -44,9 +44,9 @@ import { toast } from "@/services/toast";
 interface WorkspaceSidebarProps {
   sectionTitle: string;
   workspaceSection: WorkspaceSection;
-  /** Lobbies only: folded to a strip of room badges, so the stage gets the width. */
-  lobbiesCollapsed?: boolean;
-  onToggleLobbiesCollapsed?: () => void;
+  /** Folded to a strip of icons (room badges in Lobiler), so the page gets the width. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   usersProps: {
     conversations: OpenConversation[];
     onCloseConversation: (userId: string) => void;
@@ -140,8 +140,8 @@ interface WorkspaceSidebarProps {
 export function WorkspaceSidebar({
   sectionTitle,
   workspaceSection,
-  lobbiesCollapsed = false,
-  onToggleLobbiesCollapsed,
+  collapsed = false,
+  onToggleCollapsed,
   usersProps,
   lobbiesProps,
   settingsProps,
@@ -303,35 +303,63 @@ export function WorkspaceSidebar({
     setIsCreateLobbyOpen(false);
   };
 
-  const isCollapsed = workspaceSection === "lobbies" && lobbiesCollapsed;
-
-  if (isCollapsed) {
+  if (collapsed) {
     return (
       <aside key="folded" className="ct-sidebar collapsed" aria-label="Yan panel">
         <header className="ct-sidebar-header">
           <button
             type="button"
             className="ct-sidebar-header-action"
-            onClick={onToggleLobbiesCollapsed}
-            title="Lobi listesini genişlet"
-            aria-label="Lobi listesini genişlet"
+            onClick={onToggleCollapsed}
+            title="Kenar çubuğunu genişlet"
+            aria-label="Kenar çubuğunu genişlet"
             aria-expanded={false}
           >
             <MenuUnfoldOutlined />
           </button>
         </header>
+        {/* Lobiler gets its own strip; every other section is a list of icon
+            rows already, and the stylesheet folds it to the icons. */}
         <div className="ct-sidebar-body">
-          <LobbiesCompactList
-            lobbies={lobbiesProps.lobbies}
-            lobbyMembersById={lobbiesProps.lobbyMembersById}
-            activeLobbyId={lobbiesProps.activeLobbyId}
-            openTextRoomId={lobbiesProps.openTextRoomId}
-            joiningLobbyId={lobbiesProps.joiningLobbyId}
-            renamingLobbyId={lobbiesProps.renamingLobbyId}
-            deletingLobbyId={lobbiesProps.deletingLobbyId}
-            unreadByLobbyId={lobbiesProps.unreadByLobbyId}
-            onJoinLobby={lobbiesProps.onJoinLobby}
-          />
+          {workspaceSection === "lobbies" && (
+            <LobbiesCompactList
+              lobbies={lobbiesProps.lobbies}
+              lobbyMembersById={lobbiesProps.lobbyMembersById}
+              activeLobbyId={lobbiesProps.activeLobbyId}
+              openTextRoomId={lobbiesProps.openTextRoomId}
+              joiningLobbyId={lobbiesProps.joiningLobbyId}
+              renamingLobbyId={lobbiesProps.renamingLobbyId}
+              deletingLobbyId={lobbiesProps.deletingLobbyId}
+              unreadByLobbyId={lobbiesProps.unreadByLobbyId}
+              onJoinLobby={lobbiesProps.onJoinLobby}
+            />
+          )}
+
+          {workspaceSection === "users" && (
+            <UsersSidebarPanel
+              conversations={usersProps.conversations}
+              onCloseConversation={usersProps.onCloseConversation}
+              onOpenHome={usersProps.onOpenHome}
+              directoryUsers={usersProps.directoryUsers}
+              selectedUserId={usersProps.selectedUserId}
+              onUserSelect={usersProps.onUserSelect}
+              unreadByUserId={usersProps.unreadByUserId}
+              friends={usersProps.friends}
+              callState={usersProps.callState}
+              currentUserId={lobbiesProps.currentUserId}
+            />
+          )}
+
+          {workspaceSection === "free-games" && <FreeGamesSidebarPanel />}
+
+          {workspaceSection === "minigames" && <MinigamesSidebarPanel />}
+
+          {workspaceSection === "settings" && (
+            <SettingsSidebarTabs
+              settingsSection={settingsProps.settingsSection}
+              onSettingsSectionChange={settingsProps.setSettingsSection}
+            />
+          )}
         </div>
       </aside>
     );
@@ -368,13 +396,13 @@ export function WorkspaceSidebar({
           </button>
         )}
 
-        {workspaceSection === "lobbies" && onToggleLobbiesCollapsed && (
+        {onToggleCollapsed && (
           <button
             type="button"
             className="ct-sidebar-header-action"
-            onClick={onToggleLobbiesCollapsed}
-            title="Lobi listesini daralt"
-            aria-label="Lobi listesini daralt"
+            onClick={onToggleCollapsed}
+            title="Kenar çubuğunu daralt"
+            aria-label="Kenar çubuğunu daralt"
             aria-expanded={true}
           >
             <MenuFoldOutlined />

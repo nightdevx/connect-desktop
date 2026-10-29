@@ -109,11 +109,11 @@ function WorkspaceShell({
     (state) => state.viewPreferences.lobbyChatOpen,
   );
   const setViewPreference = useUiStore((state) => state.setViewPreference);
-  const isLobbySidebarOpen = useUiStore(
-    (state) => state.viewPreferences.lobbySidebarOpen,
+  // One choice for every section, the admin panel included: a folded sidebar
+  // that sprang back open on the next section would make the button pointless.
+  const isSidebarCollapsed = !useUiStore(
+    (state) => state.viewPreferences.sidebarOpen,
   );
-  // Only the lobbies sidebar folds; every other section keeps its full column.
-  const isSidebarCollapsed = workspaceSection === "lobbies" && !isLobbySidebarOpen;
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setFreeGamesFilter = useUiStore((state) => state.setFreeGamesFilter);
   const setStatus = useUiStore((state) => state.setStatus);
@@ -1329,9 +1329,9 @@ function WorkspaceShell({
           <WorkspaceSidebar
             sectionTitle={sectionTitle}
             workspaceSection={workspaceSection}
-            lobbiesCollapsed={isSidebarCollapsed}
-            onToggleLobbiesCollapsed={() =>
-              setViewPreference("lobbySidebarOpen", !isLobbySidebarOpen)
+            collapsed={isSidebarCollapsed}
+            onToggleCollapsed={() =>
+              setViewPreference("sidebarOpen", isSidebarCollapsed)
             }
             usersProps={{
               conversations,
