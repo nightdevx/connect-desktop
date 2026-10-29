@@ -23,6 +23,12 @@
 @import "./modules/features/release-notes.css";
 @import "./modules/features/odak.css";
 @import "./modules/features/odak-overlays.css";
+@import "./modules/features/odak-lobiler.css";
+@import "./modules/features/odak-sohbet.css";
+@import "./modules/features/odak-oyunlar.css";
+@import "./modules/features/odak-firsatlar.css";
+@import "./modules/features/odak-ayarlar.css";
+@import "./modules/features/odak-yonetim.css";
 @import "./modules/theme.css";
 @import "./modules/overlays.css";
 @import "./modules/responsive.css";
