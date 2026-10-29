@@ -19,6 +19,12 @@
 //               starting in an open conversation) is measured as it mounts.
 //   LATEST      two sizes reported before the next frame: the second wins.
 //
+// And the stylesheet's half of the focused layout, which no fit computes: the
+// slot and the stage area are size containers, so the focused tile is the
+// largest 16:9 box in its slot and the rail's thumbnails are capped on the
+// stage's height. Without them a short stage stretched the share into a strip
+// and left it 94px under a full-height rail.
+//
 //   node scripts/check-stage-resize.cjs
 
 const assert = require("node:assert/strict");
@@ -293,9 +299,34 @@ const main = async () => {
   }
   assert.deepEqual(failures, [], "the hook must fit the box that is on screen");
 
+  // --- the focused layout's CSS --------------------------------------------------
+  const css = fs.readFileSync(
+    path.join(projectRoot, "src/renderer/src/styles/modules/features/lobby.css"),
+    "utf8",
+  );
+  const rule = (selector) => {
+    const start = css.indexOf(`\n${selector} {`);
+    assert.ok(start >= 0, `lobby.css declares ${selector}`);
+    return css.slice(start, css.indexOf("}", start)).replace(/\/\*[\s\S]*?\*\//g, "");
+  };
+  const declares = (selector, pattern, message) =>
+    assert.match(rule(selector), pattern, `${selector}: ${message}`);
+  declares(".ct-lobby-focused-slot", /container-type:\s*size/, "a size container");
+  declares(
+    ".ct-lobby-focused-slot > .ct-lobby-participant-tile",
+    /width:\s*min\(100%,\s*100cqh \* 16 \/ 9\)/,
+    "no wider than 16:9 of the slot's height",
+  );
+  declares(".ct-lobby-stage-area", /container-type:\s*size/, "a size container");
+  declares(
+    ".ct-lobby-participant-rail > .ct-lobby-participant-tile",
+    /max-width:\s*calc\(\d+cqh \* 16 \/ 9\)/,
+    "thumbnails capped on the stage's height",
+  );
+
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    "stage-resize self-check passed (shrinks always land, growth waits, fit holds, the box on screen is the one measured)",
+    "stage-resize self-check passed (shrinks always land, growth waits, fit holds, the box on screen is the one measured, focused share keeps 16:9)",
   );
 };
 

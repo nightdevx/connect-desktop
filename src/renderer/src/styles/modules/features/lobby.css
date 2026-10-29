@@ -941,6 +941,9 @@
    which would change the fit, which would remove the scrollbar. */
 .ct-lobby-stage-area {
   @apply min-h-0 flex-1;
+  /* A size container, for the rail below: its thumbnails are capped on the
+     area's height. Its size comes from the panel, never from the tiles. */
+  container-type: size;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
@@ -1025,20 +1028,26 @@
   width: min(100%, 1180px);
   max-width: 100%;
   /* One row of exactly the slot's height, so the tile's `max-height: 100%`
-     below has a definite box to resolve against. */
+     below has a definite box to resolve against. A size container too, so the
+     tile can be sized off that height. */
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   justify-items: center;
   align-items: center;
   position: relative;
+  container-type: size;
 }
 
-/* Capped on height as well as width, so the focused tile is fitted on both axes
-   exactly like a grid tile is. aspect-ratio transfers the max-height into a
-   max-width, so 16:9 holds whichever axis runs out first. */
+/* The largest 16:9 box the slot holds, whichever axis runs out first. The tile
+   is `width: 100%`, and aspect-ratio does not carry a max-height over to a
+   width that is set: in a slot shorter than its width allows, max-height cut
+   the height and the width stayed, so the share stretched into a strip --
+   558x244 at 900x650, 422x94 at the smallest window. The height bound is
+   stated as a width instead. */
 .ct-lobby-focused-slot > .ct-lobby-participant-tile {
   justify-self: center;
   align-self: center;
+  width: min(100%, 100cqh * 16 / 9);
   max-height: 100%;
 }
 
@@ -1075,9 +1084,15 @@
 }
 
 /* The tile's own `align-self: stretch` would override the rail's centring and
-   let the flex line dictate the thumbnail's height, overriding its 16:9. */
+   let the flex line dictate the thumbnail's height, overriding its 16:9.
+
+   A quarter of the stage's height at most. The thumbnails are sized off the
+   window's width alone, so in a short window the rail kept its height and the
+   focused share got what was left: 94px of a 282px stage at the smallest
+   window. A tall stage never reaches the cap. */
 .ct-lobby-participant-rail > .ct-lobby-participant-tile {
   align-self: center;
+  max-width: calc(24cqh * 16 / 9);
 }
 
 /* ==========================================================================
