@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Button, Spin } from "antd";
 import { EyeOutlined, WifiOutlined } from "@ant-design/icons";
 import {
@@ -9,6 +10,7 @@ import {
 } from "@shared/minigames";
 import { useUiStore } from "@/store/ui-store";
 import { findMinigame } from "../minigames-catalog";
+import { gameTone, showMinigame } from "../minigames-view";
 import { useMultiplayerTables } from "../use-multiplayer-tables";
 
 interface LiveTablesProps {
@@ -56,6 +58,7 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
     // it would be thrown away by the very next line. Also what makes İzle a
     // navigation — the board that appears is the one being watched.
     selectGame(table.game);
+    showMinigame();
     if (mode === "join") {
       join(table.id);
     } else {
@@ -84,7 +87,7 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
         </p>
       ) : (
         <ul className="ct-live-tables-list">
-          {tables.map((table) => {
+          {tables.map((table, index) => {
             const entry = findMinigame(table.game);
             const isMine = isSeatedAt(table, currentUserId);
             // "Full" is not "two people": a table that seats four is full at four,
@@ -96,11 +99,16 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
               <li
                 key={table.id}
                 className="ct-live-table"
+                style={{ "--i": index } as CSSProperties}
                 data-mine={isMine ? "true" : undefined}
                 data-watched={isWatched ? "true" : undefined}
               >
                 <span className="ct-live-table-game">
-                  <span className="ct-live-table-icon" aria-hidden="true">
+                  <span
+                    className="ct-live-table-icon"
+                    data-game-tone={gameTone(table.game)}
+                    aria-hidden="true"
+                  >
                     {entry.icon}
                   </span>
                   <span className="ct-live-table-title">
@@ -145,7 +153,10 @@ export function LiveTables({ currentUserId }: LiveTablesProps) {
                     size="small"
                     type="text"
                     block
-                    onClick={() => selectGame(table.game)}
+                    onClick={() => {
+                      selectGame(table.game);
+                      showMinigame();
+                    }}
                   >
                     Masana dön
                   </Button>

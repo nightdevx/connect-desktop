@@ -2,6 +2,7 @@ import { scoreKey } from "@/store/minigame-scores";
 import { useUiStore } from "@/store/ui-store";
 import { useDisabledGames } from "../use-game-activity";
 import { DIFFICULTY_LABELS } from "../difficulty";
+import { showMinigame, useMinigamesView } from "../minigames-view";
 import {
   DUEL_MINIGAMES,
   PARTY_MINIGAMES,
@@ -53,6 +54,10 @@ function MinigameGroup({
   const bestScores = useUiStore((state) => state.minigameBestScores);
   const difficulties = useUiStore((state) => state.minigameDifficulty);
   const disabled = useDisabledGames();
+  // Odak's game list has nothing open, so nothing here is marked.
+  const isOdak = useUiStore((state) => state.odakTheme);
+  const browsing = useMinigamesView((state) => state.browsing);
+  const listShown = isOdak && browsing;
 
   const visible = entries.filter((entry) => !disabled.includes(entry.id));
 
@@ -65,7 +70,7 @@ function MinigameGroup({
       <span className="ct-list-group-title">{title}</span>
       <nav className="ct-minigames-tabs" role="tablist" aria-label={title}>
         {visible.map((entry) => {
-          const isActive = selected === entry.id;
+          const isActive = selected === entry.id && !listShown;
           const difficulty = difficulties[entry.id];
           // The record for the difficulty this game is SET to, not for the game.
           // One number covering three boards would be right on one of them and
@@ -84,7 +89,10 @@ function MinigameGroup({
               role="tab"
               aria-selected={isActive}
               className={`ct-minigames-tab ${isActive ? "active" : ""}`}
-              onClick={() => select(entry.id)}
+              onClick={() => {
+                select(entry.id);
+                showMinigame();
+              }}
               title={`${entry.label} — ${entry.description}`}
             >
               <span className="ct-minigames-tab-icon" aria-hidden="true">

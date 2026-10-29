@@ -1,1 +1,898 @@
 /* Odak tasarımı: oyunlar bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   OYUNLAR -- the game list (OdakOyunlar.dc.html) and every game's page frame
+   in the same language. The boards' own drawing (minigame-boards.css,
+   minigame-materials.css, the 3D UNO scene) is left as it is.
+   ========================================================================== */
+
+/* --- game colours ------------------------------------------------------- */
+/* Eight tile colours, one per game (gameTone): the card's cover, its table
+   row and its page header wear the same one. */
+:root[data-odak] [data-game-tone="0"] {
+  --tile-bg: #2b2410;
+  --tile-fg: #fbbf24;
+}
+
+:root[data-odak] [data-game-tone="1"] {
+  --tile-bg: #10271b;
+  --tile-fg: #4ade80;
+}
+
+:root[data-odak] [data-game-tone="2"] {
+  --tile-bg: #2a1416;
+  --tile-fg: #ff7a7a;
+}
+
+:root[data-odak] [data-game-tone="3"] {
+  --tile-bg: #151e33;
+  --tile-fg: #7da2ff;
+}
+
+:root[data-odak] [data-game-tone="4"] {
+  --tile-bg: #2e1a0e;
+  --tile-fg: #fb923c;
+}
+
+:root[data-odak] [data-game-tone="5"] {
+  --tile-bg: #1d1630;
+  --tile-fg: #b794f6;
+}
+
+:root[data-odak] [data-game-tone="6"] {
+  --tile-bg: #1f2124;
+  --tile-fg: #e5e7eb;
+}
+
+:root[data-odak] [data-game-tone="7"] {
+  --tile-bg: #0f2427;
+  --tile-fg: #5eead4;
+}
+
+/* --- the list ------------------------------------------------------------ */
+:root[data-odak] .ct-minigames-home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+:root[data-odak] .ct-minigames-home-head {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The type filter: the Arkadaşlar tabs, with the selected background as one
+   piece that slides to the tab picked. Equal columns, so the slide is a pure
+   translate. */
+:root[data-odak] .ct-minigames-filter {
+  position: relative;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-minigames-filter-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px - (var(--n) - 1) * 4px) / var(--n));
+  border-radius: 10px;
+  background: var(--odak-raised);
+  transform: translateX(calc(var(--i) * (100% + 4px)));
+  transition: transform var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-filter button {
+  position: relative;
+  height: 34px;
+  min-width: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-filter button:hover {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-minigames-filter button[aria-selected="true"] {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-minigames-home-body {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-height: 0;
+}
+
+/* A filter change brings a new grid, which fades in; the first one opens with
+   its cards rising in one after another (data-intro). */
+:root[data-odak] .ct-minigames-home-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  /* Room for a hovered card's lift inside the scroller. */
+  padding: 2px;
+  overflow-y: auto;
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-minigames-home-grid[data-intro] {
+  animation: none;
+}
+
+:root[data-odak] .ct-minigames-home-grid[data-intro] .ct-minigames-card {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i), 8) * var(--odak-stagger));
+}
+
+:root[data-odak] .ct-minigames-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-card:hover {
+  border-color: var(--odak-border-strong);
+  transform: translateY(-2px);
+}
+
+:root[data-odak] .ct-minigames-card-cover {
+  display: grid;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 14px;
+  color: var(--tile-fg);
+  background: var(--tile-bg);
+}
+
+/* The art zooms inside its tile; the soft light in its corner is what makes
+   the zoom read on a flat colour. */
+:root[data-odak] .ct-minigames-card-art {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  background: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.07), transparent 62%);
+  transition: transform var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-card:hover .ct-minigames-card-art {
+  transform: scale(1.03);
+}
+
+:root[data-odak] .ct-minigames-card-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-minigames-card-meta {
+  margin: 3px 0 0;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-minigames-card-play {
+  height: 36px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-1) var(--odak-ease-out),
+    background-color var(--odak-dur-1) var(--odak-ease-out),
+    border-color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-card-play:hover {
+  border-color: transparent;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-minigames-card-play:active {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-minigames-card-play:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+/* The right column: what is live, then your records. */
+:root[data-odak] .ct-minigames-home-side {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 12px;
+  width: 320px;
+  padding: 2px;
+  overflow-y: auto;
+}
+
+:root[data-odak] .ct-minigames-records {
+  flex-shrink: 0;
+  padding: 6px 16px;
+}
+
+:root[data-odak] .ct-minigames-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 40px;
+  border-bottom: 1px solid var(--odak-raised);
+  font-size: 14px;
+}
+
+:root[data-odak] .ct-minigames-record:last-child {
+  border-bottom: 0;
+}
+
+:root[data-odak] .ct-minigames-record-level {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-minigames-record-score {
+  flex-shrink: 0;
+  font-family: var(--ct-font-mono);
+  font-size: 13px;
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-minigames-records-empty {
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--odak-muted);
+}
+
+/* A narrow page: the column goes under the grid, and the two scroll as one. */
+@container (max-width: 719px) {
+  :root[data-odak] .ct-minigames-home-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  :root[data-odak] .ct-minigames-home-grid {
+    flex: none;
+    overflow: visible;
+  }
+
+  :root[data-odak] .ct-minigames-home-side {
+    width: auto;
+    overflow: visible;
+  }
+}
+
+/* --- live tables (the list's column and every game's rail) ---------------- */
+/* One card per table, as the mock-up's "Açık masalar", under a quiet title. */
+:root[data-odak] .ct-live-tables {
+  flex: none;
+  gap: 12px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-live-tables-head {
+  gap: 8px;
+  margin: 4px 4px 0;
+  padding: 0;
+  border: 0;
+}
+
+:root[data-odak] .ct-live-tables-head .ct-rail-card-icon {
+  display: none;
+}
+
+:root[data-odak] .ct-live-tables-head h5 {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-live-tables-count {
+  padding: 1px 8px;
+  border: 0;
+  font-family: var(--ct-font-mono);
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-live-tables-empty {
+  justify-content: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--odak-border);
+  border-radius: 18px;
+  font-size: 13px;
+  text-align: left;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-live-tables-list {
+  gap: 12px;
+  overflow: visible;
+}
+
+/* A row rises in when the list first opens and when a new table appears; a
+   table that changes keeps its row, so nothing replays. */
+:root[data-odak] .ct-live-table {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i), 8) * var(--odak-stagger));
+  transition: border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-live-table + .ct-live-table {
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-live-table:hover {
+  border-color: var(--odak-border-strong);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-live-table[data-mine] {
+  border-color: rgba(198, 244, 50, 0.45);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-live-table[data-watched] {
+  border-color: var(--ct-info);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-live-table-game {
+  grid-column: 1;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-live-table-icon {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 17px;
+  color: var(--tile-fg);
+  background: var(--tile-bg);
+}
+
+:root[data-odak] .ct-live-table-title strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-live-table-state {
+  font-size: 12px;
+}
+
+:root[data-odak] .ct-live-table-state[data-state="playing"]::before {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-live-table-players {
+  grid-column: 1;
+  padding-left: 54px;
+}
+
+:root[data-odak] .ct-live-table > .ant-btn {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: auto;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* --- the game page ------------------------------------------------------- */
+/* The rail is the list's column, a step narrower; below 760px it gives the
+   board back the width it had. */
+/* The page fades in when a game is picked from the list. */
+:root[data-odak] .ct-minigames-panel {
+  --ct-minigames-rail: 280px;
+  column-gap: 16px;
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+@container (max-width: 759px) {
+  :root[data-odak] .ct-minigames-panel {
+    --ct-minigames-rail: 244px;
+  }
+}
+
+/* The header stays 44px tall: the board's height is worked out from it
+   (--arcade-page-chrome in minigames.css). */
+:root[data-odak] .ct-minigames-header {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-minigames-header-icon {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 20px;
+  color: var(--tile-fg);
+  background: var(--tile-bg);
+}
+
+:root[data-odak] .ct-minigames-header h4 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+:root[data-odak] .ct-minigames-header-description {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-minigames-header-button {
+  width: 40px;
+  height: 40px;
+  border-color: var(--odak-border);
+  border-radius: 12px;
+  font-size: 16px;
+  color: var(--odak-text);
+  background: var(--odak-surface);
+  transition:
+    color var(--odak-dur-1) var(--odak-ease-out),
+    border-color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-minigames-header-button:hover {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-accent);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-minigames-header-button:active {
+  transform: scale(0.97);
+}
+
+/* Back to the list, first in the row: a step apart from the game's tile. */
+:root[data-odak] .ct-minigames-back {
+  margin-right: 2px;
+}
+
+/* The record for the board in play. It pops when it is beaten. */
+:root[data-odak] .ct-minigames-best {
+  height: 40px;
+  gap: 8px;
+  padding: 0 14px;
+  border-color: var(--odak-border);
+  border-radius: 12px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-minigames-best-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+:root[data-odak] .ct-minigames-best strong {
+  display: inline-block;
+  font-family: var(--ct-font-mono);
+  font-size: 14px;
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-minigames-best strong[data-new] {
+  animation: odak-pop var(--odak-dur-3) var(--odak-ease-spring) backwards;
+}
+
+/* Difficulty: the same segmented control as the tabs, the hint in mono. */
+:root[data-odak] .ct-difficulty {
+  gap: 2px;
+  padding: 3px;
+  border-color: var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-difficulty-option {
+  min-width: 64px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  color: var(--odak-muted);
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-difficulty-option:hover:not([data-active]) {
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-difficulty-option[data-active] {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-difficulty-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+:root[data-odak] .ct-difficulty-hint {
+  font-family: var(--ct-font-mono);
+  font-size: 10px;
+}
+
+/* --- around the board ---------------------------------------------------- */
+:root[data-odak] .ct-arcade-metric {
+  border-color: var(--odak-border);
+  border-radius: 12px;
+  background: var(--odak-surface);
+  transition: border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-arcade-metric-label {
+  letter-spacing: 0.06em;
+}
+
+:root[data-odak] .ct-arcade-metric-value {
+  font-family: var(--ct-font-mono);
+  font-size: 17px;
+}
+
+:root[data-odak] .ct-arcade-metric[data-tone="record"] {
+  border-color: rgba(198, 244, 50, 0.45);
+}
+
+:root[data-odak] .ct-arcade-metric[data-tone="record"] .ct-arcade-metric-value {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-arcade-status {
+  padding: 5px 14px;
+  font-size: 12.5px;
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out),
+    border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-arcade-status[data-tone="you"] {
+  border-color: rgba(198, 244, 50, 0.5);
+  color: var(--odak-text);
+  background: rgba(198, 244, 50, 0.1);
+}
+
+/* Your move is live: the dot breathes rather than blinks. */
+:root[data-odak] .ct-arcade-status[data-tone="you"]::before {
+  animation: odak-breathe 1.6s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-arcade-status[data-tone="wait"] {
+  border-color: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-arcade-status[data-tone="done"] {
+  border-color: var(--odak-border-strong);
+  background: var(--odak-raised);
+}
+
+/* The end of a run: a card in the Odak surface, opening once; YENİ REKOR
+   pops in instead of pulsing. */
+:root[data-odak] .ct-outcome {
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-outcome-card {
+  gap: 8px;
+  padding: 18px 28px;
+  border-color: var(--odak-border-strong);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  animation: odak-open var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-outcome[data-tone="won"] .ct-outcome-card {
+  border-color: rgba(198, 244, 50, 0.5);
+}
+
+:root[data-odak] .ct-outcome[data-tone="won"] .ct-outcome-title {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-outcome-detail {
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-outcome-record {
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.08em;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  animation: odak-pop var(--odak-dur-3) var(--odak-ease-spring) 120ms backwards;
+}
+
+/* --- the rail: leaderboard ----------------------------------------------- */
+:root[data-odak] .ct-leaderboard {
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-leaderboard-head {
+  padding: 14px 16px 12px;
+  border: 0;
+}
+
+:root[data-odak] .ct-leaderboard .ct-rail-card-icon {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-leaderboard-head h5 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-leaderboard-rank {
+  font-family: var(--ct-font-mono);
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+:root[data-odak] .ct-leaderboard-scopes {
+  margin: 0 16px;
+  padding: 3px;
+  border-color: var(--odak-border);
+  border-radius: 12px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-leaderboard-scope {
+  border-radius: 9px;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-leaderboard-scope:hover:not([data-active]) {
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-leaderboard-scope[data-active] {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-leaderboard-scope[data-playing]:not([data-active]) {
+  box-shadow: inset 0 -2px 0 rgba(198, 244, 50, 0.35);
+}
+
+:root[data-odak] .ct-leaderboard-scope-hint {
+  padding: 8px 16px 2px;
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-leaderboard-empty {
+  font-size: 13px;
+}
+
+:root[data-odak] .ct-leaderboard-list {
+  padding: 6px 10px 10px;
+}
+
+:root[data-odak] .ct-leaderboard-row {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+:root[data-odak] .ct-leaderboard-row[data-me] {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-leaderboard-position {
+  width: 20px;
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-leaderboard-row:nth-child(-n + 3) .ct-leaderboard-position {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-leaderboard-score {
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-leaderboard-row[data-me] .ct-leaderboard-score {
+  color: var(--odak-accent);
+}
+
+/* --- the two-player frame: the table browser, seats, settings ------------ */
+:root[data-odak] .ct-versus-browser,
+:root[data-odak] .ct-versus-state {
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-versus-browser .ct-versus-state {
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-odak] .ct-versus-browser-head {
+  padding: 14px 16px;
+  border-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-versus-browser-seats {
+  border: 0;
+  border-radius: 8px;
+  font-family: var(--ct-font-mono);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-versus-table-row {
+  padding: 12px 16px;
+}
+
+:root[data-odak] .ct-versus-table-row + .ct-versus-table-row {
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-versus-state-icon {
+  border-radius: 14px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-versus-seat {
+  border-color: var(--odak-border);
+  border-radius: 11px;
+  background: var(--odak-surface);
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    border-color var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-versus-seat[data-active] {
+  border-color: rgba(198, 244, 50, 0.6);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-versus-seat-empty {
+  border-style: dashed;
+  border-color: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-versus-seat-side {
+  border-radius: 6px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-versus-settings {
+  border-color: var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-versus-audience {
+  border-radius: 10px;
+  background: var(--odak-raised);
+}
+
+/* --- "Nasıl oynanır" ----------------------------------------------------- */
+:root[data-odak] .ct-gameinfo-subtitle {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+:root[data-odak] .ct-gameinfo-rules {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-gameinfo-rules li {
+  padding-left: 36px;
+}
+
+:root[data-odak] .ct-gameinfo-rules li::before {
+  top: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+/* --- the sidebar's numbers ------------------------------------------------ */
+:root[data-odak] .ct-minigames-tab-best {
+  font-family: var(--ct-font-mono);
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-minigames-tab-seats {
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-minigames-sidebar-note {
+  border-color: var(--odak-border);
+}
+
+/* Loops stop; the shared file already zeroes every duration. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-arcade-status[data-tone="you"]::before {
+    animation: none;
+  }
+}

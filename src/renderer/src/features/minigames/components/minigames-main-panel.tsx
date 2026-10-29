@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import {
+  ArrowLeftOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
   QuestionCircleOutlined,
@@ -8,11 +9,19 @@ import { scoreKey } from "@/store/minigame-scores";
 import { useUiStore } from "@/store/ui-store";
 import { describeDifficulty, isSoloGameId } from "../difficulty";
 import { findMinigame, seatsOf } from "../minigames-catalog";
+import {
+  gameTone,
+  showMinigame,
+  showMinigameList,
+  useMinigamesView,
+} from "../minigames-view";
+import { useGameActivityByUser } from "../use-game-activity";
 import { useScoreSync } from "../use-score-sync";
 import { DifficultyPicker } from "./difficulty-picker";
 import { GameInfoDialog } from "./game-info-dialog";
 import { LiveTables } from "./live-tables";
 import { MinigameLeaderboard } from "./minigame-leaderboard";
+import { MinigamesHome } from "./minigames-home";
 
 interface MinigamesMainPanelProps {
   currentUserId: string;
@@ -62,6 +71,22 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 
   const [infoOpen, setInfoOpen] = useState(false);
 
+  // Odak opens on the game list (OdakOyunlar.dc.html); picking a game, here or
+  // in the sidebar, shows its page. The old design has no list.
+  const isOdak = useUiStore((state) => state.odakTheme);
+  const browsing = useMinigamesView((state) => state.browsing);
+  const onList = isOdak && browsing;
+
+  // The record on the header pops when it is beaten on the board in play, not
+  // when another board (game or difficulty), or opening the page, brings its
+  // record along.
+  const board = onList ? "list" : `${selected}:${difficulty}`;
+  const [shownBest, setShownBest] = useState({ board, best });
+  if (shownBest.board !== board) {
+    setShownBest({ board, best });
+  }
+  const recordBeaten = shownBest.board === board && shownBest.best !== best;
+
   // The whole page goes fullscreen, not the board: the board is sized off this
   // element's container query, so promoting it on its own would leave it
   // measuring the window-sized page behind it. Taking the page takes the header
@@ -91,6 +116,10 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
   const isSolo = isSoloGameId(selected);
 
   useEffect(() => {
+    // Not over the list: the rules belong to the game whose page opens.
+    if (onList) {
+      return;
+    }
     const { seenMinigameRules, markMinigameRulesSeen } = useUiStore.getState();
     if (seenMinigameRules.has(selected)) {
       setInfoOpen(false);
@@ -98,7 +127,7 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
     }
     setInfoOpen(true);
     markMinigameRulesSeen(selected);
-  }, [selected]);
+  }, [selected, onList]);
 
   // Mounted HERE rather than per game: it reconciles every record at once, and
   // one sync that runs while the page is open beats four that each run when
@@ -113,94 +142,120 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
     // on the grid item itself is size-CONTAINED, so it reports a zero width to
     // the auto track and the column collapses around the page header.
     <div className="ct-minigames-page" ref={pageRef}>
-      <div className="ct-minigames-panel">
-        <header className="ct-minigames-header">
-          <span className="ct-minigames-header-icon" aria-hidden="true">
-            {entry.icon}
-          </span>
-
-          <div className="ct-minigames-header-text">
-            <h4>{entry.label}</h4>
-            <p className="ct-minigames-header-description">
-              {isSolo
-                ? describeDifficulty(selected, difficulty)
-                : entry.description}
-            </p>
-          </div>
-
-          {/* The record for THIS board, not for the game: a nine-second 9x9 is not
-            a record on a 30x16 field, and showing one number for both would be
-            a lie in whichever direction the player last played. */}
-          {best !== undefined && entry.formatScore ? (
-            <span className="ct-minigames-best">
-              <span className="ct-minigames-best-label">Rekor</span>
-              <strong>{entry.formatScore(best)}</strong>
+      {isOdak ? <OpenMyTable currentUserId={currentUserId} /> : null}
+      {onList ? (
+        <MinigamesHome currentUserId={currentUserId} />
+      ) : (
+        <div className="ct-minigames-panel">
+          <header className="ct-minigames-header">
+            {isOdak ? (
+              <button
+                type="button"
+                className="ct-minigames-header-button ct-minigames-back"
+                onClick={showMinigameList}
+                aria-label="Oyun listesine dön"
+                title="Oyunlar"
+              >
+                <ArrowLeftOutlined />
+              </button>
+            ) : null}
+            <span
+              className="ct-minigames-header-icon"
+              data-game-tone={gameTone(selected)}
+              aria-hidden="true"
+            >
+              {entry.icon}
             </span>
-          ) : null}
 
-          {isSolo ? (
-            <DifficultyPicker
-              game={selected}
-              value={difficulty}
-              onChange={(next) => setDifficulty(selected, next)}
-            />
-          ) : null}
+            <div className="ct-minigames-header-text">
+              <h4>{entry.label}</h4>
+              <p className="ct-minigames-header-description">
+                {isSolo
+                  ? describeDifficulty(selected, difficulty)
+                  : entry.description}
+              </p>
+            </div>
 
-          <button
-            type="button"
-            className="ct-minigames-header-button"
-            onClick={toggleFullscreen}
-            aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
-            title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
-          >
-            {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-          </button>
+            {/* The record for THIS board, not for the game: a nine-second 9x9 is not
+              a record on a 30x16 field, and showing one number for both would be
+              a lie in whichever direction the player last played. */}
+            {best !== undefined && entry.formatScore ? (
+              <span className="ct-minigames-best">
+                <span className="ct-minigames-best-label">Rekor</span>
+                {/* Remounted on each new record, so its pop plays again. */}
+                <strong
+                  key={recordBeaten ? best : "kept"}
+                  data-new={recordBeaten ? "true" : undefined}
+                >
+                  {entry.formatScore(best)}
+                </strong>
+              </span>
+            ) : null}
 
-          <button
-            type="button"
-            className="ct-minigames-header-button"
-            onClick={() => setInfoOpen(true)}
-            aria-label={`${entry.label} nasıl oynanır`}
-            title="Nasıl oynanır"
-          >
-            <QuestionCircleOutlined />
-          </button>
-        </header>
+            {isSolo ? (
+              <DifficultyPicker
+                game={selected}
+                value={difficulty}
+                onChange={(next) => setDifficulty(selected, next)}
+              />
+            ) : null}
 
-        {/* A game's code arrives the first time it is opened (the catalogue
-            loads boards lazily). The empty stand-in holds the board's grid
-            cell, so the rail does not slide into it meanwhile. */}
-        <Suspense fallback={<div aria-busy="true" />}>
-          <Component
-            key={`${selected}:${difficulty}`}
-            currentUserId={currentUserId}
-            difficulty={difficulty}
-          />
-        </Suspense>
+            <button
+              type="button"
+              className="ct-minigames-header-button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+              title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+            >
+              {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+            </button>
 
-        {/* One rail, one card, and which card it is follows from what the game
-          has to rank. A solo game keeps records and has no table to watch; a
-          two-player game is the other way round in both halves. Showing both
-          everywhere gave each of them half a rail and left one of them empty. */}
-        <div className="ct-minigames-rail">
-          {isSolo && entry.formatScore ? (
-            <MinigameLeaderboard
-              // Remounted per board, which is what resets the difficulty this card
-              // is READING to the one being played.
+            <button
+              type="button"
+              className="ct-minigames-header-button"
+              onClick={() => setInfoOpen(true)}
+              aria-label={`${entry.label} nasıl oynanır`}
+              title="Nasıl oynanır"
+            >
+              <QuestionCircleOutlined />
+            </button>
+          </header>
+
+          {/* A game's code arrives the first time it is opened (the catalogue
+              loads boards lazily). The empty stand-in holds the board's grid
+              cell, so the rail does not slide into it meanwhile. */}
+          <Suspense fallback={<div aria-busy="true" />}>
+            <Component
               key={`${selected}:${difficulty}`}
-              game={selected}
-              difficulty={difficulty}
               currentUserId={currentUserId}
-              syncedAt={syncedAt}
-              formatScore={entry.formatScore}
+              difficulty={difficulty}
             />
-          ) : (
-            <LiveTables currentUserId={currentUserId} />
-          )}
-        </div>
-      </div>
+          </Suspense>
 
-      {infoOpen ? (
+          {/* One rail, one card, and which card it is follows from what the game
+            has to rank. A solo game keeps records and has no table to watch; a
+            two-player game is the other way round in both halves. Showing both
+            everywhere gave each of them half a rail and left one of them empty. */}
+          <div className="ct-minigames-rail">
+            {isSolo && entry.formatScore ? (
+              <MinigameLeaderboard
+                // Remounted per board, which is what resets the difficulty this card
+                // is READING to the one being played.
+                key={`${selected}:${difficulty}`}
+                game={selected}
+                difficulty={difficulty}
+                currentUserId={currentUserId}
+                syncedAt={syncedAt}
+                formatScore={entry.formatScore}
+              />
+            ) : (
+              <LiveTables currentUserId={currentUserId} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {infoOpen && !onList ? (
         <GameInfoDialog
           entry={entry}
           seats={seatsOf(selected)}
@@ -209,4 +264,19 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
       ) : null}
     </div>
   );
+}
+
+/**
+ * Odak: sitting down somewhere else (a friend's card, a game invite) lands on
+ * that table, not on the list. Its own leaf so a move at any table re-renders
+ * nothing but this.
+ */
+function OpenMyTable({ currentUserId }: { currentUserId: string }) {
+  const myTableId = useGameActivityByUser().get(currentUserId)?.tableId;
+  useEffect(() => {
+    if (myTableId) {
+      showMinigame();
+    }
+  }, [myTableId]);
+  return null;
 }
