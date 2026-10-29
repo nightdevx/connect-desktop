@@ -267,16 +267,18 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
 }
 
 /**
- * Odak: sitting down somewhere else (a friend's card, a game invite) lands on
- * that table, not on the list. Its own leaf so a move at any table re-renders
- * nothing but this.
+ * Odak: sitting down somewhere else (a friend's card picks the table's game and
+ * opens this page) lands on that table, not on the list. Its own leaf so a
+ * move at any table re-renders nothing but this.
  */
 function OpenMyTable({ currentUserId }: { currentUserId: string }) {
-  const myTableId = useGameActivityByUser().get(currentUserId)?.tableId;
+  const selected = useUiStore((state) => state.selectedMinigame);
+  const mine = useGameActivityByUser().get(currentUserId);
+  const tableOnScreen = mine && mine.game === selected ? mine.tableId : null;
   useEffect(() => {
-    if (myTableId) {
+    if (tableOnScreen) {
       showMinigame();
     }
-  }, [myTableId]);
+  }, [tableOnScreen]);
   return null;
 }

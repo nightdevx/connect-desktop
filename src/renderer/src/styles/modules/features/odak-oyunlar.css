@@ -131,7 +131,7 @@
 :root[data-odak] .ct-minigames-home-grid {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
   grid-auto-rows: max-content;
   align-content: start;
   gap: 12px;
@@ -428,12 +428,12 @@
 }
 
 :root[data-odak] .ct-live-table-players {
-  grid-column: 1;
+  grid-column: 1 / -1;
   padding-left: 54px;
 }
 
 :root[data-odak] .ct-live-table > .ant-btn {
-  grid-row: 1 / span 2;
+  grid-row: 1;
   grid-column: 2;
   width: auto;
   height: 34px;
@@ -443,26 +443,55 @@
   font-weight: 700;
 }
 
+/* "Masana dön": a way back, not an invitation, so raised rather than lime. */
+:root[data-odak] .ct-live-table > :is(.ant-btn-text, .ant-btn-variant-text) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
 /* --- the game page ------------------------------------------------------- */
-/* The rail is the list's column, a step narrower; below 760px it gives the
-   board back the width it had. */
-/* The page fades in when a game is picked from the list. */
+/* The header runs across the page, as on the list, and the rail starts under
+   it. The rail is the list's column, a step narrower; below 760px it gives
+   the board back the width it had. The page fades in when a game is picked
+   from the list. */
 :root[data-odak] .ct-minigames-panel {
-  --ct-minigames-rail: 280px;
+  --ct-minigames-rail: 300px;
+  grid-template-areas:
+    "head head"
+    "game rail";
   column-gap: 16px;
   animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+/* One 44px row that never wraps: the board's height is worked out from it
+   (--arcade-page-chrome in minigames.css). The title and the difficulty
+   hints give way first. Inline-size containment keeps the row from widening
+   the board's column, which hugs the board. */
+:root[data-odak] .ct-minigames-header {
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+  contain: inline-size;
+}
+
+:root[data-odak] .ct-minigames-header-text {
+  flex: 1 1 0;
+}
+
+:root[data-odak] .ct-minigames-header :is(h4, .ct-minigames-header-description) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 @container (max-width: 759px) {
   :root[data-odak] .ct-minigames-panel {
     --ct-minigames-rail: 244px;
   }
-}
 
-/* The header stays 44px tall: the board's height is worked out from it
-   (--arcade-page-chrome in minigames.css). */
-:root[data-odak] .ct-minigames-header {
-  gap: 10px;
+  :root[data-odak] .ct-difficulty-hint {
+    display: none;
+  }
 }
 
 :root[data-odak] .ct-minigames-header-icon {
@@ -544,6 +573,8 @@
 
 /* Difficulty: the same segmented control as the tabs, the hint in mono. */
 :root[data-odak] .ct-difficulty {
+  flex: 0 1 auto;
+  min-width: 0;
   gap: 2px;
   padding: 3px;
   border-color: var(--odak-border);
@@ -552,7 +583,8 @@
 }
 
 :root[data-odak] .ct-difficulty-option {
-  min-width: 64px;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 4px 12px;
   border-radius: 10px;
   color: var(--odak-muted);
@@ -570,6 +602,13 @@
 :root[data-odak] .ct-difficulty-option[data-active] {
   color: var(--odak-accent);
   background: var(--odak-raised);
+}
+
+:root[data-odak] :is(.ct-difficulty-label, .ct-difficulty-hint) {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 :root[data-odak] .ct-difficulty-label {
