@@ -335,10 +335,11 @@
 
 .ct-sidebar.collapsed .ct-sidebar-body {
   padding-inline: 0;
-  /* A scrollbar in a 72px strip took 8px off one side and pushed the badges
-     out of line with the button above and the dock below; the wheel still
-     scrolls a long list. */
-  scrollbar-width: none;
+  /* A thin bar, with the same gutter on both sides so the icons stay centred
+     on the button above and the dock below whether or not the list scrolls.
+     A hidden bar left a long list with no sign there was more below. */
+  --ct-scrollbar-size: 4px;
+  scrollbar-gutter: stable both-edges;
 }
 
 /* --------------------------------------------------------------------------
@@ -353,7 +354,8 @@
 
 .ct-admin-sidebar.collapsed .ct-admin-sidebar-nav {
   padding-inline: 0;
-  scrollbar-width: none;
+  --ct-scrollbar-size: 4px;
+  scrollbar-gutter: stable both-edges;
 }
 
 :is(.ct-sidebar.collapsed, .ct-admin-sidebar.collapsed)

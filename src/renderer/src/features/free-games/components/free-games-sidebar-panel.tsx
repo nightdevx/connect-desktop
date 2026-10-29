@@ -68,7 +68,7 @@ export function FreeGamesSidebarPanel() {
               aria-selected={isActive}
               className={`ct-free-games-tab ${isActive ? "active" : ""}`}
               onClick={() => setFilter(entry.id)}
-              title={entry.description}
+              title={`${entry.label} — ${entry.description}`}
             >
               <span className="ct-free-games-tab-icon" aria-hidden="true">
                 {FILTER_ICONS[entry.id]}

@@ -85,7 +85,7 @@ function MinigameGroup({
               aria-selected={isActive}
               className={`ct-minigames-tab ${isActive ? "active" : ""}`}
               onClick={() => select(entry.id)}
-              title={entry.description}
+              title={`${entry.label} — ${entry.description}`}
             >
               <span className="ct-minigames-tab-icon" aria-hidden="true">
                 {entry.icon}
