@@ -243,6 +243,19 @@ function App() {
               <span className="ct-update-chip found">Yeni sürüm bulundu</span>
             )}
 
+            {/* macOS: downloaded by hand, from the release page. */}
+            {updatePhase === "available" && updateState?.downloadUrl && (
+              <button
+                type="button"
+                className="ct-update-install"
+                onClick={() => {
+                  void window.desktopApi.installDownloadedUpdate();
+                }}
+              >
+                İndir
+              </button>
+            )}
+
             <span className="ct-titlebar-version">v{appVersion}</span>
 
             <button

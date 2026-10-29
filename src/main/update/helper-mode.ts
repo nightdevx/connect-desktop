@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { autoUpdater } from "electron-updater";
 import type { ProgressInfo } from "electron-updater";
+import { usesManualUpdates } from "../../shared/update-contracts";
 
 type HelperPhase =
   | "handoff"
@@ -738,6 +739,13 @@ export const runUpdaterHelperMode = (): void => {
   app.whenReady().then(() => {
     if (process.argv.includes(mockFlag)) {
       void runMockHelper();
+      return;
+    }
+
+    // It downloads and installs, which macOS builds never do
+    // (modular-updater.ts).
+    if (usesManualUpdates(process.platform)) {
+      app.quit();
       return;
     }
 

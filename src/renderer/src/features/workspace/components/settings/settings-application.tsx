@@ -466,8 +466,24 @@ export function SettingsApplication() {
               </Button>
             )}
 
+            {/* macOS: the release page; the user installs the dmg. */}
+            {updateState?.downloadUrl && (
+              <Button
+                type="primary"
+                onClick={() => {
+                  void window.desktopApi.installDownloadedUpdate();
+                }}
+              >
+                İndir
+              </Button>
+            )}
+
             <Button
-              type={updatePhase === "downloaded" ? "default" : "primary"}
+              type={
+                updatePhase === "downloaded" || updateState?.downloadUrl
+                  ? "default"
+                  : "primary"
+              }
               icon={<ReloadOutlined />}
               onClick={() => {
                 void handleManualUpdateCheck();
