@@ -391,8 +391,9 @@
   margin-inline: -12px;
 }
 
-/* Folded, the rail's avatar already says who you are. */
-.ct-odak-strip:not(.open) .ct-quick-idle-left {
+/* Folded, the rail's avatar already says who you are: in the strip and under
+   the shell's sidebar alike. */
+:root[data-odak] .is-sidebar-collapsed .ct-quick-idle-left {
   display: none;
 }
 
@@ -856,4 +857,110 @@
    into the empty second column, 0px wide. */
 .ct-workspace-shell.is-odak-users > .ct-main-panel {
   grid-column: 3;
+}
+
+/* --- the shell around every other section ------------------------------ */
+/* The sidebar column takes the strip's widths, 248px open and 76px folded,
+   and keeps them on a small window too: the Arkadaşlar page draws its rail
+   and strip at these sizes over the shell, so switching sections moves
+   nothing. The rail stays 72px for the same reason (the old one shrank to
+   56px under 760px; folding the sidebar is the way to buy width now). */
+:root[data-odak] .ct-workspace-shell {
+  --ct-rail-width: 72px;
+  --ct-sidebar-width: 248px;
+}
+
+:root[data-odak] .ct-workspace-shell.is-sidebar-collapsed {
+  --ct-sidebar-width: 76px;
+}
+
+/* The strip's flat surface, without the old column's wash and highlight. */
+:root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar) {
+  border-color: var(--odak-border);
+  background: var(--odak-strip);
+  box-shadow: none;
+}
+
+/* The header is the strip's: the section's name in a raised pill, the
+   buttons beside it, and the short divider under them. */
+:root[data-odak] .ct-sidebar-header {
+  height: auto;
+  gap: 10px;
+  padding: 16px 12px 12px;
+}
+
+:root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar).collapsed .ct-sidebar-header {
+  padding-inline: 0;
+}
+
+:root[data-odak] .ct-sidebar-header h3 {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 44px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-sidebar-header h3::before {
+  display: none;
+}
+
+:root[data-odak] .ct-sidebar-header::after {
+  inset-inline: auto;
+  left: 12px;
+  width: 32px;
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar).collapsed .ct-sidebar-header::after {
+  left: 50%;
+  translate: -50% 0;
+}
+
+:root[data-odak] .ct-sidebar-header-action {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  border-color: var(--odak-border-strong);
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-sidebar-header-action:hover:not(:disabled) {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-accent);
+  background: transparent;
+  translate: none;
+  box-shadow: none;
+}
+
+/* The menu rows Oyunlar, Fırsatlar and Ayarlar share: the strip's row, raised
+   under the pointer and raised in lime when it is the page on screen. */
+:root[data-odak] .ct-sidebar :is(.ct-settings-tab, .ct-minigames-tab, .ct-free-games-tab) {
+  border-radius: 12px;
+}
+
+:root[data-odak] .ct-sidebar :is(.ct-settings-tab, .ct-minigames-tab, .ct-free-games-tab):hover:not(.active) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-sidebar :is(.ct-settings-tab, .ct-minigames-tab, .ct-free-games-tab).active {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-sidebar .ct-settings-tab.active .ct-settings-tab-icon {
+  color: inherit;
+}
+
+/* The dock under the sidebar, as at the foot of the strip. */
+:root[data-odak] .ct-workspace-shell > .ct-quick-dock {
+  border-color: var(--odak-border);
+  background: var(--odak-surface);
 }
