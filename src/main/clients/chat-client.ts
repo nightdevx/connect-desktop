@@ -1,5 +1,7 @@
+import type { Bound, ContractDrift } from "../../shared/api-contracts";
 import type { ChatMessage, FriendEntry } from "../../shared/auth-contracts";
 import type { ChatAttachmentUpload } from "../../shared/desktop-api-types";
+import type * as Chat from "../../shared/generated/chat";
 import { DesktopApiError, type BaseClient } from "./base-client";
 
 // A send may carry a 5 MB attachment as base64. The client's default 8s budget
@@ -13,6 +15,8 @@ interface SendMessagePayload {
   attachment?: ChatAttachmentUpload;
   clientNonce?: string;
 }
+// The body of both sends, room and direct (shared/api-contracts.ts).
+type _SendMessageBody = Bound<ContractDrift<SendMessagePayload, Chat.SendLobbyMessageRequest>>;
 
 export class ChatClient {
   // Cleared the first time a backend refuses clientNonce as an unknown field

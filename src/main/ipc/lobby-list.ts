@@ -10,6 +10,9 @@
 //
 // Pure and electron-free, so the self-check drives it directly.
 
+import type { Bound, ContractDrift } from "../../shared/api-contracts";
+import type * as Lobby from "../../shared/generated/lobby";
+
 export interface LobbyRoom {
   id: string;
   name?: string;
@@ -23,6 +26,9 @@ interface ListFrame {
   removed?: unknown;
   at?: unknown;
 }
+// Every key read here is one the backend's frames carry (shared/api-contracts.ts).
+type _ListFrameDelta = Bound<ContractDrift<ListFrame, Lobby.LobbyDeltaFrame>>;
+type _ListFrameSnapshot = Bound<ContractDrift<Omit<ListFrame, "removed">, Lobby.LobbiesSnapshotFrame>>;
 
 const isDefaultLobby = (room: LobbyRoom): boolean =>
   room.id === "main-lobby" ||

@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { LOBBY_FEATURE_IDS, type LobbyFeatureId } from "../../shared/desktop-api-types";
 import type { AdminRuntimeSettingsPatch } from "../../shared/auth-contracts";
+import type { Bound, ContractDrift } from "../../shared/api-contracts";
+import type * as Auth from "../../shared/generated/auth";
+import type * as Chat from "../../shared/generated/chat";
 
 export const loginSchema = z.object({
   username: z.string().min(3).max(64),
@@ -650,3 +653,29 @@ export const watchDescribeSchema = z.object({
   title: z.string().max(200),
   durationSeconds: z.number().int().min(0).max(36000),
 });
+
+// The schemas whose output becomes a request body, bound to the Go struct that
+// reads it (see shared/api-contracts.ts): a key here the server does not read
+// is a value the user typed and the server drops. Ids that name the route
+// rather than ride the body are the desktop's own.
+type _LoginBody = Bound<ContractDrift<z.output<typeof loginSchema>, Auth.LoginRequest>>;
+type _RegisterBody = Bound<ContractDrift<z.output<typeof registerSchema>, Auth.RegisterRequest>>;
+type _ForgotPasswordBody = Bound<ContractDrift<z.output<typeof forgotPasswordSchema>, Auth.ForgotPasswordRequest>>;
+type _ResetPasswordBody = Bound<ContractDrift<z.output<typeof resetPasswordSchema>, Auth.ResetPasswordRequest>>;
+type _SendVerificationBody = Bound<
+  ContractDrift<z.output<typeof sendVerificationOTPSchema>, Auth.SendVerificationOTPRequest>
+>;
+type _VerifyEmailBody = Bound<ContractDrift<z.output<typeof verifyEmailSchema>, Auth.VerifyEmailRequest>>;
+type _ChangePasswordBody = Bound<ContractDrift<z.output<typeof changePasswordSchema>, Auth.ChangePasswordRequest>>;
+type _UpdateProfileBody = Bound<ContractDrift<z.output<typeof updateProfileSchema>, Auth.UpdateProfileRequest>>;
+type _UpdatePrivacyBody = Bound<ContractDrift<z.output<typeof updatePrivacySchema>, Auth.UpdatePrivacyRequest>>;
+type _AdminUpdateUserBody = Bound<
+  ContractDrift<z.output<typeof adminUpdateUserSchema>["payload"], Auth.AdminUpdateUserRequest>
+>;
+type _LobbyMessageBody = Bound<
+  ContractDrift<z.output<typeof lobbyMessageSendSchema>, Chat.SendLobbyMessageRequest, "lobbyId">
+>;
+type _DirectMessageBody = Bound<
+  ContractDrift<z.output<typeof sendDirectMessageSchema>, Chat.SendLobbyMessageRequest, "peerUserId">
+>;
+type _EditMessageBody = Bound<ContractDrift<z.output<typeof messageEditSchema>, Chat.EditMessageRequest, "messageId">>;
