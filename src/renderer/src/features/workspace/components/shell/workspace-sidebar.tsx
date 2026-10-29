@@ -307,7 +307,7 @@ export function WorkspaceSidebar({
 
   if (isCollapsed) {
     return (
-      <aside className="ct-sidebar collapsed" aria-label="Yan panel">
+      <aside key="folded" className="ct-sidebar collapsed" aria-label="Yan panel">
         <header className="ct-sidebar-header">
           <button
             type="button"
@@ -338,7 +338,7 @@ export function WorkspaceSidebar({
   }
 
   return (
-    <aside className="ct-sidebar" aria-label="Yan panel">
+    <aside key="full" className="ct-sidebar" aria-label="Yan panel">
 
       <header className="ct-sidebar-header">
         <h3>{sectionTitle}</h3>

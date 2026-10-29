@@ -1,4 +1,5 @@
 import { Tooltip } from "antd";
+import type { CSSProperties } from "react";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { getDisplayInitials, hueStyle } from "../../workspace-utils";
@@ -35,7 +36,8 @@ export function LobbiesCompactList({
   const voiceRooms = lobbies.filter((lobby) => !lobby.isTextOnly);
   const textRooms = lobbies.filter((lobby) => lobby.isTextOnly);
 
-  const renderRoom = (lobby: LobbyDescriptor) => {
+  // `order` staggers the badges in as the strip opens, top to bottom.
+  const renderRoom = (lobby: LobbyDescriptor, order: number) => {
     const isDisplayed = openTextRoomId
       ? openTextRoomId === lobby.id
       : activeLobbyId === lobby.id;
@@ -64,7 +66,9 @@ export function LobbiesCompactList({
             ]
               .filter(Boolean)
               .join(" ")}
-            style={hueStyle(lobby.id)}
+            style={
+              { ...hueStyle(lobby.id), "--lobby-order": order } as CSSProperties
+            }
             aria-label={label}
             aria-current={isDisplayed ? "true" : undefined}
             aria-disabled={isDisabled || undefined}
@@ -93,11 +97,15 @@ export function LobbiesCompactList({
 
   return (
     <nav className="ct-lobby-compact" aria-label="Lobiler">
-      <ul>{voiceRooms.map(renderRoom)}</ul>
+      <ul>{voiceRooms.map((lobby, index) => renderRoom(lobby, index))}</ul>
       {voiceRooms.length > 0 && textRooms.length > 0 && (
         <hr className="ct-lobby-compact-divider" />
       )}
-      <ul>{textRooms.map(renderRoom)}</ul>
+      <ul>
+        {textRooms.map((lobby, index) =>
+          renderRoom(lobby, voiceRooms.length + index),
+        )}
+      </ul>
     </nav>
   );
 }

@@ -12,6 +12,92 @@
 /* Lobbies only: the sidebar folds to the rail's width and the stage takes the
    rest. The column keeps the dock under it, so the microphone and the way out
    of a room stay where they were, stacked to fit. */
+/* Folding is one soft motion: the column eases between its two widths, and
+   whatever lands in it (the full list, the badges, the stacked dock) fades in
+   behind the moving edge, so neither the list nor the stage jumps. */
+.ct-workspace-shell {
+  transition: grid-template-columns var(--ct-duration-slow) var(--ct-ease-spring);
+}
+
+.ct-sidebar {
+  overflow: hidden;
+}
+
+@keyframes ct-sidebar-unfold {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ct-sidebar-fold {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Backwards fill only: once the entrance is over, hover transforms are the
+   elements' own again. */
+.ct-sidebar > * {
+  animation: ct-sidebar-unfold var(--ct-duration-slow) var(--ct-ease-premium) 70ms backwards;
+}
+
+.ct-sidebar.collapsed > * {
+  animation-name: ct-sidebar-fold;
+  animation-delay: 0ms;
+}
+
+/* Two names for one fade, so toggling the class restarts it either way. */
+@keyframes ct-dock-fold {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ct-dock-unfold {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.ct-quick-dock > * {
+  animation: ct-dock-unfold var(--ct-duration-base) var(--ct-ease-premium) 90ms backwards;
+}
+
+.is-sidebar-collapsed .ct-quick-dock > * {
+  animation-name: ct-dock-fold;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-workspace-shell {
+    transition: none;
+  }
+
+  .ct-sidebar > *,
+  .ct-quick-dock > * {
+    animation: none;
+  }
+}
+
 .ct-workspace-shell.is-sidebar-collapsed {
   --ct-sidebar-width: var(--ct-rail-width);
 }
@@ -245,6 +331,10 @@
 
 .ct-sidebar.collapsed .ct-sidebar-body {
   padding-inline: 0;
+  /* A scrollbar in a 72px strip took 8px off one side and pushed the badges
+     out of line with the button above and the dock below; the wheel still
+     scrolls a long list. */
+  scrollbar-width: none;
 }
 
 .ct-sidebar-header-action {

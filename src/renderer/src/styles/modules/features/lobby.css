@@ -2107,8 +2107,8 @@
 }
 
 .ct-lobby-compact-divider {
-  @apply m-0 w-6 border-0 border-t;
-  border-color: var(--ct-border);
+  @apply m-0 w-8 border-0 border-t;
+  border-color: var(--ct-alpha-20);
 }
 
 .ct-lobby-mini {
@@ -2121,6 +2121,30 @@
   transition:
     border-color var(--ct-duration-fast) ease,
     transform var(--ct-duration-fast) ease;
+}
+
+/* The badges pop in one after another as the strip settles. */
+@keyframes ct-lobby-mini-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ct-lobby-mini {
+  animation: ct-lobby-mini-in var(--ct-duration-slow) var(--ct-ease-spring) backwards;
+  animation-delay: calc(var(--lobby-order, 0) * 30ms + 90ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-lobby-mini {
+    animation: none;
+  }
 }
 
 .ct-lobby-mini.text-room {
