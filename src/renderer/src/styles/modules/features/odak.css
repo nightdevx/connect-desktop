@@ -1,0 +1,523 @@
+/* ==========================================================================
+   ODAK -- the redesign, page by page, exactly as the mock-up draws it.
+   Its own palette, scoped to .ct-odak: the rest of the app keeps its theme
+   until the design is settled.
+   ========================================================================== */
+
+.ct-odak {
+  --odak-bg: #0e0f11;
+  --odak-rail: #0b0c0e;
+  --odak-strip: #121316;
+  --odak-surface: #16181c;
+  --odak-raised: #1e2127;
+  --odak-sunken: #1a1c21;
+  --odak-border: #22252b;
+  --odak-border-strong: #2a2e35;
+  --odak-text: #f2f3f5;
+  --odak-text-soft: #d7dae0;
+  --odak-muted: #9aa0aa;
+  --odak-accent: #c6f432;
+  --odak-on-accent: #0e0f11;
+  --odak-live: #ff5c5c;
+
+  /* Over the whole workspace, under the title bar: the shell stays mounted
+     beneath it, so a call or a socket is never torn down by opening the page. */
+  position: fixed;
+  inset: var(--ct-titlebar-height) 0 0 0;
+  z-index: 40;
+  display: flex;
+  overflow: hidden;
+  color: var(--odak-text);
+  background: var(--odak-bg);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+.ct-odak button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ct-odak-fill {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-odak-sr {
+  @apply sr-only;
+}
+
+.ct-odak-muted {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+.ct-odak-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* --- section rail ------------------------------------------------------ */
+.ct-odak-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 72px;
+  flex-shrink: 0;
+  padding: 14px 0;
+  background: var(--odak-rail);
+  border-right: 1px solid var(--odak-border);
+}
+
+.ct-odak-logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 10px;
+  border-radius: 13px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+.ct-odak-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 60px;
+  height: 54px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+.ct-odak-rail-item:hover {
+  color: var(--odak-text);
+}
+
+.ct-odak-rail-item.active {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+.ct-odak-me {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+/* A person's dot, on whatever avatar holds it. */
+.ct-odak-presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--odak-rail);
+}
+
+.ct-odak-presence.online {
+  background: #34d399;
+}
+
+.ct-odak-presence.idle {
+  background: #fbbf24;
+}
+
+.ct-odak-presence.busy {
+  background: var(--odak-live);
+}
+
+/* --- conversations strip ---------------------------------------------- */
+.ct-odak-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 76px;
+  flex-shrink: 0;
+  padding: 16px 0;
+  background: var(--odak-strip);
+  border-right: 1px solid var(--odak-border);
+}
+
+.ct-odak-strip-home {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 16px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+  box-shadow: 0 0 0 2px var(--odak-accent);
+}
+
+.ct-odak-strip-divider {
+  width: 32px;
+  height: 1px;
+  background: var(--odak-border-strong);
+}
+
+.ct-odak-strip-dm {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ct-odak-strip-dm .ct-odak-presence {
+  right: 0;
+  bottom: 0;
+  width: 13px;
+  height: 13px;
+  border-color: var(--odak-strip);
+}
+
+.ct-odak-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+/* --- page --------------------------------------------------------------- */
+.ct-odak-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px 20px 20px;
+}
+
+.ct-odak-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ct-odak-pill {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-odak-pill h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ct-odak-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-odak-tabs button {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+.ct-odak-tabs button.active {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+.ct-odak-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 240px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-odak-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--odak-text);
+  background: transparent;
+}
+
+.ct-odak-primary,
+.ct-odak-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ct-odak-primary {
+  border: 0;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+.ct-odak-secondary {
+  border: 1px solid var(--odak-border-strong);
+  color: var(--odak-text);
+  background: transparent;
+}
+
+.ct-odak-primary.small,
+.ct-odak-secondary.small {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 11px;
+}
+
+.ct-odak-body {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-height: 0;
+}
+
+.ct-odak-card {
+  border-radius: 18px;
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+/* --- friends ------------------------------------------------------------ */
+.ct-odak-friends {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.ct-odak-friend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+}
+
+.ct-odak-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ct-odak-avatar .ct-odak-presence {
+  width: 13px;
+  height: 13px;
+  border-color: var(--odak-surface);
+}
+
+.ct-odak-friend-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-odak-friend-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ct-odak-friend-status {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--odak-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ct-odak-icon-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+/* --- right column ------------------------------------------------------- */
+.ct-odak-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 340px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.ct-odak-side-title {
+  margin: 4px 4px 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--odak-muted);
+}
+
+.ct-odak-side-title.spaced {
+  margin-top: 10px;
+}
+
+.ct-odak-activity {
+  padding: 16px;
+}
+
+.ct-odak-activity-room {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ct-odak-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ct-odak-activity-name {
+  font-weight: 700;
+}
+
+.ct-odak-tile {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+
+.ct-odak-tile.accent {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+.ct-odak-tile.game {
+  width: 44px;
+  height: 44px;
+  color: #ff8fa3;
+  background: #3a1f2b;
+}
+
+.ct-odak-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--odak-live);
+}
+
+.ct-odak-faces {
+  display: flex;
+}
+
+.ct-odak-faces span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -7px;
+  border-radius: 50%;
+  border: 2px solid var(--odak-surface);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ct-odak-faces span:last-child {
+  margin-right: 0;
+}
+
+.ct-odak-request-avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #ffffff;
+  background: #475569;
+}
+
+.ct-odak-accept,
+.ct-odak-decline {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 11px;
+}
+
+.ct-odak-accept {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+.ct-odak-decline {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}

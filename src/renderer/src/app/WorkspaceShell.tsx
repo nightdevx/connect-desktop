@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { OdakFriendsPage } from "@/features/odak";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { throwIfTransient } from "@/services/query-client";
 import type { UserRole } from "@shared/auth-contracts";
@@ -1656,6 +1657,12 @@ function WorkspaceShell({
         onSubmit={(lobbyId, password) => void joinLobby(lobbyId, password)}
         onCancel={cancelPasswordPrompt}
       />
+      {/* The Odak redesign's Arkadaşlar page, on its own branch: the mock-up as
+          drawn, laid over the shell so the call, audio and sockets under it
+          keep running. Only its section rail is wired. */}
+      {workspaceSection === "users" && (
+        <OdakFriendsPage onSectionChange={handleSectionChange} />
+      )}
     </section>
   );
 }
