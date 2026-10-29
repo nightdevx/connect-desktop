@@ -975,3 +975,151 @@
   border-color: var(--odak-border);
   background: var(--odak-surface);
 }
+
+
+/* ==========================================================================
+   Motion -- the tokens and keyframes are odak-hareket.css's.
+   ========================================================================== */
+
+/* --- section switch ---------------------------------------------------- */
+/* What a section switch mounts: the main column's section, the admin page,
+   the sidebar's section content, the Arkadaşlar page. A data refresh keeps
+   these elements, so it never replays the entrance. */
+:root[data-odak] :is(.ct-main-panel-content > *, .ct-admin-panel-content) {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] :is(.ct-sidebar-body > *, .ct-odak-main) {
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+/* The store wraps a section switch in a view transition, whose default is a
+   whole-page cross-fade of snapshots. Under Odak the swap is instant and the
+   entrances above are the only motion, so the two do not blur together. */
+:root[data-odak]::view-transition-group(*),
+:root[data-odak]::view-transition-old(*),
+:root[data-odak]::view-transition-new(*) {
+  animation: none;
+}
+
+/* --- rail, buttons, cards ------------------------------------------------ */
+:root[data-odak] :is(.ct-odak-rail-item, .ct-odak-me, .ct-odak-strip-home) {
+  transition:
+    color var(--odak-dur-2) var(--odak-ease-out),
+    background-color var(--odak-dur-2) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-odak-rail-item, .ct-odak-me, .ct-odak-strip-home):active {
+  transform: scale(0.97);
+}
+
+/* A count pops in. One already there when the rail or the page mounted
+   stays still: OdakRail's calm and the page's intro push its pop into the
+   past, and a delay change never restarts an animation. */
+:root[data-odak] .ct-odak-count {
+  animation: odak-pop var(--odak-dur-2) var(--odak-ease-spring) backwards;
+}
+
+:root[data-odak] :is(.ct-odak-rail.calm, .ct-odak.intro) .ct-odak-count {
+  animation-delay: -1s;
+}
+
+:root[data-odak]
+  :is(
+    .ct-odak-primary,
+    .ct-odak-secondary,
+    .ct-odak-icon-button,
+    .ct-odak-accept,
+    .ct-odak-decline,
+    .ct-odak-strip-toggle,
+    .ct-sidebar-header-action,
+    .ct-quick-icon-button
+  ) {
+  transition:
+    color var(--odak-dur-1) var(--odak-ease-out),
+    background-color var(--odak-dur-1) var(--odak-ease-out),
+    border-color var(--odak-dur-1) var(--odak-ease-out),
+    transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak]
+  :is(
+    .ct-odak-primary,
+    .ct-odak-secondary,
+    .ct-odak-icon-button,
+    .ct-odak-accept,
+    .ct-odak-decline,
+    .ct-odak-strip-toggle,
+    .ct-sidebar-header-action,
+    .ct-quick-icon-button
+  ):hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+:root[data-odak]
+  :is(
+    .ct-odak-primary,
+    .ct-odak-secondary,
+    .ct-odak-icon-button,
+    .ct-odak-accept,
+    .ct-odak-decline,
+    .ct-odak-strip-toggle,
+    .ct-sidebar-header-action,
+    .ct-quick-icon-button
+  ):active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-odak-card {
+  transition:
+    border-color var(--odak-dur-1) var(--odak-ease-out),
+    background-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-odak-card:not(.ct-odak-skeleton):hover {
+  border-color: var(--odak-border-strong);
+  background: #1a1c21;
+}
+
+/* --- the Arkadaşlar page -------------------------------------------------- */
+/* The first entrance (OdakFriendsPage's intro): the cards and the side
+   column step in 28ms apart, eight steps at most (--i is set inline). */
+:root[data-odak] .ct-odak.intro :is(.ct-odak-friends, .ct-odak-side) > :not(.ct-odak-skeleton) {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--odak-stagger));
+}
+
+/* The list is keyed by tab, so a tab switch fades the new one in. */
+:root[data-odak] .ct-odak-friends {
+  animation: odak-fade var(--odak-dur-2) var(--odak-ease-out) backwards;
+}
+
+/* A conversation opened while the page is up rises into the strip; the
+   ones already open when it mounted do not. */
+:root[data-odak] .ct-odak-strip-row {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-odak.intro .ct-odak-strip-row {
+  animation-delay: -1s;
+}
+
+/* Loading: placeholders in the cards' shape, a soft sheen across them. */
+:root[data-odak] .ct-odak-skeleton {
+  height: 76px;
+  background: linear-gradient(
+      100deg,
+      var(--odak-surface) 30%,
+      var(--odak-raised) 50%,
+      var(--odak-surface) 70%
+    )
+    0 0 / 200% 100%;
+  animation: odak-sheen 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-odak-skeleton {
+    animation: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
@@ -21,7 +21,7 @@ import { GameArt } from "../user/game-art";
 import { ConfirmActionModal } from "../common";
 import { ContextMenuPanel } from "../common/context-menu-panel";
 import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
-import { Avatar, GamepadIcon, Icon, SpeakerIcon, UsersIcon } from "./odak-parts";
+import { Avatar, GamepadIcon, Icon, SpeakerIcon, UsersIcon, staggerStyle } from "./odak-parts";
 import { OdakRail } from "./odak-rail";
 import type { OdakRailProps } from "./odak-rail";
 
@@ -150,6 +150,19 @@ export function OdakFriendsPage({
   } = home;
   const gameActivityByUser = useGameActivityByUser();
   const [tab, setTab] = useState<Tab>("online");
+  // The page's first entrance, once: the cards and the side column step in
+  // when the list first has something to show, and are left alone after it,
+  // so a refresh or a friend coming online never replays it. While it lasts,
+  // strip rows and counts that were already there do not animate either.
+  const [intro, setIntro] = useState(true);
+  const ready = !friends.isLoading;
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+    const timer = window.setTimeout(() => setIntro(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
   const [search, setSearch] = useState("");
   const [pendingUnfriend, setPendingUnfriend] = useState<Person | null>(null);
   const [profileTarget, setProfileTarget] = useState<{
@@ -309,14 +322,17 @@ export function OdakFriendsPage({
 
   // ponytail: one antd Dropdown per card; a few hundred friends would want the
   // virtualised list FriendsHomePanel uses.
-  const renderFriendCard = (user: UserDirectoryEntry): ReactNode => {
+  const renderFriendCard = (user: UserDirectoryEntry, order = 0): ReactNode => {
     const name = nameOf(user);
     const activity = activityOf(user);
     const menu = menuFor(user, activity);
     const popupRender = menuHeader(user, activity);
     return (
       <Dropdown key={user.userId} trigger={["contextMenu"]} menu={menu} popupRender={popupRender}>
-        <article className={`ct-odak-card ct-odak-friend ${user.appOnline ? "" : "offline"}`}>
+        <article
+          className={`ct-odak-card ct-odak-friend ${user.appOnline ? "" : "offline"}`}
+          style={staggerStyle(order)}
+        >
           <button
             type="button"
             className="ct-odak-friend-open"
@@ -372,10 +388,10 @@ export function OdakFriendsPage({
     );
   };
 
-  const renderRequestCard = (person: Person, incoming: boolean): ReactNode => {
+  const renderRequestCard = (person: Person, incoming: boolean, order = 0): ReactNode => {
     const isPending = friends.pendingUserIds.includes(person.userId);
     return (
-      <article key={person.userId} className="ct-odak-card ct-odak-request">
+      <article key={person.userId} className="ct-odak-card ct-odak-request" style={staggerStyle(order)}>
         <Avatar userId={person.userId} name={person.name} className="request" />
         <span className="ct-odak-friend-meta">
           <span className="ct-odak-friend-name">{person.name}</span>
@@ -419,7 +435,15 @@ export function OdakFriendsPage({
 
   const renderList = (): ReactNode => {
     if (friends.isLoading) {
-      return renderState("Arkadaşlar yükleniyor…");
+      // Placeholders in the cards' shape, a soft sheen across them.
+      return (
+        <>
+          <p className="ct-odak-sr" role="status">Arkadaşlar yükleniyor…</p>
+          {[0, 1, 2, 3, 4, 5].map((slot) => (
+            <div key={slot} className="ct-odak-card ct-odak-skeleton" aria-hidden="true" />
+          ))}
+        </>
+      );
     }
     if (friends.loadError) {
       return renderState(
@@ -440,9 +464,11 @@ export function OdakFriendsPage({
       return (
         <>
           {incoming.length > 0 && <h2 className="ct-odak-list-title">GELEN · {incoming.length}</h2>}
-          {incoming.map((person) => renderRequestCard(person, true))}
+          {incoming.map((person, index) => renderRequestCard(person, true, index))}
           {outgoing.length > 0 && <h2 className="ct-odak-list-title">GÖNDERİLEN · {outgoing.length}</h2>}
-          {outgoing.map((person) => renderRequestCard(person, false))}
+          {outgoing.map((person, index) =>
+            renderRequestCard(person, false, incoming.length + index),
+          )}
         </>
       );
     }
@@ -463,13 +489,17 @@ export function OdakFriendsPage({
         </button>,
       );
     }
-    return visibleFriends.map(renderFriendCard);
+    return visibleFriends.map((user, index) => renderFriendCard(user, index));
   };
 
   const docked = selectedUserId !== null;
+  // The side column's stagger order, in the order its cards are drawn.
+  let sideOrder = 0;
 
   return (
-    <div className={`ct-odak ${docked ? "docked" : ""} ${stripCollapsed ? "" : "strip-open"}`}>
+    <div
+      className={`ct-odak ${docked ? "docked" : ""} ${stripCollapsed ? "" : "strip-open"} ${intro ? "intro" : ""}`}
+    >
       <OdakRail activeSection="users" {...rail} />
 
       {/* Open: the conversations as a list with names and status. Folded: the
@@ -613,7 +643,9 @@ export function OdakFriendsPage({
           </header>
 
           <div className="ct-odak-body">
+            {/* Keyed by tab: switching tabs fades the new list in. */}
             <section
+              key={tab}
               className={`ct-odak-friends ${tab === "requests" ? "single" : ""}`}
               aria-label={tab === "requests" ? "Arkadaşlık istekleri" : "Arkadaşlar"}
             >
@@ -634,7 +666,11 @@ export function OdakFriendsPage({
                     : `${names.slice(0, -1).join(", ")} ve ${names[names.length - 1]} burada`;
                 const here = lobby.id === currentLobbyId;
                 return (
-                  <article key={lobby.id} className="ct-odak-card ct-odak-activity ct-odak-activity-room">
+                  <article
+                    key={lobby.id}
+                    className="ct-odak-card ct-odak-activity ct-odak-activity-room"
+                    style={staggerStyle(++sideOrder)}
+                  >
                     <div className="ct-odak-activity-row">
                       <span className="ct-odak-tile accent" aria-hidden="true">
                         <SpeakerIcon size={17} />
@@ -676,7 +712,11 @@ export function OdakFriendsPage({
               })}
 
               {activeOthers.map(({ user, activity }) => (
-                <article key={user.userId} className="ct-odak-card ct-odak-activity ct-odak-activity-row">
+                <article
+                  key={user.userId}
+                  className="ct-odak-card ct-odak-activity ct-odak-activity-row"
+                  style={staggerStyle(++sideOrder)}
+                >
                   {activity.kind === "game" && activity.game ? (
                     <span className="ct-odak-game-art">
                       <GameArt name={activity.game} size="md" />
@@ -698,7 +738,7 @@ export function OdakFriendsPage({
                   <h2 className="ct-odak-side-title spaced">BEKLEYEN İSTEKLER</h2>
                   {toPeople(friends.incomingRequests)
                     .slice(0, 3)
-                    .map((person) => renderRequestCard(person, true))}
+                    .map((person) => renderRequestCard(person, true, ++sideOrder))}
                   {incomingCount > 3 && (
                     <button type="button" className="ct-odak-secondary small" onClick={() => setTab("requests")}>
                       Tümünü gör · {incomingCount}

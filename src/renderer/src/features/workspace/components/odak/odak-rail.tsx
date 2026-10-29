@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { CheckOutlined, LogoutOutlined } from "@ant-design/icons";
@@ -42,6 +43,13 @@ export function OdakRail({
   onLogout,
   isLoggingOut,
 }: OdakRailProps) {
+  // A count already showing when the rail mounts (a section switch) stays
+  // still; one that turns up afterwards pops.
+  const [calm, setCalm] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCalm(false), 300);
+    return () => window.clearTimeout(timer);
+  }, []);
   const avatarMenu: MenuProps = {
     selectedKeys: [presenceStatus],
     items: [
@@ -70,7 +78,7 @@ export function OdakRail({
   };
 
   return (
-    <nav className="ct-odak-rail" aria-label="Bölümler">
+    <nav className={`ct-odak-rail ${calm ? "calm" : ""}`} aria-label="Bölümler">
       <span className="ct-odak-logo" aria-hidden="true">C</span>
       {SECTIONS.filter((section) => section.id !== "admin" || isAdminRole(currentUserRole)).map(
         (section) => {

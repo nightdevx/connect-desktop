@@ -465,3 +465,174 @@
 :root[data-odak] .ct-call-strip.outgoing .ct-call-strip-text > span {
   color: var(--odak-accent);
 }
+
+/* --------------------------------------------------------------------------
+   Motion: an overlay opens from where it comes from and leaves a little
+   faster. antd runs its own motion classes; these swap the keyframes,
+   durations and curves under them. A leave plays the entrance in reverse,
+   so its ease-out curve runs as an ease-in.
+   -------------------------------------------------------------------------- */
+
+/* A menu under its anchor drops from it (odak-open rises, for one above). */
+@keyframes odak-overlays-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The call card comes in from the right edge it sits against. */
+@keyframes odak-overlays-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Modals: the card opens, the mask fades. */
+:root[data-odak] :is(.ant-zoom-enter.ant-zoom-enter-active, .ant-zoom-appear.ant-zoom-appear-active) {
+  animation-name: odak-open;
+  animation-duration: var(--odak-dur-3);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] .ant-zoom-leave.ant-zoom-leave-active {
+  animation-name: odak-open;
+  animation-direction: reverse;
+  animation-duration: var(--odak-dur-2);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ant-fade-enter.ant-fade-enter-active, .ant-fade-appear.ant-fade-appear-active) {
+  animation-name: odak-fade;
+  animation-duration: var(--odak-dur-3);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] .ant-fade-leave.ant-fade-leave-active {
+  animation-name: odak-fade;
+  animation-direction: reverse;
+  animation-duration: var(--odak-dur-2);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+/* Menus, selects and popovers open from their anchor in 180ms. */
+:root[data-odak]
+  :is(
+    .ant-slide-up-enter.ant-slide-up-enter-active,
+    .ant-slide-up-appear.ant-slide-up-appear-active,
+    .ant-slide-up-leave.ant-slide-up-leave-active
+  ) {
+  animation-name: odak-overlays-drop;
+}
+
+:root[data-odak]
+  :is(
+    .ant-slide-down-enter.ant-slide-down-enter-active,
+    .ant-slide-down-appear.ant-slide-down-appear-active,
+    .ant-slide-down-leave.ant-slide-down-leave-active,
+    .ant-zoom-big-enter.ant-zoom-big-enter-active,
+    .ant-zoom-big-appear.ant-zoom-big-appear-active,
+    .ant-zoom-big-leave.ant-zoom-big-leave-active
+  ) {
+  animation-name: odak-open;
+}
+
+:root[data-odak]
+  :is(
+    .ant-slide-left-enter.ant-slide-left-enter-active,
+    .ant-slide-left-appear.ant-slide-left-appear-active,
+    .ant-slide-left-leave.ant-slide-left-leave-active,
+    .ant-slide-right-enter.ant-slide-right-enter-active,
+    .ant-slide-right-appear.ant-slide-right-appear-active,
+    .ant-slide-right-leave.ant-slide-right-leave-active
+  ) {
+  animation-name: odak-fade;
+}
+
+:root[data-odak]
+  :is(
+    .ant-slide-up-enter.ant-slide-up-enter-active,
+    .ant-slide-up-appear.ant-slide-up-appear-active,
+    .ant-slide-down-enter.ant-slide-down-enter-active,
+    .ant-slide-down-appear.ant-slide-down-appear-active,
+    .ant-slide-left-enter.ant-slide-left-enter-active,
+    .ant-slide-left-appear.ant-slide-left-appear-active,
+    .ant-slide-right-enter.ant-slide-right-enter-active,
+    .ant-slide-right-appear.ant-slide-right-appear-active,
+    .ant-zoom-big-enter.ant-zoom-big-enter-active,
+    .ant-zoom-big-appear.ant-zoom-big-appear-active
+  ) {
+  animation-duration: var(--odak-dur-2);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak]
+  :is(
+    .ant-slide-up-leave.ant-slide-up-leave-active,
+    .ant-slide-down-leave.ant-slide-down-leave-active,
+    .ant-slide-left-leave.ant-slide-left-leave-active,
+    .ant-slide-right-leave.ant-slide-right-leave-active,
+    .ant-zoom-big-leave.ant-zoom-big-leave-active
+  ) {
+  animation-direction: reverse;
+  animation-duration: var(--odak-dur-1);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+/* Tooltips only fade, 120ms each way. */
+:root[data-odak]
+  :is(
+    .ant-zoom-big-fast-enter.ant-zoom-big-fast-enter-active,
+    .ant-zoom-big-fast-appear.ant-zoom-big-fast-appear-active,
+    .ant-zoom-big-fast-leave.ant-zoom-big-fast-leave-active
+  ) {
+  animation-name: odak-fade;
+  animation-duration: var(--odak-dur-1);
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] .ant-zoom-big-fast-leave.ant-zoom-big-fast-leave-active {
+  animation-direction: reverse;
+}
+
+/* Toasts slide down from the title bar and leave faster, back up. */
+:root[data-odak] .ct-toast {
+  animation: odak-overlays-drop var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-toast.leaving {
+  animation: ctToastOut var(--odak-dur-2) var(--odak-ease-in) forwards;
+}
+
+/* The call card comes in from the right; while it rings, a lime ring just
+   outside the face breathes instead of the old ripples. */
+:root[data-odak] .ct-call-dock {
+  animation: odak-overlays-from-right var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-call-dock .ct-ring-ripple::before {
+  inset: -4px;
+  border-color: var(--odak-accent);
+  animation: odak-breathe 2.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-call-dock .ct-ring-ripple::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-call-dock .ct-ring-ripple::before {
+    animation: none;
+  }
+}
