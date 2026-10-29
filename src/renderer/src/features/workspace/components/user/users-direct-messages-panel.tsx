@@ -122,6 +122,7 @@ function CallQualityBars({ userId }: { userId: string }) {
 // Stable fallbacks for the optional media props below.
 const EMPTY_SPEAKER_IDS: string[] = [];
 const EMPTY_MEDIA_MAP: ParticipantMediaMap = {};
+const NO_ARRIVALS: ReadonlySet<string> = new Set();
 
 // Consecutive messages of one author, this close together, read as one run.
 const RUN_GAP_MS = 5 * 60_000;
@@ -706,6 +707,41 @@ export function UsersDirectMessagesPanel({
     [isOdak, directMessages, callLogInfo],
   );
 
+  // The messages that arrived while the thread was open, for their entrance.
+  // Not the first page, not an older page prepended: only what lands after the
+  // newest message already shown. The previous newest is kept in state and
+  // compared during render (React's "storing information from previous
+  // renders"), so the class is there on the row's first paint.
+  const newestId = directMessages.at(-1)?.id;
+  const [arrivals, setArrivals] = useState<{
+    peer: string | undefined;
+    newestId: string | undefined;
+    ids: ReadonlySet<string>;
+  }>({ peer: selectedUserId, newestId, ids: NO_ARRIVALS });
+  if (arrivals.peer !== selectedUserId || arrivals.newestId !== newestId) {
+    const from =
+      arrivals.peer === selectedUserId && arrivals.newestId
+        ? directMessages.findIndex((message) => message.id === arrivals.newestId)
+        : -1;
+    setArrivals({
+      peer: selectedUserId,
+      newestId,
+      ids: from >= 0 ? new Set(directMessages.slice(from + 1).map((message) => message.id)) : NO_ARRIVALS,
+    });
+  }
+  // Played once: a row scrolled away and back is mounted again, and must not
+  // enter a second time.
+  const handleArrived = useCallback((messageId: string): void => {
+    setArrivals((previous) => {
+      if (!previous.ids.has(messageId)) {
+        return previous;
+      }
+      const ids = new Set(previous.ids);
+      ids.delete(messageId);
+      return { ...previous, ids };
+    });
+  }, []);
+
   const showEmptyState =
     !directMessagesQuery.isPending &&
     !directMessagesQuery.isError &&
@@ -836,6 +872,8 @@ export function UsersDirectMessagesPanel({
                   <DirectChatMessageRow
                     message={message}
                     place={threadShape?.get(message.id)}
+                    arrived={arrivals.ids.has(message.id)}
+                    onArrived={handleArrived}
                     callLog={callLogInfo.get(message.id)}
                     onCallBack={handleCallBack}
                     avatarUrl={avatarFor(message.userId)}

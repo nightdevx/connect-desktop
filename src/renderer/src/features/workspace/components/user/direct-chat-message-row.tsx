@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, type AnimationEvent } from "react";
 import { Button, Input, Tooltip } from "antd";
 import {
   DeleteOutlined,
@@ -44,6 +44,10 @@ export interface DirectChatMessageRowProps {
   avatarUrl?: string | null;
   /** Odak: a new day's line above it, and its place in its author's run. */
   place?: { day?: string; joinsPrevious: boolean; joinsNext: boolean };
+  /** It arrived while the thread was open: it enters once (odak-sohbet.css). */
+  arrived?: boolean;
+  /** The entrance has played. */
+  onArrived?: (messageId: string) => void;
 }
 
 // Every prop except the four callbacks. `message` is compared by reference
@@ -67,7 +71,8 @@ const areRowPropsEqual = (
   previous.avatarUrl === next.avatarUrl &&
   previous.place?.day === next.place?.day &&
   previous.place?.joinsPrevious === next.place?.joinsPrevious &&
-  previous.place?.joinsNext === next.place?.joinsNext;
+  previous.place?.joinsNext === next.place?.joinsNext &&
+  previous.arrived === next.arrived;
 
 /**
  * One rendered direct message.
@@ -173,11 +178,22 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
   onCallBack,
   avatarUrl,
   place,
+  arrived = false,
+  onArrived,
 }: DirectChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
   const callKind = callLogKind(message.body);
   const dayLine = place?.day ? <div className="ct-chat-day">{place.day}</div> : null;
+  const entrance = arrived
+    ? {
+        onAnimationEnd: (event: AnimationEvent<HTMLDivElement>) => {
+          if (event.target === event.currentTarget) {
+            onArrived?.(message.id);
+          }
+        },
+      }
+    : {};
 
   if (callKind) {
     if (callLog?.hidden) {
@@ -212,7 +228,8 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
     <>
       {dayLine}
       <div
-        className={`ct-chat-row ${isOwnMessage ? "own" : ""} ${place?.joinsPrevious ? "joins-previous" : ""} ${place?.joinsNext ? "joins-next" : ""}`}
+        className={`ct-chat-row ${isOwnMessage ? "own" : ""} ${place?.joinsPrevious ? "joins-previous" : ""} ${place?.joinsNext ? "joins-next" : ""} ${arrived ? "arrived" : ""}`}
+        {...entrance}
       >
         {/* A transcript, not two columns of bubbles: every message under its
             author's face and name, the way the room chat reads. Odak draws

@@ -174,6 +174,7 @@
   background: var(--odak-surface);
   box-shadow: none;
   backdrop-filter: none;
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) both;
 }
 
 :root[data-odak] .ct-chat-panel .ct-incoming-call-banner .ant-avatar {
@@ -553,6 +554,11 @@
   left: auto;
 }
 
+:root[data-odak] .ct-chat-panel .ct-chat-row:hover .ct-chat-message-actions,
+:root[data-odak] .ct-chat-panel .ct-chat-row:focus-within .ct-chat-message-actions {
+  animation: odak-fade var(--odak-dur-2) var(--odak-ease-out) both;
+}
+
 :root[data-odak] .ct-chat-panel .ct-chat-action {
   width: 28px;
   height: 28px;
@@ -604,8 +610,30 @@
   width: 5px;
   height: 5px;
   background: var(--odak-muted);
+  animation: odak-sohbet-wave 1.2s var(--odak-ease-out) infinite;
 }
 
+:root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+:root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes odak-sohbet-wave {
+  0%,
+  60%,
+  100% {
+    opacity: 0.45;
+    transform: none;
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
 
 /* --- composer: one pill -- attach, the field, GIF, emoji, send ----------- */
 :root[data-odak] .ct-chat-panel .ct-chat-composer {
@@ -695,6 +723,10 @@
   transform: translateY(-1px);
 }
 
+:root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ct-chat-send-btn.ant-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
 /* Nothing to send yet: the same lime, held back. */
 :root[data-odak] .ct-chat-panel .ct-chat-composer-row > .ct-chat-send-btn.ant-btn:disabled {
   color: var(--odak-on-accent);
@@ -710,6 +742,7 @@
   border-radius: 12px;
   font-size: 13px;
   background: var(--odak-surface);
+  animation: odak-enter var(--odak-dur-2) var(--odak-ease-out) both;
 }
 
 :root[data-odak] .ct-chat-panel .ct-composer-chip.reply {
@@ -751,6 +784,11 @@
 
 :root[data-odak] .ct-chat-panel .ct-mention-option.active {
   background: var(--odak-raised);
+}
+
+/* --- a message that arrives while the thread is open --------------------- */
+:root[data-odak] .ct-chat-panel .ct-chat-row.arrived {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) both;
 }
 
 /* --- the profile drawer -------------------------------------------------- */
@@ -929,4 +967,12 @@
 
 :root[data-odak] .ct-call-strip .ct-call-dock-btn.reject:active {
   transform: scale(0.92);
+}
+
+/* --- reduced motion: the loops stop (durations are zeroed in odak-hareket) */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-chat-panel .ct-chat-typing-indicator .ct-ring-dots i {
+    animation: none;
+    opacity: 0.7;
+  }
 }
