@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button, Slider } from "antd";
+import { Select, Switch, Button, Slider, Segmented } from "antd";
 import {
   AudioMutedOutlined,
   AudioOutlined,
@@ -385,51 +385,96 @@ export function SettingsAudio({
       title="Ses"
       description="Hangi cihazla konuşup duyduğun, seslerin seviyesi, sesin nasıl temizlendiği ve mikrofon kısayolların."
     >
+      {/* The two devices side by side, and under them the test of the one
+          you talk into: pick a microphone, speak, watch the bar. */}
       <SettingsGroup
         title="Cihazlar"
         description="Varsayılan, Windows'ta seçili olan cihazdır."
       >
-        <SettingsRow
-          icon={<AudioOutlined />}
-          title="Mikrofon"
-          description="Konuşurken sesini alan cihaz."
-          htmlFor="settings-audio-input"
-        >
-          <Select
-            id="settings-audio-input"
-            value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
-            onChange={(value) => {
-              const nextValue = value.trim();
-              handlePreferenceChange(
-                "selectedAudioInputDeviceId",
-                nextValue.length > 0 ? nextValue : null,
-              );
-            }}
-            options={inputOptions}
-            className="ct-settings-row-select wide"
-          />
-        </SettingsRow>
+        {/* The sink the test stream plays back through, so it lives with the
+            test rather than at the top of the panel. */}
+        <audio ref={audioPreviewRef} hidden playsInline />
 
-        <SettingsRow
-          icon={<CustomerServiceOutlined />}
-          title="Hoparlör veya kulaklık"
-          description="Odadaki sesleri duyduğun cihaz."
-          htmlFor="settings-audio-output"
-        >
-          <Select
-            id="settings-audio-output"
-            value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
-            onChange={(value) => {
-              const nextValue = value.trim();
-              handlePreferenceChange(
-                "selectedAudioOutputDeviceId",
-                nextValue.length > 0 ? nextValue : null,
-              );
-            }}
-            options={outputOptions}
-            className="ct-settings-row-select wide"
-          />
-        </SettingsRow>
+        <div className="ct-settings-block">
+          <div className="ct-settings-devices">
+            <div className="ct-settings-field">
+              <label className="ct-field-label" htmlFor="settings-audio-input">
+                Mikrofon
+              </label>
+              <Select
+                id="settings-audio-input"
+                value={draftAudioPreferences.selectedAudioInputDeviceId ?? ""}
+                onChange={(value) => {
+                  const nextValue = value.trim();
+                  handlePreferenceChange(
+                    "selectedAudioInputDeviceId",
+                    nextValue.length > 0 ? nextValue : null,
+                  );
+                }}
+                options={inputOptions}
+              />
+            </div>
+
+            <div className="ct-settings-field">
+              <label className="ct-field-label" htmlFor="settings-audio-output">
+                Hoparlör veya kulaklık
+              </label>
+              <Select
+                id="settings-audio-output"
+                value={draftAudioPreferences.selectedAudioOutputDeviceId ?? ""}
+                onChange={(value) => {
+                  const nextValue = value.trim();
+                  handlePreferenceChange(
+                    "selectedAudioOutputDeviceId",
+                    nextValue.length > 0 ? nextValue : null,
+                  );
+                }}
+                options={outputOptions}
+              />
+            </div>
+          </div>
+
+          <div className="ct-settings-mic-test">
+            <div
+              className={`ct-mic-meter${audioTestStream ? " live" : ""}`}
+              role="meter"
+              aria-label="Mikrofon seviyesi"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={micLevelPercent}
+            >
+              <span style={{ clipPath: `inset(0 ${100 - micLevelPercent}% 0 0)` }} />
+            </div>
+
+            <Button icon={<PlayCircleOutlined />} onClick={handlePlayTestTone}>
+              Test sesi
+            </Button>
+            <Button
+              type={audioTestStream ? "default" : "primary"}
+              icon={audioTestStream ? <StopOutlined /> : <AudioOutlined />}
+              onClick={() => {
+                if (audioTestStream) {
+                  void stopAudioTest().then(() => {
+                    toast.info("Mikrofon testi durduruldu.");
+                  });
+                  return;
+                }
+
+                void handleStartAudioTest();
+              }}
+              loading={isStartingAudioTest}
+              disabled={isStartingAudioTest}
+              danger={Boolean(audioTestStream)}
+            >
+              {audioTestStream ? "Durdur" : "Testi başlat"}
+            </Button>
+          </div>
+
+          <small className="ct-field-hint">
+            Testi başlatıp konuş: sesini seçili çıkıştan duyarsın, çubuk ne kadar
+            yüksek geldiğini gösterir.
+          </small>
+        </div>
       </SettingsGroup>
 
       <SettingsGroup
@@ -461,54 +506,6 @@ export function SettingsAudio({
             onChange={(next) => handlePreferenceChange("microphoneVolume", next)}
           />
         </SettingsRow>
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Mikrofon testi"
-        description="Testi başlatıp konuş: sesini seçili çıkıştan duyarsın, çubuk ne kadar yüksek geldiğini gösterir."
-        action={
-          <>
-            <Button icon={<PlayCircleOutlined />} onClick={handlePlayTestTone}>
-              Test sesi
-            </Button>
-            <Button
-              type={audioTestStream ? "default" : "primary"}
-              icon={audioTestStream ? <StopOutlined /> : <AudioOutlined />}
-              onClick={() => {
-                if (audioTestStream) {
-                  void stopAudioTest().then(() => {
-                    toast.info("Mikrofon testi durduruldu.");
-                  });
-                  return;
-                }
-
-                void handleStartAudioTest();
-              }}
-              loading={isStartingAudioTest}
-              disabled={isStartingAudioTest}
-              danger={Boolean(audioTestStream)}
-            >
-              {audioTestStream ? "Durdur" : "Testi başlat"}
-            </Button>
-          </>
-        }
-      >
-        {/* The sink the test stream plays back through, so it lives with the
-            test rather than at the top of the panel. */}
-        <audio ref={audioPreviewRef} hidden playsInline />
-
-        <div className="ct-settings-block">
-          <div
-            className={`ct-mic-meter${audioTestStream ? " live" : ""}`}
-            role="meter"
-            aria-label="Mikrofon seviyesi"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={micLevelPercent}
-          >
-            <span style={{ clipPath: `inset(0 ${100 - micLevelPercent}% 0 0)` }} />
-          </div>
-        </div>
       </SettingsGroup>
 
       <SettingsGroup
@@ -554,7 +551,9 @@ export function SettingsAudio({
             title="Kalite profili"
             description="Daha güçlü profiller daha çok gürültü keser, karşılığında biraz daha işlemci harcar."
           >
-            <Select
+            {/* The three strengths side by side with the one in use lit: all
+                of the choice at a glance, not a list to open. */}
+            <Segmented
               aria-label="RNNoise kalite profili"
               value={draftAudioPreferences.noiseSuppressionPreset}
               onChange={(value) => {
@@ -565,7 +564,7 @@ export function SettingsAudio({
                 label: preset.label,
                 title: preset.description,
               }))}
-              className="ct-settings-row-select"
+              className="ct-segmented-premium"
             />
           </SettingsRow>
         )}

@@ -1,1 +1,617 @@
 /* Odak tasarımı: ayarlar bölümü (ODAK-TASARIM-PLANI.md). Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   AYARLAR -- the page list in the strip and every settings page
+   (OdakAyarlar.dc.html). A page is its name in a raised pill with one line
+   beside it, then a stack of 20px cards; a card is a 15px title and its rows,
+   no hairlines between them. Controls sit on #1A1C21 with a #2A2E35 edge,
+   lime when on.
+   ========================================================================== */
+
+/* --- the page list --------------------------------------------------------- */
+/* Group names small, spaced and grey; the pages as 38px rows of text. The
+   icons stay for the folded strip, which has nothing else to show. */
+:root[data-odak] .ct-settings-tabs > .ct-list-group-title {
+  margin-top: 8px;
+  padding-inline: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-settings-tabs > .ct-list-group-title:first-child {
+  margin-top: 0;
+}
+
+:root[data-odak] .ct-sidebar:not(.collapsed) .ct-settings-tab {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:root[data-odak] .ct-sidebar:not(.collapsed) .ct-settings-tab:not(.active, :hover) {
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-sidebar:not(.collapsed) .ct-settings-tab-icon {
+  display: none;
+}
+
+/* --- the page -------------------------------------------------------------- */
+:root[data-odak] .ct-settings-section {
+  /* The page's own entrance, on a tab switch: a fade and a 4px rise. On the
+     way into Ayarlar the shell raises the whole panel instead (.intro). */
+  --odak-rise: 4px;
+  max-width: 960px;
+  gap: 16px;
+  padding: 0 0 32px;
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-settings-main-panel.intro > .ct-settings-section {
+  animation-delay: -1s;
+}
+
+:root[data-odak] .ct-settings-content {
+  gap: 16px;
+}
+
+/* The name in a raised pill, the sentence about it beside it. */
+:root[data-odak] .ct-settings-section-header {
+  padding: 0;
+}
+
+:root[data-odak] .ct-settings-section-header .ct-page-header-text {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-settings-section-header h2 {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: normal;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-settings-section-header p {
+  max-width: 72ch;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--odak-muted);
+}
+
+/* --- cards ----------------------------------------------------------------- */
+:root[data-odak] .ct-settings-group {
+  border-color: var(--odak-border);
+  border-radius: 20px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-settings-group > * + * {
+  border-top: 0;
+}
+
+:root[data-odak] .ct-settings-group-head {
+  padding: 20px 20px 8px;
+}
+
+:root[data-odak] .ct-settings-group-title h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-settings-group-title p {
+  font-size: 12.5px;
+  color: var(--odak-muted);
+}
+
+/* Whatever closes the card keeps the card's 20px inside its bottom edge. */
+:root[data-odak] .ct-settings-group > :last-child:not(.ct-settings-group-foot) {
+  padding-bottom: 20px;
+}
+
+/* The buttons for the whole card, under a rule. */
+:root[data-odak] .ct-settings-group > .ct-settings-group-foot {
+  margin-top: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--odak-border);
+  background: transparent;
+}
+
+:root[data-odak] .ct-settings-foot-hint {
+  color: var(--odak-muted);
+}
+
+/* What cannot be taken back: a red edge and a red title. */
+:root[data-odak] .ct-settings-group.danger {
+  border-color: color-mix(in srgb, var(--odak-danger) 36%, transparent);
+  background: color-mix(in srgb, var(--odak-danger) 4%, var(--odak-surface));
+}
+
+:root[data-odak] .ct-settings-group.danger > .ct-settings-group-foot {
+  border-top-color: color-mix(in srgb, var(--odak-danger) 20%, transparent);
+}
+
+/* --- rows ------------------------------------------------------------------ */
+/* Rows and blocks 8px from each other and from the title; the card's last
+   child keeps 20px below it (above). */
+:root[data-odak] .ct-settings-block {
+  padding: 8px 20px;
+}
+
+:root[data-odak] .ct-settings-row {
+  column-gap: 14px;
+  padding: 8px 20px;
+}
+
+:root[data-odak] .ct-settings-row-icon {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 11px;
+  font-size: 16px;
+}
+
+:root[data-odak] .ct-settings-row-icon:not(.ct-hued) {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-settings-group.danger .ct-settings-row-icon {
+  color: var(--odak-danger);
+  background: color-mix(in srgb, var(--odak-danger) 12%, transparent);
+}
+
+:root[data-odak] .ct-settings-row-text > :is(strong, label) {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:root[data-odak] .ct-settings-row-text > span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+/* A setting that only exists while the row above is on: indented to that
+   row's text, with the tick hanging from its icon. */
+:root[data-odak] .ct-settings-row.detail {
+  padding-left: 70px;
+  background: transparent;
+}
+
+:root[data-odak] .ct-settings-row.detail::before {
+  left: 37px;
+  border-color: var(--odak-border-strong);
+}
+
+/* A value that is shown, not set (the username): a key-like chip. */
+:root[data-odak] .ct-settings-value {
+  padding: 5px 10px;
+  border-color: var(--odak-border-strong);
+  border-radius: 9px;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--odak-text);
+  background: #1a1c21;
+}
+
+/* --- fields ---------------------------------------------------------------- */
+:root[data-odak] .ct-settings-main-panel .ct-settings-field {
+  gap: 6px;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-field-hint {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-inset-panel {
+  border-color: var(--odak-border-strong);
+  border-radius: 14px;
+  background: #1a1c21;
+}
+
+/* --- Ses: the two devices side by side, the level bar and the test -------- */
+:root[data-odak] .ct-settings-devices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+:root[data-odak] .ct-settings-mic-test {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-settings-mic-test > .ct-mic-meter {
+  flex: 1;
+  margin-right: 4px;
+}
+
+:root[data-odak] .ct-settings-mic-test + .ct-field-hint {
+  margin-top: -8px;
+}
+
+/* Thirty segments: lime, then amber, then red at the loud end. The colours
+   are laid across the whole track and the level uncovers them; the level
+   glides between frames instead of jumping. */
+:root[data-odak] .ct-mic-meter {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--odak-border);
+  -webkit-mask: repeating-linear-gradient(
+    90deg,
+    #000 0 calc(100% / 30 - 3px),
+    transparent calc(100% / 30 - 3px) calc(100% / 30)
+  );
+  mask: repeating-linear-gradient(
+    90deg,
+    #000 0 calc(100% / 30 - 3px),
+    transparent calc(100% / 30 - 3px) calc(100% / 30)
+  );
+}
+
+:root[data-odak] .ct-mic-meter.live {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-mic-meter > span {
+  background: linear-gradient(
+    90deg,
+    var(--odak-accent) 0 60%,
+    #fbbf24 60% 80%,
+    var(--odak-danger) 80%
+  );
+  transition: clip-path var(--odak-dur-1) var(--odak-ease-out);
+}
+
+/* --- controls -------------------------------------------------------------- */
+/* Selects and text fields: 12px corners on #1A1C21, a #2A2E35 edge that
+   lightens under the pointer and turns lime with focus. */
+:root[data-odak] .ct-settings-main-panel .ant-select {
+  --ant-select-border-radius: 12px;
+  --ant-select-border-color: var(--odak-border-strong);
+  --ant-select-background-color: #1a1c21;
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-select:not(.ant-select-disabled):hover {
+  --ant-select-border-color: #3a3f48;
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-select.ant-select-focused {
+  --ant-select-border-color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-settings-main-panel :is(.ant-input-outlined, .ant-input-affix-wrapper) {
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-settings-main-panel :is(.ant-input-outlined, .ant-input-affix-wrapper):hover {
+  border-color: #3a3f48;
+}
+
+:root[data-odak]
+  .ct-settings-main-panel
+  :is(.ant-input-outlined, .ant-input-affix-wrapper):is(:focus, :focus-within) {
+  border-color: var(--odak-accent);
+}
+
+/* Buttons: 40px, 12px corners, bold. The plain ones raised on #1E2127;
+   primary stays antd's lime with the page's dark text on it. */
+:root[data-odak] .ct-settings-main-panel .ant-btn:not(.ant-btn-sm) {
+  height: 40px;
+  padding-inline: 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-btn-sm {
+  height: 32px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-btn-color-default.ant-btn-variant-outlined {
+  --ant-btn-border-color: var(--odak-border-strong);
+  --ant-btn-border-color-hover: #3a3f48;
+  --ant-btn-border-color-active: #3a3f48;
+  --ant-btn-bg-color: var(--odak-raised);
+  --ant-btn-bg-color-hover: #262a31;
+  --ant-btn-bg-color-active: #262a31;
+  --ant-btn-text-color: var(--odak-text);
+  --ant-btn-text-color-hover: var(--odak-text);
+  --ant-btn-text-color-active: var(--odak-text);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-btn-color-dangerous.ant-btn-variant-outlined {
+  --ant-btn-bg-color: color-mix(in srgb, var(--odak-danger) 8%, transparent);
+}
+
+/* A key, drawn as one: mono on #1A1C21, lime while it listens. */
+:root[data-odak] .ct-settings-main-panel .ct-hotkey-button.ant-btn {
+  min-width: 0;
+  height: 32px;
+  padding-inline: 12px;
+  border-bottom-width: 1px;
+  border-radius: 9px;
+  font-weight: 500;
+  --ant-btn-bg-color: #1a1c21;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-hotkey-button.empty.ant-btn {
+  font-family: inherit;
+  font-weight: 600;
+}
+
+/* Switches: a #2A2E35 track, lime when on with a dark knob. The knob slides
+   on a transform with the spring, not on antd's left offset. */
+:root[data-odak] .ct-settings-main-panel .ant-switch {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-switch:hover:not(.ant-switch-disabled) {
+  background: #3a3f48;
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-switch.ant-switch-checked,
+:root[data-odak] .ct-settings-main-panel .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-switch .ant-switch-handle {
+  inset-inline-start: 2px;
+  transition: transform var(--odak-dur-2) var(--odak-ease-spring);
+}
+
+/* The track is two knobs and four paddings wide, so the knob travels its
+   own width and two paddings. */
+:root[data-odak] .ct-settings-main-panel .ant-switch.ant-switch-checked .ant-switch-handle {
+  transform: translateX(calc(100% + 4px));
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-switch .ant-switch-handle::before {
+  box-shadow: none;
+  background: var(--odak-text);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-switch.ant-switch-checked .ant-switch-handle::before {
+  background: var(--odak-on-accent);
+}
+
+/* Sliders: a lime track on a #22252B rail, a lime knob ringed in the card's
+   colour. The knob grows on a transform while it is held, rather than
+   antd's size change on hover. */
+:root[data-odak] .ct-settings-main-panel .ant-slider .ant-slider-rail,
+:root[data-odak] .ct-settings-main-panel .ant-slider:hover .ant-slider-rail {
+  background: var(--odak-border);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-slider .ant-slider-track,
+:root[data-odak] .ct-settings-main-panel .ant-slider:hover .ant-slider-track {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-slider-handle::after,
+:root[data-odak] .ct-settings-main-panel .ant-slider-handle:is(:hover, :active, :focus)::after {
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 12px;
+  height: 12px;
+  outline: 0;
+  background: var(--odak-accent);
+  box-shadow: 0 0 0 3px var(--odak-surface);
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    box-shadow var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-slider-handle:focus-visible::after {
+  box-shadow:
+    0 0 0 3px var(--odak-surface),
+    0 0 0 6px rgba(198, 244, 50, 0.28);
+}
+
+:root[data-odak] .ct-settings-main-panel .ant-slider-handle:is(:active, .ant-slider-handle-dragging)::after {
+  transform: scale(1.33);
+}
+
+/* The number beside a slider, as the mock-up's "−48 dB": mono and grey. */
+:root[data-odak] .ct-settings-level-value {
+  padding: 0;
+  font-family: var(--ct-font-mono);
+  font-weight: 500;
+  text-align: right;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-settings-level-value.boost {
+  color: #fbbf24;
+  background: transparent;
+}
+
+/* Segmented choices: a #1A1C21 tray, 32px options, the chosen one lime. */
+:root[data-odak] .ct-settings-main-panel .ct-segmented-premium.ant-segmented {
+  padding: 4px;
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-segmented-premium :is(.ant-segmented-item, .ant-segmented-thumb) {
+  border-radius: 9px;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-segmented-premium .ant-segmented-item-label {
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  line-height: 32px;
+}
+
+/* --- chips and tags -------------------------------------------------------- */
+/* State chips as the mock-up's "Çalışıyor": mono on a raised chip, coloured
+   by what they say. A chip that appears or changes pops in, once (each
+   state is its own keyed element). */
+:root[data-odak] .ct-settings-main-panel :is(.ct-status-chip, .ct-settings-group-action .ant-tag) {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 8px;
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--odak-raised);
+  animation: odak-pop var(--odak-dur-2) var(--odak-ease-spring) backwards;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-status-chip:not(.ok, .warn, .danger) {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-status-chip.ok,
+:root[data-odak] .ct-settings-main-panel .ct-settings-group-action .ant-tag-success {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-status-chip.warn {
+  color: #fbbf24;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-status-chip.danger {
+  color: var(--odak-danger);
+  background: var(--odak-raised);
+}
+
+/* Not on the way into Ayarlar: the shell's entrance carries those. */
+:root[data-odak] .ct-settings-main-panel.intro :is(.ct-status-chip, .ct-settings-group-action .ant-tag) {
+  animation-delay: -1s;
+}
+
+/* --- Profil: the card preview, as the real card draws in Odak ------------- */
+:root[data-odak] .ct-settings-profile-card-preview {
+  border-color: var(--odak-border-strong);
+  border-radius: 20px;
+  background: var(--odak-strip);
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+}
+
+:root[data-odak] .ct-settings-profile-card-banner {
+  border-radius: 0;
+  color: var(--odak-muted);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--odak-accent) 22%, var(--odak-surface)),
+    var(--odak-raised)
+  );
+}
+
+:root[data-odak] .ct-settings-profile-card-banner.has-image {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-settings-profile-card-names span {
+  font-family: var(--ct-font-mono);
+}
+
+:root[data-odak] .ct-settings-profile-card-action strong {
+  font-size: 14px;
+}
+
+:root[data-odak] .ct-settings-profile-card-action small {
+  color: var(--odak-muted);
+}
+
+/* --- Kamera, Yayın: the preview ------------------------------------------- */
+:root[data-odak] .ct-settings-main-panel .ct-media-preview {
+  border-color: var(--odak-border);
+  border-radius: 16px;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-media-preview-badge {
+  border-radius: 8px;
+  font-family: var(--ct-font-mono);
+  font-weight: 500;
+}
+
+/* --- Genel: theme cards, the version -------------------------------------- */
+:root[data-odak] .ct-theme-card {
+  border-color: var(--odak-border-strong);
+  border-radius: 14px;
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-theme-card:hover {
+  border-color: #3a3f48;
+}
+
+:root[data-odak] .ct-theme-card.active {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 1px var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-theme-card .ct-theme-card-label {
+  border-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-settings-about-text span {
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+}
+
+:root[data-odak] .ct-settings-main-panel .ct-alert.ant-alert {
+  border-radius: 14px;
+}
+
+/* --- narrow ---------------------------------------------------------------- */
+@container settings (max-width: 600px) {
+  :root[data-odak] .ct-settings-section-header .ct-page-header-text {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  :root[data-odak] .ct-settings-devices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-odak] .ct-settings-mic-test {
+    flex-wrap: wrap;
+  }
+
+  :root[data-odak] .ct-settings-mic-test > .ct-mic-meter {
+    flex-basis: 100%;
+    margin: 0 0 4px;
+  }
+}
+
+@container settings (max-width: 420px) {
+  :root[data-odak] .ct-settings-row.detail {
+    padding-left: 28px;
+  }
+}
