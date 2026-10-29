@@ -323,3 +323,944 @@
   }
 }
 
+/* --------------------------------------------------------------------------
+   No room open: the selection screen, flat on the page
+   -------------------------------------------------------------------------- */
+
+/* The section draws its own edge to edge: the frame around the old room card
+   goes, and the chat drawer below 900px is measured from the same numbers. */
+:root[data-odak] .ct-main-panel-content.lobby-mode {
+  --ct-lobby-frame: 0px;
+  --ct-lobby-bar-height: 60px;
+}
+
+:root[data-odak] .ct-lobby-main-layer {
+  --ct-lobby-surface: var(--odak-bg);
+}
+
+:root[data-odak] .ct-lobby-selection {
+  gap: 22px;
+  padding: 22px 24px 24px;
+  border: 0;
+  border-radius: 0;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-lobby-selection .ct-brand-mural {
+  display: none;
+}
+
+:root[data-odak] .ct-lobby-selection .ct-stat-chip {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  font-size: 12px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-selection-rooms {
+  gap: 12px;
+  padding-top: 18px;
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-lobby-selection-rooms > h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+:root[data-odak] .ct-lobby-selection-count {
+  height: 18px;
+  min-width: 18px;
+  border-radius: 9px;
+  font-size: 10px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-selection-grid {
+  gap: 12px;
+}
+
+:root[data-odak] .ct-lobby-select-card {
+  gap: 14px;
+  padding: 16px;
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] .ct-lobby-select-card:hover {
+  border-color: var(--odak-border-strong);
+  background: var(--odak-surface);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-select-card.live,
+:root[data-odak] .ct-lobby-select-card.live:hover {
+  border-color: rgba(198, 244, 50, 0.35);
+  background: var(--odak-surface);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-select-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 16px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-select-card.live .ct-lobby-select-card-icon {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-select-card-head strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-lobby-select-card-flag.warn {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-select-card-flag.camera {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-select-face.ant-avatar,
+:root[data-odak] .ct-lobby-select-face.more {
+  border-color: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-select-card-meta {
+  font-size: 13px;
+}
+
+:root[data-odak] .ct-lobby-select-meter {
+  height: 4px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-select-meter > span {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-select-card-action.ant-btn {
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-select-card-action.ant-btn:not(:disabled):hover {
+  color: var(--odak-accent);
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-lobby-select-card.live .ct-lobby-select-card-action.ant-btn:not(:disabled) {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-channel {
+  gap: 12px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 12px;
+}
+
+:root[data-odak] .ct-lobby-channel:hover {
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-channel-hash {
+  width: 32px;
+  height: 32px;
+  border: 1px dashed #3a3f48;
+  border-radius: 11px;
+  font-size: 14px;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-channel-flag {
+  color: var(--odak-muted);
+}
+
+/* --------------------------------------------------------------------------
+   The room: header, stage and chat in two columns
+   -------------------------------------------------------------------------- */
+
+/* No card around the room: the header sits over the stage and the chat runs
+   the full height on the right, as in the mock-up. */
+:root[data-odak] .ct-lobby-room-grid-v2 {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 25vw, 380px);
+  grid-template-areas:
+    "head chat"
+    "stage chat";
+  border: 0;
+  border-radius: 0;
+  background: var(--odak-bg);
+}
+
+:root[data-odak] .ct-lobby-room-grid-v2.chat-closed {
+  grid-template-columns: minmax(0, 1fr) 0;
+}
+
+:root[data-odak] .ct-lobby-room-grid-v2.stage-closed {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "chat";
+}
+
+/* The room's name in a pill: name, how many, how long you have been here. */
+:root[data-odak] .ct-lobby-room-header {
+  justify-self: start;
+  gap: 12px;
+  max-width: calc(100% - 40px);
+  height: 44px;
+  min-height: 44px;
+  margin: 16px 20px 0;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-room-identity {
+  flex: 0 1 auto;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-lobby-room-icon {
+  width: 22px;
+  height: 22px;
+  font-size: 15px;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-room-icon.voice {
+  color: var(--odak-accent);
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-room-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-lobby-room-flag.warn {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-room-identity .ct-lobby-room-meta-item {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-room-header .ct-live-chip {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--odak-text);
+  background: rgba(255, 92, 92, 0.16);
+}
+
+:root[data-odak] .ct-lobby-room-header .ct-live-chip .ct-live-dot {
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-lobby-room-status {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-room-status.on i {
+  background: var(--odak-accent);
+  box-shadow: none;
+}
+
+/* The time in the room, in the pill as a mono figure. */
+:root[data-odak] .ct-lobby-room-status.timer {
+  height: auto;
+  padding: 0;
+  border: 0;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-room-status.timer i {
+  display: none;
+}
+
+/* The stage's breathing room. Read by the fit as the content box it is
+   left with, so these are the only copies of the numbers. */
+:root[data-odak] .ct-lobby-stage-panel {
+  --ct-stage-pad-x: 20px;
+  --ct-stage-pad-y: 14px;
+}
+
+/* Below 900px the chat is a drawer over the stage (responsive.css): one
+   column again, and a tighter stage. The rules above outrank that file's, so
+   they are restated here. */
+@media (max-width: 900px) {
+  :root[data-odak] .ct-lobby-room-grid-v2,
+  :root[data-odak] .ct-lobby-room-grid-v2.chat-closed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "stage";
+  }
+
+  :root[data-odak] .ct-lobby-room-grid-v2.stage-closed {
+    grid-template-areas:
+      "head"
+      "chat";
+  }
+
+  :root[data-odak] .ct-lobby-stage-panel {
+    --ct-stage-pad-x: 12px;
+    --ct-stage-pad-y: 10px;
+  }
+
+  :root[data-odak] .ct-lobby-room-grid-v2.stage-closed .ct-lobby-chat-slot {
+    margin: 12px;
+  }
+
+  /* The sidebar is 224px here: a smaller badge leaves the name its room. */
+  :root[data-odak] .ct-lobby-row-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  :root[data-odak] .ct-lobby-members {
+    padding-left: 26px;
+  }
+}
+
+@media (max-width: 760px) {
+  :root[data-odak] .ct-lobby-stage-panel {
+    --ct-stage-pad-x: 10px;
+    --ct-stage-pad-y: 8px;
+  }
+
+  :root[data-odak] .ct-lobby-room-header {
+    max-width: calc(100% - 24px);
+    margin-inline: 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Participant tiles
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-lobby-participant-tile {
+  border-color: var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-participant-tile:not(.local-user):hover {
+  border-color: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-lobby-participant-tile.local-user {
+  border-color: var(--odak-border);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-participant-tile.selected {
+  border-color: var(--odak-border-strong);
+  box-shadow: none;
+}
+
+/* A share is content, not a face: the picture's own dark ground. */
+:root[data-odak] .ct-lobby-participant-tile.screen-share {
+  border-color: var(--odak-border);
+  background: #1a1d22;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-participant-tile.screen-share:not(.local-user):hover {
+  border-color: var(--odak-border-strong);
+}
+
+/* The focused share fills its slot with no frame round it. */
+:root[data-odak] .ct-lobby-participant-tile.focused {
+  border-color: transparent;
+  border-radius: 20px;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-participant-tile.compact {
+  border-radius: 14px;
+}
+
+/* The speaking ring: lime, inside the edge, always there and faded in and
+   out, so a voice starting and stopping eases rather than blinks. */
+:root[data-odak] .ct-lobby-participant-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--odak-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--odak-dur-3) var(--odak-ease-in);
+}
+
+:root[data-odak] .ct-lobby-participant-tile.speaking {
+  border-color: var(--odak-border);
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-lobby-participant-tile.screen-share.speaking {
+  background: #1a1d22;
+}
+
+:root[data-odak] .ct-lobby-participant-tile.speaking::after {
+  opacity: 1;
+  transition-timing-function: var(--odak-ease-out);
+}
+
+/* The face: the owner's colour, no drop shadow, and the same ring a gap away
+   from it while they talk. The ring is drawn outside the circle, so the face
+   lets it out and rounds its own picture. */
+:root[data-odak] .ct-lobby-avatar-container.ant-avatar {
+  overflow: visible;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-avatar-container.ant-avatar img {
+  border-radius: 50%;
+}
+
+:root[data-odak] .ct-lobby-avatar-container.ant-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--odak-accent);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--odak-dur-3) var(--odak-ease-in);
+}
+
+:root[data-odak] .ct-lobby-participant-tile.speaking .ct-lobby-avatar-container.ant-avatar {
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-participant-tile.speaking .ct-lobby-avatar-container.ant-avatar::after {
+  opacity: 1;
+  transition-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-participant-tile:not(.local-user):hover .ct-lobby-avatar-container.ant-avatar {
+  box-shadow: none;
+}
+
+/* The name pill at the foot, on the page's own dark glass. */
+:root[data-odak] .ct-lobby-tile-userline {
+  height: 26px;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--odak-text);
+  background: rgba(14, 15, 17, 0.78);
+}
+
+:root[data-odak] .ct-lobby-tile-userline p {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* An open microphone is the ordinary state, so it is grey; a closed one, or
+   output switched off, is red. */
+:root[data-odak] .ct-lobby-flag.active {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-flag.inactive {
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-lobby-flag.signal {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-tile-you {
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 15px;
+}
+
+/* What a tile broadcasts, on the picture: a dark pill, a red dot for a live
+   share, the accent camera for a camera. */
+:root[data-odak] .ct-lobby-tile-kind-badge,
+:root[data-odak] .ct-lobby-tile-kind-badge.camera,
+:root[data-odak] .ct-lobby-tile-kind-badge.live {
+  gap: 7px;
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--odak-text);
+  background: rgba(14, 15, 17, 0.8);
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-tile-kind-badge.camera .anticon {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-tile-kind-badge.live .ct-live-dot {
+  width: 8px;
+  height: 8px;
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-lobby-tile-watchers {
+  height: 28px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #c9ccd2;
+  background: rgba(14, 15, 17, 0.8);
+  box-shadow: none;
+}
+
+/* A share nobody here has opened yet. */
+:root[data-odak] .ct-lobby-tile-watch-prompt {
+  gap: 10px;
+  background: #1a1d22;
+}
+
+:root[data-odak] .ct-lobby-tile-watch-prompt .anticon {
+  font-size: 24px;
+  color: var(--odak-muted);
+  opacity: 1;
+}
+
+:root[data-odak] .ct-lobby-tile-watch-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-lobby-tile-watch-hint {
+  font-size: 11px;
+}
+
+:root[data-odak] .ct-lobby-tile-watch-btn {
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-tile-watch-btn:hover {
+  background: var(--odak-accent);
+  transform: translateY(-1px);
+}
+
+:root[data-odak] .ct-lobby-tile-fullscreen-btn,
+:root[data-odak] .ct-lobby-tile-pip-btn {
+  border: 0;
+  border-radius: 10px;
+  background: rgba(14, 15, 17, 0.8);
+}
+
+:root[data-odak] .ct-lobby-tile-fullscreen-btn:hover,
+:root[data-odak] .ct-lobby-tile-pip-btn:hover {
+  color: var(--odak-accent);
+  background: rgba(14, 15, 17, 0.92);
+}
+
+/* The show/hide-others pill over the rail. */
+:root[data-odak] .ct-lobby-stage-hint {
+  height: 32px;
+  padding: 0 14px;
+  border-color: var(--odak-border);
+  border-radius: 11px;
+  font-size: 12px;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+  backdrop-filter: none;
+}
+
+:root[data-odak] .ct-lobby-stage-hint:hover {
+  border-color: var(--odak-border-strong);
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+/* --------------------------------------------------------------------------
+   Call controls: the mock-up's floating bar
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-lobby-stage-actions {
+  --ct-tool-size: 48px;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 6px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 20px;
+  background: var(--odak-surface);
+  backdrop-filter: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-odak] .ct-lobby-action-divider {
+  height: 32px;
+  margin: 0 4px;
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+  gap: 4px;
+  border-radius: 14px;
+  font-size: 19px;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn:hover:not(:disabled) {
+  color: var(--odak-text);
+  background: var(--odak-border-strong);
+}
+
+/* Off: the microphone or the output switched off, a dark red. */
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.off,
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.off:hover:not(:disabled) {
+  color: #ff8a8a;
+  background: #3a1a1c;
+  filter: none;
+}
+
+/* Open right now (the chat, the emote board): lime outline. */
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active,
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.active:hover:not(:disabled) {
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+  box-shadow: inset 0 0 0 1px var(--odak-accent);
+}
+
+/* Broadcasting: the camera on, the share live. Lime, the page's dark on it. */
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-cam,
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-cam:hover:not(:disabled),
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share,
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share:hover:not(:disabled) {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  box-shadow: none;
+  filter: none;
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ct-lobby-action-btn.live-share .ct-live-dot {
+  color: var(--odak-danger);
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ct-live-badge {
+  border-color: var(--odak-surface);
+  background: var(--odak-danger);
+}
+
+:root[data-odak] .ct-stream-control-group .ct-stream-menu-btn {
+  border-left-color: rgba(14, 15, 17, 0.25);
+  border-radius: 0 14px 14px 0;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
+  width: 64px;
+  color: #ffffff;
+  background: #e5484d;
+}
+
+:root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: #e5484d;
+  filter: brightness(1.08);
+}
+
+:root[data-odak] .ct-lobby-action-btn .ct-tool-badge {
+  border: 2px solid var(--odak-surface);
+}
+
+/* The words under the icons, where the stage is wide enough to carry them:
+   folded to icons the row still fits beside an open chat. The label is the
+   button's data-label, so the old design draws nothing new. */
+@container lobby-stage (min-width: 820px) {
+  :root[data-odak] .ct-lobby-stage-actions {
+    padding: 8px;
+    border-radius: 22px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+    flex-direction: column;
+    width: 64px;
+    height: 56px;
+    border-radius: 16px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn[data-label]::after {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share {
+    height: 56px;
+    padding: 0 18px;
+    border-radius: 16px 0 0 16px;
+  }
+
+  :root[data-odak] .ct-stream-control-group .ct-stream-menu-btn {
+    height: 56px;
+    border-radius: 0 16px 16px 0;
+  }
+
+  /* Leave: icon and word side by side, the widest control. */
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
+    flex-direction: row;
+    gap: 8px;
+    width: auto;
+    padding: 0 20px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger::after {
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+@container lobby-stage (max-width: 560px) {
+  :root[data-odak] .ct-lobby-stage-actions {
+    --ct-tool-size: 40px;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding: 5px;
+    border-radius: 16px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
+    border-radius: 12px;
+    font-size: 17px;
+  }
+
+  :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
+    width: 52px;
+  }
+
+  :root[data-odak] .ct-lobby-action-divider {
+    margin: 0 1px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Room chat, beside the stage and as the whole of a text room
+   -------------------------------------------------------------------------- */
+
+:root[data-odak] .ct-lobby-chat-slot {
+  border-left: 1px solid var(--odak-border);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-lobby-room-grid-v2.chat-closed .ct-lobby-chat-slot {
+  border-left-color: transparent;
+  background: transparent;
+}
+
+/* A text room is its chat: one card under the header, as the conversation
+   view draws a thread. */
+:root[data-odak] .ct-lobby-room-grid-v2.stage-closed .ct-lobby-chat-slot {
+  height: auto;
+  margin: 14px 20px 20px;
+  border: 1px solid var(--odak-border);
+  border-radius: 20px;
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-lobby-chat-slot .ct-chat-column-head {
+  min-height: 60px;
+  padding: 0 16px;
+  border-bottom-color: var(--odak-border);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-lobby-chat-slot .ct-chat-column-head .anticon {
+  display: none;
+}
+
+:root[data-odak] .ct-lobby-chat-panel {
+  --ct-lobby-chat-gutter: 16px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-thread-box {
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-search {
+  padding-top: 12px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-search .ant-input-affix-wrapper {
+  height: 36px;
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-messages {
+  padding-block: 14px;
+}
+
+/* A message is a card: the name in its colour, the time in mono, the text. */
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-row {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #1a1c21;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-row:hover,
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-row:focus-within {
+  background: var(--odak-raised);
+}
+
+/* A full-width room keeps its cards to a reading width. */
+:root[data-odak] .ct-lobby-room-grid-v2.stage-closed .ct-lobby-chat-panel .ct-chat-row {
+  max-width: 760px;
+}
+
+/* The rows of the virtual list are measured with their padding, so the gap
+   between cards is padding, not a margin the measurement would miss. */
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-message-list [data-index] {
+  padding-bottom: 10px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-message-list > .ct-chat-row {
+  margin-bottom: 10px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-bubble-meta > span:first-child {
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-bubble-meta b {
+  font-family: var(--ct-font-sans);
+  font-size: 13px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-bubble p {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-message-actions {
+  border-color: var(--odak-border-strong);
+  border-radius: 10px;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-action {
+  border-radius: 8px;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-empty-state {
+  font-size: 13px;
+  color: var(--odak-muted);
+}
+
+/* The composer: one rounded field holding its buttons, the send in lime. */
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-composer {
+  padding: 12px;
+  border-top-color: var(--odak-border);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-composer-row {
+  gap: 2px;
+  height: 44px;
+  padding: 0 5px 0 6px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 14px;
+  background: #1a1c21;
+  transition: border-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-composer-row:focus-within {
+  border-color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-composer-row > .ant-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-input.ant-input-affix-wrapper,
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-input.ant-input-affix-wrapper:hover,
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-input.ant-input-affix-wrapper-focused {
+  height: 100%;
+  padding: 0 0 0 6px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-input .ant-input {
+  font-size: 13px;
+  background: transparent;
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-send-btn.ant-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-lobby-chat-panel .ct-chat-send-btn.ant-btn:disabled {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+

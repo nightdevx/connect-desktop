@@ -307,6 +307,7 @@ export function SoundEmoteMenu({
           <Button
             size="large"
             className={`ct-lobby-action-btn ${isOpen ? "active" : ""}`}
+            data-label="Tepki"
             icon={<NotificationOutlined />}
             disabled={disabled}
             aria-label="Sesli emote gönder"

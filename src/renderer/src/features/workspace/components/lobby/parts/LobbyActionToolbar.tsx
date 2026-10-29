@@ -117,6 +117,7 @@ export function LobbyActionToolbar({
             // Plain while it is on; red when it is off -- the state worth
             // noticing is a microphone that is not reaching anybody.
             className={`ct-lobby-action-btn ${micLocked ? "forced-muted" : micEnabled ? "" : "off"}`}
+            data-label="Mikrofon"
             aria-pressed={!micLocked && !micEnabled}
             icon={micLocked || !micEnabled ? <AudioMutedOutlined /> : <AudioOutlined />}
             disabled={micLocked}
@@ -135,6 +136,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className={`ct-lobby-action-btn ${headphoneEnabled ? "" : "off"}`}
+            data-label="Ses"
             icon={
               <CustomerServiceOutlined
                 className={headphoneEnabled ? undefined : "ct-icon-slashed"}
@@ -155,6 +157,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className={`ct-lobby-action-btn ${cameraEnabled ? "live-cam" : ""}`}
+            data-label="Kamera"
             icon={<VideoCameraOutlined />}
             onClick={onToggleCamera}
             aria-pressed={cameraEnabled}
@@ -191,6 +194,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className="ct-lobby-action-btn"
+            data-label="Paylaş"
             icon={<DesktopOutlined />}
             onClick={onToggleScreen}
           />
@@ -213,6 +217,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className="ct-lobby-action-btn"
+            data-label="Müzik"
             icon={<PlayCircleOutlined />}
             onClick={onOpenMusic}
           />
@@ -224,6 +229,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className="ct-lobby-action-btn"
+            data-label="İzle"
             icon={<YoutubeOutlined />}
             onClick={onOpenWatch}
           />
@@ -235,6 +241,7 @@ export function LobbyActionToolbar({
           <Button
             size="large"
             className={`ct-lobby-action-btn ${isChatOpen ? "active" : ""}`}
+            data-label="Sohbet"
             icon={<MessageOutlined />}
             onClick={onToggleChat}
             aria-pressed={isChatOpen}
@@ -257,6 +264,9 @@ export function LobbyActionToolbar({
         <Button
           size="large"
           className="ct-lobby-action-btn danger"
+          // The word on the wide bar; the tooltip and the name keep the
+          // whole phrase.
+          data-label={leaveLabel === "Lobiden Ayrıl" ? "Ayrıl" : leaveLabel}
           icon={<PhoneOutlined rotate={225} />}
           aria-label={leaveLabel}
           onClick={onLeaveLobby}
