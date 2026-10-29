@@ -1416,6 +1416,18 @@
   animation-name: odak-lobiler-pop;
 }
 
+/* The chat column opens at once and its content fades in; the column's own
+   width does not animate. Layout never moves in Odak (Hareket dili), and a
+   width easing in 320ms ends in steps under the fit's 8px growth threshold,
+   which left the stage fitted a few pixels short of its final size. */
+:root[data-odak] .ct-lobby-room-grid-v2 {
+  transition: none;
+}
+
+:root[data-odak] .ct-lobby-chat-slot.open {
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
 /* Hover and press, short. */
 :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
   transition:
