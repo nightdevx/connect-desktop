@@ -36,6 +36,11 @@
 .ct-odak.docked {
   right: auto;
   width: 148px;
+  transition: width var(--ct-duration-slow) var(--ct-ease-spring);
+}
+
+.ct-odak.docked.strip-open {
+  width: 320px;
 }
 
 .ct-odak button {
@@ -229,6 +234,9 @@
 }
 
 /* --- conversations strip ---------------------------------------------- */
+/* Folded: the mock-up's 76px strip of avatars. Open: the same conversations
+   as a list with names and status, 248px. Width eases like the other
+   sidebars' fold. */
 .ct-odak-strip {
   display: flex;
   flex-direction: column;
@@ -237,21 +245,93 @@
   width: 76px;
   flex-shrink: 0;
   padding: 16px 0;
+  overflow: hidden;
   background: var(--odak-strip);
   border-right: 1px solid var(--odak-border);
+  transition: width var(--ct-duration-slow) var(--ct-ease-spring);
+}
+
+.ct-odak-strip.open {
+  align-items: stretch;
+  width: 248px;
+  padding: 16px 12px;
+}
+
+.ct-odak-strip:not(.open) .ct-odak-strip-text {
+  display: none;
+}
+
+.ct-odak-strip-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.ct-odak-strip.open .ct-odak-strip-head {
+  flex-direction: row;
 }
 
 .ct-odak-strip-home {
   position: relative;
-  display: grid;
+  display: flex;
   flex-shrink: 0;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   width: 50px;
   height: 50px;
   border: 0;
   border-radius: 16px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--odak-text);
   background: var(--odak-raised);
+}
+
+.ct-odak-strip.open .ct-odak-strip-home {
+  flex: 1;
+  justify-content: flex-start;
+  width: auto;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+}
+
+.ct-odak-strip.open .ct-odak-strip-home .ct-odak-count {
+  position: static;
+  margin-left: auto;
+}
+
+.ct-odak-strip-toggle {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 11px;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+.ct-odak-strip-toggle:hover {
+  color: var(--odak-accent);
+}
+
+.ct-odak-strip-title {
+  margin: 2px 6px -4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--odak-muted);
+}
+
+.ct-odak-strip-empty {
+  margin: 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--odak-muted);
 }
 
 .ct-odak-strip-home.active {
@@ -278,19 +358,97 @@
   scrollbar-width: none;
 }
 
+.ct-odak-strip.open .ct-odak-strip-list {
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ct-odak-strip-row {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
 .ct-odak-strip-dm {
   position: relative;
-  flex-shrink: 0;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
+  text-align: left;
+  color: inherit;
   background: transparent;
 }
 
-.ct-odak-strip-dm.active .ct-odak-avatar {
+.ct-odak-strip-row.active .ct-odak-avatar {
   box-shadow:
     0 0 0 2px var(--odak-strip),
     0 0 0 4px var(--odak-accent);
+}
+
+.ct-odak-strip.open .ct-odak-strip-dm {
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+
+.ct-odak-strip.open .ct-odak-strip-row:hover .ct-odak-strip-dm,
+.ct-odak-strip.open .ct-odak-strip-row.active .ct-odak-strip-dm {
+  background: var(--odak-raised);
+}
+
+.ct-odak-strip.open .ct-odak-strip-row.active .ct-odak-avatar {
+  box-shadow: none;
+}
+
+.ct-odak-strip.open .ct-odak-avatar.strip {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+
+.ct-odak-strip-meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-odak-strip-meta .ct-odak-friend-name {
+  font-size: 14px;
+}
+
+.ct-odak-strip.open .ct-odak-strip-dm .ct-odak-count {
+  position: static;
+  margin-right: 26px;
+}
+
+/* Close on hover, over the row's right end. */
+.ct-odak-strip-close {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+  opacity: 0;
+}
+
+.ct-odak-strip-row:hover .ct-odak-strip-close,
+.ct-odak-strip-close:focus-visible {
+  opacity: 1;
+}
+
+.ct-odak-strip-close:hover {
+  color: var(--odak-danger);
 }
 
 /* --- page --------------------------------------------------------------- */
@@ -639,9 +797,14 @@
 }
 
 /* --- the shell under the docked page ---------------------------------- */
-/* The rail and the strip are the page's (148px, laid over the shell); the
+/* The rail and the strip are the page's (320px open, 148px folded, laid over
+   the shell); the
    old sidebar and dock step aside, and the conversation panel takes the rest. */
 .ct-workspace-shell.is-odak-users {
+  grid-template-columns: 320px 0 minmax(0, 1fr);
+}
+
+.ct-workspace-shell.is-odak-users.is-sidebar-collapsed {
   grid-template-columns: 148px 0 minmax(0, 1fr);
 }
 

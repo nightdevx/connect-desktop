@@ -1682,6 +1682,8 @@ function WorkspaceShell({
           onUserSelect={selectConversationById}
           onOpenHome={openFriendsHome}
           onCloseConversation={closeSelectedConversation}
+          stripCollapsed={isSidebarCollapsed}
+          onToggleStrip={() => setViewPreference("sidebarOpen", isSidebarCollapsed)}
           home={friendsHomeProps}
         />
       )}

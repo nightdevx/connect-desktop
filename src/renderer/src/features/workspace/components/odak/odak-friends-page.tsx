@@ -6,6 +6,8 @@ import {
   CheckOutlined,
   CopyOutlined,
   IdcardOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   MessageOutlined,
   PhoneOutlined,
   SoundOutlined,
@@ -240,6 +242,8 @@ export interface OdakFriendsPageProps {
   onUserSelect: (userId: string) => void;
   onOpenHome: () => void;
   onCloseConversation: (userId: string) => void;
+  stripCollapsed: boolean;
+  onToggleStrip: () => void;
   home: Omit<FriendsHomePanelProps, "currentUserId">;
 }
 
@@ -259,6 +263,8 @@ export function OdakFriendsPage({
   onUserSelect,
   onOpenHome,
   onCloseConversation,
+  stripCollapsed,
+  onToggleStrip,
   home,
 }: OdakFriendsPageProps) {
   const {
@@ -609,7 +615,7 @@ export function OdakFriendsPage({
   const docked = selectedUserId !== null;
 
   return (
-    <div className={`ct-odak ${docked ? "docked" : ""}`}>
+    <div className={`ct-odak ${docked ? "docked" : ""} ${stripCollapsed ? "" : "strip-open"}`}>
       <nav className="ct-odak-rail" aria-label="Bölümler">
         <span className="ct-odak-logo" aria-hidden="true">C</span>
         {SECTIONS.filter((section) => section.id !== "admin" || isAdminRole(currentUserRole)).map(
@@ -654,20 +660,42 @@ export function OdakFriendsPage({
         </Dropdown>
       </nav>
 
-      <nav className="ct-odak-strip" aria-label="Sohbetler">
-        <button
-          type="button"
-          className={`ct-odak-strip-home ${docked ? "" : "active"}`}
-          aria-label="Arkadaşlar ana sayfası"
-          aria-current={docked ? undefined : "page"}
-          title="Arkadaşlar"
-          onClick={onOpenHome}
-        >
-          <UsersIcon size={20} />
-          {!docked && incomingCount > 0 && <span className="ct-odak-count">{incomingCount}</span>}
-        </button>
+      {/* Open: the conversations as a list with names and status. Folded: the
+          strip of avatars the mock-up draws. One preference with the rest of
+          the app's sidebars (viewPreferences.sidebarOpen). */}
+      <nav className={`ct-odak-strip ${stripCollapsed ? "" : "open"}`} aria-label="Sohbetler">
+        <div className="ct-odak-strip-head">
+          <button
+            type="button"
+            className={`ct-odak-strip-home ${docked ? "" : "active"}`}
+            aria-label="Arkadaşlar ana sayfası"
+            aria-current={docked ? undefined : "page"}
+            title="Arkadaşlar"
+            onClick={onOpenHome}
+          >
+            <UsersIcon size={20} />
+            <span className="ct-odak-strip-text">Arkadaşlar</span>
+            {!docked && incomingCount > 0 && <span className="ct-odak-count">{incomingCount}</span>}
+          </button>
+          <button
+            type="button"
+            className="ct-odak-strip-toggle"
+            title={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
+            aria-label={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
+            aria-expanded={!stripCollapsed}
+            onClick={onToggleStrip}
+          >
+            {stripCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          </button>
+        </div>
         <div className="ct-odak-strip-divider" />
+        <p className="ct-odak-strip-title ct-odak-strip-text">SOHBETLER</p>
         <div className="ct-odak-strip-list">
+          {conversations.length === 0 && (
+            <p className="ct-odak-strip-empty ct-odak-strip-text">
+              Bir arkadaşına mesaj gönderdiğinde sohbet burada görünür.
+            </p>
+          )}
           {conversations.map((conversation) => {
             const name = nameOf(conversation);
             const directory = directoryById.get(conversation.userId);
@@ -687,25 +715,42 @@ export function OdakFriendsPage({
                   ],
                 }}
               >
-                <button
-                  type="button"
-                  className={`ct-odak-strip-dm ${selected ? "active" : ""}`}
-                  title={name}
-                  aria-current={selected ? "page" : undefined}
-                  aria-label={`${name} ile sohbet${unread ? `, ${unread} okunmamış` : ""}`}
-                  onClick={() => onUserSelect(conversation.userId)}
-                >
-                  <Avatar
-                    userId={conversation.userId}
-                    name={name}
-                    avatarUrl={conversation.avatarUrl ?? directory?.avatarUrl}
-                    presence={getPresenceColor(directory?.appOnline, directory?.presence)}
-                    className="strip"
-                  />
-                  {unread > 0 && !selected && (
-                    <span className="ct-odak-count">{unread > 99 ? "99+" : unread}</span>
-                  )}
-                </button>
+                <div className={`ct-odak-strip-row ${selected ? "active" : ""}`}>
+                  <button
+                    type="button"
+                    className="ct-odak-strip-dm"
+                    title={name}
+                    aria-current={selected ? "page" : undefined}
+                    aria-label={`${name} ile sohbet${unread ? `, ${unread} okunmamış` : ""}`}
+                    onClick={() => onUserSelect(conversation.userId)}
+                  >
+                    <Avatar
+                      userId={conversation.userId}
+                      name={name}
+                      avatarUrl={conversation.avatarUrl ?? directory?.avatarUrl}
+                      presence={getPresenceColor(directory?.appOnline, directory?.presence)}
+                      className="strip"
+                    />
+                    <span className="ct-odak-strip-text ct-odak-strip-meta">
+                      <span className="ct-odak-friend-name">{name}</span>
+                      <span className="ct-odak-friend-status">
+                        {getUserStatusLabel(directory?.appOnline, directory?.presence)}
+                      </span>
+                    </span>
+                    {unread > 0 && !selected && (
+                      <span className="ct-odak-count">{unread > 99 ? "99+" : unread}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="ct-odak-strip-close ct-odak-strip-text"
+                    title="Sohbeti kapat"
+                    aria-label={`${name} sohbetini kapat`}
+                    onClick={() => onCloseConversation(conversation.userId)}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
               </Dropdown>
             );
           })}
