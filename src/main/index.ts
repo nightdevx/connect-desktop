@@ -112,10 +112,10 @@ const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 // server-side member TTL, so a laptop lid reopened at the wrong moment cost the
 // user their seat in the room.
 const SYSTEM_RESUMED_EVENT_CHANNEL = "desktop:system-resumed";
-const isLinux = process.platform === "linux";
+// macOS cannot decode .ico: the menu-bar item would be there, but invisible.
 const APP_ICON_PATH = join(
   __dirname,
-  isLinux ? "../../public/images/logo.png" : "../../public/images/logo.ico"
+  process.platform === "win32" ? "../../public/images/logo.ico" : "../../public/images/logo.png"
 );
 const APP_DISPLAY_NAME = "Connect";
 
@@ -232,7 +232,17 @@ const ensureTray = (): void => {
     return;
   }
 
-  const icon = nativeImage.createFromPath(APP_ICON_PATH);
+  let icon = nativeImage.createFromPath(APP_ICON_PATH);
+  if (process.platform === "darwin") {
+    // The menu bar draws an image at its own size: the 512 px logo would fill
+    // it. 16 pt, with a sharp copy for Retina screens.
+    const source = icon;
+    icon = source.resize({ width: 16, height: 16, quality: "best" });
+    icon.addRepresentation({
+      scaleFactor: 2,
+      buffer: source.resize({ width: 32, height: 32, quality: "best" }).toPNG(),
+    });
+  }
   tray = new Tray(icon);
   tray.setToolTip(APP_DISPLAY_NAME);
   tray.setContextMenu(buildTrayMenu());
@@ -518,6 +528,11 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       },
     });
 
+    // macOS starts a login item without its arguments, so the flag never
+    // arrives there; it says so itself.
+    if (process.platform === "darwin") {
+      startHiddenInTray ||= app.getLoginItemSettings().wasOpenedAtLogin;
+    }
     startHiddenInTray &&= hasTrayBehaviorEnabled();
     refreshSystemLaunchOnStartup();
     if (process.platform === "win32" && app.isPackaged) {

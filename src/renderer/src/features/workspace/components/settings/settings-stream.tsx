@@ -224,18 +224,21 @@ export function SettingsStream({
           />
         </SettingsRow>
 
-        <SettingsRow
-          icon={<SoundOutlined />}
-          title="Sistem sesini dahil et"
-          description="Bilgisayarında çalan ses yayına eklenir; izleyenler de duyar."
-        >
-          <Switch
-            checked={draftStreamPreferences.captureSystemAudio}
-            onChange={(checked) =>
-              handlePreferenceChange("captureSystemAudio", checked)
-            }
-          />
-        </SettingsRow>
+        {/* System audio is Windows-only (the loopback addon). */}
+        {window.desktopApi.platform !== "darwin" && (
+          <SettingsRow
+            icon={<SoundOutlined />}
+            title="Sistem sesini dahil et"
+            description="Bilgisayarında çalan ses yayına eklenir; izleyenler de duyar."
+          >
+            <Switch
+              checked={draftStreamPreferences.captureSystemAudio}
+              onChange={(checked) =>
+                handlePreferenceChange("captureSystemAudio", checked)
+              }
+            />
+          </SettingsRow>
+        )}
       </SettingsGroup>
 
       {/* Same as the camera page: the control that starts the preview sits on

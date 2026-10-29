@@ -118,11 +118,19 @@ export function useDesktopAppPreferences() {
   return { preferences, isSaving, needsRelaunch, savePreference };
 }
 
+const isMac = window.desktopApi.platform === "darwin";
+
 // Electron accelerators name modifiers differently from KeyboardEvent, and
-// nobody should have to type "CommandOrControl+Shift+M" by hand.
+// nobody should have to type "CommandOrControl+Shift+M" by hand. On macOS
+// Command and Control are two keys, and CommandOrControl means Command there.
 const toAccelerator = (event: KeyboardEvent): string | null => {
   const parts: string[] = [];
-  if (event.ctrlKey || event.metaKey) parts.push("CommandOrControl");
+  if (isMac) {
+    if (event.metaKey) parts.push("CommandOrControl");
+    if (event.ctrlKey) parts.push("Control");
+  } else if (event.ctrlKey || event.metaKey) {
+    parts.push("CommandOrControl");
+  }
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
 
@@ -147,15 +155,19 @@ const toAccelerator = (event: KeyboardEvent): string | null => {
 };
 
 // What is stored is for Electron and KeyboardEvent; what is shown is what is
-// printed on the keys: "CommandOrControl+Shift+M" reads "Ctrl + Shift + M",
-// "KeyV" reads "V".
+// printed on the keys: "CommandOrControl+Shift+M" reads "Ctrl + Shift + M"
+// (on macOS "⌘ + Shift + M"), "KeyV" reads "V".
 const formatHotkey = (value: string): string =>
   value
     .split("+")
     .map((part) =>
       part === "CommandOrControl"
-        ? "Ctrl"
-        : part.replace(/^Key(?=[A-Z]$)/, "").replace(/^Digit(?=\d$)/, ""),
+        ? isMac
+          ? "⌘"
+          : "Ctrl"
+        : isMac && part === "Alt"
+          ? "Option"
+          : part.replace(/^Key(?=[A-Z]$)/, "").replace(/^Digit(?=\d$)/, ""),
     )
     .join(" + ");
 

@@ -29,6 +29,9 @@ import { AuthLogoMark } from "@/features/auth";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
+// macOS has a menu bar where Windows has a tray.
+const isMac = window.desktopApi.platform === "darwin";
+
 const getUpdateCheckBlockedReason = (reason?: string): string => {
   if (reason === "DEV_MODE") {
     return "Geliştirme modunda güncelleme kontrolü devre dışıdır.";
@@ -329,8 +332,12 @@ export function SettingsApplication() {
 
         <SettingsRow
           icon={<MinusSquareOutlined />}
-          title="Küçültünce sistem tepsisine gönder"
-          description="Küçült düğmesi uygulamayı görev çubuğundan gizler."
+          title={isMac ? "Küçültünce menü çubuğuna gönder" : "Küçültünce sistem tepsisine gönder"}
+          description={
+            isMac
+              ? "Küçült düğmesi pencereyi gizler; menü çubuğundaki simgeden geri açılır."
+              : "Küçült düğmesi uygulamayı görev çubuğundan gizler."
+          }
         >
           <Switch
             checked={appPreferences.minimizeToTray}
@@ -343,7 +350,7 @@ export function SettingsApplication() {
 
         <SettingsRow
           icon={<CloseSquareOutlined />}
-          title="Kapatınca tepside çalışmaya devam et"
+          title={isMac ? "Kapatınca menü çubuğunda çalışmaya devam et" : "Kapatınca tepside çalışmaya devam et"}
           description="Pencereyi kapatmak uygulamayı sonlandırmaz; aramalar ve mesajlar gelmeye devam eder."
         >
           <Switch
@@ -360,7 +367,7 @@ export function SettingsApplication() {
         <SettingsRow
           icon={<BellOutlined />}
           title="Masaüstü bildirimleri"
-          description="Pencere arka plandayken gelen mesaj ve aramalar için Windows bildirimi gösterir. Odadaki giriş-çıkış sesleri ayrı bir ayar: Ses › Bildirim sesleri."
+          description={`Pencere arka plandayken gelen mesaj ve aramalar için ${isMac ? "macOS" : "Windows"} bildirimi gösterir. Odadaki giriş-çıkış sesleri ayrı bir ayar: Ses › Bildirim sesleri.`}
         >
           <Switch
             checked={appPreferences.desktopNotifications}
@@ -376,7 +383,7 @@ export function SettingsApplication() {
           title="Ücretsiz oyun bildirimleri"
           description={
             appPreferences.desktopNotifications
-              ? "Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda haber verir. Uygulama tepsideyken de çalışır."
+              ? `Steam, Epic ve diğer mağazalarda bir oyun ücretsiz olduğunda haber verir. Uygulama ${isMac ? "menü çubuğundayken" : "tepsideyken"} de çalışır.`
               : "Masaüstü bildirimleri kapalıyken hiçbir bildirim gösterilmez."
           }
         >

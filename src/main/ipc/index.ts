@@ -33,6 +33,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:update-debug",
   "desktop:open-webrtc-internals",
   "desktop:screen-capture-sources",
+  "desktop:open-screen-recording-settings",
   "desktop:running-game",
   "desktop:window-minimize",
   "desktop:window-toggle-maximize",

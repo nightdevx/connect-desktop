@@ -3,10 +3,12 @@ import type { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
 // On Windows the minimise, maximise and close buttons are the system's own,
 // drawn over the right end of the page's title bar (Window Controls Overlay).
 // Only real caption buttons get Windows 11's Snap Layouts flyout on the
-// maximise button, and they keep working when the page is dead. Elsewhere the
-// window stays frameless and the page draws its own buttons. App.tsx makes the
-// same platform test to leave that corner empty.
+// maximise button, and they keep working when the page is dead. macOS keeps its
+// own traffic lights at the left end of the bar. Elsewhere the window stays
+// frameless and the page draws its own buttons. App.tsx makes the same platform
+// tests to leave those corners empty.
 export const usesNativeWindowControls = process.platform === "win32";
+const usesTrafficLights = process.platform === "darwin";
 
 // --ct-titlebar-height
 const TITLEBAR_HEIGHT = 48;
@@ -25,7 +27,13 @@ export const titleBarWindowOptions = (): BrowserWindowConstructorOptions =>
         // Dark is the default theme; the page sends its own as it starts.
         titleBarOverlay: { ...OVERLAY_COLORS.dark, height: TITLEBAR_HEIGHT },
       }
-    : { frame: false };
+    : usesTrafficLights
+      ? {
+          titleBarStyle: "hidden",
+          // Centred on the 48 px bar (the buttons are 12 px tall).
+          trafficLightPosition: { x: 16, y: 18 },
+        }
+      : { frame: false };
 
 export const setTitleBarTheme = (win: BrowserWindow, mode: unknown): void => {
   if (!usesNativeWindowControls) {

@@ -387,7 +387,7 @@ export function SettingsAudio({
     >
       <SettingsGroup
         title="Cihazlar"
-        description="Varsayılan, Windows'ta seçili olan cihazdır."
+        description={`Varsayılan, ${window.desktopApi.platform === "darwin" ? "macOS'ta" : "Windows'ta"} seçili olan cihazdır.`}
       >
         <SettingsRow
           icon={<AudioOutlined />}

@@ -90,16 +90,22 @@ export function StreamControlMenu() {
     : [{ key: "source-empty", label: "Kaynaklar yükleniyor...", disabled: true }];
 
   const items: MenuProps["items"] = [
-    {
-      // A toggle, not a submenu: there are two states and the row already says
-      // which one it is in. Sits first because it is the only setting here that
-      // changes what viewers HEAR rather than how the picture looks.
-      key: "system-audio",
-      icon: isSystemAudioOn ? <SoundOutlined /> : <AudioMutedOutlined />,
-      label: isSystemAudioOn ? "Yayın Sesini Kapat" : "Yayın Sesini Aç",
-      onClick: () => runChange((live) => live.setSystemAudio(!isSystemAudioOn)),
-    },
-    { type: "divider" },
+    // System audio is Windows-only (the loopback addon); macOS has no row.
+    ...(window.desktopApi.platform === "darwin"
+      ? []
+      : ([
+          {
+            // A toggle, not a submenu: there are two states and the row already
+            // says which one it is in. Sits first because it is the only setting
+            // here that changes what viewers HEAR rather than how the picture
+            // looks.
+            key: "system-audio",
+            icon: isSystemAudioOn ? <SoundOutlined /> : <AudioMutedOutlined />,
+            label: isSystemAudioOn ? "Yayın Sesini Kapat" : "Yayın Sesini Aç",
+            onClick: () => runChange((live) => live.setSystemAudio(!isSystemAudioOn)),
+          },
+          { type: "divider" },
+        ] satisfies MenuProps["items"])),
     {
       key: "quality",
       icon: <SettingOutlined />,

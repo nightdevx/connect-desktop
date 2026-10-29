@@ -60,11 +60,21 @@ for (const name of ["webrtc-hw-encoding", "webrtc-hw-decoding", "WebRtcUseDmabuf
 assert.ok(linux.enableFeatures.includes("WebRTCPipeWireCapturer"));
 assert.deepEqual(linux.switches.find(([name]) => name === "ozone-platform-hint"), ["ozone-platform-hint", "auto"]);
 
+// macOS: VideoToolbox is left alone with the setting on; off turns WebRTC
+// hardware encoding off the way Windows does.
+const macOn = resolveMediaEngineFlags("darwin", true);
+assert.deepEqual(macOn.enableFeatures, []);
+assert.deepEqual(macOn.disableFeatures, []);
+assert.deepEqual(macOn.switches, [["force-fieldtrials", WEBRTC_FIELD_TRIALS]]);
+const macOff = resolveMediaEngineFlags("darwin", false);
+assert.ok(macOff.disableFeatures.includes("webrtc-hw-encoding"), "HW off must disable webrtc-hw-encoding on macOS");
+assert.ok(!macOff.disableFeatures.includes("webrtc-hw-decoding"), "HW off must keep hardware decode on macOS");
+
 // Names Chromium no longer has. Passing them is a silent no-op.
 // MediaFoundationAV1Encoding became WebRtcAV1HWEncode in M136; the two
 // AllowWgcScreen* features are gone by M156.
 const dead = ["disable-webrtc-hw-encoding", "disable-webrtc-hw-decoding", "AllowWgcWindowCapturer", "AllowWgcZeroHz", "MediaFoundationAV1Encoding", "AllowWgcScreenCapturer", "AllowWgcScreenZeroHz"];
-for (const flags of [winOn, winOff, linux]) {
+for (const flags of [winOn, winOff, linux, macOn, macOff]) {
   for (const name of allNames(flags)) {
     assert.ok(!dead.includes(name), `${name} does not exist in this Chromium`);
   }

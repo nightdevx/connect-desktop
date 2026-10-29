@@ -1,4 +1,4 @@
-import { app, desktopCapturer } from "electron";
+import { app, desktopCapturer, shell, systemPreferences } from "electron";
 import { handle } from "../handle";
 import { ok, fail, getWindowFromSender } from "../context";
 import {
@@ -25,6 +25,11 @@ import { getFreeGames } from "../../free-games-poller";
 import { detectGame } from "../../game-activity-poller";
 import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
 import { setTitleBarTheme } from "../../titlebar";
+import { DesktopApiError } from "../../backend-client";
+import { SCREEN_RECORDING_PERMISSION_MESSAGE } from "../../../shared/streaming-contracts";
+
+const SCREEN_RECORDING_SETTINGS_URL =
+  "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
 
 export function registerAppHandlers(): void {
   handle("app:ping", async () => "pong");
@@ -167,6 +172,22 @@ export function registerAppHandlers(): void {
 
   handle("desktop:screen-capture-sources", async () => {
     try {
+      if (
+        process.platform === "darwin" &&
+        systemPreferences.getMediaAccessStatus("screen") !== "granted"
+      ) {
+        // Asking once is what lists Connect under Screen Recording (and shows
+        // macOS's own prompt the first time); its answer is blank sources.
+        await desktopCapturer
+          .getSources({ types: ["screen"], thumbnailSize: { width: 0, height: 0 } })
+          .catch(() => []);
+        throw new DesktopApiError(
+          "SCREEN_RECORDING_PERMISSION",
+          403,
+          SCREEN_RECORDING_PERMISSION_MESSAGE,
+        );
+      }
+
       const sources = await desktopCapturer.getSources({
         types: ["window", "screen"],
         thumbnailSize: { width: 300, height: 300 },
@@ -185,6 +206,20 @@ export function registerAppHandlers(): void {
       }));
 
       return ok({ sources: mapped });
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  // macOS only: the Screen Recording pane of System Settings, where the share
+  // dialog sends a user who has not allowed it yet.
+  handle("desktop:open-screen-recording-settings", async () => {
+    try {
+      if (process.platform !== "darwin") {
+        return ok({ opened: false });
+      }
+      await shell.openExternal(SCREEN_RECORDING_SETTINGS_URL);
+      return ok({ opened: true });
     } catch (error) {
       return fail(error);
     }

@@ -25,9 +25,16 @@ import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
 // On Windows the system draws minimise, maximise and close over the right end
-// of the title bar (src/main/titlebar.ts makes the same test), so the page
-// leaves that corner empty instead of drawing its own.
+// of the title bar, and on macOS its traffic lights sit at the left end
+// (src/main/titlebar.ts makes the same tests), so the page leaves that corner
+// empty instead of drawing its own.
 const usesNativeWindowControls = window.desktopApi.platform === "win32";
+const usesTrafficLights = window.desktopApi.platform === "darwin";
+const titlebarClassName = usesNativeWindowControls
+  ? "ct-titlebar ct-titlebar--native-controls"
+  : usesTrafficLights
+    ? "ct-titlebar ct-titlebar--traffic-lights"
+    : "ct-titlebar";
 
 function App() {
   const {
@@ -199,13 +206,7 @@ function App() {
       />
 
       <div className="ct-app-content">
-        <header
-          className={
-            usesNativeWindowControls
-              ? "ct-titlebar ct-titlebar--native-controls"
-              : "ct-titlebar"
-          }
-        >
+        <header className={titlebarClassName}>
           <div className="ct-titlebar-brand">
             <img src={logo} alt="" className="ct-titlebar-logo" />
             <span className="ct-titlebar-name">Connect</span>
@@ -254,7 +255,7 @@ function App() {
               <QuestionCircleOutlined />
             </button>
 
-            {!usesNativeWindowControls && (
+            {!usesNativeWindowControls && !usesTrafficLights && (
               <div className="ct-window-controls" aria-label="Pencere kontrolleri">
                 <button
                   type="button"

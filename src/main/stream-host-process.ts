@@ -22,8 +22,9 @@ import type { StreamHostRequest } from "../shared/stream-host-contracts";
 // Errors here reach Sentry through main, under the same rule as main's own
 // (index.ts): a DSN, and a packaged build. app is main-only, so packaged is
 // worked out the way app.isPackaged does it. Before the parentPort listener
-// below: the SDK filters its own messages out of that channel.
-const isPackaged = !/^electron(\.exe)?$/i.test(basename(process.execPath));
+// below: the SDK filters its own messages out of that channel. On macOS a
+// utility process runs from a helper app, "Electron Helper" unpackaged.
+const isPackaged = !/^electron(\.exe| helper.*)?$/i.test(basename(process.execPath));
 if (process.env.SENTRY_DSN && isPackaged) {
   // Errors only: OpenTelemetry stays off (opt-in in @sentry/electron 8), and
   // the same restrictive data collection as main and the page.
