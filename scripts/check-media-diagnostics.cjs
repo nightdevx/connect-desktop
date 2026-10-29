@@ -128,6 +128,13 @@ if (goShared) {
     "client and server disagree on the per-session entry cap",
   );
 
+  const goEntryBytes = goShared.match(/MaxEntryBytes\s*=\s*(\d+)\s*<<\s*(\d+)/);
+  assert.equal(
+    Number(goEntryBytes[1]) << Number(goEntryBytes[2]),
+    Number(shared.match(/maxEntryBytes:\s*([\d_]+)/)[1].replace(/_/g, "")),
+    "client and server disagree on the per-entry byte cap; the server drops what is over it",
+  );
+
   crossRepo = "caps aligned";
 } else {
   console.log(
@@ -551,6 +558,29 @@ for (const verdict of deriveVerdicts(
     verdict.evidence.length > 0,
     `${verdict.code} states no evidence; a headline nobody can check is one nobody acts on`,
   );
+}
+
+// --- an upload stays under the server's caps -------------------------------
+{
+  const { batchEntryCount, diagnosticsEntryBytes, MEDIA_DIAGNOSTICS_LIMITS: limits } = compiled;
+  assert.equal(batchEntryCount([10, 10, 10], 400, 25), 2, "the byte budget was exceeded");
+  assert.equal(batchEntryCount([10, 10, 10], 2, 1000), 2, "the entry count cap was exceeded");
+  assert.equal(batchEntryCount([5000, 10], 400, 100), 1, "an entry over the budget alone must still go");
+  assert.equal(batchEntryCount([], 400, 100), 0);
+  // A full pending queue of the largest entries the collector keeps.
+  const sizes = Array.from({ length: limits.maxPendingEntries }, () => limits.maxEntryBytes);
+  let remaining = sizes;
+  let uploads = 0;
+  while (remaining.length > 0) {
+    const count = batchEntryCount(remaining);
+    assert.ok(count > 0, "a batch made no progress");
+    const bytes = remaining.slice(0, count).reduce((sum, size) => sum + size, 0);
+    assert.ok(bytes + 16_384 + 65_536 < 1 << 20, `a batch of ${bytes} entry bytes is over the server's 1 MiB body cap`);
+    remaining = remaining.slice(count);
+    uploads += 1;
+  }
+  assert.ok(uploads > 1, "4,000 entries of 4 KiB fitted one upload");
+  assert.equal(diagnosticsEntryBytes({ name: "ğ" }), 13, "entry size must count UTF-8 bytes, as the server does");
 }
 
 console.log(

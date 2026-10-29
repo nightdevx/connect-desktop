@@ -42,7 +42,42 @@ export const MEDIA_DIAGNOSTICS_LIMITS = {
   maxEntriesPerSession: 20_000,
   maxDataBytesPerEntry: 4_000,
   maxPendingEntries: 4_000,
+  // The server's caps (internal/mediadiag): an entry over MaxEntryBytes is
+  // dropped without a word, and a body over MaxBatchBytes (1 MiB) is refused
+  // whole, which used to leave the flush retrying the same batch forever. The
+  // entries of one upload stay under this, leaving the rest of the MiB for the
+  // client and summary blobs (16 + 64 KiB at most).
+  maxEntryBytes: 4_096,
+  maxBatchEntryBytes: 900_000,
 } as const;
+
+const utf8 = new TextEncoder();
+
+/** What one entry weighs on the wire, as the server measures it (UTF-8 bytes). */
+export const diagnosticsEntryBytes = (entry: unknown): number =>
+  utf8.encode(JSON.stringify(entry)).length;
+
+/**
+ * How many of the leading entries go in one upload: no more than maxEntries,
+ * no more than maxBytes between them, and always at least one (an entry that
+ * alone is over the budget was already cut down to fit maxEntryBytes).
+ */
+export const batchEntryCount = (
+  sizes: readonly number[],
+  maxEntries: number = MEDIA_DIAGNOSTICS_LIMITS.maxEntriesPerBatch,
+  maxBytes: number = MEDIA_DIAGNOSTICS_LIMITS.maxBatchEntryBytes,
+): number => {
+  let total = 0;
+  let count = 0;
+  for (const size of sizes) {
+    if (count >= maxEntries || (count > 0 && total + size > maxBytes)) {
+      break;
+    }
+    total += size;
+    count += 1;
+  }
+  return count;
+};
 
 export type MediaDiagnosticsEntryKind = "event" | "sample";
 

@@ -1,5 +1,7 @@
 import {
   MEDIA_DIAGNOSTICS_LIMITS,
+  batchEntryCount,
+  diagnosticsEntryBytes,
   MEDIA_DIAGNOSTICS_MAX_EPISODES,
   MEDIA_DIAGNOSTICS_MAX_REMOTES,
   MEDIA_DIAGNOSTICS_SCHEMA_VERSION,
@@ -931,6 +933,14 @@ class MediaDiagnosticsCollector {
       name,
       data: truncateData(data),
     });
+    // The data cap above counts characters of the data alone; the server's
+    // counts UTF-8 bytes of the whole entry and drops what is over it. An
+    // entry that would be dropped keeps its name and says how big it was.
+    const entry = this.pending[this.pending.length - 1];
+    const bytes = diagnosticsEntryBytes(entry);
+    if (bytes > MEDIA_DIAGNOSTICS_LIMITS.maxEntryBytes) {
+      entry.data = { truncated: true, bytes };
+    }
 
     if (this.pending.length > MEDIA_DIAGNOSTICS_LIMITS.maxPendingEntries) {
       this.pending.splice(
@@ -996,7 +1006,15 @@ class MediaDiagnosticsCollector {
         lobbyId: this.lobbyId,
         client: this.client,
         summary,
-        entries: this.pending.splice(0, MEDIA_DIAGNOSTICS_LIMITS.maxEntriesPerBatch),
+        // Cut by count and by bytes: the server refuses a body over 1 MiB.
+        entries: this.pending.splice(
+          0,
+          batchEntryCount(
+            this.pending
+              .slice(0, MEDIA_DIAGNOSTICS_LIMITS.maxEntriesPerBatch)
+              .map(diagnosticsEntryBytes),
+          ),
+        ),
         final: false,
       });
     } while (final && this.pending.length > 0);
