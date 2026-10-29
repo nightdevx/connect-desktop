@@ -881,6 +881,13 @@
   box-shadow: none;
 }
 
+/* One column no wider than the strip. The sidebar is a grid with an implicit
+   auto column, which grew to its widest row's content (made for the old
+   280px), so at 248px the header's buttons and the rows' counts were cut off. */
+:root[data-odak] .ct-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* The header is the strip's: the section's name in a raised pill, the
    buttons beside it, and the short divider under them. */
 :root[data-odak] .ct-sidebar-header {
@@ -894,6 +901,10 @@
 }
 
 :root[data-odak] .ct-sidebar-header h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   height: 44px;
   padding: 0 14px;
   border-radius: 14px;
