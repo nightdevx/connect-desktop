@@ -1319,6 +1319,60 @@ function WorkspaceShell({
     onCopyUsername: handleCopyUsername,
   };
 
+  // The Odak page shows the dock at the foot of its own strip; everywhere
+  // else it sits under the sidebar column.
+  const quickControls = (
+    <QuickControls
+      currentUsername={currentUsername}
+      currentUserId={currentUserId}
+      currentUserAvatarUrl={currentUserAvatarUrl}
+      friends={friends}
+      hasActiveLobby={hasActiveLobby}
+      isLeavingLobby={isLeavingLobby}
+      micEnabled={micEnabled}
+      micLocked={micLocked}
+      headphoneEnabled={headphoneEnabled}
+      screenShareEnabled={screenEnabled}
+      cameraEnabled={cameraEnabled}
+      mediaAudience={mediaAudience?.live}
+      audioInputDevices={audioInputDevices}
+      audioOutputDevices={audioOutputDevices}
+      selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
+      selectedAudioOutputDeviceId={
+        audioPreferences.selectedAudioOutputDeviceId
+      }
+      onSelectAudioInputDevice={handleSelectAudioInputDevice}
+      onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
+      onToggleMic={handleMicToggle}
+      onToggleHeadphone={handleHeadphoneToggle}
+      onStopScreenShare={handleScreenToggle}
+      onStopCamera={handleCameraToggle}
+      onDisconnect={handleLeaveLobbyOrEndCall}
+      presenceStatus={effectivePresenceStatus}
+      whereLabel={
+        isInCallRoom
+          ? `Görüşmede: ${callState.peerUser?.displayName || callState.peerUser?.username || "arama"}`
+          : activeLobbyId
+            ? lobbiesQuery.data?.data?.lobbies.find((lobby) => lobby.id === activeLobbyId)?.name
+            : undefined
+      }
+      // A call ringing out or running while the user is elsewhere: a row at
+      // the top of the dock, where every other "you are live" reminder is.
+      callStrip={
+        <CallDock
+          variant="strip"
+          callState={callState}
+          isStageVisible={isCallStageVisible}
+          onAccept={handleAcceptCallAndOpen}
+          onReject={rejectCall}
+          onCancel={cancelCall}
+          onEnd={handleEndActiveCall}
+          onOpenConversation={openCallConversation}
+        />
+      }
+    />
+  );
+
   return (
     <section
       className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}${workspaceSection === "users" ? " is-odak-users" : ""}`}
@@ -1551,55 +1605,7 @@ function WorkspaceShell({
           live screen share are not properties of the section you happen to be
           looking at -- and Ayarlar and Yönetim, the two that used to hide it,
           are exactly where you are least likely to notice you are still live. */}
-      <QuickControls
-        currentUsername={currentUsername}
-        currentUserId={currentUserId}
-        currentUserAvatarUrl={currentUserAvatarUrl}
-        friends={friends}
-        hasActiveLobby={hasActiveLobby}
-        isLeavingLobby={isLeavingLobby}
-        micEnabled={micEnabled}
-        micLocked={micLocked}
-        headphoneEnabled={headphoneEnabled}
-        screenShareEnabled={screenEnabled}
-        cameraEnabled={cameraEnabled}
-        mediaAudience={mediaAudience?.live}
-        audioInputDevices={audioInputDevices}
-        audioOutputDevices={audioOutputDevices}
-        selectedAudioInputDeviceId={audioPreferences.selectedAudioInputDeviceId}
-        selectedAudioOutputDeviceId={
-          audioPreferences.selectedAudioOutputDeviceId
-        }
-        onSelectAudioInputDevice={handleSelectAudioInputDevice}
-        onSelectAudioOutputDevice={handleSelectAudioOutputDevice}
-        onToggleMic={handleMicToggle}
-        onToggleHeadphone={handleHeadphoneToggle}
-        onStopScreenShare={handleScreenToggle}
-        onStopCamera={handleCameraToggle}
-        onDisconnect={handleLeaveLobbyOrEndCall}
-        presenceStatus={effectivePresenceStatus}
-        whereLabel={
-          isInCallRoom
-            ? `Görüşmede: ${callState.peerUser?.displayName || callState.peerUser?.username || "arama"}`
-            : activeLobbyId
-              ? lobbiesQuery.data?.data?.lobbies.find((lobby) => lobby.id === activeLobbyId)?.name
-              : undefined
-        }
-        // A call ringing out or running while the user is elsewhere: a row at
-        // the top of the dock, where every other "you are live" reminder is.
-        callStrip={
-          <CallDock
-            variant="strip"
-            callState={callState}
-            isStageVisible={isCallStageVisible}
-            onAccept={handleAcceptCallAndOpen}
-            onReject={rejectCall}
-            onCancel={cancelCall}
-            onEnd={handleEndActiveCall}
-            onOpenConversation={openCallConversation}
-          />
-        }
-      />
+      {workspaceSection !== "users" && quickControls}
 
       <CallDock
         callState={callState}
@@ -1685,6 +1691,7 @@ function WorkspaceShell({
           stripCollapsed={isSidebarCollapsed}
           onToggleStrip={() => setViewPreference("sidebarOpen", isSidebarCollapsed)}
           home={friendsHomeProps}
+          dock={quickControls}
         />
       )}
     </section>

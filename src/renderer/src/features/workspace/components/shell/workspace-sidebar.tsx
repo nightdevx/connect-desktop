@@ -303,6 +303,52 @@ export function WorkspaceSidebar({
     setIsCreateLobbyOpen(false);
   };
 
+  // Rendered by both the folded and the open sidebar: Arkadaş ekle is also
+  // opened from the friends page, whichever way the sidebar is.
+  const addFriendModal = (
+    <Modal
+      rootClassName="ct-modal"
+      title={
+        <ModalHeading
+          icon={<UserAddOutlined />}
+          title="Arkadaş Ekle"
+          description="Kullanıcı adını yaz; isteği kabul ettiğinde listende görünür."
+        />
+      }
+      open={usersProps.isAddFriendOpen}
+      onOk={() => void handleAddFriendSubmit()}
+      onCancel={() => usersProps.onAddFriendOpenChange(false)}
+      confirmLoading={isSendingFriendRequest}
+      okButtonProps={{
+        // 3-32 mirrors the backend username pattern and the IPC zod schema.
+        // The old 2/64 bounds were copied from the id-shaped block schema, so
+        // anything outside 3-32 died as a ZodError and surfaced as the generic
+        // "Arkadaşlık isteği gönderilemedi." with no hint about the length.
+        disabled: friendUsername.trim().length < 3,
+      }}
+      okText={isSendingFriendRequest ? "Gönderiliyor..." : "İstek Gönder"}
+      cancelText="İptal"
+      destroyOnHidden
+    >
+      <div className="ct-modal-form">
+        <label className="ct-field">
+          <span>Kullanıcı Adı</span>
+          <input
+            type="text"
+            className="ct-input"
+            value={friendUsername}
+            onChange={(event) => setFriendUsername(event.target.value)}
+            placeholder="Örn. mehmet"
+            maxLength={32}
+          />
+          <small className="ct-field-hint">
+            Kullanıcı adını tam olarak yazın.
+          </small>
+        </label>
+      </div>
+    </Modal>
+  );
+
   if (collapsed) {
     return (
       <aside key="folded" className="ct-sidebar collapsed" aria-label="Yan panel">
@@ -361,6 +407,7 @@ export function WorkspaceSidebar({
             />
           )}
         </div>
+        {addFriendModal}
       </aside>
     );
   }
@@ -614,47 +661,7 @@ export function WorkspaceSidebar({
         </div>
       </Modal>
 
-      <Modal
-        rootClassName="ct-modal"
-        title={
-          <ModalHeading
-            icon={<UserAddOutlined />}
-            title="Arkadaş Ekle"
-            description="Kullanıcı adını yaz; isteği kabul ettiğinde listende görünür."
-          />
-        }
-        open={usersProps.isAddFriendOpen}
-        onOk={() => void handleAddFriendSubmit()}
-        onCancel={() => usersProps.onAddFriendOpenChange(false)}
-        confirmLoading={isSendingFriendRequest}
-        okButtonProps={{
-          // 3-32 mirrors the backend username pattern and the IPC zod schema.
-          // The old 2/64 bounds were copied from the id-shaped block schema, so
-          // anything outside 3-32 died as a ZodError and surfaced as the generic
-          // "Arkadaşlık isteği gönderilemedi." with no hint about the length.
-          disabled: friendUsername.trim().length < 3,
-        }}
-        okText={isSendingFriendRequest ? "Gönderiliyor..." : "İstek Gönder"}
-        cancelText="İptal"
-        destroyOnHidden
-      >
-        <div className="ct-modal-form">
-          <label className="ct-field">
-            <span>Kullanıcı Adı</span>
-            <input
-              type="text"
-              className="ct-input"
-              value={friendUsername}
-              onChange={(event) => setFriendUsername(event.target.value)}
-              placeholder="Örn. mehmet"
-              maxLength={32}
-            />
-            <small className="ct-field-hint">
-              Kullanıcı adını tam olarak yazın.
-            </small>
-          </label>
-        </div>
-      </Modal>
+      {addFriendModal}
     </aside>
   );
 }

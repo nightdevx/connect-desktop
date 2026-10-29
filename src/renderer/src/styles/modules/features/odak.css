@@ -358,6 +358,24 @@
   scrollbar-width: none;
 }
 
+/* The shell's quick-controls dock at the strip's foot, edge to edge: the
+   microphone, the output, the way out of a room and the call row. */
+.ct-odak-strip > .ct-quick-dock {
+  align-self: stretch;
+  margin: auto 0 -16px;
+  border-right: 0;
+  background: var(--odak-surface);
+}
+
+.ct-odak-strip.open > .ct-quick-dock {
+  margin-inline: -12px;
+}
+
+/* Folded, the rail's avatar already says who you are. */
+.ct-odak-strip:not(.open) .ct-quick-idle-left {
+  display: none;
+}
+
 .ct-odak-strip.open .ct-odak-strip-list {
   align-items: stretch;
   gap: 4px;
@@ -798,8 +816,8 @@
 
 /* --- the shell under the docked page ---------------------------------- */
 /* The rail and the strip are the page's (320px open, 148px folded, laid over
-   the shell); the
-   old sidebar and dock step aside, and the conversation panel takes the rest. */
+   the shell); the old sidebar steps aside (the dock moves into the strip), and
+   the conversation panel takes the rest. */
 .ct-workspace-shell.is-odak-users {
   grid-template-columns: 320px 0 minmax(0, 1fr);
 }
@@ -808,7 +826,12 @@
   grid-template-columns: 148px 0 minmax(0, 1fr);
 }
 
-.ct-workspace-shell.is-odak-users > .ct-sidebar,
-.ct-workspace-shell.is-odak-users > .ct-quick-dock {
+.ct-workspace-shell.is-odak-users > .ct-sidebar {
   display: none;
+}
+
+/* Column 3 by name: with the sidebar gone, auto-placement dropped the panel
+   into the empty second column, 0px wide. */
+.ct-workspace-shell.is-odak-users > .ct-main-panel {
+  grid-column: 3;
 }

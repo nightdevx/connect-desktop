@@ -245,6 +245,8 @@ export interface OdakFriendsPageProps {
   stripCollapsed: boolean;
   onToggleStrip: () => void;
   home: Omit<FriendsHomePanelProps, "currentUserId">;
+  /** The shell's quick-controls dock: microphone, output, the call row, a live share. */
+  dock?: ReactNode;
 }
 
 export function OdakFriendsPage({
@@ -266,6 +268,7 @@ export function OdakFriendsPage({
   stripCollapsed,
   onToggleStrip,
   home,
+  dock,
 }: OdakFriendsPageProps) {
   const {
     friends,
@@ -755,6 +758,7 @@ export function OdakFriendsPage({
             );
           })}
         </div>
+        {dock}
       </nav>
 
       {!docked && (
