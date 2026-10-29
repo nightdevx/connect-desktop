@@ -247,6 +247,17 @@
   background: rgba(255, 92, 92, 0.12);
 }
 
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled:hover {
+  color: #5d636d;
+  background: transparent;
+}
+
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled .anticon,
+:root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-disabled:hover .anticon {
+  color: #5d636d;
+}
+
 :root[data-odak] :is(.ant-dropdown, .ant-dropdown-menu-submenu-popup) .ant-dropdown-menu .ant-dropdown-menu-item-divider {
   margin: 6px 8px;
   background: var(--odak-border);

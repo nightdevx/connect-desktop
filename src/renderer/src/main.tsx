@@ -41,6 +41,10 @@ window.addEventListener("error", (event) => {
 // changes: the CSS custom properties have already been swapped by then, so
 // reading them back is what keeps the two halves of the palette in step.
 function ThemedApp() {
+  // Out of the React Compiler: it cached readTokens() as a value with no
+  // inputs, so antd kept the palette of the first render through every theme
+  // change (light/dark, and the Odak page's).
+  "use no memo";
   const themeMode = useUiStore((state) => state.themeMode);
   const odakTheme = useUiStore((state) => state.odakTheme);
 

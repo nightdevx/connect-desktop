@@ -351,10 +351,13 @@
   background: var(--odak-border-strong);
 }
 
+/* Stretched to the strip's width: folded, the strip centres its children, and
+   a list only as wide as an avatar clipped the selected one's ring. */
 .ct-odak-strip-list {
   display: flex;
   flex: 1;
   flex-direction: column;
+  align-self: stretch;
   align-items: center;
   gap: 12px;
   min-height: 0;
@@ -608,7 +611,9 @@
 .ct-odak-friends {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Two columns only while a card has room for its status beside its three
+     buttons; one when the strip is open on a narrow window. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   align-content: start;
   gap: 12px;
   min-width: 0;
