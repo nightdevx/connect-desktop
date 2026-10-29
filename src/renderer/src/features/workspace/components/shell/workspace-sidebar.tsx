@@ -349,6 +349,144 @@ export function WorkspaceSidebar({
     </Modal>
   );
 
+  // Both branches too: the folded strip has its own "+" at the foot.
+  const createLobbyModal = (
+    <Modal
+      rootClassName="ct-modal"
+      title={
+        <ModalHeading
+          icon={<PlusOutlined />}
+          title="Yeni Lobi Oluştur"
+          description="Arkadaşlarının katılabileceği sesli bir oda ya da yazılı bir kanal aç."
+        />
+      }
+      open={isCreateLobbyOpen}
+      onOk={() => void handleCreateLobbySubmit()}
+      onCancel={() => setIsCreateLobbyOpen(false)}
+      confirmLoading={lobbiesProps.isCreatingLobby}
+      okButtonProps={{ disabled: newLobbyName.trim().length < 2 }}
+      okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor..." : "Oluştur"}
+      cancelText="İptal"
+      destroyOnHidden
+    >
+      <div className="ct-modal-form">
+        <label className="ct-field">
+          <span>Lobi Adı</span>
+          <input
+            type="text"
+            className="ct-input"
+            value={newLobbyName}
+            onChange={(event) => setNewLobbyName(event.target.value)}
+            placeholder="Örn. Geliştirme Odası"
+            maxLength={64}
+          />
+        </label>
+
+        {/* Create-only: the flag is immutable afterwards, so "Lobi Ayarları"
+            has no counterpart for it. */}
+        <label className="ct-field">
+          <span>Oda Türü</span>
+          <Select
+            value={isTextOnly}
+            onChange={handleRoomTypeChange}
+            options={[
+              { label: "Sesli Oda", value: false },
+              { label: "Mesaj Odası", value: true },
+            ]}
+          />
+          <small className="ct-field-hint">
+            Mesaj odasında sesli bağlantı kurulmaz, sadece sohbet edilir.
+          </small>
+        </label>
+
+        {/* Voice only: nobody is ever on a text room's roster, so a limit
+            there would be a number that never applies to anything. */}
+        {!isTextOnly && (
+          <label className="ct-field">
+            <span>Kişi Sınırı</span>
+            <InputNumber
+              className="ct-input-number"
+              min={2}
+              max={100}
+              value={newLobbyCapacity}
+              onChange={(value) => setNewLobbyCapacity(value ?? null)}
+              placeholder="Sunucu varsayılanı"
+            />
+            <small className="ct-field-hint">
+              Boş bırakırsan sunucunun varsayılan sınırı geçerli olur.
+            </small>
+          </label>
+        )}
+
+        <div className="ct-field-row">
+          <div className="ct-field-row-text">
+            <strong>Kilitli Oda</strong>
+            <span>
+              {isTextOnly
+                ? "Yalnızca davet edilen kişiler görebilir"
+                : "Yalnızca davet edilen kişiler katılabilir"}
+            </span>
+          </div>
+          <Switch checked={isLocked} onChange={setIsLocked} />
+        </div>
+
+        {isLocked && (
+          <label className="ct-field">
+            <span>İzin Verilecek Kullanıcılar</span>
+            <Select
+              mode="multiple"
+              placeholder="Arkadaşlarından seç..."
+              value={allowedUsers}
+              onChange={setAllowedUsers}
+              options={[
+                ...lobbiesProps.allUsers
+                  .filter(
+                    (u) =>
+                      u.id !== lobbiesProps.currentUserId &&
+                      u.id !== SEED_ADMIN_ID,
+                  )
+                  .map((u) => ({
+                    label: `@${u.username} (${u.displayName})`,
+                    value: u.id,
+                  })),
+                ...lookedUpUsers.map((u) => ({
+                  label: `@${u.username} (${u.displayName})`,
+                  value: u.userId,
+                })),
+              ]}
+            />
+            <Input.Search
+              placeholder="Kullanıcı adıyla ekle"
+              enterButton="Ekle"
+              value={lookupUsername}
+              onChange={(event) => setLookupUsername(event.target.value)}
+              onSearch={() => void handleLookupAdd()}
+              loading={isLookingUp}
+              maxLength={32}
+            />
+          </label>
+        )}
+
+        {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur ve
+            mesaj odasına katılım diye bir şey yok. */}
+        {!isTextOnly && (
+          <label className="ct-field">
+            <span>Oda Şifresi (opsiyonel)</span>
+            <Input.Password
+              placeholder="Şifre belirleyin (boş = şifresiz)"
+              value={newLobbyPassword}
+              onChange={(event) => setNewLobbyPassword(event.target.value)}
+              maxLength={128}
+            />
+            <small className="ct-field-hint">
+              Şifreyi bilen herkes bu odaya katılabilir.
+            </small>
+          </label>
+        )}
+      </div>
+    </Modal>
+  );
+
   if (collapsed) {
     return (
       <aside key="folded" className="ct-sidebar collapsed" aria-label="Yan panel">
@@ -378,6 +516,8 @@ export function WorkspaceSidebar({
               deletingLobbyId={lobbiesProps.deletingLobbyId}
               unreadByLobbyId={lobbiesProps.unreadByLobbyId}
               onJoinLobby={lobbiesProps.onJoinLobby}
+              onCreateLobby={handleCreateLobbyClick}
+              isCreatingLobby={lobbiesProps.isCreatingLobby}
             />
           )}
 
@@ -407,6 +547,7 @@ export function WorkspaceSidebar({
             />
           )}
         </div>
+        {createLobbyModal}
         {addFriendModal}
       </aside>
     );
@@ -433,7 +574,7 @@ export function WorkspaceSidebar({
         {workspaceSection === "lobbies" && (
           <button
             type="button"
-            className="ct-sidebar-header-action"
+            className="ct-sidebar-header-action ct-sidebar-header-create"
             onClick={handleCreateLobbyClick}
             disabled={lobbiesProps.isCreatingLobby}
             title="Lobi oluştur"
@@ -526,140 +667,7 @@ export function WorkspaceSidebar({
         />
       )}
 
-      <Modal
-        rootClassName="ct-modal"
-        title={
-          <ModalHeading
-            icon={<PlusOutlined />}
-            title="Yeni Lobi Oluştur"
-            description="Arkadaşlarının katılabileceği sesli bir oda ya da yazılı bir kanal aç."
-          />
-        }
-        open={isCreateLobbyOpen}
-        onOk={() => void handleCreateLobbySubmit()}
-        onCancel={() => setIsCreateLobbyOpen(false)}
-        confirmLoading={lobbiesProps.isCreatingLobby}
-        okButtonProps={{ disabled: newLobbyName.trim().length < 2 }}
-        okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor..." : "Oluştur"}
-        cancelText="İptal"
-        destroyOnHidden
-      >
-        <div className="ct-modal-form">
-          <label className="ct-field">
-            <span>Lobi Adı</span>
-            <input
-              type="text"
-              className="ct-input"
-              value={newLobbyName}
-              onChange={(event) => setNewLobbyName(event.target.value)}
-              placeholder="Örn. Geliştirme Odası"
-              maxLength={64}
-            />
-          </label>
-
-          {/* Create-only: the flag is immutable afterwards, so "Lobi Ayarları"
-              has no counterpart for it. */}
-          <label className="ct-field">
-            <span>Oda Türü</span>
-            <Select
-              value={isTextOnly}
-              onChange={handleRoomTypeChange}
-              options={[
-                { label: "Sesli Oda", value: false },
-                { label: "Mesaj Odası", value: true },
-              ]}
-            />
-            <small className="ct-field-hint">
-              Mesaj odasında sesli bağlantı kurulmaz, sadece sohbet edilir.
-            </small>
-          </label>
-
-          {/* Voice only: nobody is ever on a text room's roster, so a limit
-              there would be a number that never applies to anything. */}
-          {!isTextOnly && (
-            <label className="ct-field">
-              <span>Kişi Sınırı</span>
-              <InputNumber
-                className="ct-input-number"
-                min={2}
-                max={100}
-                value={newLobbyCapacity}
-                onChange={(value) => setNewLobbyCapacity(value ?? null)}
-                placeholder="Sunucu varsayılanı"
-              />
-              <small className="ct-field-hint">
-                Boş bırakırsan sunucunun varsayılan sınırı geçerli olur.
-              </small>
-            </label>
-          )}
-
-          <div className="ct-field-row">
-            <div className="ct-field-row-text">
-              <strong>Kilitli Oda</strong>
-              <span>
-                {isTextOnly
-                  ? "Yalnızca davet edilen kişiler görebilir"
-                  : "Yalnızca davet edilen kişiler katılabilir"}
-              </span>
-            </div>
-            <Switch checked={isLocked} onChange={setIsLocked} />
-          </div>
-
-          {isLocked && (
-            <label className="ct-field">
-              <span>İzin Verilecek Kullanıcılar</span>
-              <Select
-                mode="multiple"
-                placeholder="Arkadaşlarından seç..."
-                value={allowedUsers}
-                onChange={setAllowedUsers}
-                options={[
-                  ...lobbiesProps.allUsers
-                    .filter(
-                      (u) =>
-                        u.id !== lobbiesProps.currentUserId &&
-                        u.id !== SEED_ADMIN_ID,
-                    )
-                    .map((u) => ({
-                      label: `@${u.username} (${u.displayName})`,
-                      value: u.id,
-                    })),
-                  ...lookedUpUsers.map((u) => ({
-                    label: `@${u.username} (${u.displayName})`,
-                    value: u.userId,
-                  })),
-                ]}
-              />
-              <Input.Search
-                placeholder="Kullanıcı adıyla ekle"
-                enterButton="Ekle"
-                value={lookupUsername}
-                onChange={(event) => setLookupUsername(event.target.value)}
-                onSearch={() => void handleLookupAdd()}
-                loading={isLookingUp}
-                maxLength={32}
-              />
-            </label>
-          )}
-
-          {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur ve
-              mesaj odasına katılım diye bir şey yok. */}
-          {!isTextOnly && (
-            <label className="ct-field">
-              <span>Oda Şifresi (opsiyonel)</span>
-              <Input.Password
-                placeholder="Şifre belirleyin (boş = şifresiz)"
-                value={newLobbyPassword}
-                onChange={(event) => setNewLobbyPassword(event.target.value)}
-                maxLength={128}
-              />
-              <small className="ct-field-hint">
-                Şifreyi bilen herkes bu odaya katılabilir.
-              </small>
-            </label>
-          )}
-        </div>
-      </Modal>
+      {createLobbyModal}
 
       {addFriendModal}
     </aside>

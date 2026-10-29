@@ -313,9 +313,53 @@
   background: var(--odak-danger);
 }
 
+/* "Lobi oluştur" at the foot of the strip, as in the mock-up: lime on the
+   raised grey. The list takes the strip's height so the button sits at the
+   bottom; a long list pushes it down and it scrolls with the rooms. */
+:root[data-odak] .ct-lobby-compact {
+  flex: 1 0 auto;
+}
+
+:root[data-odak] .ct-lobby-compact-create {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 16px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-lobby-compact-create:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+:root[data-odak] .ct-lobby-compact-create:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+:root[data-odak] .ct-lobby-compact-create:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* The open sidebar's "+" in the same colours, beside the outlined fold
+   button. */
+:root[data-odak] .ct-sidebar-header-create,
+:root[data-odak] .ct-sidebar-header-create:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
 /* The strip is the 56px rail below 760px. */
 @media (max-width: 760px) {
-  :root[data-odak] .ct-lobby-mini {
+  :root[data-odak] :is(.ct-lobby-mini, .ct-lobby-compact-create) {
     width: 42px;
     height: 42px;
     border-radius: 14px;

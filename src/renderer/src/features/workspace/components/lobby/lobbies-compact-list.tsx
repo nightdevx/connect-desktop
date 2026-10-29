@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { Icon } from "../odak/odak-parts";
 
 interface LobbiesCompactListProps {
   lobbies: LobbyDescriptor[];
@@ -14,13 +15,17 @@ interface LobbiesCompactListProps {
   deletingLobbyId: string | null;
   unreadByLobbyId?: Record<string, number>;
   onJoinLobby: (lobbyId: string) => void;
+  /** Opens the sidebar's "Yeni Lobi Oluştur" modal. */
+  onCreateLobby?: () => void;
+  isCreatingLobby?: boolean;
 }
 
 /**
  * The lobby list when the sidebar is folded to a strip: one badge per room, so
  * a wider stage does not cost the way into another room. Voice rooms first,
  * then message rooms, as in the full list. A click does what the full row's
- * click does; settings, the roster and creating a room need the full sidebar.
+ * click does; settings and the roster need the full sidebar. The "+" at the
+ * foot opens the same create modal as the open sidebar's header.
  */
 export function LobbiesCompactList({
   lobbies,
@@ -32,6 +37,8 @@ export function LobbiesCompactList({
   deletingLobbyId,
   unreadByLobbyId = {},
   onJoinLobby,
+  onCreateLobby,
+  isCreatingLobby = false,
 }: LobbiesCompactListProps) {
   const voiceRooms = lobbies.filter((lobby) => !lobby.isTextOnly);
   const textRooms = lobbies.filter((lobby) => lobby.isTextOnly);
@@ -113,6 +120,22 @@ export function LobbiesCompactList({
           renderRoom(lobby, voiceRooms.length + index),
         )}
       </ul>
+      {onCreateLobby && (
+        <Tooltip title="Lobi oluştur" placement="right">
+          <button
+            type="button"
+            className="ct-lobby-compact-create"
+            onClick={onCreateLobby}
+            disabled={isCreatingLobby}
+            aria-label="Lobi oluştur"
+          >
+            <Icon size={20}>
+              <path d="M5 12h14" />
+              <path d="M12 5v14" />
+            </Icon>
+          </button>
+        </Tooltip>
+      )}
     </nav>
   );
 }
