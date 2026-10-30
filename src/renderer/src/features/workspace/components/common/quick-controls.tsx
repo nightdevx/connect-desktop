@@ -94,8 +94,11 @@ function VoiceConnectionDot({
 }) {
   // Between two reconnect attempts the session passes through "disconnected"
   // for a few dozen milliseconds; the dot turns red only once that holds, so
-  // it does not blink red and amber while the app is still retrying.
-  const [shown, setShown] = useState(state);
+  // it does not blink red and amber while the app is still retrying. A join
+  // starts from "disconnected" too, so the first render waits the same way.
+  const [shown, setShown] = useState<LiveKitConnectionStatus>(
+    state === "disconnected" || state === "closed" ? "connecting" : state,
+  );
   useEffect(() => {
     const down = state === "disconnected" || state === "closed";
     const timer = window.setTimeout(() => setShown(state), down ? 1000 : 0);
