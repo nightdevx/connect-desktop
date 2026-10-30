@@ -26,6 +26,10 @@
   --odak-rise: 6px;
   /* List entrances step by this much per item, capped by the caller. */
   --odak-stagger: 28ms;
+  /* Menu rows step faster than list rows: a menu is read at once. */
+  --odak-stagger-menu: 12ms;
+  /* The one sideways exception: drawers and the call card slide in this far. */
+  --odak-slide: 16px;
 }
 
 /* Fade and rise into place: pages, cards, rows, panels. */
@@ -188,6 +192,8 @@
     --odak-dur-3: 0ms;
     --odak-dur-4: 0ms;
     --odak-stagger: 0ms;
+    --odak-stagger-menu: 0ms;
     --odak-rise: 0px;
+    --odak-slide: 0px;
   }
 }
