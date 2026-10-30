@@ -788,9 +788,9 @@ export function LobbyChatPanel({
 
       <ConfirmActionModal
         isOpen={pendingDeleteMessageId !== null}
-        title="Mesajı Sil"
-        message="Bu mesaj kalıcı olarak silinecek. Devam etmek istiyor musun?"
-        confirmLabel="Mesajı Sil"
+        title="Mesajı sil"
+        consequences={["Mesaj herkes için silinir.", "Geri alınamaz."]}
+        confirmLabel="Sil"
         isProcessing={
           pendingDeleteMessageId !== null &&
           deletingLobbyMessageId === pendingDeleteMessageId

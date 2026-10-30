@@ -1,1 +1,276 @@
-/* Odak açılır katmanlar (ODAK-TASARIM-PLANI.md Faz 10): katman-pencere. Kurallar :root[data-odak] altında. */
+/* Odak açılır katmanlar (ODAK-TASARIM-PLANI.md Faz 10): katman-pencere. Kurallar :root[data-odak] altında.
+   The dialog shell itself, toasts, tooltips, popovers and the call card are
+   restyled in place in odak-overlays.css; this file holds the pieces that are
+   new with Faz 10. */
+
+/* --- destructive confirm: who, then what will happen --------------------- */
+:root[data-odak] .ct-confirm-subject {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-confirm-subject-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+:root[data-odak] .ct-confirm-subject-name {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-confirm-subject-name strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--odak-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-odak] .ct-confirm-subject-name span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-confirm-subject-detail {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-confirm-list-title {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-confirm-list-title:first-child {
+  margin-top: 0;
+}
+
+:root[data-odak] .ct-confirm-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+}
+
+:root[data-odak] .ct-confirm-list li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-confirm-list li::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff8a8a;
+}
+
+/* --- forms: the error under its field, a count, two-card choices ---------- */
+:root[data-odak] .ct-field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+:root[data-odak] .ct-field-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: #7c828c;
+}
+
+/* An @ in front of a username, inside the box. */
+:root[data-odak] .ct-field-at {
+  position: relative;
+  display: block;
+}
+
+:root[data-odak] .ct-field-at > span {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  font-size: 14px;
+  color: #7c828c;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-field-at .ct-input {
+  width: 100%;
+  padding-left: 32px;
+}
+
+:root[data-odak] .ct-input.invalid,
+:root[data-odak] .ct-input.invalid:focus {
+  border-color: var(--odak-danger);
+  box-shadow: 0 0 0 3px rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] .ct-field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 1px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #ff8a8a;
+  animation: odak-fade var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-field-error .anticon {
+  margin-top: 2px;
+}
+
+:root[data-odak] .ct-choice-row {
+  display: flex;
+  gap: 8px;
+}
+
+:root[data-odak] .ct-choice {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 12px;
+  font: inherit;
+  text-align: left;
+  color: #d7dae0;
+  background: #0b0c0e;
+  cursor: pointer;
+  transition:
+    border-color var(--odak-dur-1) var(--odak-ease-out),
+    background-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-choice:hover {
+  border-color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-choice:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.3);
+}
+
+:root[data-odak] .ct-choice.selected {
+  border-color: var(--odak-accent);
+  color: var(--odak-text);
+  background: rgba(198, 244, 50, 0.06);
+}
+
+:root[data-odak] .ct-choice strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-choice strong .anticon {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-choice.selected strong .anticon {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-choice > span {
+  font-size: 11.5px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-choice-check {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  animation: odak-pop var(--odak-dur-3) var(--odak-ease-spring);
+}
+
+/* --- a form's success, in place of the form ------------------------------ */
+:root[data-odak] .ct-modal-success {
+  --odak-rise: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0 4px;
+  text-align: center;
+  animation: odak-enter var(--odak-dur-2) var(--odak-ease-out) both;
+}
+
+:root[data-odak] .ct-modal-success-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 18px;
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.14);
+  animation: odak-pop var(--odak-dur-3) var(--odak-ease-spring) both;
+}
+
+:root[data-odak] .ct-modal-success > strong {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-modal-success > span {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-modal-success > .ct-confirm-subject {
+  align-self: stretch;
+  margin-top: 12px;
+  text-align: left;
+}
+
+:root[data-odak] .ct-confirm-subject-detail .anticon {
+  margin-right: 3px;
+}
+
+/* --- the L dialog (Ekran paylaş): three previews and six qualities across -- */
+:root[data-odak] .ct-modal .ct-share-source-grid {
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+}
+
+:root[data-odak] .ct-modal .ct-share-quality-row {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}

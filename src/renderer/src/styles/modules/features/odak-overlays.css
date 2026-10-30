@@ -62,17 +62,24 @@
 }
 
 /* --------------------------------------------------------------------------
-   Modals
+   Dialogs: one shell for every antd Modal (rootClassName="ct-modal" and
+   ModalHeading). Widths come from MODAL_WIDTH: S 400, M 440, L 720.
    -------------------------------------------------------------------------- */
 
+/* The blur stays put; only the mask's opacity moves (the motion section). */
 :root[data-odak] .ct-modal .ant-modal-mask {
+  background: rgba(8, 9, 11, 0.55);
   backdrop-filter: blur(8px);
 }
 
 :root[data-odak] .ct-modal .ant-modal-container {
+  padding: 22px 22px 20px;
   border: 1px solid var(--odak-border-strong);
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--odak-surface);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* The logo's gradient line belongs to the old chrome. */
@@ -81,38 +88,41 @@
 }
 
 :root[data-odak] .ct-modal .ant-modal-header {
-  padding: 24px 68px 0 24px;
+  margin: 0;
+  padding: 0 36px 0 0;
 }
 
 :root[data-odak] .ct-modal .ant-modal-close {
-  top: 20px;
-  inset-inline-end: 20px;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  top: 16px;
+  inset-inline-end: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   color: var(--odak-muted);
-  background: var(--odak-raised);
+  background: transparent;
 }
 
 :root[data-odak] .ct-modal .ant-modal-close:hover {
   color: var(--odak-text);
-  background: var(--odak-border-strong);
+  background: var(--odak-raised);
 }
 
 :root[data-odak] .ct-modal .ant-modal-body {
-  padding: 20px 24px 24px;
+  padding: 18px 0 0;
 }
 
 :root[data-odak] .ct-modal .ant-modal-container:not(:has(> .ant-modal-header)) > .ant-modal-body {
-  padding-top: 24px;
+  padding-top: 0;
 }
 
 /* No band of its own: the buttons sit at the card's foot, right-aligned. */
 :root[data-odak] .ct-modal .ant-modal-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 0 24px 24px;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 0;
   border-top: 0;
   background: transparent;
 }
@@ -120,9 +130,9 @@
 :root[data-odak] .ct-modal .ant-modal-footer .ant-btn {
   height: 40px;
   margin: 0;
-  padding: 0 18px;
+  padding: 0 16px;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   box-shadow: none;
 }
@@ -138,6 +148,23 @@
   background: var(--odak-raised);
 }
 
+:root[data-odak] .ct-modal .ant-btn.ant-btn-color-dangerous.ant-btn-variant-solid:not(:disabled) {
+  color: #1a0606;
+  background: var(--odak-danger);
+}
+
+:root[data-odak] .ct-modal .ant-btn.ant-btn-color-dangerous.ant-btn-variant-solid:not(:disabled):hover {
+  background: #ff7373;
+}
+
+/* Keyboard focus on a footer button: a lime ring off the card's edge. */
+:root[data-odak] .ct-modal .ant-btn:focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 2px var(--odak-surface),
+    0 0 0 4px rgba(198, 244, 50, 0.8);
+}
+
 /* A send button waiting for input reads as waiting, not as broken. */
 :root[data-odak] .ct-modal .ant-modal-footer .ant-btn:disabled {
   border-color: transparent;
@@ -150,9 +177,9 @@
 }
 
 :root[data-odak] .ct-modal-heading-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   font-size: 19px;
   color: var(--odak-accent);
   background: rgba(198, 244, 50, 0.12);
@@ -160,15 +187,22 @@
 
 :root[data-odak] .ct-modal-heading-icon.danger {
   color: var(--odak-danger);
-  background: rgba(255, 92, 92, 0.14);
+  background: rgba(255, 92, 92, 0.12);
+}
+
+:root[data-odak] .ct-modal-heading-text {
+  padding-top: 0;
 }
 
 :root[data-odak] .ct-modal-heading-title {
   font-size: 17px;
+  line-height: 1.25;
 }
 
 :root[data-odak] .ct-modal-heading-description {
+  margin-top: 3px;
   font-size: 13px;
+  line-height: 1.45;
   color: var(--odak-muted);
 }
 
@@ -519,18 +553,47 @@
   }
 }
 
-/* Modals: the card opens, the mask fades. */
+/* Dialogs rise 6px and grow from .97 into place; they leave shorter, sinking
+   4px. Grown from just below the middle, not from the click: antd sets the
+   origin at the pointer, and from a far corner even .97 slides the card. */
+@keyframes odak-overlays-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--odak-rise)) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes odak-overlays-dialog-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+:root[data-odak] .ct-modal .ant-modal {
+  transform-origin: 50% 60% !important;
+}
+
 :root[data-odak] :is(.ant-zoom-enter.ant-zoom-enter-active, .ant-zoom-appear.ant-zoom-appear-active) {
-  animation-name: odak-open;
+  animation-name: odak-overlays-dialog-in;
   animation-duration: var(--odak-dur-3);
   animation-timing-function: var(--odak-ease-out);
 }
 
 :root[data-odak] .ant-zoom-leave.ant-zoom-leave-active {
-  animation-name: odak-open;
-  animation-direction: reverse;
+  animation-name: odak-overlays-dialog-out;
   animation-duration: var(--odak-dur-2);
-  animation-timing-function: var(--odak-ease-out);
+  animation-timing-function: var(--odak-ease-in);
 }
 
 :root[data-odak] :is(.ant-fade-enter.ant-fade-enter-active, .ant-fade-appear.ant-fade-appear-active) {

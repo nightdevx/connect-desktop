@@ -22,11 +22,11 @@ import { WatchModal, useWatchRoom } from "@/features/watch";
 import { watchStageIdentity, watchVideoRef } from "@shared/watch";
 import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
-import { MessageOutlined, UserDeleteOutlined } from "@ant-design/icons";
+import { MessageOutlined } from "@ant-design/icons";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
-import { ConfirmActionModal } from "../common";
+import { UnfriendConfirmModal } from "../common";
 import { UserProfileCardAnchor } from "../user/user-profile-card";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { fetchUserCard } from "../../hooks/user/use-user-cards";
@@ -1002,14 +1002,10 @@ export function LobbiesMainPanel({
         />
       )}
 
-      {/* Same confirmation the sidebar and the friends home put on it: the
-          person doing it cannot undo it on their own. */}
-      <ConfirmActionModal
-        isOpen={pendingUnfriend !== null}
-        title="Arkadaşlıktan Çıkar"
-        icon={<UserDeleteOutlined />}
-        message={`${pendingUnfriend?.name ?? ""} arkadaş listenizden kaldırılacak. Geri almak için karşı tarafın yeni isteğinizi kabul etmesi gerekir.`}
-        confirmLabel="Arkadaşlıktan Çıkar"
+      {/* The same confirm the friends page opens: the person doing it cannot
+          undo it on their own. */}
+      <UnfriendConfirmModal
+        person={pendingUnfriend}
         isProcessing={
           pendingUnfriend !== null &&
           friends.pendingUserIds.includes(pendingUnfriend.userId)

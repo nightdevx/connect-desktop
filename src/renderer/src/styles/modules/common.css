@@ -280,11 +280,6 @@
   color: var(--ct-text-primary);
 }
 
-.ct-confirm-message {
-  @apply m-0 mt-1 text-sm leading-6;
-  color: var(--ct-text-secondary);
-}
-
 /* ==========================================================================
    CALL DOCK
 

@@ -7,7 +7,7 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { UserProfileCardAnchor } from "../user/user-profile-card";
 import { GameArt } from "../user/game-art";
-import { ConfirmActionModal } from "../common";
+import { UnfriendConfirmModal } from "../common";
 import { PersonMenuHeader, buildPersonMenu } from "../common/person-menu";
 import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
@@ -749,12 +749,8 @@ export function OdakFriendsPage({
         />
       )}
 
-      <ConfirmActionModal
-        isOpen={pendingUnfriend !== null}
-        title="Arkadaşlıktan Çıkar"
-        icon={<UserDeleteOutlined />}
-        message={`${pendingUnfriend?.name ?? ""} arkadaş listenden kaldırılacak. Geri almak için karşı tarafın yeni isteğini kabul etmesi gerekir.`}
-        confirmLabel="Arkadaşlıktan Çıkar"
+      <UnfriendConfirmModal
+        person={pendingUnfriend}
         isProcessing={pendingUnfriend !== null && friends.pendingUserIds.includes(pendingUnfriend.userId)}
         onConfirm={() => {
           if (!pendingUnfriend) {

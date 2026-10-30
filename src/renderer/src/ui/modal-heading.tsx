@@ -1,6 +1,9 @@
 import type { JSX } from "react";
 import type { ReactNode } from "react";
 
+/** The three dialog widths: a confirm or one field, a form, a picker. */
+export const MODAL_WIDTH = { s: 400, m: 440, l: 720 } as const;
+
 interface ModalHeadingProps {
   icon: ReactNode;
   title: ReactNode;
