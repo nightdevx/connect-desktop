@@ -22,7 +22,7 @@ import type {
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { ConfirmActionModal } from "../common";
+import { ConfirmActionModal, UnfriendConfirmModal } from "../common";
 import {
   UserProfileCardAnchor,
   UserProfileCardPopover,
@@ -231,6 +231,14 @@ export function LobbiesSidebarPanel({
   const [editCapacity, setEditCapacity] = useState<number | null>(null);
   const [editDisabledFeatures, setEditDisabledFeatures] = useState<LobbyFeatureId[]>([]);
   const [editRemovePassword, setEditRemovePassword] = useState(false);
+  // Unfriending from a member row asks first, with the same window as the
+  // friends page and the stage: the person cannot undo it on their own.
+  const [pendingUnfriend, setPendingUnfriend] = useState<{
+    userId: string;
+    name: string;
+    username: string;
+    avatarUrl?: string | null;
+  } | null>(null);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
   // allUsers is friends + self now, so the select alone can never reach a
@@ -959,7 +967,12 @@ export function LobbiesSidebarPanel({
                           )}
                           onAddFriend={() => void handleAddFriend(member.userId)}
                           onRemoveFriend={() =>
-                            void handleRemoveFriend(member.userId)
+                            setPendingUnfriend({
+                              userId: member.userId,
+                              name: member.username,
+                              username: member.username,
+                              avatarUrl: avatarByUserId[member.userId],
+                            })
                           }
                           audio={audio}
                           canModerate={canModerate}
@@ -1415,6 +1428,21 @@ export function LobbiesSidebarPanel({
         }
         onCancel={() => setPendingDeleteLobby(null)}
         onConfirm={handleDeleteConfirm}
+      />
+
+      <UnfriendConfirmModal
+        person={pendingUnfriend}
+        isProcessing={
+          pendingUnfriend !== null &&
+          friends.pendingUserIds.includes(pendingUnfriend.userId)
+        }
+        onConfirm={() => {
+          if (!pendingUnfriend) return;
+          void handleRemoveFriend(pendingUnfriend.userId).then(() =>
+            setPendingUnfriend(null),
+          );
+        }}
+        onCancel={() => setPendingUnfriend(null)}
       />
 
       {/* Anchored at the cursor rather than at the row: the sidebar scrolls and

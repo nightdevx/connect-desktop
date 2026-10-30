@@ -97,8 +97,8 @@ export function LobbyMemberContextMenu({
             pending: isFriendActionPending,
             onAdd: onAddFriend,
             onRemove: onRemoveFriend,
-            // The sidebar removes at once, as it always has.
-            confirms: false,
+            // Asks first, as everywhere (UnfriendConfirmModal in the panel).
+            confirms: true,
           },
     // Only for someone in the room this user is connected to: a playback
     // preference for anyone else would control nothing.
