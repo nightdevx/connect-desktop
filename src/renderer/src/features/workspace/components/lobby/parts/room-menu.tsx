@@ -5,13 +5,13 @@ import { getDisplayInitials } from "../../../workspace-utils";
 
 /**
  * The menu on a room, open to everybody (the owner's decision, F10.2): the way
- * in for anyone, the room's settings and its deletion for whoever manages it.
- * The same in the open list and in the folded strip.
+ * in for anyone, "Okundu işaretle" while it has unread messages, the room's
+ * settings and its deletion for whoever manages it. The same in the open list
+ * and in the folded strip.
  *
- * Not offered, because the app has nothing behind them yet: "Okundu işaretle"
- * (the unread count clears only by reading the room) and "Bildirimleri sessize
- * al" (there is no per-room notification setting). Renaming is a field of the
- * settings window, not an action of its own.
+ * Not offered, because the app has nothing behind it yet: "Bildirimleri
+ * sessize al" (there is no per-room notification setting). Renaming is a
+ * field of the settings window, not an action of its own.
  */
 export function buildRoomMenu({
   lobby,
@@ -19,6 +19,7 @@ export function buildRoomMenu({
   isJoined,
   busy,
   onJoin,
+  onMarkRead,
   onSettings,
   onDelete,
 }: {
@@ -30,6 +31,8 @@ export function buildRoomMenu({
   /** Why a click on it does nothing right now ("katılınıyor"). */
   busy?: string;
   onJoin: () => void;
+  /** Only while it has unread messages. */
+  onMarkRead?: () => void;
   /** For whoever manages it; settings hold the name too. */
   onSettings?: () => void;
   /** Absent for the main room, which cannot be deleted. */
@@ -42,6 +45,12 @@ export function buildRoomMenu({
       label: lobby.isTextOnly ? "Odayı aç" : isJoined ? "Odaya dön" : "Katıl",
       disabled: isDisplayed ? (lobby.isTextOnly ? "açık" : "buradasın") : (busy ?? false),
       onSelect: onJoin,
+    },
+    onMarkRead && {
+      key: "mark-read",
+      icon: "check",
+      label: "Okundu işaretle",
+      onSelect: onMarkRead,
     },
     onSettings && { type: "divider" },
     onSettings && {

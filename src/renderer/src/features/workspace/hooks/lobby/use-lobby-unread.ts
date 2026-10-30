@@ -18,6 +18,8 @@ interface UseLobbyUnreadParams {
 export interface LobbyUnreadState {
   unreadByLobbyId: Record<string, number>;
   totalUnread: number;
+  /** The room menu's "Okundu işaretle". */
+  clearLobbyUnread: (lobbyId: string) => void;
 }
 
 const isWindowFocused = (): boolean => {
@@ -181,5 +183,5 @@ export const useLobbyUnread = ({
     return Object.values(unreadByLobbyId).reduce((sum, count) => sum + count, 0);
   }, [unreadByLobbyId]);
 
-  return { unreadByLobbyId, totalUnread };
+  return { unreadByLobbyId, totalUnread, clearLobbyUnread };
 };

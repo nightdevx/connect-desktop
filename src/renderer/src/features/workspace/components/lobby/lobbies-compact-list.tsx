@@ -16,6 +16,8 @@ interface LobbiesCompactListProps {
   renamingLobbyId: string | null;
   deletingLobbyId: string | null;
   unreadByLobbyId?: Record<string, number>;
+  /** The room menu's "Okundu işaretle". */
+  onMarkLobbyRead?: (lobbyId: string) => void;
   onJoinLobby: (lobbyId: string) => void;
   /** Opens the sidebar's "Yeni Lobi Oluştur" modal. */
   onCreateLobby?: () => void;
@@ -40,6 +42,7 @@ export function LobbiesCompactList({
   renamingLobbyId,
   deletingLobbyId,
   unreadByLobbyId = {},
+  onMarkLobbyRead,
   onJoinLobby,
   onCreateLobby,
   isCreatingLobby = false,
@@ -82,6 +85,10 @@ export function LobbiesCompactList({
             isJoined,
             busy: isDisabled ? "bekle" : undefined,
             onJoin: join,
+            onMarkRead:
+              unreadCount > 0 && onMarkLobbyRead
+                ? () => onMarkLobbyRead(lobby.id)
+                : undefined,
           })}
         >
         <Tooltip title={label} placement="right">

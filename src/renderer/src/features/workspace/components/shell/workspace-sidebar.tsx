@@ -72,6 +72,8 @@ interface WorkspaceSidebarProps {
     openTextRoomId: string | null;
     joiningLobbyId: string | null;
     unreadByLobbyId: Record<string, number>;
+    /** The room menu's "Okundu işaretle". */
+    onMarkLobbyRead: (lobbyId: string) => void;
     onJoinLobby: (lobbyId: string) => void;
     onCreateLobby: (
       name: string,
@@ -586,6 +588,7 @@ export function WorkspaceSidebar({
               renamingLobbyId={lobbiesProps.renamingLobbyId}
               deletingLobbyId={lobbiesProps.deletingLobbyId}
               unreadByLobbyId={lobbiesProps.unreadByLobbyId}
+              onMarkLobbyRead={lobbiesProps.onMarkLobbyRead}
               onJoinLobby={lobbiesProps.onJoinLobby}
               onCreateLobby={handleCreateLobbyClick}
               isCreatingLobby={lobbiesProps.isCreatingLobby}
@@ -655,6 +658,7 @@ export function WorkspaceSidebar({
             openTextRoomId={lobbiesProps.openTextRoomId}
             joiningLobbyId={lobbiesProps.joiningLobbyId}
             unreadByLobbyId={lobbiesProps.unreadByLobbyId}
+            onMarkLobbyRead={lobbiesProps.onMarkLobbyRead}
             onJoinLobby={lobbiesProps.onJoinLobby}
             onUpdateLobby={lobbiesProps.onUpdateLobby}
             onDeleteLobby={lobbiesProps.onDeleteLobby}

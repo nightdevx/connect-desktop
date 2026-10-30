@@ -73,6 +73,8 @@ interface LobbiesSidebarPanelProps {
   joiningLobbyId: string | null;
   /** Unread chat messages per lobby, for rooms not currently being read. */
   unreadByLobbyId?: Record<string, number>;
+  /** The room menu's "Okundu işaretle". */
+  onMarkLobbyRead?: (lobbyId: string) => void;
   /** Opens a room: joins it if it is a voice lobby, just displays it if not. */
   onJoinLobby: (lobbyId: string) => void;
   onUpdateLobby: (
@@ -113,6 +115,7 @@ export function LobbiesSidebarPanel({
   openTextRoomId,
   joiningLobbyId,
   unreadByLobbyId = {},
+  onMarkLobbyRead,
   onJoinLobby,
   onUpdateLobby,
   onDeleteLobby,
@@ -547,6 +550,10 @@ export function LobbiesSidebarPanel({
             isJoined,
             busy: isDisabled ? (isDeleting ? "siliniyor" : "bekle") : undefined,
             onJoin: handleLobbyClick,
+            onMarkRead:
+              unreadCount > 0 && onMarkLobbyRead
+                ? () => onMarkLobbyRead(lobby.id)
+                : undefined,
             onSettings: isOwner ? () => setEditingLobby(lobby) : undefined,
             onDelete:
               isOwner && !isDefaultLobby(lobby)

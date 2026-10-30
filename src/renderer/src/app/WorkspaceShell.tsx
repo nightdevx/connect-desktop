@@ -1188,15 +1188,18 @@ function WorkspaceShell({
     lobbyRoomId !== null &&
     (openTextRoom !== null || isLobbyChatOpen);
 
-  const { unreadByLobbyId, totalUnread: totalUnreadLobbyMessages } =
-    useLobbyUnread({
-      currentUserId,
-      currentUsername,
-      visibleLobbyId: lobbyRoomId,
-      isChatVisible: isLobbyChatOnScreen,
-      lobbyNameById,
-      suppressNotifications: effectivePresenceStatus === "dnd",
-    });
+  const {
+    unreadByLobbyId,
+    totalUnread: totalUnreadLobbyMessages,
+    clearLobbyUnread,
+  } = useLobbyUnread({
+    currentUserId,
+    currentUsername,
+    visibleLobbyId: lobbyRoomId,
+    isChatVisible: isLobbyChatOnScreen,
+    lobbyNameById,
+    suppressNotifications: effectivePresenceStatus === "dnd",
+  });
 
   const callPeerUserId = callState.peerUser?.userId ?? null;
 
@@ -1441,6 +1444,7 @@ function WorkspaceShell({
                 openTextRoomId: openTextRoom?.id ?? null,
                 joiningLobbyId,
                 unreadByLobbyId,
+                onMarkLobbyRead: clearLobbyUnread,
                 onJoinLobby: handleSelectLobby,
                 onCreateLobby: createLobby,
                 onUpdateLobby: updateLobby,
