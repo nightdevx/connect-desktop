@@ -936,11 +936,11 @@
   box-shadow: none;
 }
 
-/* A call's waiting tile under 250px has no height for the face, the ringing
+/* A call's waiting tile up to 330px has no height for the face, the ringing
    word and the name pill stacked (at 960px the word was cut off at the
-   tile's foot). The ripple round the face and the stage's own "Aranıyor"
-   pill still say it. */
-@container participant-tile (max-width: 250px) {
+   tile's foot, a little wider it ran under the name pill). The ripple round
+   the face and the stage's own "Aranıyor" pill still say it. */
+@container participant-tile (max-width: 330px) {
   :root[data-odak] .ct-lobby-tile-ringing {
     display: none;
   }

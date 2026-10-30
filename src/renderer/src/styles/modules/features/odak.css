@@ -1103,15 +1103,15 @@
 }
 
 :root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-idle-left {
-  gap: 10px;
+  gap: 8px;
 }
 
 :root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-idle-status {
-  gap: 5px;
+  gap: 4px;
 }
 
 :root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-controls-inline {
-  gap: 4px;
+  gap: 3px;
 }
 
 /* ==========================================================================
