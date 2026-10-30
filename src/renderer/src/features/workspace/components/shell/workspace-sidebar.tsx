@@ -1,6 +1,6 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useState } from "react";
-import { Button, Switch, Modal, Select, Input, InputNumber } from "antd";
+import { Button, Switch, Modal, Select, Input, InputNumber, Tooltip } from "antd";
 import {
   CheckOutlined,
   ClockCircleOutlined,
@@ -561,16 +561,17 @@ export function WorkspaceSidebar({
     return (
       <aside key="folded" className="ct-sidebar collapsed" aria-label="Yan panel">
         <header className="ct-sidebar-header">
-          <button
-            type="button"
-            className="ct-sidebar-header-action"
-            onClick={onToggleCollapsed}
-            title="Kenar çubuğunu genişlet"
-            aria-label="Kenar çubuğunu genişlet"
-            aria-expanded={false}
-          >
-            <MenuUnfoldOutlined />
-          </button>
+          <Tooltip title="Kenar çubuğunu genişlet" placement="right">
+            <button
+              type="button"
+              className="ct-sidebar-header-action"
+              onClick={onToggleCollapsed}
+              aria-label="Kenar çubuğunu genişlet"
+              aria-expanded={false}
+            >
+              <MenuUnfoldOutlined />
+            </button>
+          </Tooltip>
         </header>
         {/* Lobiler gets its own strip; every other section is a list of icon
             rows already, and the stylesheet folds it to the icons. */}
@@ -615,29 +616,31 @@ export function WorkspaceSidebar({
         <h3>{sectionTitle}</h3>
 
         {workspaceSection === "lobbies" && (
-          <button
-            type="button"
-            className="ct-sidebar-header-action ct-sidebar-header-create"
-            onClick={handleCreateLobbyClick}
-            disabled={lobbiesProps.isCreatingLobby}
-            title="Lobi oluştur"
-            aria-label="Lobi oluştur"
-          >
-            <PlusOutlined />
-          </button>
+          <Tooltip title="Oda oluştur">
+            <button
+              type="button"
+              className="ct-sidebar-header-action ct-sidebar-header-create"
+              onClick={handleCreateLobbyClick}
+              disabled={lobbiesProps.isCreatingLobby}
+              aria-label="Lobi oluştur"
+            >
+              <PlusOutlined />
+            </button>
+          </Tooltip>
         )}
 
         {onToggleCollapsed && (
-          <button
-            type="button"
-            className="ct-sidebar-header-action"
-            onClick={onToggleCollapsed}
-            title="Kenar çubuğunu daralt"
-            aria-label="Kenar çubuğunu daralt"
-            aria-expanded={true}
-          >
-            <MenuFoldOutlined />
-          </button>
+          <Tooltip title="Kenar çubuğunu daralt">
+            <button
+              type="button"
+              className="ct-sidebar-header-action"
+              onClick={onToggleCollapsed}
+              aria-label="Kenar çubuğunu daralt"
+              aria-expanded={true}
+            >
+              <MenuFoldOutlined />
+            </button>
+          </Tooltip>
         )}
       </header>
 

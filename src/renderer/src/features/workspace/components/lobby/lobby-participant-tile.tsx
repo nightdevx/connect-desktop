@@ -481,32 +481,36 @@ function LobbyParticipantTileImpl({
             </div>
           )}
           {canUsePictureInPicture && (
-            <button
-              onClick={handleTogglePictureInPicture}
-              className={`ct-lobby-tile-pip-btn ${isPictureInPicture ? "active" : ""}`}
-              title={
-                isPictureInPicture ? "Küçük Ekranı Kapat" : "Küçük Ekranda Aç"
-              }
-            >
-              <PicRightOutlined />
-            </button>
+            <Tooltip title={isPictureInPicture ? "Küçük ekranı kapat" : "Küçük ekranda aç"}>
+              <button
+                onClick={handleTogglePictureInPicture}
+                aria-label={isPictureInPicture ? "Küçük ekranı kapat" : "Küçük ekranda aç"}
+                className={`ct-lobby-tile-pip-btn ${isPictureInPicture ? "active" : ""}`}
+              >
+                <PicRightOutlined />
+              </button>
+            </Tooltip>
           )}
           {isFullscreen ? (
-            <button
-              onClick={handleToggleFullscreen}
-              className="ct-lobby-tile-fullscreen-exit-btn"
-              title="Tam Ekrandan Çık"
-            >
-              <FullscreenExitOutlined  />
-            </button>
+            <Tooltip title="Tam ekrandan çık">
+              <button
+                onClick={handleToggleFullscreen}
+                aria-label="Tam ekrandan çık"
+                className="ct-lobby-tile-fullscreen-exit-btn"
+              >
+                <FullscreenExitOutlined  />
+              </button>
+            </Tooltip>
           ) : (
-            <button
-              onClick={handleToggleFullscreen}
-              className="ct-lobby-tile-fullscreen-btn"
-              title="Tam Ekran Yap"
-            >
-              <FullscreenOutlined  />
-            </button>
+            <Tooltip title="Tam ekran">
+              <button
+                onClick={handleToggleFullscreen}
+                aria-label="Tam ekran"
+                className="ct-lobby-tile-fullscreen-btn"
+              >
+                <FullscreenOutlined  />
+              </button>
+            </Tooltip>
           )}
         </div>
       )}

@@ -136,7 +136,6 @@ export function WorkspaceAudioStatus({
         onClick={() => setIsAudioPopupOpen((previous) => !previous)}
         aria-expanded={isAudioPopupOpen}
         aria-label="Ses bağlantı detaylarını aç"
-        title="Ses bağlantı detayları"
       >
         <span className="ct-audio-connection-icon">
           {audioStatusIcon}

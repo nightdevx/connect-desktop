@@ -844,7 +844,7 @@ export function LobbiesSidebarPanel({
                             {locallyMuted ? (
                               <AudioMutedOutlined
                                 className="ct-lobby-member-flag self-muted"
-                                title="Siz susturdunuz (sağ tık: sesi aç)"
+                                title="Sen susturdun · sağ tık: sesi aç"
                               />
                             ) : micOpen ? null : (
                               <AudioMutedOutlined
@@ -1096,7 +1096,6 @@ export function LobbiesSidebarPanel({
                 onClick={() =>
                   setViewPreference(category.preferenceKey, !category.open)
                 }
-                title={category.open ? "Kategoriyi kapat" : "Kategoriyi aç"}
               >
                 <RightOutlined className="ct-lobby-category-chevron" />
                 <span className="ct-lobby-category-icon">{category.icon}</span>

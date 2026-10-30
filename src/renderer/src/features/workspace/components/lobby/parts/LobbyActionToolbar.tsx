@@ -1,4 +1,5 @@
 import { Button, Tooltip } from "antd";
+import { TipLabel } from "@/ui/tip-label";
 import {
   AudioOutlined,
   AudioMutedOutlined,
@@ -108,11 +109,14 @@ export function LobbyActionToolbar({
       >
         <Tooltip
           title={
-            micLocked
-              ? "Bir yetkili mikrofonunuzu kapattı"
-              : micEnabled
-                ? "Mikrofonu Kapat (Sağ tık: cihaz seç)"
-                : "Mikrofonu Aç (Sağ tık: cihaz seç)"
+            micLocked ? (
+              "Bir yetkili mikrofonunu kapattı"
+            ) : (
+              <TipLabel
+                title={micEnabled ? "Mikrofonu kapat" : "Mikrofonu aç"}
+                hint="Sağ tık: giriş cihazını seç"
+              />
+            )
           }
         >
           <Button
@@ -137,7 +141,14 @@ export function LobbyActionToolbar({
         enabled={headphoneEnabled}
         onToggle={onToggleHeadphone}
       >
-        <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat (Sağ tık: cihaz seç)" : "Kulaklığı Aç (Sağ tık: cihaz seç)"}>
+        <Tooltip
+          title={
+            <TipLabel
+              title={headphoneEnabled ? "Kulaklığı kapat" : "Kulaklığı aç"}
+              hint="Sağ tık: çıkış cihazını seç"
+            />
+          }
+        >
           <Button
             size="large"
             className={`ct-lobby-action-btn ${headphoneEnabled ? "" : "off"}`}

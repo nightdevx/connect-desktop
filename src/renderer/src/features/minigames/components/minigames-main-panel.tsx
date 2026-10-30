@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
+import { Tooltip } from "antd";
 import {
   ArrowLeftOutlined,
   FullscreenExitOutlined,
@@ -149,15 +150,16 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
         <div className="ct-minigames-panel">
           <header className="ct-minigames-header">
             {isOdak ? (
-              <button
-                type="button"
-                className="ct-minigames-header-button ct-minigames-back"
-                onClick={showMinigameList}
-                aria-label="Oyun listesine dön"
-                title="Oyunlar"
-              >
-                <ArrowLeftOutlined />
-              </button>
+              <Tooltip title="Oyun listesine dön">
+                <button
+                  type="button"
+                  className="ct-minigames-header-button ct-minigames-back"
+                  onClick={showMinigameList}
+                  aria-label="Oyun listesine dön"
+                >
+                  <ArrowLeftOutlined />
+                </button>
+              </Tooltip>
             ) : null}
             <span
               className="ct-minigames-header-icon"
@@ -200,25 +202,27 @@ export function MinigamesMainPanel({ currentUserId }: MinigamesMainPanelProps) {
               />
             ) : null}
 
-            <button
-              type="button"
-              className="ct-minigames-header-button"
-              onClick={toggleFullscreen}
-              aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
-              title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
-            >
-              {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-            </button>
+            <Tooltip title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}>
+              <button
+                type="button"
+                className="ct-minigames-header-button"
+                onClick={toggleFullscreen}
+                aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+              >
+                {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+              </button>
+            </Tooltip>
 
-            <button
-              type="button"
-              className="ct-minigames-header-button"
-              onClick={() => setInfoOpen(true)}
-              aria-label={`${entry.label} nasıl oynanır`}
-              title="Nasıl oynanır"
-            >
-              <QuestionCircleOutlined />
-            </button>
+            <Tooltip title="Nasıl oynanır">
+              <button
+                type="button"
+                className="ct-minigames-header-button"
+                onClick={() => setInfoOpen(true)}
+                aria-label={`${entry.label} nasıl oynanır`}
+              >
+                <QuestionCircleOutlined />
+              </button>
+            </Tooltip>
           </header>
 
           {/* A game's code arrives the first time it is opened (the catalogue

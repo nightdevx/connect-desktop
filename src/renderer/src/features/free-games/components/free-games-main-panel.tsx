@@ -132,16 +132,17 @@ export function FreeGamesMainPanel() {
             <span className="ct-free-games-head-updated">
               Güncelleme: {formatFetchedAt(snapshot.fetchedAt, nowMs)}
             </span>
-            <button
-              type="button"
-              className="ct-free-games-head-refresh"
-              aria-label="Listeyi yenile"
-              title="Listeyi yenile"
-              onClick={refresh}
-              disabled={isRefreshing}
-            >
-              <ReloadOutlined aria-hidden="true" />
-            </button>
+            <Tooltip title="Listeyi yenile">
+              <button
+                type="button"
+                className="ct-free-games-head-refresh"
+                aria-label="Listeyi yenile"
+                onClick={refresh}
+                disabled={isRefreshing}
+              >
+                <ReloadOutlined aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
         </header>
       ) : (

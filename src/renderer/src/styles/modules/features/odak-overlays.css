@@ -347,17 +347,30 @@
   );
 }
 
+/* One tooltip: the card, no arrow, a line saying what the control does and
+   under it a reason or a hint (ui/tip-label.tsx). */
+:root[data-odak] .ant-tooltip {
+  max-width: 260px;
+}
+
 :root[data-odak] .ant-tooltip .ant-tooltip-container {
   min-height: 0;
-  padding: 7px 11px;
+  padding: 7px 10px;
   border: 1px solid var(--odak-border-strong);
   border-radius: 10px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.35;
   color: var(--odak-text);
   /* The surface colour antd also paints the arrow with (colorBgSpotlight). */
   background: var(--odak-surface);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
 }
+
+:root[data-odak] .ant-tooltip .ant-tooltip-arrow {
+  display: none;
+}
+
 
 /* --------------------------------------------------------------------------
    Toasts: top right under the title bar. While the incoming-call card shows
@@ -714,7 +727,7 @@
   animation-timing-function: var(--odak-ease-out);
 }
 
-/* Tooltips only fade, 120ms each way. */
+/* Tooltips only fade: in over 180ms, out in 120ms. */
 :root[data-odak]
   :is(
     .ant-zoom-big-fast-enter.ant-zoom-big-fast-enter-active,
@@ -722,12 +735,13 @@
     .ant-zoom-big-fast-leave.ant-zoom-big-fast-leave-active
   ) {
   animation-name: odak-fade;
-  animation-duration: var(--odak-dur-1);
+  animation-duration: var(--odak-dur-2);
   animation-timing-function: var(--odak-ease-out);
 }
 
 :root[data-odak] .ant-zoom-big-fast-leave.ant-zoom-big-fast-leave-active {
   animation-direction: reverse;
+  animation-duration: var(--odak-dur-1);
 }
 
 /* Toasts come down 6px from the title bar; they leave faster, fading and

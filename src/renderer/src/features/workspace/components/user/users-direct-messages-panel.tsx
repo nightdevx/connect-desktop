@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { Drawer, Input, Button, Tag, Avatar, Tooltip } from "antd";
+import { TipLabel } from "@/ui/tip-label";
 import type { InputRef } from "antd";
 import {
   SendOutlined,
@@ -940,7 +941,7 @@ export function UsersDirectMessagesPanel({
                   }}
                 />
               </div>
-              <Tooltip title="Yanıtı iptal et (Esc)">
+              <Tooltip title={<TipLabel title="Yanıtı iptal et" keys={["Esc"]} />}>
                 <Button
                   type="text"
                   size="small"

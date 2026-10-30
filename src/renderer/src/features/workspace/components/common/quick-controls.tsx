@@ -1,4 +1,5 @@
 import { Tooltip } from "antd";
+import { TipLabel } from "@/ui/tip-label";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -176,15 +177,17 @@ export function QuickControls({
             <strong>Ekranını paylaşıyorsun</strong>
             {mediaAudience && <span>{mediaAudience}</span>}
           </span>
-          <button
-            type="button"
-            className="ct-quick-share-stop"
-            onClick={onStopScreenShare}
-            title="Ekran paylaşımını durdur"
-          >
-            <StopOutlined aria-hidden="true" />
-            <span className="ct-quick-share-stop-label">Durdur</span>
-          </button>
+          <Tooltip title="Ekran paylaşımını durdur">
+            <button
+              type="button"
+              className="ct-quick-share-stop"
+              onClick={onStopScreenShare}
+              aria-label="Ekran paylaşımını durdur"
+            >
+              <StopOutlined aria-hidden="true" />
+              <span className="ct-quick-share-stop-label">Durdur</span>
+            </button>
+          </Tooltip>
         </div>
       )}
 
@@ -197,15 +200,17 @@ export function QuickControls({
             <strong>Kameran açık</strong>
             {mediaAudience && <span>{mediaAudience}</span>}
           </span>
-          <button
-            type="button"
-            className="ct-quick-share-stop"
-            onClick={onStopCamera}
-            title="Kamerayı kapat"
-          >
-            <StopOutlined aria-hidden="true" />
-            <span className="ct-quick-share-stop-label">Kapat</span>
-          </button>
+          <Tooltip title="Kamerayı kapat">
+            <button
+              type="button"
+              className="ct-quick-share-stop"
+              onClick={onStopCamera}
+              aria-label="Kamerayı kapat"
+            >
+              <StopOutlined aria-hidden="true" />
+              <span className="ct-quick-share-stop-label">Kapat</span>
+            </button>
+          </Tooltip>
         </div>
       )}
 
@@ -277,9 +282,10 @@ export function QuickControls({
         >
           <Tooltip
             title={
-              micLocked
-                ? "Bir yetkili mikrofonunuzu kapattı (sağ tık: giriş cihazı)"
-                : `Mikrofon ${micEnabled ? "açık" : "kapalı"} (sağ tık: giriş cihazı)`
+              <TipLabel
+                title={micLocked ? "Bir yetkili mikrofonunu kapattı" : `Mikrofon ${micEnabled ? "açık" : "kapalı"}`}
+                hint="Sağ tık: giriş cihazını seç"
+              />
             }
           >
             <button
@@ -292,7 +298,7 @@ export function QuickControls({
               // place the explanation cannot be read from.
               aria-label={
                 micLocked
-                  ? "Mikrofon — bir yetkili mikrofonunuzu kapattı"
+                  ? "Mikrofon — bir yetkili mikrofonunu kapattı"
                   : "Mikrofon"
               }
               aria-pressed={micEnabled}
@@ -313,7 +319,12 @@ export function QuickControls({
           onToggle={onToggleHeadphone}
         >
           <Tooltip
-            title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"} (sağ tık: çıkış cihazı)`}
+            title={
+              <TipLabel
+                title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"}`}
+                hint="Sağ tık: çıkış cihazını seç"
+              />
+            }
           >
             <button
               type="button"

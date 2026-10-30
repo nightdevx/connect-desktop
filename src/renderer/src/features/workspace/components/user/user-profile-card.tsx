@@ -363,15 +363,17 @@ export function UserProfileCard({
           {/* The handle is the one string on this card somebody needs to type
               somewhere else — into "Arkadaş Ekle", into a lobby's allow list —
               so it is a copy button rather than dead text. */}
-          <button
-            type="button"
-            className="ct-profile-card-handle"
-            onClick={handleCopyHandle}
-            title="Kullanıcı adını kopyala"
-          >
-            <span>@{card.username}</span>
-            {hasCopiedHandle ? <CheckOutlined /> : <CopyOutlined />}
-          </button>
+          <Tooltip title={hasCopiedHandle ? "Kopyalandı" : "Kullanıcı adını kopyala"}>
+            <button
+              type="button"
+              className="ct-profile-card-handle"
+              onClick={handleCopyHandle}
+              aria-label={`Kullanıcı adını kopyala: @${card.username}`}
+            >
+              <span>@{card.username}</span>
+              {hasCopiedHandle ? <CheckOutlined /> : <CopyOutlined />}
+            </button>
+          </Tooltip>
         </div>
       </div>
 

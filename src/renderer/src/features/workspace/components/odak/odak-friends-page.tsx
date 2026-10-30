@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { MenuFoldOutlined, MenuUnfoldOutlined, UserDeleteOutlined } from "@ant-design/icons";
+import { Tooltip } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -318,25 +319,27 @@ export function OdakFriendsPage({
               </span>
             </span>
           </button>
-          <button
-            type="button"
-            className="ct-odak-icon-button"
-            title="Mesaj gönder"
-            aria-label={`${name} ile mesajlaş`}
-            onClick={() => onOpenConversation(toPeer(user))}
-          >
-            <MessageIcon />
-          </button>
-          {onInitiateCall && user.appOnline && (
+          <Tooltip title="Mesaj gönder">
             <button
               type="button"
               className="ct-odak-icon-button"
-              title="Sesli ara"
-              aria-label={`${name} kişisini ara`}
-              onClick={() => onInitiateCall(user)}
+              aria-label={`${name} ile mesajlaş`}
+              onClick={() => onOpenConversation(toPeer(user))}
             >
-              <PhoneIcon />
+              <MessageIcon />
             </button>
+          </Tooltip>
+          {onInitiateCall && user.appOnline && (
+            <Tooltip title="Sesli ara">
+              <button
+                type="button"
+                className="ct-odak-icon-button"
+                aria-label={`${name} kişisini ara`}
+                onClick={() => onInitiateCall(user)}
+              >
+                <PhoneIcon />
+              </button>
+            </Tooltip>
           )}
           <OdakMenu trigger="click" items={menu} placement="bottomRight" width={240}>
             <button
@@ -365,27 +368,29 @@ export function OdakFriendsPage({
           </span>
         </span>
         {incoming && (
+          <Tooltip title="Kabul et">
+            <button
+              type="button"
+              className="ct-odak-accept"
+              aria-label={`${person.name} isteğini kabul et`}
+              disabled={isPending}
+              onClick={() => void friends.acceptRequest(person.userId)}
+            >
+              <CheckIcon />
+            </button>
+          </Tooltip>
+        )}
+        <Tooltip title={incoming ? "Reddet" : "İsteği geri çek"}>
           <button
             type="button"
-            className="ct-odak-accept"
-            title="Kabul et"
-            aria-label={`${person.name} isteğini kabul et`}
+            className="ct-odak-decline"
+            aria-label={incoming ? `${person.name} isteğini reddet` : `${person.name} isteğini geri çek`}
             disabled={isPending}
-            onClick={() => void friends.acceptRequest(person.userId)}
+            onClick={() => void friends.removeFriend(person.userId)}
           >
-            <CheckIcon />
+            <CloseIcon />
           </button>
-        )}
-        <button
-          type="button"
-          className="ct-odak-decline"
-          title={incoming ? "Reddet" : "İsteği geri çek"}
-          aria-label={incoming ? `${person.name} isteğini reddet` : `${person.name} isteğini geri çek`}
-          disabled={isPending}
-          onClick={() => void friends.removeFriend(person.userId)}
-        >
-          <CloseIcon />
-        </button>
+        </Tooltip>
       </article>
     );
   };
@@ -472,28 +477,30 @@ export function OdakFriendsPage({
           the app's sidebars (viewPreferences.sidebarOpen). */}
       <nav className={`ct-odak-strip ${stripCollapsed ? "" : "open"}`} aria-label="Sohbetler">
         <div className="ct-odak-strip-head">
-          <button
-            type="button"
-            className={`ct-odak-strip-home ${docked ? "" : "active"}`}
-            aria-label="Arkadaşlar ana sayfası"
-            aria-current={docked ? undefined : "page"}
-            title="Arkadaşlar"
-            onClick={onOpenHome}
-          >
-            <UsersIcon size={20} />
-            <span className="ct-odak-strip-text">Arkadaşlar</span>
-            {!docked && incomingCount > 0 && <span className="ct-odak-count">{incomingCount}</span>}
-          </button>
-          <button
-            type="button"
-            className="ct-odak-strip-toggle"
-            title={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
-            aria-label={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
-            aria-expanded={!stripCollapsed}
-            onClick={onToggleStrip}
-          >
-            {stripCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          </button>
+          <Tooltip title={stripCollapsed ? "Arkadaşlar" : undefined} placement="right">
+            <button
+              type="button"
+              className={`ct-odak-strip-home ${docked ? "" : "active"}`}
+              aria-label="Arkadaşlar ana sayfası"
+              aria-current={docked ? undefined : "page"}
+              onClick={onOpenHome}
+            >
+              <UsersIcon size={20} />
+              <span className="ct-odak-strip-text">Arkadaşlar</span>
+              {!docked && incomingCount > 0 && <span className="ct-odak-count">{incomingCount}</span>}
+            </button>
+          </Tooltip>
+          <Tooltip title={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}>
+            <button
+              type="button"
+              className="ct-odak-strip-toggle"
+              aria-label={stripCollapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
+              aria-expanded={!stripCollapsed}
+              onClick={onToggleStrip}
+            >
+              {stripCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </button>
+          </Tooltip>
         </div>
         <div className="ct-odak-strip-divider" />
         <p className="ct-odak-strip-title ct-odak-strip-text">SOHBETLER</p>
@@ -543,10 +550,10 @@ export function OdakFriendsPage({
                 ]}
               >
                 <div className={`ct-odak-strip-row ${selected ? "active" : ""}`}>
+                  <Tooltip title={stripCollapsed ? name : undefined} placement="right">
                   <button
                     type="button"
                     className="ct-odak-strip-dm"
-                    title={name}
                     aria-current={selected ? "page" : undefined}
                     aria-label={`${name} ile sohbet${unread ? `, ${unread} okunmamış` : ""}`}
                     onClick={() => onUserSelect(conversation.userId)}
@@ -568,15 +575,17 @@ export function OdakFriendsPage({
                       <span className="ct-odak-count">{unread > 99 ? "99+" : unread}</span>
                     )}
                   </button>
-                  <button
-                    type="button"
-                    className="ct-odak-strip-close ct-odak-strip-text"
-                    title="Sohbeti kapat"
-                    aria-label={`${name} sohbetini kapat`}
-                    onClick={() => onCloseConversation(conversation.userId)}
-                  >
-                    <CloseIcon />
-                  </button>
+                  </Tooltip>
+                  <Tooltip title="Sohbeti kapat">
+                    <button
+                      type="button"
+                      className="ct-odak-strip-close ct-odak-strip-text"
+                      aria-label={`${name} sohbetini kapat`}
+                      onClick={() => onCloseConversation(conversation.userId)}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </Tooltip>
                 </div>
               </OdakMenu>
             );

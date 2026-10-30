@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import { Input, Button, Tooltip, Spin, Alert } from "antd";
+import { TipLabel } from "@/ui/tip-label";
 import type { InputRef } from "antd";
 import {
   SendOutlined,
@@ -665,7 +666,7 @@ export function LobbyChatPanel({
                   }}
                 />
               </div>
-              <Tooltip title="Yanıtı iptal et (Esc)">
+              <Tooltip title={<TipLabel title="Yanıtı iptal et" keys={["Esc"]} />}>
                 <Button
                   type="text"
                   size="small"

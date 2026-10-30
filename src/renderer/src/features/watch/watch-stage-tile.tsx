@@ -8,6 +8,7 @@ import {
   PauseOutlined,
   SoundOutlined,
 } from "@ant-design/icons";
+import { Tooltip } from "antd";
 import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import { formatWatchTime, livePosition } from "@shared/watch";
 import {
@@ -321,18 +322,20 @@ export function WatchStageTile({
                 ) : null}
               </button>
 
-              <button
-                type="button"
-                className={
-                  isFullscreen
-                    ? "ct-lobby-tile-fullscreen-exit-btn"
-                    : "ct-lobby-tile-fullscreen-btn"
-                }
-                onClick={toggleFullscreen}
-                title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran Yap"}
-              >
-                {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-              </button>
+              <Tooltip title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}>
+                <button
+                  type="button"
+                  className={
+                    isFullscreen
+                      ? "ct-lobby-tile-fullscreen-exit-btn"
+                      : "ct-lobby-tile-fullscreen-btn"
+                  }
+                  onClick={toggleFullscreen}
+                  aria-label={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+                >
+                  {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                </button>
+              </Tooltip>
             </>
           ) : (
             /* Nothing is loaded until this is pressed — no frame, no resolve, no
@@ -429,16 +432,17 @@ export function WatchStageTile({
               {duration > 0 ? ` / ${formatWatchTime(duration)}` : ""}
             </span>
 
-            <button
-              type="button"
-              className="ct-watch-tile__btn"
-              onClick={() => setMuted((value) => !value)}
-              title={muted ? "Sesi aç" : "Sustur"}
-              aria-label={muted ? "Sesi aç" : "Sustur"}
-              data-off={muted ? "true" : undefined}
-            >
-              <SoundOutlined />
-            </button>
+            <Tooltip title={muted ? "Sesi aç" : "Sustur"}>
+              <button
+                type="button"
+                className="ct-watch-tile__btn"
+                onClick={() => setMuted((value) => !value)}
+                aria-label={muted ? "Sesi aç" : "Sustur"}
+                data-off={muted ? "true" : undefined}
+              >
+                <SoundOutlined />
+              </button>
+            </Tooltip>
 
             <input
               type="range"
