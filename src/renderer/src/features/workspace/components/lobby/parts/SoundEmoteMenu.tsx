@@ -307,7 +307,8 @@ export function SoundEmoteMenu({
           </div>
         }
       >
-        <Tooltip title="Sesli Emote">
+        {/* Hidden while open: tooltip and board both open above the button. */}
+        <Tooltip title="Sesli Emote" open={isOpen ? false : undefined}>
           <Button
             size="large"
             className={`ct-lobby-action-btn ${isOpen ? "active" : ""}`}

@@ -157,7 +157,8 @@ function GifPickerButton({ onPick, disabled }: ChatGifButtonProps): JSX.Element 
       rootClassName="ct-emoji-popover"
       content={<GifPanel onPick={handlePick} />}
     >
-      <Tooltip title="GIF ekle">
+      {/* Hidden while open: tooltip and picker both open above the button. */}
+      <Tooltip title="GIF ekle" open={open ? false : undefined}>
         <Button
           type="text"
           size="small"

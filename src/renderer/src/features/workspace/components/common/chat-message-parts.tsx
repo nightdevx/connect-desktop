@@ -596,7 +596,8 @@ export function ChatReactionButton({
         />
       }
     >
-      <Tooltip title="Tepki ekle">
+      {/* Hidden while open: tooltip and picker both open above the button. */}
+      <Tooltip title="Tepki ekle" open={open ? false : undefined}>
         <button
           type="button"
           className="ct-chat-action"
@@ -739,7 +740,8 @@ export function ChatComposerEmojiButton({
         <LazyEmojiKeyboard onPick={onPick} />
       }
     >
-      <Tooltip title="Emoji ekle">
+      {/* Hidden while open: tooltip and picker both open above the button. */}
+      <Tooltip title="Emoji ekle" open={open ? false : undefined}>
         <Button
           type="text"
           size="small"
