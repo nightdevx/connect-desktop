@@ -564,6 +564,8 @@ export interface LobbyJoinResult {
 export type LobbyLeaveReason = "user" | "switch" | "kicked" | "quit";
 
 export interface DesktopApi {
+  // process.platform of the app, available synchronously.
+  platform: string;
   getAppVersion: () => Promise<string>;
   getAppPreferences: () => Promise<
     DesktopResult<{
@@ -897,6 +899,8 @@ export interface DesktopApi {
   listScreenCaptureSources: () => Promise<
     DesktopResult<{ sources: ScreenCaptureSourceDescriptor[] }>
   >;
+  /** macOS: opens System Settings at Screen Recording. False elsewhere. */
+  openScreenRecordingSettings: () => Promise<DesktopResult<{ opened: boolean }>>;
   // A known game running on this machine right now, or null. Checked locally
   // whatever the activity-sharing setting says; nothing is published.
   getRunningGame: () => Promise<DesktopResult<{ name: string | null }>>;

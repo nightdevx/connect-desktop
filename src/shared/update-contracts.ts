@@ -26,6 +26,13 @@ export interface AppUpdateSnapshot {
    * an ordinary update, which the user can take whenever they like.
    */
   mandatory: boolean;
+  /**
+   * macOS only: the release page to download the update from. The build there
+   * is not signed with a Developer ID, and Squirrel.Mac installs nothing else,
+   * so the app finds a release but never downloads or installs it; "İndir"
+   * opens this page instead. Null on Windows, and while nothing newer is known.
+   */
+  downloadUrl: string | null;
 }
 
 export type AppUpdateEvent =
@@ -39,6 +46,37 @@ export type AppUpdateEvent =
       errorCode: string;
       errorMessage: string;
     };
+
+/* -------------------------------------------------------------------------
+   Manual updates (macOS)
+   ------------------------------------------------------------------------- */
+
+const RELEASES_PATH = "/nightdevx/connect-desktop/releases/";
+
+/** Where the update is downloaded by hand instead of installed in place. */
+export const usesManualUpdates = (platform: string): boolean => platform === "darwin";
+
+/** A release's page; the newest release's when the version is not known. */
+export const releasePageUrl = (version: string | null): string =>
+  `https://github.com${RELEASES_PATH}${
+    version ? `tag/v${encodeURIComponent(version)}` : "latest"
+  }`;
+
+/** The only pages "İndir" may open: this repository's releases on GitHub. */
+export const isReleasePageUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.host === "github.com" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      parsed.pathname.startsWith(RELEASES_PATH)
+    );
+  } catch {
+    return false;
+  }
+};
 
 /* -------------------------------------------------------------------------
    Version comparison

@@ -3,6 +3,11 @@ import { ReloadOutlined } from "@ant-design/icons";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 import { AuthLogoMark } from "@/features/auth";
 
+// macOS installs by hand (AppUpdateSnapshot.downloadUrl): the way out of the
+// lock is the download, whatever state the check is in. The main process opens
+// the newest release's page when it does not know the version yet.
+const installsByHand = window.desktopApi.platform === "darwin";
+
 /**
  * The lock a mandatory update puts on the app.
  *
@@ -10,7 +15,9 @@ import { AuthLogoMark } from "@/features/auth";
  * window can still be moved, minimised and closed -- and has no way out but
  * the update itself. "Tamam" installs at once if the download has finished,
  * and otherwise tells the main process to install the moment it does, so the
- * user confirms once and does not have to wait to be asked again.
+ * user confirms once and does not have to wait to be asked again. On macOS
+ * "İndir" opens the download page instead, and the gate says what to do with
+ * the file.
  */
 export function UpdateGate({ state }: { state: AppUpdateSnapshot }) {
   const [confirmed, setConfirmed] = useState(false);
@@ -26,19 +33,21 @@ export function UpdateGate({ state }: { state: AppUpdateSnapshot }) {
     buttonRef.current?.focus();
   }, [failed]);
 
-  const status = installing
-    ? "Kuruluyor. Connect birazdan yeniden açılacak."
-    : failed
-      ? "Güncelleme indirilemedi. İnternet bağlantını kontrol edip tekrar dene."
-      : state.phase === "downloaded"
-        ? "Güncelleme hazır."
-        : downloading
-          ? `İndiriliyor${percent === null ? "" : ` %${Math.round(percent)}`}${
-              confirmed ? " · bitince kendiliğinden kurulacak" : ""
-            }`
-          : confirmed
-            ? "Güncelleme hazırlanıyor · bitince kendiliğinden kurulacak"
-            : "Güncelleme hazırlanıyor…";
+  const status = installsByHand
+    ? "İndirdiğin dosyayı açıp Connect'i Uygulamalar klasörüne sürükle, sonra yeniden aç."
+    : installing
+      ? "Kuruluyor. Connect birazdan yeniden açılacak."
+      : failed
+        ? "Güncelleme indirilemedi. İnternet bağlantını kontrol edip tekrar dene."
+        : state.phase === "downloaded"
+          ? "Güncelleme hazır."
+          : downloading
+            ? `İndiriliyor${percent === null ? "" : ` %${Math.round(percent)}`}${
+                confirmed ? " · bitince kendiliğinden kurulacak" : ""
+              }`
+            : confirmed
+              ? "Güncelleme hazırlanıyor · bitince kendiliğinden kurulacak"
+              : "Güncelleme hazırlanıyor…";
 
   return (
     <div
@@ -67,7 +76,18 @@ export function UpdateGate({ state }: { state: AppUpdateSnapshot }) {
           {status}
         </p>
 
-        {failed ? (
+        {installsByHand ? (
+          <button
+            ref={buttonRef}
+            type="button"
+            className="ct-btn-primary ct-update-gate-action"
+            onClick={() => {
+              void window.desktopApi.installDownloadedUpdate();
+            }}
+          >
+            İndir
+          </button>
+        ) : failed ? (
           <button
             ref={buttonRef}
             type="button"

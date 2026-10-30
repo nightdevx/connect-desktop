@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { autoUpdater } from "electron-updater";
@@ -6,6 +6,9 @@ import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import {
   UPDATE_EVENT_CHANNEL,
   compareVersions,
+  isReleasePageUrl,
+  releasePageUrl,
+  usesManualUpdates,
   type AppUpdateEvent,
   type AppUpdatePhase,
   type AppUpdateSnapshot,
@@ -36,6 +39,10 @@ export interface InstallUpdateResponse {
 
 const defaultStartupCheckDelayMs = 15_000;
 const defaultPeriodicCheckMs = 15 * 60 * 1_000;
+
+// macOS: the release is found but never downloaded or installed; "İndir" opens
+// its page and the user installs the dmg (AppUpdateSnapshot.downloadUrl).
+const manualUpdates = usesManualUpdates(process.platform);
 
 /* -------------------------------------------------------------------------
    Mandatory updates
@@ -484,6 +491,7 @@ export class ModularUpdater {
     message: "Güncelleme henüz kontrol edilmedi",
     timestamp: new Date().toISOString(),
     mandatory: false,
+    downloadUrl: null,
   };
 
   public constructor(private readonly options: ModularUpdaterOptions) {}
@@ -501,7 +509,7 @@ export class ModularUpdater {
       return;
     }
 
-    autoUpdater.autoDownload = true;
+    autoUpdater.autoDownload = !manualUpdates;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
@@ -602,6 +610,17 @@ export class ModularUpdater {
       }, 3000);
 
       return { accepted: true };
+    }
+
+    if (manualUpdates) {
+      // The newest release's page when no check has answered yet, so a
+      // mandatory lock carried over from the last run still has a way out.
+      const url = this.snapshot.downloadUrl ?? releasePageUrl(null);
+      if (!isReleasePageUrl(url)) {
+        return { accepted: false, reason: "UPDATE_NOT_READY" };
+      }
+      await shell.openExternal(url);
+      return { accepted: true, reason: "DOWNLOAD_PAGE_OPENED" };
     }
 
     if (this.installing) {
@@ -730,7 +749,9 @@ export class ModularUpdater {
       this.setSnapshotFromInfo(
         "available",
         info,
-        "Yeni bir sürüm bulundu, indiriliyor",
+        manualUpdates
+          ? "Yeni bir sürüm var. İndir ile indirme sayfasını aç."
+          : "Yeni bir sürüm bulundu, indiriliyor",
       );
     });
 
@@ -839,6 +860,7 @@ export class ModularUpdater {
       releaseDate: info.releaseDate ?? this.snapshot.releaseDate,
       progressPercent:
         phase === "downloaded" ? 100 : this.snapshot.progressPercent,
+      downloadUrl: manualUpdates && updateExists ? releasePageUrl(info.version) : null,
       message,
       timestamp: new Date().toISOString(),
     };

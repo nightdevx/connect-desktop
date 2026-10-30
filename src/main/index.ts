@@ -111,10 +111,10 @@ const WINDOW_STATE_EVENT_CHANNEL = "desktop:window-state-changed";
 // server-side member TTL, so a laptop lid reopened at the wrong moment cost the
 // user their seat in the room.
 const SYSTEM_RESUMED_EVENT_CHANNEL = "desktop:system-resumed";
-const isLinux = process.platform === "linux";
+// macOS cannot decode .ico: the menu-bar item would be there, but invisible.
 const APP_ICON_PATH = join(
   __dirname,
-  isLinux ? "../../public/images/logo.png" : "../../public/images/logo.ico"
+  process.platform === "win32" ? "../../public/images/logo.ico" : "../../public/images/logo.png"
 );
 const APP_DISPLAY_NAME = "Connect";
 
@@ -231,7 +231,17 @@ const ensureTray = (): void => {
     return;
   }
 
-  const icon = nativeImage.createFromPath(APP_ICON_PATH);
+  let icon = nativeImage.createFromPath(APP_ICON_PATH);
+  if (process.platform === "darwin") {
+    // The menu bar draws an image at its own size: the 512 px logo would fill
+    // it. 16 pt, with a sharp copy for Retina screens.
+    const source = icon;
+    icon = source.resize({ width: 16, height: 16, quality: "best" });
+    icon.addRepresentation({
+      scaleFactor: 2,
+      buffer: source.resize({ width: 32, height: 32, quality: "best" }).toPNG(),
+    });
+  }
   tray = new Tray(icon);
   tray.setToolTip(APP_DISPLAY_NAME);
   tray.setContextMenu(buildTrayMenu());
@@ -346,7 +356,12 @@ function createMainWindow(): BrowserWindow {
     ...(restored?.bounds ?? { width: 1280, height: 800 }),
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
-    frame: false,
+    // The page draws its own minimise, maximise and close buttons. macOS keeps
+    // its traffic lights at the left end of the bar instead (centred on the
+    // 48 px bar; the buttons are 12 px tall); App.tsx leaves that corner empty.
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 16, y: 18 } }
+      : { frame: false }),
     show: false,
     icon: nativeImage.createFromPath(APP_ICON_PATH),
     // Matches --ct-surface-0. It was a navy that appears nowhere in the app, so
@@ -369,6 +384,11 @@ function createMainWindow(): BrowserWindow {
 
   installNavigationGuards(win);
   installPageRecovery(win);
+  // The macOS build's start check waits for this line
+  // (scripts/check-mac-release.sh).
+  win.webContents.once("did-finish-load", () => {
+    console.info("[window] main page loaded");
+  });
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
@@ -512,6 +532,11 @@ if (!isUpdaterHelperMode && hasSingleInstanceLock) {
       },
     });
 
+    // macOS starts a login item without its arguments, so the flag never
+    // arrives there; it says so itself.
+    if (process.platform === "darwin") {
+      startHiddenInTray ||= app.getLoginItemSettings().wasOpenedAtLogin;
+    }
     startHiddenInTray &&= hasTrayBehaviorEnabled();
     refreshSystemLaunchOnStartup();
     if (process.platform === "win32" && app.isPackaged) {

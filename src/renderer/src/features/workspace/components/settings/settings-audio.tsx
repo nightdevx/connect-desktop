@@ -389,7 +389,7 @@ export function SettingsAudio({
           you talk into: pick a microphone, speak, watch the bar. */}
       <SettingsGroup
         title="Cihazlar"
-        description="Varsayılan, Windows'ta seçili olan cihazdır."
+        description={`Varsayılan, ${window.desktopApi.platform === "darwin" ? "macOS'ta" : "Windows'ta"} seçili olan cihazdır.`}
       >
         {/* The sink the test stream plays back through, so it lives with the
             test rather than at the top of the panel. */}

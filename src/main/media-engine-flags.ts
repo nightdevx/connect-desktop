@@ -103,6 +103,11 @@ export const resolveMediaEngineFlags = (
     }
   }
 
+  // VideoToolbox encodes by default; the setting turns it off, as on Windows.
+  if (platform === "darwin" && !hardwareAcceleration) {
+    softwareEncode();
+  }
+
   return flags;
 };
 

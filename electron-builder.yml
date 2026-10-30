@@ -98,9 +98,35 @@ nsis:
   installerHeaderIcon: build/icon.ico
   oneClick: false
   allowToChangeInstallationDirectory: true
+# One universal (Apple Silicon + Intel) build, as a dmg for people and a zip
+# for the update feed (latest-mac.yml).
+#
+# There is no Apple Developer ID. "-" signs ad hoc, which Apple Silicon needs to
+# run the app at all (the fuses above rewrite the binary and void Electron's own
+# signature). Hardened runtime stays off: with an ad-hoc signature it refuses to
+# load Electron's frameworks. Not notarised, so macOS asks once, on first launch
+# (System Settings > Privacy & Security > Open Anyway), and Squirrel.Mac cannot
+# install updates: on macOS the app only links to the download
+# (src/main/update/modular-updater.ts).
 mac:
   target:
-    - dmg
+    - target: dmg
+      arch: universal
+    - target: zip
+      arch: universal
+  icon: build/icon.png
+  category: public.app-category.social-networking
+  identity: "-"
+  hardenedRuntime: false
+  artifactName: Connect-${version}-mac.${ext}
+  # The audio-loopback addon is Windows-only (WASAPI), and its build output in
+  # the repo is a Windows .node: nothing in it loads on macOS, and the main
+  # process already runs without it (streaming/system-audio-loopback.ts).
+  files:
+    - "!native/**"
+  extendInfo:
+    NSMicrophoneUsageDescription: Connect, sesli sohbette seni duyurabilmek için mikrofonu kullanır.
+    NSCameraUsageDescription: Connect, görüntülü sohbette seni gösterebilmek için kamerayı kullanır.
 linux:
   icon: build/icons
   target:

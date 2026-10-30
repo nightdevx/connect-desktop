@@ -11,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
+import { SCREEN_RECORDING_PERMISSION_MESSAGE } from "@shared/streaming-contracts";
 import { useMediaStatsStore } from "@/features/livekit";
 import { estimateScreenShareUplinkBps } from "../constants";
 import type {
@@ -45,6 +46,10 @@ interface ScreenShareModalProps {
   /** Who will see it: one person in a call, a whole room in a lobby. */
   audience?: string;
 }
+
+// System audio comes from the Windows-only loopback addon; macOS has no switch
+// for it.
+const supportsSystemAudio = window.desktopApi.platform !== "darwin";
 
 const mbps = (bps: number): string => {
   return (bps / 1_000_000).toFixed(1);
@@ -262,6 +267,15 @@ export function ScreenShareModal({
                     ? "Paylaşılabilir monitör bulunamadı."
                     : "Paylaşılabilir pencere bulunamadı.")}
               </p>
+              {error === SCREEN_RECORDING_PERMISSION_MESSAGE && (
+                <Button
+                  onClick={() => {
+                    void window.desktopApi.openScreenRecordingSettings();
+                  }}
+                >
+                  Sistem Ayarları'nı aç
+                </Button>
+              )}
             </div>
           )}
 
@@ -395,22 +409,24 @@ export function ScreenShareModal({
               </p>
             </div>
 
-            <div
-              className={`ct-share-option ct-share-audio-toggle ${captureSystemAudio ? "on" : ""}`}
-            >
-              <div className="ct-share-audio-toggle-main">
-                <SoundOutlined />
-                <div className="ct-share-option-head">
-                  <strong>Yayın Sesi</strong>
-                  <span>Ekrandaki sistem sesi karşı tarafa iletilir.</span>
+            {supportsSystemAudio && (
+              <div
+                className={`ct-share-option ct-share-audio-toggle ${captureSystemAudio ? "on" : ""}`}
+              >
+                <div className="ct-share-audio-toggle-main">
+                  <SoundOutlined />
+                  <div className="ct-share-option-head">
+                    <strong>Yayın Sesi</strong>
+                    <span>Ekrandaki sistem sesi karşı tarafa iletilir.</span>
+                  </div>
                 </div>
-              </div>
 
-              <Switch
-                checked={captureSystemAudio}
-                onChange={onToggleCaptureSystemAudio}
-              />
-            </div>
+                <Switch
+                  checked={captureSystemAudio}
+                  onChange={onToggleCaptureSystemAudio}
+                />
+              </div>
+            )}
           </div>
         </section>
 

@@ -71,6 +71,11 @@
   user-select: none;
 }
 
+/* macOS draws its traffic lights at the left end (16 px in, 52 px wide). */
+.ct-titlebar--traffic-lights {
+  padding-left: 84px;
+}
+
 .ct-titlebar-brand {
   @apply flex min-w-0 items-center gap-2.5;
 }

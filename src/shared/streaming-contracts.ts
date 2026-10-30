@@ -22,3 +22,10 @@ export interface StreamingApi {
   // Streams interleaved Float32 PCM frames (stereo @ reported sampleRate).
   onSystemAudioPcm: (listener: (samples: Float32Array) => void) => () => void;
 }
+
+// macOS gives screen capture only to an app the user has allowed under Screen
+// Recording; until then every source is blank. The main process answers the
+// source list with this message, and the share dialog recognises it to offer
+// the way to the setting. A changed permission only applies after a restart.
+export const SCREEN_RECORDING_PERMISSION_MESSAGE =
+  "Ekran paylaşımı için macOS'ta izin gerekiyor: Sistem Ayarları › Gizlilik ve Güvenlik › Ekran Kaydı'nda Connect'i aç, sonra Connect'i kapatıp yeniden başlat.";

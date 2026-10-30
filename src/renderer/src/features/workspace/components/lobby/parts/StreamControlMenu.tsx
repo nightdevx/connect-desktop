@@ -77,20 +77,25 @@ export function StreamControlMenu() {
     : [{ key: "source-empty", label: "Kaynaklar yükleniyor…", disabled: true, onSelect: () => undefined }];
 
   const items: OdakMenuEntry[] = [
-    {
-      // A switch: two states, and the row says which one it is in. First,
-      // because it is the only setting here that changes what viewers HEAR
-      // rather than how the picture looks. Applying it closes the menu, as
-      // every change here does: the button spins until it lands.
-      type: "toggle",
-      key: "system-audio",
-      icon: "volume",
-      label: "Yayın sesi",
-      description: "Bilgisayarının sesi de yayına gider",
-      on: isSystemAudioOn,
-      onChange: (on) => runChange((live) => live.setSystemAudio(on)),
-    },
-    { type: "divider" },
+    // System audio is Windows-only (the loopback addon); macOS has no row.
+    ...(window.desktopApi.platform === "darwin"
+      ? []
+      : ([
+          {
+            // A switch: two states, and the row says which one it is in. First,
+            // because it is the only setting here that changes what viewers
+            // HEAR rather than how the picture looks. Applying it closes the
+            // menu, as every change here does: the button spins until it lands.
+            type: "toggle",
+            key: "system-audio",
+            icon: "volume",
+            label: "Yayın sesi",
+            description: "Bilgisayarının sesi de yayına gider",
+            on: isSystemAudioOn,
+            onChange: (on) => runChange((live) => live.setSystemAudio(on)),
+          },
+          { type: "divider" },
+        ] satisfies OdakMenuEntry[])),
     {
       // The value it is set to, on the right of the row: the menu used to say
       // only what could be changed, never what it was.

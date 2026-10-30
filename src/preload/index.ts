@@ -85,6 +85,7 @@ const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";
 
 
 const desktopApi: DesktopApi = {
+  platform: process.platform,
   getAppVersion: async () => ipcRenderer.invoke("desktop:get-version"),
   getAppPreferences: async () =>
     ipcRenderer.invoke("desktop:app-preferences-get"),
@@ -270,6 +271,8 @@ const desktopApi: DesktopApi = {
   stopWatch: async (payload) => ipcRenderer.invoke("desktop:watch-stop", payload),
   listScreenCaptureSources: async () =>
     ipcRenderer.invoke("desktop:screen-capture-sources"),
+  openScreenRecordingSettings: async () =>
+    ipcRenderer.invoke("desktop:open-screen-recording-settings"),
   getRunningGame: async () => ipcRenderer.invoke("desktop:running-game"),
   getLobbyState: async (payload) =>
     ipcRenderer.invoke("desktop:lobbies-state", payload),

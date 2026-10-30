@@ -25,6 +25,14 @@ import { toast } from "@/services/toast";
 import { useUiStore } from "@/store/ui-store";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
+// macOS keeps its traffic lights at the left end of the title bar
+// (src/main/index.ts makes the same test), so the page leaves that corner
+// empty instead of drawing its own window buttons.
+const usesTrafficLights = window.desktopApi.platform === "darwin";
+const titlebarClassName = usesTrafficLights
+  ? "ct-titlebar ct-titlebar--traffic-lights"
+  : "ct-titlebar";
+
 function App() {
   const {
     activePage,
@@ -203,7 +211,7 @@ function App() {
       />
 
       <div className="ct-app-content">
-        <header className="ct-titlebar">
+        <header className={titlebarClassName}>
           <div className="ct-titlebar-brand">
             <AuthLogoMark className="ct-titlebar-logo" />
             <span className="ct-titlebar-name">Connect</span>
@@ -240,6 +248,19 @@ function App() {
               <span className="ct-update-chip found">Yeni sürüm bulundu</span>
             )}
 
+            {/* macOS: downloaded by hand, from the release page. */}
+            {updatePhase === "available" && updateState?.downloadUrl && (
+              <button
+                type="button"
+                className="ct-update-install"
+                onClick={() => {
+                  void window.desktopApi.installDownloadedUpdate();
+                }}
+              >
+                İndir
+              </button>
+            )}
+
             <span className="ct-titlebar-version">v{appVersion}</span>
 
             <button
@@ -252,38 +273,40 @@ function App() {
               <QuestionCircleOutlined />
             </button>
 
-            <div className="ct-window-controls" aria-label="Pencere kontrolleri">
-              <button
-                type="button"
-                className="ct-window-control"
-                onClick={handleMinimize}
-                aria-label="Pencereyi küçült"
-              >
-                <MinusOutlined />
-              </button>
+            {!usesTrafficLights && (
+              <div className="ct-window-controls" aria-label="Pencere kontrolleri">
+                <button
+                  type="button"
+                  className="ct-window-control"
+                  onClick={handleMinimize}
+                  aria-label="Pencereyi küçült"
+                >
+                  <MinusOutlined />
+                </button>
 
-              <button
-                type="button"
-                className="ct-window-control"
-                onClick={handleToggleMaximize}
-                aria-label={
-                  windowIsMaximized
-                    ? "Pencereyi eski boyuta döndür"
-                    : "Pencereyi büyüt"
-                }
-              >
-                {windowIsMaximized ? <CompressOutlined /> : <ExpandOutlined />}
-              </button>
+                <button
+                  type="button"
+                  className="ct-window-control"
+                  onClick={handleToggleMaximize}
+                  aria-label={
+                    windowIsMaximized
+                      ? "Pencereyi eski boyuta döndür"
+                      : "Pencereyi büyüt"
+                  }
+                >
+                  {windowIsMaximized ? <CompressOutlined /> : <ExpandOutlined />}
+                </button>
 
-              <button
-                type="button"
-                className="ct-window-control danger"
-                onClick={handleClose}
-                aria-label="Pencereyi kapat"
-              >
-                <CloseOutlined />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="ct-window-control danger"
+                  onClick={handleClose}
+                  aria-label="Pencereyi kapat"
+                >
+                  <CloseOutlined />
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
