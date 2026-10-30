@@ -144,15 +144,13 @@ export function resolveGridFit(
     ? DEFAULT_STAGE_WIDTH_WITH_CHAT
     : DEFAULT_STAGE_WIDTH_NO_CHAT;
 
-  // The measured box IS the content box, so nothing is subtracted from it.
-  const availableWidth = Math.max(
-    240,
-    stageSize.width > 0 ? stageSize.width : fallbackWidth,
-  );
-  const availableHeight = Math.max(
-    160,
-    stageSize.height > 0 ? stageSize.height : DEFAULT_STAGE_HEIGHT,
-  );
+  // The measured box IS the content box, so nothing is subtracted from it,
+  // and there is no floor either: a 240x160 one fitted a narrower stage (the
+  // old design at about 901-930px, sidebar and chat open) to a box that was
+  // not there, and the tiles overflowed it. Small tiles beat clipped ones.
+  const availableWidth = stageSize.width > 0 ? stageSize.width : fallbackWidth;
+  const availableHeight =
+    stageSize.height > 0 ? stageSize.height : DEFAULT_STAGE_HEIGHT;
 
   const maxColumns = Math.max(1, Math.min(participantCount, MAX_COLUMNS));
   const idealMinTileWidth = resolveIdealMinTileWidth(

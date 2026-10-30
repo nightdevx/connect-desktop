@@ -19,6 +19,10 @@
 //               starting in an open conversation) is measured as it mounts.
 //   LATEST      two sizes reported before the next frame: the second wins.
 //
+// And a stage smaller than the 240x160 the fit used to treat as its floor (the
+// old design at 901-930px with the sidebar and the chat open): the tiles get
+// small, but they fit the box that is really there.
+//
 // And the stylesheet's half of the focused layout, which no fit computes: the
 // slot and the stage area are size containers, so the focused tile is the
 // largest 16:9 box in its slot and the rail's thumbnails are capped on the
@@ -120,6 +124,8 @@ const main = async () => {
   // queue the test runs, and boxes whose padding getComputedStyle reads.
   const observers = new Set();
   let frames = [];
+  const timers = new Map();
+  let timerId = 0;
   globalThis.ResizeObserver = class {
     constructor(callback) {
       this.callback = callback;
@@ -145,6 +151,11 @@ const main = async () => {
     cancelAnimationFrame: (id) => {
       frames[id - 1] = null;
     },
+    setTimeout: (callback) => {
+      timers.set(++timerId, callback);
+      return timerId;
+    },
+    clearTimeout: (id) => timers.delete(id),
   };
   // A box whose content area is width x height, inside 18px of padding.
   const box = (width, height) => ({ pad: 18, clientWidth: width + 36, clientHeight: height + 36 });
@@ -169,6 +180,14 @@ const main = async () => {
 
   const HEIGHT = 846;
   const GAP = 12;
+  const gapFor = (count) => (count >= 10 ? 8 : count >= 6 ? 10 : count >= 3 ? 12 : 14);
+  const fits = (count, fit, width, height, gap) => {
+    const rowCount = Math.ceil(count / fit.columns);
+    return (
+      fit.columns * fit.tileWidth + (fit.columns - 1) * gap <= width &&
+      rowCount * (fit.tileWidth / (16 / 9)) + (rowCount - 1) * gap <= height
+    );
+  };
 
   // --- a transition that ends in small steps lands on the final size --------
   let size = nextStageSize({ width: 0, height: 0 }, { width: 1160, height: HEIGHT }, true);
@@ -204,15 +223,27 @@ const main = async () => {
   // --- an identical size is the same object (no re-render) ----------------------
   assert.equal(nextStageSize(size, { width: 1086, height: HEIGHT }, false), size);
 
+  // --- a stage under 240x160: small tiles, never an overflow ---------------------
+  for (const [width, height] of [[200, 600], [600, 120], [180, 140], [230, 150]]) {
+    for (const count of [1, 2, 4, 9, 16]) {
+      const small = resolveGridFit(count, { width, height }, true, gapFor(count));
+      assert.ok(
+        fits(count, small, width, height, gapFor(count)),
+        `${count} people in a ${width}x${height} stage: ${small.columns} x ${small.tileWidth}px overflows it`,
+      );
+    }
+  }
+
   // --- the hook: what it fits is the box on screen -------------------------------
   // Four people with the chat open, the room the owner reported.
-  const PEOPLE = 4;
+  let people = 4;
+  let chatOpen = true;
   const fitted = (style) => ({
     columns: Number(style["--ct-stage-columns"]),
     tileWidth: parseFloat(style["--ct-stage-tile-width"]),
   });
   const expectFit = (width, height, message) => {
-    const want = resolveGridFit(PEOPLE, { width, height }, true, GAP);
+    const want = resolveGridFit(people, { width, height }, chatOpen, gapFor(people));
     assert.deepEqual(fitted(current.stageLayoutStyle), want, `${message}: fitted to ${width}x${height}`);
   };
 
@@ -225,7 +256,7 @@ const main = async () => {
   let attachedTo = null;
   const render = () => {
     current = __render(() => {
-      const result = useLobbyStageLayout(PEOPLE, true);
+      const result = useLobbyStageLayout(people, chatOpen);
       const ref = result.stageAreaRef;
       if (typeof ref === "function") {
         if (attachedTo !== mounted) {
@@ -242,10 +273,17 @@ const main = async () => {
     runFrame();
     render();
   };
+  const settle = () => {
+    const due = [...timers.values()];
+    timers.clear();
+    for (const callback of due) callback();
+    render();
+  };
   const start = (stage) => {
     __reset();
     observers.clear();
     frames = [];
+    timers.clear();
     mounted = stage;
     attachedTo = null;
     render();
@@ -326,7 +364,7 @@ const main = async () => {
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    "stage-resize self-check passed (shrinks always land, growth waits, fit holds, the box on screen is the one measured, focused share keeps 16:9)",
+    "stage-resize self-check passed (shrinks always land, growth waits, fit holds down to tiny stages, the box on screen is the one measured, focused share keeps 16:9)",
   );
 };
 

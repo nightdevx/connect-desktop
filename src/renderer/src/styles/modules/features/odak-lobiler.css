@@ -543,7 +543,7 @@
 
 /* No card around the room: the header sits over the stage and the chat runs
    the full height on the right, as in the mock-up. The chat narrows before
-   the stage's content drops under the 240px the fit assumes at least. */
+   the stage's content drops under 240px, so the tiles keep a usable size. */
 :root[data-odak] .ct-lobby-room-grid-v2 {
   grid-template-columns: minmax(0, 1fr) clamp(260px, min(25vw, 100% - 284px), 380px);
   grid-template-areas:
@@ -663,9 +663,8 @@
    the tiles on the right ended up under it. Here it stays a column beside the
    stage, narrower, and the stage gives up the width: the fit measures a
    smaller box and no tile is ever behind the chat (user decision 2026-10-29).
-   The chat gives way before the stage drops under 264px: the fit treats
-   anything narrower than 240px of content as 240 and would overflow it.
-   The rules above outrank that file's, so they are restated here. */
+   The chat gives way before the stage drops under 264px, so the tiles keep
+   a usable size (the fit itself follows any width). The rules above outrank that file's, so they are restated here. */
 @media (max-width: 900px) {
   :root[data-odak] .ct-lobby-room-grid-v2 {
     grid-template-columns: minmax(0, 1fr) clamp(200px, min(30vw, 100% - 264px), 300px);
