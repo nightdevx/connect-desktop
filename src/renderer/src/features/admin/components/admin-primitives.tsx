@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import type { ColumnsType } from "antd/es/table";
 import { PageHeader } from "@/ui/page-header";
 import { getDisplayInitials, hueStyle } from "@/ui/person-style";
 import { useUiStore } from "@/store/ui-store";
@@ -195,6 +196,37 @@ export function AdminRefreshedAt({
    to be a different pill in every column -- a blue tag for a username, a green
    tag for "Aktif", an orange one for a role -- so a row was a strip of
    competing colours and nothing on it stood out. */
+
+/**
+ * A narrow table drops its least important columns: one with `hideBelow` is
+ * left out while its table is narrower than that many pixels, so the name and
+ * the row's actions always keep their room (the drawer still has the rest).
+ * antd's own `responsive` reads the window, and an open sidebar takes 172px
+ * of it -- at 800px the name column of Kullanıcılar was squeezed to nothing.
+ *
+ * `ref` goes on the Table; `fit` filters a column list for its width.
+ */
+export function useTableFit() {
+  const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
+  const ref = useCallback((table: { nativeElement: HTMLElement } | null) => {
+    const element = table?.nativeElement;
+    if (!element) {
+      return undefined;
+    }
+    // Measured here as well, before the first paint, so the table never
+    // flashes its full set of columns.
+    setWidth(element.offsetWidth);
+    const observer = new ResizeObserver(() => setWidth(element.offsetWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const fit = <T extends { hideBelow?: number }>(columns: T[]): T[] =>
+    columns.filter((column) => !column.hideBelow || width >= column.hideBelow);
+  return [ref, fit] as const;
+}
+
+/** A typed column list with `hideBelow`, for `useTableFit`. */
+export type FitColumns<T> = (ColumnsType<T>[number] & { hideBelow?: number })[];
 
 /** "02.10.2026 23:58" -- the one date format of the admin tables. Logs ask
     for the seconds as well: two events a few seconds apart are the question. */

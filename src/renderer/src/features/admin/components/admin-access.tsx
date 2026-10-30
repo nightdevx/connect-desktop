@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { Button, Input, InputNumber, Segmented, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import {
   DeleteOutlined,
   GlobalOutlined,
@@ -21,6 +27,8 @@ const USER_PAGE_SIZE = 200;
 
 export default function AdminAccess() {
   const [pane, setPane] = useState<Pane>("ips");
+  // One of the two tables at a time, so one measure serves both.
+  const [tableRef, fitColumns] = useTableFit();
   const [bans, setBans] = useState<AdminIpBan[]>([]);
   const [invites, setInvites] = useState<AdminInviteCode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -153,7 +161,7 @@ export default function AdminAccess() {
     }
   };
 
-  const banColumns: ColumnsType<AdminIpBan> = [
+  const banColumns: FitColumns<AdminIpBan> = [
     {
       title: "Adres / blok",
       dataIndex: "cidr",
@@ -161,9 +169,10 @@ export default function AdminAccess() {
       render: (value: string) => <code className="ct-admin-code">{value}</code>,
     },
     { title: "Gerekçe", dataIndex: "reason", ellipsis: true },
-    { title: "Ekleyen", dataIndex: "createdBy", width: 120, ellipsis: true, responsive: ["lg"] },
+    { title: "Ekleyen", dataIndex: "createdBy", width: 120, ellipsis: true, hideBelow: 700 },
     {
       title: "Bitiş",
+      hideBelow: 440,
       dataIndex: "expiresAt",
       width: 160,
       render: (value: string | null) =>
@@ -197,7 +206,7 @@ export default function AdminAccess() {
     },
   ];
 
-  const inviteColumns: ColumnsType<AdminInviteCode> = [
+  const inviteColumns: FitColumns<AdminInviteCode> = [
     {
       title: "Kod",
       dataIndex: "code",
@@ -206,6 +215,7 @@ export default function AdminAccess() {
     },
     {
       title: "Kullanım",
+      hideBelow: 400,
       key: "uses",
       width: 140,
       render: (_: unknown, row) => (
@@ -219,9 +229,10 @@ export default function AdminAccess() {
         </div>
       ),
     },
-    { title: "Oluşturan", dataIndex: "createdBy", width: 120, ellipsis: true, responsive: ["lg"] },
+    { title: "Oluşturan", dataIndex: "createdBy", width: 120, ellipsis: true, hideBelow: 680 },
     {
       title: "Bitiş",
+      hideBelow: 560,
       dataIndex: "expiresAt",
       width: 160,
       render: (value: string | null) =>
@@ -346,11 +357,12 @@ export default function AdminAccess() {
           }
         >
           <Table
+            ref={tableRef}
             rowKey="cidr"
             size="small"
             loading={loading}
             dataSource={bans}
-            columns={banColumns}
+            columns={fitColumns(banColumns)}
             pagination={false}
             tableLayout="fixed"
             className="ct-admin-table-wrap"
@@ -393,11 +405,12 @@ export default function AdminAccess() {
           }
         >
           <Table
+            ref={tableRef}
             rowKey="code"
             size="small"
             loading={loading}
             dataSource={invites}
-            columns={inviteColumns}
+            columns={fitColumns(inviteColumns)}
             pagination={false}
             tableLayout="fixed"
             className="ct-admin-table-wrap"

@@ -12,6 +12,7 @@ import {
   AdminState,
   adminDateTime,
   type AdminTone,
+  useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
 
@@ -29,6 +30,7 @@ const EVENT_STATES: Record<string, { tone: AdminTone; text: string }> = {
 
 export default function AdminActivity() {
   const [events, setEvents] = useState<AdminLobbyEvent[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -128,6 +130,7 @@ export default function AdminActivity() {
   const columns = [
     {
       title: "Zaman",
+      hideBelow: 480,
       dataIndex: "occurredAt",
       key: "occurredAt",
       width: 170,
@@ -155,6 +158,7 @@ export default function AdminActivity() {
     },
     {
       title: "Oda",
+      hideBelow: 640,
       key: "lobby",
       ellipsis: true,
       render: (_value: unknown, record: AdminLobbyEvent) => (
@@ -243,9 +247,10 @@ export default function AdminActivity() {
         }
       >
         <Table
+          ref={tableRef}
           size="middle"
           dataSource={events}
-          columns={columns}
+          columns={fitColumns(columns)}
           rowKey="id"
           loading={loading}
           onChange={handleTableChange}

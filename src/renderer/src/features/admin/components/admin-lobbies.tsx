@@ -33,6 +33,7 @@ import {
   AdminSection,
   AdminState,
   adminDateTime,
+  useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
 import { ModalHeading } from "@/ui/modal-heading";
@@ -102,6 +103,7 @@ export default function AdminLobbies() {
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [tableRef, fitColumns] = useTableFit();
 
   // Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -301,7 +303,7 @@ export default function AdminLobbies() {
       key: "createdBy",
       width: 110,
       ellipsis: true,
-      responsive: ["lg" as const],
+      hideBelow: 720,
       render: (_value: unknown, record: AdminLobbySnapshot) => (
         <span>@{record.lobby.createdByUsername || record.lobby.createdBy}</span>
       ),
@@ -310,6 +312,7 @@ export default function AdminLobbies() {
       title: "Erişim",
       key: "privacy",
       width: 160,
+      hideBelow: 600,
       render: (_value: unknown, record: AdminLobbySnapshot) => privacyStates(record.lobby),
     },
     // Voice only. A text channel has no roster, so this column would read
@@ -321,6 +324,7 @@ export default function AdminLobbies() {
             dataIndex: "size",
             key: "size",
             width: 110,
+            hideBelow: 440,
             // The ceiling only shows when the server sent one; an older server
             // omits capacity and "3 / undefined" is worse than no ceiling.
             render: (size: number, record: AdminLobbySnapshot) => (
@@ -347,7 +351,7 @@ export default function AdminLobbies() {
       dataIndex: ["lobby", "createdAt"],
       key: "createdAt",
       width: 140,
-      responsive: ["xxl" as const],
+      hideBelow: 880,
       render: (date: string) => <span className="ct-admin-muted">{adminDateTime(date)}</span>,
     },
     {
@@ -466,6 +470,7 @@ export default function AdminLobbies() {
         dataIndex: "joinedAt",
         key: "joinedAt",
         width: 80,
+        hideBelow: 760,
         render: (date: string) => (
           <span className="ct-admin-muted">
             {new Date(date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
@@ -476,6 +481,7 @@ export default function AdminLobbies() {
         title: "Ses",
         key: "audioStatus",
         width: 170,
+        hideBelow: 500,
         render: (_value: unknown, member: LobbyStateMember) => (
           <span className="ct-admin-states">
             {member.serverMuted ? (
@@ -505,6 +511,7 @@ export default function AdminLobbies() {
         title: "Görüntü",
         key: "mediaStatus",
         width: 170,
+        hideBelow: 680,
         render: (_value: unknown, member: LobbyStateMember) =>
           member.cameraEnabled || member.screenSharing ? (
             <span className="ct-admin-states">
@@ -551,7 +558,9 @@ export default function AdminLobbies() {
       <div className="ct-admin-subtable">
         {details}
         <Table
-          columns={memberColumns}
+          // Fitted to the room table around it: the inset of the open row is
+          // already in these thresholds.
+          columns={fitColumns(memberColumns)}
           dataSource={record.members}
           rowKey="userId"
           pagination={false}
@@ -625,8 +634,9 @@ export default function AdminLobbies() {
       >
         <Table
           size="middle"
+          ref={tableRef}
           dataSource={lobbies}
-          columns={columns}
+          columns={fitColumns(columns)}
           rowKey={(record) => record.lobby.id}
           loading={loading}
           expandable={{

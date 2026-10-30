@@ -10,6 +10,7 @@ import {
   AdminSection,
   AdminState,
   adminDateTime,
+  useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
 /**
@@ -37,6 +38,8 @@ export default function AdminModeration() {
   const [mutes, setMutes] = useState<AdminVoiceMute[]>([]);
   const [timeouts, setTimeouts] = useState<AdminLobbyTimeout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mutesRef, fitMutes] = useTableFit();
+  const [timeoutsRef, fitTimeouts] = useTableFit();
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -110,6 +113,7 @@ export default function AdminModeration() {
         flush
       >
         <Table
+          ref={mutesRef}
           dataSource={mutes}
           loading={loading}
           rowKey={(row) => row.userId}
@@ -118,7 +122,7 @@ export default function AdminModeration() {
           tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Susturulmuş kimse yok." }}
-          columns={[
+          columns={fitMutes([
             {
               title: "Kullanıcı",
               key: "username",
@@ -132,12 +136,14 @@ export default function AdminModeration() {
               dataIndex: "mutedAt",
               key: "mutedAt",
               width: 150,
+              hideBelow: 640,
               render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
             },
             {
               title: "Bitiş",
               key: "expiresAt",
               width: 160,
+              hideBelow: 480,
               render: (_value: unknown, row: AdminVoiceMute) => expiryState(row.expiresAt),
             },
             {
@@ -158,7 +164,7 @@ export default function AdminModeration() {
                 </Popconfirm>
               ),
             },
-          ]}
+          ])}
         />
       </AdminSection>
 
@@ -170,6 +176,7 @@ export default function AdminModeration() {
         flush
       >
         <Table
+          ref={timeoutsRef}
           dataSource={timeouts}
           loading={loading}
           // Composite key: one person can be timed out of several rooms, and the
@@ -180,7 +187,7 @@ export default function AdminModeration() {
           tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Zaman aşımı verilmiş kimse yok." }}
-          columns={[
+          columns={fitTimeouts([
             {
               title: "Kullanıcı",
               key: "username",
@@ -193,6 +200,7 @@ export default function AdminModeration() {
               title: "Oda",
               key: "lobby",
               width: 180,
+              hideBelow: 660,
               ellipsis: true,
               render: (_value: unknown, row: AdminLobbyTimeout) => <strong>{row.lobbyName}</strong>,
             },
@@ -200,6 +208,7 @@ export default function AdminModeration() {
               title: "Bitiş",
               key: "expiresAt",
               width: 160,
+              hideBelow: 480,
               render: (_value: unknown, row: AdminLobbyTimeout) => expiryState(row.expiresAt),
             },
             {
@@ -220,7 +229,7 @@ export default function AdminModeration() {
                 </Popconfirm>
               ),
             },
-          ]}
+          ])}
         />
       </AdminSection>
     </div>

@@ -10,11 +10,18 @@ import type { AdminUserDetail } from "@shared/auth-contracts";
 import type { MusicDJ } from "@shared/music";
 import { toErrorMessage } from "@shared/error-message";
 import adminService from "../services/admin-service";
-import { AdminPageHeader, AdminPerson, AdminSection, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  adminDateTime,
+  useTableFit,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 export default function AdminMusic() {
   const [djs, setDjs] = useState<MusicDJ[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [users, setUsers] = useState<AdminUserDetail[]>([]);
   const [spotifyEnabled, setSpotifyEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -107,6 +114,7 @@ export default function AdminMusic() {
     },
     {
       title: "Yetkiyi veren",
+      hideBelow: 560,
       key: "grantedBy",
       width: 170,
       ellipsis: true,
@@ -114,6 +122,7 @@ export default function AdminMusic() {
     },
     {
       title: "Tarih",
+      hideBelow: 380,
       dataIndex: "grantedAt",
       key: "grantedAt",
       width: 150,
@@ -203,12 +212,13 @@ export default function AdminMusic() {
         flush
       >
         <Table
+          ref={tableRef}
           tableLayout="fixed"
           rowKey="userId"
           size="small"
           loading={loading}
           dataSource={djs}
-          columns={columns}
+          columns={fitColumns(columns)}
           pagination={false}
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Henüz DJ yetkisi verilmiş kimse yok." }}

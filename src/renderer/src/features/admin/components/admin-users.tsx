@@ -31,7 +31,13 @@ import type {
 import { USER_RESTRICTIONS } from "@shared/auth-contracts";
 import { AdminUserRelationsPanel, AdminUserSessions } from "./admin-user-panels";
 import type { TablePaginationConfig } from "antd";
-import { AdminPageHeader, AdminPerson, AdminSection, AdminState } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  AdminState,
+  useTableFit,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 interface EditUserFormValues {
@@ -120,6 +126,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resettingUser, setResettingUser] = useState<AdminUserDetail | null>(null);
   const [resetForm] = Form.useForm();
+  const [tableRef, fitColumns] = useTableFit();
 
   const fetchUsers = useCallback(
     async (page = currentPage, size = pageSize): Promise<void> => {
@@ -393,7 +400,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       title: "E-posta",
       key: "email",
       ellipsis: true,
-      responsive: ["lg" as const],
+      hideBelow: 740,
       render: (_value: unknown, record: AdminUserDetail) =>
         record.email ? (
           <span className="ct-admin-inline">
@@ -415,6 +422,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       dataIndex: "role",
       key: "role",
       width: 120,
+      hideBelow: 580,
       render: (role: UserRole) => (
         <AdminState tone={role === "member" ? "muted" : "info"}>
           {ROLE_LABELS[role] ?? role}
@@ -425,6 +433,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       title: "Durum",
       key: "status",
       width: 130,
+      hideBelow: 460,
       // A pending deletion used to be visible only as a tenth icon appearing
       // in the action row; it belongs in the column that answers "what is going
       // on with this account".
@@ -442,7 +451,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       dataIndex: "createdAt",
       key: "createdAt",
       width: 110,
-      responsive: ["xl" as const],
+      hideBelow: 920,
       render: (date: string) => (
         <span className="ct-admin-muted">{new Date(date).toLocaleDateString("tr-TR")}</span>
       ),
@@ -605,8 +614,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       >
         <Table
           size="middle"
+          ref={tableRef}
           dataSource={users}
-          columns={columns}
+          columns={fitColumns(columns)}
           rowKey="id"
           loading={loading}
           onChange={handleTableChange}

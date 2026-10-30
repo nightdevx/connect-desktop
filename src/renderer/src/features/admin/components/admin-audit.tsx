@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader, AdminSection, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  adminDateTime,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { Button, Input, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import { AuditOutlined, ReloadOutlined, DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AdminAuditEntry } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
@@ -26,6 +31,7 @@ const PAGE_SIZE = 50;
 
 export default function AdminAudit() {
   const [entries, setEntries] = useState<AdminAuditEntry[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -57,15 +63,17 @@ export default function AdminAudit() {
     void load();
   }, [load]);
 
-  const columns: ColumnsType<AdminAuditEntry> = [
+  const columns: FitColumns<AdminAuditEntry> = [
     {
       title: "Zaman",
+      hideBelow: 480,
       dataIndex: "occurredAt",
       width: 170,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value, true)}</span>,
     },
     {
       title: "Yönetici",
+      hideBelow: 620,
       dataIndex: "actorName",
       width: 120,
       ellipsis: true,
@@ -90,16 +98,16 @@ export default function AdminAudit() {
     },
     {
       title: "Gerekçe",
+      hideBelow: 760,
       dataIndex: "reason",
       ellipsis: true,
-      responsive: ["lg"],
       render: (value: string) => value || <span className="ct-muted">—</span>,
     },
     {
       title: "IP",
+      hideBelow: 900,
       dataIndex: "clientIp",
       width: 120,
-      responsive: ["xl"],
       render: (value: string) => <span className="ct-admin-mono">{value || "—"}</span>,
     },
   ];
@@ -156,11 +164,12 @@ export default function AdminAudit() {
         }
       >
         <Table
+          ref={tableRef}
           rowKey="id"
           size="small"
           loading={loading}
           dataSource={entries}
-          columns={columns}
+          columns={fitColumns(columns)}
           tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Bu filtrelerle eşleşen kayıt yok." }}

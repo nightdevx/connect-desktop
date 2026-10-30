@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { Button, Descriptions, Drawer, Input, Select, Table, Tooltip } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import {
   ReloadOutlined,
   DownloadOutlined,
@@ -73,6 +79,7 @@ const mbps = (bps: number | null | undefined): string => {
 
 export default function AdminDiagnostics() {
   const [sessions, setSessions] = useState<MediaDiagnosticsSessionRow[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -147,9 +154,10 @@ export default function AdminDiagnostics() {
     }
   }, [userId, problem]);
 
-  const columns: ColumnsType<MediaDiagnosticsSessionRow> = [
+  const columns: FitColumns<MediaDiagnosticsSessionRow> = [
     {
       title: "Başlangıç",
+      hideBelow: 500,
       dataIndex: "startedAt",
       width: 140,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
@@ -163,20 +171,22 @@ export default function AdminDiagnostics() {
     },
     {
       title: "Oda",
+      hideBelow: 900,
       dataIndex: "lobbyId",
       width: 130,
       ellipsis: true,
-      responsive: ["xxl"],
       render: (value: string) => <span className="ct-admin-mono">{value || "—"}</span>,
     },
     {
       title: "Süre",
+      hideBelow: 620,
       key: "duration",
       width: 112,
       render: (_: unknown, row) => formatDuration(row.summary?.durationMs),
     },
     {
       title: "Kodlayıcı",
+      hideBelow: 760,
       key: "encoder",
       width: 140,
       render: (_: unknown, row) => {
@@ -213,9 +223,9 @@ export default function AdminDiagnostics() {
     },
     {
       title: "Kayıt",
+      hideBelow: 980,
       dataIndex: "entryCount",
       width: 70,
-      responsive: ["xxl"],
       align: "right" as const,
     },
     {
@@ -310,11 +320,12 @@ export default function AdminDiagnostics() {
         }
       >
         <Table
+          ref={tableRef}
           rowKey="sessionId"
           size="small"
           loading={loading}
           dataSource={sessions}
-          columns={columns}
+          columns={fitColumns(columns)}
           tableLayout="fixed"
           className="ct-admin-table-wrap"
           locale={{ emptyText: "Bu filtrelerle eşleşen oturum yok." }}

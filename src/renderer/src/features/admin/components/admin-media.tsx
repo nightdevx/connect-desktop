@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader, AdminPerson, AdminSection, AdminState } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminPerson,
+  AdminSection,
+  AdminState,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { Button, Table, Tooltip } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import {
   AudioMutedOutlined,
   AudioOutlined,
@@ -17,6 +23,7 @@ import { toast } from "@/services/toast";
 
 export default function AdminMedia() {
   const [publishers, setPublishers] = useState<AdminLivePublisher[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -47,7 +54,7 @@ export default function AdminMedia() {
     }
   };
 
-  const columns: ColumnsType<AdminLivePublisher> = [
+  const columns: FitColumns<AdminLivePublisher> = [
     {
       title: "Kullanıcı",
       key: "user",
@@ -58,6 +65,7 @@ export default function AdminMedia() {
     },
     {
       title: "Açık yayınlar",
+      hideBelow: 560,
       key: "tracks",
       width: 220,
       render: (_: unknown, row) => (
@@ -160,11 +168,12 @@ export default function AdminMedia() {
         flush
       >
         <Table
+          ref={tableRef}
           rowKey={(row) => `${row.room}:${row.userId}`}
           size="small"
           loading={loading}
           dataSource={publishers}
-          columns={columns}
+          columns={fitColumns(columns)}
           pagination={false}
           tableLayout="fixed"
           className="ct-admin-table-wrap"

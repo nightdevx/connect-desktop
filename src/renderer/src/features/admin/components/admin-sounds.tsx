@@ -11,7 +11,12 @@ import type { AdminEmoteLibrary, CustomEmoteSummary } from "@shared/desktop-api-
 import type { AdminUserDetail } from "@shared/auth-contracts";
 import adminService from "../services/admin-service";
 import { toErrorMessage } from "@shared/error-message";
-import { AdminPageHeader, AdminSection, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  adminDateTime,
+  useTableFit,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 // The soundboard is the one member-level feature that writes to shared storage
@@ -19,6 +24,7 @@ import { toast } from "@/services/toast";
 // screen: a budget, and a way to take a specific sound down.
 export default function AdminSounds() {
   const [library, setLibrary] = useState<AdminEmoteLibrary | null>(null);
+  const [tableRef, fitColumns] = useTableFit();
   const [users, setUsers] = useState<AdminUserDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingQuota, setSavingQuota] = useState(false);
@@ -126,6 +132,7 @@ export default function AdminSounds() {
     },
     {
       title: "Yükleyen",
+      hideBelow: 480,
       key: "owner",
       width: 160,
       ellipsis: true,
@@ -135,6 +142,7 @@ export default function AdminSounds() {
     },
     {
       title: "Boyut",
+      hideBelow: 320,
       key: "size",
       width: 90,
       align: "right" as const,
@@ -143,10 +151,10 @@ export default function AdminSounds() {
     },
     {
       title: "Yüklenme",
+      hideBelow: 640,
       dataIndex: "createdAt",
       key: "createdAt",
       width: 150,
-      responsive: ["lg" as const],
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
@@ -311,8 +319,9 @@ export default function AdminSounds() {
         flush
       >
         <Table
+          ref={tableRef}
           dataSource={library?.emotes ?? []}
-          columns={emoteColumns}
+          columns={fitColumns(emoteColumns)}
           rowKey="id"
           loading={loading}
           pagination={{

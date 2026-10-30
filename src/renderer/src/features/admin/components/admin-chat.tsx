@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader, AdminSection, AdminState, adminDateTime } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  AdminState,
+  adminDateTime,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { Button, Input, Modal, Segmented, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
 import {
   DeleteOutlined,
@@ -95,6 +101,8 @@ export default function AdminChat() {
   const [attachmentStats, setAttachmentStats] = useState<AdminAttachmentStats>({ count: 0, totalBytes: 0 });
 
   const [loading, setLoading] = useState(false);
+  // One at a time on screen, so one measure serves all three tables.
+  const [tableRef, fitColumns] = useTableFit();
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -181,23 +189,25 @@ export default function AdminChat() {
     }
   };
 
-  const messageColumns: ColumnsType<ChatMessage> = [
+  const messageColumns: FitColumns<ChatMessage> = [
     {
       title: "Zaman",
+      hideBelow: 560,
       dataIndex: "createdAt",
       width: 150,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
       title: "Kanal",
+      hideBelow: 720,
       dataIndex: "channel",
       width: 170,
       ellipsis: true,
-      responsive: ["lg"],
       render: (value: string) => <span className="ct-admin-mono">{value}</span>,
     },
     {
       title: "Gönderen",
+      hideBelow: 400,
       dataIndex: "username",
       width: 130,
       ellipsis: true,
@@ -229,15 +239,17 @@ export default function AdminChat() {
     },
   ];
 
-  const reportColumns: ColumnsType<AdminChatReport> = [
+  const reportColumns: FitColumns<AdminChatReport> = [
     {
       title: "Zaman",
+      hideBelow: 760,
       dataIndex: "createdAt",
       width: 150,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
       title: "Bildiren",
+      hideBelow: 620,
       dataIndex: "reporterName",
       width: 130,
       ellipsis: true,
@@ -245,15 +257,16 @@ export default function AdminChat() {
     },
     {
       title: "Kanal",
+      hideBelow: 940,
       dataIndex: "channel",
       width: 170,
       ellipsis: true,
-      responsive: ["lg"],
       render: (value: string) => <span className="ct-admin-mono">{value}</span>,
     },
     { title: "Gerekçe", dataIndex: "reason", ellipsis: true },
     {
       title: "Durum",
+      hideBelow: 480,
       dataIndex: "status",
       width: 110,
       render: (value: AdminReportStatus) => (
@@ -297,9 +310,10 @@ export default function AdminChat() {
     },
   ];
 
-  const attachmentColumns: ColumnsType<AdminAttachmentSummary> = [
+  const attachmentColumns: FitColumns<AdminAttachmentSummary> = [
     {
       title: "Zaman",
+      hideBelow: 600,
       dataIndex: "createdAt",
       width: 150,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
@@ -317,20 +331,21 @@ export default function AdminChat() {
     },
     {
       title: "Tür",
+      hideBelow: 740,
       dataIndex: "mimeType",
       width: 140,
       ellipsis: true,
-      responsive: ["lg"],
       render: (value: string) => <span className="ct-admin-mono">{value}</span>,
     },
     {
       title: "Boyut",
+      hideBelow: 320,
       dataIndex: "size",
       width: 90,
       align: "right",
       render: (value: number) => formatBytes(value),
     },
-    { title: "Yükleyen", dataIndex: "username", width: 130, ellipsis: true },
+    { title: "Yükleyen", dataIndex: "username", width: 130, ellipsis: true, hideBelow: 460 },
     {
       title: "",
       key: "actions",
@@ -406,12 +421,13 @@ export default function AdminChat() {
           }
         >
           <Table
+            ref={tableRef}
             tableLayout="fixed"
             rowKey="id"
             size="small"
             loading={loading}
             dataSource={messages}
-            columns={messageColumns}
+            columns={fitColumns(messageColumns)}
             className="ct-admin-table-wrap"
             locale={{ emptyText: "Mesaj yok." }}
             pagination={{
@@ -445,12 +461,13 @@ export default function AdminChat() {
           }
         >
           <Table
+            ref={tableRef}
             tableLayout="fixed"
             rowKey="id"
             size="small"
             loading={loading}
             dataSource={reports}
-            columns={reportColumns}
+            columns={fitColumns(reportColumns)}
             pagination={false}
             className="ct-admin-table-wrap"
             locale={{ emptyText: "Bu durumda şikâyet yok." }}
@@ -466,12 +483,13 @@ export default function AdminChat() {
           flush
         >
           <Table
+            ref={tableRef}
             tableLayout="fixed"
             rowKey="id"
             size="small"
             loading={loading}
             dataSource={attachments}
-            columns={attachmentColumns}
+            columns={fitColumns(attachmentColumns)}
             pagination={false}
             className="ct-admin-table-wrap"
             locale={{ emptyText: "Ek dosya yok." }}

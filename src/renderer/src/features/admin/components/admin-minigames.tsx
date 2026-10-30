@@ -10,13 +10,20 @@ import { toErrorMessage } from "@shared/error-message";
 import type { MinigamePlayer, MinigameTableOverview } from "@shared/minigames";
 import { MINIGAMES } from "@/features/minigames";
 import adminService from "../services/admin-service";
-import { AdminPageHeader, AdminSection, AdminState } from "./admin-primitives";
+import {
+  AdminPageHeader,
+  AdminSection,
+  AdminState,
+  useTableFit,
+  type FitColumns,
+} from "./admin-primitives";
 import { toast } from "@/services/toast";
 
 const REFRESH_INTERVAL_MS = 8000;
 
 export default function AdminMinigames() {
   const [tables, setTables] = useState<MinigameTableOverview[]>([]);
+  const [tableRef, fitColumns] = useTableFit();
   const [disabled, setDisabled] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -92,6 +99,7 @@ export default function AdminMinigames() {
           </div>
         ) : (
           <Table<MinigameTableOverview>
+            ref={tableRef}
             tableLayout="fixed"
             rowKey="id"
             dataSource={tables}
@@ -101,7 +109,7 @@ export default function AdminMinigames() {
             locale={{
               emptyText: <Empty description="Şu anda açık masa yok" />,
             }}
-            columns={[
+            columns={fitColumns<FitColumns<MinigameTableOverview>[number]>([
               {
                 title: "Oyun",
                 dataIndex: "game",
@@ -110,6 +118,7 @@ export default function AdminMinigames() {
               },
               {
                 title: "Durum",
+                hideBelow: 440,
                 key: "state",
                 width: 130,
                 render: (_, table) =>
@@ -130,6 +139,7 @@ export default function AdminMinigames() {
               },
               {
                 title: "İzleyiciler",
+                hideBelow: 680,
                 key: "spectators",
                 ellipsis: true,
                 render: (_, table) =>
@@ -144,6 +154,7 @@ export default function AdminMinigames() {
               },
               {
                 title: "Açılış",
+                hideBelow: 540,
                 dataIndex: "createdAt",
                 width: 90,
                 render: (value: string) => (
@@ -152,7 +163,7 @@ export default function AdminMinigames() {
                   </span>
                 ),
               },
-            ]}
+            ])}
           />
         )}
       </AdminSection>
