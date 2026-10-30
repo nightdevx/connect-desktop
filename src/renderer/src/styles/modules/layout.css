@@ -18,9 +18,11 @@
   backdrop-filter: blur(12px);
 }
 
+/* The Odak dialog shell (odak-overlays.css .ct-modal). */
 .ct-update-gate-card {
-  @apply flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border p-8 text-center;
-  border-color: var(--ct-border);
+  @apply flex w-full max-w-md flex-col items-center gap-3 border p-8 text-center;
+  border-radius: 20px;
+  border-color: var(--ct-border-strong);
   background: var(--ct-panel-soft);
   box-shadow: var(--ct-shadow-lg);
 }
@@ -51,8 +53,15 @@
   color: var(--ct-text-secondary);
 }
 
-.ct-update-gate-action {
+/* Sized like the Odak dialog buttons: no glow, 40 px, 12 px corners. */
+.ct-update-gate-card .ct-update-gate-action {
   @apply mt-2 inline-flex items-center gap-2;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: none;
 }
 
 /* ==========================================================================
@@ -149,10 +158,11 @@
   background: color-mix(in srgb, var(--ct-warning) 12%, transparent);
 }
 
+/* "Güncelle", and "İndir" on macOS: the Odak primary, lime with dark text. */
 .ct-update-install {
   @apply inline-flex h-7 shrink-0 items-center rounded-full px-3 text-2xs font-bold;
-  color: var(--ct-text-primary);
-  background: var(--ct-success);
+  color: var(--ct-text-inverse);
+  background: var(--ct-accent);
   transition: filter var(--ct-duration-fast) ease;
   -webkit-app-region: no-drag;
 }
