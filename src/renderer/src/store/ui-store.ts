@@ -232,34 +232,14 @@ export const useUiStore = create<UiState>((set, get) => ({
       statusTone: tone,
       statusNonce: state.statusNonce + 1,
     })),
-  setWorkspaceSection: (section) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => set({ workspaceSection: section }));
-    } else {
-      set({ workspaceSection: section });
-    }
-  },
-  setSettingsSection: (section) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => set({ settingsSection: section }));
-    } else {
-      set({ settingsSection: section });
-    }
-  },
-  setAdminSection: (section) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => set({ adminSection: section }));
-    } else {
-      set({ adminSection: section });
-    }
-  },
-  // No view transition here, unlike the section setters above: this swaps the
-  // contents of one panel, and animating a list re-filter reads as a stutter
-  // rather than as a navigation.
+  // No view transition: the workspace is always in the Odak design, where a
+  // section's own entrance is the only motion, so the snapshot step only made
+  // the first frame of a switch later.
+  setWorkspaceSection: (section) => set({ workspaceSection: section }),
+  setSettingsSection: (section) => set({ settingsSection: section }),
+  setAdminSection: (section) => set({ adminSection: section }),
   setFreeGamesFilter: (filter) => set({ freeGamesFilter: filter }),
   setFreeGamesStore: (store) => set({ freeGamesStore: store }),
-  // Same reasoning as the free-games setters: swapping the contents of one
-  // panel, not navigating, so no view transition.
   // Changing the game drops whatever was being watched: the watched table
   // belongs to ONE game, and carrying its id into another one leaves the board
   // hunting for a table that is not in its list.

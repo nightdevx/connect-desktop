@@ -1111,9 +1111,9 @@
   animation: odak-fade var(--odak-dur-3) var(--odak-ease-out) backwards;
 }
 
-/* The store wraps a section switch in a view transition, whose default is a
-   whole-page cross-fade of snapshots. Under Odak the swap is instant and the
-   entrances above are the only motion, so the two do not blur together. */
+/* The sign-in/register switch still runs in a view transition, whose default
+   is a whole-page cross-fade of snapshots. Under Odak the swap is instant.
+   (Section switches no longer start one at all.) */
 :root[data-odak]::view-transition-group(*),
 :root[data-odak]::view-transition-old(*),
 :root[data-odak]::view-transition-new(*) {

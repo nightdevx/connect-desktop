@@ -116,15 +116,6 @@
   }
 }
 
-/* Custom View Transitions */
-.ct-sidebar {
-  view-transition-name: sidebar-panel;
-}
-
-.ct-main-panel {
-  view-transition-name: main-panel;
-}
-
 .ct-stagger-entry {
   animation: fadeSlideIn 0.45s var(--ct-ease-premium) both;
 }
