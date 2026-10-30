@@ -28,7 +28,7 @@ import type { ChatMessage } from "@shared/auth-contracts";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
 import { toast } from "@/services/toast";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 
 type Pane = "messages" | "reports" | "attachments";
 
@@ -45,6 +45,7 @@ type ModalApi = ReturnType<typeof Modal.useModal>[0];
 const askReason = (
   modal: ModalApi,
   title: string,
+  okText: string,
   icon: ReactNode = <DeleteOutlined />,
 ): Promise<string | null> =>
   new Promise((resolve) => {
@@ -71,8 +72,9 @@ const askReason = (
           }}
         />
       ),
-      okText: "Uygula",
+      okText,
       cancelText: "Vazgeç",
+      width: MODAL_WIDTH.s,
       onOk: () => {
         if (value.trim().length < 3) {
           toast.warning("Gerekçe en az 3 karakter olmalı.");
@@ -166,7 +168,7 @@ export default function AdminChat() {
   }, [refresh]);
 
   const handleDelete = async (messageId: string): Promise<void> => {
-    const reason = await askReason(modal, "Mesajı sil");
+    const reason = await askReason(modal, "Mesajı sil", "Sil");
     if (!reason) return;
     try {
       await adminService.unwrap(adminService.ops.deleteChatMessage({ messageId, reason }), "Mesaj silinemedi");
@@ -178,7 +180,7 @@ export default function AdminChat() {
   };
 
   const handleRedact = async (messageId: string): Promise<void> => {
-    const reason = await askReason(modal, "Mesajı karart", <EyeInvisibleOutlined />);
+    const reason = await askReason(modal, "Mesajı karart", "Karart", <EyeInvisibleOutlined />);
     if (!reason) return;
     try {
       await adminService.unwrap(adminService.ops.redactChatMessage({ messageId, reason }), "Mesaj karartılamadı");
@@ -357,7 +359,7 @@ export default function AdminChat() {
           danger
           icon={<DeleteOutlined />}
           onClick={async () => {
-            const reason = await askReason(modal, "Eki sil");
+            const reason = await askReason(modal, "Eki sil", "Sil");
             if (!reason) return;
             try {
               await adminService.unwrap(

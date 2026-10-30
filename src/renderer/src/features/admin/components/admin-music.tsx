@@ -136,10 +136,10 @@ export default function AdminMusic() {
       render: (_: unknown, record: MusicDJ) => (
         <div className="ct-admin-actions">
           <Popconfirm
-            title="Bu kullanıcının DJ yetkisi alınsın mı?"
+            title="DJ yetkisi alınsın mı?"
             onConfirm={() => void revoke(record.userId)}
-            okText="Evet"
-            cancelText="Hayır"
+            okText="Yetkiyi al"
+            cancelText="Vazgeç"
           >
             <Tooltip title="Yetkiyi al">
               <Button type="text" danger icon={<DeleteOutlined />} />

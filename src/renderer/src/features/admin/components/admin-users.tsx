@@ -20,7 +20,8 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { getDisplayInitials, hueStyle } from "@/ui/person-style";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
+import { ConfirmActionModal } from "@/features/workspace";
 import adminService from "../services/admin-service";
 import type {
   AdminUserDetail,
@@ -97,6 +98,13 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
   // Edit Drawer State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUserDetail | null>(null);
+  // Ban, delete and IP ban cannot be taken back with a click, so they get the
+  // destructive confirm (who, what will happen) instead of a small bubble.
+  const [pendingAction, setPendingAction] = useState<{
+    kind: "ban" | "delete" | "ip";
+    user: AdminUserDetail;
+  } | null>(null);
+  const [isActing, setIsActing] = useState(false);
   // Whether the open account has two-step sign-in. null: not known yet, or a
   // server older than the feature -- the reset button then stays hidden.
   const [editingTwoFactor, setEditingTwoFactor] = useState<boolean | null>(null);
@@ -483,7 +491,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             <Tooltip
               title={
                 isSelf
-                  ? "Kendi şifrenizi buradan sıfırlayamazsınız"
+                  ? "Kendi şifreni buradan sıfırlayamazsın"
                   : "Şifre sıfırla"
               }
             >
@@ -495,55 +503,54 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 aria-label="Şifre sıfırla"
               />
             </Tooltip>
-            <Popconfirm
-              title={`Kullanıcıyı ${record.bannedAt ? "aktif etmek" : "yasaklamak"} istediğinize emin misiniz?`}
-              onConfirm={() => handleToggleBan(record)}
-              okText="Evet"
-              cancelText="Hayır"
-              disabled={isSelf}
-            >
+            {record.bannedAt ? (
+              <Popconfirm
+                title={`@${record.username} yeniden giriş yapabilsin mi?`}
+                onConfirm={() => handleToggleBan(record)}
+                okText="Yasağı kaldır"
+                cancelText="Vazgeç"
+                disabled={isSelf}
+              >
+                <Tooltip title="Yasağı kaldır">
+                  <Button
+                    type="text"
+                    icon={<UndoOutlined />}
+                    disabled={isSelf}
+                    aria-label="Yasağı kaldır"
+                  />
+                </Tooltip>
+              </Popconfirm>
+            ) : (
               <Tooltip
-                title={
-                  isSelf
-                    ? "Kendi hesabınızı yasaklayamazsınız"
-                    : record.bannedAt
-                      ? "Yasağı kaldır"
-                      : "Yasakla"
-                }
+                title={isSelf ? "Kendi hesabını yasaklayamazsın" : "Yasakla…"}
               >
                 <Button
                   type="text"
-                  icon={record.bannedAt ? <UndoOutlined /> : <StopOutlined />}
+                  icon={<StopOutlined />}
                   disabled={isSelf}
-                  aria-label={record.bannedAt ? "Yasağı kaldır" : "Yasakla"}
+                  aria-label="Yasakla"
+                  onClick={() => setPendingAction({ kind: "ban", user: record })}
                 />
               </Tooltip>
-            </Popconfirm>
-            <Popconfirm
-              title="Kullanıcıyı silmek istediğinize emin misiniz? Bu işlem geri alınamaz!"
-              onConfirm={() => handleDeleteUser(record.id)}
-              okText="Evet"
-              cancelText="Hayır"
-              disabled={record.role === "admin" || isSelf}
+            )}
+            <Tooltip
+              title={
+                isSelf
+                  ? "Kendi hesabını silemezsin"
+                  : record.role === "admin"
+                    ? "Yönetici hesabı silinemez"
+                    : "Sil…"
+              }
             >
-              <Tooltip
-                title={
-                  isSelf
-                    ? "Kendi hesabınızı silemezsiniz"
-                    : record.role === "admin"
-                      ? "Yönetici hesabı silinemez"
-                      : "Sil"
-                }
-              >
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={record.role === "admin" || isSelf}
-                  aria-label="Sil"
-                />
-              </Tooltip>
-            </Popconfirm>
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                disabled={record.role === "admin" || isSelf}
+                aria-label="Sil"
+                onClick={() => setPendingAction({ kind: "delete", user: record })}
+              />
+            </Tooltip>
           </div>
         );
       },
@@ -811,20 +818,21 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             </header>
             <div className="ct-admin-action-list">
               <Popconfirm
-                title={`@${editingUser.username} kullanıcısının tüm oturumlarını kapatmak istediğinize emin misiniz?`}
+                title={`@${editingUser.username} bütün cihazlardan çıkarılsın mı?`}
                 onConfirm={() => handleForceLogout(editingUser)}
-                okText="Evet"
-                cancelText="Hayır"
+                okText="Oturumları kapat"
+                cancelText="Vazgeç"
               >
                 <Button icon={<DisconnectOutlined />}>Oturumları Kapat</Button>
               </Popconfirm>
 
               {editingTwoFactor === null ? null : editingTwoFactor ? (
                 <Popconfirm
-                  title={`@${editingUser.username} için iki adımlı doğrulama sıfırlansın mı? Bir sonraki girişte yalnızca şifre istenir.`}
+                  title={`@${editingUser.username} için iki adımlı doğrulama sıfırlansın mı?`}
+                  description="Bir sonraki girişte yalnız şifre istenir."
                   onConfirm={() => void handleResetTwoFactor(editingUser)}
-                  okText="Evet"
-                  cancelText="Hayır"
+                  okText="Sıfırla"
+                  cancelText="Vazgeç"
                 >
                   <Button icon={<SafetyCertificateOutlined />}>
                     İki Adımlı Doğrulamayı Sıfırla
@@ -848,10 +856,10 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               </Button>
 
               <Popconfirm
-                title="Bu kullanıcının profil resmi ve afişi kaldırılsın mı?"
+                title="Profil resmi ve afiş kaldırılsın mı?"
                 onConfirm={() => void handleClearMedia(editingUser)}
-                okText="Evet"
-                cancelText="Hayır"
+                okText="Kaldır"
+                cancelText="Vazgeç"
               >
                 <Button icon={<PictureOutlined />}>
                   Profil Görsellerini Kaldır
@@ -859,38 +867,32 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               </Popconfirm>
 
               <Popconfirm
-                title={`@${editingUser.username} sunucu genelinde susturulsun mu? Birebir aramalar dışında hiçbir lobide konuşamaz.`}
+                title={`@${editingUser.username} sunucuda susturulsun mu?`}
+                description="Birebir aramalar dışında hiçbir odada konuşamaz."
                 onConfirm={() => void handleServerMute(editingUser)}
-                okText="Evet"
-                cancelText="Hayır"
+                okText="Sustur"
+                cancelText="Vazgeç"
               >
                 <Button icon={<AudioMutedOutlined />}>Sunucuda Sustur</Button>
               </Popconfirm>
 
-              <Popconfirm
-                title={
-                  editingUser.lastIp
-                    ? `${editingUser.lastIp} adresi yasaklansın ve oturumları kapatılsın mı?`
-                    : "Bu hesabın kayıtlı bir adresi yok."
-                }
-                onConfirm={() => void handleBanUserIp(editingUser)}
-                okText="Evet"
-                cancelText="Hayır"
+              <Button
+                icon={<StopOutlined />}
+                danger
                 disabled={!editingUser.lastIp}
+                onClick={() => setPendingAction({ kind: "ip", user: editingUser })}
               >
-                <Button icon={<StopOutlined />} danger disabled={!editingUser.lastIp}>
-                  {editingUser.lastIp
-                    ? `IP'sini Yasakla (${editingUser.lastIp})`
-                    : "IP'si Bilinmiyor"}
-                </Button>
-              </Popconfirm>
+                {editingUser.lastIp
+                  ? `IP'sini yasakla… (${editingUser.lastIp})`
+                  : "IP'si bilinmiyor"}
+              </Button>
 
               {editingUser.deletionScheduledAt ? (
                 <Popconfirm
                   title="Bu hesabın silinme talebi iptal edilsin mi?"
                   onConfirm={() => void handleCancelDeletion(editingUser)}
-                  okText="Evet"
-                  cancelText="Hayır"
+                  okText="Talebi iptal et"
+                  cancelText="Vazgeç"
                 >
                   <Button icon={<UndoOutlined />} className="ct-icon-success">
                     Silme Talebini İptal Et
@@ -908,7 +910,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         title={
           <ModalHeading
             icon={<LockOutlined />}
-            title="Şifre Sıfırla"
+            title="Şifre sıfırla"
             description={
               resettingUser
                 ? `@${resettingUser.username} kullanıcısı için yeni bir şifre tanımla.`
@@ -918,28 +920,88 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         }
         open={isResetOpen}
         onCancel={() => setIsResetOpen(false)}
+        width={MODAL_WIDTH.s}
         footer={[
           <Button key="cancel" onClick={() => setIsResetOpen(false)}>
-            İptal
+            Vazgeç
           </Button>,
           <Button key="submit" type="primary" onClick={() => resetForm.submit()}>
-            Şifreyi Güncelle
+            Şifreyi değiştir
           </Button>,
         ]}
       >
         <Form form={resetForm} layout="vertical" onFinish={handleResetPasswordSubmit}>
           <Form.Item
             name="password"
-            label="Yeni Şifre"
+            label="Yeni şifre"
             rules={[
-              { required: true, message: "Yeni şifre girilmelidir" },
-              { min: 8, message: "Şifre en az 8 karakter olmalıdır" },
+              { required: true, message: "Yeni şifreyi yaz." },
+              { min: 8, message: "Şifre en az 8 karakter olmalı." },
             ]}
           >
             <Input.Password  />
           </Form.Item>
         </Form>
       </Modal>
+
+      <ConfirmActionModal
+        isOpen={pendingAction !== null}
+        title={
+          pendingAction?.kind === "delete"
+            ? "Kullanıcıyı sil"
+            : pendingAction?.kind === "ip"
+              ? "IP adresini yasakla"
+              : "Kullanıcıyı yasakla"
+        }
+        icon={pendingAction?.kind === "delete" ? <DeleteOutlined /> : <StopOutlined />}
+        subject={
+          pendingAction
+            ? {
+                userId: pendingAction.user.id,
+                name: pendingAction.user.displayName || pendingAction.user.username,
+                handle: pendingAction.user.username,
+                avatarUrl: pendingAction.user.avatarUrl,
+                detail: pendingAction.kind === "ip" ? pendingAction.user.lastIp : undefined,
+              }
+            : undefined
+        }
+        consequences={
+          pendingAction?.kind === "delete"
+            ? ["Hesabı ve profili kalıcı olarak silinir.", "Geri alınamaz."]
+            : pendingAction?.kind === "ip"
+              ? [
+                  `${pendingAction.user.lastIp ?? ""} adresinden kimse giriş yapamaz.`,
+                  "Bu hesabın açık oturumları kapanır.",
+                ]
+              : ["Giriş yapamaz.", "Yasağı buradan yeniden kaldırabilirsin."]
+        }
+        confirmLabel={
+          pendingAction?.kind === "delete"
+            ? "Sil"
+            : pendingAction?.kind === "ip"
+              ? "IP'yi yasakla"
+              : "Yasakla"
+        }
+        isProcessing={isActing}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (!pendingAction) {
+            return;
+          }
+          const { kind, user } = pendingAction;
+          setIsActing(true);
+          void (
+            kind === "delete"
+              ? handleDeleteUser(user.id)
+              : kind === "ip"
+                ? handleBanUserIp(user)
+                : handleToggleBan(user)
+          ).finally(() => {
+            setIsActing(false);
+            setPendingAction(null);
+          });
+        }}
+      />
     </div>
   );
 }

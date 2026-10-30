@@ -153,10 +153,10 @@ export default function AdminModeration() {
               align: "right" as const,
               render: (_value: unknown, row: AdminVoiceMute) => (
                 <Popconfirm
-                  title={`@${row.username} tekrar konuşabilsin mi?`}
+                  title={`@${row.username} yeniden konuşabilsin mi?`}
                   onConfirm={() => void handleClearMute(row.userId)}
-                  okText="Evet"
-                  cancelText="Hayır"
+                  okText="Susturmayı kaldır"
+                  cancelText="Vazgeç"
                 >
                   <Button type="text" size="small">
                     Susturmayı Kaldır
@@ -218,10 +218,10 @@ export default function AdminModeration() {
               align: "right" as const,
               render: (_value: unknown, row: AdminLobbyTimeout) => (
                 <Popconfirm
-                  title="Bu kullanıcının odaya girişi tekrar açılsın mı?"
+                  title="Odaya girişi yeniden açılsın mı?"
                   onConfirm={() => void handleClearTimeout(row.lobbyId, row.userId)}
-                  okText="Evet"
-                  cancelText="Hayır"
+                  okText="Girişi aç"
+                  cancelText="Vazgeç"
                 >
                   <Button type="text" size="small">
                     Kaldır

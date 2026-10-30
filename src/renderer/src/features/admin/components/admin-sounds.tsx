@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, InputNumber, Popconfirm, Select, Table, Tag, Tooltip } from "antd";
+import { Button, InputNumber, Select, Table, Tag, Tooltip } from "antd";
 import {
   DeleteOutlined,
   NumberOutlined,
@@ -18,6 +18,7 @@ import {
   useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
+import { ConfirmActionModal } from "@/features/workspace";
 
 // The soundboard is the one member-level feature that writes to shared storage
 // and plays on everyone else's speakers, so it needs both halves of an operator
@@ -31,6 +32,8 @@ export default function AdminSounds() {
   const [globalDraft, setGlobalDraft] = useState<number | null>(null);
   const [overrideUserId, setOverrideUserId] = useState<string | undefined>();
   const [overrideValue, setOverrideValue] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CustomEmoteSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchLibrary = useCallback(async (): Promise<void> => {
     try {
@@ -164,16 +167,15 @@ export default function AdminSounds() {
       align: "right" as const,
       render: (_: unknown, record: CustomEmoteSummary) => (
         <div className="ct-admin-actions">
-          <Popconfirm
-            title="Bu sesi kalıcı olarak silmek istediğinize emin misiniz?"
-            onConfirm={() => void deleteEmote(record.id)}
-            okText="Evet"
-            cancelText="Hayır"
-          >
-            <Tooltip title="Sesi sil">
-              <Button type="text" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
+          <Tooltip title="Sesi sil…">
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label="Sesi sil"
+              onClick={() => setPendingDelete(record)}
+            />
+          </Tooltip>
         </div>
       ),
     },
@@ -334,6 +336,26 @@ export default function AdminSounds() {
           locale={{ emptyText: "Henüz ses yüklenmemiş." }}
         />
       </AdminSection>
+
+      <ConfirmActionModal
+        isOpen={pendingDelete !== null}
+        title="Sesi sil"
+        message={pendingDelete ? `“${pendingDelete.name}” · @${pendingDelete.ownerUsername}` : undefined}
+        consequences={["Emote panosundan herkes için kalkar.", "Geri alınamaz."]}
+        confirmLabel="Sil"
+        isProcessing={isDeleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) {
+            return;
+          }
+          setIsDeleting(true);
+          void deleteEmote(pendingDelete.id).finally(() => {
+            setIsDeleting(false);
+            setPendingDelete(null);
+          });
+        }}
+      />
     </div>
   );
 }

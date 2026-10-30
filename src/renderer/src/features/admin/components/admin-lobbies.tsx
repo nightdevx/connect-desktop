@@ -36,7 +36,8 @@ import {
   useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
+import { ConfirmActionModal } from "@/features/workspace";
 
 interface EditLobbyFormValues {
   name: string;
@@ -89,6 +90,8 @@ export default function AdminLobbies() {
   // back in, which is rare, and loading one per row on every refresh would be a
   // request per lobby for a panel nobody had opened.
   const [timeoutLobby, setTimeoutLobby] = useState<AdminLobbySnapshot | null>(null);
+  const [pendingDeleteLobby, setPendingDeleteLobby] = useState<AdminLobbySnapshot | null>(null);
+  const [isDeletingLobby, setIsDeletingLobby] = useState(false);
   const [timeouts, setTimeouts] = useState<LobbyTimeout[]>([]);
   const [timeoutsLoading, setTimeoutsLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -377,16 +380,15 @@ export default function AdminLobbies() {
               aria-label="Zaman aşımları"
             />
           </Tooltip>
-          <Popconfirm
-            title="Odayı silmek istediğinize emin misiniz? Tüm katılımcıların bağlantısı kesilecektir."
-            onConfirm={() => handleDeleteLobby(record.lobby.id)}
-            okText="Evet"
-            cancelText="Hayır"
-          >
-            <Tooltip title="Odayı sil">
-              <Button type="text" danger icon={<DeleteOutlined />} aria-label="Odayı sil" />
-            </Tooltip>
-          </Popconfirm>
+          <Tooltip title="Odayı sil…">
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label="Odayı sil"
+              onClick={() => setPendingDeleteLobby(record)}
+            />
+          </Tooltip>
         </div>
       ),
     },
@@ -537,10 +539,11 @@ export default function AdminLobbies() {
         align: "right" as const,
         render: (_value: unknown, member: LobbyStateMember) => (
           <Popconfirm
-            title="Kullanıcıyı odadan atmak istediğinize emin misiniz?"
+            title="Odadan atılsın mı?"
+            description="Yeniden katılabilir."
             onConfirm={() => handleKickUser(record.lobby.id, member.userId)}
-            okText="Evet"
-            cancelText="Hayır"
+            okText="Odadan at"
+            cancelText="Vazgeç"
           >
             <Button type="text" danger size="small">
               Odadan at
@@ -675,7 +678,7 @@ export default function AdminLobbies() {
         title={
           <ModalHeading
             icon={<StopOutlined />}
-            title="Zaman Aşımları"
+            title="Zaman aşımları"
             description={
               timeoutLobby
                 ? `${timeoutLobby.lobby.name} odasına girişi geçici olarak engellenen kişiler.`
@@ -686,6 +689,7 @@ export default function AdminLobbies() {
         open={timeoutLobby !== null}
         onCancel={() => setTimeoutLobby(null)}
         footer={null}
+        width={MODAL_WIDTH.m}
         destroyOnHidden
       >
         <Table
@@ -740,18 +744,19 @@ export default function AdminLobbies() {
         title={
           <ModalHeading
             icon={<EditOutlined />}
-            title="Oda Yetkilerini Düzenle"
+            title="Oda yetkilerini düzenle"
             description="Odanın adı, sınırı, kilidi, şifresi, kapalı özellikleri ve erişim listesi."
           />
         }
         open={isEditOpen}
         onCancel={() => setIsEditOpen(false)}
+        width={MODAL_WIDTH.m}
         footer={[
           <Button key="cancel" onClick={() => setIsEditOpen(false)}>
-            İptal
+            Vazgeç
           </Button>,
           <Button key="submit" type="primary" onClick={() => editForm.submit()}>
-            Güncelle
+            Kaydet
           </Button>,
         ]}
       >
@@ -851,6 +856,30 @@ export default function AdminLobbies() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <ConfirmActionModal
+        isOpen={pendingDeleteLobby !== null}
+        title="Odayı sil"
+        message={pendingDeleteLobby ? `“${pendingDeleteLobby.lobby.name}”` : undefined}
+        consequences={[
+          "Oda listeden herkes için kalkar.",
+          "İçindeki herkesin bağlantısı kesilir.",
+          "Geri alınamaz.",
+        ]}
+        confirmLabel="Odayı sil"
+        isProcessing={isDeletingLobby}
+        onCancel={() => setPendingDeleteLobby(null)}
+        onConfirm={() => {
+          if (!pendingDeleteLobby) {
+            return;
+          }
+          setIsDeletingLobby(true);
+          void handleDeleteLobby(pendingDeleteLobby.lobby.id).finally(() => {
+            setIsDeletingLobby(false);
+            setPendingDeleteLobby(null);
+          });
+        }}
+      />
     </div>
   );
 }
