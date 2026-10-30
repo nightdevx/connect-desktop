@@ -106,28 +106,31 @@
   --ct-sidebar-width: var(--ct-rail-width);
 }
 
-.is-sidebar-collapsed .ct-quick-idle,
-.is-sidebar-collapsed .ct-quick-controls-inline,
-.is-sidebar-collapsed .ct-quick-share-bar,
-.is-sidebar-collapsed .ct-call-strip {
+/* The dock stacked to fit a narrow column: under the folded sidebar, and at
+   the foot of the Odak rail where a section has no sidebar (Oyunlar,
+   Fırsatlar). */
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-idle,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-controls-inline,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-share-bar,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-call-strip {
   flex-direction: column;
   justify-content: center;
 }
 
-.is-sidebar-collapsed .ct-quick-idle,
-.is-sidebar-collapsed .ct-quick-share-bar,
-.is-sidebar-collapsed .ct-call-strip {
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-idle,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-share-bar,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-call-strip {
   padding-inline: 0;
 }
 
-.is-sidebar-collapsed .ct-quick-idle-left {
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-idle-left {
   margin: 0;
 }
 
-.is-sidebar-collapsed .ct-quick-idle-meta,
-.is-sidebar-collapsed .ct-quick-share-text,
-.is-sidebar-collapsed .ct-quick-share-stop-label,
-.is-sidebar-collapsed .ct-call-strip-text {
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-idle-meta,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-share-text,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-share-stop-label,
+:is(.is-sidebar-collapsed, .ct-odak-rail) .ct-call-strip-text {
   display: none;
 }
 

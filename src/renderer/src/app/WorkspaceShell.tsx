@@ -1335,8 +1335,14 @@ function WorkspaceShell({
     isLoggingOut,
   };
 
-  // The Odak page shows the dock at the foot of its own strip; everywhere
-  // else it sits under the sidebar column.
+  // Oyunlar and Fırsatlar have no sidebar (the owner's call, 2026-10-30):
+  // their lists and tabs are on the page, as in the mock-ups. The fold
+  // preference is left alone for the sections that keep one.
+  const hasNoSidebar = workspaceSection === "minigames" || workspaceSection === "free-games";
+
+  // The Odak page shows the dock at the foot of its own strip, Oyunlar and
+  // Fırsatlar at the foot of the rail; everywhere else it sits under the
+  // sidebar column.
   const quickControls = (
     <QuickControls
       currentUsername={currentUsername}
@@ -1393,10 +1399,16 @@ function WorkspaceShell({
 
   return (
     <section
-      className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}${workspaceSection === "users" ? " is-odak-users" : ""}`}
+      className={`ct-workspace-shell${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}${workspaceSection === "users" ? " is-odak-users" : ""}${hasNoSidebar ? " is-odak-nosidebar" : ""}`}
     >
       {/* Arkadaşlar draws the same rail in the same place over the shell. */}
-      {workspaceSection !== "users" && <OdakRail activeSection={workspaceSection} {...railProps} />}
+      {workspaceSection !== "users" && (
+        <OdakRail
+          activeSection={workspaceSection}
+          {...railProps}
+          dock={hasNoSidebar ? quickControls : undefined}
+        />
+      )}
 
       {workspaceSection === "admin" ? (
         <Suspense fallback={null}>
@@ -1404,81 +1416,83 @@ function WorkspaceShell({
         </Suspense>
       ) : (
         <>
-          <WorkspaceSidebar
-            sectionTitle={sectionTitle}
-            workspaceSection={workspaceSection}
-            collapsed={isSidebarCollapsed}
-            onToggleCollapsed={() =>
-              setViewPreference("sidebarOpen", isSidebarCollapsed)
-            }
-            usersProps={{
-              conversations,
-              onCloseConversation: closeSelectedConversation,
-              onOpenHome: openFriendsHome,
-              directoryUsers,
-              selectedUserId,
-              onUserSelect: selectConversationById,
-              unreadByUserId: unreadByPeerIdWithCalls,
-              friends,
-              callState: callState,
-              presenceStatus: selectedPresenceStatus,
-              onPresenceStatusChange: setSelectedPresenceStatus,
-              isAddFriendOpen,
-              onAddFriendOpenChange: setIsAddFriendOpen,
-            }}
-            lobbiesProps={{
-              lobbiesQuery,
-              lobbies,
-              lobbyMembersById,
-              avatarByUserId,
-              activeLobbyId: isInCallRoom ? null : activeLobbyId,
-              // The room the voice is in, call or lobby: the connection card
-              // reads this, and a call is a connection the lobby list hides.
-              voiceRoomId: activeLobbyId,
-              openTextRoomId: openTextRoom?.id ?? null,
-              joiningLobbyId,
-              unreadByLobbyId,
-              onJoinLobby: handleSelectLobby,
-              onCreateLobby: createLobby,
-              onUpdateLobby: updateLobby,
-              onDeleteLobby: deleteLobby,
-              isCreatingLobby,
-              renamingLobbyId,
-              deletingLobbyId,
-              currentUserId,
-              currentUserRole,
-              allUsers: (usersQuery.data?.data?.users || []).map((u) => ({
-                id: u.userId,
-                username: u.username,
-                displayName: u.displayName,
-              })),
-              onOpenConversation: openConversationFromRoster,
-              participantAudio: {
-                preferences: remoteParticipantAudioPreferences,
-                setMuted: handleSetRemoteParticipantMuted,
-                setVolume: handleSetRemoteParticipantVolume,
-                setEmoteMuted: handleSetRemoteParticipantEmoteMuted,
-              },
-            }}
-            settingsProps={{
-              settingsSection,
-              setSettingsSection,
-            }}
-            liveKitConnectionState={liveKitConnectionState}
-            audioProcessingProps={{
-              enhancedNoiseSuppressionEnabled:
-                audioPreferences.enhancedNoiseSuppressionEnabled,
-              micEnabled,
-              activeNoiseMode:
-                activeNoiseSuppressionMode === "processor"
-                  ? "processor"
-                  : activeNoiseSuppressionMode === "browser"
-                    ? "browser"
-                    : "none",
-              onToggleEnhancedNoiseSuppression:
-                handleToggleEnhancedNoiseSuppression,
-            }}
-          />
+          {!hasNoSidebar && (
+            <WorkspaceSidebar
+              sectionTitle={sectionTitle}
+              workspaceSection={workspaceSection}
+              collapsed={isSidebarCollapsed}
+              onToggleCollapsed={() =>
+                setViewPreference("sidebarOpen", isSidebarCollapsed)
+              }
+              usersProps={{
+                conversations,
+                onCloseConversation: closeSelectedConversation,
+                onOpenHome: openFriendsHome,
+                directoryUsers,
+                selectedUserId,
+                onUserSelect: selectConversationById,
+                unreadByUserId: unreadByPeerIdWithCalls,
+                friends,
+                callState: callState,
+                presenceStatus: selectedPresenceStatus,
+                onPresenceStatusChange: setSelectedPresenceStatus,
+                isAddFriendOpen,
+                onAddFriendOpenChange: setIsAddFriendOpen,
+              }}
+              lobbiesProps={{
+                lobbiesQuery,
+                lobbies,
+                lobbyMembersById,
+                avatarByUserId,
+                activeLobbyId: isInCallRoom ? null : activeLobbyId,
+                // The room the voice is in, call or lobby: the connection card
+                // reads this, and a call is a connection the lobby list hides.
+                voiceRoomId: activeLobbyId,
+                openTextRoomId: openTextRoom?.id ?? null,
+                joiningLobbyId,
+                unreadByLobbyId,
+                onJoinLobby: handleSelectLobby,
+                onCreateLobby: createLobby,
+                onUpdateLobby: updateLobby,
+                onDeleteLobby: deleteLobby,
+                isCreatingLobby,
+                renamingLobbyId,
+                deletingLobbyId,
+                currentUserId,
+                currentUserRole,
+                allUsers: (usersQuery.data?.data?.users || []).map((u) => ({
+                  id: u.userId,
+                  username: u.username,
+                  displayName: u.displayName,
+                })),
+                onOpenConversation: openConversationFromRoster,
+                participantAudio: {
+                  preferences: remoteParticipantAudioPreferences,
+                  setMuted: handleSetRemoteParticipantMuted,
+                  setVolume: handleSetRemoteParticipantVolume,
+                  setEmoteMuted: handleSetRemoteParticipantEmoteMuted,
+                },
+              }}
+              settingsProps={{
+                settingsSection,
+                setSettingsSection,
+              }}
+              liveKitConnectionState={liveKitConnectionState}
+              audioProcessingProps={{
+                enhancedNoiseSuppressionEnabled:
+                  audioPreferences.enhancedNoiseSuppressionEnabled,
+                micEnabled,
+                activeNoiseMode:
+                  activeNoiseSuppressionMode === "processor"
+                    ? "processor"
+                    : activeNoiseSuppressionMode === "browser"
+                      ? "browser"
+                      : "none",
+                onToggleEnhancedNoiseSuppression:
+                  handleToggleEnhancedNoiseSuppression,
+              }}
+            />
+          )}
 
           <WorkspaceMainPanel
             currentUserId={currentUserId}
@@ -1614,7 +1628,7 @@ function WorkspaceShell({
           live screen share are not properties of the section you happen to be
           looking at -- and Ayarlar and Yönetim, the two that used to hide it,
           are exactly where you are least likely to notice you are still live. */}
-      {workspaceSection !== "users" && quickControls}
+      {workspaceSection !== "users" && !hasNoSidebar && quickControls}
 
       <CallDock
         callState={callState}

@@ -395,10 +395,31 @@
   margin-inline: -12px;
 }
 
-/* Folded, the rail's avatar already says who you are: in the strip and under
-   the shell's sidebar alike. */
-:root[data-odak] .is-sidebar-collapsed .ct-quick-idle-left {
+/* Folded, the rail's avatar already says who you are: in the strip, under
+   the shell's sidebar and at the rail's own foot alike. */
+:root[data-odak] :is(.is-sidebar-collapsed, .ct-odak-rail) .ct-quick-idle-left {
   display: none;
+}
+
+/* Oyunlar and Fırsatlar have no sidebar: the dock sits at the rail's foot,
+   above the avatar, folded, in a card a rail item wide. Short of room it
+   gives up its own height and scrolls, so the rail's items never move. */
+:root[data-odak] .ct-odak-rail > .ct-quick-dock {
+  flex-shrink: 100;
+  width: 60px;
+  min-height: 48px;
+  margin-bottom: 6px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--odak-border);
+  border-radius: 16px;
+  background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-odak-rail .ct-quick-idle {
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .ct-odak-strip.open .ct-odak-strip-list {
@@ -878,6 +899,17 @@
   --ct-sidebar-width: 76px;
 }
 
+/* Oyunlar and Fırsatlar: rail and page only (OdakOyunlar, OdakFirsatlar).
+   The sidebar column eases to nothing over the fold's own transition, and
+   the page, in column 3 by name, takes its width. */
+:root[data-odak] .ct-workspace-shell.is-odak-nosidebar {
+  --ct-sidebar-width: 0px;
+}
+
+:root[data-odak] .ct-workspace-shell.is-odak-nosidebar > .ct-main-panel {
+  grid-column: 3;
+}
+
 /* The strip's flat surface, without the old column's wash and highlight. */
 :root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar) {
   border-color: var(--odak-border);
@@ -1008,15 +1040,19 @@
 }
 
 /* Open, it is the presence dot's size on the "where" line, and the one among
-   the controls stays only for screen readers; folded, the identity row is
-   hidden and the controls' one shows. */
+   the controls stays only for screen readers; folded (and in the rail), the
+   identity row is hidden and the controls' one shows. */
 :root[data-odak] .ct-quick-idle-status .ct-quick-voice,
 :root[data-odak] .ct-quick-idle-status .ct-quick-voice::before {
   width: 6px;
   height: 6px;
 }
 
-:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-controls-inline > .ct-quick-voice {
+:root[data-odak]
+  .ct-workspace-shell:not(.is-sidebar-collapsed)
+  .ct-quick-dock:not(.ct-odak-rail > *)
+  .ct-quick-controls-inline
+  > .ct-quick-voice {
   @apply sr-only;
 }
 

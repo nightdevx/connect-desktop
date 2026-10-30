@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { CheckOutlined, LogoutOutlined } from "@ant-design/icons";
@@ -21,6 +22,9 @@ export interface OdakRailProps {
   onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
   onLogout: () => void;
   isLoggingOut: boolean;
+  /** The shell's quick-controls dock, in the sections that have no sidebar
+      to carry it (Oyunlar, Fırsatlar); folded, above the avatar. */
+  dock?: ReactNode;
 }
 
 /**
@@ -42,6 +46,7 @@ export function OdakRail({
   onPresenceStatusChange,
   onLogout,
   isLoggingOut,
+  dock,
 }: OdakRailProps) {
   // A count already showing when the rail mounts (a section switch) stays
   // still; one that turns up afterwards pops.
@@ -107,6 +112,7 @@ export function OdakRail({
         },
       )}
       <div className="ct-odak-fill" />
+      {dock}
       <Dropdown trigger={["click"]} menu={avatarMenu} placement="topLeft">
         <button
           type="button"
