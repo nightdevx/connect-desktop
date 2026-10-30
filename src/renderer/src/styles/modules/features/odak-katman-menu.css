@@ -5,9 +5,7 @@
    (ui/odak-menu.tsx) on antd's Dropdown. The popup root carries
    .ct-menu-root, a submenu's popup .ct-menu-sub; both hold a .ct-menu-panel
    around antd's list. Board: OdakKatmanMenuler; sizes: katman-tasarim-spec §4.
-
-   These supersede the menu rules in odak-overlays.css ("Menus") and the
-   generic dropdown rules in theme.css for every menu drawn this way.
+   OdakMenu is the only antd Dropdown in the app; these are all its rules.
    ========================================================================== */
 
 /* --- the panel ------------------------------------------------------------ */

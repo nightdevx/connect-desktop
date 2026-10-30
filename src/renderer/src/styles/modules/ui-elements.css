@@ -627,15 +627,6 @@ color: var(--ct-brand-blue);
 background: color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
 }
 
-/* The value a menu row is set to, flush right (the title column is flex:1 —
-   see the context-menu rules in theme.css). */
-.ct-menu-value {
-@apply pl-3 text-2xs;
-margin-left: auto;
-font-family: var(--ct-font-mono);
-color: var(--ct-text-muted);
-}
-
 @media (prefers-reduced-motion: reduce) {
 .ct-live-dot,
 .ct-live-badge,
