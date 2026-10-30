@@ -37,8 +37,29 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
     version: "0.3.0",
-    date: "2026-10-29",
+    date: "2026-10-31",
+    summary: "Connect yepyeni bir görünümle geliyor ve artık Mac'te de var.",
     highlights: [
+      {
+        kind: "new",
+        text: "Yeni görünüm: Arkadaşlar, Lobiler, sohbetler, Oyunlar, Fırsatlar ve Ayarlar baştan tasarlandı. Bütün sayfalara soldaki menüden geçiliyor; \"Çıkış yap\" sol alttaki profil resminin menüsünde. Yeni görünüm şimdilik yalnız koyu renkte.",
+      },
+      {
+        kind: "new",
+        text: "Yeni logo, yeni giriş ve kayıt ekranları.",
+      },
+      {
+        kind: "improved",
+        text: "Menüler, onay pencereleri ve bildirimler daha sade ve anlaşılır. Silme ya da arkadaşlıktan çıkarma gibi işlerden önce ne olacağı açıkça yazıyor. Bildirimler sağ üstte çıkıyor; bir şey ters giderse nedeni düz bir dille anlatılıyor.",
+      },
+      {
+        kind: "new",
+        text: "Mesajlara sağ tıklayınca tepki, yanıtla, düzenle, kopyala ve sil seçenekleri açılıyor. Odalara sağ tıklayınca da bir menü çıkıyor.",
+      },
+      {
+        kind: "new",
+        text: "Connect artık Mac'te de var (Apple işlemcili ve Intel Mac'ler). macOS ilk açılışta uygulamayı engellerse Sistem Ayarları › Gizlilik ve Güvenlik'te \"Yine de Aç\"a bas. Mac'te güncellemeler kendiliğinden kurulmaz: yeni sürüm çıkınca üst çubuktaki \"İndir\" düğmesi indirme sayfasını açar.",
+      },
       {
         kind: "improved",
         text: "Gürültü engelleme yenilendi: klavye, fan ve arka plan sesleri daha iyi temizleniyor. Konuşmadığın anlarda mikrofonundan karşıya ses gitmiyor.",
@@ -65,7 +86,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       },
       {
         kind: "new",
-        text: "Uygulama kapattığın yerde ve boyutta açılıyor. Windows 11'de büyüt düğmesinin üstüne gelince pencere yerleşimleri çıkıyor.",
+        text: "Uygulama kapattığın yerde ve boyutta açılıyor.",
       },
       {
         kind: "new",
