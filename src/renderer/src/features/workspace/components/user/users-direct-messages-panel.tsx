@@ -1315,7 +1315,6 @@ export function UsersDirectMessagesPanel({
                     who it is, so it has no header of its own. */}
                 <OdakMenu
                   trigger="contextMenu"
-                  width={248}
                   items={buildPersonMenu({
                     name: selectedUser.displayName || selectedUser.username,
                     keyPrefix: "dm",

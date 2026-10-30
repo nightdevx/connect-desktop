@@ -294,7 +294,7 @@ export function OdakFriendsPage({
     const activity = activityOf(user);
     const menu = menuFor(user, activity);
     return (
-      <OdakMenu key={user.userId} trigger="contextMenu" items={menu} width={240}>
+      <OdakMenu key={user.userId} trigger="contextMenu" items={menu}>
         <article
           className={`ct-odak-card ct-odak-friend ${user.appOnline ? "" : "offline"}`}
           style={staggerStyle(order)}
@@ -341,7 +341,7 @@ export function OdakFriendsPage({
               </button>
             </Tooltip>
           )}
-          <OdakMenu trigger="click" items={menu} placement="bottomRight" width={240}>
+          <OdakMenu trigger="click" items={menu} placement="bottomRight">
             <Tooltip title="Diğer seçenekler">
               <button
                 type="button"
