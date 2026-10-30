@@ -402,10 +402,14 @@
 }
 
 /* Oyunlar and Fırsatlar have no sidebar: the dock sits at the rail's foot,
-   above the avatar, folded, in a card a rail item wide. Short of room it
-   gives up its own height and scrolls, so the rail's items never move. */
-:root[data-odak] .ct-odak-rail > .ct-quick-dock {
-  flex-shrink: 100;
+   above the avatar, folded, in a card a rail item wide. Short of room (a
+   call or a share on a small window) the card gives up height, not the
+   rail's items, and scrolls; column-reverse on its one child anchors that
+   scroll at the bottom, so the microphone and the way out stay in view and
+   the call row is what slides off the top. */
+:root[data-odak] .ct-odak-rail-dock {
+  display: flex;
+  flex-direction: column-reverse;
   width: 60px;
   min-height: 48px;
   margin-bottom: 6px;
@@ -414,6 +418,16 @@
   border: 1px solid var(--odak-border);
   border-radius: 16px;
   background: var(--odak-surface);
+}
+
+:root[data-odak] .ct-odak-rail:has(> .ct-odak-rail-dock) > :not(.ct-odak-rail-dock) {
+  flex-shrink: 0;
+}
+
+:root[data-odak] .ct-odak-rail-dock > .ct-quick-dock {
+  flex-shrink: 0;
+  border-right: 0;
+  background: transparent;
 }
 
 :root[data-odak] .ct-odak-rail .ct-quick-idle {
@@ -1050,7 +1064,7 @@
 
 :root[data-odak]
   .ct-workspace-shell:not(.is-sidebar-collapsed)
-  .ct-quick-dock:not(.ct-odak-rail > *)
+  .ct-quick-dock:not(.ct-odak-rail *)
   .ct-quick-controls-inline
   > .ct-quick-voice {
   @apply sr-only;

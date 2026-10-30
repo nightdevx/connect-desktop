@@ -112,7 +112,7 @@ export function OdakRail({
         },
       )}
       <div className="ct-odak-fill" />
-      {dock}
+      {dock && <div className="ct-odak-rail-dock">{dock}</div>}
       <Dropdown trigger={["click"]} menu={avatarMenu} placement="topLeft">
         <button
           type="button"
