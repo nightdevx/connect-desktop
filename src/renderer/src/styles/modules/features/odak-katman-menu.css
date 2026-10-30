@@ -1,1 +1,683 @@
 /* Odak açılır katmanlar (ODAK-TASARIM-PLANI.md Faz 10): katman-menu. Kurallar :root[data-odak] altında. */
+
+/* ==========================================================================
+   ODAK MENUS -- every right-click, ⋯ and drop-down menu, drawn by OdakMenu
+   (ui/odak-menu.tsx) on antd's Dropdown. The popup root carries
+   .ct-menu-root, a submenu's popup .ct-menu-sub; both hold a .ct-menu-panel
+   around antd's list. Board: OdakKatmanMenuler; sizes: katman-tasarim-spec §4.
+
+   These supersede the menu rules in odak-overlays.css ("Menus") and the
+   generic dropdown rules in theme.css for every menu drawn this way.
+   ========================================================================== */
+
+/* --- the panel ------------------------------------------------------------ */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ct-menu-panel {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 220px;
+  max-width: 320px;
+  /* Taller than the window (a moderator's person menu at 600px): it scrolls
+     rather than running off the edge. Submenus are popups of their own. */
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border: 1px solid #2a2e35;
+  border-radius: 14px;
+  background: #16181c;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  color: #d7dae0;
+  outline: none;
+}
+
+:root[data-odak] .ct-menu-sub .ct-menu-sub-panel {
+  min-width: 180px;
+}
+
+/* A submenu that says what the choice does is as wide as the board's. */
+:root[data-odak] .ct-menu-sub .ct-menu-sub-panel:has(.ct-menu-sub-footer) {
+  width: 200px;
+  min-width: 0;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ct-menu-panel .ant-dropdown-menu {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+/* --- rows ----------------------------------------------------------------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item,
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  height: auto;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #d7dae0;
+  background: transparent;
+  white-space: nowrap;
+  /* Hover and focus land at once; only the press eases. */
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item:has(.ct-menu-desc) {
+  padding-block: 7px;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-title-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  overflow: visible;
+}
+
+:root[data-odak] .ct-menu-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+:root[data-odak] .ct-menu-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 18px;
+  color: #9aa0aa;
+}
+
+:root[data-odak] .ct-menu-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+:root[data-odak] .ct-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-odak] .ct-menu-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  color: #8a909a;
+}
+
+/* The value it is set to, or why it cannot be used: faint, on the right. */
+:root[data-odak] .ct-menu-row .ct-menu-value {
+  flex-shrink: 0;
+  margin-left: 0;
+  padding-left: 0;
+  font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  color: #9aa0aa;
+}
+
+:root[data-odak] .ct-menu-keys {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+:root[data-odak] .ct-menu-key {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid #2a2e35;
+  border-radius: 5px;
+  background: #121316;
+  font-family: var(--ct-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: #9aa0aa;
+}
+
+:root[data-odak] .ct-menu-check {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  color: #c6f432;
+}
+
+/* A switch: 28 x 16, lime with a dark knob when on. */
+:root[data-odak] .ct-menu-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  border-radius: 9px;
+  background: #2a2e35;
+  transition: background-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-menu-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #9aa0aa;
+  transition:
+    transform var(--odak-dur-1) var(--odak-ease-out),
+    background-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-menu-switch.on {
+  background: #c6f432;
+}
+
+:root[data-odak] .ct-menu-switch.on::after {
+  background: #0e0f11;
+  transform: translateX(12px);
+}
+
+/* antd hangs the › off the right edge; here it sits in the row's flow. */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu-expand-icon {
+  position: static;
+  display: grid;
+  place-items: center;
+  margin-inline-start: 6px;
+  transform: none;
+}
+
+:root[data-odak] .ct-menu-chevron {
+  display: grid;
+  place-items: center;
+  color: #7c828c;
+}
+
+/* --- row states: under the pointer, keyboard focus, pressed, off --------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item:is(:hover, .ant-dropdown-menu-item-active):not(.ant-dropdown-menu-item-disabled),
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu:is(:hover, .ant-dropdown-menu-submenu-active, .ant-dropdown-menu-submenu-open):not(.ant-dropdown-menu-submenu-disabled) > .ant-dropdown-menu-submenu-title {
+  color: #f2f3f5;
+  background: #1e2127;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item:is(:hover, .ant-dropdown-menu-item-active):not(.ant-dropdown-menu-item-disabled) .ct-menu-icon,
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu:is(:hover, .ant-dropdown-menu-submenu-active, .ant-dropdown-menu-submenu-open) > .ant-dropdown-menu-submenu-title .ct-menu-icon {
+  color: #c6f432;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu :is(.ant-dropdown-menu-item, .ant-dropdown-menu-submenu-title):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px rgba(198, 244, 50, 0.75);
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu :is(.ant-dropdown-menu-item, .ant-dropdown-menu-submenu-title):active:not(.ant-dropdown-menu-item-disabled) {
+  background: #23262d;
+  transform: scale(0.98);
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu :is(.ant-dropdown-menu-item-disabled, .ant-dropdown-menu-submenu-disabled > .ant-dropdown-menu-submenu-title),
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu :is(.ant-dropdown-menu-item-disabled, .ant-dropdown-menu-submenu-disabled > .ant-dropdown-menu-submenu-title) :is(.ct-menu-icon, .ct-menu-desc, .ct-menu-value) {
+  cursor: default;
+  color: #5d636d;
+  background: transparent;
+}
+
+/* Why it cannot be used, in the board's small mono. */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu-item-disabled .ct-menu-value {
+  font-family: var(--ct-font-mono);
+  font-size: 10.5px;
+}
+
+/* --- danger: red text, a red tint under the pointer ---------------------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled),
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu.ct-menu-danger > .ant-dropdown-menu-submenu-title {
+  color: #ff8a8a;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-danger :is(.ct-menu-icon, .ct-menu-chevron),
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu.ct-menu-danger > .ant-dropdown-menu-submenu-title :is(.ct-menu-icon, .ct-menu-chevron) {
+  color: #ff5c5c;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-danger:is(:hover, .ant-dropdown-menu-item-active):not(.ant-dropdown-menu-item-disabled),
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu.ct-menu-danger:is(:hover, .ant-dropdown-menu-submenu-active, .ant-dropdown-menu-submenu-open) > .ant-dropdown-menu-submenu-title {
+  color: #ffb3b3;
+  background: rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-danger:is(:hover, .ant-dropdown-menu-item-active):not(.ant-dropdown-menu-item-disabled) .ct-menu-icon,
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-submenu.ct-menu-danger:is(:hover, .ant-dropdown-menu-submenu-active, .ant-dropdown-menu-submenu-open) > .ant-dropdown-menu-submenu-title .ct-menu-icon {
+  color: #ff5c5c;
+}
+
+/* --- dividers and groups ------------------------------------------------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-divider {
+  height: 1px;
+  margin: 5px 6px;
+  background: #22252b;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-group-title {
+  padding: 0;
+  font-size: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-group-title:empty {
+  display: none;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item-group-list {
+  margin: 0;
+  padding: 0;
+}
+
+:root[data-odak] .ct-menu-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-menu-group-name {
+  text-transform: uppercase;
+}
+
+:root[data-odak] .ct-menu-group-hint {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* What affects everybody: one red block, always last. */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-group.ct-menu-danger {
+  margin-top: 2px;
+  padding: 0 4px 4px;
+  border-radius: 11px;
+  background: rgba(255, 92, 92, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 92, 0.16);
+}
+
+:root[data-odak] .ct-menu-group.ct-menu-danger .ct-menu-group-title {
+  color: #ff8a8a;
+}
+
+:root[data-odak] .ct-menu-group.ct-menu-danger .ct-menu-group-hint {
+  color: rgba(255, 138, 138, 0.7);
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-group.ct-menu-danger .ant-dropdown-menu-item-divider {
+  margin: 4px 6px;
+  background: rgba(255, 92, 92, 0.16);
+}
+
+/* --- a submenu's question and what the choice will do ------------------- */
+:root[data-odak] .ct-menu-sub-footer {
+  margin: 0;
+  padding: 6px 10px 4px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: normal;
+  color: #8a909a;
+}
+
+/* --- who or what the menu is about --------------------------------------- */
+:root[data-odak] .ct-menu-panel .ct-menu-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid #22252b;
+}
+
+:root[data-odak] .ct-menu-identity .ct-odak-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+:root[data-odak] .ct-menu-panel .ct-menu-identity-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:root[data-odak] .ct-menu-panel .ct-menu-identity-text strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f2f3f5;
+}
+
+:root[data-odak] .ct-menu-panel .ct-menu-identity-text span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9aa0aa;
+}
+
+/* --- a volume as a row: 0-200, a notch at 100 ---------------------------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item.ct-menu-slider {
+  display: block;
+  padding: 6px 10px 8px;
+  cursor: default;
+  background: transparent;
+  transform: none;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ant-dropdown-menu-item.ct-menu-slider .ct-menu-icon {
+  color: #9aa0aa;
+}
+
+:root[data-odak] .ct-menu-slider-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-menu-slider-value {
+  flex-shrink: 0;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  color: #f2f3f5;
+}
+
+:root[data-odak] .ct-menu-range {
+  position: relative;
+  display: block;
+  height: 18px;
+  margin: 6px 0 0 28px;
+}
+
+/* The track and the notch are drawn here, under a transparent input, so the
+   notch sits between the fill and the thumb as on the board. The fill ends
+   where the thumb's centre is: the thumb travels 7px in from each end. */
+:root[data-odak] .ct-menu-range::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    #c6f432 calc(7px + (100% - 14px) * var(--v, 0.5)),
+    #2a2e35 0
+  );
+}
+
+:root[data-odak] .ct-menu-range::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #7c828c;
+}
+
+:root[data-odak] .ct-menu-range input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+:root[data-odak] .ct-menu-range input::-webkit-slider-runnable-track {
+  height: 18px;
+  background: transparent;
+}
+
+:root[data-odak] .ct-menu-range input::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: #f2f3f5;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.35);
+  appearance: none;
+}
+
+:root[data-odak] .ct-menu-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 28px;
+  font-family: var(--ct-font-mono);
+  font-size: 9.5px;
+  color: #7c828c;
+}
+
+/* --- the quick reactions: one row of one-tap choices --------------------- */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip > .ant-dropdown-menu-item-group-list {
+  display: flex;
+  gap: 2px;
+  padding: 2px 2px 4px;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip .ant-dropdown-menu-item {
+  justify-content: center;
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+/* The last one opens the full picker. */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip .ant-dropdown-menu-item:last-child {
+  color: #9aa0aa;
+  background: #1e2127;
+}
+
+:root[data-odak] .ct-menu-strip-choice {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+
+/* --- motion -------------------------------------------------------------- */
+/* Opens from where it was asked for: the cursor, or the anchor's corner that
+   faces the menu. The popup's placement class names the corner after a flip
+   (a right-click compares the first point only, so two names share one). */
+:root[data-odak] .ant-dropdown.ct-menu-root {
+  transform-origin: 0 0;
+}
+
+:root[data-odak] .ant-dropdown.ct-menu-root:is(.ant-dropdown-placement-bottomRight, .ant-dropdown-placement-leftTop) {
+  transform-origin: 100% 0;
+}
+
+:root[data-odak] .ant-dropdown.ct-menu-root:is(.ant-dropdown-placement-topLeft, .ant-dropdown-placement-rightBottom) {
+  transform-origin: 0 100%;
+}
+
+:root[data-odak] .ant-dropdown.ct-menu-root:is(.ant-dropdown-placement-topRight, .ant-dropdown-placement-leftBottom) {
+  transform-origin: 100% 100%;
+}
+
+:root[data-odak] .ant-dropdown.ct-menu-root.ant-dropdown-placement-top {
+  transform-origin: 50% 100%;
+}
+
+:root[data-odak] .ant-dropdown.ct-menu-root.ant-dropdown-placement-bottom {
+  transform-origin: 50% 0;
+}
+
+@keyframes odak-katman-menu-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes odak-katman-menu-close {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes odak-katman-menu-row {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes odak-katman-menu-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes odak-katman-menu-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Whichever of antd's slide names the placement picked, the menu scales up
+   from its origin in 180ms and leaves in 120ms, the other way. Only on the
+   -active step: antd measures the popup for its placement a step before, and
+   a scale held at .96 there placed a tall menu 13px off the window. */
+:root[data-odak]
+  .ant-dropdown.ct-menu-root:is(
+    .ant-slide-up-appear-active,
+    .ant-slide-up-enter-active,
+    .ant-slide-down-appear-active,
+    .ant-slide-down-enter-active,
+    .ant-slide-left-appear-active,
+    .ant-slide-left-enter-active,
+    .ant-slide-right-appear-active,
+    .ant-slide-right-enter-active
+  ) {
+  animation-name: odak-katman-menu-open;
+  animation-duration: var(--odak-dur-2);
+  animation-timing-function: var(--odak-ease-out);
+  animation-direction: normal;
+}
+
+:root[data-odak]
+  .ant-dropdown.ct-menu-root:is(
+    .ant-slide-up-leave-active,
+    .ant-slide-down-leave-active,
+    .ant-slide-left-leave-active,
+    .ant-slide-right-leave-active
+  ) {
+  animation-name: odak-katman-menu-close;
+  animation-duration: var(--odak-dur-1);
+  animation-timing-function: var(--odak-ease-in);
+  animation-direction: normal;
+}
+
+/* The rows step in 12ms apart, the first eight, with the panel; each menu is
+   a fresh mount (destroyOnHidden), so this plays once per opening and never
+   on an update. */
+:root[data-odak]
+  .ct-menu-root:is(
+    .ant-slide-up-appear-active,
+    .ant-slide-up-enter-active,
+    .ant-slide-down-appear-active,
+    .ant-slide-down-enter-active
+  )
+  .ant-dropdown-menu-root
+  > li {
+  animation: odak-katman-menu-row var(--odak-dur-1) var(--odak-ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--odak-stagger-menu));
+}
+
+/* A submenu slides in from the side it opens on, after antd's 100ms of
+   intent, and fades out. */
+:root[data-odak] .ant-dropdown-menu-submenu-popup.ct-menu-sub:is(.ant-zoom-big-appear-active, .ant-zoom-big-enter-active) {
+  animation-name: odak-katman-menu-from-left;
+  animation-duration: var(--odak-dur-1);
+  animation-timing-function: var(--odak-ease-out);
+  animation-direction: normal;
+}
+
+:root[data-odak]
+  .ant-dropdown-menu-submenu-popup.ct-menu-sub:is(.ant-zoom-big-appear-active, .ant-zoom-big-enter-active):is(
+    .ant-dropdown-menu-placement-leftTop,
+    .ant-dropdown-menu-placement-leftBottom
+  ) {
+  animation-name: odak-katman-menu-from-right;
+}
+
+:root[data-odak] .ant-dropdown-menu-submenu-popup.ct-menu-sub.ant-zoom-big-leave-active {
+  animation-name: odak-fade;
+  animation-duration: var(--odak-dur-1);
+  animation-timing-function: var(--odak-ease-in);
+  animation-direction: reverse;
+}
