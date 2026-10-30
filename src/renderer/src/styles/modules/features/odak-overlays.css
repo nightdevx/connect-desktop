@@ -303,6 +303,18 @@
   transform: translateY(200px);
 }
 
+/* While a dialog is open the stack waits bottom left, above the backdrop. Top
+   right it would cover an L dialog's close button (and any dialog's at 800),
+   and a dialog's buttons sit right-aligned at its foot, so this corner never
+   reaches the close button or the primary action. */
+:root[data-odak] body:has(.ct-modal .ant-modal-mask:not(.ant-modal-mask-hidden)) .ct-toasts {
+  top: auto;
+  right: auto;
+  bottom: 16px;
+  left: 16px;
+  transform: none;
+}
+
 :root[data-odak] .ct-toast {
   align-items: flex-start;
   gap: 11px;
