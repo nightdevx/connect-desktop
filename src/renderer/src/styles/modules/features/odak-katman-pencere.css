@@ -243,6 +243,10 @@
   animation: odak-pop var(--odak-dur-3) var(--odak-ease-spring) both;
 }
 
+:root[data-odak] .ct-modal-success-mark .anticon {
+  font-size: 20px;
+}
+
 :root[data-odak] .ct-modal-success > strong {
   margin-top: 8px;
   font-size: 15px;
@@ -315,7 +319,11 @@
 }
 
 /* --- the profile card (popover): face beside the name, two facts --------- */
-:root[data-odak] .ct-profile-card-popover .ant-popover-inner {
+/* The card brings its own 16px; antd 6 calls the box -container (the
+   -inner rules written for antd 5 never matched). */
+:root[data-odak] .ct-profile-card-popover .ant-popover-container {
+  padding: 0;
+  overflow: hidden;
   border-radius: 18px;
 }
 
@@ -358,7 +366,9 @@
   height: 56px;
   border: 0;
   border-radius: 50%;
+  font-family: inherit;
   font-size: 20px;
+  font-weight: 700;
   box-shadow: none;
 }
 
@@ -524,7 +534,7 @@
 }
 
 /* --- emoji and GIF pickers: the popover surface, a skeleton, an empty --- */
-:root[data-odak] .ct-emoji-popover .ant-popover-inner {
+:root[data-odak] .ct-emoji-popover .ant-popover-container {
   padding: 0;
 }
 

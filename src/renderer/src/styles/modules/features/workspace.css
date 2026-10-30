@@ -593,7 +593,7 @@
    and a 12px frame around it made the band look like a picture pasted onto a
    panel rather than the top of the card. Overflow is what rounds the cover's
    top corners to the popover's own radius. */
-.ct-profile-card-popover .ant-popover-inner {
+.ct-profile-card-popover .ant-popover-container {
   padding: 0;
   border-radius: var(--ct-radius-lg);
   overflow: hidden;

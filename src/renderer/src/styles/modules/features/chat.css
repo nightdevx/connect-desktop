@@ -678,7 +678,7 @@
 
   /* Emoji and GIF popovers. No padding of its own: both panels bring their own
      chrome and a border around a border reads as a double frame. */
-  .ct-emoji-popover .ant-popover-inner {
+  .ct-emoji-popover .ant-popover-container {
     padding: 0;
     overflow: hidden;
   }

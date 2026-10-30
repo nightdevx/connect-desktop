@@ -304,7 +304,7 @@
 /* Popovers (the emote board, the emoji and GIF pickers, profile cards) on the
    same surface as the menus and the modals. Panels that bring their own chrome
    drop the padding in their own rule. */
-.ant-popover .ant-popover-inner {
+.ant-popover .ant-popover-container {
   border: 1px solid var(--ct-alpha-12);
   border-radius: var(--ct-radius-lg);
   background: var(--ct-surface-3);
