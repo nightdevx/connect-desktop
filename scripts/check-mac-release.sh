@@ -61,17 +61,22 @@ kill -0 "$pid" 2>/dev/null && running=yes
 loaded=no
 grep -q "\[window\] main page loaded" "$log" && loaded=yes
 
-# Quit as the system asks an app to (SIGTERM), but never wait on it for ever:
-# the first CI run's app ignored it and the job sat for six hours. If it is
-# still up after 15 s, record where its main thread is, then kill it hard.
-kill "$pid" 2>/dev/null || true
+# Quit the way Cmd+Q and the Dock do: the Quit Apple Event. A bare SIGTERM is
+# not that path on macOS: the second CI run's app sat idle in its run loop
+# after one, while the first run's job waited for it for six hours. If the app
+# is still up 15 s after being asked, record where its main thread is, then
+# kill it hard and fail.
+if ! osascript -e 'tell application id "com.nightdevx.connect-desktop" to quit' >/dev/null 2>&1; then
+  echo "The Quit Apple Event could not be sent; falling back to SIGTERM."
+  kill "$pid" 2>/dev/null || true
+fi
 quit=no
 for _ in $(seq 1 15); do
   kill -0 "$pid" 2>/dev/null || { quit=yes; break; }
   sleep 1
 done
 if [ "$quit" != yes ]; then
-  echo "Connect did not quit within 15 s of SIGTERM. Its main thread:"
+  echo "Connect did not quit within 15 s of being asked to. Its main thread:"
   sample "$pid" 2 -mayDie 2>/dev/null | sed -n '/Call graph:/,/Total number in stack/p' | head -n 60 || true
   kill -9 "$pid" 2>/dev/null || true
 fi
@@ -79,7 +84,7 @@ pkill -9 -f "$app/Contents/" 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 
 if [ "$quit" != yes ]; then
-  running="$running (but ignored SIGTERM)"
+  running="$running (but did not quit when asked)"
 fi
 
 if [ "$running" != yes ] || [ "$loaded" != yes ]; then
