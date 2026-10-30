@@ -160,6 +160,7 @@
   :is(
     .ct-quick-idle-left,
     .ct-audio-connection-card,
+    .ct-settings-tab,
     .ct-chat-row,
     .ant-input,
     .ant-input-affix-wrapper,
@@ -175,6 +176,12 @@
 
 /* One switch for every Odak animation and transition. */
 @media (prefers-reduced-motion: reduce) {
+  /* antd's spinners turn on their own loops; they stand still, like the
+     Odak skeletons do. */
+  :root[data-odak] :is(.ant-spin-dot, .ant-spin-dot-item, .anticon-spin) {
+    animation: none;
+  }
+
   :root[data-odak] {
     --odak-dur-1: 0ms;
     --odak-dur-2: 0ms;
