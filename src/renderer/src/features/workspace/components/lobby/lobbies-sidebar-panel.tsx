@@ -1,10 +1,9 @@
 import { LOBBY_FEATURES, type LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Dropdown, Modal, Input, InputNumber, Popover, Switch, Select, Tag } from "antd";
+import { Modal, Input, InputNumber, Popover, Switch, Select, Tag } from "antd";
 import {
   EditOutlined,
-  DeleteOutlined,
   AudioMutedOutlined,
   CustomerServiceOutlined,
   VideoCameraOutlined,
@@ -29,6 +28,8 @@ import {
   UserProfileCardPopover,
 } from "../user/user-profile-card";
 import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
+import { buildRoomMenu } from "./parts/room-menu";
+import { OdakMenu } from "@/ui/odak-menu";
 import { LobbyMemberAvatar } from "./parts/LobbyMemberAvatar";
 import { StreamPreviewImage } from "./stream-preview-image";
 import { fetchUserCard, useUserCards } from "../../hooks/user/use-user-cards";
@@ -522,33 +523,28 @@ export function LobbiesSidebarPanel({
             onJoinLobby(lobby.id);
           };
 
-          // The main lobby is settable but not deletable. It used to have no
-          // menu at all, which meant the one room everybody lands in was the
-          // one room whose name, capacity and feature switches nothing could
-          // reach — the panel refused it and so did the server.
-          const contextMenuItems = [
-            {
-              key: "settings",
-              label: "Lobi Ayarları",
-              icon: <EditOutlined />,
-              onClick: () => {
-                setEditingLobby(lobby);
-              },
-            },
-            ...(isDefaultLobby(lobby)
-              ? []
-              : [
-                  {
-                    key: "delete",
-                    label: "Lobiyi Sil",
-                    icon: <DeleteOutlined />,
-                    danger: true,
-                    onClick: () => {
-                      setPendingDeleteLobby(lobby);
-                    },
-                  },
-                ]),
-          ];
+          // Open to everybody: the way in for anyone, settings and deletion
+          // for whoever manages the room. The main lobby is settable but not
+          // deletable. It used to have no menu at all, which meant the one
+          // room everybody lands in was the one room whose name, capacity and
+          // feature switches nothing could reach.
+          const isOwner = canManageLobby(
+            lobby.createdBy,
+            currentUserId,
+            currentUserRole,
+          );
+          const roomMenu = buildRoomMenu({
+            lobby,
+            isDisplayed,
+            isJoined,
+            busy: isDisabled ? (isDeleting ? "siliniyor" : "bekle") : undefined,
+            onJoin: handleLobbyClick,
+            onSettings: isOwner ? () => setEditingLobby(lobby) : undefined,
+            onDelete:
+              isOwner && !isDefaultLobby(lobby)
+                ? () => setPendingDeleteLobby(lobby)
+                : undefined,
+          });
 
           // The row itself is a real button now. It used to be a <li
           // role="option"> with a tabIndex and a hand-written Enter/Space
@@ -650,13 +646,6 @@ export function LobbiesSidebarPanel({
             </button>
           );
 
-          const isOwner = canManageLobby(
-            lobby.createdBy,
-            currentUserId,
-            currentUserRole,
-          );
-          const hasLobbyMenu = isOwner;
-
           return (
             <li
               key={lobby.id}
@@ -698,16 +687,9 @@ export function LobbiesSidebarPanel({
                 );
               }}
             >
-              {hasLobbyMenu ? (
-                <Dropdown
-                  menu={{ items: contextMenuItems }}
-                  trigger={["contextMenu"]}
-                >
-                  {lobbyRow}
-                </Dropdown>
-              ) : (
-                lobbyRow
-              )}
+              <OdakMenu trigger="contextMenu" items={roomMenu}>
+                {lobbyRow}
+              </OdakMenu>
 
               {/* A message room has no occupancy at all — nobody is ever "in"
                   one — and an empty voice lobby says so only on the row being

@@ -368,6 +368,20 @@
   font-size: 13px;
 }
 
+/* A room's kind in the place a face would be. */
+:root[data-odak] .ct-menu-identity-tile {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #c6f432;
+  background: rgba(198, 244, 50, 0.12);
+}
+
 :root[data-odak] .ct-menu-panel .ct-menu-identity-text {
   display: flex;
   flex: 1;

@@ -13,7 +13,6 @@ import { Input, Button, Tooltip, Spin, Alert } from "antd";
 import type { InputRef } from "antd";
 import {
   SendOutlined,
-  DeleteOutlined,
   EditOutlined,
   EnterOutlined,
   SearchOutlined,
@@ -27,15 +26,18 @@ import type {
   LobbyStateMember,
 } from "@shared/desktop-api-types";
 import { ConfirmActionModal } from "../common";
+import { OdakMenu } from "@/ui/odak-menu";
 import {
   ChatAttachButton,
   ChatComposerEmojiButton,
   ChatAttachmentView,
   ChatMessageBody,
+  ChatMessageMoreButton,
   ChatReactionButton,
   ChatReactionBar,
   ChatReplyQuote,
   PendingSendStatus,
+  buildMessageMenu,
   formatAttachmentSize,
 } from "../common/chat-message-parts";
 import { ChatGifButton } from "../common/gif-picker";
@@ -109,6 +111,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
 }: LobbyChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const commitEdit = (): void => {
     const trimmed = editDraft.trim();
@@ -118,7 +121,32 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
     }
   };
 
+  const startEdit = (): void => {
+    setEditDraft(message.body);
+    setIsEditing(true);
+  };
+
+  // Right-click and the ⋯ open the same menu; its rows call what the hover
+  // bar's buttons call.
+  const menu = buildMessageMenu({
+    message,
+    currentUserId,
+    isOwnMessage,
+    isDeleting,
+    deleteDisabled,
+    onToggleReaction: (emoji, add) => onToggleReaction(message.id, emoji, add),
+    onOpenReactionPicker: () => setPickerOpen(true),
+    onReply: () => onReply(message),
+    onEdit: isOwnMessage && message.body ? startEdit : undefined,
+    onRequestDelete: () => onRequestDelete(message.id),
+  });
+
   return (
+    <OdakMenu
+      trigger="contextMenu"
+      items={menu}
+      disabled={isEditing || Boolean(message.localState)}
+    >
     <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
       <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
         {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(message.username)}
@@ -145,6 +173,8 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
           ) : (
           <span className="ct-chat-message-actions">
             <ChatReactionButton
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
               onPick={(emoji) => {
                 const existing = (message.reactions ?? []).find(
                   (reaction) => reaction.emoji === emoji,
@@ -170,10 +200,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
                 <button
                   type="button"
                   className="ct-chat-action"
-                  onClick={() => {
-                    setEditDraft(message.body);
-                    setIsEditing(true);
-                  }}
+                  onClick={startEdit}
                   aria-label="Mesajı düzenle"
                 >
                   <EditOutlined />
@@ -181,23 +208,8 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
               </Tooltip>
             )}
 
-            {isOwnMessage && (
-              <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
-                <button
-                  type="button"
-                  className="ct-chat-action danger"
-                  onClick={() => onRequestDelete(message.id)}
-                  disabled={deleteDisabled}
-                  aria-label="Mesajı sil"
-                >
-                  {isDeleting ? (
-                    <div className="ct-spinner-small" />
-                  ) : (
-                    <DeleteOutlined />
-                  )}
-                </button>
-              </Tooltip>
-            )}
+            {/* Deleting is in the menu, last and apart (F10.2). */}
+            <ChatMessageMoreButton items={menu} />
           </span>
           )}
         </div>
@@ -244,6 +256,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
         />
       </div>
     </div>
+    </OdakMenu>
   );
 }, areRowPropsEqual);
 

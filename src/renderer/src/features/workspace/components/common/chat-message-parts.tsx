@@ -17,6 +17,7 @@ import {
 } from "antd";
 import {
   DownloadOutlined,
+  EllipsisOutlined,
   EnterOutlined,
   ExpandOutlined,
   FileOutlined,
@@ -33,7 +34,7 @@ import { discardSend, retrySend } from "../../hooks/chat/pending-sends";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
 import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
 import { useUiStore } from "@/store/ui-store";
-import { OdakMenu } from "@/ui/odak-menu";
+import { MenuIcon, OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import chatService from "../../services/chat-service";
 
 // Shared message furniture for both conversation surfaces (direct messages and
@@ -559,6 +560,9 @@ function LazyEmojiKeyboard({ onPick }: LazyEmojiKeyboardProps): JSX.Element {
 
 interface ChatReactionButtonProps {
   onPick: (emoji: string) => void;
+  /** Controlled, so the message menu's "+" can open the full set here. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // One button that opens the set, rather than six emoji sitting in every
@@ -566,8 +570,15 @@ interface ChatReactionButtonProps {
 // reply/edit/delete actions next to them.
 export function ChatReactionButton({
   onPick,
+  open: openProp,
+  onOpenChange,
 }: ChatReactionButtonProps): JSX.Element {
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = (next: boolean): void => {
+    setInnerOpen(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <Popover
@@ -596,6 +607,109 @@ export function ChatReactionButton({
         </button>
       </Tooltip>
     </Popover>
+  );
+}
+
+/** The quick reactions on a message's menu: six, fixed (the owner's decision). */
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "😮", "🎉"];
+
+interface MessageMenuOptions {
+  message: ChatMessage;
+  currentUserId: string;
+  isOwnMessage: boolean;
+  isDeleting: boolean;
+  deleteDisabled: boolean;
+  onToggleReaction: (emoji: string, add: boolean) => void;
+  /** The "+" at the end of the reactions: the full picker. */
+  onOpenReactionPicker: () => void;
+  onReply: () => void;
+  /** Own text messages only. */
+  onEdit?: () => void;
+  onRequestDelete: () => void;
+}
+
+const copyMessageText = async (text: string): Promise<void> => {
+  // The clipboard and the status line "Kullanıcı adını kopyala" uses.
+  const { setStatus } = useUiStore.getState();
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Metin kopyalandı", "ok");
+  } catch (error) {
+    console.error("[copy-message]", error);
+    setStatus("Metin kopyalanamadı.", "warn");
+  }
+};
+
+/**
+ * A message's menu, on right-click and on the ⋯ over it (F10.2): the quick
+ * reactions, then reply, edit, copy, and deleting last and apart. Deleting
+ * left the hover bar for it, where it sat beside "Düzenle". Every row calls
+ * the handler the bar's buttons call.
+ */
+export function buildMessageMenu(options: MessageMenuOptions): OdakMenuEntry[] {
+  const { message, currentUserId } = options;
+  const mine = (emoji: string): boolean =>
+    (message.reactions ?? [])
+      .find((reaction) => reaction.emoji === emoji)
+      ?.userIds.includes(currentUserId) ?? false;
+
+  return [
+    {
+      type: "strip",
+      key: "react",
+      items: [
+        ...QUICK_REACTIONS.map((emoji) => ({
+          key: emoji,
+          label: emoji,
+          ariaLabel: mine(emoji) ? `${emoji} tepkini geri al` : `${emoji} tepkisi ver`,
+          // Your own reaction again takes it back, as in the picker.
+          onSelect: () => options.onToggleReaction(emoji, !mine(emoji)),
+        })),
+        {
+          key: "more",
+          label: <MenuIcon name="plus" size={14} />,
+          ariaLabel: "Başka tepki seç",
+          onSelect: options.onOpenReactionPicker,
+        },
+      ],
+    },
+    { type: "divider" },
+    { key: "reply", icon: "reply", label: "Yanıtla", onSelect: options.onReply },
+    options.onEdit && { key: "edit", icon: "pencil", label: "Düzenle", onSelect: options.onEdit },
+    Boolean(message.body) && {
+      key: "copy",
+      icon: "copy",
+      label: "Metni kopyala",
+      onSelect: () => void copyMessageText(message.body),
+    },
+    options.isOwnMessage && { type: "divider" },
+    options.isOwnMessage && {
+      key: "delete",
+      icon: "trash",
+      label: "Mesajı sil",
+      opensDialog: true,
+      danger: true,
+      disabled: options.isDeleting ? "siliniyor" : options.deleteDisabled ? "şimdi olmaz" : false,
+      onSelect: options.onRequestDelete,
+    },
+  ];
+}
+
+/** The ⋯ on a message's hover bar: the same menu as a right-click. */
+export function ChatMessageMoreButton({ items }: { items: OdakMenuEntry[] }): JSX.Element {
+  return (
+    <OdakMenu trigger="click" items={items} placement="bottomRight">
+      <Tooltip title="Diğer seçenekler">
+        <button
+          type="button"
+          className="ct-chat-action"
+          aria-label="Diğer seçenekler"
+          aria-haspopup="menu"
+        >
+          <EllipsisOutlined />
+        </button>
+      </Tooltip>
+    </OdakMenu>
   );
 }
 

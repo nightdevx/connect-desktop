@@ -1,7 +1,6 @@
 import { memo, useState, type AnimationEvent } from "react";
 import { Button, Input, Tooltip } from "antd";
 import {
-  DeleteOutlined,
   EditOutlined,
   EnterOutlined,
   PhoneOutlined,
@@ -18,11 +17,14 @@ import { renderMessageBody } from "../../mentions";
 import {
   ChatAttachmentView,
   ChatMessageBody,
+  ChatMessageMoreButton,
   ChatReactionBar,
   ChatReactionButton,
   ChatReplyQuote,
   PendingSendStatus,
+  buildMessageMenu,
 } from "../common/chat-message-parts";
+import { OdakMenu } from "@/ui/odak-menu";
 
 export interface DirectChatMessageRowProps {
   message: ChatMessage;
@@ -183,6 +185,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
 }: DirectChatMessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(message.body);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const callKind = callLogKind(message.body);
   const dayLine = place?.day ? <div className="ct-chat-day">{place.day}</div> : null;
   const entrance = arrived
@@ -224,9 +227,34 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
     }
   };
 
+  const startEdit = (): void => {
+    setEditDraft(message.body);
+    setIsEditing(true);
+  };
+
+  // Right-click and the ⋯ open the same menu; its rows call what the hover
+  // bar's buttons call.
+  const menu = buildMessageMenu({
+    message,
+    currentUserId,
+    isOwnMessage,
+    isDeleting,
+    deleteDisabled,
+    onToggleReaction: (emoji, add) => onToggleReaction(message.id, emoji, add),
+    onOpenReactionPicker: () => setPickerOpen(true),
+    onReply: () => onReply(message),
+    onEdit: isOwnMessage && message.body ? startEdit : undefined,
+    onRequestDelete: () => onRequestDelete(message.id),
+  });
+
   return (
     <>
       {dayLine}
+      <OdakMenu
+        trigger="contextMenu"
+        items={menu}
+        disabled={isEditing || Boolean(message.localState)}
+      >
       <div
         className={`ct-chat-row ${isOwnMessage ? "own" : ""} ${place?.joinsPrevious ? "joins-previous" : ""} ${place?.joinsNext ? "joins-next" : ""} ${arrived ? "arrived" : ""}`}
         {...entrance}
@@ -250,6 +278,8 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
             ) : (
             <span className="ct-chat-message-actions">
               <ChatReactionButton
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
                 onPick={(emoji) => {
                   const existing = (message.reactions ?? []).find(
                     (reaction) => reaction.emoji === emoji,
@@ -277,10 +307,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
                   <button
                     type="button"
                     className="ct-chat-action"
-                    onClick={() => {
-                      setEditDraft(message.body);
-                      setIsEditing(true);
-                    }}
+                    onClick={startEdit}
                     aria-label="Mesajı düzenle"
                   >
                     <EditOutlined />
@@ -288,23 +315,8 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
                 </Tooltip>
               )}
 
-              {isOwnMessage && (
-                <Tooltip title={isDeleting ? "Siliniyor" : "Sil"}>
-                  <button
-                    type="button"
-                    className="ct-chat-action danger"
-                    onClick={() => onRequestDelete(message.id)}
-                    disabled={deleteDisabled}
-                    aria-label="Mesajı sil"
-                  >
-                    {isDeleting ? (
-                      <div className="ct-spinner-small" />
-                    ) : (
-                      <DeleteOutlined />
-                    )}
-                  </button>
-                </Tooltip>
-              )}
+              {/* Deleting is in the menu, last and apart (F10.2). */}
+              <ChatMessageMoreButton items={menu} />
             </span>
             )}
           </div>
@@ -350,6 +362,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
           />
         </div>
       </div>
+      </OdakMenu>
     </>
   );
 }, areRowPropsEqual);

@@ -4,6 +4,8 @@ import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { getDisplayInitials, hueStyle } from "../../workspace-utils";
 import { Icon } from "../odak/odak-parts";
+import { OdakMenu } from "@/ui/odak-menu";
+import { RoomMenuHeader, buildRoomMenu } from "./parts/room-menu";
 
 interface LobbiesCompactListProps {
   lobbies: LobbyDescriptor[];
@@ -25,7 +27,9 @@ interface LobbiesCompactListProps {
  * a wider stage does not cost the way into another room. Voice rooms first,
  * then message rooms, as in the full list. A click does what the full row's
  * click does; settings and the roster need the full sidebar. The "+" at the
- * foot opens the same create modal as the open sidebar's header.
+ * foot opens the same create modal as the open sidebar's header. Right-click
+ * gives the room menu everybody gets; its settings and deletion live with the
+ * open sidebar's windows, so they are offered there.
  */
 export function LobbiesCompactList({
   lobbies,
@@ -61,8 +65,25 @@ export function LobbiesCompactList({
       ? `# ${lobby.name}`
       : `${lobby.name} · ${seatCount} kişi`;
 
+    const join = (): void => {
+      if (!isDisabled && !isDisplayed) {
+        onJoinLobby(lobby.id);
+      }
+    };
+
     return (
       <li key={lobby.id}>
+        <OdakMenu
+          trigger="contextMenu"
+          header={<RoomMenuHeader lobby={lobby} seatCount={seatCount} />}
+          items={buildRoomMenu({
+            lobby,
+            isDisplayed,
+            isJoined,
+            busy: isDisabled ? "bekle" : undefined,
+            onJoin: join,
+          })}
+        >
         <Tooltip title={label} placement="right">
           <button
             type="button"
@@ -81,11 +102,7 @@ export function LobbiesCompactList({
             aria-label={label}
             aria-current={isDisplayed ? "true" : undefined}
             aria-disabled={isDisabled || undefined}
-            onClick={() => {
-              if (!isDisabled && !isDisplayed) {
-                onJoinLobby(lobby.id);
-              }
-            }}
+            onClick={join}
           >
             {lobby.isTextOnly ? "#" : getDisplayInitials(lobby.name)}
             {/* Somebody in there is sharing a screen: a red dot on the
@@ -105,6 +122,7 @@ export function LobbiesCompactList({
             )}
           </button>
         </Tooltip>
+        </OdakMenu>
       </li>
     );
   };
