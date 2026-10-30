@@ -1,6 +1,7 @@
 import { isLobbyFeatureEnabled } from "@shared/desktop-api-types";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -378,6 +379,12 @@ export function LobbiesMainPanel({
     isLobbyChatOpen,
   );
 
+  // The layer that is not on screen (the room while none is open, the room list
+  // while one is) is drawn one step after the section opens, in a background
+  // render. It was about half the work of the click that opens Lobiler (F7.5),
+  // and it only shows once somebody joins or leaves.
+  const hiddenLayerReady = useDeferredValue(true, false);
+
   // Sync Effects
   //
   // The chat and the rail are deliberately NOT reset here. Changing lobby clears
@@ -734,6 +741,7 @@ export function LobbiesMainPanel({
   return (
     <div className="ct-lobby-main-stack">
       {/* 1. Lobby Selection Screen */}
+      {(!activeLobbyId || hiddenLayerReady) && (
       <LobbySelectionScreen
         activeLobbyId={activeLobbyId}
         lobbiesCount={lobbiesCount}
@@ -743,11 +751,13 @@ export function LobbiesMainPanel({
         joiningLobbyId={joiningLobbyId}
         onJoinLobby={onJoinLobby}
       />
+      )}
 
       {/* 2. Active Lobby Room */}
       <article
         className={`ct-content-card ct-lobby-room-card connected ct-lobby-main-layer room ${activeLobbyId ? "" : "hidden-layer"}`}
       >
+        {(activeLobbyId || hiddenLayerReady) && (
         <div
           className={`ct-lobby-room-grid-v2 ${isTextOnly ? "stage-closed" : isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
         >
@@ -898,6 +908,7 @@ export function LobbiesMainPanel({
             />
           </aside>
         </div>
+        )}
       </article>
 
       <MusicModal
