@@ -469,6 +469,24 @@
 }
 
 /* --------------------------------------------------------------------------
+   antd controls everywhere in the workspace
+   -------------------------------------------------------------------------- */
+
+/* antd's placeholder is the text colour at 25%: 2.1:1 on the page. The
+   mock-up's placeholder grey reads at 4.8:1 and is what the chat composer
+   already uses. */
+:root[data-odak] :is(.ant-input, .ant-input-number-input, .ant-picker input, .ant-select input)::placeholder,
+:root[data-odak] .ant-select .ant-select-placeholder {
+  color: #7c828c;
+}
+
+/* A small button kept antd's 6px corner; Odak's small controls use 9px
+   (settings rows, the admin drawer). A section's own rule still wins. */
+:root[data-odak] .ant-btn-sm:where(.ant-btn:not(.ant-btn-circle, .ant-btn-round)) {
+  border-radius: 9px;
+}
+
+/* --------------------------------------------------------------------------
    Motion: an overlay opens from where it comes from and leaves a little
    faster. antd runs its own motion classes; these swap the keyframes,
    durations and curves under them. A leave plays the entrance in reverse,
