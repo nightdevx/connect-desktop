@@ -13,7 +13,6 @@ import {
   Image,
   Popover,
   Tooltip,
-  message as antdMessage,
 } from "antd";
 import {
   DownloadOutlined,
@@ -36,6 +35,7 @@ import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
 import { useUiStore } from "@/store/ui-store";
 import { MenuIcon, OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import chatService from "../../services/chat-service";
+import { toast } from "@/services/toast";
 
 // Shared message furniture for both conversation surfaces (direct messages and
 // lobby chat). They render the same message shape, so the reply quote,
@@ -359,9 +359,9 @@ export function ChatMessageBody({
         onDownload={async () => {
           const result = await chatService.saveChatImage({ url: imageUrl });
           if (!result.ok) {
-            antdMessage.error(result.error?.message ?? "Görsel indirilemedi");
+            toast.error(result.error?.message ?? "Görsel indirilemedi");
           } else if (result.data?.saved) {
-            antdMessage.success("Görsel kaydedildi");
+            toast.success("Görsel kaydedildi");
           }
         }}
       />
@@ -431,9 +431,9 @@ export function ChatAttachmentView({
         fileName: attachment.name,
       });
       if (!result.ok) {
-        antdMessage.error(result.error?.message ?? "Dosya kaydedilemedi");
+        toast.error(result.error?.message ?? "Dosya kaydedilemedi");
       } else if (result.data?.saved) {
-        antdMessage.success("Dosya kaydedildi");
+        toast.success("Dosya kaydedildi");
       }
     } finally {
       if (mountedRef.current) {
@@ -776,14 +776,14 @@ export function ChatAttachButton({
       }
 
       if (file.size > MAX_ATTACHMENT_BYTES) {
-        antdMessage.error("Dosya en fazla 5 MB olabilir");
+        toast.error("Dosya en fazla 5 MB olabilir");
         return;
       }
 
       try {
         onSelect(await readFileAsUpload(file), file);
       } catch {
-        antdMessage.error("Dosya okunamadı");
+        toast.error("Dosya okunamadı");
       }
     },
     [onSelect],

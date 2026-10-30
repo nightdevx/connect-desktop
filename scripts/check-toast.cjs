@@ -43,7 +43,7 @@ const main = async () => {
     },
   });
 
-  const { toast } = await import(pathToFileURL(path.join(outDir, "toast.mjs")).href);
+  const { toast, humanizeError } = await import(pathToFileURL(path.join(outDir, "toast.mjs")).href);
 
   let notified = 0;
   const unsubscribe = toast.subscribe(() => {
@@ -90,9 +90,62 @@ const main = async () => {
   toast.dismiss(-1);
   assert.equal(notified, afterDismiss, "dismissing nothing does not notify");
 
+  // --- a keyed replacement stays in place, keeps its id, restarts its rev ----
+  toast.progress({ key: "yukle", title: "Ses yükleniyor", value: 10 });
+  toast.info("üstte");
+  const progress = toast.getSnapshot().find((t) => t.key === "yukle");
+  assert.equal(progress.tone, "progress");
+  assert.equal(progress.duration, Number.POSITIVE_INFINITY, "progress stays until done");
+  toast.progress({ key: "yukle", title: "Ses yükleniyor", value: 64 });
+  const moved = toast.getSnapshot().find((t) => t.key === "yukle");
+  assert.equal(moved.id, progress.id, "same card, so it does not slide in again");
+  assert.equal(moved.value, 64);
+  assert.ok(moved.rev > progress.rev, "a replacement restarts the countdown");
+  assert.equal(toast.getSnapshot()[0].title, "üstte", "replaced in place, not moved to the top");
+  toast.success({ key: "yukle", title: "Ses eklendi" });
+  const done = toast.getSnapshot().find((t) => t.key === "yukle");
+  assert.equal(done.tone, "success");
+  assert.equal(done.id, progress.id);
+  assert.ok(Number.isFinite(done.duration), "done, it leaves on its own");
+  assert.equal(done.value, undefined);
+
+  // --- a card that finished leaving takes only its own version down ----------
+  toast.dismiss(done.id, moved.rev);
+  assert.ok(toast.getSnapshot().some((t) => t.id === done.id), "the newer version stays");
+  toast.dismiss(done.id, done.rev);
+  assert.ok(!toast.getSnapshot().some((t) => t.id === done.id));
+
+  // --- raw technical errors become a sentence, the raw text the detail --------
+  const raw =
+    "Lobi bağlantısı geri yüklenemedi: could not establish signal connection: Failed to fetch (127.0.0.1:7880)";
+  toast.open({ type: "warning", key: "ct-status", content: raw });
+  const human = toast.getSnapshot().find((t) => t.key === "ct-status");
+  assert.equal(human.title, "Lobi bağlantısı geri yüklenemedi");
+  assert.equal(human.description, "Sunucuya ulaşılamıyor. Bağlantını kontrol et.");
+  assert.equal(human.detail, raw);
+  assert.deepEqual(humanizeError("Failed to fetch"), {
+    title: "Bir şeyler ters gitti",
+    description: "Sunucuya ulaşılamıyor. Bağlantını kontrol et.",
+    detail: "Failed to fetch",
+  });
+  assert.equal(humanizeError("Mikrofon açılamadı: NotAllowedError").description, "İzin verilmedi.");
+  assert.match(humanizeError("İstek zaman aşımına uğradı: timed out").description, /zamanında/);
+  for (const plain of [
+    "Ekran paylaşımı başladı",
+    "Kullanıcı bulunamadı.",
+    "Dosya en fazla 5 MB olabilir",
+    "Lobi bağlantısı geri yüklenemedi: Bilinmeyen hata",
+    "Ses cihazı çıkarıldı: Varsayılan cihaza geçildi",
+  ]) {
+    assert.equal(humanizeError(plain), null, `already human: ${plain}`);
+  }
+  toast.success("Bağlantı kuruldu: 127.0.0.1");
+  assert.equal(toast.getSnapshot()[0].title, "Bağlantı kuruldu: 127.0.0.1", "only errors and warnings are rewritten");
+
+  const beforeUnsubscribe = notified;
   unsubscribe();
   toast.info("sessiz");
-  assert.equal(notified, afterDismiss, "an unsubscribed listener hears nothing");
+  assert.equal(notified, beforeUnsubscribe, "an unsubscribed listener hears nothing");
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log("toast self-check passed");

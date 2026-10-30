@@ -360,25 +360,42 @@
 }
 
 /* --------------------------------------------------------------------------
-   Toasts
+   Toasts: top right under the title bar. While the incoming-call card shows
+   in that corner, the stack moves down below it.
    -------------------------------------------------------------------------- */
 
 :root[data-odak] .ct-toasts {
-  width: min(400px, calc(100vw - 32px));
-  gap: 10px;
+  top: calc(var(--ct-titlebar-height) + 12px);
+  right: 16px;
+  left: auto;
+  width: min(360px, calc(100vw - 32px));
+  gap: 8px;
+  transform: none;
+  transition: transform var(--odak-dur-3) var(--odak-ease-out);
+}
+
+/* The card's height (odak-overlays.css, Calls) and the stack's 8px gap. */
+:root[data-odak] body:has(.ct-call-dock.incoming) .ct-toasts {
+  transform: translateY(158px);
+}
+
+:root[data-odak] body:has(.ct-call-dock.incoming .ct-call-dock-mute) .ct-toasts {
+  transform: translateY(198px);
 }
 
 :root[data-odak] .ct-toast {
-  align-items: center;
-  gap: 12px;
-  padding: 12px 12px 14px;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 10px 12px 12px;
   border: 1px solid var(--odak-border-strong);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--odak-surface);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
 }
 
-/* Success is the page's accent; plain news is the text colour, not blue. */
-:root[data-odak] .ct-toast.success {
+/* Success and progress are the page's accent; plain news is the text colour,
+   not blue; a warning stays amber (owner's decision, F10.2). */
+:root[data-odak] .ct-toast:is(.success, .progress) {
   --ct-toast-tone: var(--odak-accent);
 }
 
@@ -386,12 +403,23 @@
   --ct-toast-tone: var(--odak-text);
 }
 
+:root[data-odak] .ct-toast.warning {
+  --ct-toast-tone: #fbbf24;
+}
+
+:root[data-odak] .ct-toast.error {
+  --ct-toast-tone: var(--odak-danger);
+}
+
 :root[data-odak] .ct-toast-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  font-size: 16px;
-  background: color-mix(in srgb, var(--ct-toast-tone) 14%, transparent);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ct-toast-tone) 12%, transparent);
+}
+
+:root[data-odak] .ct-toast.info .ct-toast-icon {
+  background: rgba(242, 243, 245, 0.08);
 }
 
 :root[data-odak] .ct-toast-text {
@@ -399,40 +427,53 @@
 }
 
 :root[data-odak] .ct-toast-text strong {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
+  line-height: 1.3;
 }
 
 :root[data-odak] .ct-toast-text span {
+  margin-top: 2px;
   font-size: 12px;
+  line-height: 1.35;
   color: var(--odak-muted);
 }
 
 :root[data-odak] .ct-toast-action {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 10px;
-  color: var(--odak-on-accent);
-  background: var(--odak-accent);
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  box-shadow: inset 0 0 0 1px var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-toast-action:hover {
+  filter: none;
+  background: var(--odak-border-strong);
 }
 
 :root[data-odak] .ct-toast-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: #7c828c;
 }
 
 :root[data-odak] .ct-toast-close:hover {
+  color: var(--odak-text);
   background: var(--odak-raised);
 }
 
 :root[data-odak] .ct-toast-timer {
   left: 12px;
-  bottom: 5px;
+  bottom: 0;
   width: calc(100% - 24px);
-  height: 3px;
+  height: 2px;
   border-radius: 2px;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 /* --------------------------------------------------------------------------
@@ -689,13 +730,34 @@
   animation-direction: reverse;
 }
 
-/* Toasts slide down from the title bar and leave faster, back up. */
+/* Toasts come down 6px from the title bar; they leave faster, fading and
+   shrinking a touch where they are. */
+@keyframes odak-overlays-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--odak-rise)));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes odak-overlays-toast-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
 :root[data-odak] .ct-toast {
-  animation: odak-overlays-drop var(--odak-dur-3) var(--odak-ease-out) backwards;
+  transform-origin: 50% 0;
+  animation: odak-overlays-toast-in var(--odak-dur-3) var(--odak-ease-out) backwards;
 }
 
 :root[data-odak] .ct-toast.leaving {
-  animation: ctToastOut var(--odak-dur-2) var(--odak-ease-in) forwards;
+  animation: odak-overlays-toast-out var(--odak-dur-2) var(--odak-ease-in) forwards;
 }
 
 /* The call card comes in from the right; while it rings, a lime ring just

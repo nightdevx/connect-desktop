@@ -94,14 +94,14 @@ const patchRequests = (
 // The server answers in codes; the user reads Turkish. Anything unmapped falls
 // back rather than leaking a raw code (or an English server message).
 const SEND_REQUEST_ERRORS: Record<string, string> = {
-  USER_NOT_FOUND: "Kullanıcı bulunamadı.",
+  USER_NOT_FOUND: "Bu adla biri yok. Harfleri kontrol et.",
   FRIEND_REQUESTS_DISABLED: "Bu kullanıcı arkadaşlık isteği kabul etmiyor.",
   FRIEND_REQUEST_FAILED: "Arkadaşlık isteği gönderilemedi.",
-  VALIDATION_ERROR: "Geçerli bir kullanıcı adı girin.",
+  VALIDATION_ERROR: "Geçerli bir kullanıcı adı yaz.",
   USER_BANNED: "Bu hesap askıya alınmış.",
   ACCOUNT_DEACTIVATED: "Bu hesap kapatılmış.",
   DESKTOP_BRIDGE_OUTDATED:
-    "Masaüstü uygulaması güncel değil. Uygulamayı kapatıp yeniden başlatın.",
+    "Uygulama güncel değil. Kapatıp yeniden başlat.",
 };
 
 const SEND_REQUEST_FALLBACK = "Arkadaşlık isteği gönderilemedi.";
@@ -248,7 +248,7 @@ export const useFriends = (enabled: boolean): FriendsController => {
     async (username: string): Promise<{ ok: boolean; message: string }> => {
       const trimmed = username.trim();
       if (!trimmed) {
-        return { ok: false, message: "Kullanıcı adı girin." };
+        return { ok: false, message: "Kullanıcı adını yaz." };
       }
 
       const result = await workspaceService.sendFriendRequest({

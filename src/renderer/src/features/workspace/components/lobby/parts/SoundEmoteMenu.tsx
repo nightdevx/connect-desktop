@@ -167,14 +167,18 @@ export function SoundEmoteMenu({
       return;
     }
 
+    // One toast under one key: it shows the upload, then becomes its answer.
+    const name = pendingName.trim();
+    toast.progress({ key: "ct-emote-upload", title: "Ses yükleniyor", description: name });
     try {
-      await library.upload(pendingName.trim(), pending.dataUrl);
-      toast.success("Ses eklendi");
+      await library.upload(name, pending.dataUrl);
+      toast.success({ key: "ct-emote-upload", title: "Ses eklendi", description: name });
       setPending(null);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Ses yüklenemedi",
-      );
+      toast.error({
+        key: "ct-emote-upload",
+        title: error instanceof Error ? error.message : "Ses yüklenemedi",
+      });
     }
   }, [library, pending, pendingName]);
 

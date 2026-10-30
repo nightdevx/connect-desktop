@@ -146,6 +146,60 @@
   animation-play-state: paused;
 }
 
+/* The raw error behind a human sentence, one click from the clipboard. */
+.ct-toast-detail {
+  @apply mt-1 block cursor-pointer border-0 bg-transparent p-0 text-xs font-bold;
+  color: var(--ct-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ct-toast-detail:hover,
+.ct-toast-detail:focus-visible {
+  color: var(--ct-text-primary);
+}
+
+/* A progress toast's bar: the fill scales (transform only); with no value it
+   is a sheen moving along the track. */
+.ct-toast-progress {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--ct-alpha-12);
+}
+
+.ct-toast-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: var(--ct-toast-tone);
+  transform-origin: left;
+  transition: transform 0.26s ease-out;
+}
+
+.ct-toast-progress.indeterminate .ct-toast-progress-fill {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--ct-toast-tone) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ctToastSheen 1.4s ease-in-out infinite;
+}
+
+@keyframes ctToastSheen {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
 @keyframes ctToastTimer {
   from {
     transform: scaleX(1);
@@ -164,6 +218,10 @@
   /* Still timed — the countdown is what dismisses — just not drawn moving. */
   .ct-toast-timer {
     opacity: 0;
+  }
+
+  .ct-toast-progress.indeterminate .ct-toast-progress-fill {
+    animation: none;
   }
 }
 
