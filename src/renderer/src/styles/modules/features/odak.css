@@ -1095,6 +1095,25 @@
   @apply sr-only;
 }
 
+/* Open, the "where" line is the longest thing in the row (a room's or a
+   call's name), so the row's gaps give it what they can spare; past that it
+   truncates and the whole name is in its tooltip. */
+:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-idle {
+  gap: 8px;
+}
+
+:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-idle-left {
+  gap: 10px;
+}
+
+:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-idle-status {
+  gap: 5px;
+}
+
+:root[data-odak] .ct-workspace-shell:not(.is-sidebar-collapsed) .ct-quick-dock:not(.ct-odak-rail *) .ct-quick-controls-inline {
+  gap: 4px;
+}
+
 /* ==========================================================================
    Motion -- the tokens and keyframes are odak-hareket.css's.
    ========================================================================== */

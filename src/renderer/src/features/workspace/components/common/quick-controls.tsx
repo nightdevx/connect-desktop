@@ -223,7 +223,12 @@ export function QuickControls({
         friends={friends}
         placement="topLeft"
       >
-        <button type="button" className="ct-quick-idle-left" aria-label="Profilin">
+        <button
+          type="button"
+          className="ct-quick-idle-left"
+          aria-label="Profilin"
+          aria-description={whereLabel}
+        >
           <div className="ct-quick-idle-logo" aria-hidden="true" style={hueStyle(currentUserId)}>
             {currentUserAvatarUrl ? (
               <img
@@ -247,9 +252,13 @@ export function QuickControls({
                   aria-hidden="true"
                 />
               )}
-              <span className="ct-quick-idle-where">
-                {whereLabel ?? getUserStatusLabel(true, presenceStatus)}
-              </span>
+              {/* A room or a call can be longer than the dock is wide: the
+                  whole name on hover. */}
+              <Tooltip title={whereLabel} placement="top">
+                <span className="ct-quick-idle-where">
+                  {whereLabel ?? getUserStatusLabel(true, presenceStatus)}
+                </span>
+              </Tooltip>
             </span>
           </div>
         </button>
