@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { throwIfTransient } from "@/services/query-client";
 import type { UserRole } from "@shared/auth-contracts";
@@ -118,16 +118,6 @@ function WorkspaceShell({
   const setSettingsSection = useUiStore((state) => state.setSettingsSection);
   const setFreeGamesFilter = useUiStore((state) => state.setFreeGamesFilter);
   const setStatus = useUiStore((state) => state.setStatus);
-
-  // The whole signed-in workspace is in the Odak design: data-odak on <html>
-  // points the tokens at its palette, so every section, popup, toast and the
-  // call card follow. Sign-in and sign-up are outside the shell and keep the
-  // old look.
-  const setOdakTheme = useUiStore((state) => state.setOdakTheme);
-  useLayoutEffect(() => {
-    setOdakTheme(true);
-    return () => setOdakTheme(false);
-  }, [setOdakTheme]);
 
   // An admin lands on the admin panel when the workspace opens. ONCE — this
   // used to re-run on every change of the role, which was harmless only while

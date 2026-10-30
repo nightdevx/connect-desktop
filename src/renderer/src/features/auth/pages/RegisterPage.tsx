@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Input, Button } from "antd";
-import { UserOutlined, LockOutlined, MailOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined } from "@ant-design/icons";
 import type { RegisterRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { describeAuthError } from "../auth-error-messages";
@@ -14,8 +14,6 @@ interface RegisterFormValues {
   password: string;
 }
 
-
-const mutedIconStyle = { color: "var(--ct-text-muted)" };
 
 interface RegisterPageProps {
   loading: boolean;
@@ -53,7 +51,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
   return (
     <section className="ct-auth-pane" aria-label="Kayıt formu">
       <div className="mb-8">
-        <h2 className="ct-auth-title">Aramıza Katıl</h2>
+        <h2 className="ct-auth-title">Aramıza katıl</h2>
         <p className="ct-auth-subtitle">
           Kendi topluluğunu kurmak için saniyeler içinde kayıt ol.
         </p>
@@ -70,7 +68,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         onValuesChange={() => setSubmitError(null)}
       >
         <Form.Item
-          label="E-posta Adresi"
+          label="E-posta"
           name="email"
           rules={[
             { required: true, message: "Lütfen e-posta adresi girin!" },
@@ -82,7 +80,6 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="örnek@mail.com"
             className="ct-input-premium"
-            prefix={<MailOutlined style={mutedIconStyle} />}
             autoComplete="email"
             autoFocus
             spellCheck={false}
@@ -90,8 +87,9 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         </Form.Item>
 
         <Form.Item
-          label="Kullanıcı Adı"
+          label="Kullanıcı adı"
           name="username"
+          extra="3–32 karakter · küçük harf, rakam ve _ - ."
           rules={[
             // Mirrors the server exactly (3-32, [a-z0-9_.-]). It used to allow
             // up to 64 and any character, so a 40-character or capitalised name
@@ -108,9 +106,9 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         >
           <Input
             size="large"
-            placeholder="Kullanıcı adınız"
+            placeholder="kullanici_adin"
             className="ct-input-premium"
-            prefix={<UserOutlined style={mutedIconStyle} />}
+            prefix={<span className="ct-auth-at">@</span>}
             autoComplete="username"
             spellCheck={false}
           />
@@ -119,6 +117,7 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
         <Form.Item
           label="Şifre"
           name="password"
+          extra="En az 8 karakter"
           rules={[
             { required: true, message: "Lütfen şifre girin!" },
             { min: 8, message: "Şifre en az 8 karakter olmalıdır!" },
@@ -131,13 +130,12 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Şifreniz"
             className="ct-input-premium"
-            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="new-password"
           />
         </Form.Item>
 
         <Form.Item
-          label="Şifre Tekrar"
+          label="Şifre tekrar"
           name="confirmPassword"
           dependencies={["password"]}
           rules={[
@@ -156,7 +154,6 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             size="large"
             placeholder="Şifrenizi tekrar girin"
             className="ct-input-premium"
-            prefix={<LockOutlined style={mutedIconStyle} />}
             autoComplete="new-password"
           />
         </Form.Item>
@@ -171,17 +168,21 @@ function RegisterPage({ loading, onSubmit, onGoLogin }: RegisterPageProps) {
             className="ct-btn-primary"
             
           >
-            {loading ? "Kayıt olunuyor..." : "Kayıt Ol"}
+            {loading ? "Kayıt olunuyor..." : (
+              <>
+                Hesap oluştur <ArrowRightOutlined />
+              </>
+            )}
           </Button>
         </Form.Item>
       </Form>
 
-      <p className="mt-6 text-sm">
-        Zaten hesabın var mı?{" "}
-        <button type="button" className="ct-link" onClick={onGoLogin}>
-          Giriş Yap
+      <div className="ct-auth-switch">
+        <span>Zaten hesabın var mı?</span>
+        <button type="button" className="ct-auth-switch-button" onClick={onGoLogin}>
+          Giriş yap
         </button>
-      </p>
+      </div>
     </section>
   );
 }

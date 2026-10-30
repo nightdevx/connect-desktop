@@ -80,7 +80,7 @@ export default function EmailVerificationPage({ onVerified, onLogout }: EmailVer
           onFinish={(values: { code: string }) => void verify(values.code)}
         >
           <Form.Item
-            label="Doğrulama Kodu"
+            label="Doğrulama kodu"
             name="code"
             rules={[
               { required: true, message: "Lütfen doğrulama kodunu girin!" },

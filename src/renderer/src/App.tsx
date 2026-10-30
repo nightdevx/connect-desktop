@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CloseOutlined,
@@ -10,6 +10,7 @@ import {
   WifiOutlined,
 } from "@ant-design/icons";
 import {
+  AuthBrandPanel,
   AuthLogoMark,
   EmailVerificationPage,
   LoginPage,
@@ -21,6 +22,7 @@ import WorkspaceShell from "./app/WorkspaceShell";
 import { ToastHost } from "./app/ToastHost";
 import { UpdateGate } from "./app/UpdateGate";
 import { toast } from "@/services/toast";
+import { useUiStore } from "@/store/ui-store";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
 function App() {
@@ -48,6 +50,14 @@ function App() {
   // the verification screen.
   const [verificationRequired, setVerificationRequired] = useState(false);
   const queryClient = useQueryClient();
+
+  // The whole app is in the Odak design, sign-in included: data-odak on
+  // <html> points the tokens at its palette. Set once, never cleared, so
+  // signing out does not flash the old look.
+  const setOdakTheme = useUiStore((state) => state.setOdakTheme);
+  useLayoutEffect(() => {
+    setOdakTheme(true);
+  }, [setOdakTheme]);
 
   useEffect(
     () => window.desktopApi.onEmailVerificationRequired(() => setVerificationRequired(true)),
@@ -319,33 +329,25 @@ function App() {
             />
           ) : (
             <div className="ct-auth-screen">
-              <div className="ct-auth-ambient" aria-hidden="true" />
-
               <div className="ct-auth-shell">
-                <aside className="ct-auth-brand">
-                  <AuthLogoMark className="ct-logomark--mural" />
-
-                  <div className="ct-auth-brand-head">
-                    <AuthLogoMark className="ct-logomark--badge" />
-                    <span className="ct-auth-wordmark">Connect</span>
-                  </div>
-
-                  <p className="ct-auth-tagline">
-                    Sesli sohbet, birlikte film, müzik ve mini oyunlar.
-                    Arkadaşlarının takıldığı yer.
-                  </p>
-
-                  <div className="ct-auth-presence">
-                    <span className="ct-auth-presence-dot" aria-hidden="true" />
-                    Arkadaşların çoktan içeride.
-                  </div>
-                </aside>
+                <AuthBrandPanel
+                  step={
+                    isAuthenticated && verificationRequired
+                      ? "verify"
+                      : activePage === "login"
+                        ? "login"
+                        : "register"
+                  }
+                  version={appVersion}
+                />
 
                 <div className="ct-auth-formside">
                   {/* Stands in for the brand panel when the window is too
                       narrow to show it; hidden otherwise. */}
                   <div className="ct-auth-formside-brand">
-                    <AuthLogoMark className="ct-logomark--badge" />
+                    <span className="ct-auth-brand-tile" aria-hidden="true">
+                      <AuthLogoMark />
+                    </span>
                     <span className="ct-auth-wordmark">Connect</span>
                   </div>
 

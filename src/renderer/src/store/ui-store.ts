@@ -129,9 +129,9 @@ interface UiState {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   /**
-   * The signed-in workspace is open (WorkspaceShell): data-odak on <html>
-   * points the tokens at the Odak palette (odak-overlays.css), and antd is
-   * rebuilt from them.
+   * Set once by App: the whole app, sign-in included, is in the Odak design.
+   * data-odak on <html> points the tokens at the Odak palette
+   * (odak-overlays.css), and antd is rebuilt from them.
    */
   odakTheme: boolean;
   setOdakTheme: (on: boolean) => void;

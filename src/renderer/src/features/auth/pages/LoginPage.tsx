@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Input, Button } from "antd";
-import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from "@ant-design/icons";
 import { OTP_CODE_LENGTH, type LoginRequest } from "@shared/auth-contracts";
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import { authErrorToast, describeAuthError } from "../auth-error-messages";
@@ -169,7 +169,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     return (
       <section className="ct-auth-pane" aria-label="İki adımlı doğrulama formu">
         <div className="mb-8">
-          <h2 className="ct-auth-title">İki Adımlı Doğrulama</h2>
+          <h2 className="ct-auth-title">İki adımlı doğrulama</h2>
           <p className="ct-auth-subtitle">
             Doğrulama uygulamandaki 6 haneli kodu gir. Telefonun yanında değilse
             kurtarma kodlarından birini yazabilirsin.
@@ -187,7 +187,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           onValuesChange={() => setSubmitError(null)}
         >
           <Form.Item
-            label="Doğrulama Kodu"
+            label="Doğrulama kodu"
             name="totpCode"
             rules={[
               { required: true, message: "Lütfen doğrulama kodunu girin!" },
@@ -236,7 +236,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     return (
       <section className="ct-auth-pane" aria-label="Şifre sıfırlama e-posta formu">
         <div className="mb-8">
-          <h2 className="ct-auth-title">Şifremi Unuttum</h2>
+          <h2 className="ct-auth-title">Şifremi unuttum</h2>
           <p className="ct-auth-subtitle">
             Şifrenizi sıfırlamak için hesabınıza kayıtlı e-posta adresini girin.
           </p>
@@ -250,7 +250,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           className="ct-premium-form"
         >
           <Form.Item
-            label="E-posta Adresi"
+            label="E-posta"
             name="email"
             rules={[
               { required: true, message: "Lütfen e-posta adresinizi girin!" },
@@ -298,7 +298,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
     return (
       <section className="ct-auth-pane" aria-label="Şifre sıfırlama formu">
         <div className="mb-8">
-          <h2 className="ct-auth-title">Yeni Şifre Belirle</h2>
+          <h2 className="ct-auth-title">Yeni şifre belirle</h2>
           <p className="ct-auth-subtitle">
             E-postanıza gönderilen {OTP_CODE_LENGTH} haneli kodu ve yeni şifrenizi girin.
           </p>
@@ -314,7 +314,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         >
           {!resetEmail && (
             <Form.Item
-              label="E-posta Adresi"
+              label="E-posta"
               name="email"
               rules={[
                 { required: true, message: "Lütfen e-posta adresinizi girin!" },
@@ -333,7 +333,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           )}
 
           <Form.Item
-            label="Doğrulama Kodu"
+            label="Doğrulama kodu"
             name="code"
             normalize={normalizeOtp}
             rules={[
@@ -353,7 +353,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
           </Form.Item>
 
           <Form.Item
-            label="Yeni Şifre"
+            label="Yeni şifre"
             name="newPassword"
             rules={[
               { required: true, message: "Lütfen yeni şifrenizi girin!" },
@@ -396,10 +396,8 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
   return (
     <section className="ct-auth-pane" aria-label="Giriş formu">
       <div className="mb-8">
-        <h2 className="ct-auth-title">Hoş Geldin</h2>
-        <p className="ct-auth-subtitle">
-          Arkadaşlarınla tekrar bağlanmak için hesabına giriş yap.
-        </p>
+        <h2 className="ct-auth-title">Tekrar hoş geldin</h2>
+        <p className="ct-auth-subtitle">Arkadaşlarınla kaldığın yerden devam et.</p>
       </div>
 
       <AuthErrorAlert error={submitError} context="login" />
@@ -415,7 +413,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         onValuesChange={() => setSubmitError(null)}
       >
         <Form.Item
-          label="Kullanıcı Adı"
+          label="Kullanıcı adı"
           name="username"
           rules={[
             // Only "not empty". Sign-in must not invent its own rules: an
@@ -446,7 +444,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
                 onClick={() => goToMode("forgot")}
                 className="ct-link-button"
               >
-                Şifremi Unuttum
+                Şifremi unuttum
               </button>
             </div>
           }
@@ -477,7 +475,11 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
             className="ct-btn-primary"
             
           >
-            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+            {loading ? "Giriş yapılıyor..." : (
+              <>
+                Giriş yap <ArrowRightOutlined />
+              </>
+            )}
           </Button>
         </Form.Item>
       </Form>
@@ -498,11 +500,16 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         </div>
       )}
 
-      <p className="mt-6 text-sm">
-        Hesabın yok mu?{" "}
-        <button type="button" className="ct-link" onClick={onGoRegister}>
-          Kayıt Ol
+      <div className="ct-auth-switch">
+        <span>Hesabın yok mu?</span>
+        <button type="button" className="ct-auth-switch-button" onClick={onGoRegister}>
+          Kayıt ol
         </button>
+      </div>
+
+      <p className="ct-auth-note">
+        <SafetyOutlined aria-hidden="true" />
+        İki adımlı doğrulama açıksa sonraki adımda kod istenir.
       </p>
     </section>
   );

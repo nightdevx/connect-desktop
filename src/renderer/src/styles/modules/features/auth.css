@@ -1,71 +1,27 @@
 /* ==========================================================================
-   AUTH SCREEN
+   AUTH SCREEN (Odak: OdakGiris / OdakKayit)
 
-   The one place the brand's blue/cyan is allowed off the logo. A split shell:
-   a brand panel carrying the drawn mark and an oversized line-art echo of it,
-   and the form side, which stays in the app's monochrome voice. Below 920px
-   the brand panel steps aside and a compact mark row takes its place above
-   the form.
+   Full-window split: the brand panel on the left (the mark on a lime tile,
+   a headline, an illustration of what is inside or the three sign-up steps)
+   and the form centred on the right. Below 920px the panel steps aside and a
+   compact mark row sits above the form.
    ========================================================================== */
 
+/* The auth wrap pads and centres for the boot and offline cards; the sign-in
+   screen fills the window instead. */
+.ct-main-wrap--auth:has(> .ct-auth-screen) {
+  @apply items-stretch p-0;
+}
+
 .ct-auth-screen {
-  @apply relative flex w-full items-center justify-center;
+  @apply flex w-full;
   min-height: 100%;
-  /* The wrap centers with align-items, which CLIPS the top edge once the
-     register card outgrows the window; auto margins win over align-items and
-     degrade to top-aligned scrolling instead. */
-  margin: auto;
+  background: var(--odak-bg);
 }
-
-/* Two soft pools of the ring colours behind the shell — ambience, not
-   decoration: they place the logo's palette into the room the shell sits in.
-   Kept faint enough that the monochrome chrome still reads as monochrome. */
-.ct-auth-ambient {
-  @apply pointer-events-none absolute inset-0 overflow-hidden;
-}
-
-.ct-auth-ambient::before,
-.ct-auth-ambient::after {
-  content: "";
-  @apply absolute rounded-full;
-  width: 520px;
-  height: 520px;
-  filter: blur(12px);
-}
-
-.ct-auth-ambient::before {
-  top: -160px;
-  left: -120px;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--ct-brand-blue) 13%, transparent),
-    transparent 72%
-  );
-}
-
-.ct-auth-ambient::after {
-  bottom: -180px;
-  right: -140px;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--ct-brand-cyan) 11%, transparent),
-    transparent 72%
-  );
-}
-
-/* --------------------------------------------------------------------------
-   The shell
-   -------------------------------------------------------------------------- */
 
 .ct-auth-shell {
-  @apply relative grid w-full overflow-hidden rounded-2xl border;
-  max-width: 920px;
-  grid-template-columns: 360px minmax(0, 1fr);
-  border-color: var(--ct-border);
-  background: var(--ct-panel-strong);
-  backdrop-filter: blur(24px) saturate(160%);
-  box-shadow: var(--ct-shadow-lg);
-  animation: ctFadeSlideUp 0.5s var(--ct-ease-spring) both;
+  @apply grid w-full;
+  grid-template-columns: clamp(400px, 44%, 560px) minmax(0, 1fr);
 }
 
 /* --------------------------------------------------------------------------
@@ -73,55 +29,270 @@
    -------------------------------------------------------------------------- */
 
 .ct-auth-brand {
-  @apply relative flex flex-col overflow-hidden border-r p-9;
-  border-color: var(--ct-border);
+  @apply relative flex flex-col overflow-hidden border-r;
+  padding: 40px 48px;
+  border-color: var(--odak-border);
   background:
-    radial-gradient(
-      circle at 20% 12%,
-      color-mix(in srgb, var(--ct-brand-blue) 10%, transparent),
-      transparent 55%
-    ),
-    radial-gradient(
-      circle at 85% 90%,
-      color-mix(in srgb, var(--ct-brand-cyan) 8%, transparent),
-      transparent 50%
-    ),
-    var(--ct-surface-1);
+    radial-gradient(120% 80% at 0% 100%, color-mix(in srgb, var(--odak-accent) 10%, transparent), transparent 60%),
+    var(--odak-rail);
 }
 
 .ct-auth-brand-head {
   @apply flex items-center gap-3;
 }
 
+/* The mark in graphite on a lime tile, the rail's twin at 44px. */
+.ct-auth-brand-tile {
+  --ct-logo: var(--odak-on-accent);
+  @apply grid shrink-0 place-items-center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--odak-accent);
+}
+
+.ct-auth-brand-tile .ct-logomark {
+  width: 24px;
+  height: 24px;
+}
+
 .ct-auth-wordmark {
-  @apply text-xl font-bold tracking-tight;
-  color: var(--ct-text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--odak-text);
+}
+
+.ct-auth-headline {
+  margin: 72px 0 0;
+  font-size: 42px;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--odak-text);
+}
+
+.ct-auth-headline em {
+  font-style: normal;
+  color: var(--odak-accent);
 }
 
 .ct-auth-tagline {
-  @apply m-0 mt-7 text-base;
-  color: var(--ct-text-secondary);
-  max-width: 250px;
-  line-height: 1.65;
+  margin: 16px 0 0;
+  max-width: 400px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--odak-muted);
 }
 
-/* Anchored to the panel's foot, under the mural: the app's own online dot,
-   saying what is on the other side of the door. One dot, not the full status
-   palette — green/amber/red in a row reads as macOS window buttons. */
-.ct-auth-presence {
-  @apply relative z-10 mt-auto flex items-center gap-2.5 pt-10 text-sm;
-  color: var(--ct-text-muted);
+/* The illustration (sign-in) and the steps (sign-up) share one card look. */
+.ct-auth-preview,
+.ct-auth-steps {
+  @apply flex flex-col;
+  margin: 44px 0 0;
+  max-width: 400px;
+  gap: 12px;
 }
 
-.ct-auth-presence-dot {
-  @apply h-2 w-2 shrink-0 rounded-full;
-  background: var(--ct-presence-online);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--ct-presence-online) 50%, transparent);
-  animation: ctPulseDot 2.4s ease-in-out infinite;
+.ct-auth-preview-card,
+.ct-auth-steps li {
+  border: 1px solid var(--odak-border);
+  border-radius: 18px;
+  background: var(--odak-surface);
+}
+
+.ct-auth-preview-card {
+  padding: 16px;
+}
+
+.ct-auth-preview-card.ct-auth-preview-row {
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+
+.ct-auth-preview-row {
+  @apply flex items-center;
+  gap: 12px;
+}
+
+.ct-auth-preview-icon {
+  @apply grid shrink-0 place-items-center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--odak-raised);
+  color: var(--odak-accent);
+}
+
+.ct-auth-preview-text {
+  @apply flex min-w-0 flex-1 flex-col;
+  color: var(--odak-text);
+}
+
+.ct-auth-preview-text strong {
+  font-weight: 700;
+}
+
+.ct-auth-preview-text span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+.ct-auth-preview-live {
+  @apply inline-flex shrink-0 items-center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--odak-accent);
+  background: color-mix(in srgb, var(--odak-accent) 12%, transparent);
+}
+
+.ct-auth-preview-live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: odak-breathe 2.4s ease-in-out infinite;
+}
+
+.ct-auth-preview-faces {
+  @apply flex;
+  margin-top: 14px;
+}
+
+.ct-auth-preview-faces span,
+.ct-auth-preview-friend {
+  @apply relative grid shrink-0 place-items-center rounded-full;
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ct-auth-preview-faces span {
+  border: 2px solid var(--odak-surface);
+}
+
+.ct-auth-preview-faces span + span {
+  margin-left: -8px;
+}
+
+.ct-auth-preview-faces span:nth-child(1) {
+  background: #3b82f6;
+}
+
+.ct-auth-preview-faces span:nth-child(2) {
+  background: #f97316;
+}
+
+.ct-auth-preview-faces span:nth-child(3) {
+  background: #a855f7;
+}
+
+.ct-auth-preview-faces span:nth-child(4) {
+  background: #14b8a6;
+}
+
+/* The speaking ring, as on the stage. */
+.ct-auth-preview-faces .speaking {
+  box-shadow: 0 0 0 2px var(--odak-accent);
+}
+
+.ct-auth-preview-friend {
+  background: #e11d48;
+}
+
+.ct-auth-preview-friend::after {
+  content: "";
+  @apply absolute rounded-full;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--odak-surface);
+  background: var(--odak-danger);
+}
+
+.ct-auth-preview-time {
+  font-family: var(--ct-font-mono);
+  font-size: 11px;
+  color: var(--odak-muted);
+}
+
+.ct-auth-steps {
+  @apply list-none p-0;
+  gap: 10px;
+}
+
+.ct-auth-steps li {
+  @apply flex items-center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.ct-auth-steps li.current {
+  border-color: var(--odak-accent);
+}
+
+.ct-auth-step-number {
+  @apply grid shrink-0 place-items-center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-weight: 700;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+.ct-auth-steps li.current .ct-auth-step-number {
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+}
+
+.ct-auth-steps li.done .ct-auth-step-number {
+  color: var(--odak-accent);
+}
+
+.ct-auth-step-now {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--odak-accent);
+}
+
+.ct-auth-brand-foot {
+  margin-top: auto;
+  padding-top: 32px;
+  text-align: right;
+  font-family: var(--ct-font-mono);
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+/* The panel enters once with the screen, top to bottom. */
+.ct-auth-brand > * {
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) both;
+}
+
+.ct-auth-brand > :nth-child(2) {
+  animation-delay: var(--odak-stagger);
+}
+
+.ct-auth-brand > :nth-child(3) {
+  animation-delay: calc(2 * var(--odak-stagger));
+}
+
+.ct-auth-brand > :nth-child(4) {
+  animation-delay: calc(3 * var(--odak-stagger));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-auth-presence-dot {
+  .ct-auth-preview-live::before {
     animation: none;
   }
 }
@@ -129,9 +300,8 @@
 /* --------------------------------------------------------------------------
    The mark
 
-   Three costumes for one SVG: the boot splash (drawn in), the badge beside
-   the wordmark, and the mural — the same geometry blown up, reduced to faint
-   line art and cropped off the panel's corner.
+   Costumes for one SVG: the boot splash (drawn in), the badge (update gate,
+   settings), and the lime tile of the sign-in panel and the rail.
    -------------------------------------------------------------------------- */
 
 .ct-logomark {
@@ -147,22 +317,6 @@
 .ct-logomark--badge {
   width: 40px;
   height: auto;
-}
-
-.ct-logomark--mural {
-  @apply pointer-events-none absolute;
-  width: 520px;
-  height: auto;
-  right: -230px;
-  bottom: -200px;
-  transform: rotate(-10deg);
-}
-
-.ct-logomark--mural .ct-logomark-room,
-.ct-logomark--mural .ct-logomark-dot {
-  fill: none;
-  stroke: color-mix(in srgb, var(--ct-logo) 22%, transparent);
-  stroke-width: 3.5;
 }
 
 /* Boot draw-in: the room draws round from its top arm to the open corner,
@@ -196,10 +350,6 @@
   .ct-logomark--draw .ct-logomark-dot {
     opacity: 1;
   }
-
-  .ct-auth-shell {
-    animation: none;
-  }
 }
 
 /* --------------------------------------------------------------------------
@@ -207,22 +357,36 @@
    -------------------------------------------------------------------------- */
 
 .ct-auth-formside {
-  @apply flex flex-col justify-center px-10 py-10;
-  background: var(--ct-panel);
+  @apply flex min-w-0 flex-col items-center justify-center overflow-y-auto;
+  padding: 32px 40px;
+}
+
+.ct-auth-formside > * {
+  width: min(380px, 100%);
 }
 
 /* Only exists while the brand panel is hidden; see the media query below. */
 .ct-auth-formside-brand {
-  @apply hidden items-center gap-2.5;
+  @apply hidden items-center gap-3;
 }
 
 .ct-auth-pane {
-  animation: ctFadeSlideUp 0.45s var(--ct-ease-spring);
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) both;
 }
 
 .ct-auth-title {
-  @apply m-0 text-2xl font-bold tracking-tight;
-  color: var(--ct-text-primary);
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--odak-text);
+}
+
+.ct-auth-subtitle {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--odak-muted);
 }
 
 /* Local development only (LoginPage DEV_QUICK_LOGINS): a dashed box, so it
@@ -233,40 +397,129 @@
   color: var(--ct-text-muted);
 }
 
-.ct-auth-subtitle {
-  @apply m-0 mt-2 text-base leading-relaxed;
-  color: var(--ct-text-muted);
-  max-width: 340px;
+.ct-auth-formside .ant-form-item {
+  margin-bottom: 18px;
 }
 
-/* The one full-colour control on the form side: the submit button wears the
-   two ring colours as a gradient. Doubled class to outweigh ct-btn-primary's
-   own !important background. */
-.ct-auth-shell .ct-btn-primary {
-  background: linear-gradient(
-    120deg,
-    var(--ct-brand-blue) 0%,
-    var(--ct-brand-cyan-deep) 100%
-  ) !important;
-  color: var(--ct-on-info) !important;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--ct-brand-blue) 28%, transparent);
+.ct-auth-formside .ct-premium-form .ant-form-item-label > label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--odak-muted);
 }
 
-.ct-auth-shell .ct-btn-primary:hover:not(:disabled) {
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--ct-brand-blue) 88%, white) 0%,
-    color-mix(in srgb, var(--ct-brand-cyan-deep) 86%, white) 100%
-  ) !important;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--ct-brand-blue) 36%, transparent);
+.ct-auth-formside .ct-link-button {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-accent);
 }
 
-/* Focused inputs pick up a trace of the ring blue instead of the app-wide
-   white, so the form answers the panel beside it. */
-.ct-auth-shell .ct-input-premium:focus,
-.ct-auth-shell .ct-input-premium:focus-within {
-  border-color: color-mix(in srgb, var(--ct-brand-blue) 55%, var(--ct-border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
+.ct-auth-formside .ct-link-button:hover {
+  color: color-mix(in srgb, var(--odak-accent) 70%, white);
+}
+
+.ct-auth-formside .ant-form-item-extra {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+.ct-auth-formside .ct-input-premium.ant-input-affix-wrapper,
+.ct-auth-formside .ct-input-premium.ant-input {
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 13px;
+  border-color: var(--odak-border-strong);
+  background: var(--odak-rail);
+  font-size: 15px;
+  transition:
+    border-color var(--odak-dur-2) ease,
+    box-shadow var(--odak-dur-2) ease;
+}
+
+.ct-auth-formside .ct-input-premium:hover {
+  border-color: color-mix(in srgb, var(--odak-accent) 35%, var(--odak-border-strong));
+  background: var(--odak-rail);
+}
+
+.ct-auth-formside .ct-input-premium:focus,
+.ct-auth-formside .ct-input-premium:focus-within {
+  border-color: var(--odak-accent);
+  background: var(--odak-rail);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--odak-accent) 14%, transparent);
+}
+
+.ct-auth-formside .ct-input-premium .ant-input {
+  font-size: 15px;
+}
+
+.ct-auth-formside .ct-input-premium .ant-input-prefix {
+  margin-inline-end: 10px;
+}
+
+.ct-auth-at {
+  font-family: var(--ct-font-mono);
+  font-size: 15px;
+  color: var(--odak-muted);
+}
+
+/* The lime comes from the Odak tokens; this only sets the mock-up's size. */
+.ct-auth-formside .ct-btn-primary {
+  height: 50px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.ct-auth-formside .ct-link {
+  color: var(--odak-accent);
+  text-decoration: none;
+}
+
+.ct-auth-formside .ct-link:hover {
+  color: color-mix(in srgb, var(--odak-accent) 70%, white);
+}
+
+.ct-auth-switch {
+  @apply flex items-center justify-between;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--odak-border);
+  font-size: 14px;
+  color: var(--odak-muted);
+}
+
+.ct-auth-switch-button {
+  @apply inline-flex cursor-pointer items-center bg-transparent;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--odak-text);
+  transition:
+    border-color var(--odak-dur-1) ease,
+    transform var(--odak-dur-1) ease;
+}
+
+.ct-auth-switch-button:hover {
+  border-color: var(--odak-accent);
+}
+
+.ct-auth-switch-button:active {
+  transform: scale(0.97);
+}
+
+.ct-auth-note {
+  @apply flex items-center;
+  gap: 8px;
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: var(--odak-muted);
 }
 
 /* --------------------------------------------------------------------------
@@ -308,15 +561,10 @@
 @media (max-width: 919px) {
   .ct-auth-shell {
     grid-template-columns: minmax(0, 1fr);
-    max-width: 480px;
   }
 
   .ct-auth-brand {
     display: none;
-  }
-
-  .ct-auth-formside {
-    @apply px-8 py-9;
   }
 
   .ct-auth-formside-brand {
