@@ -7,7 +7,10 @@ import { CallEncryptionBadge } from "./CallEncryptionBadge";
 
 interface CallDockProps {
   callState: CallSessionState;
-  /** True when the call stage is already on screen, so the strip stays out of the way. */
+  /**
+   * True when the peer's conversation is on screen: it holds the call stage,
+   * and while the phone rings, its own banner with the same two answers.
+   */
   isStageVisible: boolean;
   /**
    * Where this copy lives. "floating" is the ringing card in the top-right
@@ -68,7 +71,10 @@ export function CallDock({
 
   if (variant === "floating") {
     // A muted caller still rings on the server; it just must not shout here.
-    if (status !== "incoming" || isMuted) {
+    // With the caller's conversation open its banner asks the same question
+    // where the user is already looking, and in a small window this card sat
+    // on top of that banner and the conversation's header.
+    if (status !== "incoming" || isMuted || isStageVisible) {
       return null;
     }
 
