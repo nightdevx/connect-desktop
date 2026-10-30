@@ -129,89 +129,71 @@
 /* --------------------------------------------------------------------------
    The mark
 
-   Three costumes for one SVG: the boot splash (full colour, drawn in), the
-   badge beside the wordmark, and the mural — the same geometry blown up,
-   reduced to faint brand-tinted line art and cropped off the panel's corner.
+   Three costumes for one SVG: the boot splash (drawn in), the badge beside
+   the wordmark, and the mural — the same geometry blown up, reduced to faint
+   line art and cropped off the panel's corner.
    -------------------------------------------------------------------------- */
 
 .ct-logomark {
   display: block;
+  overflow: visible;
+}
+
+.ct-logomark-dot {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .ct-logomark--badge {
-  width: 46px;
+  width: 40px;
   height: auto;
 }
 
 .ct-logomark--mural {
   @apply pointer-events-none absolute;
-  width: 580px;
+  width: 520px;
   height: auto;
-  right: -250px;
-  bottom: -190px;
+  right: -230px;
+  bottom: -200px;
   transform: rotate(-10deg);
 }
 
-.ct-logomark--mural .ct-logomark-ring,
-.ct-logomark--mural .ct-logomark-bubble {
-  stroke-width: 2;
+.ct-logomark--mural .ct-logomark-room,
+.ct-logomark--mural .ct-logomark-dot {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ct-logo) 22%, transparent);
+  stroke-width: 3.5;
 }
 
-.ct-logomark--mural .ct-logomark-ring {
-  stroke: color-mix(in srgb, var(--ct-brand-blue) 24%, transparent);
-}
-
-.ct-logomark--mural .ct-logomark-bubble {
-  stroke: color-mix(in srgb, var(--ct-brand-cyan) 22%, transparent);
-}
-
-/* Thin line art has no body for the filled tail to merge into, and the
-   over-arc only re-draws a line the crossing already shows; both would read
-   as stray strokes here. */
-.ct-logomark--mural .ct-logomark-tail,
-.ct-logomark--mural .ct-logomark-over {
-  display: none;
-}
-
-/* Boot draw-in: both rings grow from nothing towards each other, then the
-   tail and the interlock arc arrive, then the finished mark breathes. */
+/* Boot draw-in: the room draws round from its top arm to the open corner,
+   the dot drops into the corner, then the finished mark breathes. */
 .ct-logomark--draw {
   animation: ctLogoBreathe 2.8s ease-in-out 1.7s infinite;
 }
 
-.ct-logomark--draw .ct-logomark-ring,
-.ct-logomark--draw .ct-logomark-bubble {
+.ct-logomark--draw .ct-logomark-room {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: ctLogoDraw 0.9s var(--ct-ease-premium) forwards;
 }
 
-.ct-logomark--draw .ct-logomark-bubble {
-  animation-delay: 0.22s;
-}
-
-.ct-logomark--draw .ct-logomark-tail,
-.ct-logomark--draw .ct-logomark-over {
+.ct-logomark--draw .ct-logomark-dot {
   opacity: 0;
-  animation: ctFadeIn 0.35s ease 1.05s forwards;
+  animation: odak-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.85s forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ct-logomark--draw,
-  .ct-logomark--draw .ct-logomark-ring,
-  .ct-logomark--draw .ct-logomark-bubble,
-  .ct-logomark--draw .ct-logomark-tail,
-  .ct-logomark--draw .ct-logomark-over {
+  .ct-logomark--draw .ct-logomark-room,
+  .ct-logomark--draw .ct-logomark-dot {
     animation: none;
   }
 
-  .ct-logomark--draw .ct-logomark-ring,
-  .ct-logomark--draw .ct-logomark-bubble {
+  .ct-logomark--draw .ct-logomark-room {
     stroke-dashoffset: 0;
   }
 
-  .ct-logomark--draw .ct-logomark-tail,
-  .ct-logomark--draw .ct-logomark-over {
+  .ct-logomark--draw .ct-logomark-dot {
     opacity: 1;
   }
 

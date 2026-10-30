@@ -75,8 +75,8 @@
   @apply flex min-w-0 items-center gap-2.5;
 }
 
-.ct-titlebar-logo {
-  @apply h-6 w-6 shrink-0 object-contain;
+.ct-logomark.ct-titlebar-logo {
+  @apply h-4 w-4 shrink-0;
 }
 
 .ct-titlebar-name {
@@ -281,11 +281,7 @@
   content: "";
   @apply block h-full rounded-full;
   width: 33%;
-  background: linear-gradient(
-    90deg,
-    var(--ct-brand-blue),
-    var(--ct-brand-cyan)
-  );
+  background: var(--ct-logo);
   animation: ctBootBar 1.1s var(--ct-ease-premium) infinite;
 }
 

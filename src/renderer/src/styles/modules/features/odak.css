@@ -199,17 +199,21 @@
   grid-row: 1 / -1;
 }
 
+/* The mark on a lime tile, like the app icon's rail twin: graphite on lime. */
 .ct-odak-logo {
+  --ct-logo: var(--odak-on-accent);
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
   margin-bottom: 10px;
   border-radius: 13px;
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--odak-on-accent);
   background: var(--odak-accent);
+}
+
+.ct-odak-logo .ct-logomark {
+  width: 22px;
+  height: 22px;
 }
 
 .ct-odak-rail-item {

@@ -615,22 +615,11 @@ height: auto;
 transform: rotate(8deg);
 }
 
-.ct-brand-mural .ct-logomark-ring,
-.ct-brand-mural .ct-logomark-bubble {
-stroke-width: 2;
-}
-
-.ct-brand-mural .ct-logomark-ring {
-stroke: color-mix(in srgb, var(--ct-brand-blue) 14%, transparent);
-}
-
-.ct-brand-mural .ct-logomark-bubble {
-stroke: color-mix(in srgb, var(--ct-brand-cyan) 12%, transparent);
-}
-
-.ct-brand-mural .ct-logomark-tail,
-.ct-brand-mural .ct-logomark-over {
-display: none;
+.ct-brand-mural .ct-logomark-room,
+.ct-brand-mural .ct-logomark-dot {
+fill: none;
+stroke: color-mix(in srgb, var(--ct-logo) 14%, transparent);
+stroke-width: 3.5;
 }
 
 /* A running time ("12:34"): fixed-width digits, so it does not jitter. */

@@ -4,7 +4,7 @@ import type { MenuProps } from "antd";
 import { CheckOutlined, LogoutOutlined } from "@ant-design/icons";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
-import { isAdminRole } from "@/features/auth";
+import { AuthLogoMark, isAdminRole } from "@/features/auth";
 import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
 import { Avatar, PRESENCE_OPTIONS, SECTIONS } from "./odak-parts";
 
@@ -79,7 +79,9 @@ export function OdakRail({
 
   return (
     <nav className={`ct-odak-rail ${calm ? "calm" : ""}`} aria-label="Bölümler">
-      <span className="ct-odak-logo" aria-hidden="true">C</span>
+      <span className="ct-odak-logo" aria-hidden="true">
+        <AuthLogoMark />
+      </span>
       {SECTIONS.filter((section) => section.id !== "admin" || isAdminRole(currentUserRole)).map(
         (section) => {
           const active = section.id === activeSection;

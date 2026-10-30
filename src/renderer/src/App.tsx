@@ -21,7 +21,6 @@ import WorkspaceShell from "./app/WorkspaceShell";
 import { ToastHost } from "./app/ToastHost";
 import { UpdateGate } from "./app/UpdateGate";
 import { toast } from "@/services/toast";
-import logo from "./assets/logo.png";
 import type { AppUpdateSnapshot } from "@shared/update-contracts";
 
 function App() {
@@ -196,7 +195,7 @@ function App() {
       <div className="ct-app-content">
         <header className="ct-titlebar">
           <div className="ct-titlebar-brand">
-            <img src={logo} alt="" className="ct-titlebar-logo" />
+            <AuthLogoMark className="ct-titlebar-logo" />
             <span className="ct-titlebar-name">Connect</span>
           </div>
 

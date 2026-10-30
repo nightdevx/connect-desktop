@@ -28,14 +28,14 @@
 }
 
 /* Held while the session check is in flight: the finished mark breathes
-   between its two ring colours instead of sitting frozen. */
+   instead of sitting frozen. */
 @keyframes ctLogoBreathe {
   0%,
   100% {
-    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--ct-brand-blue) 30%, transparent));
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--ct-logo) 22%, transparent));
   }
   50% {
-    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--ct-brand-cyan) 40%, transparent));
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--ct-logo) 38%, transparent));
   }
 }
 

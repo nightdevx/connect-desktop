@@ -52,6 +52,8 @@
      accent and a deeper lime. */
   --ct-brand-blue: var(--odak-accent);
   --ct-brand-cyan: #8fb81f;
+  /* Odak is dark even when the light theme is picked: the mark stays lime. */
+  --ct-logo: var(--odak-accent);
   --ct-scrim: rgba(5, 6, 7, 0.72);
   --ct-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55);
   --ct-scrollbar-thumb: rgba(255, 255, 255, 0.14);

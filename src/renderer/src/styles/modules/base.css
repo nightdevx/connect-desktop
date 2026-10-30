@@ -88,13 +88,14 @@
   --ct-accent-glow: rgba(255, 255, 255, 0.15);
 
   /* ---- Brand ------------------------------------------------------------
-     The logo's two rings: a deep blue and a cyan. The app's chrome stays
-     monochrome on purpose — these exist ONLY where the logo itself lives: the
-     drawn mark, the auth screen's ambient glow and submit button, and the boot
-     bar. Reaching for them in ordinary chrome is how the one accent becomes
-     three. */
+     The mark ("Canlı Oda") is one colour: lime on dark, graphite on light.
+     It paints the drawn mark, its murals and the boot bar, nothing else. */
+  --ct-logo: #c6f432;
+
+  /* The old logo's two rings: a deep blue and a cyan. Before Odak they are
+     the auth screen's ambient glow and submit button and a few highlights;
+     Odak maps them to its accent. */
   --ct-brand-blue: #2f6bff;
-  --ct-brand-blue-deep: #1e40af;
   --ct-brand-cyan: #2dd4e8;
   --ct-brand-cyan-deep: #0e7490;
 
@@ -362,11 +363,13 @@
   --ct-tile-3: #85858f;
   --ct-tile-4: #4a4a54;
 
+  /* Lime is ~1.3:1 on white; the mark goes graphite instead. */
+  --ct-logo: #0e0f11;
+
   /* Brand rings, darkened for a white ground the same way the semantic
      colours are: the dark theme's cyan drops to ~1.6:1 on white, where the
      mark's right half would all but vanish. */
   --ct-brand-blue: #1d4ed8;
-  --ct-brand-blue-deep: #1e3a8a;
   --ct-brand-cyan: #0891b2;
   --ct-brand-cyan-deep: #155e75;
 
