@@ -36,6 +36,23 @@ window.addEventListener("error", (event) => {
   console.error("[renderer] uncaught error:", event.error ?? event.message);
 });
 
+// Under Odak antd moves on the Odak motion tokens (odak-hareket.css). Written
+// as CSS variables, so prefers-reduced-motion stops antd's transitions with
+// everything else.
+const ODAK_MOTION = {
+  motionDurationFast: "var(--odak-dur-1)",
+  motionDurationMid: "var(--odak-dur-2)",
+  motionDurationSlow: "var(--odak-dur-3)",
+  motionEaseInOut: "var(--odak-ease-out)",
+  motionEaseOut: "var(--odak-ease-out)",
+  motionEaseInOutCirc: "var(--odak-ease-out)",
+  motionEaseOutCirc: "var(--odak-ease-out)",
+  motionEaseOutQuint: "var(--odak-ease-out)",
+  motionEaseInQuint: "var(--odak-ease-in)",
+  motionEaseInBack: "var(--odak-ease-in)",
+  motionEaseOutBack: "var(--odak-ease-spring)",
+};
+
 // Every value here comes from the design tokens, so Ant Design components and
 // the hand-written .ct-* classes cannot drift apart. Rebuilt whenever the theme
 // changes: the CSS custom properties have already been swapped by then, so
@@ -74,6 +91,7 @@ function ThemedApp() {
         controlHeightLG: tokens.controlLg,
         fontFamily: tokens.fontSans,
         fontSize: 13,
+        ...(odakTheme ? ODAK_MOTION : {}),
       },
       components: {
         Button: {
@@ -124,7 +142,8 @@ function ThemedApp() {
   return (
     // Turkish defaults for antd's own words ("Veri yok", the pager, the
     // date pickers): every other string in the app is Turkish.
-    <ConfigProvider theme={antdTheme} locale={trTR}>
+    // No click ripple under Odak: a 2 s fade outside its motion language.
+    <ConfigProvider theme={antdTheme} locale={trTR} wave={{ disabled: odakTheme }}>
       <AppErrorBoundary>
         <App />
       </AppErrorBoundary>

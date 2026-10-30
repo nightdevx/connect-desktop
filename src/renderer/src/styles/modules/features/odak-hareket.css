@@ -102,6 +102,77 @@
   }
 }
 
+/* The motion written before Odak runs on its tokens too: the old durations
+   (150/220/320 ms) and curves become Odak's, so the sidebar fold, the hover
+   fades and the panels keep to 120/180/260 ms, and the reduced-motion switch
+   below stops them with everything else. */
+:root[data-odak] {
+  --ct-duration-fast: var(--odak-dur-1);
+  --ct-duration-base: var(--odak-dur-2);
+  --ct-duration-slow: var(--odak-dur-3);
+  --ct-ease-premium: var(--odak-ease-out);
+  --ct-ease-spring: var(--odak-ease-out);
+}
+
+/* The sidebar's own entrance slid 12px in from the left on every section
+   switch, under the shell's fade of the same content. Here it only fades;
+   two names for one fade so folding and unfolding still restart it. The
+   body is left to the shell's fade of its children (odak.css), so the two do
+   not compound. */
+@keyframes odak-kabuk-refade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+:root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar) > * {
+  animation-name: odak-fade;
+  animation-timing-function: var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-sidebar, .ct-admin-sidebar).collapsed > * {
+  animation-name: odak-kabuk-refade;
+}
+
+:root[data-odak] .ct-sidebar > .ct-sidebar-body {
+  animation: none;
+}
+
+/* Two old entrances still on literal timings. */
+:root[data-odak] .ct-list-state {
+  animation: odak-fade var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-scroll-to-bottom-btn {
+  transition:
+    opacity var(--odak-dur-2) var(--odak-ease-out),
+    transform var(--odak-dur-2) var(--odak-ease-out),
+    visibility var(--odak-dur-2) var(--odak-ease-out);
+}
+
+/* Hover and state fades that name their own curve ("ease", antd's
+   "ease-in-out"): same durations, Odak's curve. */
+:root[data-odak]
+  :is(
+    .ct-quick-idle-left,
+    .ct-audio-connection-card,
+    .ct-chat-row,
+    .ant-input,
+    .ant-input-affix-wrapper,
+    .ant-switch,
+    .ant-switch-inner,
+    .ant-switch-inner > *,
+    .ant-spin-container
+  ),
+:root[data-odak] :is(.ant-switch-handle, .ant-spin-container)::before,
+:root[data-odak] .ant-spin-container::after {
+  transition-timing-function: var(--odak-ease-out);
+}
+
 /* One switch for every Odak animation and transition. */
 @media (prefers-reduced-motion: reduce) {
   :root[data-odak] {
