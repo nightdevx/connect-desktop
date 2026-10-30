@@ -356,8 +356,11 @@
    Form side
    -------------------------------------------------------------------------- */
 
+/* "safe center": a form taller than the window (sign-up in a small window)
+   starts at the top and scrolls, instead of being clipped above. */
 .ct-auth-formside {
-  @apply flex min-w-0 flex-col items-center justify-center overflow-y-auto;
+  @apply flex min-w-0 flex-col items-center overflow-y-auto;
+  justify-content: safe center;
   padding: 32px 40px;
 }
 
@@ -398,7 +401,11 @@
 }
 
 .ct-auth-formside .ant-form-item {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+}
+
+.ct-auth-formside .ant-form-item-label {
+  padding-bottom: 7px;
 }
 
 .ct-auth-formside .ct-premium-form .ant-form-item-label > label {
@@ -420,8 +427,10 @@
 }
 
 .ct-auth-formside .ant-form-item-extra {
+  min-height: 0;
   margin-top: 6px;
   font-size: 12px;
+  line-height: 1.4;
   color: var(--odak-muted);
 }
 
