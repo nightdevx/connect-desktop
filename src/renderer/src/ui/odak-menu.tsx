@@ -644,26 +644,34 @@ const ITEM_SELECTOR = '[role^="menuitem"]:not([aria-disabled="true"])';
 // low on the stage used to flip up and lose its top rows above the window.
 // (antd's type lists only the flips; it passes the shifts on to rc-trigger.)
 const OVERFLOW = { adjustX: 1, adjustY: 1, shiftX: true, shiftY: true } as const;
+// At a point (a right-click) there is no anchor to keep a gap from, and the
+// shift above keeps antd's 4px gap: a menu slid back from the bottom edge
+// stayed 4px under it.
+const AT_POINT = { offset: [0, 0] };
 
 export interface OdakMenuProps {
   items: OdakMenuEntry[];
   /** Whose or what menu this is, when the anchor does not already say it. */
   header?: ReactNode;
   trigger: "contextMenu" | "click";
-  /** Controlled, for a menu opened from outside (the stage's right-click). */
+  /** Opened from outside at this point of the window (the stage catches its
+      own right-click): the menu hangs off it instead of `children`. */
+  anchorPoint?: { x: number; y: number };
+  /** Controlled, for a menu opened from outside. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   placement?: DropdownProps["placement"];
   /** 220–320; the stylesheet's default otherwise. */
   width?: number;
   disabled?: boolean;
-  children: ReactElement;
+  children?: ReactElement;
 }
 
 export function OdakMenu({
   items,
   header,
   trigger,
+  anchorPoint,
   open,
   onOpenChange,
   placement,
@@ -738,6 +746,7 @@ export function OdakMenu({
       onOpenChange={handleOpenChange}
       placement={placement}
       autoAdjustOverflow={OVERFLOW}
+      align={trigger === "contextMenu" || anchorPoint ? AT_POINT : undefined}
       disabled={disabled}
       autoFocus
       destroyOnHidden
@@ -777,7 +786,20 @@ export function OdakMenu({
         </div>
       )}
     >
-      {children}
+      {anchorPoint ? (
+        <div
+          style={{
+            position: "fixed",
+            left: anchorPoint.x,
+            top: anchorPoint.y,
+            width: 1,
+            height: 1,
+            pointerEvents: "none",
+          }}
+        />
+      ) : (
+        children
+      )}
     </Dropdown>
   );
 }

@@ -145,8 +145,7 @@ export function ParticipantContextMenu({
 
   return (
     // Opened from outside at the pointer (LobbyStageView catches the
-    // right-click), so it hangs off a 1px point there. Every choice but a
-    // switch or a slider closes it.
+    // right-click). Every choice but a switch or a slider closes it.
     <OdakMenu
       items={items}
       header={
@@ -158,24 +157,13 @@ export function ParticipantContextMenu({
         />
       }
       trigger="click"
+      anchorPoint={{ x, y }}
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       placement="bottomLeft"
       width={268}
-    >
-      <div
-        style={{
-          position: "fixed",
-          left: x,
-          top: y,
-          width: "1px",
-          height: "1px",
-          zIndex: 9999,
-          pointerEvents: "none",
-        }}
-      />
-    </OdakMenu>
+    />
   );
 }
