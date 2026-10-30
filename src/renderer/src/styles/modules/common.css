@@ -267,7 +267,7 @@
   @apply m-0 max-w-[34ch];
 }
 
-.ct-user-popup-close {
+.ct-audio-popover-close {
   @apply inline-flex h-control-sm w-control-sm items-center justify-center rounded-md border;
   border-color: var(--ct-border);
   color: var(--ct-text-secondary);
@@ -275,7 +275,7 @@
   font-size: var(--ct-icon-sm);
 }
 
-.ct-user-popup-close:hover {
+.ct-audio-popover-close:hover {
   border-color: var(--ct-border-strong);
   color: var(--ct-text-primary);
 }

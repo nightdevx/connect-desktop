@@ -233,16 +233,15 @@ export function UserProfileCard({
           <div className="ct-profile-card-names">
             <strong>{fallbackName}</strong>
             <span className="ct-profile-card-skeleton-line" />
+            {/* Reserved, not just the stats. Without the tag row and the two
+                action slots the card still grew about 100px when the query
+                landed — which is the jump the skeleton exists to prevent, and
+                it drags the popover across its own anchor on the way. */}
+            <div className="ct-profile-card-tags">
+              <span className="ct-profile-card-skeleton-line tag" />
+              <span className="ct-profile-card-skeleton-line tag" />
+            </div>
           </div>
-        </div>
-
-        {/* Reserved, not just the stats. Without the tag row and the two action
-            slots the card still grew about 100px when the query landed — which
-            is the jump the skeleton exists to prevent, and it drags the popover
-            across its own anchor on the way. */}
-        <div className="ct-profile-card-tags">
-          <span className="ct-profile-card-skeleton-line tag" />
-          <span className="ct-profile-card-skeleton-line tag" />
         </div>
 
         <div className="ct-profile-card-stats">
@@ -274,10 +273,10 @@ export function UserProfileCard({
         <ProfileCardBanner />
 
         <div className="ct-profile-card-head">
-          {/* 96, the same as the loaded card and the skeleton. At 88 the avatar
-              shrank by 8px the moment the query failed, so the failure looked
-              like a second, differently-sized card. */}
-          <Avatar size={96} className="ct-profile-card-avatar">
+          {/* 56, the same as the loaded card and the skeleton. A different size
+              the moment the query failed made the failure look like a second,
+              differently-sized card. */}
+          <Avatar size={56} className="ct-profile-card-avatar">
             {getDisplayInitials(fallbackName)}
           </Avatar>
 
@@ -328,7 +327,7 @@ export function UserProfileCard({
               preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
             />
           ) : (
-            <Avatar size={96} className="ct-profile-card-avatar">
+            <Avatar size={56} className="ct-profile-card-avatar">
               {getDisplayInitials(displayName)}
             </Avatar>
           )}
@@ -374,32 +373,32 @@ export function UserProfileCard({
               {hasCopiedHandle ? <CheckOutlined /> : <CopyOutlined />}
             </button>
           </Tooltip>
-        </div>
-      </div>
 
-      {/* antd's `color="gold"` / `color="success"` presets are antd's palette,
-          not this app's: they ignore --ct-warning and --ct-success and paint two
-          saturated chips into an otherwise monochrome card. The variants are
-          classes now, built from the tokens, so they follow the theme. */}
-      <div className="ct-profile-card-tags">
-        {isAdmin ? (
-          <Tag className="ct-profile-card-tag admin" icon={<CrownOutlined />}>
-            Yönetici
-          </Tag>
-        ) : (
-          <Tag className="ct-profile-card-tag">Üye</Tag>
-        )}
-        {isSelf && <Tag className="ct-profile-card-tag">Sen</Tag>}
-        {isFriend && (
-          <Tag className="ct-profile-card-tag friend" icon={<TeamOutlined />}>
-            Arkadaş
-          </Tag>
-        )}
-        {!isSelf && !isFriend && hasOutgoingRequest && (
-          <Tag className="ct-profile-card-tag" icon={<ClockCircleOutlined />}>
-            İstek gönderildi
-          </Tag>
-        )}
+          {/* antd's `color="gold"` / `color="success"` presets are antd's palette,
+              not this app's: they ignore --ct-warning and --ct-success and paint two
+              saturated chips into an otherwise monochrome card. The variants are
+              classes now, built from the tokens, so they follow the theme. */}
+          <div className="ct-profile-card-tags">
+            {isAdmin ? (
+              <Tag className="ct-profile-card-tag admin" icon={<CrownOutlined />}>
+                Yönetici
+              </Tag>
+            ) : (
+              <Tag className="ct-profile-card-tag">Üye</Tag>
+            )}
+            {isSelf && <Tag className="ct-profile-card-tag">Sen</Tag>}
+            {isFriend && (
+              <Tag className="ct-profile-card-tag friend" icon={<TeamOutlined />}>
+                Arkadaş
+              </Tag>
+            )}
+            {!isSelf && !isFriend && hasOutgoingRequest && (
+              <Tag className="ct-profile-card-tag" icon={<ClockCircleOutlined />}>
+                İstek gönderildi
+              </Tag>
+            )}
+          </div>
+        </div>
       </div>
 
       {presence?.activity ? (
@@ -457,15 +456,6 @@ export function UserProfileCard({
           <span>Üyelik</span>
           <strong>{formatMembershipLength(card.createdAt)}</strong>
         </div>
-
-        {presence && (
-          <div className="ct-profile-card-stat">
-            <span>Durum</span>
-            <strong>
-              {getUserStatusLabel(presence.appOnline, presence.presence)}
-            </strong>
-          </div>
-        )}
       </div>
 
       {/* Nothing to offer for yourself or for someone already on the list; an
@@ -479,7 +469,7 @@ export function UserProfileCard({
           loading={isSending}
           onClick={handleAddFriend}
         >
-          {hasOutgoingRequest ? "İstek Gönderildi" : "Arkadaş Ekle"}
+          {hasOutgoingRequest ? "İstek gönderildi" : "Arkadaş ekle"}
         </Button>
       )}
 
@@ -565,7 +555,7 @@ function QuickMessageBar({
         onChange={(event) => setDraft(event.target.value)}
         onPressEnter={send}
         maxLength={MAX_QUICK_MESSAGE_LENGTH}
-        placeholder={`@${peerName} kişisine yaz`}
+        placeholder={`@${peerName} kişisine hızlı mesaj…`}
         disabled={isSending}
       />
       <Button

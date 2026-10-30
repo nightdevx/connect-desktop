@@ -313,3 +313,316 @@
   font-weight: 500;
   color: var(--odak-muted);
 }
+
+/* --- the profile card (popover): face beside the name, two facts --------- */
+:root[data-odak] .ct-profile-card-popover .ant-popover-inner {
+  border-radius: 18px;
+}
+
+:root[data-odak] .ct-profile-card {
+  width: 320px;
+  padding: 16px;
+  gap: 12px;
+}
+
+/* A cover only when the person chose one, as a short strip; no lime band
+   standing in for it. */
+:root[data-odak] .ct-profile-card-banner {
+  display: none;
+}
+
+:root[data-odak] .ct-profile-card-banner.has-image {
+  display: block;
+  height: 84px;
+  margin: -16px -16px 0;
+  aspect-ratio: auto;
+}
+
+:root[data-odak] .ct-profile-card-banner.has-image::after {
+  background: linear-gradient(to top, rgba(22, 24, 28, 0.9), transparent);
+}
+
+:root[data-odak] .ct-profile-card-head {
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+}
+
+:root[data-odak] .ct-profile-card-banner.has-image + .ct-profile-card-head {
+  margin-top: -30px;
+}
+
+:root[data-odak] .ct-profile-card-photo-root,
+:root[data-odak] .ct-profile-card-avatar.ant-avatar {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  box-shadow: none;
+}
+
+:root[data-odak] .ct-profile-card-banner.has-image + .ct-profile-card-head :is(.ct-profile-card-photo-root, .ct-profile-card-avatar.ant-avatar) {
+  box-shadow: 0 0 0 3px var(--odak-surface);
+}
+
+:root[data-odak] .ct-profile-card-presence {
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--odak-surface);
+}
+
+:root[data-odak] .ct-profile-card-names {
+  gap: 0;
+  padding-bottom: 0;
+}
+
+:root[data-odak] .ct-profile-card-names strong {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+:root[data-odak] .ct-profile-card-handle {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-profile-card-names .ct-profile-card-tags {
+  margin-top: 6px;
+  gap: 5px;
+}
+
+:root[data-odak] .ct-profile-card-tag.ant-tag,
+:root[data-odak] .ct-profile-card-tag.ant-tag:is(.admin, .friend) {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 22px;
+  color: #d7dae0;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-profile-card-game,
+:root[data-odak] .ct-profile-card-game.playing {
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-profile-card-game.playing .ct-game-art {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+:root[data-odak] .ct-profile-card-game-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-profile-card-game-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-profile-card-game-time {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-profile-card-stats {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-profile-card-stat {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+:root[data-odak] .ct-profile-card-stat > span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-profile-card-stat > strong {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+:root[data-odak] .ct-profile-card > .ant-btn {
+  height: 38px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+/* The quick message: one field with its send button inside. */
+:root[data-odak] .ct-profile-card-composer {
+  position: relative;
+  padding-top: 0;
+  border-top: 0;
+}
+
+:root[data-odak] .ct-profile-card-composer .ant-input {
+  height: 38px;
+  padding: 0 42px 0 12px;
+  border-color: var(--odak-border-strong);
+  border-radius: 12px;
+  font-size: 12.5px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-profile-card-composer .ant-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 28px;
+  min-width: 0;
+  height: 28px;
+  border-radius: 9px;
+}
+
+:root[data-odak] .ct-profile-card-composer .ant-btn:disabled {
+  border-color: transparent;
+  color: var(--odak-muted);
+  background: transparent;
+}
+
+:root[data-odak] .ct-profile-card-skeleton-line,
+:root[data-odak] .ct-profile-card-photo-root.skeleton {
+  background: linear-gradient(90deg, #1a1c21 0%, #24272e 50%, #1a1c21 100%);
+  background-size: 200% 100%;
+  animation: odak-sheen 1.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-profile-card-skeleton-line.tag {
+  width: 64px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+:root[data-odak] .ct-profile-card-skeleton-line.bar {
+  height: 38px;
+  border-radius: 12px;
+}
+
+/* --- emoji and GIF pickers: the popover surface, a skeleton, an empty --- */
+:root[data-odak] .ct-emoji-popover .ant-popover-inner {
+  padding: 0;
+}
+
+:root[data-odak] .ct-emoji-picker.EmojiPickerReact {
+  --epr-bg-color: var(--odak-surface);
+  --epr-category-label-bg-color: var(--odak-surface);
+  --epr-search-input-bg-color: #0b0c0e;
+  --epr-search-border-color: var(--odak-border-strong);
+  --epr-search-input-border-radius: 9px;
+}
+
+:root[data-odak] .ct-emoji-picker-loading {
+  background: linear-gradient(90deg, #1a1c21 0%, #24272e 50%, #1a1c21 100%);
+  background-size: 200% 100%;
+  animation: odak-sheen 1.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-gif-panel {
+  gap: 8px;
+  padding: 10px;
+}
+
+:root[data-odak] .ct-gif-panel .ant-input-affix-wrapper {
+  height: 32px;
+  border-color: var(--odak-border-strong);
+  border-radius: 9px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-gif-cell {
+  border-radius: 9px;
+}
+
+:root[data-odak] .ct-gif-cell.skeleton {
+  background: linear-gradient(90deg, #1a1c21 0%, #24272e 50%, #1a1c21 100%);
+  background-size: 200% 100%;
+  animation: odak-sheen 1.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-gif-grid.loading {
+  overflow: hidden;
+}
+
+:root[data-odak] .ct-gif-state {
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  font-size: 12px;
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-gif-state > .anticon {
+  font-size: 18px;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-gif-state-clear {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--odak-accent);
+  background: none;
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-gif-state-clear:hover {
+  background: rgba(198, 244, 50, 0.1);
+}
+
+/* --- the connection popover above the dock: the same surface ------------- */
+:root[data-odak] .ct-audio-popover {
+  padding: 16px;
+  border-color: var(--odak-border-strong);
+  border-radius: 18px;
+  background: var(--odak-surface);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  transform-origin: 50% 100%;
+  animation: odak-open var(--odak-dur-2) var(--odak-ease-out) both;
+}
+
+:root[data-odak] .ct-audio-popover-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+}
+
+:root[data-odak] .ct-audio-popover-close:hover {
+  background: var(--odak-raised);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] :is(.ct-profile-card-skeleton-line, .ct-profile-card-photo-root.skeleton, .ct-emoji-picker-loading, .ct-gif-cell.skeleton) {
+    animation: none;
+  }
+}

@@ -324,28 +324,19 @@
    Popovers and tooltips
    -------------------------------------------------------------------------- */
 
+/* Every popover is the same card: 18px corners, no arrow, 8px off its
+   anchor (antd keeps the arrow's offset when it is hidden). */
 :root[data-odak] .ant-popover .ant-popover-inner {
   border: 1px solid var(--odak-border-strong);
   border-radius: 18px;
   background: var(--odak-surface);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.55);
 }
 
-:root[data-odak] .ant-popover .ant-popover-arrow::before {
-  background: var(--odak-surface);
+:root[data-odak] .ant-popover .ant-popover-arrow {
+  display: none;
 }
 
-:root[data-odak] .ct-profile-card-popover .ant-popover-inner {
-  border-radius: 20px;
-}
-
-/* The card's band in the page's lime instead of the logo's blue. */
-:root[data-odak] .ct-profile-card-banner {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--odak-accent) 22%, var(--odak-surface)),
-    var(--odak-raised)
-  );
-}
 
 /* One tooltip: the card, no arrow, a line saying what the control does and
    under it a reason or a hint (ui/tip-label.tsx). */
@@ -393,7 +384,7 @@
 }
 
 :root[data-odak] body:has(.ct-call-dock.incoming .ct-call-dock-mute) .ct-toasts {
-  transform: translateY(198px);
+  transform: translateY(200px);
 }
 
 :root[data-odak] .ct-toast {
@@ -498,17 +489,33 @@
   border-color: var(--odak-border-strong);
   border-radius: 20px;
   background: var(--odak-surface);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.55);
 }
 
+/* The toasts' stack moves down by this card's height plus 8px while it shows
+   (Toasts above): 18 + 52 + 16 + 44 (+ 10 + 32 with the mute row) + 18 + 2. */
 :root[data-odak] .ct-call-dock.incoming {
-  gap: 16px;
+  gap: 0;
   padding: 18px;
+}
+
+:root[data-odak] .ct-call-dock.incoming:focus-visible {
+  outline: 0;
+  box-shadow:
+    0 22px 56px rgba(0, 0, 0, 0.55),
+    0 0 0 2px var(--odak-bg),
+    0 0 0 4px rgba(198, 244, 50, 0.8);
+}
+
+:root[data-odak] .ct-call-dock.incoming .ct-call-dock-head {
+  gap: 14px;
 }
 
 :root[data-odak] .ct-call-dock.incoming .ct-call-dock-avatar {
   width: 52px;
   height: 52px;
-  border-color: var(--odak-accent);
+  border: 0;
+  font-size: 18px;
 }
 
 :root[data-odak] .ct-call-dock.incoming .ct-call-dock-name {
@@ -516,17 +523,19 @@
 }
 
 :root[data-odak] .ct-call-dock-status {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--odak-muted);
 }
 
 :root[data-odak] .ct-call-dock-answer {
-  gap: 10px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 :root[data-odak] .ct-call-answer {
-  height: 42px;
-  border-radius: 13px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -536,8 +545,35 @@
 }
 
 :root[data-odak] .ct-call-answer.reject {
-  color: #ffffff;
+  color: #1a0606;
   background: var(--odak-danger);
+}
+
+/* The key on a coloured button: a chip in the button's own ink. */
+:root[data-odak] .ct-call-answer .ct-kbd {
+  border-color: rgba(14, 15, 17, 0.18);
+  color: rgba(14, 15, 17, 0.72);
+  background: rgba(14, 15, 17, 0.12);
+}
+
+:root[data-odak] .ct-call-dock-mute {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-call-dock-mute:hover,
+:root[data-odak] .ct-call-dock-mute:focus-visible {
+  color: var(--odak-text);
+  background: var(--odak-raised);
 }
 
 :root[data-odak] .ct-call-dock-btn {
@@ -594,16 +630,30 @@
   }
 }
 
-/* The call card comes in from the right edge it sits against. */
+/* The call card comes in 16px from the right edge it sits against. */
 @keyframes odak-overlays-from-right {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(var(--odak-slide));
   }
 
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* The ring around a ringing face: fades and swells a touch, slowly. */
+@keyframes odak-overlays-ring {
+  0%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(1.06);
   }
 }
 
@@ -781,13 +831,49 @@
 }
 
 :root[data-odak] .ct-call-dock .ct-ring-ripple::before {
-  inset: -4px;
-  border-color: var(--odak-accent);
-  animation: odak-breathe 2.4s ease-in-out infinite;
+  inset: -5px;
+  border: 2px solid var(--odak-accent);
+  animation: odak-overlays-ring 2.4s ease-in-out infinite;
 }
 
 :root[data-odak] .ct-call-dock .ct-ring-ripple::after {
   display: none;
+}
+
+/* Drawers come in 16px from their edge and fade, and leave in 180ms; antd's
+   own slide crosses the drawer's whole width. */
+:root[data-odak] :is(.ant-drawer-panel-motion-right-enter, .ant-drawer-panel-motion-right-appear) {
+  opacity: 0;
+  transform: translateX(var(--odak-slide));
+}
+
+:root[data-odak]
+  :is(
+    .ant-drawer-panel-motion-right-enter.ant-drawer-panel-motion-right-enter-active,
+    .ant-drawer-panel-motion-right-appear.ant-drawer-panel-motion-right-appear-active
+  ) {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform var(--odak-dur-3) var(--odak-ease-out),
+    opacity var(--odak-dur-3) var(--odak-ease-out);
+}
+
+:root[data-odak] .ant-drawer-panel-motion-right-leave {
+  opacity: 1;
+  transform: none;
+}
+
+:root[data-odak] .ant-drawer-panel-motion-right-leave.ant-drawer-panel-motion-right-leave-active {
+  opacity: 0;
+  transform: translateX(var(--odak-slide));
+  transition:
+    transform var(--odak-dur-2) var(--odak-ease-in),
+    opacity var(--odak-dur-2) var(--odak-ease-in);
+}
+
+:root[data-odak] .ant-drawer-mask-motion-leave.ant-drawer-mask-motion-leave-active {
+  transition: opacity var(--odak-dur-2) var(--odak-ease-in);
 }
 
 @media (prefers-reduced-motion: reduce) {

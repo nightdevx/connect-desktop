@@ -155,10 +155,10 @@ export function WorkspaceAudioStatus({
           aria-label="Ses bağlantı detayları"
         >
           <header className="ct-audio-popover-header">
-            <h4>Ses Bağlantı Durumu</h4>
+            <h4>Ses bağlantısı</h4>
             <button
               type="button"
-              className="ct-user-popup-close"
+              className="ct-audio-popover-close"
               onClick={() => setIsAudioPopupOpen(false)}
               aria-label="Detay penceresini kapat"
             >
@@ -192,7 +192,7 @@ export function WorkspaceAudioStatus({
 
             <div className="ct-metric-tile">
               <span>
-                <DisconnectOutlined /> Paket Kaybı
+                <DisconnectOutlined /> Paket kaybı
               </span>
               <strong
                 className={
@@ -226,7 +226,7 @@ export function WorkspaceAudioStatus({
 
             <div className="ct-metric-tile">
               <span>
-                <ApiOutlined /> Bağlantı Yolu
+                <ApiOutlined /> Bağlantı yolu
               </span>
               <strong
                 className={

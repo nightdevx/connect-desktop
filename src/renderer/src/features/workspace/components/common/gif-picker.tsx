@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Input, Popover, Tooltip } from "antd";
-import { GifOutlined, LoadingOutlined, SearchOutlined } from "@ant-design/icons";
+import { GifOutlined, SearchOutlined } from "@ant-design/icons";
 import type { GifItem } from "@shared/desktop-api-types";
 
 // GIF search for the composer, served by KLIPY through the main process.
@@ -93,13 +93,23 @@ function GifPanel({ onPick }: GifPanelProps): JSX.Element {
       {failed && <div className="ct-gif-state">GIF'ler yüklenemedi</div>}
 
       {!failed && loading && (
-        <div className="ct-gif-state">
-          <LoadingOutlined /> Yükleniyor…
+        <div className="ct-gif-grid loading" aria-busy="true" aria-label="Yükleniyor">
+          {Array.from({ length: 6 }, (_, index) => (
+            <span key={index} className="ct-gif-cell skeleton" />
+          ))}
         </div>
       )}
 
       {!failed && !loading && items.length === 0 && (
-        <div className="ct-gif-state">Sonuç bulunamadı</div>
+        <div className="ct-gif-state">
+          <SearchOutlined aria-hidden="true" />
+          <span>{query.trim() ? `“${query.trim()}” için GIF yok` : "GIF yok"}</span>
+          {query.trim() && (
+            <button type="button" className="ct-gif-state-clear" onClick={() => setQuery("")}>
+              Aramayı temizle
+            </button>
+          )}
+        </div>
       )}
 
       {!failed && !loading && items.length > 0 && (

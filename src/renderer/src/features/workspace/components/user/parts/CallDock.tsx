@@ -1,5 +1,5 @@
 import { Tooltip } from "antd";
-import { PhoneOutlined } from "@ant-design/icons";
+import { BellOutlined, PhoneOutlined } from "@ant-design/icons";
 import type { CallSessionState } from "../../../hooks/user/use-call-session";
 import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
 import { ElapsedTime } from "../../common/elapsed-time";
@@ -78,8 +78,24 @@ export function CallDock({
       return null;
     }
 
+    // Enter answers and Esc declines only while the card has focus (a click
+    // on it, or Tab): typing in a conversation must never pick up a call.
     return (
-      <aside className="ct-call-dock incoming" role="region" aria-label="Gelen sesli arama">
+      <aside
+        className="ct-call-dock incoming"
+        role="region"
+        aria-label="Gelen sesli arama"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onReject();
+          } else if (event.key === "Enter" && event.target === event.currentTarget) {
+            event.preventDefault();
+            onAccept();
+          }
+        }}
+      >
         <div className="ct-call-dock-head">
           {avatar}
           <div className="ct-call-dock-text">
@@ -94,18 +110,31 @@ export function CallDock({
             asks for, in the phone's own colours -- red hangs up, green
             answers, answer on the right. */}
         <div className="ct-call-dock-answer">
-          <button type="button" className="ct-call-answer reject" onClick={onReject}>
+          <button
+            type="button"
+            className="ct-call-answer reject"
+            onClick={onReject}
+            aria-keyshortcuts="Escape"
+          >
             <PhoneOutlined rotate={225} />
             Reddet
+            <kbd className="ct-kbd" aria-hidden="true">Esc</kbd>
           </button>
-          <button type="button" className="ct-call-answer accept" onClick={onAccept}>
+          <button
+            type="button"
+            className="ct-call-answer accept"
+            onClick={onAccept}
+            aria-keyshortcuts="Enter"
+          >
             <PhoneOutlined />
             Kabul et
+            <kbd className="ct-kbd" aria-hidden="true">Enter</kbd>
           </button>
         </div>
 
         {onMuteCaller && (
           <button type="button" className="ct-call-dock-mute" onClick={onMuteCaller}>
+            <BellOutlined aria-hidden="true" />
             Bu kişinin aramalarını sessize al
           </button>
         )}
