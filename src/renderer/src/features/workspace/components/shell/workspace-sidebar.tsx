@@ -1,5 +1,5 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Switch, Modal, Select, Input, InputNumber, Tooltip } from "antd";
 import {
   CheckOutlined,
@@ -164,6 +164,7 @@ export function WorkspaceSidebar({
   // The server's answer stays in the dialog: a refusal under the field, a
   // success in place of the form.
   const [friendError, setFriendError] = useState<string | null>(null);
+  const friendInputRef = useRef<HTMLInputElement>(null);
   const [friendSent, setFriendSent] = useState<{ username: string; message: string } | null>(
     null,
   );
@@ -240,11 +241,18 @@ export function WorkspaceSidebar({
   // The modal is opened from the friends page, through the shell, so the field
   // is cleared on the transition rather than at the caller.
   useEffect(() => {
-    if (usersProps.isAddFriendOpen) {
-      setFriendUsername("");
-      setFriendError(null);
-      setFriendSent(null);
+    if (!usersProps.isAddFriendOpen) {
+      return;
     }
+    setFriendUsername("");
+    setFriendError(null);
+    setFriendSent(null);
+    // autoFocus alone sometimes loses to the dialog's focus lock, and the
+    // caret lands on the close button; the field takes it once the dialog is up.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => friendInputRef.current?.focus());
+    });
+    return () => cancelAnimationFrame(frame);
   }, [usersProps.isAddFriendOpen]);
 
   const handleAddFriendSubmit = async (): Promise<void> => {
@@ -382,6 +390,7 @@ export function WorkspaceSidebar({
                 }}
                 placeholder="kullanıcı adı"
                 maxLength={32}
+                ref={friendInputRef}
                 autoFocus
                 aria-invalid={friendError ? true : undefined}
                 aria-describedby="ct-add-friend-hint"
