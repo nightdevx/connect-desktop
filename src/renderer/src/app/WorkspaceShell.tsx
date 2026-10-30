@@ -358,8 +358,8 @@ function WorkspaceShell({
     isOpen: isConversationOpen,
   } = useOpenConversations(currentUserId);
 
-  // The Arkadaş Ekle modal lives in the sidebar header, but the friends home
-  // needs the same button, so the flag is up here and the modal stays there.
+  // The Arkadaş Ekle modal lives in the sidebar, but its button is on the
+  // friends page, so the flag is up here and the modal stays there.
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
 
   // ----- 1-TO-1 CALL SESSION -----
@@ -1305,8 +1305,8 @@ function WorkspaceShell({
     );
   }, [unreadByPeerIdWithCalls, friends.incomingRequests]);
 
-  // One object for both renderings of the friends home: the old panel and the
-  // Odak page take the same lists and the same actions.
+  // The friends page's lists and actions; the conversation panel reads the
+  // room ones for its header.
   const friendsHomeProps = {
     friends,
     directoryUsers,
@@ -1425,17 +1425,7 @@ function WorkspaceShell({
                 setViewPreference("sidebarOpen", isSidebarCollapsed)
               }
               usersProps={{
-                conversations,
-                onCloseConversation: closeSelectedConversation,
-                onOpenHome: openFriendsHome,
-                directoryUsers,
-                selectedUserId,
-                onUserSelect: selectConversationById,
-                unreadByUserId: unreadByPeerIdWithCalls,
                 friends,
-                callState: callState,
-                presenceStatus: selectedPresenceStatus,
-                onPresenceStatusChange: setSelectedPresenceStatus,
                 isAddFriendOpen,
                 onAddFriendOpenChange: setIsAddFriendOpen,
               }}

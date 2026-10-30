@@ -8,7 +8,6 @@ import type { ChatMessage } from "@shared/auth-contracts";
 import { LobbyChatPanel } from "@/features/workspace/components/lobby/lobby-chat-panel";
 import { DirectChatMessageRow } from "@/features/workspace/components/user/direct-chat-message-row";
 import { useThreadScroll } from "@/features/workspace/components/user/use-thread-scroll";
-import { FriendsHomePanel } from "@/features/workspace/components/user/friends-home-panel";
 
 // Absent before the change: the DM thread then renders the way it used to.
 const virtualModules = import.meta.glob(
@@ -338,76 +337,7 @@ const runScenario = async (name: "lobby" | "dm"): Promise<Record<string, unknown
   return result;
 };
 
-// The friends page is the longest list that is not a history. The directory is
-// friends-only, so this is one user's friend count; 500, all online, is far past
-// what anyone here has.
-const measureFriends = async (count: number): Promise<Record<string, unknown>> => {
-  const users = Array.from({ length: count }, (_, index) => ({
-    userId: `friend-${index}`,
-    username: `arkadas${index}`,
-    displayName: `Arkadaş ${index}`,
-    role: "user",
-    createdAt: new Date(0).toISOString(),
-    appOnline: true,
-    presence: "online",
-  }));
-  const friends = {
-    friendIds: users.map((user) => user.userId),
-    loadError: null,
-    incomingRequests: [],
-    outgoingRequests: [],
-    isLoading: false,
-    refresh: () => undefined,
-    isRefreshing: false,
-    pendingUserIds: [],
-    sendRequest: async () => ({ ok: true, message: "" }),
-    acceptRequest: async () => true,
-    removeFriend: async () => true,
-  };
-  const host = document.createElement("div");
-  host.style.cssText = "width:1000px;height:800px;display:flex";
-  document.body.appendChild(host);
-  const root = createRoot(host);
-  const start = performance.now();
-  flushSync(() =>
-    root.render(
-      <FriendsHomePanel
-        friends={friends as never}
-        directoryUsers={users as never}
-        currentUserId={ME}
-        onOpenConversation={() => undefined}
-        onAddFriend={() => undefined}
-      />,
-    ),
-  );
-  void host.offsetHeight;
-  const mountMs = Math.round(performance.now() - start);
-  await sleep(300);
-  const domNodes = host.querySelectorAll("*").length;
-  const renderedRows = host.querySelectorAll(".ct-list-item").length;
-
-  // The last friend is reachable, and drawn where the scrollbar says.
-  const body = host.querySelector<HTMLElement>(".ct-friends-home-body");
-  const lastName = users.map((user) => user.displayName).sort((a, b) => a.localeCompare(b, "tr")).at(-1) ?? "";
-  let lastRowVisible = false;
-  if (body) {
-    body.scrollTop = body.scrollHeight;
-    await sleep(300);
-    const bodyRect = body.getBoundingClientRect();
-    for (const row of body.querySelectorAll<HTMLElement>(".ct-list-item")) {
-      if (row.textContent?.includes(lastName)) {
-        const rect = row.getBoundingClientRect();
-        lastRowVisible = rect.bottom <= bodyRect.bottom + 1 && rect.top >= bodyRect.top;
-      }
-    }
-  }
-  root.unmount();
-  host.remove();
-  return { friends: count, mountMs, domNodes, renderedRows, lastRowVisible };
-};
-
 (window as unknown as { __run: () => Promise<unknown> }).__run = async () => ({
   lobby: await runScenario("lobby"),
   dm: await runScenario("dm"),
-  friends: await measureFriends(500),
 });

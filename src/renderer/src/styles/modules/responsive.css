@@ -233,14 +233,4 @@
   .ct-quick-idle-meta span {
     @apply hidden;
   }
-
-  /* Same trade on the friends page: the description is read once and then costs
-     a row of the list forever. The title, the tabs and the search box stay. */
-  .ct-friends-home-header {
-    @apply pb-2 pt-3;
-  }
-
-  .ct-friends-home-header p {
-    @apply hidden;
-  }
 }

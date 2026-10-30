@@ -230,46 +230,6 @@ border-color: var(--ct-border-strong);
 background: var(--ct-panel-raised);
 }
 
-/* --------------------------------------------------------------------------
-   Control sizing
-
-   Four sizes, and the icon inside each is fixed to its pair. There used to be
-   seven button sizes -- 24, 28, 32, 36, 40, 48 and 54px -- each pairing with a
-   different icon size, so two buttons sitting in the same row carried
-   different optical weight.
-
-     xs 24 / icon 14    sm 32 / icon 16    md 40 / icon 18    lg 48 / icon 20
-   -------------------------------------------------------------------------- */
-
-.ct-list {
-@apply m-0 flex list-none flex-col gap-0.5 p-0;
-}
-
-/* px-3 is the same 12px the sidebar body uses, so a row's content starts at
-   exactly 24px from the panel edge -- the same place as the search icon. */
-.ct-list-item {
-@apply flex items-center justify-between gap-3 rounded-md border px-3 py-2;
-border-color: transparent;
-background: transparent;
-}
-
-.ct-list-item.clickable {
-cursor: pointer;
-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ct-list-item.clickable:hover:not(.active) {
-border-color: var(--ct-alpha-08);
-background: var(--ct-alpha-04);
-}
-
-/* The selected row is a wash, as the lobby rows and the settings tabs are:
-   an accent-filled row was the loudest thing in the sidebar for the one row
-   the user already knows about. */
-.ct-list-item.clickable.active {
-background: var(--ct-alpha-08);
-}
-
 /* A count on a row: unread messages, waiting requests. Red, because it asks
    for attention -- the colour the rest of the app uses for exactly that. */
 .ct-count-badge {

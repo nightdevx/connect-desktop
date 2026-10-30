@@ -263,9 +263,7 @@
 :is(.ct-sidebar.collapsed, .ct-admin-sidebar.collapsed)
   :is(
     .ct-list-group-title,
-    .ct-presence-picker,
     .ct-list-state,
-    .ct-list-item-close,
     .ct-minigames-sidebar-note,
     .ct-minigames-tab-best,
     .ct-minigames-tab-seats,
@@ -280,8 +278,6 @@
     .ct-settings-tab-label,
     .ct-minigames-tab-label,
     .ct-free-games-tab-label,
-    .ct-list-user-meta,
-    .ct-list-home > span:not(.ct-count-badge, .anticon),
     .ct-admin-nav-item > span:not(.anticon)
   ) {
   @apply sr-only;
@@ -292,8 +288,6 @@
     .ct-settings-tab,
     .ct-minigames-tab,
     .ct-free-games-tab,
-    .ct-list-home,
-    .ct-list-item,
     .ct-admin-nav-item
   ) {
   position: relative;
@@ -302,18 +296,6 @@
   margin-inline: auto;
   padding-inline: 0;
   gap: 0;
-}
-
-.ct-sidebar.collapsed .ct-list-user {
-  flex: none;
-}
-
-/* An unread count rides the icon's corner instead of the row's end. */
-.ct-sidebar.collapsed :is(.ct-list-home, .ct-list-item) .ct-count-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  margin: 0;
 }
 
 
@@ -365,65 +347,6 @@
 .ct-sidebar-search .ant-input-prefix {
   margin-inline-end: 8px;
   color: var(--ct-text-muted);
-}
-
-.ct-presence-picker {
-  @apply flex h-control-md shrink-0 items-center gap-2 rounded-md border px-3;
-  border-color: var(--ct-border);
-  background: var(--ct-alpha-02);
-}
-
-.ct-presence-picker .ant-select {
-  @apply min-w-0 flex-1;
-}
-
-.ct-presence-picker .ant-select-selector {
-  padding-inline: 0 !important;
-}
-
-.ct-presence-swatch {
-  @apply h-2.5 w-2.5 shrink-0 rounded-full;
-}
-
-/* --------------------------------------------------------------------------
-   Sidebar list rows
-   -------------------------------------------------------------------------- */
-
-.ct-list-user {
-  @apply flex min-w-0 flex-1 items-center gap-3;
-}
-
-.ct-list-user-meta {
-  @apply flex min-w-0 flex-col;
-}
-
-.ct-list-user-meta p {
-  @apply m-0 flex min-w-0 items-center gap-1.5 truncate font-semibold leading-tight;
-  font-size: 13px;
-  color: var(--ct-text-primary);
-}
-
-/* The subtitle: the direct child only. A bare descendant selector also caught
-   the name's own truncating <span> inside the <p>, and the calling icon beside
-   it, so names rendered at subtitle size in the muted colour. */
-.ct-list-user-meta > span {
-  @apply truncate text-2xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-list-item.unread .ct-list-user-meta p {
-  @apply font-bold;
-}
-
-/* Unread: the name in bold (above) and the preview a step brighter. */
-.ct-list-item.unread .ct-list-user-meta > span {
-  color: var(--ct-text-secondary);
-}
-
-.ct-calling-icon {
-  color: var(--ct-success);
-  font-size: var(--ct-icon-xs);
-  animation: callIconPulse 1.2s infinite ease-in-out;
 }
 
 .ct-audio-connection-anchor {
@@ -657,65 +580,6 @@
   @apply m-0 flex items-center gap-2 text-micro font-bold uppercase tracking-[0.12em];
   padding-inline: 12px;
   color: var(--ct-text-muted);
-}
-
-/* Outside .ct-list-user, which is the flex-1 half: that is what makes a long
-   name truncate rather than squeeze the accept and reject buttons. */
-.ct-list-item-actions {
-  @apply flex shrink-0 items-center gap-0.5;
-}
-
-/* --------------------------------------------------------------------------
-   Conversation row: close on hover, and the way back to the friends home
-   -------------------------------------------------------------------------- */
-
-/* Hidden rather than removed, so the row's width does not jump on hover and
-   push the unread badge sideways. Kept reachable by keyboard: :focus-visible
-   brings it back for someone who never hovers anything. */
-.ct-list-item-close {
-  @apply grid h-5 w-5 shrink-0 place-items-center rounded border-0 bg-transparent p-0;
-  color: var(--ct-text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity 120ms ease,
-    color 120ms ease,
-    background-color 120ms ease;
-}
-
-.ct-list-item:hover .ct-list-item-close,
-.ct-list-item-close:focus-visible {
-  opacity: 1;
-}
-
-.ct-list-item-close:hover {
-  background: var(--ct-surface-raised);
-  color: var(--ct-text-primary);
-}
-
-/* A navigation row, set like the settings and admin menus: 13px, muted until
-   it is the page on screen. */
-.ct-list-home {
-  @apply mb-1 flex w-full items-center gap-2.5 rounded-md border-0 text-left font-medium;
-  padding: 9px 12px;
-  font-size: 13px;
-  background: transparent;
-  color: var(--ct-text-muted);
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.ct-list-home:hover {
-  background: var(--ct-alpha-04);
-  color: var(--ct-text-primary);
-}
-
-.ct-list-home.active {
-  background: var(--ct-alpha-08);
-  color: var(--ct-text-primary);
-  font-weight: 600;
 }
 
 /* ==========================================================================

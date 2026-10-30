@@ -30,7 +30,7 @@ import type {
   StreamPreferences,
 } from "../settings/settings-main-panel-types";
 import { UsersDirectMessagesPanel } from "../user";
-import type { FriendsHomePanelProps } from "../user";
+import type { FriendsHomeProps } from "../odak/odak-friends-page";
 import type {
   ParticipantMediaMap,
   RemoteParticipantAudioPreference,
@@ -159,9 +159,9 @@ interface WorkspaceMainPanelProps {
   onToggleCamera: () => void;
   onLeaveLobby: () => void;
   selectedUser: UserDirectoryEntry | null;
-  // What stands in for a conversation when none is selected. currentUserId is
-  // already a prop of the panel below, so it is filled in there.
-  friendsHome: Omit<FriendsHomePanelProps, "currentUserId">;
+  // The friends page's lists and actions: the conversation header and the
+  // lobby's participant menu read from them.
+  friendsHome: FriendsHomeProps;
   onCopyUsername: (username: string) => Promise<void>;
   directMessagesProps: {
     directMessagesQuery: UseDirectMessagesResult["directMessagesQuery"];
@@ -284,9 +284,8 @@ export function WorkspaceMainPanel({
   onEndActiveCall,
   onRejoinCall,
 }: WorkspaceMainPanelProps) {
-  // The friends home fills the no-selection case now, so the users section owns
-  // its whole panel: keeping the selectedUser test would have stacked the
-  // "Arkadaşlar / Hoş geldin" intro on top of a screen that already has a title.
+  // The users section owns its whole panel: the conversation has its own
+  // header, and with none open the Odak friends page covers this panel.
   // Settings is here for the same reason: every settings page opens with its
   // own title, icon and description, so the generic "Ayarlar / Hoş geldin"
   // above it was a second header that named the section less precisely than the
@@ -318,7 +317,9 @@ export function WorkspaceMainPanel({
       <div
         className={`ct-main-panel-content ${workspaceSection === "users" ? "chat-mode" : workspaceSection === "lobbies" ? "lobby-mode" : ""}`}
       >
-        {workspaceSection === "users" && (
+        {/* Only with a conversation open: without one the Odak friends page
+            covers the whole workspace and nothing is drawn under it. */}
+        {workspaceSection === "users" && selectedUser && (
           <UsersDirectMessagesPanel
             currentUserId={currentUserId}
             currentUserRole={currentUserRole}

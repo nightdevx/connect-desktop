@@ -8,12 +8,7 @@ import {
   UserAddOutlined,
 } from "@ant-design/icons";
 import { ModalHeading } from "@/ui/modal-heading";
-import type {
-  FriendEntry,
-  LobbyDescriptor,
-  SelectablePresenceStatus,
-  UserDirectoryEntry,
-} from "@shared/auth-contracts";
+import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
   LobbyStateMember,
@@ -27,14 +22,11 @@ import type {
   LiveKitConnectionStatus,
   RemoteParticipantAudioPreference,
 } from "@/features/livekit";
-import type { CallSessionState } from "../../hooks/user/use-call-session";
 import type { FriendsController } from "../../hooks/user/use-friends";
-import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { FreeGamesSidebarPanel } from "@/features/free-games";
 import { MinigamesSidebarPanel } from "@/features/minigames";
 import { LobbiesCompactList, LobbiesSidebarPanel } from "../lobby";
 import { SettingsSidebarTabs } from "../settings";
-import { UsersSidebarPanel } from "../user";
 import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { SEED_ADMIN_ID } from "@/features/auth";
@@ -47,22 +39,11 @@ interface WorkspaceSidebarProps {
   /** Folded to a strip of icons (room badges in Lobiler), so the page gets the width. */
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  // Arkadaşlar draws its own page over the shell (OdakFriendsPage); this
+  // sidebar is hidden there and only keeps the Arkadaş Ekle modal, which the
+  // page's button opens through the shell.
   usersProps: {
-    conversations: OpenConversation[];
-    onCloseConversation: (userId: string) => void;
-    /** Clears the selection without closing anything. */
-    onOpenHome: () => void;
-    /** Friends + self: presence and status labels only, never names. */
-    directoryUsers: UserDirectoryEntry[];
-    selectedUserId: string | null;
-    onUserSelect: (userId: string) => void;
-    unreadByUserId: Record<string, number>;
     friends: FriendsController;
-    callState?: CallSessionState;
-    presenceStatus: SelectablePresenceStatus;
-    onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
-    // Owned by the shell because the friends home has the same button, and the
-    // modal itself stays here in the header where the + lives.
     isAddFriendOpen: boolean;
     onAddFriendOpenChange: (open: boolean) => void;
   };
@@ -237,16 +218,8 @@ export function WorkspaceSidebar({
     setNewLobbyPassword("");
   };
 
-  const handleAddFriendClick = (): void => {
-    if (workspaceSection !== "users") {
-      return;
-    }
-
-    usersProps.onAddFriendOpenChange(true);
-  };
-
-  // The modal is opened from two places now — this header and the friends home —
-  // so the field is cleared on the transition rather than at one of the callers.
+  // The modal is opened from the friends page, through the shell, so the field
+  // is cleared on the transition rather than at the caller.
   useEffect(() => {
     if (usersProps.isAddFriendOpen) {
       setFriendUsername("");
@@ -521,21 +494,6 @@ export function WorkspaceSidebar({
             />
           )}
 
-          {workspaceSection === "users" && (
-            <UsersSidebarPanel
-              conversations={usersProps.conversations}
-              onCloseConversation={usersProps.onCloseConversation}
-              onOpenHome={usersProps.onOpenHome}
-              directoryUsers={usersProps.directoryUsers}
-              selectedUserId={usersProps.selectedUserId}
-              onUserSelect={usersProps.onUserSelect}
-              unreadByUserId={usersProps.unreadByUserId}
-              friends={usersProps.friends}
-              callState={usersProps.callState}
-              currentUserId={lobbiesProps.currentUserId}
-            />
-          )}
-
           {workspaceSection === "free-games" && <FreeGamesSidebarPanel />}
 
           {workspaceSection === "minigames" && <MinigamesSidebarPanel />}
@@ -558,18 +516,6 @@ export function WorkspaceSidebar({
 
       <header className="ct-sidebar-header">
         <h3>{sectionTitle}</h3>
-
-        {workspaceSection === "users" && (
-          <button
-            type="button"
-            className="ct-sidebar-header-action"
-            onClick={handleAddFriendClick}
-            title="Arkadaş ekle"
-            aria-label="Arkadaş ekle"
-          >
-            <PlusOutlined />
-          </button>
-        )}
 
         {workspaceSection === "lobbies" && (
           <button
@@ -599,23 +545,6 @@ export function WorkspaceSidebar({
       </header>
 
       <div className="ct-sidebar-body">
-        {workspaceSection === "users" && (
-          <UsersSidebarPanel
-            conversations={usersProps.conversations}
-            onCloseConversation={usersProps.onCloseConversation}
-            onOpenHome={usersProps.onOpenHome}
-            directoryUsers={usersProps.directoryUsers}
-            selectedUserId={usersProps.selectedUserId}
-            onUserSelect={usersProps.onUserSelect}
-            unreadByUserId={usersProps.unreadByUserId}
-            friends={usersProps.friends}
-            presenceStatus={usersProps.presenceStatus}
-            onPresenceStatusChange={usersProps.onPresenceStatusChange}
-            callState={usersProps.callState}
-            currentUserId={lobbiesProps.currentUserId}
-          />
-        )}
-
         {workspaceSection === "lobbies" && (
           <LobbiesSidebarPanel
             lobbiesQuery={lobbiesProps.lobbiesQuery}
@@ -659,7 +588,8 @@ export function WorkspaceSidebar({
         )}
       </div>
 
-      {workspaceSection !== "settings" && workspaceSection !== "free-games" && (
+      {/* Not in Arkadaşlar either: the sidebar is hidden under its page. */}
+      {(workspaceSection === "lobbies" || workspaceSection === "minigames") && (
         <WorkspaceAudioStatus
           activeLobbyId={lobbiesProps.voiceRoomId ?? lobbiesProps.activeLobbyId}
           liveKitConnectionState={liveKitConnectionState}

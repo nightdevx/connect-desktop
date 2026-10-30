@@ -45,7 +45,7 @@ import {
   useMentionPicker,
 } from "../common/mention-picker";
 import { ConfirmActionModal } from "../common";
-import { FriendsHomePanel, type FriendsHomePanelProps } from "./friends-home-panel";
+import type { FriendsHomeProps } from "../odak/odak-friends-page";
 import {
   ChatAttachButton,
   ChatComposerEmojiButton,
@@ -188,10 +188,8 @@ interface UsersDirectMessagesPanelProps {
   currentUserId: string;
   currentUserRole: string;
   selectedUser: UserDirectoryEntry | null;
-  // The friends home stands in for a selected conversation, so everything it
-  // needs arrives as one object the shell hands over in a single line. Optional
-  // only so the shell can be wired after this panel; the empty state is gone.
-  friendsHome?: Omit<FriendsHomePanelProps, "currentUserId">;
+  // The friends page's data: the header reads who is in which room from it.
+  friendsHome?: FriendsHomeProps;
   onCopyUsername: (username: string) => Promise<void>;
   /** Back to the friends page; the conversation stays in the sidebar. */
   onCloseConversation?: () => void;
@@ -1150,13 +1148,10 @@ export function UsersDirectMessagesPanel({
   );
 
   return (
-    // friends-mode drops the panel's gutter: the friends home is banded --
-    // header, toolbar, list -- and its dividers have to reach the panel edge.
-    // The thread view keeps the gutter it has always had.
     <article
-      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""} ${selectedUser ? (isCallActive ? "" : "dm") : "friends-mode"}`}
+      className={`ct-chat-panel ct-chat-panel-plain ${isCallActive ? "in-call" : ""} ${selectedUser && !isCallActive ? "dm" : ""}`}
     >
-      {selectedUser ? (
+      {selectedUser && (
         <>
           {isCallActive ? (
             <div className="ct-call-split">
@@ -1603,10 +1598,6 @@ export function UsersDirectMessagesPanel({
             }}
           />
         </>
-      ) : (
-        friendsHome && (
-          <FriendsHomePanel {...friendsHome} currentUserId={currentUserId} />
-        )
       )}
     </article>
   );

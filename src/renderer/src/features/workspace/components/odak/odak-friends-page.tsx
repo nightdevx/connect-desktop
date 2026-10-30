@@ -14,8 +14,8 @@ import {
 } from "@ant-design/icons";
 import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
+import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
-import type { FriendsHomePanelProps } from "../user/friends-home-panel";
 import { UserProfileCardAnchor } from "../user/user-profile-card";
 import { GameArt } from "../user/game-art";
 import { ConfirmActionModal } from "../common";
@@ -27,13 +27,34 @@ import type { OdakRailProps } from "./odak-rail";
 
 /**
  * The Arkadaşlar section in the "Odak" design: the section rail, the strip of
- * open conversations, and the friends home with the same lists, actions and
- * rules as FriendsHomePanel, drawn the new way.
+ * open conversations, and the friends home.
  *
  * With a conversation open it docks to the rail and the strip, and the shell's
- * own conversation panel shows beside it: messages, calls and attachments keep
- * the code they already have until that screen is redrawn too.
+ * own conversation panel shows beside it.
  */
+
+/** The friends home's lists and actions; the conversation header reads the room ones too. */
+export interface FriendsHomeProps {
+  friends: FriendsController;
+  directoryUsers: UserDirectoryEntry[];
+  onOpenConversation: (peer: OpenConversation) => void;
+  // Opens the Arkadaş Ekle modal the shell owns. With a friends-only directory
+  // this is the only route to someone you are not already friends with.
+  onAddFriend: () => void;
+  // This list is exactly the set of people you may call, so the phone belongs
+  // on the card: reaching it used to mean opening the DM thread first.
+  onInitiateCall?: (targetUser: UserDirectoryEntry) => void;
+  // Which voice room each person is in, off the live rosters: the page answers
+  // "where is everybody" with it, and offers the way in.
+  lobbyByUserId?: Record<string, { id: string; name: string }>;
+  // The room this user is already in, so a friend beside them is not offered
+  // a "Katıl" that would do nothing.
+  currentLobbyId?: string | null;
+  // Switches to Lobiler and joins through the same funnel as a click on the
+  // room, password prompt and full-room handling included.
+  onJoinLobby?: (lobbyId: string) => void;
+  onCopyUsername?: (username: string) => Promise<void>;
+}
 
 const SearchIcon = () => (
   <Icon size={15}>
@@ -118,7 +139,7 @@ export interface OdakFriendsPageProps extends Omit<OdakRailProps, "activeSection
   onCloseConversation: (userId: string) => void;
   stripCollapsed: boolean;
   onToggleStrip: () => void;
-  home: Omit<FriendsHomePanelProps, "currentUserId">;
+  home: FriendsHomeProps;
   /** The shell's quick-controls dock: microphone, output, the call row, a live share. */
   dock?: ReactNode;
 }
@@ -320,8 +341,8 @@ export function OdakFriendsPage({
       );
     };
 
-  // ponytail: one antd Dropdown per card; a few hundred friends would want the
-  // virtualised list FriendsHomePanel uses.
+  // ponytail: one antd Dropdown per card; a few hundred friends would want a
+  // virtualised list (@tanstack/react-virtual, as the chat threads use).
   const renderFriendCard = (user: UserDirectoryEntry, order = 0): ReactNode => {
     const name = nameOf(user);
     const activity = activityOf(user);

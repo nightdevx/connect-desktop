@@ -3,9 +3,7 @@
 // keystroke, scroll frame times, and the three scroll behaviours a long thread
 // has to keep (lands on the newest message, follows new ones at the bottom,
 // keeps the row being read in place when a new message or an older page lands,
-// keeps an edit in progress when its row scrolls away). It also opens the
-// friends page with 500 friends, the longest list that is not a history, and
-// scrolls to the last one.
+// keeps an edit in progress when its row scrolls away).
 //
 // The page is measure-chat-history.page.tsx, built with the renderer's
 // stylesheet so rows have their real heights, and loaded in a window that is
@@ -107,9 +105,6 @@ const runInElectron = () => {
         }
         if (scenario.virtualized && scenario.renderedRows > 100) {
           failures.push(`${name}.renderedRows = ${scenario.renderedRows}`);
-        }
-        if (name === "friends" && scenario.lastRowVisible !== true) {
-          failures.push("friends: the last friend was not on screen after scrolling to the end");
         }
       }
       if (failures.length > 0) {
