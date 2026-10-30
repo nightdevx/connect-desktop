@@ -613,6 +613,14 @@
   color: var(--odak-muted);
 }
 
+/* Short of room only the name gives way: "3 / 20" broke over two lines
+   beside "Oyun …". */
+:root[data-odak] .ct-lobby-room-identity .ct-lobby-room-meta-item,
+:root[data-odak] .ct-lobby-room-header .ct-live-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 :root[data-odak] .ct-lobby-room-header .ct-live-chip {
   height: 22px;
   padding: 0 8px;
@@ -701,6 +709,16 @@
   :root[data-odak] .ct-lobby-stage-panel {
     --ct-stage-pad-x: 12px;
     --ct-stage-pad-y: 10px;
+  }
+
+  /* The pill above a stage this narrow: tighter, so the name keeps a word. */
+  :root[data-odak] .ct-lobby-room-header {
+    gap: 8px;
+    padding: 0 12px 0 10px;
+  }
+
+  :root[data-odak] .ct-lobby-room-identity {
+    gap: 6px;
   }
 
   :root[data-odak] .ct-lobby-room-grid-v2.stage-closed .ct-lobby-chat-slot {
@@ -916,6 +934,16 @@
   color: #c9ccd2;
   background: rgba(14, 15, 17, 0.8);
   box-shadow: none;
+}
+
+/* A call's waiting tile under 250px has no height for the face, the ringing
+   word and the name pill stacked (at 960px the word was cut off at the
+   tile's foot). The ripple round the face and the stage's own "Aranıyor"
+   pill still say it. */
+@container participant-tile (max-width: 250px) {
+  :root[data-odak] .ct-lobby-tile-ringing {
+    display: none;
+  }
 }
 
 /* A thumbnail-sized tile (a crowded stage squeezed beside the chat, the
@@ -1199,23 +1227,26 @@
   }
 }
 
-/* A stage squeezed beside the chat in a small window: smaller controls, no
-   dividers, and the row may wrap rather than run off the stage. */
+/* A stage squeezed beside the chat in a small window: no dividers, and the
+   controls shrink with the stage (eight of them and the stage's margin in
+   100cqi) so the row stays one row; it used to wrap into a 2x4 block. The
+   tooltips still name every control. */
 @container lobby-stage (max-width: 420px) {
   :root[data-odak] .ct-lobby-stage-actions {
-    --ct-tool-size: 36px;
-    gap: 3px;
+    --ct-tool-size: clamp(22px, (100cqi - 64px) / 8, 36px);
+    flex-wrap: nowrap;
+    gap: 2px;
     padding: 4px;
     border-radius: 14px;
   }
 
   :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn {
     border-radius: 10px;
-    font-size: 16px;
+    font-size: clamp(13px, var(--ct-tool-size) * 0.45, 16px);
   }
 
   :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.danger {
-    width: 44px;
+    width: calc(var(--ct-tool-size) + 8px);
   }
 
   :root[data-odak] .ct-lobby-action-divider {

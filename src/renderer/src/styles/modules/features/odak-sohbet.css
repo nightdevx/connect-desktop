@@ -897,6 +897,16 @@
   border-color: transparent;
 }
 
+/* As in a room (odak-lobiler.css): the chat gives way before the stage drops
+   under 264px (280 with the drawer's margin). At 800px the 300px drawer left
+   the stage 122px and its controls in a 2x4 block. Under 760px
+   responsive.css lays the drawer over the stage instead. */
+@media (min-width: 761px) {
+  :root[data-odak] .ct-chat-panel .ct-call-chat-drawer:not(.closed) {
+    width: clamp(200px, min(30vw, 100% - 280px), 350px);
+  }
+}
+
 :root[data-odak] .ct-chat-panel .ct-call-chat-drawer-header {
   min-height: 52px;
   padding: 0 8px 0 16px;
