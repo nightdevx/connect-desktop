@@ -1,5 +1,4 @@
-import type { CSSProperties } from "react";
-import { Avatar, Button, Tooltip } from "antd";
+import { Button, Tooltip } from "antd";
 import {
   KeyOutlined,
   LoadingOutlined,
@@ -10,7 +9,7 @@ import {
 import type { LobbyDescriptor, LobbyStateMember } from "@shared/auth-contracts";
 import { AuthLogoMark } from "@/features/auth";
 import { PageHeader } from "@/ui/page-header";
-import { getDisplayInitials, getUsernameHue } from "../../../workspace-utils";
+import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
 
 interface LobbySelectionScreenProps {
   activeLobbyId: string | null;
@@ -175,19 +174,22 @@ export function LobbySelectionScreen({
                             <span className="ct-lobby-select-faces">
                               {faces.map((member) => (
                                 <Tooltip key={member.userId} title={member.username}>
-                                  <Avatar
-                                    size={26}
-                                    src={avatarByUserId[member.userId] ?? undefined}
-                                    className="ct-lobby-select-face"
-                                    // The same per-person hue the room's name
-                                    // colours use, so a face without a picture
-                                    // is still told apart from its neighbour.
-                                    style={
-                                      { "--ct-name-h": getUsernameHue(member.userId) } as CSSProperties
-                                    }
+                                  {/* A plain span, not antd's Avatar: antd measures
+                                      the initials after mount, which forced style and
+                                      layout inside the click that opens Lobiler (F7.5).
+                                      The same per-person hue the room's name colours
+                                      use, so a face without a picture is still told
+                                      apart from its neighbour. */}
+                                  <span
+                                    className="ct-odak-avatar ct-lobby-select-face"
+                                    style={hueStyle(member.userId)}
                                   >
-                                    {getDisplayInitials(member.username)}
-                                  </Avatar>
+                                    {avatarByUserId[member.userId] ? (
+                                      <img src={avatarByUserId[member.userId] ?? undefined} alt="" />
+                                    ) : (
+                                      getDisplayInitials(member.username)
+                                    )}
+                                  </span>
                                 </Tooltip>
                               ))}
                               {overflow > 0 && (

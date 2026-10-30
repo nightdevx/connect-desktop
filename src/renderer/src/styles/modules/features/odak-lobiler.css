@@ -190,12 +190,8 @@
   color: #c9ccd2;
 }
 
-:root[data-odak] .ct-lobby-member-avatar.ant-avatar {
-  font-size: 9px;
-}
-
 /* Talking: the stage's lime ring, around the face. */
-:root[data-odak] .ct-lobby-member-avatar.speaking.ant-avatar {
+:root[data-odak] .ct-lobby-member-avatar.speaking.ct-odak-avatar {
   border-color: var(--odak-accent);
   box-shadow: 0 0 0 2px rgba(198, 244, 50, 0.3);
 }
@@ -475,7 +471,7 @@
   color: var(--odak-accent);
 }
 
-:root[data-odak] .ct-lobby-select-face.ant-avatar,
+:root[data-odak] .ct-lobby-select-face.ct-odak-avatar,
 :root[data-odak] .ct-lobby-select-face.more {
   border-color: var(--odak-surface);
 }
