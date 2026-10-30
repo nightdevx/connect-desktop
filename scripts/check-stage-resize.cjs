@@ -18,6 +18,11 @@
 //   LATE MOUNT  a stage that appears after the hook first ran (a 1:1 call
 //               starting in an open conversation) is measured as it mounts.
 //   LATEST      two sizes reported before the next frame: the second wins.
+//   SETTLE      a transition that ends in steps each under the growth
+//               threshold: the steps wait, and the size it ends on lands once
+//               the box stops moving. Folding the sidebar left two people a
+//               column of 360px apiece in a 736px stage that fits them side by
+//               side at 361px.
 //
 // And a stage smaller than the 240x160 the fit used to treat as its floor (the
 // old design at 901-930px with the sidebar and the chat open): the tiles get
@@ -326,6 +331,24 @@ const main = async () => {
       frame();
       expectFit(578, 470, "the last size before the frame");
     },
+    // Two people, chat closed, the sidebar folding: 722 lands, 729 is a step
+    // under the threshold, 732 lands, then 734/735/736 each wait.
+    SETTLE: () => {
+      people = 2;
+      chatOpen = false;
+      const stage = box(700, 420);
+      start(stage);
+      for (const width of [712, 722, 729, 732, 734, 735, 736]) {
+        report(stage, width, 420);
+        frame();
+      }
+      expectFit(732, 420, "the steps under the threshold wait");
+      settle();
+      expectFit(736, 420, "the box stopped: the size it ended on");
+      assert.ok(fits(2, fitted(current.stageLayoutStyle), 736, 420, 14), "two side by side fit 736px");
+      people = 4;
+      chatOpen = true;
+    },
   };
   const failures = [];
   for (const [name, run] of Object.entries(cases)) {
@@ -364,7 +387,7 @@ const main = async () => {
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    "stage-resize self-check passed (shrinks always land, growth waits, fit holds down to tiny stages, the box on screen is the one measured, focused share keeps 16:9)",
+    "stage-resize self-check passed (shrinks always land, growth waits and lands once the box stops, fit holds down to tiny stages, the box on screen is the one measured, focused share keeps 16:9)",
   );
 };
 

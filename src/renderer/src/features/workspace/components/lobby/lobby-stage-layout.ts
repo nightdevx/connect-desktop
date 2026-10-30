@@ -36,6 +36,8 @@ const DEFAULT_STAGE_WIDTH_NO_CHAT = 1360;
 const DEFAULT_STAGE_HEIGHT = 620;
 const MAX_COLUMNS = 7;
 const RESIZE_DELTA_THRESHOLD = 8;
+// How long the box has to stay put before growth the threshold held back lands.
+const RESIZE_SETTLE_MS = 100;
 
 export interface StageSize {
   width: number;
@@ -51,6 +53,9 @@ export interface StageSize {
  * column transition ends in steps smaller than the threshold, and they were all
  * skipped: a stage that settled at 1086px stayed fitted to 1089, and three
  * tiles wrapped into one column that overflowed under the room header.
+ *
+ * Growth it holds back is not dropped: the hook passes the last size again,
+ * forced, once the box has stopped moving (RESIZE_SETTLE_MS).
  */
 export function nextStageSize(
   previous: StageSize,
@@ -257,9 +262,22 @@ export function useLobbyStageLayout(
     // 542px but stayed fitted to 556, and the tiles ran 14px under the edge.
     let pendingSize: StageSize | null = null;
     let resizeFrame: number | null = null;
+    // Growth under the threshold waits, but only while the box is moving: a
+    // transition ends in steps smaller than the threshold, and with every one
+    // of them skipped the fit stayed a few pixels short for good. After the
+    // sidebar folded, two people were left stacked in a 736px stage that fits
+    // them side by side.
+    let settleTimer: number | null = null;
 
     const scheduleResize = (nextSize: StageSize): void => {
       pendingSize = nextSize;
+      if (settleTimer !== null) {
+        window.clearTimeout(settleTimer);
+      }
+      settleTimer = window.setTimeout(() => {
+        settleTimer = null;
+        applySize(nextSize, true);
+      }, RESIZE_SETTLE_MS);
       if (resizeFrame !== null) {
         return;
       }
@@ -291,6 +309,9 @@ export function useLobbyStageLayout(
 
       if (resizeFrame !== null) {
         window.cancelAnimationFrame(resizeFrame);
+      }
+      if (settleTimer !== null) {
+        window.clearTimeout(settleTimer);
       }
     };
   }, [stageArea]);
