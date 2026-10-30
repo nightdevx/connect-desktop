@@ -14,6 +14,17 @@
   --ct-admin-block: 16px;
 }
 
+/* "Info" in the mock-up's blue (its feed dot), not the old theme's #3B82F6:
+   the status dots, the info states and tiles, the info alert's icon. 7.2:1 on
+   a card. Only here: elsewhere white text sits on --ct-info. */
+:root[data-odak] :is(.ct-admin-panel-shell, .ct-admin-drawer) {
+  --ct-info: #7da2ff;
+}
+
+:root[data-odak] :is(.ct-admin-panel-shell, .ct-admin-drawer) .ant-alert-info .ant-alert-icon {
+  color: var(--ct-info);
+}
+
 /* --- the nav ----------------------------------------------------------- */
 /* Group titles in small capitals, rows of words: 36px, the one on screen
    raised and lime. The icons only show on the folded strip. */
