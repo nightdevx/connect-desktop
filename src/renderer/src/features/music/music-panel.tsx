@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Modal, Slider, Tooltip } from "antd";
 import type { InputRef } from "antd";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import {
   ClearOutlined,
   CustomerServiceOutlined,
@@ -151,7 +151,7 @@ export function MusicModal({
       open={open}
       onCancel={onClose}
       footer={null}
-      width={520}
+      width={MODAL_WIDTH.m}
       destroyOnHidden
     >
       <div className="ct-music-body">

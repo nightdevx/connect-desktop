@@ -6,7 +6,7 @@ import {
   SoundOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import {
   CUSTOM_EMOTE_PREFIX,
   LOBBY_SOUND_EMOTES,
@@ -330,7 +330,7 @@ export function SoundEmoteMenu({
         title={
           <ModalHeading
             icon={<SoundOutlined />}
-            title="Sesi Adlandır"
+            title="Sesi adlandır"
             description="Emote panosunda herkesin göreceği adı yaz."
           />
         }
@@ -338,7 +338,8 @@ export function SoundEmoteMenu({
         onOk={() => void confirmUpload()}
         onCancel={() => setPending(null)}
         okText="Yükle"
-        cancelText="İptal"
+        cancelText="Vazgeç"
+        width={MODAL_WIDTH.s}
         okButtonProps={{
           loading: library.isUploading,
           disabled: pendingName.trim().length === 0,
@@ -347,7 +348,7 @@ export function SoundEmoteMenu({
       >
         <div className="ct-modal-form">
           <label className="ct-field" htmlFor="emote-name">
-            <span>Ses Adı</span>
+            <span>Ses adı</span>
             <Input
               id="emote-name"
               value={pendingName}

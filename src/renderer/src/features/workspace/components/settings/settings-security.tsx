@@ -7,7 +7,7 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { authService } from "@/features/auth";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { SettingsTwoFactor } from "./settings-two-factor";
 import { toast } from "@/services/toast";
@@ -52,12 +52,12 @@ export function SettingsSecurity() {
 
   const handleDeleteAccount = async (): Promise<void> => {
     if (deleteConfirmWord.trim().toLocaleUpperCase("tr-TR") !== DELETE_CONFIRM_WORD) {
-      toast.warning(`Onaylamak için "${DELETE_CONFIRM_WORD}" yazın.`);
+      toast.warning(`Onaylamak için "${DELETE_CONFIRM_WORD}" yaz.`);
       return;
     }
 
     if (deletePassword.length < 8) {
-      toast.warning("Şifrenizi girin.");
+      toast.warning("Şifreni yaz.");
       return;
     }
 
@@ -262,12 +262,13 @@ export function SettingsSecurity() {
           <ModalHeading
             tone="danger"
             icon={<DeleteOutlined />}
-            title="Hesabı Sil"
-            description={`Hesabınız hemen devre dışı bırakılacak ve ${DELETION_GRACE_DAYS} gün sonra kalıcı olarak silinecek. Bu süre içinde giriş yaparak geri alabilirsiniz.`}
+            title="Hesabı sil"
+            description="Şifreni ve onay sözcüğünü yaz."
           />
         }
-        okText="Hesabımı Sil"
+        okText="Hesabımı sil"
         cancelText="Vazgeç"
+        width={MODAL_WIDTH.s}
         confirmLoading={isDeletingAccount}
         okButtonProps={{ danger: true }}
         onCancel={() => {
@@ -280,9 +281,17 @@ export function SettingsSecurity() {
         }}
       >
         <div className="ct-modal-form">
+          <div>
+            <div className="ct-confirm-list-title">Olacaklar</div>
+            <ul className="ct-confirm-list">
+              <li>Hesabın hemen kapanır; kimse seni göremez.</li>
+              <li>{DELETION_GRACE_DAYS} gün sonra kalıcı olarak silinir.</li>
+              <li>Bu sürede giriş yaparsan silme iptal olur.</li>
+            </ul>
+          </div>
           <div className="ct-settings-field">
             <label className="ct-field-label" htmlFor="settings-delete-password">
-              Şifreniz
+              Şifren
             </label>
             <Input.Password
               id="settings-delete-password"
@@ -298,7 +307,7 @@ export function SettingsSecurity() {
             </label>
             <Input
               id="settings-delete-confirm"
-              placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yazın`}
+              placeholder={`Onaylamak için ${DELETE_CONFIRM_WORD} yaz`}
               value={deleteConfirmWord}
               onChange={(event) => setDeleteConfirmWord(event.target.value)}
             />

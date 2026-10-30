@@ -7,7 +7,7 @@ import {
   TeamOutlined,
   VideoCameraOutlined,
 } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import type { CameraPreferences } from "../settings/settings-main-panel-types";
 
 interface CameraShareModalProps {
@@ -59,7 +59,7 @@ export function CameraShareModal({
       title={
         <ModalHeading
           icon={<VideoCameraOutlined />}
-          title="Kamerayı Paylaş"
+          title="Kamerayı paylaş"
           description="Görüntünü kontrol et, sonra nasıl gönderileceğini seç."
         />
       }
@@ -72,7 +72,7 @@ export function CameraShareModal({
               <>
                 <CheckOutlined className="ct-icon-success" />
                 <strong>Kamera hazır</strong>
-                {` • ${cameraPreferences.resolution} • ${cameraPreferences.frameRate} FPS`}
+                {` · ${cameraPreferences.resolution} · ${cameraPreferences.frameRate} FPS`}
               </>
             ) : isPreparingPreview ? (
               "Önizleme hazırlanıyor…"
@@ -83,7 +83,7 @@ export function CameraShareModal({
 
           <div className="ct-share-footer-actions">
             <Button onClick={onClose} disabled={isBusy}>
-              İptal
+              Vazgeç
             </Button>
             <Button
               type="primary"
@@ -91,12 +91,12 @@ export function CameraShareModal({
               onClick={onStart}
               disabled={isBusy || !previewStream}
             >
-              {isStarting ? "Paylaşılıyor..." : "Paylaş"}
+              {isStarting ? "Paylaşılıyor…" : "Paylaş"}
             </Button>
           </div>
         </div>
       }
-      width={560}
+      width={MODAL_WIDTH.l}
       destroyOnHidden
     >
       <div className="ct-share-body">

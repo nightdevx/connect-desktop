@@ -15,7 +15,7 @@ import {
   SoundOutlined,
   RightOutlined,
 } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
@@ -1134,7 +1134,7 @@ export function LobbiesSidebarPanel({
         title={
           <ModalHeading
             icon={<EditOutlined />}
-            title="Lobi Ayarları"
+            title="Oda ayarları"
             description="Odanın adı, kimlerin girebileceği ve odada nelerin açık olduğu."
           />
         }
@@ -1142,7 +1142,8 @@ export function LobbiesSidebarPanel({
         onOk={handleUpdateSubmit}
         onCancel={() => setEditingLobby(null)}
         okText="Kaydet"
-        cancelText="İptal"
+        cancelText="Vazgeç"
+        width={MODAL_WIDTH.m}
         destroyOnHidden
         okButtonProps={{
           disabled: editLobbyName.trim().length < 2,
@@ -1245,7 +1246,7 @@ export function LobbiesSidebarPanel({
           )}
 
           <label className="ct-field" htmlFor="edit-lobby-name">
-            <span>Lobi Adı</span>
+            <span>Oda adı</span>
             <Input
               id="edit-lobby-name"
               value={editLobbyName}
@@ -1261,7 +1262,7 @@ export function LobbiesSidebarPanel({
 
           <div className="ct-field-row">
             <div className="ct-field-row-text">
-              <strong>Özel Lobi (Kilitli)</strong>
+              <strong>Kilitli oda</strong>
               <span>
                 {editingLobby?.isTextOnly
                   ? "Sadece davet edilen kullanıcılar görebilir."
@@ -1275,10 +1276,10 @@ export function LobbiesSidebarPanel({
               label that points at two things points at neither. */}
           {editIsLocked && (
             <div className="ct-field">
-              <span>Erişimi Olan Kullanıcılar</span>
+              <span>Erişimi olan kişiler</span>
               <Select
                 mode="multiple"
-                placeholder="Arkadaşlarından seç..."
+                placeholder="Arkadaşlarından seç…"
                 value={editAllowedUsers}
                 onChange={setEditAllowedUsers}
                 options={[
@@ -1316,7 +1317,7 @@ export function LobbiesSidebarPanel({
               kişi sınırı orada hiçbir şeye uygulanmaz. */}
           {!editingLobby?.isTextOnly && (
             <label className="ct-field">
-              <span>Kişi Sınırı</span>
+              <span>Kişi sınırı</span>
               <InputNumber
                 className="ct-input-number"
                 min={2}
@@ -1338,7 +1339,7 @@ export function LobbiesSidebarPanel({
               odalarında da geçerlidir; sohbet erişimi onun üzerinden denetlenir. */}
           {!editingLobby?.isTextOnly && (
             <label className="ct-field">
-              <span>Oda Şifresi</span>
+              <span>Oda şifresi</span>
               <Input.Password
                 placeholder={
                   editingLobby?.hasPassword
@@ -1364,7 +1365,7 @@ export function LobbiesSidebarPanel({
           )}
 
           <div className="ct-field">
-            <span>Oda Özellikleri</span>
+            <span>Oda özellikleri</span>
             <small className="ct-field-hint">
               Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer
               odalar etkilenmez.
@@ -1401,13 +1402,14 @@ export function LobbiesSidebarPanel({
 
       <ConfirmActionModal
         isOpen={pendingDeleteLobby !== null}
-        title="Lobiyi Sil"
-        message={
-          pendingDeleteLobby
-            ? `"${pendingDeleteLobby.name}" lobisini kalıcı olarak silmek istediğine emin misin?`
-            : ""
-        }
-        confirmLabel="Lobiyi Sil"
+        title="Odayı sil"
+        message={pendingDeleteLobby ? `“${pendingDeleteLobby.name}”` : undefined}
+        consequences={[
+          "Oda listeden herkes için kalkar.",
+          "İçindeki herkesin bağlantısı kesilir.",
+          "Geri alınamaz.",
+        ]}
+        confirmLabel="Odayı sil"
         isProcessing={
           pendingDeleteLobby !== null &&
           deletingLobbyId === pendingDeleteLobby.id

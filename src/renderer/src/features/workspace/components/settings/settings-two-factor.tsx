@@ -10,7 +10,7 @@ import {
 import type { ApiErrorPayload } from "@shared/desktop-api-types";
 import type { TwoFactorSetup, TwoFactorStatus } from "@shared/auth-contracts";
 import { authService } from "@/features/auth";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import { toast } from "@/services/toast";
 import { SettingsGroup, SettingsRow } from "./settings-layout";
 
@@ -227,7 +227,7 @@ export function SettingsTwoFactor() {
         title={
           <ModalHeading
             icon={<SafetyCertificateOutlined />}
-            title="İki Adımlı Doğrulamayı Aç"
+            title="İki adımlı doğrulamayı aç"
             description={
               setup
                 ? "Doğrulama uygulamasıyla QR kodu tarat, sonra uygulamanın gösterdiği 6 haneli kodu yaz."
@@ -237,6 +237,7 @@ export function SettingsTwoFactor() {
         }
         okText={setup ? "Doğrula ve aç" : "Devam"}
         cancelText="Vazgeç"
+        width={MODAL_WIDTH.m}
         confirmLoading={busy}
         okButtonProps={{
           disabled: setup ? !/^\d{6}$/.test(setupCode.trim()) : setupPassword.length < 8,
@@ -322,14 +323,15 @@ export function SettingsTwoFactor() {
             icon={confirmAction === "disable" ? <StopOutlined /> : <KeyOutlined />}
             title={
               confirmAction === "disable"
-                ? "İki Adımlı Doğrulamayı Kapat"
-                : "Yeni Kurtarma Kodları"
+                ? "İki adımlı doğrulamayı kapat"
+                : "Yeni kurtarma kodları"
             }
             description="Şifreni ve doğrulama uygulamandaki kodu (ya da bir kurtarma kodunu) gir."
           />
         }
-        okText={confirmAction === "disable" ? "Kapat" : "Oluştur"}
+        okText={confirmAction === "disable" ? "Doğrulamayı kapat" : "Oluştur"}
         cancelText="Vazgeç"
+        width={MODAL_WIDTH.s}
         confirmLoading={busy}
         okButtonProps={{
           danger: confirmAction === "disable",
@@ -380,11 +382,12 @@ export function SettingsTwoFactor() {
         title={
           <ModalHeading
             icon={<KeyOutlined />}
-            title="Kurtarma Kodların"
+            title="Kurtarma kodların"
             description="Telefonuna ulaşamazsan bunlarla giriş yaparsın. Her biri bir kez çalışır ve bir daha gösterilmez: güvenli bir yere kaydet."
           />
         }
         okText="Kaydettim"
+        width={MODAL_WIDTH.m}
         cancelButtonProps={{ style: { display: "none" } }}
         okButtonProps={{ disabled: !codesSaved }}
         onOk={() => setRecoveryCodes(null)}

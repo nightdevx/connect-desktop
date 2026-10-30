@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { Button, Modal, Slider } from "antd";
 import { PictureOutlined, ZoomInOutlined, ZoomOutOutlined } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import {
   clamp,
   computeCropGeometry,
@@ -259,7 +259,8 @@ export function ImageCropModal({
       open={open}
       onCancel={onCancel}
       okText="Uygula"
-      cancelText="İptal"
+      cancelText="Vazgeç"
+      width={MODAL_WIDTH.m}
       onOk={handleApply}
       okButtonProps={{ disabled: !natural }}
       destroyOnHidden

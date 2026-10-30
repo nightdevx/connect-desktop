@@ -9,7 +9,7 @@ import {
   WarningOutlined,
   WindowsOutlined,
 } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { useMediaStatsStore } from "@/features/livekit";
 import { estimateScreenShareUplinkBps } from "../constants";
@@ -145,8 +145,8 @@ export function ScreenShareModal({
       title={
         <ModalHeading
           icon={<DesktopOutlined />}
-          title="Yayın Başlat"
-          description="Paylaşacağın ekranı seç, sonra nasıl gönderileceğini ayarla."
+          title="Ekran paylaş"
+          description="Ne paylaşacağını seç, sonra nasıl gönderileceğini ayarla."
         />
       }
       open={isOpen}
@@ -160,8 +160,8 @@ export function ScreenShareModal({
               <>
                 <CheckOutlined className="ct-icon-success" />
                 <strong>{selectedSource.name}</strong>
-                {selectedQualityOption ? ` • ${selectedQualityOption.description}` : ""}
-                {captureSystemAudio ? " • ses açık" : ""}
+                {selectedQualityOption ? ` · ${selectedQualityOption.description}` : ""}
+                {captureSystemAudio ? " · ses açık" : ""}
               </>
             ) : (
               "Paylaşmak için bir kaynak seç."
@@ -170,7 +170,7 @@ export function ScreenShareModal({
 
           <div className="ct-share-footer-actions">
             <Button onClick={onClose} disabled={isStarting}>
-              İptal
+              Vazgeç
             </Button>
             <Button
               type="primary"
@@ -178,14 +178,14 @@ export function ScreenShareModal({
               onClick={onStart}
               disabled={isStarting || isLoadingSources || !selectedSourceId}
             >
-              {isStarting ? "Başlatılıyor..." : "Yayını Başlat"}
+              {isStarting ? "Başlatılıyor…" : "Yayını başlat"}
             </Button>
           </div>
         </div>
       }
-      // Wide enough for three 292px previews across: the thumbnails are what
-      // this dialog is for, and at the old 760px they were postage stamps.
-      width={1000}
+      // L, the widest dialog: three previews across (the grid is narrowed to
+      // fit in odak-katman-pencere.css).
+      width={MODAL_WIDTH.l}
     >
       <div className="ct-share-body">
         {audience && (

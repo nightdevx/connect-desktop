@@ -1,13 +1,18 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useEffect, useState } from "react";
-import { Switch, Modal, Select, Input, InputNumber } from "antd";
+import { Button, Switch, Modal, Select, Input, InputNumber } from "antd";
 import {
+  CheckOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MessageOutlined,
   PlusOutlined,
+  SoundOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
@@ -29,6 +34,7 @@ import { LobbiesCompactList, LobbiesSidebarPanel } from "../lobby";
 import { SettingsSidebarTabs } from "../settings";
 import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
+import { Avatar } from "../odak/odak-parts";
 import { SEED_ADMIN_ID } from "@/features/auth";
 import workspaceService from "../../services";
 import { toast } from "@/services/toast";
@@ -118,6 +124,11 @@ interface WorkspaceSidebarProps {
   };
 }
 
+const ROOM_TYPES = [
+  { textOnly: false, icon: <SoundOutlined />, title: "Sesli oda", hint: "Konuşma, ekran, müzik" },
+  { textOnly: true, icon: <MessageOutlined />, title: "Mesaj odası", hint: "Yalnız yazışma" },
+];
+
 export function WorkspaceSidebar({
   sectionTitle,
   workspaceSection,
@@ -148,6 +159,12 @@ export function WorkspaceSidebar({
   // sendRequest is keyed by username, so it marks no pendingUserIds — there is
   // no user id to hang one on until the server answers. This button owns it.
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
+  // The server's answer stays in the dialog: a refusal under the field, a
+  // success in place of the form.
+  const [friendError, setFriendError] = useState<string | null>(null);
+  const [friendSent, setFriendSent] = useState<{ username: string; message: string } | null>(
+    null,
+  );
 
   const handleCreateLobbyClick = (): void => {
     if (workspaceSection !== "lobbies" || lobbiesProps.isCreatingLobby) {
@@ -191,7 +208,7 @@ export function WorkspaceSidebar({
 
       const user = result.data.user;
       if (user.userId === lobbiesProps.currentUserId) {
-        toast.info("Lobi sahibi zaten erişebilir.");
+        toast.info("Oda sahibi zaten girebilir.");
         setLookupUsername("");
         return;
       }
@@ -223,6 +240,8 @@ export function WorkspaceSidebar({
   useEffect(() => {
     if (usersProps.isAddFriendOpen) {
       setFriendUsername("");
+      setFriendError(null);
+      setFriendSent(null);
     }
   }, [usersProps.isAddFriendOpen]);
 
@@ -235,13 +254,12 @@ export function WorkspaceSidebar({
     try {
       const result = await usersProps.friends.sendRequest(friendUsername);
       if (!result.ok) {
-        toast.error(result.message);
+        setFriendError(result.message);
         return;
       }
 
-      toast.success(result.message);
+      setFriendSent({ username: friendUsername.trim(), message: result.message });
       setFriendUsername("");
-      usersProps.onAddFriendOpenChange(false);
     } finally {
       setIsSendingFriendRequest(false);
     }
@@ -278,47 +296,108 @@ export function WorkspaceSidebar({
 
   // Rendered by both the folded and the open sidebar: Arkadaş ekle is also
   // opened from the friends page, whichever way the sidebar is.
+  // 3-32 mirrors the backend username pattern and the IPC zod schema. The old
+  // 2/64 bounds were copied from the id-shaped block schema, so anything
+  // outside 3-32 died as a ZodError and surfaced as the generic "Arkadaşlık
+  // isteği gönderilemedi." with no hint about the length.
+  const canSendFriendRequest = friendUsername.trim().length >= 3;
+  const closeAddFriend = (): void => usersProps.onAddFriendOpenChange(false);
   const addFriendModal = (
     <Modal
       rootClassName="ct-modal"
       title={
         <ModalHeading
           icon={<UserAddOutlined />}
-          title="Arkadaş Ekle"
-          description="Kullanıcı adını yaz; isteği kabul ettiğinde listende görünür."
+          title="Arkadaş ekle"
+          description={
+            friendSent ? undefined : "Kullanıcı adını yaz; kabul edince listende görünür."
+          }
         />
       }
       open={usersProps.isAddFriendOpen}
       onOk={() => void handleAddFriendSubmit()}
-      onCancel={() => usersProps.onAddFriendOpenChange(false)}
+      onCancel={closeAddFriend}
       confirmLoading={isSendingFriendRequest}
-      okButtonProps={{
-        // 3-32 mirrors the backend username pattern and the IPC zod schema.
-        // The old 2/64 bounds were copied from the id-shaped block schema, so
-        // anything outside 3-32 died as a ZodError and surfaced as the generic
-        // "Arkadaşlık isteği gönderilemedi." with no hint about the length.
-        disabled: friendUsername.trim().length < 3,
-      }}
-      okText={isSendingFriendRequest ? "Gönderiliyor..." : "İstek Gönder"}
-      cancelText="İptal"
+      okButtonProps={{ disabled: !canSendFriendRequest }}
+      okText={isSendingFriendRequest ? "Gönderiliyor…" : "İstek gönder"}
+      cancelText="Vazgeç"
+      footer={
+        friendSent
+          ? [
+              <Button key="again" onClick={() => setFriendSent(null)}>
+                Bir kişi daha
+              </Button>,
+              <Button key="done" type="primary" onClick={closeAddFriend}>
+                Tamam
+              </Button>,
+            ]
+          : undefined
+      }
+      width={MODAL_WIDTH.s}
       destroyOnHidden
     >
-      <div className="ct-modal-form">
-        <label className="ct-field">
-          <span>Kullanıcı Adı</span>
-          <input
-            type="text"
-            className="ct-input"
-            value={friendUsername}
-            onChange={(event) => setFriendUsername(event.target.value)}
-            placeholder="Örn. mehmet"
-            maxLength={32}
-          />
-          <small className="ct-field-hint">
-            Kullanıcı adını tam olarak yazın.
-          </small>
-        </label>
-      </div>
+      {friendSent ? (
+        <div className="ct-modal-success" role="status">
+          <span className="ct-modal-success-mark" aria-hidden="true">
+            <CheckOutlined />
+          </span>
+          <strong>{friendSent.message.replace(/\.$/, "")}</strong>
+          <span>@{friendSent.username} kabul edince arkadaş listende görünür.</span>
+          <div className="ct-confirm-subject">
+            <Avatar
+              userId={friendSent.username}
+              name={friendSent.username}
+              className="ct-confirm-subject-avatar"
+            />
+            <span className="ct-confirm-subject-name">
+              <strong>{friendSent.username}</strong>
+              <span>@{friendSent.username}</span>
+            </span>
+            <span className="ct-confirm-subject-detail">
+              <ClockCircleOutlined /> Yanıt bekliyor
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="ct-modal-form">
+          <label className="ct-field">
+            <span>Kullanıcı adı</span>
+            <span className="ct-field-at">
+              <span aria-hidden="true">@</span>
+              <input
+                type="text"
+                className={`ct-input${friendError ? " invalid" : ""}`}
+                value={friendUsername}
+                onChange={(event) => {
+                  setFriendUsername(event.target.value);
+                  setFriendError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && canSendFriendRequest) {
+                    event.preventDefault();
+                    void handleAddFriendSubmit();
+                  }
+                }}
+                placeholder="kullanıcı adı"
+                maxLength={32}
+                autoFocus
+                aria-invalid={friendError ? true : undefined}
+                aria-describedby="ct-add-friend-hint"
+              />
+            </span>
+            {friendError ? (
+              <small id="ct-add-friend-hint" className="ct-field-error" role="alert">
+                <ExclamationCircleOutlined />
+                {friendError}
+              </small>
+            ) : (
+              <small id="ct-add-friend-hint" className="ct-field-hint">
+                En az 3 harf; adı tam olarak yaz.
+              </small>
+            )}
+          </label>
+        </div>
+      )}
     </Modal>
   );
 
@@ -329,8 +408,8 @@ export function WorkspaceSidebar({
       title={
         <ModalHeading
           icon={<PlusOutlined />}
-          title="Yeni Lobi Oluştur"
-          description="Arkadaşlarının katılabileceği sesli bir oda ya da yazılı bir kanal aç."
+          title="Yeni oda oluştur"
+          description="Arkadaşlarının katılabileceği bir oda aç."
         />
       }
       open={isCreateLobbyOpen}
@@ -338,45 +417,63 @@ export function WorkspaceSidebar({
       onCancel={() => setIsCreateLobbyOpen(false)}
       confirmLoading={lobbiesProps.isCreatingLobby}
       okButtonProps={{ disabled: newLobbyName.trim().length < 2 }}
-      okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor..." : "Oluştur"}
-      cancelText="İptal"
+      okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor…" : "Oluştur"}
+      cancelText="Vazgeç"
+      width={MODAL_WIDTH.m}
       destroyOnHidden
     >
       <div className="ct-modal-form">
         <label className="ct-field">
-          <span>Lobi Adı</span>
+          <span className="ct-field-label-row">
+            Oda adı
+            <span className="ct-field-count">{newLobbyName.length}/64</span>
+          </span>
           <input
             type="text"
             className="ct-input"
             value={newLobbyName}
             onChange={(event) => setNewLobbyName(event.target.value)}
-            placeholder="Örn. Geliştirme Odası"
+            placeholder="Örn. Oyun Odası"
             maxLength={64}
+            autoFocus
           />
         </label>
 
         {/* Create-only: the flag is immutable afterwards, so "Lobi Ayarları"
-            has no counterpart for it. */}
-        <label className="ct-field">
-          <span>Oda Türü</span>
-          <Select
-            value={isTextOnly}
-            onChange={handleRoomTypeChange}
-            options={[
-              { label: "Sesli Oda", value: false },
-              { label: "Mesaj Odası", value: true },
-            ]}
-          />
-          <small className="ct-field-hint">
-            Mesaj odasında sesli bağlantı kurulmaz, sadece sohbet edilir.
-          </small>
-        </label>
+            has no counterpart for it. Two cards rather than a select: the
+            hint under each says what the type means. */}
+        <div className="ct-field">
+          <span id="ct-room-type-label">Tür</span>
+          <div className="ct-choice-row" role="radiogroup" aria-labelledby="ct-room-type-label">
+            {ROOM_TYPES.map((choice) => (
+              <button
+                key={choice.title}
+                type="button"
+                role="radio"
+                aria-checked={isTextOnly === choice.textOnly}
+                className={`ct-choice${isTextOnly === choice.textOnly ? " selected" : ""}`}
+                onClick={() => handleRoomTypeChange(choice.textOnly)}
+              >
+                <strong>
+                  {choice.icon}
+                  {choice.title}
+                </strong>
+                <span>{choice.hint}</span>
+                {isTextOnly === choice.textOnly && (
+                  <span className="ct-choice-check" aria-hidden="true">
+                    <CheckOutlined />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Voice only: nobody is ever on a text room's roster, so a limit
             there would be a number that never applies to anything. */}
         {!isTextOnly && (
           <label className="ct-field">
-            <span>Kişi Sınırı</span>
+            <span>Kişi sınırı</span>
             <InputNumber
               className="ct-input-number"
               min={2}
@@ -393,7 +490,7 @@ export function WorkspaceSidebar({
 
         <div className="ct-field-row">
           <div className="ct-field-row-text">
-            <strong>Kilitli Oda</strong>
+            <strong>Kilitli oda</strong>
             <span>
               {isTextOnly
                 ? "Yalnızca davet edilen kişiler görebilir"
@@ -405,10 +502,10 @@ export function WorkspaceSidebar({
 
         {isLocked && (
           <label className="ct-field">
-            <span>İzin Verilecek Kullanıcılar</span>
+            <span>İzin verilecek kişiler</span>
             <Select
               mode="multiple"
-              placeholder="Arkadaşlarından seç..."
+              placeholder="Arkadaşlarından seç…"
               value={allowedUsers}
               onChange={setAllowedUsers}
               options={[
@@ -444,9 +541,9 @@ export function WorkspaceSidebar({
             mesaj odasına katılım diye bir şey yok. */}
         {!isTextOnly && (
           <label className="ct-field">
-            <span>Oda Şifresi (opsiyonel)</span>
+            <span>Oda şifresi (isteğe bağlı)</span>
             <Input.Password
-              placeholder="Şifre belirleyin (boş = şifresiz)"
+              placeholder="Şifre belirle (boş = şifresiz)"
               value={newLobbyPassword}
               onChange={(event) => setNewLobbyPassword(event.target.value)}
               maxLength={128}

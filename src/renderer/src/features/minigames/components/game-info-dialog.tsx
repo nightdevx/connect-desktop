@@ -1,7 +1,7 @@
 import { Button, Modal } from "antd";
 import type { MinigameEntry } from "../minigames-catalog";
 import { rulesOf } from "../minigame-rules";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 
 interface GameInfoDialogProps {
   entry: MinigameEntry;
@@ -18,7 +18,7 @@ export function GameInfoDialog({ entry, seats, onClose }: GameInfoDialogProps) {
     <Modal
       open
       rootClassName="ct-modal"
-      width={520}
+      width={MODAL_WIDTH.m}
       onCancel={onClose}
       title={
         <ModalHeading icon={entry.icon} title={entry.label} description={entry.description} />

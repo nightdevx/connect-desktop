@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "antd";
 import { GiftOutlined } from "@ant-design/icons";
-import { ModalHeading } from "@/ui/modal-heading";
+import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import {
   RELEASE_HIGHLIGHT_LABELS,
   notesSince,
@@ -122,7 +122,7 @@ export function WhatsNewModal({
       onOk={close}
       okText={manualOpen ? "Kapat" : "Anladım"}
       cancelButtonProps={{ style: { display: "none" } }}
-      width={560}
+      width={MODAL_WIDTH.m}
       destroyOnHidden
     >
       <div className="ct-whats-new-body">
