@@ -192,6 +192,8 @@ jobs:
     needs: detect-version
     if: github.event_name == 'workflow_dispatch' || needs.detect-version.outputs.version_changed == 'true'
     runs-on: macos-latest
+    # A hung step otherwise holds the runner for six hours.
+    timeout-minutes: 40
     environment:
       name: release-env
 

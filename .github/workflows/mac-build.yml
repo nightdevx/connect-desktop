@@ -17,6 +17,8 @@ permissions:
 jobs:
   build-macos:
     runs-on: macos-latest
+    # A hung step otherwise holds the runner for six hours.
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
