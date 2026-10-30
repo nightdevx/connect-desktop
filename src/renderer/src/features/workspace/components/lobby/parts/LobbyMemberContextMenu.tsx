@@ -1,25 +1,9 @@
-import { Dropdown, type MenuProps } from "antd";
 import type { ReactElement } from "react";
-import {
-  AudioMutedOutlined,
-  AudioOutlined,
-  ClockCircleOutlined,
-  IdcardOutlined,
-  LogoutOutlined,
-  MessageOutlined,
-  MutedOutlined,
-  NotificationOutlined,
-  SoundOutlined,
-  StopOutlined,
-  SwapOutlined,
-  UserAddOutlined,
-  UserDeleteOutlined,
-} from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { OdakMenu } from "@/ui/odak-menu";
 import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
-import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
-import { ContextMenuPanel } from "../../common/context-menu-panel";
+import { PersonMenuHeader, buildPersonMenu } from "../../common/person-menu";
 
 /**
  * Right-click menu for a member row in the lobby sidebar.
@@ -30,10 +14,10 @@ import { ContextMenuPanel } from "../../common/context-menu-panel";
  * only for the room you were already in. This is the same set of actions, built
  * from what a sidebar row can actually know.
  *
- * Deliberately not ParticipantContextMenu: that one is a video tile's menu and
- * assumes a LiveKit publication behind every entry (screen watching, screen
- * audio, hide camera). A sidebar row is usually somebody in a room you are not
- * in, where none of that exists.
+ * The same person menu as the stage's (common/person-menu), built from what a
+ * sidebar row can know: no screen watching, screen audio or camera rows, since
+ * a sidebar row is usually somebody in a room you are not in, where none of
+ * that exists.
  */
 export interface LobbyMemberMenuAudio {
   preference: RemoteParticipantAudioPreference;
@@ -98,190 +82,65 @@ export function LobbyMemberContextMenu({
 }: LobbyMemberContextMenuProps): ReactElement {
   const locallyMuted = isRemoteParticipantMuted(audio?.preference);
 
-  const items: MenuProps["items"] = [
-    ...(isBot
-      ? []
-      : [
-          {
-            key: "profile",
-            label: "Profili Gör",
-            icon: <IdcardOutlined />,
-            onClick: onShowProfile,
+  const items = buildPersonMenu({
+    name: username,
+    keyPrefix: "member",
+    // The music bot is an audio source with a name: nothing to open a profile
+    // on, message or befriend.
+    onShowProfile: isBot ? undefined : onShowProfile,
+    onSendMessage: isSelf || isBot ? undefined : onSendMessage,
+    friendship:
+      isSelf || isBot
+        ? undefined
+        : {
+            state: friendState,
+            pending: isFriendActionPending,
+            onAdd: onAddFriend,
+            onRemove: onRemoveFriend,
+            // The sidebar removes at once, as it always has.
+            confirms: false,
           },
-        ]),
-    ...(isSelf || isBot
-      ? []
-      : [
-          {
-            key: "message",
-            label: "Mesaj Gönder",
-            icon: <MessageOutlined />,
-            onClick: onSendMessage,
+    // Only for someone in the room this user is connected to: a playback
+    // preference for anyone else would control nothing.
+    sound: audio
+      ? {
+          voice: {
+            label: isBot ? "Müzik sesi" : "Ses seviyesi",
+            value: audio.preference.volumePercent,
+            muted: locallyMuted,
+            onChange: audio.onVolume,
           },
-          {
-            key: "friendship",
-            label:
-              friendState === "friend"
-                ? "Arkadaşlıktan Çıkar"
-                : friendState === "requested"
-                  ? "İstek Gönderildi"
-                  : "Arkadaş Ekle",
-            icon:
-              friendState === "friend" ? (
-                <UserDeleteOutlined />
-              ) : friendState === "requested" ? (
-                <ClockCircleOutlined />
-              ) : (
-                <UserAddOutlined />
-              ),
-            danger: friendState === "friend",
-            disabled: friendState === "requested" || isFriendActionPending,
-            onClick: () => {
-              if (friendState === "friend") {
-                onRemoveFriend();
-              } else {
-                onAddFriend();
-              }
-            },
-          },
-        ]),
-    ...(audio
-      ? [
-          { type: "divider" as const },
-          {
-            key: "mute",
-            label: locallyMuted ? "Sesi Aç" : "Sustur",
-            icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
-            onClick: () => audio.onMute(!locallyMuted),
-          },
-          ...(isBot
-            ? []
-            : [
-                {
-                  key: "emote-mute",
-                  // Separate from "Sustur" because they are separate annoyances:
-                  // a person can be worth listening to and still be leaning on
-                  // the soundboard, and silencing them entirely is the wrong
-                  // answer to it.
-                  label: audio.preference.emoteMuted
-                    ? "Emote Seslerini Aç"
-                    : "Emote Seslerini Sustur",
-                  icon: audio.preference.emoteMuted ? (
-                    <NotificationOutlined />
-                  ) : (
-                    <MutedOutlined />
-                  ),
-                  onClick: () => audio.onEmoteMute(!audio.preference.emoteMuted),
-                },
-              ]),
-        ]
-      : []),
-    ...(canModerate && !isSelf
-      ? [
-          { type: "divider" as const },
-          {
-            type: "group" as const,
-            key: "moderation",
-            label: "Moderasyon",
-            children: [
-              // Lifting a restriction is one click; applying one asks how long for.
-              // The asymmetry is the point: "undo this" has no parameters, and
-              // burying it in a submenu would put a step between a moderator and
-              // the correction of their own mistake.
-              isServerMuted
-                ? {
-                    key: "server-unmute",
-                    label: "Sunucuda Susturmayı Kaldır",
-                    icon: <AudioOutlined />,
-                    onClick: () => onServerMute(false),
-                  }
-                : {
-                    key: "server-mute",
-                    label: "Sunucuda Sustur",
-                    icon: <MutedOutlined />,
-                    children: buildDurationMenuItems("member-mute", (durationSeconds) =>
-                      onServerMute(true, durationSeconds),
-                    ),
-                  },
-              // Not dangerous, and deliberately above the two that are: moving
-              // somebody is the mild answer to "you are in the wrong room", and it
-              // should not sit among the actions that end their session.
-              ...(onMove
-                ? [
-                    {
-                      key: "move",
-                      label: "Başka Odaya Taşı",
-                      icon: <SwapOutlined />,
-                      children: buildMoveMenuItems(
-                        "member-move",
-                        moveTargets ?? [],
-                        onMove,
-                      ),
-                    },
-                  ]
-                : []),
-              {
-                key: "kick",
-                label: "Odadan At",
-                icon: <LogoutOutlined />,
-                danger: true,
-                onClick: onKick,
-              },
-              // A kick is undone by walking back in; a timeout is the one that keeps
-              // them out, so it is the one that asks how long for.
-              {
-                key: "timeout",
-                label: "Zaman Aşımı",
-                icon: <StopOutlined />,
-                className: "ct-menu-danger",
-                children: buildDurationMenuItems("member-timeout", onTimeout),
-              },
-            ],
-          },
-        ]
-      : []),
-  ];
+          mute: { on: locallyMuted, onChange: audio.onMute },
+          emoteMute: isBot
+            ? undefined
+            : { on: audio.preference.emoteMuted ?? false, onChange: audio.onEmoteMute },
+        }
+      : undefined,
+    moderation:
+      canModerate && !isSelf
+        ? { isServerMuted, onServerMute, moveTargets, onMove, onKick, onTimeout }
+        : undefined,
+  });
 
+  // The popup is portalled into document.body, but React events still bubble
+  // along the React tree, into the lobby row whose click joins the room. The
+  // menu's panel stops them (OdakMenu), so muting someone in a room you are not
+  // in no longer drags you into it.
   return (
-    <Dropdown
-      trigger={["contextMenu"]}
-      popupRender={(menu) => (
-        <ContextMenuPanel
-          identity={{
-            userId,
-            name: username,
-            avatarUrl,
-            detail: isBot ? "Müzik botu" : isSelf ? "Sen" : `${roomName} odasında`,
-          }}
-          volumes={
-            audio
-              ? [
-                  {
-                    key: "voice",
-                    label: isBot ? "Müzik sesi" : "Ses seviyesi",
-                    icon: <SoundOutlined />,
-                    value: audio.preference.volumePercent,
-                    muted: locallyMuted,
-                    onChange: audio.onVolume,
-                  },
-                ]
-              : []
-          }
-          menu={menu}
+    <OdakMenu
+      trigger="contextMenu"
+      items={items}
+      header={
+        <PersonMenuHeader
+          userId={userId}
+          name={username}
+          avatarUrl={avatarUrl}
+          detail={isBot ? "Müzik botu" : isSelf ? "Sen" : `${roomName} odasında`}
         />
-      )}
-      menu={{
-        // The overlay is portalled into document.body, but React synthetic
-        // events still bubble along the REACT tree — Dropdown -> the member list
-        // -> the lobby row, whose onClick joins the lobby. Without this, muting
-        // someone in a room you are not in dragged you into it, mic live, right
-        // before the action landed. Menu-level so no future item can forget it,
-        // and it covers Enter on a focused item too.
-        onClick: ({ domEvent }) => domEvent.stopPropagation(),
-        items,
-      }}
+      }
+      width={268}
     >
       {children}
-    </Dropdown>
+    </OdakMenu>
   );
 }

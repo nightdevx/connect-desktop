@@ -1,17 +1,9 @@
 import { useCallback, useState } from "react";
-import { Dropdown, Tooltip, type MenuProps } from "antd";
-import {
-  AudioMutedOutlined,
-  CheckOutlined,
-  DesktopOutlined,
-  DownOutlined,
-  LoadingOutlined,
-  SettingOutlined,
-  SoundOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
+import { Tooltip } from "antd";
+import { DownOutlined, LoadingOutlined } from "@ant-design/icons";
 import type { ScreenCaptureSourceDescriptor } from "@shared/desktop-api-types";
 import { SCREEN_SHARE_QUALITY_OPTIONS } from "@/features/screen-share";
+import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import {
   getLiveScreenShareControls,
   type LiveScreenShareControls,
@@ -22,15 +14,9 @@ import {
 // apart is how a menu ends up offering a rate the capture path cannot honour.
 const FRAME_RATE_OPTIONS: ScreenShareFrameRate[] = [15, 30, 60];
 
-// Keeps unselected rows aligned with the selected one; antd reserves the icon
-// slot per item, not per menu.
-const checkmark = (selected: boolean) => {
-  return selected ? <CheckOutlined /> : <span className="ct-stream-menu-check" />;
-};
-
 const describeSource = (source: ScreenCaptureSourceDescriptor): string => {
   return source.kind === "screen" && source.displayId
-    ? `${source.name} • Ekran ${source.displayId}`
+    ? `${source.name} · Ekran ${source.displayId}`
     : source.name;
 };
 
@@ -80,74 +66,73 @@ export function StreamControlMenu() {
   const currentSourceId = controls.getSourceId();
   const isSystemAudioOn = controls.isSystemAudioOn();
 
-  const sourceItems: MenuProps["items"] = sources.length
+  // The current choice of each list carries the ✓, on the right.
+  const sourceItems: OdakMenuEntry[] = sources.length
     ? sources.map((source) => ({
         key: `source-${source.id}`,
-        icon: checkmark(source.id === currentSourceId),
         label: describeSource(source),
-        onClick: () => runChange((live) => live.changeSource(source.id)),
+        checked: source.id === currentSourceId,
+        onSelect: () => runChange((live) => live.changeSource(source.id)),
       }))
-    : [{ key: "source-empty", label: "Kaynaklar yükleniyor...", disabled: true }];
+    : [{ key: "source-empty", label: "Kaynaklar yükleniyor…", disabled: true, onSelect: () => undefined }];
 
-  const items: MenuProps["items"] = [
+  const items: OdakMenuEntry[] = [
     {
-      // A toggle, not a submenu: there are two states and the row already says
-      // which one it is in. Sits first because it is the only setting here that
-      // changes what viewers HEAR rather than how the picture looks.
+      // A switch: two states, and the row says which one it is in. First,
+      // because it is the only setting here that changes what viewers HEAR
+      // rather than how the picture looks. Applying it closes the menu, as
+      // every change here does: the button spins until it lands.
+      type: "toggle",
       key: "system-audio",
-      icon: isSystemAudioOn ? <SoundOutlined /> : <AudioMutedOutlined />,
-      label: isSystemAudioOn ? "Yayın Sesini Kapat" : "Yayın Sesini Aç",
-      onClick: () => runChange((live) => live.setSystemAudio(!isSystemAudioOn)),
+      icon: "volume",
+      label: "Yayın sesi",
+      description: "Bilgisayarının sesi de yayına gider",
+      on: isSystemAudioOn,
+      onChange: (on) => runChange((live) => live.setSystemAudio(on)),
     },
     { type: "divider" },
     {
-      key: "quality",
-      icon: <SettingOutlined />,
       // The value it is set to, on the right of the row: the menu used to say
       // only what could be changed, never what it was.
-      label: (
-        <>
-          Kalite
-          <span className="ct-menu-value">
-            {SCREEN_SHARE_QUALITY_OPTIONS.find((option) => option.id === currentQuality)?.label}
-          </span>
-        </>
-      ),
-      children: SCREEN_SHARE_QUALITY_OPTIONS.map((option) => ({
+      type: "submenu",
+      key: "quality",
+      icon: "gauge",
+      label: "Kalite",
+      value: SCREEN_SHARE_QUALITY_OPTIONS.find((option) => option.id === currentQuality)?.label,
+      items: SCREEN_SHARE_QUALITY_OPTIONS.map((option) => ({
         key: `quality-${option.id}`,
-        icon: checkmark(option.id === currentQuality),
-        label: `${option.label} • ${option.description}`,
-        onClick: () => runChange((live) => live.changeQuality(option.id)),
+        label: option.label,
+        description: option.description.replace("•", "·"),
+        checked: option.id === currentQuality,
+        onSelect: () => runChange((live) => live.changeQuality(option.id)),
       })),
     },
     {
+      type: "submenu",
       key: "framerate",
-      icon: <ThunderboltOutlined />,
-      label: (
-        <>
-          Kare Hızı
-          <span className="ct-menu-value">{currentFrameRate} FPS</span>
-        </>
-      ),
-      children: FRAME_RATE_OPTIONS.map((frameRate) => ({
+      icon: "zap",
+      label: "Kare hızı",
+      value: `${currentFrameRate} FPS`,
+      items: FRAME_RATE_OPTIONS.map((frameRate) => ({
         key: `framerate-${frameRate}`,
-        icon: checkmark(frameRate === currentFrameRate),
         label: `${frameRate} FPS`,
-        onClick: () => runChange((live) => live.changeFrameRate(frameRate)),
+        checked: frameRate === currentFrameRate,
+        onSelect: () => runChange((live) => live.changeFrameRate(frameRate)),
       })),
     },
     {
+      type: "submenu",
       key: "source",
-      icon: <DesktopOutlined />,
-      label: "Ekran Değiştir",
-      children: sourceItems,
+      icon: "monitor",
+      label: "Ekranı değiştir",
+      items: sourceItems,
     },
   ];
 
   return (
-    <Dropdown
-      menu={{ items }}
-      trigger={["click"]}
+    <OdakMenu
+      items={items}
+      trigger="click"
       placement="top"
       open={isOpen}
       onOpenChange={handleOpenChange}
@@ -169,6 +154,6 @@ export function StreamControlMenu() {
           {isBusy ? <LoadingOutlined /> : <DownOutlined />}
         </button>
       </Tooltip>
-    </Dropdown>
+    </OdakMenu>
   );
 }

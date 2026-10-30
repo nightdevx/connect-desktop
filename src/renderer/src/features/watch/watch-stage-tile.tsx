@@ -7,10 +7,8 @@ import {
   FullscreenOutlined,
   PauseOutlined,
   SoundOutlined,
-  StepBackwardOutlined,
-  StepForwardOutlined,
 } from "@ant-design/icons";
-import { Dropdown, type MenuProps } from "antd";
+import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import { formatWatchTime, livePosition } from "@shared/watch";
 import {
   readWatchMuted,
@@ -197,64 +195,75 @@ export function WatchStageTile({
     return null;
   }
 
-  const menuItems: MenuProps["items"] = [
+  // The app's one menu (OdakMenu). The transport is the starter's; everybody
+  // else is told who drives it rather than shown three dead rows.
+  const menuItems: OdakMenuEntry[] = [
     ...(canControl
       ? [
           {
             key: "toggle",
-            icon: state.playing ? <PauseOutlined /> : <CaretRightFilled />,
+            icon: state.playing ? "pause" : "play",
             label: state.playing ? "Duraklat" : "Oynat",
             disabled: isSending,
-            onClick: toggle,
-          },
+            onSelect: toggle,
+          } satisfies OdakMenuEntry,
           {
             key: "back",
-            icon: <StepBackwardOutlined />,
+            icon: "back",
             label: `${SKIP_SECONDS} sn geri`,
             disabled: isSending,
-            onClick: () => skip(-SKIP_SECONDS),
-          },
+            onSelect: () => skip(-SKIP_SECONDS),
+          } satisfies OdakMenuEntry,
           {
             key: "forward",
-            icon: <StepForwardOutlined />,
+            icon: "forward",
             label: `${SKIP_SECONDS} sn ileri`,
             disabled: isSending,
-            onClick: () => skip(SKIP_SECONDS),
-          },
-          { type: "divider" as const },
+            onSelect: () => skip(SKIP_SECONDS),
+          } satisfies OdakMenuEntry,
         ]
-      : [{ key: "no-control", label: "Yayını başlatan yönetiyor", disabled: true }]),
-    {
-      key: "watching",
-      icon: <DesktopOutlined />,
-      label: optedIn ? "İzlemeyi bırak" : "Yayını izle",
-      onClick: optedIn ? onOptOut : onOptIn,
-    },
-    {
-      key: "mute",
-      icon: <SoundOutlined />,
-      label: muted ? "Sesi aç" : "Sustur",
-      disabled: !optedIn,
-      onClick: () => setMuted((value) => !value),
-    },
-    ...(canControl
-      ? [
-          { type: "divider" as const },
+      : [
           {
-            key: "stop",
-            label: "Yayını bitir",
-            danger: true,
-            disabled: isSending,
-            onClick: () => void room.stop(),
-          },
-        ]
-      : []),
+            key: "no-control",
+            icon: "play",
+            label: "Yayını başlatan yönetiyor",
+            disabled: true,
+            onSelect: () => undefined,
+          } satisfies OdakMenuEntry,
+        ]),
+    { type: "divider" },
+    {
+      type: "toggle",
+      key: "watching",
+      icon: "monitor",
+      label: "Yayını izle",
+      on: optedIn,
+      onChange: (watch) => (watch ? onOptIn() : onOptOut()),
+    },
+    {
+      type: "toggle",
+      key: "mute",
+      icon: "volumeX",
+      label: "Sustur",
+      on: muted,
+      disabled: optedIn ? false : "izlemiyorsun",
+      onChange: (next) => setMuted(next),
+    },
+    canControl && { type: "divider" },
+    canControl && {
+      key: "stop",
+      icon: "stop",
+      label: "Yayını bitir",
+      danger: true,
+      disabled: isSending,
+      onSelect: () => void room.stop(),
+    },
   ];
 
   const title = video.title || "Birlikte İzle";
 
   return (
-    <Dropdown menu={{ items: menuItems }} trigger={["contextMenu"]}>
+    <OdakMenu items={menuItems} trigger="contextMenu">
       <article
         className={[
           "ct-lobby-participant-tile",
@@ -447,6 +456,6 @@ export function WatchStageTile({
           </div>
         ) : null}
       </article>
-    </Dropdown>
+    </OdakMenu>
   );
 }

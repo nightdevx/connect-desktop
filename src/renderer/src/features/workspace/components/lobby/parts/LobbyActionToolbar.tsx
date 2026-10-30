@@ -102,6 +102,9 @@ export function LobbyActionToolbar({
         devices={audioInputDevices}
         selectedDeviceId={selectedAudioInputDeviceId}
         onSelectDevice={onSelectAudioInputDevice}
+        enabled={micEnabled}
+        onToggle={onToggleMic}
+        toggleDisabled={micLocked ? "bir yetkili kapattı" : undefined}
       >
         <Tooltip
           title={
@@ -131,6 +134,8 @@ export function LobbyActionToolbar({
         devices={audioOutputDevices}
         selectedDeviceId={selectedAudioOutputDeviceId}
         onSelectDevice={onSelectAudioOutputDevice}
+        enabled={headphoneEnabled}
+        onToggle={onToggleHeadphone}
       >
         <Tooltip title={headphoneEnabled ? "Kulaklığı Kapat (Sağ tık: cihaz seç)" : "Kulaklığı Aç (Sağ tık: cihaz seç)"}>
           <Button

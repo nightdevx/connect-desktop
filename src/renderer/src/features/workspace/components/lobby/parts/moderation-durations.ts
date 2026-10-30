@@ -1,4 +1,4 @@
-import type { MenuProps } from "antd";
+import type { OdakMenuEntry } from "@/ui/odak-menu";
 
 /**
  * How long a moderator mute or a removal lasts.
@@ -27,20 +27,36 @@ export const MODERATION_DURATIONS: ModerationDuration[] = [
 ];
 
 /**
- * The submenu rows, shared by both places a member can be moderated from — the
+ * The submenu rows, shared by every place a member can be moderated from — the
  * video tile's menu and the sidebar roster's — so the two can never offer
- * different durations for the same action.
+ * different durations for the same action. The indefinite one is set apart
+ * under a line, and red where it keeps somebody out.
  */
 export const buildDurationMenuItems = (
   keyPrefix: string,
   onPick: (durationSeconds?: number) => void,
-): NonNullable<MenuProps["items"]> =>
-  MODERATION_DURATIONS.map((duration) => ({
-    key: `${keyPrefix}-${duration.key}`,
-    label: duration.label,
-    className: "ct-participant-context-menu-button",
-    onClick: () => onPick(duration.seconds),
-  }));
+  foreverIsDanger = false,
+): OdakMenuEntry[] =>
+  MODERATION_DURATIONS.flatMap((duration): OdakMenuEntry[] =>
+    duration.seconds === undefined
+      ? [
+          { type: "divider" },
+          {
+            key: `${keyPrefix}-${duration.key}`,
+            label: duration.label,
+            description: "Biri kaldırana kadar",
+            danger: foreverIsDanger,
+            onSelect: () => onPick(undefined),
+          },
+        ]
+      : [
+          {
+            key: `${keyPrefix}-${duration.key}`,
+            label: duration.label,
+            onSelect: () => onPick(duration.seconds),
+          },
+        ],
+  );
 
 /**
  * The destination rows, shared by the same two menus for the same reason.
@@ -52,13 +68,14 @@ export const buildMoveMenuItems = (
   keyPrefix: string,
   targets: Array<{ id: string; name: string }>,
   onPick: (targetLobbyId: string) => void,
-): NonNullable<MenuProps["items"]> => {
+): OdakMenuEntry[] => {
   if (targets.length === 0) {
     return [
       {
         key: `${keyPrefix}-empty`,
         label: "Taşınacak başka oda yok",
         disabled: true,
+        onSelect: () => undefined,
       },
     ];
   }
@@ -66,8 +83,7 @@ export const buildMoveMenuItems = (
   return targets.map((target) => ({
     key: `${keyPrefix}-${target.id}`,
     label: target.name,
-    className: "ct-participant-context-menu-button",
-    onClick: () => onPick(target.id),
+    onSelect: () => onPick(target.id),
   }));
 };
 

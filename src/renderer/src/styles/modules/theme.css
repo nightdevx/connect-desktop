@@ -395,33 +395,3 @@
   color: var(--ct-text-muted);
 }
 
-.ct-menu-volume {
-  padding: 6px 10px 0;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--ct-alpha-08);
-}
-
-.ct-menu-volume-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ct-text-secondary);
-}
-
-.ct-menu-volume-row .anticon {
-  margin-inline-end: 7px;
-  color: var(--ct-text-muted);
-}
-
-.ct-menu-volume-row b {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ct-text-primary);
-}
-
-.ct-menu-volume .ant-slider {
-  margin: 8px 4px 10px;
-}

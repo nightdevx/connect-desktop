@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Dropdown } from "antd";
-import type { MenuProps } from "antd";
-import {
-  CopyOutlined,
-  IdcardOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  MessageOutlined,
-  PhoneOutlined,
-  SoundOutlined,
-  UserDeleteOutlined,
-} from "@ant-design/icons";
+import { MenuFoldOutlined, MenuUnfoldOutlined, UserDeleteOutlined } from "@ant-design/icons";
 import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -19,7 +8,8 @@ import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { UserProfileCardAnchor } from "../user/user-profile-card";
 import { GameArt } from "../user/game-art";
 import { ConfirmActionModal } from "../common";
-import { ContextMenuPanel } from "../common/context-menu-panel";
+import { PersonMenuHeader, buildPersonMenu } from "../common/person-menu";
+import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
 import { Avatar, GamepadIcon, Icon, SpeakerIcon, UsersIcon, staggerStyle } from "./odak-parts";
 import { OdakRail } from "./odak-rail";
@@ -265,81 +255,36 @@ export function OdakFriendsPage({
     setProfileTarget({ userId: user.userId, name: nameOf(user), x: rect.left, y: rect.top });
   };
 
-  const menuFor = (user: UserDirectoryEntry, activity: FriendActivity | null): MenuProps => {
-    const items: NonNullable<MenuProps["items"]> = [
-      {
-        key: "profile",
-        label: "Profili Gör",
-        icon: <IdcardOutlined />,
-        onClick: ({ domEvent }) => openProfileAt(user, domEvent.currentTarget as Element),
-      },
-      {
-        key: "message",
-        label: "Mesaj Gönder",
-        icon: <MessageOutlined />,
-        onClick: () => onOpenConversation(toPeer(user)),
-      },
-    ];
-    if (onInitiateCall) {
-      items.push({
-        key: "call",
-        label: "Sesli Ara",
-        icon: <PhoneOutlined />,
-        disabled: !user.appOnline,
-        extra: user.appOnline ? undefined : "çevrimdışı",
-        onClick: () => onInitiateCall(user),
-      });
-    }
-    if (activity?.lobby && onJoinLobby && activity.lobby.id !== currentLobbyId) {
-      const lobbyId = activity.lobby.id;
-      items.push({
-        key: "join",
-        label: "Odasına Katıl",
-        extra: activity.lobby.name,
-        icon: <SoundOutlined />,
-        onClick: () => onJoinLobby(lobbyId),
-      });
-    }
-    if (onCopyUsername) {
-      items.push(
-        { type: "divider" },
-        {
-          key: "copy",
-          label: "Kullanıcı Adını Kopyala",
-          icon: <CopyOutlined />,
-          onClick: () => void onCopyUsername(user.username),
-        },
-      );
-    }
-    items.push(
-      { type: "divider" },
-      {
-        key: "unfriend",
-        label: "Arkadaşlıktan Çıkar",
-        icon: <UserDeleteOutlined />,
-        danger: true,
-        disabled: friends.pendingUserIds.includes(user.userId),
-        onClick: () =>
+  // The person menu every place shares (common/person-menu). The card shows
+  // who it is, so the menu has no header of its own.
+  const menuFor = (user: UserDirectoryEntry, activity: FriendActivity | null): OdakMenuEntry[] => {
+    const room = activity?.lobby && activity.lobby.id !== currentLobbyId ? activity.lobby : null;
+    return buildPersonMenu({
+      name: nameOf(user),
+      keyPrefix: `friend-${user.userId}`,
+      onShowProfile: (row) => openProfileAt(user, row),
+      onSendMessage: () => onOpenConversation(toPeer(user)),
+      call: onInitiateCall
+        ? {
+            onSelect: () => onInitiateCall(user),
+            unavailable: user.appOnline ? undefined : "çevrimdışı",
+          }
+        : undefined,
+      joinRoom:
+        room && onJoinLobby ? { name: room.name, onSelect: () => onJoinLobby(room.id) } : undefined,
+      copyUsername: onCopyUsername
+        ? { username: user.username, onSelect: () => void onCopyUsername(user.username) }
+        : undefined,
+      friendship: {
+        state: "friend",
+        pending: friends.pendingUserIds.includes(user.userId),
+        onAdd: () => undefined,
+        onRemove: () =>
           setPendingUnfriend({ userId: user.userId, username: user.username, name: nameOf(user) }),
+        confirms: true,
       },
-    );
-    return { items };
+    });
   };
-
-  const menuHeader = (user: UserDirectoryEntry, activity: FriendActivity | null) =>
-    function renderMenu(origin: ReactNode): ReactNode {
-      return (
-        <ContextMenuPanel
-          identity={{
-            userId: user.userId,
-            name: nameOf(user),
-            avatarUrl: user.avatarUrl,
-            detail: activity?.label ?? getUserStatusLabel(user.appOnline, user.presence),
-          }}
-          menu={origin}
-        />
-      );
-    };
 
   // ponytail: one antd Dropdown per card; a few hundred friends would want a
   // virtualised list (@tanstack/react-virtual, as the chat threads use).
@@ -347,9 +292,8 @@ export function OdakFriendsPage({
     const name = nameOf(user);
     const activity = activityOf(user);
     const menu = menuFor(user, activity);
-    const popupRender = menuHeader(user, activity);
     return (
-      <Dropdown key={user.userId} trigger={["contextMenu"]} menu={menu} popupRender={popupRender}>
+      <OdakMenu key={user.userId} trigger="contextMenu" items={menu} width={240}>
         <article
           className={`ct-odak-card ct-odak-friend ${user.appOnline ? "" : "offline"}`}
           style={staggerStyle(order)}
@@ -394,7 +338,7 @@ export function OdakFriendsPage({
               <PhoneIcon />
             </button>
           )}
-          <Dropdown trigger={["click"]} menu={menu} popupRender={popupRender}>
+          <OdakMenu trigger="click" items={menu} placement="bottomRight" width={240}>
             <button
               type="button"
               className="ct-odak-icon-button"
@@ -403,9 +347,9 @@ export function OdakFriendsPage({
             >
               <MoreIcon />
             </button>
-          </Dropdown>
+          </OdakMenu>
         </article>
-      </Dropdown>
+      </OdakMenu>
     );
   };
 
@@ -565,18 +509,38 @@ export function OdakFriendsPage({
             const unread = unreadByUserId[conversation.userId] ?? 0;
             const selected = selectedUserId === conversation.userId;
             return (
-              <Dropdown
+              <OdakMenu
                 key={conversation.userId}
-                trigger={["contextMenu"]}
-                menu={{
-                  items: [
-                    {
-                      key: "close",
-                      label: "Sohbeti Kapat",
-                      onClick: () => onCloseConversation(conversation.userId),
+                trigger="contextMenu"
+                // Folded to faces, the row no longer says whose it is.
+                header={
+                  stripCollapsed ? (
+                    <PersonMenuHeader
+                      userId={conversation.userId}
+                      name={name}
+                      avatarUrl={conversation.avatarUrl ?? directory?.avatarUrl}
+                      detail={getUserStatusLabel(directory?.appOnline, directory?.presence)}
+                    />
+                  ) : undefined
+                }
+                items={[
+                  {
+                    key: "profile",
+                    icon: "idcard",
+                    label: "Profili gör",
+                    onSelect: (row) => {
+                      const rect = row.getBoundingClientRect();
+                      setProfileTarget({ userId: conversation.userId, name, x: rect.left, y: rect.top });
                     },
-                  ],
-                }}
+                  },
+                  { type: "divider" },
+                  {
+                    key: "close",
+                    icon: "x",
+                    label: "Sohbeti kapat",
+                    onSelect: () => onCloseConversation(conversation.userId),
+                  },
+                ]}
               >
                 <div className={`ct-odak-strip-row ${selected ? "active" : ""}`}>
                   <button
@@ -614,7 +578,7 @@ export function OdakFriendsPage({
                     <CloseIcon />
                   </button>
                 </div>
-              </Dropdown>
+              </OdakMenu>
             );
           })}
         </div>

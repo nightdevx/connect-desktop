@@ -59,6 +59,8 @@ import { useLobbyStageSlots } from "../lobby/hooks/use-lobby-stage-slots";
 import { LobbyStageView } from "../lobby/parts/LobbyStageView";
 import { LobbyActionToolbar } from "../lobby/parts/LobbyActionToolbar";
 import { ParticipantContextMenu } from "../lobby/parts/ParticipantContextMenu";
+import { buildPersonMenu } from "../common/person-menu";
+import { OdakMenu } from "@/ui/odak-menu";
 import { useLobbyStageLayout } from "../lobby/lobby-stage-layout";
 import { type LobbyParticipantView } from "../lobby/lobby-participant-tile";
 import { type StageParticipantSlot } from "../lobby/lobby-view-utils";
@@ -1308,6 +1310,30 @@ export function UsersDirectMessagesPanel({
                   room's: who, what they are doing, and the call controls. The
                   identity half opens the profile drawer. */}
               <header className="ct-dm-header">
+                {/* The person menu every place shares; the header already says
+                    who it is, so it has no header of its own. */}
+                <OdakMenu
+                  trigger="contextMenu"
+                  width={248}
+                  items={buildPersonMenu({
+                    name: selectedUser.displayName || selectedUser.username,
+                    keyPrefix: "dm",
+                    onShowProfile: () => setIsUserPopupOpen(true),
+                    call: onInitiateCall
+                      ? {
+                          onSelect: () => onInitiateCall(selectedUser),
+                          unavailable: selectedUser.appOnline ? undefined : "çevrimdışı",
+                        }
+                      : undefined,
+                    copyUsername: selectedUser.username
+                      ? {
+                          username: selectedUser.username,
+                          onSelect: () => void onCopyUsername(selectedUser.username),
+                        }
+                      : undefined,
+                    sound: { callMute: { on: isMuted, onChange: handleToggleMuteCalls } },
+                  })}
+                >
                 <button
                   type="button"
                   className="ct-dm-header-identity"
@@ -1350,6 +1376,7 @@ export function UsersDirectMessagesPanel({
                     </span>
                   </span>
                 </button>
+                </OdakMenu>
 
                 {searchField}
 

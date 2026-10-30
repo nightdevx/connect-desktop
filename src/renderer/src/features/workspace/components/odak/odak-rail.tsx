@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Dropdown } from "antd";
-import type { MenuProps } from "antd";
-import { CheckOutlined, LogoutOutlined } from "@ant-design/icons";
+import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { AuthLogoMark, isAdminRole } from "@/features/auth";
 import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
 import { Avatar, PRESENCE_OPTIONS, SECTIONS } from "./odak-parts";
+
+// What each choice does that its name does not say (F10.2): "Rahatsız
+// etmeyin" silences message notifications (WorkspaceShell), "Çevrimdışı görün"
+// keeps the connection, "Boşta" also comes on its own after five idle minutes
+// (use-presence-status).
+const PRESENCE_DESCRIPTIONS: Record<string, string> = {
+  online: "Herkes seni görür",
+  idle: "5 dk hareketsiz kalınca kendiliğinden",
+  dnd: "Mesaj bildirimleri susar",
+  offline: "Bağlı kalırsın, kimse seni görmez",
+};
 
 export interface OdakRailProps {
   activeSection: WorkspaceSection;
@@ -55,32 +64,34 @@ export function OdakRail({
     const timer = window.setTimeout(() => setCalm(false), 300);
     return () => window.clearTimeout(timer);
   }, []);
-  const avatarMenu: MenuProps = {
-    selectedKeys: [presenceStatus],
-    items: [
-      ...PRESENCE_OPTIONS.map((option) => ({
+  // The current one carries a ✓ and nothing else; "Çıkış yap" signs out at
+  // once (no confirmation, the owner's decision).
+  const avatarMenu: OdakMenuEntry[] = [
+    ...PRESENCE_OPTIONS.map(
+      (option): OdakMenuEntry => ({
         key: option.value,
         label: option.label,
+        description: PRESENCE_DESCRIPTIONS[option.value],
         icon: (
           <span
             className="ct-odak-menu-dot"
             style={{ background: getPresenceColor(option.value !== "offline", option.value) }}
           />
         ),
-        extra: option.value === presenceStatus ? <CheckOutlined /> : undefined,
-        onClick: () => onPresenceStatusChange(option.value),
-      })),
-      { type: "divider" as const },
-      {
-        key: "logout",
-        label: "Çıkış yap",
-        icon: <LogoutOutlined />,
-        danger: true,
-        disabled: isLoggingOut,
-        onClick: onLogout,
-      },
-    ],
-  };
+        checked: option.value === presenceStatus,
+        onSelect: () => onPresenceStatusChange(option.value),
+      }),
+    ),
+    { type: "divider" },
+    {
+      key: "logout",
+      label: "Çıkış yap",
+      icon: "logout",
+      danger: true,
+      disabled: isLoggingOut,
+      onSelect: onLogout,
+    },
+  ];
 
   return (
     <nav className={`ct-odak-rail ${calm ? "calm" : ""}`} aria-label="Bölümler">
@@ -113,7 +124,7 @@ export function OdakRail({
       )}
       <div className="ct-odak-fill" />
       {dock && <div className="ct-odak-rail-dock">{dock}</div>}
-      <Dropdown trigger={["click"]} menu={avatarMenu} placement="topLeft">
+      <OdakMenu trigger="click" items={avatarMenu} placement="topLeft" width={280}>
         <button
           type="button"
           className="ct-odak-me"
@@ -128,7 +139,7 @@ export function OdakRail({
             className="me"
           />
         </button>
-      </Dropdown>
+      </OdakMenu>
     </nav>
   );
 }

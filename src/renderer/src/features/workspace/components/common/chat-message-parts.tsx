@@ -10,7 +10,6 @@ import {
 } from "react";
 import {
   Button,
-  Dropdown,
   Image,
   Popover,
   Tooltip,
@@ -34,6 +33,7 @@ import { discardSend, retrySend } from "../../hooks/chat/pending-sends";
 import type { ChatAttachmentUpload } from "@shared/desktop-api-types";
 import { isAutoLoadableImageUrl } from "@shared/gif-hosts";
 import { useUiStore } from "@/store/ui-store";
+import { OdakMenu } from "@/ui/odak-menu";
 import chatService from "../../services/chat-service";
 
 // Shared message furniture for both conversation surfaces (direct messages and
@@ -270,23 +270,19 @@ function ChatImage({
   }, [onDownload, saving]);
 
   return (
-    <Dropdown
-      trigger={["contextMenu"]}
-      menu={{
-        items: [
-          {
-            key: "download",
-            label: saving ? "İndiriliyor…" : "İndir",
-            icon: <DownloadOutlined />,
-            disabled: saving,
-            onClick: ({ domEvent }) => {
-              // The bubble underneath selects the message.
-              domEvent.stopPropagation();
-              handleDownload();
-            },
-          },
-        ],
-      }}
+    // The picture's own menu, over the message's: the panel keeps the click
+    // from the bubble underneath, which selects the message.
+    <OdakMenu
+      trigger="contextMenu"
+      items={[
+        {
+          key: "download",
+          icon: "download",
+          label: saving ? "İndiriliyor…" : "Görseli indir",
+          disabled: saving,
+          onSelect: handleDownload,
+        },
+      ]}
     >
       {/* The span is not decoration. Dropdown attaches its contextmenu handler
           to the child through a ref, and antd's Image does not forward one to a
@@ -294,6 +290,8 @@ function ChatImage({
           always takes the ref. */}
       <span
         className="ct-chat-image-root"
+        // The message's own menu is on the row around it.
+        onContextMenu={(event) => event.stopPropagation()}
         // Only bound when the preference is in play, so the common case does not
         // re-render a message row on every pointer crossing.
         onMouseEnter={canFreeze ? () => setHovered(true) : undefined}
@@ -333,7 +331,7 @@ function ChatImage({
           />
         )}
       </span>
-    </Dropdown>
+    </OdakMenu>
   );
 }
 

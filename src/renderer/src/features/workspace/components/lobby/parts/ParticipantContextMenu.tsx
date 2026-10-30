@@ -1,26 +1,8 @@
-import { Dropdown, type MenuProps } from "antd";
-import {
-  AudioOutlined,
-  AudioMutedOutlined,
-  ClockCircleOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
-  SoundOutlined,
-  DesktopOutlined,
-  MutedOutlined,
-  NotificationOutlined,
-  LogoutOutlined,
-  StopOutlined,
-  SwapOutlined,
-  UserAddOutlined,
-  UserDeleteOutlined,
-  IdcardOutlined,
-} from "@ant-design/icons";
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
+import { OdakMenu } from "@/ui/odak-menu";
 import { isRemoteParticipantMuted } from "../../../hooks/media/use-remote-participant-audio";
-import { buildDurationMenuItems, buildMoveMenuItems } from "./moderation-durations";
 import type { MoveTarget } from "./member-move";
-import { ContextMenuPanel, type MenuVolume } from "../../common/context-menu-panel";
+import { PersonMenuHeader, buildPersonMenu } from "../../common/person-menu";
 
 interface ParticipantContextMenuProps {
   x: number;
@@ -104,248 +86,96 @@ export function ParticipantContextMenu({
 }: ParticipantContextMenuProps) {
   const locallyMuted = isRemoteParticipantMuted(preference);
 
-  // Their voice, and their screen's sound while they share one: the two things
-  // on this stage that come out of the user's speakers.
-  const volumes: MenuVolume[] = [
-    {
-      key: "voice",
-      label: isBot ? "Müzik sesi" : "Mikrofon sesi",
-      icon: <SoundOutlined />,
-      value: preference.volumePercent,
-      muted: locallyMuted,
-      onChange: onVolume,
-    },
-    ...(isScreenSharing
-      ? [
-          {
-            key: "screen",
-            label: "Yayın sesi",
-            icon: <DesktopOutlined />,
-            value: preference.screenAudioVolumePercent ?? 100,
-            muted: preference.screenAudioMuted ?? false,
-            onChange: onScreenAudioVolume,
-          },
-        ]
-      : []),
-  ];
-
-  const menuItems: MenuProps['items'] = [
-    ...(onShowProfile ? [
-      {
-        key: 'profile',
-        label: 'Profili Gör',
-        icon: <IdcardOutlined />,
-        onClick: () => {
-          onShowProfile();
-          onClose();
-        },
+  // The person menu every place shares (common/person-menu): who they are,
+  // what you hear of them (their voice, and their screen's sound while they
+  // share one), moderation for whoever may, unfriending last.
+  const items = buildPersonMenu({
+    name,
+    keyPrefix: "tile",
+    onShowProfile,
+    friendship: friendState
+      ? {
+          state: friendState,
+          pending: isFriendActionPending,
+          onAdd: () => onAddFriend?.(),
+          onRemove: () => onRemoveFriend?.(),
+          confirms: true,
+        }
+      : undefined,
+    sound: {
+      voice: {
+        label: isBot ? "Müzik sesi" : "Ses seviyesi",
+        value: preference.volumePercent,
+        muted: locallyMuted,
+        onChange: onVolume,
       },
-    ] : []),
-    ...(friendState ? [
-      {
-        key: 'friendship',
-        label:
-          friendState === 'friend'
-            ? 'Arkadaşlıktan Çıkar'
-            : friendState === 'requested'
-              ? 'İstek Gönderildi'
-              : 'Arkadaş Ekle',
-        icon:
-          friendState === 'friend'
-            ? <UserDeleteOutlined />
-            : friendState === 'requested'
-              ? <ClockCircleOutlined />
-              : <UserAddOutlined />,
-        danger: friendState === 'friend',
-        disabled: friendState === 'requested' || isFriendActionPending,
-        onClick: () => {
-          if (friendState === 'friend') {
-            onRemoveFriend?.();
-          } else {
-            onAddFriend?.();
+      mute: { on: locallyMuted, onChange: onMute },
+      emoteMute: onEmoteMute
+        ? { on: preference.emoteMuted ?? false, onChange: onEmoteMute }
+        : undefined,
+      cameraHidden: isBot
+        ? undefined
+        : { on: preference.cameraHidden ?? false, onChange: onToggleCameraHidden },
+      screen: isScreenSharing
+        ? {
+            volume: {
+              label: "Yayın sesi",
+              value: preference.screenAudioVolumePercent ?? 100,
+              muted: preference.screenAudioMuted ?? false,
+              onChange: onScreenAudioVolume,
+            },
+            watch: { on: isWatchingScreen, onChange: (watch) => onSetScreenWatching?.(watch) },
+            audioMute: { on: preference.screenAudioMuted ?? false, onChange: onScreenAudioMute },
           }
-          onClose();
-        },
-      },
-      { type: 'divider' as const },
-    ] : []),
-    {
-      key: 'mute',
-      label: locallyMuted ? 'Sesi Aç' : 'Sustur',
-      icon: locallyMuted ? <AudioOutlined /> : <AudioMutedOutlined />,
-      onClick: () => {
-        onMute(!locallyMuted);
-        onClose();
-      },
+        : undefined,
     },
-    ...(onEmoteMute
-      ? [
-          {
-            key: 'emote-mute',
-            // Their soundboard, not their voice. Separate annoyances, separate
-            // switches: somebody worth listening to can still be leaning on the
-            // emotes, and silencing them entirely is the wrong answer to that.
-            label: preference.emoteMuted
-              ? 'Emote Seslerini Aç'
-              : 'Emote Seslerini Sustur',
-            icon: preference.emoteMuted ? (
-              <NotificationOutlined />
-            ) : (
-              <MutedOutlined />
-            ),
-            onClick: () => {
-              onEmoteMute(!preference.emoteMuted);
-              onClose();
-            },
-          },
-        ]
-      : []),
-    ...(isBot
-      ? []
-      : [
-          {
-            key: 'camera',
-            label: preference.cameraHidden ? 'Kamerayı Göster' : 'Kamerayı Gizle',
-            icon: preference.cameraHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />,
-            onClick: () => {
-              onToggleCameraHidden(!preference.cameraHidden);
-              onClose();
-            },
-          },
-        ]),
-    // Screen share controls only while they are sharing. Its volume is a
-    // slider in the panel above.
-    ...(isScreenSharing ? [
-      {
-        type: 'divider' as const,
-      },
-      {
-        key: 'screen-watch',
-        label: isWatchingScreen ? 'İzlemeyi Bırak' : 'Yayını İzle',
-        icon: isWatchingScreen ? <EyeInvisibleOutlined /> : <DesktopOutlined />,
-        onClick: () => {
-          onSetScreenWatching?.(!isWatchingScreen);
-          onClose();
-        },
-      },
-      {
-        key: 'screen-audio-mute',
-        label: (preference.screenAudioMuted) ? 'Yayın Sesini Aç' : 'Yayın Sesini Sustur',
-        icon: (preference.screenAudioMuted) ? <AudioOutlined /> : <AudioMutedOutlined />,
-        onClick: () => {
-          onScreenAudioMute(!(preference.screenAudioMuted ?? false));
-          onClose();
-        },
-      },
-    ] : []),
-    // Server-enforced moderation, owner/admin only — a group of its own under
-    // a heading, so it is not mistaken for a personal preference.
-    ...(canModerate ? [
-      { type: 'divider' as const },
-      {
-        type: 'group' as const,
-        key: 'moderation',
-        label: 'Moderasyon',
-        children: [
-          // Lifting a restriction is one click; applying one asks how long for.
-          // The same two rows are offered from the sidebar roster — see
-          // LobbyMemberContextMenu — and both read their durations from one
-          // list.
-          isServerMuted
-            ? {
-                key: 'server-unmute',
-                label: 'Sunucuda Susturmayı Kaldır',
-                icon: <AudioOutlined />,
-                onClick: () => {
-                  onServerMute?.(false);
-                  onClose();
-                },
-              }
-            : {
-                key: 'server-mute',
-                label: 'Sunucuda Sustur',
-                icon: <MutedOutlined />,
-                children: buildDurationMenuItems('tile-mute', (durationSeconds) => {
-                  onServerMute?.(true, durationSeconds);
-                  onClose();
-                }),
-              },
-          // The mild answer to "you are in the wrong room", so it sits above the
-          // two that end somebody's session rather than among them.
-          ...(onMove
-            ? [
-                {
-                  key: 'move',
-                  label: 'Başka Odaya Taşı',
-                  icon: <SwapOutlined />,
-                  children: buildMoveMenuItems('tile-move', moveTargets ?? [], (targetLobbyId) => {
-                    onMove(targetLobbyId);
-                    onClose();
-                  }),
-                },
-              ]
-            : []),
-          {
-            key: 'kick',
-            label: 'Odadan At',
-            icon: <LogoutOutlined />,
-            danger: true,
-            onClick: () => {
-              onKick?.();
-              onClose();
-            },
-          },
-          // A kick is undone by walking back in; a timeout is the one that keeps
-          // them out, so it is the one that asks how long for.
-          {
-            key: 'timeout',
-            label: 'Zaman Aşımı',
-            icon: <StopOutlined />,
-            className: 'ct-menu-danger',
-            children: buildDurationMenuItems('tile-timeout', (durationSeconds) => {
-              onTimeout?.(durationSeconds);
-              onClose();
-            }),
-          },
-        ],
-      },
-    ] : []),
-  ];
+    // Server-enforced, owner/admin only: a red block of its own, so it is not
+    // mistaken for a personal preference.
+    moderation: canModerate
+      ? {
+          isServerMuted: isServerMuted ?? false,
+          onServerMute,
+          moveTargets,
+          onMove,
+          onKick,
+          onTimeout,
+        }
+      : undefined,
+  });
 
   return (
-    <Dropdown
-      menu={{ items: menuItems }}
-      open={true}
+    // Opened from outside at the pointer (LobbyStageView catches the
+    // right-click), so it hangs off a 1px point there. Every choice but a
+    // switch or a slider closes it.
+    <OdakMenu
+      items={items}
+      header={
+        <PersonMenuHeader
+          userId={userId}
+          name={name}
+          avatarUrl={avatarUrl}
+          detail={isBot ? "Müzik botu ayarları" : "Katılımcı ayarları"}
+        />
+      }
+      trigger="click"
+      open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      trigger={['click']}
       placement="bottomLeft"
-      destroyOnHidden
-      popupRender={(menu) => (
-        <ContextMenuPanel
-          identity={{
-            userId,
-            name,
-            avatarUrl,
-            detail: isBot ? 'Müzik botu ayarları' : 'Katılımcı ayarları',
-          }}
-          volumes={volumes}
-          menu={menu}
-        />
-      )}
+      width={268}
     >
       <div
         style={{
-          position: 'fixed',
+          position: "fixed",
           left: x,
           top: y,
-          width: '1px',
-          height: '1px',
+          width: "1px",
+          height: "1px",
           zIndex: 9999,
-          pointerEvents: 'none'
+          pointerEvents: "none",
         }}
       />
-    </Dropdown>
+    </OdakMenu>
   );
 }

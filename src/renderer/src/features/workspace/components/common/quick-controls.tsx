@@ -271,6 +271,9 @@ export function QuickControls({
           devices={audioInputDevices}
           selectedDeviceId={selectedAudioInputDeviceId}
           onSelectDevice={onSelectAudioInputDevice}
+          enabled={micEnabled}
+          onToggle={onToggleMic}
+          toggleDisabled={micLocked ? "bir yetkili kapattı" : undefined}
         >
           <Tooltip
             title={
@@ -306,6 +309,8 @@ export function QuickControls({
           devices={audioOutputDevices}
           selectedDeviceId={selectedAudioOutputDeviceId}
           onSelectDevice={onSelectAudioOutputDevice}
+          enabled={headphoneEnabled}
+          onToggle={onToggleHeadphone}
         >
           <Tooltip
             title={`Kulaklık ${headphoneEnabled ? "açık" : "kapalı"} (sağ tık: çıkış cihazı)`}
