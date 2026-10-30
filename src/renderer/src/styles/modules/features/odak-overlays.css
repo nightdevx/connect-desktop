@@ -111,6 +111,25 @@
   padding: 18px 0 0;
 }
 
+/* A dialog never runs past the window (an L dialog did at 1280x800): the
+   heading and the buttons stay, the body scrolls. antd puts the card 100px
+   from the top with 24px under it. 4px of padding, taken back by the margin,
+   keeps a field's 3px focus ring from being cut by the scroll box. */
+:root[data-odak] .ct-modal .ant-modal-container {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 124px);
+}
+
+:root[data-odak] .ct-modal .ant-modal-container > .ant-modal-body {
+  min-height: 0;
+  margin: 0 -4px;
+  padding-inline: 4px;
+  padding-bottom: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 :root[data-odak] .ct-modal .ant-modal-container:not(:has(> .ant-modal-header)) > .ant-modal-body {
   padding-top: 0;
 }
@@ -121,7 +140,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 20px;
+  margin-top: 16px;
   padding: 0;
   border-top: 0;
   background: transparent;
@@ -308,6 +327,8 @@
    and a dialog's buttons sit right-aligned at its foot, so this corner never
    reaches the close button or the primary action. */
 :root[data-odak] body:has(.ct-modal .ant-modal-mask:not(.ant-modal-mask-hidden)) .ct-toasts {
+  /* Newest nearest the corner, as it is top right. */
+  flex-direction: column-reverse;
   top: auto;
   right: auto;
   bottom: 16px;
