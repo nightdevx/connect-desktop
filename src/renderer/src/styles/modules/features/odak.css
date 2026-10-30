@@ -537,10 +537,15 @@
   gap: 16px;
   min-width: 0;
   padding: 16px 20px 20px;
+  /* The body stacks when the page is narrow (below). */
+  container-type: inline-size;
 }
 
+/* On a small window the search and "Arkadaş ekle" wrap to a second row
+   instead of running off the page's edge. */
 .ct-odak-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
@@ -563,6 +568,7 @@
 
 .ct-odak-tabs {
   display: flex;
+  flex-shrink: 0;
   gap: 4px;
   padding: 4px;
   border-radius: 14px;
@@ -572,6 +578,7 @@
 
 .ct-odak-tabs button {
   height: 34px;
+  white-space: nowrap;
   padding: 0 14px;
   border: 0;
   border-radius: 10px;
@@ -592,9 +599,11 @@
 
 .ct-odak-search {
   display: flex;
+  flex: 1 1 160px;
   align-items: center;
   gap: 8px;
-  width: 240px;
+  min-width: 150px;
+  max-width: 240px;
   height: 40px;
   padding: 0 12px;
   border-radius: 12px;
@@ -801,6 +810,22 @@
   width: 340px;
   flex-shrink: 0;
   overflow-y: auto;
+}
+
+/* Too narrow for the list and the 340 px column side by side (the strip open
+   on a small window): one scrolling column, the list first. */
+@container (max-width: 760px) {
+  .ct-odak-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .ct-odak-friends,
+  .ct-odak-side {
+    flex: none;
+    width: auto;
+    overflow: visible;
+  }
 }
 
 .ct-odak-side-title {
