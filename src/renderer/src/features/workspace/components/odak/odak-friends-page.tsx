@@ -342,14 +342,15 @@ export function OdakFriendsPage({
             </Tooltip>
           )}
           <OdakMenu trigger="click" items={menu} placement="bottomRight" width={240}>
-            <button
-              type="button"
-              className="ct-odak-icon-button"
-              title="Diğer seçenekler"
-              aria-label={`${name} için diğer seçenekler`}
-            >
-              <MoreIcon />
-            </button>
+            <Tooltip title="Diğer seçenekler">
+              <button
+                type="button"
+                className="ct-odak-icon-button"
+                aria-label={`${name} için diğer seçenekler`}
+              >
+                <MoreIcon />
+              </button>
+            </Tooltip>
           </OdakMenu>
         </article>
       </OdakMenu>

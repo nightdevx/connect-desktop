@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { Tooltip } from "antd";
 import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
@@ -125,11 +126,11 @@ export function OdakRail({
       <div className="ct-odak-fill" />
       {dock && <div className="ct-odak-rail-dock">{dock}</div>}
       <OdakMenu trigger="click" items={avatarMenu} placement="topLeft" width={280}>
+        <Tooltip title="Durumunu değiştir" placement="right">
         <button
           type="button"
           className="ct-odak-me"
           aria-label={`Durumun: ${getUserStatusLabel(presenceStatus !== "offline", presenceStatus)}`}
-          title="Durumunu değiştir"
         >
           <Avatar
             userId={currentUserId}
@@ -139,6 +140,7 @@ export function OdakRail({
             className="me"
           />
         </button>
+        </Tooltip>
       </OdakMenu>
     </nav>
   );
