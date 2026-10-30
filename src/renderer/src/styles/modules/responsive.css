@@ -153,27 +153,9 @@
 }
 
 @media (max-width: 760px) {
-  /* Icon-only rail. The tooltip already names each section, and the label was
-     the only reason the rail needed 72px. */
   :root {
     --ct-rail-width: 56px;
     --ct-sidebar-width: 200px;
-  }
-
-  .ct-rail {
-    @apply px-1.5;
-  }
-
-  .ct-rail-button {
-    @apply gap-0 px-0 py-2.5;
-  }
-
-  .ct-rail-button > span:last-child {
-    @apply hidden;
-  }
-
-  .ct-rail-indicator {
-    left: -6px;
   }
 
   .ct-main-panel-header {
