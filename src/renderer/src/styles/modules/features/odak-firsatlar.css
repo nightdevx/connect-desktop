@@ -23,6 +23,10 @@
 
 :root[data-odak] .ct-free-games-head .ct-odak-tabs {
   flex-wrap: wrap;
+  /* The shared tabs never shrink; here they wrap instead of pushing the
+     page 3-15px sideways in a small window. */
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 :root[data-odak] .ct-free-games-head .ct-odak-tabs button {
