@@ -181,7 +181,9 @@ export function ScreenShareModal({
               type="primary"
               loading={isStarting}
               onClick={onStart}
-              disabled={isStarting || isLoadingSources || !selectedSourceId}
+              // Not held for a refresh: the list on screen is the one picked
+              // from, and a source that has gone since says so on start.
+              disabled={isStarting || !selectedSourceId}
             >
               {isStarting ? "Başlatılıyor…" : "Yayını başlat"}
             </Button>
@@ -253,9 +255,18 @@ export function ScreenShareModal({
             </div>
           </header>
 
-          {isLoadingSources && (
-            <div className="ct-list-state">
-              <p>Kaynaklar yükleniyor...</p>
+          {/* The first load shows placeholder cards. After that the last list
+              stays up while it refreshes, with a sheen over its previews:
+              listing the sources takes the OS about half a second whatever we
+              ask for, and the dialog no longer waits on it a second time. */}
+          {isLoadingSources && activeSources.length === 0 && (
+            <div className="ct-share-source-grid" role="status" aria-busy="true" aria-label="Kaynaklar yükleniyor">
+              {[0, 1, 2].map((slot) => (
+                <div key={slot} className="ct-share-source-card skeleton" aria-hidden="true">
+                  <span className="ct-share-source-thumb" />
+                  <span className="ct-share-source-skeleton-line" />
+                </div>
+              ))}
             </div>
           )}
 
@@ -279,8 +290,13 @@ export function ScreenShareModal({
             </div>
           )}
 
-          {!isLoadingSources && activeSources.length > 0 && (
-            <div className="ct-share-source-grid" role="radiogroup" aria-label="Yayın kaynağı">
+          {activeSources.length > 0 && (
+            <div
+              className="ct-share-source-grid"
+              role="radiogroup"
+              aria-label="Yayın kaynağı"
+              aria-busy={isLoadingSources}
+            >
               {activeSources.map((source) => {
                 const isSelected = selectedSourceId === source.id;
 

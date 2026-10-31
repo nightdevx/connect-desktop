@@ -896,7 +896,11 @@ export interface DesktopApi {
   getCallPeerStatus: (payload: {
     callId: string;
   }) => Promise<DesktopResult<{ peerConnected: boolean }>>;
-  listScreenCaptureSources: () => Promise<
+  /**
+   * Screens and windows that can be shared. previews (default true) captures
+   * a thumbnail of each, the slow part; without it previewDataUrl is null.
+   */
+  listScreenCaptureSources: (options?: { previews?: boolean }) => Promise<
     DesktopResult<{ sources: ScreenCaptureSourceDescriptor[] }>
   >;
   /** macOS: opens System Settings at Screen Recording. False elsewhere. */

@@ -6,6 +6,7 @@ import {
   freeGamesSchema,
   gifSearchSchema,
   notifySchema,
+  screenCaptureSourcesSchema,
   windowAttentionSchema,
 } from "../validators";
 import { isKlipyConfigured, klipyApiKey } from "../../config";
@@ -169,8 +170,10 @@ export function registerAppHandlers(): void {
     }
   });
 
-  handle("desktop:screen-capture-sources", async () => {
+  handle("desktop:screen-capture-sources", async (_event, payload: unknown) => {
     try {
+      const previews = screenCaptureSourcesSchema.parse(payload)?.previews ?? true;
+
       if (
         process.platform === "darwin" &&
         systemPreferences.getMediaAccessStatus("screen") !== "granted"
@@ -187,10 +190,12 @@ export function registerAppHandlers(): void {
         );
       }
 
+      // No window icons: nothing showed them, and fetching them was a quarter
+      // of the call (measured 2026-10-31: 899 ms with, 695 ms without, six
+      // sources). JPEG for the previews: half the bytes of PNG over IPC.
       const sources = await desktopCapturer.getSources({
         types: ["window", "screen"],
-        thumbnailSize: { width: 300, height: 300 },
-        fetchWindowIcons: true,
+        thumbnailSize: previews ? { width: 300, height: 300 } : { width: 0, height: 0 },
       });
 
       const mapped = sources.map((source) => ({
@@ -201,7 +206,10 @@ export function registerAppHandlers(): void {
           source.display_id && source.display_id.length > 0
             ? source.display_id
             : null,
-        previewDataUrl: source.thumbnail.toDataURL(),
+        previewDataUrl:
+          previews && !source.thumbnail.isEmpty()
+            ? `data:image/jpeg;base64,${source.thumbnail.toJPEG(80).toString("base64")}`
+            : null,
       }));
 
       return ok({ sources: mapped });

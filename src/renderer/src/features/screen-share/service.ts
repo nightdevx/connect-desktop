@@ -42,7 +42,7 @@ const desktopBridgeOutdatedError = {
   },
 } satisfies DesktopResult<never>;
 
-export const listScreenCaptureSources = () => {
+export const listScreenCaptureSources = (options?: { previews?: boolean }) => {
   if (typeof window.desktopApi.listScreenCaptureSources !== "function") {
     return Promise.resolve(
       desktopBridgeOutdatedError as DesktopResult<{
@@ -57,7 +57,7 @@ export const listScreenCaptureSources = () => {
     );
   }
 
-  return window.desktopApi.listScreenCaptureSources();
+  return window.desktopApi.listScreenCaptureSources(options);
 };
 
 const isRetryableAudioConstraintError = (error: unknown): boolean => {
@@ -204,7 +204,10 @@ const startElectronDesktopCapture = async (
     captureSystemAudio: options.captureSystemAudio
   });
 
-  const sourcesResult = await listScreenCaptureSources();
+  // Ids and names only: whether the chosen source still exists, and what it
+  // is called. Asking for previews here captured every window a second time
+  // before the share could start.
+  const sourcesResult = await listScreenCaptureSources({ previews: false });
   if (!sourcesResult.ok || !sourcesResult.data) {
     throw new Error(
       sourcesResult.error?.message ??

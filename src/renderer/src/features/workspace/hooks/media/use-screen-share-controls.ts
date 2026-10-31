@@ -171,10 +171,12 @@ export const useScreenShareControls = ({
   // Shared by the share dialog and the toolbar's "ekran değiştir" menu: both
   // list the same sources, and the kind inference below is the only place that
   // knows a raw descriptor without a `kind` is a window.
-  const fetchScreenShareSources = useCallback(async (): Promise<
+  const fetchScreenShareSources = useCallback(async (
+    options: { previews?: boolean } = {},
+  ): Promise<
     { sources: ScreenCaptureSourceDescriptor[]; error: string | null }
   > => {
-    const result = await workspaceService.listScreenCaptureSources();
+    const result = await workspaceService.listScreenCaptureSources(options);
     if (!result.ok || !result.data) {
       return {
         sources: [],
@@ -807,7 +809,9 @@ export const useScreenShareControls = ({
       // broadcast rather than what the last start dialog was set to.
       isSystemAudioOn: () =>
         (liveShareRef.current?.stream.getAudioTracks().length ?? 0) > 0,
-      listSources: async () => (await fetchScreenShareSources()).sources,
+      // Names only: the menu shows no previews, and capturing one of every
+      // window is what made the list slow to come up.
+      listSources: async () => (await fetchScreenShareSources({ previews: false })).sources,
       // An explicit pick from the menu is the only thing that moves the ceiling
       // an automatic recovery climbs back to.
       changeQuality: (quality) => {
