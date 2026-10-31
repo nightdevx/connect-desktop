@@ -38,6 +38,7 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 	setupName := filepath.Base(o.installer)
 	var setup *process
 	staging := ""
+	stalled := false
 	for {
 		if appWindowShown(o.appExe) {
 			log.Printf("new Connect window during the install")
@@ -58,7 +59,10 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 		if staging != "" {
 			staged = dirSize(staging)
 		}
-		w.progress("installing", est.installing(staged, dirSize(installDir), time.Since(closed).Seconds()))
+		percent := est.installing(staged, dirSize(installDir), time.Since(closed).Seconds())
+		if !stalled {
+			w.progress("installing", percent)
+		}
 
 		if setup != nil {
 			if code, done := setup.exitCode(); done {
@@ -71,9 +75,16 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 			}
 		}
 		// Nothing has happened at all, or something has taken far too long.
+		// Said, not given up on: Connect is not offered while the installer
+		// may still be writing it, and if the install finishes after all the
+		// window carries on as usual.
 		elapsed := time.Since(closed)
-		if (setup == nil && staging == "" && elapsed > 2*time.Minute) || elapsed > 10*time.Minute {
-			w.fail("stalled", fileExists(o.appExe))
+		if !stalled && ((setup == nil && staging == "" && elapsed > 2*time.Minute) || elapsed > 10*time.Minute) {
+			stalled = true
+			w.fail("stalled", false)
+		}
+		if elapsed > 40*time.Minute {
+			log.Printf("still no end to the install after 40 min, no longer watching")
 			return
 		}
 		time.Sleep(pollEvery)

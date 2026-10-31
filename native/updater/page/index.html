@@ -18,7 +18,7 @@
         --accent: #c6f432;
         --accent-hover: #d3f75a;
         --on-accent: #0e0f11;
-        --track: rgba(255, 255, 255, 0.07);
+        --track: rgba(255, 255, 255, 0.1);
         --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
       }
 
@@ -107,6 +107,12 @@
         animation: pulse 1700ms linear 900ms infinite;
       }
 
+      /* The dot is the live badge: a failed install is a room that is not
+         live, so it goes out. */
+      body[data-phase="error"] .dot {
+        fill: var(--muted);
+      }
+
       @keyframes draw {
         to {
           stroke-dashoffset: 0;
@@ -186,17 +192,35 @@
         font-variant-numeric: tabular-nums;
       }
 
+      /* Only the install itself is measured; closing and opening are not, so
+         they show no number to get stuck on. */
+      body:not([data-phase="installing"]) .percent {
+        visibility: hidden;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
       .trouble {
         display: flex;
         flex-direction: column;
         align-items: center;
       }
 
+      /* Selectable, so it can be copied into a support message. */
       .message {
         max-width: 30ch;
         margin-top: 6px;
         color: var(--muted);
         text-wrap: pretty;
+        cursor: text;
+        user-select: text;
       }
 
       .actions {
@@ -205,11 +229,12 @@
         margin-top: 20px;
       }
 
+      /* Odak's dialog buttons: 40 px, 12 px corners. */
       button {
-        height: 36px;
+        height: 40px;
         padding: 0 16px;
         border: 1px solid var(--border);
-        border-radius: 10px;
+        border-radius: 12px;
         background: var(--surface);
         color: var(--text);
         font: inherit;
@@ -286,12 +311,6 @@
     </style>
   </head>
   <body data-phase="closing">
-    <button class="close" id="close" type="button" aria-label="Kapat" hidden>
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-      </svg>
-    </button>
-
     <main>
       <!-- AuthLogoMark's geometry (src/renderer/src/features/auth/components). -->
       <svg class="mark" viewBox="36 36 184 184" aria-hidden="true">
@@ -314,7 +333,9 @@
       </div>
 
       <div class="trouble" id="trouble" hidden>
-        <p class="message" id="message" role="alert"></p>
+        <!-- The alert carries the title too: focus goes straight to the
+             button, so the heading itself may never be read out. -->
+        <p class="message" role="alert"><span class="sr-only" id="alert-title"></span><span id="message"></span></p>
         <div class="actions">
           <button class="primary" id="primary" type="button"></button>
           <button id="secondary" type="button"></button>
@@ -322,27 +343,50 @@
       </div>
     </main>
 
+    <!-- After the actions, so Tab reaches the way out first. -->
+    <button class="close" id="close" type="button" aria-label="Pencereyi kapat" hidden>
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+    </button>
+
     <script>
       (() => {
         const $ = (id) => document.getElementById(id);
         const post = (message) => window.chrome?.webview?.postMessage(message);
 
+        const title = "Connect güncelleniyor";
         const working = {
           closing: "Connect kapatılıyor",
-          installing: "Kuruluyor",
+          installing: "Yeni sürüm kuruluyor",
           opening: "Connect açılıyor",
         };
-        const retry = "Connect'i açıp yeniden deneyebilirsin.";
-        const reinstall = "Son sürümü indirme sayfasından kurabilirsin.";
-        const troubles = {
-          failed: { title: "Güncelleme kurulamadı", canOpen: retry, cannotOpen: reinstall },
-          stalled: { title: "Kurulum beklenenden uzun sürdü", canOpen: retry, cannotOpen: reinstall },
-          "not-opened": {
-            title: "Connect açılmadı",
-            canOpen: "Güncelleme kuruldu ama Connect kendiliğinden açılmadı.",
-            cannotOpen: reinstall,
-          },
-        };
+
+        // What went wrong and what the user can do, never pointing at a way
+        // out the window does not offer.
+        function trouble({ error, canOpen, download }) {
+          const reinstall = download
+            ? "Son sürümü indirme sayfasından kurabilirsin."
+            : "Connect'i yeniden kurman gerekiyor.";
+          if (error === "stalled") {
+            // The install is still being watched: if it finishes, the window
+            // goes back to its progress and Connect opens as usual.
+            return {
+              title: "Kurulum çok uzun sürüyor",
+              message: "Arka planda sürüyor olabilir. Biterse Connect kendiliğinden açılır.",
+            };
+          }
+          if (error === "not-opened") {
+            return {
+              title: "Connect açılmadı",
+              message: canOpen ? "Güncelleme kuruldu ama Connect kendiliğinden açılmadı." : reinstall,
+            };
+          }
+          return {
+            title: "Güncelleme kurulamadı",
+            message: canOpen ? "Connect'i açıp yeniden deneyebilirsin." : reinstall,
+          };
+        }
 
         let actions = {};
 
@@ -352,6 +396,11 @@
           $("version").hidden = !state.version;
 
           if (state.phase !== "error") {
+            // A stalled install that finishes after all comes back here.
+            $("title").textContent = title;
+            $("trouble").hidden = true;
+            $("close").hidden = true;
+
             const percent = Math.floor(state.percent);
             $("fill").style.width = `${percent}%`;
             $("bar").setAttribute("aria-valuenow", String(percent));
@@ -362,9 +411,10 @@
             return;
           }
 
-          const trouble = troubles[state.error] ?? troubles.failed;
-          $("title").textContent = trouble.title;
-          $("message").textContent = state.canOpen ? trouble.canOpen : trouble.cannotOpen;
+          const { title: troubleTitle, message } = trouble(state);
+          $("title").textContent = troubleTitle;
+          $("alert-title").textContent = `${troubleTitle}. `;
+          $("message").textContent = message;
 
           // The way out that works comes first: Connect if it is there,
           // otherwise the download page, otherwise just closing.
@@ -373,7 +423,10 @@
             : state.download
               ? ["İndirme sayfasını aç", "open-download"]
               : ["Kapat", "close"];
-          const secondary = state.canOpen && state.download ? ["İndirme sayfası", "open-download"] : null;
+          const secondary =
+            state.canOpen && state.download && state.error === "failed"
+              ? ["İndirme sayfası", "open-download"]
+              : null;
           $("primary").textContent = primary[0];
           $("secondary").hidden = !secondary;
           if (secondary) {
@@ -383,7 +436,8 @@
 
           const firstShow = $("trouble").hidden;
           $("trouble").hidden = false;
-          $("close").hidden = false;
+          // A primary "Kapat" already closes it.
+          $("close").hidden = primary[1] === "close";
           if (firstShow) {
             $("primary").focus();
           }
@@ -396,8 +450,22 @@
         $("secondary").addEventListener("click", () => post(actions.secondary));
         $("close").addEventListener("click", () => post("close"));
         document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape" && document.body.dataset.phase === "error") {
+          if (document.body.dataset.phase !== "error") {
+            return;
+          }
+          if (event.key === "Escape") {
             post("close");
+            return;
+          }
+          // Tab goes round the buttons: past the last one there is nothing in
+          // this window to land on.
+          if (event.key === "Tab") {
+            const buttons = [...document.querySelectorAll("button")].filter((b) => !b.hidden);
+            const at = buttons.indexOf(document.activeElement);
+            const step = event.shiftKey ? -1 : 1;
+            const next = at < 0 ? (step > 0 ? 0 : buttons.length - 1) : (at + step + buttons.length) % buttons.length;
+            buttons[next]?.focus();
+            event.preventDefault();
           }
         });
 

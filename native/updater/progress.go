@@ -11,14 +11,14 @@ import (
 
 // Where each stage of the install lands on the bar. Closing Connect and moving
 // the old files out take a moment; unpacking the new files is most of the
-// wait; copying them into place is the rest. What is left after that (the
-// installer's bookkeeping, Connect starting) shows as installedPercent.
+// wait; copying them into place is the rest. Once the installer has exited
+// the bar is full, and only Connect starting is left.
 const (
 	closingPercent   = 2.0
 	emptiedPercent   = 5.0
 	unpackedPercent  = 70.0
 	copiedPercent    = 95.0
-	installedPercent = 98.0
+	installedPercent = 100.0
 )
 
 // estimator turns what the installer leaves on disk into a percentage.
