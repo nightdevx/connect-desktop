@@ -1,0 +1,337 @@
+/* ==========================================================================
+   Toasts (app/ToastHost.tsx, store in services/toast.ts)
+
+   Top centre, under the title bar: clear of the page headers' own buttons on
+   the right (Yenile, Arkadaş ekle) and of the incoming-call card in the top
+   right corner. Several toasts make a deck: the newest in front, the edges of
+   up to two older ones under it; pointing at it spreads them out. Placement
+   per card is --toast-y and --toast-scale from ToastHost, applied as a
+   transform, so the cards glide.
+   ========================================================================== */
+
+:root[data-odak] .ct-toasts {
+  --toast-dir: 1;
+  position: fixed;
+  top: calc(var(--ct-titlebar-height) + 12px);
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  width: min(360px, calc(100vw - 32px));
+  margin-inline: auto;
+  pointer-events: none;
+}
+
+/* Spread out, the stack catches the pointer across the gaps between cards,
+   so moving from one card to the next does not fold it up again. */
+:root[data-odak] .ct-toasts[data-expanded] {
+  pointer-events: auto;
+}
+
+/* While a dialog is open the deck waits bottom left, above the backdrop: top
+   centre it would sit on the dialog's title, and a dialog's buttons are right
+   aligned at its foot, so this corner reaches neither. It grows upwards. */
+:root[data-odak] body:has(.ct-modal .ant-modal-mask:not(.ant-modal-mask-hidden)) .ct-toasts {
+  --toast-dir: -1;
+  top: auto;
+  bottom: 16px;
+  left: 16px;
+  right: auto;
+  margin-inline: 0;
+}
+
+/* --- the card --------------------------------------------------------------- */
+
+:root[data-odak] .ct-toast {
+  --tone: var(--odak-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 16px;
+  /* The tone as light in the corner the icon sits in, not as a stripe. */
+  background:
+    radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--tone) 10%, transparent), transparent 52%),
+    var(--odak-raised);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px -14px rgba(0, 0, 0, 0.7),
+    0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  color: var(--odak-text);
+  pointer-events: auto;
+  transform: translateY(calc(var(--toast-dir) * var(--toast-y, 0px))) scale(var(--toast-scale, 1));
+  transform-origin: 50% 0;
+  transition:
+    transform var(--odak-dur-3) var(--odak-ease-out),
+    opacity var(--odak-dur-2) ease;
+  animation: odak-bildirim-in var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+:root[data-odak] body:has(.ct-modal .ant-modal-mask:not(.ant-modal-mask-hidden)) .ct-toast {
+  top: auto;
+  bottom: 0;
+  transform-origin: 50% 100%;
+}
+
+:root[data-odak] .ct-toast:is(.success, .progress) {
+  --tone: var(--odak-accent);
+}
+
+:root[data-odak] .ct-toast.warning {
+  --tone: #fbbf24;
+}
+
+:root[data-odak] .ct-toast.error {
+  --tone: var(--odak-danger);
+}
+
+/* Behind the front card: an edge, nothing to read or press. */
+:root[data-odak] .ct-toast[data-behind] {
+  background: var(--odak-raised);
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-odak] .ct-toast[data-behind] > .ct-toast-body {
+  opacity: 0;
+}
+
+:root[data-odak] .ct-toast[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-toast.leaving {
+  animation: odak-bildirim-out var(--odak-dur-2) var(--odak-ease-in) forwards;
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-toast-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 12px 13px 14px;
+  transition: opacity var(--odak-dur-2) ease;
+}
+
+:root[data-odak] .ct-toast-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--tone);
+}
+
+:root[data-odak] .ct-toast.info .ct-toast-icon {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-toast-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+:root[data-odak] .ct-toast-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+
+:root[data-odak] .ct-toast-text > span:not(.ct-toast-progress) {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--odak-muted);
+  overflow-wrap: anywhere;
+}
+
+/* --- what can be done about it --------------------------------------------- */
+
+:root[data-odak] .ct-toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 7px;
+}
+
+:root[data-odak] .ct-toast-action {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) ease;
+}
+
+:root[data-odak] .ct-toast-action:hover {
+  background: color-mix(in srgb, var(--odak-accent) 88%, white);
+}
+
+:root[data-odak] .ct-toast-action:active {
+  transform: scale(0.96);
+}
+
+/* The raw error behind a human sentence, one click from the clipboard. */
+:root[data-odak] .ct-toast-detail {
+  padding: 0;
+  border: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: none;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--odak-muted) 45%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-toast-detail:hover {
+  color: var(--odak-text);
+}
+
+:root[data-odak] :is(.ct-toast-action, .ct-toast-detail, .ct-toast-close):focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+/* --- close, with the time left around it ------------------------------------- */
+
+:root[data-odak] .ct-toast-close {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--odak-muted);
+  background: none;
+  cursor: pointer;
+  transition: color var(--odak-dur-1) ease, background-color var(--odak-dur-1) ease;
+}
+
+:root[data-odak] .ct-toast-close:hover {
+  color: var(--odak-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-odak] .ct-toast-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+:root[data-odak] .ct-toast-ring circle {
+  fill: none;
+  stroke-width: 1.75;
+}
+
+:root[data-odak] .ct-toast-ring-track {
+  stroke: rgba(255, 255, 255, 0.07);
+}
+
+/* Drains clockwise from the top. Linear: it is a clock, not a gesture. */
+:root[data-odak] .ct-toast-ring-time {
+  stroke: var(--tone);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  opacity: 0.8;
+  animation-name: odak-bildirim-time;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+:root[data-odak] .ct-toast.info .ct-toast-ring-time {
+  stroke: var(--odak-muted);
+}
+
+/* Open, nothing runs out: whatever is being read stays. */
+:root[data-odak] .ct-toasts[data-expanded] .ct-toast-ring-time {
+  animation-play-state: paused;
+}
+
+/* --- progress ------------------------------------------------------------------ */
+
+:root[data-odak] .ct-toast-progress {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-odak] .ct-toast-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: var(--tone);
+  transform-origin: left;
+  transition: transform var(--odak-dur-3) ease-out;
+}
+
+:root[data-odak] .ct-toast-progress.indeterminate .ct-toast-progress-fill {
+  background: linear-gradient(90deg, transparent 0%, var(--tone) 50%, transparent 100%) 0 0 / 200% 100%;
+  animation: odak-sheen 1.4s ease-in-out infinite;
+}
+
+/* --- motion ------------------------------------------------------------------- */
+
+/* In: from the direction the deck grows, a touch small. On the individual
+   translate/scale properties, so it adds to the deck's own transform. */
+@keyframes odak-bildirim-in {
+  from {
+    opacity: 0;
+    translate: 0 calc(var(--toast-dir) * -10px);
+    scale: 0.96;
+  }
+}
+
+@keyframes odak-bildirim-out {
+  to {
+    opacity: 0;
+    scale: 0.95;
+  }
+}
+
+@keyframes odak-bildirim-time {
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-toast,
+  :root[data-odak] .ct-toast.leaving,
+  :root[data-odak] .ct-toast-progress.indeterminate .ct-toast-progress-fill {
+    animation: none;
+    transition: none;
+  }
+
+  /* Still timed (the ring's animationend is what dismisses), just not drawn
+     moving. */
+  :root[data-odak] .ct-toast-ring-time {
+    opacity: 0;
+  }
+}
