@@ -12,14 +12,41 @@ interface MusicRoom {
   send: (command: string) => Promise<boolean>;
 }
 
+// What the server's music errors mean, said as a sentence to the person who
+// typed. The server's own text is terse ("kaynak çözümlenemedi"); the codes
+// below are internal/music's. Anything else keeps the server's words, with a
+// capital letter.
+const MUSIC_ERRORS: Record<string, string> = {
+  MUSIC_DISABLED: "Müzik botu bu sunucuda kapalı.",
+  MUSIC_UNAVAILABLE: "Müzik botu şu an kullanılamıyor. Biraz sonra yeniden dene.",
+  MUSIC_NOT_A_MEMBER: "Müzik çalmak için önce odaya katıl.",
+  MUSIC_NOT_A_DJ: "Müziği yönetmek için DJ yetkin yok. Yetkiyi yöneticiler verir.",
+  MUSIC_ADMIN_ONLY: "Bu komutu yalnız yöneticiler kullanabilir.",
+  MUSIC_EMPTY_QUERY: "Bir bağlantı yapıştır ya da şarkı adı yaz.",
+  MUSIC_EMPTY_COMMAND: "Bir bağlantı yapıştır ya da şarkı adı yaz.",
+  MUSIC_QUERY_TOO_LONG: "Yazdığın metin çok uzun. Kısaltıp yeniden dene.",
+  MUSIC_INVALID_QUERY: "Yazdığın metinde kullanılamayan bir karakter var.",
+  MUSIC_INVALID_URL: "Bu bağlantı açılamadı. Bağlantıyı kontrol et.",
+  MUSIC_UNSUPPORTED_SCHEME: "Yalnız http ya da https ile başlayan bağlantılar çalınabilir.",
+  MUSIC_HOST_NOT_ALLOWED: "Yalnız YouTube ve Spotify bağlantıları çalınabilir.",
+  MUSIC_SPOTIFY_DISABLED: "Spotify bağlantıları bu sunucuda kapalı. YouTube bağlantısı ya da şarkı adı dene.",
+  MUSIC_SOURCE_DISABLED: "Bu kaynaktan bağlantılar bu sunucuda kapalı.",
+  MUSIC_RESOLVE_FAILED: "Bu bağlantıda ya da aramada çalınabilecek bir parça bulunamadı. Başka bir bağlantı ya da ad dene.",
+  MUSIC_NOT_FOUND: "Bu bağlantıda çalınabilecek bir parça bulunamadı.",
+  MUSIC_NOTHING_PLAYING: "Şu an çalan bir parça yok.",
+  MUSIC_BAD_POSITION: "Sırada o numarada bir parça yok.",
+  MUSIC_TOO_MANY_PLAYERS: "Şu an çok sayıda odada müzik çalıyor. Biraz sonra yeniden dene.",
+};
+
+/** The server's lower-case phrase as a sentence: capital first letter. */
+export const musicSentence = (text: string): string =>
+  text.charAt(0).toLocaleUpperCase("tr-TR") + text.slice(1);
+
 const errorMessage = (error?: { code: string; message: string }): string => {
   if (!error) {
     return "Müzik komutu gönderilemedi.";
   }
-  if (error.code === "MUSIC_DISABLED") {
-    return "Müzik botu bu sunucuda kapalı.";
-  }
-  return error.message;
+  return MUSIC_ERRORS[error.code] ?? musicSentence(error.message);
 };
 
 export function useMusicRoom(lobbyId: string | null): MusicRoom {

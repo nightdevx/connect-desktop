@@ -1,21 +1,11 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Input, Modal, Slider, Tooltip } from "antd";
-import type { InputRef } from "antd";
+import { Modal, Slider, Tooltip } from "antd";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
-import {
-  ClearOutlined,
-  CustomerServiceOutlined,
-  DeleteOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  PlusOutlined,
-  SoundOutlined,
-  StepForwardOutlined,
-  StopOutlined,
-} from "@ant-design/icons";
+import { MenuIcon, type OdakMenuIcon } from "@/ui/odak-menu";
 import { formatMusicDuration, type MusicLogLine } from "@shared/music";
-import { useMusicRoom } from "./use-music-room";
+import { musicSentence, useMusicRoom } from "./use-music-room";
+import "@/styles/modules/features/odak-pencereler.css";
 
 export interface MusicBotAudioDiagnostics {
   seen: boolean;
@@ -43,6 +33,46 @@ const logToneClass = (line: MusicLogLine): string => {
   return "ct-music-log-line";
 };
 
+// Whether this client is getting the bot's sound, in plain words. The checks
+// are the same four the dialog always made; only the wording is new.
+const describeDiagnostics = (
+  diagnostics: MusicBotAudioDiagnostics,
+): { ok: boolean; text: string } => {
+  if (!diagnostics.seen) return { ok: false, text: "Bot sende görünmüyor; sesi sana ulaşmıyor." };
+  if (!diagnostics.publishing) return { ok: false, text: "Bot bağlandı ama henüz ses göndermiyor." };
+  if (diagnostics.muted) return { ok: false, text: "Botun yayını susturulmuş görünüyor." };
+  if (!diagnostics.subscribed) return { ok: false, text: "Bot ses gönderiyor ama sana bağlanmadı." };
+  return { ok: true, text: "Ses sana geliyor." };
+};
+
+function IconButton({
+  label,
+  icon,
+  danger,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: OdakMenuIcon;
+  danger?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <Tooltip title={label} mouseEnterDelay={0.4}>
+      <button
+        type="button"
+        className={`ct-music-icon-btn${danger ? " danger" : ""}`}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        <MenuIcon name={icon} />
+      </button>
+    </Tooltip>
+  );
+}
+
 /**
  * The room's music bot.
  *
@@ -52,9 +82,14 @@ const logToneClass = (line: MusicLogLine): string => {
  * collapse — so somebody who never opened the chat had no music controls at
  * all, which is most of why "the volume does nothing" was the common report.
  *
+ * Read top to bottom it answers, in order: what is playing (or that nothing
+ * is), what to type to play something and what happens then, what is waiting,
+ * and how loud it is for you. Who hears it is in the heading: everybody in the
+ * room.
+ *
  * The commands are still the contract underneath: every button here is
  * shorthand for one somebody could type. Nothing has to be typed, though — a
- * link goes in the box and the buttons do the rest.
+ * link or a song's name goes in the box and the buttons do the rest.
  */
 export function MusicModal({
   lobbyId,
@@ -68,8 +103,9 @@ export function MusicModal({
     useMusicRoom(lobbyId);
 
   const [draft, setDraft] = useState("");
+  // What was asked for while the bot looks it up, for the "aranıyor" line.
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const inputRef = useRef<InputRef>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const playing = state.nowPlaying !== null && !state.paused;
@@ -127,25 +163,56 @@ export function MusicModal({
       return;
     }
     setDraft("");
+    setPendingQuery(trimmed);
     // A link OR a search phrase: the resolver decides which it got, so the box
     // needs neither a mode switch nor a typed command prefix.
-    void send("play " + trimmed).then(() => inputRef.current?.focus());
+    void send("play " + trimmed).then(() => setPendingQuery(null));
   };
 
-  const headline = state.nowPlaying
-    ? state.nowPlaying.title
-    : state.queue.length > 0
-      ? `${state.queue.length} parça sırada`
-      : "Şu an bir şey çalmıyor";
+  const nowPlaying = state.nowPlaying;
+  const health = state.connected && diagnostics ? describeDiagnostics(diagnostics) : null;
+
+  let feedback: ReactNode;
+  if (pendingQuery !== null) {
+    feedback = (
+      <small className="ct-music-status busy" role="status">
+        <span className="ct-music-spin" aria-hidden="true">
+          <MenuIcon name="loader" size={14} />
+        </span>
+        “{pendingQuery}” aranıyor…
+      </small>
+    );
+  } else if (lastError) {
+    feedback = (
+      <small className="ct-field-error" role="alert">
+        <MenuIcon name="alert" size={14} />
+        {lastError}
+      </small>
+    );
+  } else if (lastReply) {
+    feedback = (
+      <small className="ct-music-status done" role="status">
+        <MenuIcon name="check" size={14} />
+        {musicSentence(lastReply)}
+      </small>
+    );
+  } else {
+    feedback = (
+      <small className="ct-field-hint">
+        Bağlantı yapıştırırsan o parça, ad yazarsan ilk arama sonucu çalınır.
+        Çalan biterse sıradaki başlar.
+      </small>
+    );
+  }
 
   return (
     <Modal
       rootClassName="ct-modal"
       title={
         <ModalHeading
-          icon={<CustomerServiceOutlined />}
+          icon={<MenuIcon name="music" size={19} />}
           title="Müzik"
-          description="Odadaki herkes aynı müziği dinler; kuyruğu DJ yetkisi olanlar yönetir."
+          description="Bot bu odaya katılıp çalar; odadaki herkes aynı anda duyar."
         />
       }
       open={open}
@@ -155,150 +222,201 @@ export function MusicModal({
       destroyOnHidden
     >
       <div className="ct-music-body">
-        <section className="ct-music-now">
-          <span className="ct-music-title" title={headline}>
-            {headline}
-          </span>
-          <span className="ct-music-subtitle">
-            {state.nowPlaying
-              ? `${formatMusicDuration(position)} / ${formatMusicDuration(state.nowPlaying.durationSeconds)} · ${state.nowPlaying.requestedByName}`
-              : isDj
-                ? "Aşağıya bir bağlantı yapıştır."
-                : "Müziği yalnızca DJ yetkisi olanlar yönetir."}
-          </span>
-          <span className="ct-music-progress">
-            <span
-              className="ct-music-progress-fill"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </span>
+        <section
+          className={`ct-music-now${nowPlaying ? (state.paused ? " paused" : " playing") : ""}`}
+          aria-label="Şu an çalan"
+        >
+          <div className="ct-music-now-row">
+            <span className="ct-music-art" aria-hidden="true">
+              <MenuIcon name={nowPlaying ? "waveform" : "music"} size={18} />
+            </span>
+            <span className="ct-music-now-text">
+              <span className="ct-music-kicker">
+                {nowPlaying ? (state.paused ? "Duraklatıldı" : "Şu an çalıyor") : "Sessiz"}
+              </span>
+              <span className="ct-music-title" title={nowPlaying?.title}>
+                {nowPlaying ? nowPlaying.title : "Şu an bir şey çalmıyor"}
+              </span>
+              <span className="ct-music-subtitle">
+                {nowPlaying
+                  ? `${nowPlaying.requestedByName} istedi`
+                  : isDj
+                    ? "Aşağıya bir bağlantı ya da şarkı adı yaz."
+                    : "Müziği DJ yetkisi olanlar başlatır."}
+              </span>
+            </span>
+            {isDj && nowPlaying ? (
+              <span className="ct-music-transport">
+                <IconButton
+                  label={state.paused ? "Devam et" : "Duraklat"}
+                  icon={state.paused ? "play" : "pause"}
+                  disabled={isSending}
+                  onClick={() => runCommand(state.paused ? "resume" : "pause")}
+                />
+                <IconButton
+                  label="Sonraki parça"
+                  icon="skip"
+                  disabled={isSending}
+                  onClick={() => runCommand("skip")}
+                />
+                <IconButton
+                  label="Durdur ve botu odadan çıkar"
+                  icon="stop"
+                  danger
+                  disabled={isSending}
+                  onClick={() => runCommand("stop")}
+                />
+              </span>
+            ) : null}
+          </div>
+
+          {nowPlaying ? (
+            <div className="ct-music-progress-row">
+              <span className="ct-music-time">{formatMusicDuration(position)}</span>
+              <span className="ct-music-progress">
+                <span
+                  className="ct-music-progress-fill"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </span>
+              <span className="ct-music-time">
+                {formatMusicDuration(nowPlaying.durationSeconds)}
+              </span>
+            </div>
+          ) : null}
+
+          {health ? (
+            <p className={`ct-music-diagnostics${health.ok ? " ok" : ""}`}>
+              <span aria-hidden="true" />
+              {health.text}
+            </p>
+          ) : null}
         </section>
 
-        <div className="ct-music-composer">
-          <Input
-            ref={inputRef}
-            value={draft}
-            disabled={isSending || !isDj}
-            placeholder="YouTube bağlantısı veya şarkı adı"
-            onChange={(event) => setDraft(event.target.value)}
-            onPressEnter={enqueueDraft}
-            maxLength={320}
-            allowClear
-          />
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            loading={isSending}
-            disabled={draft.trim() === "" || !isDj}
-            onClick={enqueueDraft}
-          >
-            Sıraya Ekle
-          </Button>
-        </div>
-
-        <div className="ct-music-controls">
-          <Tooltip title={state.paused ? "Devam et" : "Duraklat"}>
-            <Button
-              disabled={!isDj || !state.nowPlaying || isSending}
-              icon={
-                state.paused ? <PlayCircleOutlined /> : <PauseCircleOutlined />
-              }
-              onClick={() => runCommand(state.paused ? "resume" : "pause")}
-            />
-          </Tooltip>
-          <Tooltip title="Sonraki parça">
-            <Button
-              disabled={!isDj || !state.nowPlaying || isSending}
-              icon={<StepForwardOutlined />}
-              onClick={() => runCommand("skip")}
-            />
-          </Tooltip>
-          <Tooltip title="Kuyruğu temizle">
-            <Button
-              disabled={!isDj || state.queue.length === 0 || isSending}
-              icon={<ClearOutlined />}
-              onClick={() => runCommand("clear")}
-            />
-          </Tooltip>
-          <Tooltip title="Durdur ve botu odadan çıkar">
-            <Button
-              danger
-              disabled={!isDj || isSending}
-              icon={<StopOutlined />}
-              onClick={() => runCommand("stop")}
-            />
-          </Tooltip>
-
-          <span className="ct-music-volume">
-            <SoundOutlined />
-            <Slider
-              min={0}
-              max={200}
-              step={5}
-              value={volumePercent}
-              onChange={onVolumeChange}
-              tooltip={{ formatter: (value) => `%${value ?? 0}` }}
-            />
-          </span>
-        </div>
-
-        {state.connected && diagnostics ? (
-          <p className="ct-music-diagnostics">
-            {!diagnostics.seen
-              ? "Bot bu istemcide görünmüyor — ses odaya ulaşmıyor."
-              : !diagnostics.publishing
-                ? "Bot görünüyor ama ses yayını yok."
-                : diagnostics.muted
-                  ? "Bot yayını susturulmuş görünüyor."
-                  : !diagnostics.subscribed
-                    ? "Bot yayınlıyor ama bu istemci abone değil."
-                    : `Ses alınıyor · %${volumePercent}`}
-          </p>
-        ) : null}
-
-        {state.queue.length > 0 ? (
-          <ol className="ct-music-queue">
-            {state.queue.map((track, index) => (
-              <li key={`${track.id}-${index}`} className="ct-music-queue-row">
-                <span className="ct-music-queue-index">{index + 1}</span>
-                <span className="ct-music-queue-title" title={track.title}>
-                  {track.title}
-                </span>
-                <span className="ct-music-queue-meta">
-                  {formatMusicDuration(track.durationSeconds)} ·{" "}
-                  {track.requestedByName}
-                </span>
-                {isDj ? (
-                  <Button
-                    type="text"
-                    size="small"
-                    aria-label="Kuyruktan çıkar"
-                    icon={<DeleteOutlined />}
-                    disabled={isSending}
-                    onClick={() => runCommand(`remove ${index + 1}`)}
-                  />
-                ) : null}
-              </li>
-            ))}
-          </ol>
+        {isDj ? (
+          <div className="ct-field">
+            <label htmlFor="ct-music-query">Ne çalınsın?</label>
+            <div className="ct-music-composer">
+              <span className="ct-music-query">
+                <MenuIcon name="search" />
+                <input
+                  id="ct-music-query"
+                  type="text"
+                  value={draft}
+                  // Not disabled while a command is out: a disabled box drops
+                  // its focus, and the next song is typed into nothing.
+                  placeholder="YouTube bağlantısı ya da şarkı adı"
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      enqueueDraft();
+                    }
+                  }}
+                  maxLength={320}
+                  autoFocus
+                  aria-describedby="ct-music-feedback"
+                />
+              </span>
+              <button
+                type="button"
+                className="ct-music-add"
+                disabled={draft.trim() === "" || isSending}
+                onClick={enqueueDraft}
+              >
+                {pendingQuery !== null ? "Ekleniyor…" : nowPlaying ? "Sıraya ekle" : "Çal"}
+              </button>
+            </div>
+            <div id="ct-music-feedback" className="ct-music-feedback">
+              {feedback}
+            </div>
+          </div>
         ) : (
-          <p className="ct-music-empty">Kuyruk boş.</p>
+          <p className="ct-music-note">
+            <MenuIcon name="alert" size={14} />
+            Müziği DJ yetkisi olanlar yönetir; yetkiyi yöneticiler verir. Çalanı
+            dinleyebilir ve kendi ses seviyeni ayarlayabilirsin.
+          </p>
         )}
 
-        <div className="ct-music-log">
-          {state.log.map((line, index) => (
-            <p key={`${line.at}-${index}`} className={logToneClass(line)}>
-              {line.text}
+        <section className="ct-music-section" aria-label="Sıradakiler">
+          <div className="ct-music-section-head">
+            <h3>
+              Sırada
+              <span>{state.queue.length}</span>
+            </h3>
+            {isDj && state.queue.length > 0 ? (
+              <button
+                type="button"
+                className="ct-music-text-btn"
+                disabled={isSending}
+                onClick={() => runCommand("clear")}
+              >
+                <MenuIcon name="listX" size={14} />
+                Sırayı temizle
+              </button>
+            ) : null}
+          </div>
+          {state.queue.length > 0 ? (
+            <ol className="ct-music-queue">
+              {state.queue.map((track, index) => (
+                <li key={`${track.id}-${index}`} className="ct-music-queue-row">
+                  <span className="ct-music-queue-index">{index + 1}</span>
+                  <span className="ct-music-queue-text">
+                    <span className="ct-music-queue-title" title={track.title}>
+                      {track.title}
+                    </span>
+                    <span className="ct-music-queue-meta">
+                      {formatMusicDuration(track.durationSeconds)} · {track.requestedByName}
+                    </span>
+                  </span>
+                  {isDj ? (
+                    <IconButton
+                      label="Sıradan çıkar"
+                      icon="x"
+                      disabled={isSending}
+                      onClick={() => runCommand(`remove ${index + 1}`)}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="ct-music-empty">
+              Sırada parça yok. Çalarken eklediklerin buraya dizilir.
             </p>
-          ))}
-          <div ref={logEndRef} />
+          )}
+        </section>
+
+        <div className="ct-music-volume">
+          <label htmlFor="ct-music-volume">
+            Sende ses seviyesi
+            <span>%{volumePercent}</span>
+          </label>
+          <Slider
+            id="ct-music-volume"
+            min={0}
+            max={200}
+            step={5}
+            value={volumePercent}
+            onChange={onVolumeChange}
+            tooltip={{ formatter: (value) => `%${value ?? 0}` }}
+          />
+          <small className="ct-field-hint">Yalnız seni etkiler; odadakiler kendi ayarını duyar.</small>
         </div>
 
-        {lastError ? (
-          <p className="ct-music-feedback error">{lastError}</p>
-        ) : null}
-        {!lastError && lastReply ? (
-          <p className="ct-music-feedback">{lastReply}</p>
+        {state.log.length > 0 ? (
+          <details className="ct-music-history">
+            <summary>Komut geçmişi</summary>
+            <div className="ct-music-log">
+              {state.log.map((line, index) => (
+                <p key={`${line.at}-${index}`} className={logToneClass(line)}>
+                  {line.text}
+                </p>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          </details>
         ) : null}
       </div>
     </Modal>

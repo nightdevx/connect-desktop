@@ -346,3 +346,522 @@
     animation: none;
   }
 }
+
+/* ==========================================================================
+   F3.2 The music dialog
+   ========================================================================== */
+
+:root[data-odak] .ct-music-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* What is playing, above everything that acts on it. */
+:root[data-odak] .ct-music-now {
+  display: flex;
+  padding: 12px;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-music-now-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-music-art {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-now.playing .ct-music-art {
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+/* Live: the glyph breathes while the bot plays, and only then. */
+:root[data-odak] .ct-music-now.playing .ct-music-art svg {
+  animation: odak-breathe 2.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-music-now-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-music-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-now.playing .ct-music-kicker {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-music-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-music-subtitle {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-transport {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+:root[data-odak] .ct-music-icon-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 10px;
+  color: #d7dae0;
+  background: transparent;
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-icon-btn:hover:not(:disabled) {
+  border-color: var(--odak-muted);
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+:root[data-odak] .ct-music-icon-btn.danger:hover:not(:disabled) {
+  border-color: rgba(255, 92, 92, 0.4);
+  color: #ff8a8a;
+  background: rgba(255, 92, 92, 0.12);
+}
+
+:root[data-odak] .ct-music-icon-btn:disabled {
+  color: #5d636d;
+  cursor: not-allowed;
+}
+
+:root[data-odak] :is(.ct-music-icon-btn, .ct-music-add, .ct-music-text-btn):focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 2px var(--odak-surface),
+    0 0 0 4px rgba(198, 244, 50, 0.8);
+}
+
+:root[data-odak] .ct-music-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-music-time {
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-progress {
+  display: block;
+  height: 4px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-music-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--odak-accent);
+  transition: width 1s linear;
+}
+
+:root[data-odak] .ct-music-diagnostics {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ff8a8a;
+}
+
+:root[data-odak] .ct-music-diagnostics > span {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:root[data-odak] .ct-music-diagnostics.ok {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-diagnostics.ok > span {
+  background: var(--odak-accent);
+}
+
+/* The box and its button: the box takes what the button leaves. */
+:root[data-odak] .ct-music-body .ct-field > label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-composer {
+  display: flex;
+  gap: 8px;
+}
+
+:root[data-odak] .ct-music-query {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 14px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 12px;
+  color: #7c828c;
+  background: var(--odak-bg);
+  transition: border-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-query:hover {
+  border-color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-query:focus-within {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-music-query input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-music-query input::placeholder {
+  color: #5d636d;
+}
+
+:root[data-odak] .ct-music-add {
+  height: 44px;
+  min-width: 104px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-add:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+:root[data-odak] .ct-music-add:disabled {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+  cursor: not-allowed;
+}
+
+:root[data-odak] .ct-music-feedback {
+  min-height: 18px;
+}
+
+:root[data-odak] .ct-music-feedback .ct-field-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+:root[data-odak] .ct-music-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #d7dae0;
+  animation: odak-fade var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-status svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+:root[data-odak] .ct-music-status.done svg {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-music-spin {
+  display: inline-grid;
+  color: var(--odak-accent);
+  animation: odak-pencereler-spin 0.9s linear infinite;
+}
+
+@keyframes odak-pencereler-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:root[data-odak] .ct-music-note {
+  display: flex;
+  margin: 0;
+  padding: 12px 14px;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #d7dae0;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root[data-odak] .ct-music-section-head {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:root[data-odak] .ct-music-section-head h3 {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-section-head h3 span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-odak] .ct-music-text-btn {
+  display: inline-flex;
+  height: 26px;
+  padding: 0 8px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-music-text-btn:hover:not(:disabled) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-queue {
+  display: flex;
+  max-height: 208px;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+:root[data-odak] .ct-music-queue-row {
+  display: flex;
+  min-width: 0;
+  padding: 6px 6px 6px 8px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-music-queue-row:hover {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-queue-row .ct-music-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-color: transparent;
+  color: #7c828c;
+  opacity: 0;
+}
+
+:root[data-odak] .ct-music-queue-row:is(:hover, :focus-within) .ct-music-icon-btn {
+  opacity: 1;
+}
+
+:root[data-odak] .ct-music-queue-index {
+  width: 18px;
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  text-align: right;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-queue-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-music-queue-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-music-queue-meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-empty {
+  margin: 0;
+  padding: 2px 0;
+  font-size: 12.5px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-volume {
+  display: flex;
+  padding-top: 12px;
+  flex-direction: column;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-music-volume .ct-field-hint {
+  font-size: 11.5px;
+  color: #7c828c;
+}
+
+/* The command log, folded: kept for whoever wants the record. */
+:root[data-odak] .ct-music-history summary {
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-music-history summary:hover {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-music-log {
+  display: flex;
+  max-height: 112px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-music-log-line {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-log-line.command {
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-music-log-line.error {
+  color: #ff8a8a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] :is(.ct-music-now.playing .ct-music-art svg, .ct-music-spin) {
+    animation: none;
+  }
+
+  :root[data-odak] .ct-music-progress-fill {
+    transition: none;
+  }
+}
+
