@@ -334,7 +334,12 @@ background: oklch(0.55 0.12 var(--ct-name-h));
 color: var(--ct-on-media);
 }
 
-.ct-hued:has(img) {
+/* Every face that takes the hue, not only .ct-hued: the Odak faces paint it
+   with rules of their own (.ct-odak-avatar, the room list's members, the
+   stage's antd avatar, the dock), and those drew it behind pictures too. The
+   inline --ct-name-h is what marks a face, whatever its class; :root lifts
+   this over their two-class rules. */
+:root :is(.ct-hued:has(img), [style*="--ct-name-h"]:has(> img)) {
 background: none;
 }
 
