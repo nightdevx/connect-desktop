@@ -172,6 +172,11 @@
   background: var(--odak-strip);
 }
 
+/* An open strip's row lights up on hover and while open: the ring follows. */
+.ct-odak-strip.open .ct-odak-strip-row:is(:hover, .active) .ct-odak-presence {
+  background: var(--odak-raised);
+}
+
 .ct-odak-menu-dot {
   width: 12px;
   height: 12px;
