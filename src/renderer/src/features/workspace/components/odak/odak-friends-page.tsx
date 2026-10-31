@@ -203,7 +203,12 @@ export function OdakFriendsPage({
   }, [directoryUsers, friends.friendIds]);
 
   const onlineCount = friendUsers.filter((user) => user.appOnline).length;
+  // The tab lists both directions, so its count is both (F4.3): counting only
+  // the incoming ones read "İstekler · 0" over a list of requests sent. The
+  // incoming ones, the only ones waiting on this user, keep their own badge,
+  // the same number the rail adds for requests.
   const incomingCount = friends.incomingRequests.length;
+  const requestCount = incomingCount + friends.outgoingRequests.length;
 
   const activityOf = (user: UserDirectoryEntry): FriendActivity | null => {
     if (!user.appOnline) {
@@ -606,7 +611,7 @@ export function OdakFriendsPage({
                 [
                   ["online", `Çevrimiçi · ${onlineCount}`],
                   ["all", `Tümü · ${friendUsers.length}`],
-                  ["requests", `İstekler · ${incomingCount}`],
+                  ["requests", `İstekler · ${requestCount}`],
                 ] as Array<[Tab, string]>
               ).map(([value, label]) => (
                 <button
@@ -618,6 +623,11 @@ export function OdakFriendsPage({
                   onClick={() => setTab(value)}
                 >
                   {label}
+                  {value === "requests" && incomingCount > 0 && (
+                    <span className="ct-odak-count" aria-label={`${incomingCount} yeni istek`}>
+                      {incomingCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

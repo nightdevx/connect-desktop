@@ -593,6 +593,14 @@
   color: var(--odak-text);
 }
 
+/* New requests on the İstekler tab: the rail's badge, inline. */
+.ct-odak-tabs .ct-odak-count {
+  position: static;
+  display: inline-grid;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
 .ct-odak-tabs button.active {
   color: var(--odak-accent);
   background: var(--odak-raised);
