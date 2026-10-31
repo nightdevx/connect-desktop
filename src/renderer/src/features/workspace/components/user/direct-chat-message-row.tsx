@@ -6,7 +6,8 @@ import {
   PhoneOutlined,
 } from "@ant-design/icons";
 import type { ChatMessage } from "@shared/auth-contracts";
-import { formatTimeLabel, getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { formatTimeLabel, hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import {
   callLogKind,
   formatCallDuration,
@@ -263,7 +264,7 @@ export const DirectChatMessageRow = memo(function DirectChatMessageRow({
             author's face and name, the way the room chat reads. Odak draws
             the two columns instead and hides the face (odak-sohbet.css). */}
         <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
-          {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(authorName)}
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
         </span>
         <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
           <div className="ct-chat-bubble-meta">

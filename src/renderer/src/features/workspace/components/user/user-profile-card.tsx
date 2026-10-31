@@ -34,10 +34,11 @@ import {
   formatDateLabel,
   formatMembershipLength,
   getApiErrorMessage,
-  getDisplayInitials,
   getPresenceColor,
   getUserStatusLabel,
+  hueStyle,
 } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { toast } from "@/services/toast";
 
 // Same ceiling the composer uses. Enforced again server-side; this only stops
@@ -276,9 +277,12 @@ export function UserProfileCard({
           {/* 56, the same as the loaded card and the skeleton. A different size
               the moment the query failed made the failure look like a second,
               differently-sized card. */}
-          <Avatar size={56} className="ct-profile-card-avatar">
-            {getDisplayInitials(fallbackName)}
-          </Avatar>
+          <Avatar
+            size={56}
+            className="ct-profile-card-avatar ct-hued"
+            style={hueStyle(userId)}
+            icon={<BlankFace />}
+          />
 
           <div className="ct-profile-card-names">
             <strong>{fallbackName}</strong>
@@ -327,9 +331,12 @@ export function UserProfileCard({
               preview={{ mask: "Büyüt", onOpenChange: onPhotoPreviewChange }}
             />
           ) : (
-            <Avatar size={56} className="ct-profile-card-avatar">
-              {getDisplayInitials(displayName)}
-            </Avatar>
+            <Avatar
+              size={56}
+              className="ct-profile-card-avatar ct-hued"
+              style={hueStyle(card.id)}
+              icon={<BlankFace />}
+            />
           )}
 
           {/* Only for people the directory carries, which is friends. Guessing

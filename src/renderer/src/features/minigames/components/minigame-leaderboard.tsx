@@ -7,7 +7,8 @@ import type { MinigameLeaderboard as Board } from "@shared/minigames";
 import { DIFFICULTY_IDS, scoreKey, type DifficultyId } from "@/store/minigame-scores";
 import { DIFFICULTY_LABELS, describeDifficulty, type SoloGameId } from "../difficulty";
 import { scoreService } from "../score-service";
-import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { hueStyle } from "@/ui/person-style";
+import { BlankFace } from "@/ui/blank-face";
 
 interface MinigameLeaderboardProps {
   game: SoloGameId;
@@ -204,11 +205,7 @@ export function MinigameLeaderboard({
                   style={hueStyle(entry.userId)}
                   aria-hidden="true"
                 >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" />
-                  ) : (
-                    getDisplayInitials(entry.displayName || entry.username)
-                  )}
+                  {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
                 </span>
                 <span className="ct-leaderboard-name">
                   {entry.displayName || entry.username}

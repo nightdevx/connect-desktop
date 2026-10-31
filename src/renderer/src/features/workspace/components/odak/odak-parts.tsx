@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
-import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
+import { hueStyle } from "../../workspace-utils";
 
 /** The pieces the Odak rail and the Odak pages share: the line icons, the
     sections in rail order, the presence choices and the avatar. */
@@ -100,12 +101,12 @@ export const PRESENCE_OPTIONS: Array<{ value: SelectablePresenceStatus; label: s
 
 export function Avatar({
   userId,
-  name,
   avatarUrl,
   presence,
   className,
 }: {
   userId: string;
+  /** Whose face; no longer drawn (no initials), kept so callers stay as they are. */
   name: string;
   avatarUrl?: string | null;
   presence?: string;
@@ -113,7 +114,7 @@ export function Avatar({
 }) {
   return (
     <span className={`ct-odak-avatar ${className}`} style={hueStyle(userId)} aria-hidden="true">
-      {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(name)}
+      {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
       {presence && <span className="ct-odak-presence" style={{ background: presence }} />}
     </span>
   );

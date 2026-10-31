@@ -9,7 +9,8 @@ import {
 import type { LobbyDescriptor, LobbyStateMember } from "@shared/auth-contracts";
 import { AuthLogoMark } from "@/features/auth";
 import { PageHeader } from "@/ui/page-header";
-import { getDisplayInitials, hueStyle } from "../../../workspace-utils";
+import { hueStyle } from "../../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 
 interface LobbySelectionScreenProps {
   activeLobbyId: string | null;
@@ -187,7 +188,7 @@ export function LobbySelectionScreen({
                                     {avatarByUserId[member.userId] ? (
                                       <img src={avatarByUserId[member.userId] ?? undefined} alt="" />
                                     ) : (
-                                      getDisplayInitials(member.username)
+                                      <BlankFace />
                                     )}
                                   </span>
                                 </Tooltip>

@@ -345,6 +345,26 @@ color: var(--ct-on-media);
 border-color: transparent;
 }
 
+/* A face without a picture (BlankFace): half the face, read off the font size
+   each face already sets for its size; antd's Avatar sets its icon's font size
+   inline and keeps it when a stylesheet shrinks the box, so there it is half
+   the box itself. Hue for antd faces too: antd's own grey would win the tie. */
+.ct-avatar-blank {
+width: 1.3em;
+height: 1.3em;
+flex-shrink: 0;
+}
+
+.ant-avatar > .ct-avatar-blank {
+width: 50%;
+height: 50%;
+}
+
+.ant-avatar.ct-hued:not(.ant-avatar-image) {
+background: oklch(0.55 0.12 var(--ct-name-h));
+color: var(--ct-on-media);
+}
+
 /* Presence is a status, not a piece of chrome, so it reads from the presence
    tokens rather than from the accent — which is white in the dark theme and
    near-BLACK in the light one, i.e. an "online" dot that went black the moment

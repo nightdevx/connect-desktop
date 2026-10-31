@@ -33,11 +33,11 @@ import type { UseDirectMessagesResult } from "../../hooks/chat/use-direct-messag
 import {
   formatDateLabel,
   getApiErrorMessage,
-  getDisplayInitials,
   getPresenceColor,
   getUserStatusLabel,
   hueStyle,
 } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
 import { ModalHeading } from "@/ui/modal-heading";
 import type { MentionCandidate } from "../../mentions";
@@ -1345,9 +1345,7 @@ export function UsersDirectMessagesPanel({
                       {selectedUser.avatarUrl ? (
                         <img className="ct-user-avatar-image" src={selectedUser.avatarUrl} alt="" />
                       ) : (
-                        <span className="ct-user-avatar-fallback">
-                          {getDisplayInitials(selectedUser.displayName || selectedUser.username)}
-                        </span>
+                        <BlankFace />
                       )}
                     </span>
                     <span
@@ -1442,7 +1440,9 @@ export function UsersDirectMessagesPanel({
                       <Avatar
                         size={32}
                         src={selectedUser.avatarUrl}
-                        icon={!selectedUser.avatarUrl && <UserOutlined />}
+                        className="ct-hued"
+                        style={hueStyle(selectedUser.userId)}
+                        icon={<BlankFace />}
                       />
                     </span>
                     <div className="ct-banner-lines">
@@ -1521,7 +1521,9 @@ export function UsersDirectMessagesPanel({
                 <Avatar
                   size={96}
                   src={selectedUser.avatarUrl}
-                  icon={!selectedUser.avatarUrl && <UserOutlined />}
+                  className="ct-hued"
+                  style={hueStyle(selectedUser.userId)}
+                  icon={<BlankFace />}
                 />
                 <span
                   className="ct-presence-dot"

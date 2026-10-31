@@ -19,7 +19,8 @@ import {
   ExclamationCircleOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { hueStyle } from "@/ui/person-style";
+import { BlankFace } from "@/ui/blank-face";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import { ConfirmActionModal } from "@/features/workspace";
 import adminService from "../services/admin-service";
@@ -665,11 +666,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 style={hueStyle(editingUser.id)}
                 aria-hidden="true"
               >
-                {editingUser.avatarUrl ? (
-                  <img src={editingUser.avatarUrl} alt="" />
-                ) : (
-                  getDisplayInitials(editingUser.displayName || editingUser.username)
-                )}
+                {editingUser.avatarUrl ? <img src={editingUser.avatarUrl} alt="" /> : <BlankFace />}
               </span>
               <div>
                 <strong>{editingUser.displayName}</strong>

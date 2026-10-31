@@ -15,7 +15,8 @@ import {
 import { Track } from "livekit-client";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import { logLiveKitDebug } from "@/services/debug-log";
-import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
 import { useWindowActive } from "../../hooks/media/use-window-active";
 import {
@@ -360,9 +361,8 @@ function LobbyParticipantTileImpl({
       src={avatarUrl}
       className="ct-lobby-avatar-container"
       style={hueStyle(participant.userId)}
-    >
-      {getDisplayInitials(participant.username)}
-    </Avatar>
+      icon={<BlankFace />}
+    />
   );
 
   return (
