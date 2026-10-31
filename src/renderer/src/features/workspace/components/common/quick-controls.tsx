@@ -10,11 +10,7 @@ import {
   StopOutlined,
   VideoCameraOutlined,
 } from "@ant-design/icons";
-import {
-  getUserStatusLabel,
-  hueStyle,
-} from "../../workspace-utils";
-import { BlankFace } from "@/ui/blank-face";
+import { getUserStatusLabel } from "../../workspace-utils";
 import type { PresenceStatus } from "@shared/auth-contracts";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -27,7 +23,6 @@ import { AudioDeviceDropdown } from "./AudioDeviceDropdown";
 interface QuickControlsProps {
   currentUsername: string;
   currentUserId: string;
-  currentUserAvatarUrl?: string | null;
   /** Only so the card can render; nothing here acts on your own friends list. */
   friends: FriendsController;
   hasActiveLobby: boolean;
@@ -131,7 +126,6 @@ function VoiceConnectionDot({
 export function QuickControls({
   currentUsername,
   currentUserId,
-  currentUserAvatarUrl,
   friends,
   hasActiveLobby,
   isLeavingLobby,
@@ -234,29 +228,19 @@ export function QuickControls({
           aria-label="Profilin"
           aria-description={whereLabel}
         >
-          <div className="ct-quick-idle-logo" aria-hidden="true" style={hueStyle(currentUserId)}>
-            {currentUserAvatarUrl ? (
-              <img
-                className="ct-user-avatar-image"
-                src={currentUserAvatarUrl}
-                alt=""
-              />
-            ) : (
-              <BlankFace />
-            )}
-          </div>
+          {/* No face and no name here: the rail's avatar right beside it is
+              who you are, on every page. The dock says where you are, or how
+              you appear to everyone else when you are nowhere in particular;
+              a click still opens your profile card. */}
           <div className="ct-quick-idle-meta">
-            <strong>{currentUsername}</strong>
-            {/* Where you are, or how you appear to everyone else when you are
-                nowhere in particular. */}
             <span className="ct-quick-idle-status">
               {voiceDot ?? <PresenceGlyph status={presenceStatus} className="ct-quick-idle-dot" />}
               {/* A room or a call can be longer than the dock is wide: the
                   whole name on hover. */}
               <Tooltip title={whereLabel} placement="top">
-                <span className="ct-quick-idle-where">
+                <strong className="ct-quick-idle-where">
                   {whereLabel ?? getUserStatusLabel(true, presenceStatus)}
-                </span>
+                </strong>
               </Tooltip>
             </span>
           </div>

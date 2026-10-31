@@ -480,23 +480,12 @@
   background: var(--ct-alpha-04);
 }
 
-.ct-quick-idle-logo {
-  @apply grid h-avatar-sm w-avatar-sm shrink-0 place-items-center overflow-hidden rounded-full text-2xs font-bold;
-  color: var(--ct-on-media);
-  background: oklch(0.55 0.12 var(--ct-name-h));
-  letter-spacing: 0.06em;
-}
-
-.ct-quick-idle-logo:has(img) {
-  background: none;
-}
-
 .ct-quick-idle-meta {
   @apply flex min-w-0 flex-col gap-0.5;
 }
 
 .ct-quick-idle-meta strong {
-  @apply block truncate text-sm font-bold leading-none;
+  @apply block min-w-0 truncate text-sm font-bold leading-normal;
   color: var(--ct-text-primary);
 }
 

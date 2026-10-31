@@ -229,8 +229,4 @@
   .ct-quick-idle {
     @apply py-2;
   }
-
-  .ct-quick-idle-meta span {
-    @apply hidden;
-  }
 }

@@ -1092,13 +1092,14 @@
   background: var(--odak-danger);
 }
 
-/* Open, it is the presence dot's size on the "where" line, and the one among
-   the controls stays only for screen readers; folded (and in the rail), the
-   identity row is hidden and the controls' one shows. */
+/* Open, it sits on the "where" line, which is the dock's one line of text
+   now, so it is a little larger than a status dot in a list; the one among
+   the controls stays only for screen readers. Folded (and in the rail), the
+   "where" row is hidden and the controls' one shows. */
 :root[data-odak] .ct-quick-idle-status .ct-quick-voice,
 :root[data-odak] .ct-quick-idle-status .ct-quick-voice::before {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 :root[data-odak]

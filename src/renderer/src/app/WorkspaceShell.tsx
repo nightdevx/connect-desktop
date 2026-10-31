@@ -1336,7 +1336,6 @@ function WorkspaceShell({
     <QuickControls
       currentUsername={currentUsername}
       currentUserId={currentUserId}
-      currentUserAvatarUrl={currentUserAvatarUrl}
       friends={friends}
       hasActiveLobby={hasActiveLobby}
       isLeavingLobby={isLeavingLobby}
