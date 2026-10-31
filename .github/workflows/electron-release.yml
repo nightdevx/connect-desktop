@@ -142,6 +142,13 @@ jobs:
           }
           $lines | Set-Content -Path .env -Encoding UTF8
 
+      # dist:win builds the update window (native/updater) with Go.
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: native/updater/go.mod
+          cache-dependency-path: native/updater/go.sum
+
       - name: Build desktop release artifacts
         env:
           # Without this @sentry/vite-plugin silently skips the source-map

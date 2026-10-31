@@ -95,6 +95,17 @@ if (missing.size > 0) {
   process.exit(1);
 }
 
+// The window shown while an update installs ships beside the archive on
+// Windows (electron-builder.yml, win.extraResources). Without it updates still
+// install, but unseen again.
+if (/[\\/]win-unpacked[\\/]/.test(archivePath)) {
+  const updater = path.join(path.dirname(archivePath), "updater", "connect-updater.exe");
+  if (!fs.existsSync(updater)) {
+    console.error(`\nMissing ${updater}: run "pnpm build:updater" before electron-builder.`);
+    process.exit(1);
+  }
+}
+
 console.log(
   `check-packaged-deps: ${packaged.size} packages in the asar, no missing dependencies.`,
 );

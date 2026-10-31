@@ -79,10 +79,6 @@ import {
   requireAppUpdate,
 } from "./update";
 import { setClientOutdatedHandler } from "./clients/base-client";
-import {
-  isUpdaterHelperModeProcess,
-  runUpdaterHelperMode,
-} from "./update/helper-mode";
 
 let mainWindow: BrowserWindow | null = null;
 let quittingWithCleanup = false;
@@ -147,17 +143,10 @@ registerPictureScheme();
 // which is not safe this early.
 applyMediaEngineSwitches(peekDesktopAppPreferences().hardwareAcceleration);
 
-const isUpdaterHelperMode = isUpdaterHelperModeProcess();
-const hasSingleInstanceLock = isUpdaterHelperMode
-  ? true
-  : app.requestSingleInstanceLock();
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-if (!isUpdaterHelperMode && !hasSingleInstanceLock) {
+if (!hasSingleInstanceLock) {
   app.quit();
-}
-
-if (isUpdaterHelperMode) {
-  runUpdaterHelperMode();
 }
 
 const emitSystemResumed = (): void => {
@@ -473,7 +462,7 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-if (!isUpdaterHelperMode && hasSingleInstanceLock) {
+if (hasSingleInstanceLock) {
   app.on("second-instance", () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;

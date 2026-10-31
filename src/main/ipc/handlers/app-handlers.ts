@@ -21,12 +21,13 @@ import {
   getAppUpdateSnapshot,
   installDownloadedAppUpdate,
 } from "../../update";
-import { launchMockUpdaterWindow } from "../../update/helper-mode";
+import { showUpdaterWindow } from "../../update/updater-window";
 import { getFreeGames } from "../../free-games-poller";
 import { detectGame } from "../../game-activity-poller";
 import { openWebRtcInternalsWindow } from "../../webrtc-internals-window";
 import { DesktopApiError } from "../../backend-client";
 import { SCREEN_RECORDING_PERMISSION_MESSAGE } from "../../../shared/streaming-contracts";
+import { releasePageUrl } from "../../../shared/update-contracts";
 
 const SCREEN_RECORDING_SETTINGS_URL =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
@@ -154,8 +155,13 @@ export function registerAppHandlers(): void {
         return ok({ started: false, reason: "NOT_DEV_MODE" });
       }
 
-      const result = launchMockUpdaterWindow();
-      return ok(result);
+      const started = await showUpdaterWindow({
+        installer: null,
+        version: app.getVersion(),
+        releaseUrl: releasePageUrl(null),
+        demo: "ok",
+      });
+      return ok(started ? { started } : { started, reason: "SPAWN_FAILED" });
     } catch (error) {
       return fail(error);
     }

@@ -92,6 +92,11 @@ win:
   artifactName: Connect-Setup-${version}.${ext}
   target:
     - nsis
+  # The window shown while an update installs (native/updater, built by
+  # build:updater). Connect copies it to %TEMP% before running it.
+  extraResources:
+    - from: native/updater/bin/connect-updater.exe
+      to: updater/connect-updater.exe
 nsis:
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
