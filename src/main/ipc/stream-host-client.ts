@@ -83,7 +83,6 @@ export class StreamHostClient {
   }
 
   public async start(kind: StreamKind, page: WebContents, accessToken: string): Promise<void> {
-    await this.beforeStart?.(accessToken);
     if (!this.pages.has(page.id)) {
       this.attach(page);
     }
@@ -94,6 +93,13 @@ export class StreamHostClient {
       this.started.set(page.id, kinds);
     }
     kinds.add(kind);
+    if (this.beforeStart) {
+      await this.beforeStart(accessToken);
+      // Stopped while the presence went back: nothing to start.
+      if (!this.started.get(page.id)?.has(kind)) {
+        return;
+      }
+    }
 
     const id = this.nextRequestId++;
     const answered = new Promise<void>((resolve, reject) => {
