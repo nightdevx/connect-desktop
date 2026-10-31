@@ -36,6 +36,32 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.2",
+    date: "2026-10-31",
+    highlights: [
+      {
+        kind: "new",
+        text: "Connect açılırken yeni bir açılış animasyonu oynuyor; pencereyi simge tepsisinden açtığında da.",
+      },
+      {
+        kind: "new",
+        text: "Bundan sonraki güncellemelerde, kurulum sürerken ne kadarının bittiğini gösteren küçük bir pencere açılacak.",
+      },
+      {
+        kind: "new",
+        text: "Kopyaladığın bir resmi sohbete Ctrl+V ile yapıştırıp gönderebilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Sol alttaki karta basınca durum menüsü, soldaki profil resmine basınca profil kartın açılıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Lobilerde sol altta yüzün iki kez görünmüyor.",
+      },
+    ],
+  },
+  {
     version: "0.3.1",
     date: "2026-10-31",
     highlights: [
