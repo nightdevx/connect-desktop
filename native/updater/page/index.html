@@ -198,15 +198,6 @@
         visibility: hidden;
       }
 
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-      }
-
       .trouble {
         display: flex;
         flex-direction: column;
@@ -332,23 +323,24 @@
         </div>
       </div>
 
-      <div class="trouble" id="trouble" hidden>
-        <!-- The alert carries the title too: focus goes straight to the
-             button, so the heading itself may never be read out. -->
-        <p class="message" role="alert"><span class="sr-only" id="alert-title"></span><span id="message"></span></p>
+      <!-- Focus moves into it, so a screen reader reads the dialog's title
+           and message with the button rather than the button alone. -->
+      <div class="trouble" id="trouble" role="alertdialog" aria-labelledby="title" aria-describedby="message" hidden>
+        <p class="message" id="message"></p>
         <div class="actions">
           <button class="primary" id="primary" type="button"></button>
           <button id="secondary" type="button"></button>
         </div>
+        <!-- In the dialog, after the actions: Tab reaches the way out first
+             and never leaves the dialog. Fixed to the window's corner. -->
+        <button class="close" id="close" type="button" aria-label="Pencereyi kapat" hidden>
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
     </main>
 
-    <!-- After the actions, so Tab reaches the way out first. -->
-    <button class="close" id="close" type="button" aria-label="Pencereyi kapat" hidden>
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-      </svg>
-    </button>
 
     <script>
       (() => {
@@ -389,6 +381,7 @@
         }
 
         let actions = {};
+        let shownTrouble = "";
 
         function update(state) {
           document.body.dataset.phase = state.phase;
@@ -400,6 +393,7 @@
             $("title").textContent = title;
             $("trouble").hidden = true;
             $("close").hidden = true;
+            shownTrouble = "";
 
             const percent = Math.floor(state.percent);
             $("fill").style.width = `${percent}%`;
@@ -413,7 +407,6 @@
 
           const { title: troubleTitle, message } = trouble(state);
           $("title").textContent = troubleTitle;
-          $("alert-title").textContent = `${troubleTitle}. `;
           $("message").textContent = message;
 
           // The way out that works comes first: Connect if it is there,
@@ -434,21 +427,49 @@
           }
           actions = { primary: primary[1], secondary: secondary?.[1] };
 
-          const firstShow = $("trouble").hidden;
           $("trouble").hidden = false;
           // A primary "Kapat" already closes it.
           $("close").hidden = primary[1] === "close";
-          if (firstShow) {
-            $("primary").focus();
+
+          // Focus enters the dialog whenever what it says changes (a stall
+          // that ends in a failure, say). Coming from outside it, a screen
+          // reader reads the new title and message again.
+          if (troubleTitle + message !== shownTrouble) {
+            shownTrouble = troubleTitle + message;
+            document.activeElement?.blur();
+            requestAnimationFrame(() => $("primary").focus());
           }
         }
 
-        window.connectUpdater = { update };
+        // The window has a fixed size. When the content does not fit (a larger
+        // Windows text setting, a long message), it asks the host for more
+        // height instead of being cut off.
+        function fit() {
+          // At least 24 px above and below.
+          const needed = Math.ceil(document.querySelector("main").getBoundingClientRect().height) + 48;
+          if (needed > window.innerHeight) {
+            post(`height:${needed}`);
+          }
+        }
+
+        window.connectUpdater = {
+          update(state) {
+            update(state);
+            fit();
+          },
+        };
         update(window.connectUpdaterInitial ?? { phase: "closing", percent: 0 });
 
         $("primary").addEventListener("click", () => post(actions.primary));
         $("secondary").addEventListener("click", () => post(actions.secondary));
         $("close").addEventListener("click", () => post("close"));
+        // There is no title bar: pressing anywhere but a control or the
+        // copyable message moves the window.
+        document.addEventListener("mousedown", (event) => {
+          if (event.button === 0 && !event.target.closest("button, .message")) {
+            post("drag");
+          }
+        });
         document.addEventListener("keydown", (event) => {
           if (document.body.dataset.phase !== "error") {
             return;
@@ -471,6 +492,7 @@
 
         // Connect closes on this, so it waits for the font and a painted frame.
         document.fonts.ready.then(() => {
+          fit();
           requestAnimationFrame(() => requestAnimationFrame(() => post("ready")));
         });
       })();

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
@@ -43,16 +44,23 @@ var (
 	procGetDpiForMonitor              = shcore.NewProc("GetDpiForMonitor")
 	procExtractIconExW                = shell32.NewProc("ExtractIconExW")
 	procDwmSetWindowAttribute         = dwmapi.NewProc("DwmSetWindowAttribute")
+	procFlashWindowEx                 = user32.NewProc("FlashWindowEx")
+	procReleaseCapture                = user32.NewProc("ReleaseCapture")
+	procSendMessageW                  = user32.NewProc("SendMessageW")
+	procGetDpiForWindow               = user32.NewProc("GetDpiForWindow")
+	procGetWindowRect                 = user32.NewProc("GetWindowRect")
+	procMonitorFromWindow             = user32.NewProc("MonitorFromWindow")
 )
 
 const (
-	wmDestroy    = 0x0002
-	wmSize       = 0x0005
-	wmClose      = 0x0010
-	wmNCCalcSize = 0x0083
-	wmDPIChanged = 0x02E0
-	wmState      = 0x8000 + 1 // WM_APP+1: the follower has a new state
-	wmFinish     = 0x8000 + 2 // WM_APP+2: the new Connect is on screen
+	wmDestroy       = 0x0002
+	wmSize          = 0x0005
+	wmClose         = 0x0010
+	wmNCCalcSize    = 0x0083
+	wmNCLButtonDown = 0x00A1
+	wmDPIChanged    = 0x02E0
+	wmState         = 0x8000 + 1 // WM_APP+1: the follower has a new state
+	wmFinish        = 0x8000 + 2 // WM_APP+2: the new Connect is on screen
 
 	wsPopup        = 0x80000000
 	wsCaption      = 0x00C00000
@@ -189,9 +197,10 @@ func newUI(o options, initial state, page string) (*ui, error) {
 		return nil, fmt.Errorf("CreateWindowEx: %w", err)
 	}
 	w.hwnd = hwnd
-	var client rect
-	_, _, _ = procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&client)))
-	log.Printf("window %dx%d at %d,%d, client %dx%d", width, height, x, y, client.Right, client.Bottom)
+	// Windows can give the window another monitor's scale than the one it
+	// was sized for (it straddles, or sits off screen in tests): size it for
+	// the scale it actually has.
+	w.setSize(windowWidth, windowHeight)
 
 	// A dark frame with round corners and a border in Odak's line colour on
 	// Windows 11; Windows 10 ignores all three.
@@ -284,11 +293,27 @@ func (w *ui) fail(kind string, canOpen bool) {
 	w.latest.Phase, w.latest.Error, w.latest.CanOpen = "error", kind, canOpen
 	w.mu.Unlock()
 	_, _, _ = procPostMessageW.Call(w.hwnd, wmState, 0, 0)
+	if !w.opts.offscreen {
+		// An error can come minutes in, with the user in another app: the
+		// taskbar button flashes until the window is looked at, without
+		// taking the focus.
+		info := struct {
+			cbSize    uint32
+			hwnd      uintptr
+			dwFlags   uint32
+			uCount    uint32
+			dwTimeout uint32
+		}{hwnd: w.hwnd, dwFlags: 0x02 | 0x0C} // FLASHW_TRAY | FLASHW_TIMERNOFG
+		info.cbSize = uint32(unsafe.Sizeof(info))
+		_, _, _ = procFlashWindowEx.Call(uintptr(unsafe.Pointer(&info)))
+	}
 }
 
-// finish closes the window: the new Connect is on screen.
-func (w *ui) finish() {
-	_, _, _ = procPostMessageW.Call(w.hwnd, wmFinish, 0, 0)
+// finish closes the window: the new Connect is on screen. The installer
+// started it in the background, so it may have opened behind other windows;
+// this window holds the foreground and hands it over.
+func (w *ui) finish(app uintptr) {
+	_, _, _ = procPostMessageW.Call(w.hwnd, wmFinish, app, 0)
 }
 
 func (w *ui) flush() {
@@ -338,7 +363,48 @@ func (w *ui) onMessage(message string) {
 		w.close()
 	case "close":
 		w.close()
+	default:
+		// The page asks for more height when what it has to say does not
+		// fit, with a larger text setting for one.
+		if css, ok := strings.CutPrefix(message, "height:"); ok {
+			if h, err := strconv.Atoi(css); err == nil && h > windowHeight {
+				w.setSize(windowWidth, int32(h))
+			}
+		}
+	case "drag":
+		// The page has no title bar to hold: a press on its empty parts
+		// moves the window as one would.
+		_, _, _ = procReleaseCapture.Call()
+		_, _, _ = procSendMessageW.Call(w.hwnd, wmNCLButtonDown, 2, 0) // HTCAPTION
 	}
+}
+
+// setSize gives the window a size in device-independent pixels at its own
+// monitor's scale, keeping its centre and staying inside that monitor's work
+// area.
+func (w *ui) setSize(dipWidth, dipHeight int32) {
+	dpi, _, _ := procGetDpiForWindow.Call(w.hwnd)
+	if dpi == 0 {
+		dpi = 96
+	}
+	var r rect
+	_, _, _ = procGetWindowRect.Call(w.hwnd, uintptr(unsafe.Pointer(&r)))
+	monitor, _, _ := procMonitorFromWindow.Call(w.hwnd, 2) // MONITOR_DEFAULTTONEAREST
+	info := monitorInfo{}
+	info.cbSize = uint32(unsafe.Sizeof(info))
+	_, _, _ = procGetMonitorInfoW.Call(monitor, uintptr(unsafe.Pointer(&info)))
+	work := info.rcWork
+
+	width := dipWidth * int32(dpi) / 96
+	height := min(dipHeight*int32(dpi)/96, work.Bottom-work.Top)
+	x := (r.Left+r.Right)/2 - width/2
+	y := (r.Top+r.Bottom)/2 - height/2
+	if !w.opts.offscreen {
+		x = max(work.Left, min(x, work.Right-width))
+		y = max(work.Top, min(y, work.Bottom-height))
+	}
+	_, _, _ = procSetWindowPos.Call(w.hwnd, 0, uintptr(x), uintptr(y), uintptr(width), uintptr(height), 0x0014) // SWP_NOZORDER | SWP_NOACTIVATE
+	log.Printf("window %dx%d at %d,%d (dpi %d)", width, height, x, y, dpi)
 }
 
 func (w *ui) close() {
@@ -369,6 +435,9 @@ func wndProc(hwnd, message, wParam, lParam uintptr) uintptr {
 		}
 		return 0
 	case wmFinish:
+		if wParam != 0 && theUI != nil && !theUI.opts.offscreen {
+			_, _, _ = procSetForegroundWindow.Call(wParam)
+		}
 		_, _, _ = procShowWindow.Call(hwnd, swHide)
 		_, _, _ = procDestroyWindow.Call(hwnd)
 		return 0
@@ -396,9 +465,7 @@ func placement(o options) (x, y, width, height int32) {
 
 	dpi := uint32(96)
 	var dpiX, dpiY uint32
-	r, _, _ := procGetDpiForMonitor.Call(monitor, 0, uintptr(unsafe.Pointer(&dpiX)), uintptr(unsafe.Pointer(&dpiY)))
-	log.Printf("monitor %x dpi %d (result %x)", monitor, dpiX, r)
-	if r == 0 && dpiX > 0 {
+	if r, _, _ := procGetDpiForMonitor.Call(monitor, 0, uintptr(unsafe.Pointer(&dpiX)), uintptr(unsafe.Pointer(&dpiY))); r == 0 && dpiX > 0 {
 		dpi = dpiX
 	}
 	width = int32(windowWidth * dpi / 96)

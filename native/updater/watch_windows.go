@@ -40,9 +40,9 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 	staging := ""
 	stalled := false
 	for {
-		if appWindowShown(o.appExe) {
+		if app := appWindow(o.appExe); app != 0 {
 			log.Printf("new Connect window during the install")
-			w.finish()
+			w.finish(app)
 			return
 		}
 		if setup == nil && o.installer != "" {
@@ -83,24 +83,20 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 			stalled = true
 			w.fail("stalled", false)
 		}
-		if elapsed > 40*time.Minute {
-			log.Printf("still no end to the install after 40 min, no longer watching")
-			return
-		}
 		time.Sleep(pollEvery)
 	}
 
 	// The installer starts the new Connect itself (--force-run).
 	w.progress("opening", installedPercent)
-	if waitForAppWindow(o.appExe, 15*time.Second) {
-		w.finish()
+	if app := waitForAppWindow(o.appExe, 15*time.Second); app != 0 {
+		w.finish(app)
 		return
 	}
 	if fileExists(o.appExe) {
 		log.Printf("Connect did not start, starting it")
 		launch(o.appExe)
-		if waitForAppWindow(o.appExe, 30*time.Second) {
-			w.finish()
+		if app := waitForAppWindow(o.appExe, 30*time.Second); app != 0 {
+			w.finish(app)
 			return
 		}
 	}
@@ -126,7 +122,7 @@ func playDemo(o options, w *ui) {
 		w.fail("failed", true)
 		return
 	}
-	w.finish()
+	w.finish(0)
 }
 
 type process struct {
@@ -180,13 +176,13 @@ func waitForExit(pid uint32, timeout time.Duration) bool {
 	return event == windows.WAIT_OBJECT_0
 }
 
-func waitForAppWindow(appExe string, timeout time.Duration) bool {
+func waitForAppWindow(appExe string, timeout time.Duration) uintptr {
 	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(pollEvery) {
-		if appWindowShown(appExe) {
-			return true
+		if app := appWindow(appExe); app != 0 {
+			return app
 		}
 	}
-	return false
+	return 0
 }
 
 // The EnumWindows callback is made once: Go keeps every callback it makes
@@ -195,13 +191,13 @@ func waitForAppWindow(appExe string, timeout time.Duration) bool {
 var (
 	enumWindowsProc = windows.NewCallback(enumWindow)
 	enumTarget      string
-	enumFound       bool
+	enumFound       uintptr
 )
 
-// appWindowShown reports whether a visible top-level window belongs to a
-// process started from appExe.
-func appWindowShown(appExe string) bool {
-	enumTarget, enumFound = appExe, false
+// appWindow returns a visible top-level window of a process started from
+// appExe, or 0.
+func appWindow(appExe string) uintptr {
+	enumTarget, enumFound = appExe, 0
 	_, _, _ = procEnumWindows.Call(enumWindowsProc, 0)
 	return enumFound
 }
@@ -216,7 +212,7 @@ func enumWindow(hwnd, _ uintptr) uintptr {
 		return 1
 	}
 	if strings.EqualFold(processPath(pid), enumTarget) {
-		enumFound = true
+		enumFound = hwnd
 		return 0
 	}
 	return 1
