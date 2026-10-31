@@ -1,9 +1,10 @@
 /* ==========================================================================
    BOOT SPLASH -- the launch intro, "Kapıdan giriş"
 
-   Plays once per launch over everything under the title bar (BootSplash.tsx;
-   the timing table is in planlar/masaustu/ACILIS-ANIMASYONU-PLANI.md, and the
-   mobile app plays the same one).
+   Plays over everything under the title bar at launch, and again each time
+   the window comes back after being hidden (BootSplash.tsx, App.tsx; the
+   timing table is in planlar/masaustu/ACILIS-ANIMASYONU-PLANI.md, and the
+   mobile app plays the same one at launch).
 
    The SVG is the 938x256 lockup box. The mark starts centred in it, shifted
    341 units right; at 1150 ms the lockup slides home and shrinks to 0.85 while
@@ -79,6 +80,13 @@
 .ct-boot-splash-word {
   fill: var(--ct-text-primary);
   animation: ctSplashWord 700ms cubic-bezier(0.65, 0, 0.35, 1) 1150ms both;
+}
+
+/* Held: put up while the window is hidden, every animation waiting at its
+   first frame (the room not yet drawn) until the window shows. */
+.ct-boot-splash[data-held],
+.ct-boot-splash[data-held] * {
+  animation-play-state: paused !important;
 }
 
 /* The fade out, shrinking on the room where the lockup left it
@@ -197,6 +205,12 @@
 @media (prefers-reduced-motion: reduce) {
   .ct-boot-splash:not([data-phase="exit"]) {
     animation: ctSplashIn 360ms var(--ct-ease-premium) both;
+  }
+
+  /* Over a screen that is already there, a fade in would show that screen
+     first: the lockup is simply there, then fades out. */
+  .ct-boot-splash[data-over]:not([data-phase="exit"]) {
+    animation: none;
   }
 
   .ct-boot-splash-lock,

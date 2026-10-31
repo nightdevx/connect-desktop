@@ -92,6 +92,8 @@ export interface SessionSnapshot {
 
 export interface DesktopWindowState {
   isMaximized: boolean;
+  /** Shown, as opposed to hidden to the tray. Sent with every show and hide. */
+  isVisible: boolean;
 }
 
 export interface DesktopAppPreferences {

@@ -301,6 +301,7 @@ export function registerAppHandlers(): void {
       const win = getWindowFromSender(event.sender);
       return ok({
         isMaximized: win.isMaximized(),
+        isVisible: win.isVisible(),
         minimized: win.isMinimized(),
         focused: win.isFocused(),
       });

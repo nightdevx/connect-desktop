@@ -177,6 +177,7 @@ const emitWindowState = (win: BrowserWindow): void => {
 
   win.webContents.send(WINDOW_STATE_EVENT_CHANNEL, {
     isMaximized: win.isMaximized(),
+    isVisible: win.isVisible(),
   });
 };
 
@@ -412,6 +413,9 @@ function createMainWindow(): BrowserWindow {
       if (restored?.isMaximized) {
         win.once("show", () => win.maximize());
       }
+      // Hidden from the start: the page readies the intro for the first show
+      // (App.tsx), as it does on every hide.
+      emitWindowState(win);
       return;
     }
     if (restored?.isMaximized) {
@@ -459,7 +463,12 @@ function createMainWindow(): BrowserWindow {
 
   win.on("show", () => {
     syncTrayWithPreferences();
+    emitWindowState(win);
   });
+
+  // The page puts the intro up while the window is hidden and plays it when
+  // it shows again (App.tsx).
+  win.on("hide", () => emitWindowState(win));
 
   return win;
 }

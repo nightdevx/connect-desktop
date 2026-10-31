@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CloseOutlined,
@@ -64,6 +64,50 @@ function App() {
   // content area stays empty, "reveal" once the right screen may mount behind
   // it, "done" when it has faded away.
   const [bootPhase, setBootPhase] = useState<"splash" | "reveal" | "done">("splash");
+
+  // The intro plays again each time the window comes back after being hidden:
+  // from the tray, a second launch, a notification. It goes up "held" the
+  // moment the window hides, so the screen under it never shows first, and
+  // starts when the window shows. A show while the launch intro is still up
+  // belongs to that intro. Each hide gets a fresh one (id).
+  const [replay, setReplay] = useState<{ id: number; held: boolean } | null>(null);
+  const bootDoneRef = useRef(false);
+  useEffect(() => {
+    bootDoneRef.current = bootPhase === "done";
+  }, [bootPhase]);
+
+  useEffect(() => {
+    const shown = (): void => {
+      setReplay((current) =>
+        current?.held ? (bootDoneRef.current ? { ...current, held: false } : null) : current,
+      );
+    };
+    const unsubscribe = window.desktopApi.onWindowStateChanged((state) => {
+      if (state.isVisible === false) {
+        setReplay((current) => ({ id: (current?.id ?? 0) + 1, held: true }));
+      } else if (state.isVisible) {
+        shown();
+      }
+    });
+    // A second way to hear the window come back, so a held intro can never
+    // be left covering a window that is on screen.
+    const onVisibility = (): void => {
+      if (document.visibilityState === "visible") {
+        shown();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  const endReplay = useCallback((phase: "reveal" | "done") => {
+    if (phase === "done") {
+      setReplay(null);
+    }
+  }, []);
 
   // The whole app is in the Odak design, sign-in included: data-odak on
   // <html> points the tokens at its palette. Set once, never cleared, so
@@ -404,6 +448,10 @@ function App() {
 
         {bootPhase !== "done" && (
           <BootSplash ready={!isBooting} onPhase={setBootPhase} />
+        )}
+
+        {bootPhase === "done" && replay && (
+          <BootSplash key={replay.id} ready held={replay.held} overScreen onPhase={endReplay} />
         )}
 
         {isUpdateLocked && updateState && <UpdateGate state={updateState} />}

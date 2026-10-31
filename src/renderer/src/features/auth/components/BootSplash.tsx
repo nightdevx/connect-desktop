@@ -13,6 +13,17 @@ interface BootSplashProps {
   /** The session check has answered, or the app knows it is offline. */
   ready: boolean;
   /**
+   * Waits at its first frame without starting: put up while the window is
+   * hidden, so it is already there when the window shows.
+   */
+  held?: boolean;
+  /**
+   * Played over a screen that is already there (the window coming back from
+   * the tray), not at launch. Nothing to announce, and under reduced motion no
+   * fade in over the screen.
+   */
+  overScreen?: boolean;
+  /**
    * "reveal": the intro is over and the app is ready, mount the screen
    * underneath. "done": the fade is over, unmount the splash. App passes its
    * state setter, whose identity never changes, so the timers never restart.
@@ -36,7 +47,7 @@ interface BootSplashProps {
  * in the tray, where no frames are drawn, and the timers still fire there
  * (backgroundThrottling is off).
  */
-export function BootSplash({ ready, onPhase }: BootSplashProps): JSX.Element {
+export function BootSplash({ ready, held = false, overScreen = false, onPhase }: BootSplashProps): JSX.Element {
   const [introOver, setIntroOver] = useState(false);
   const [exiting, setExiting] = useState(false);
   const phase = exiting ? "exit" : introOver && !ready ? "hold" : "intro";
@@ -48,10 +59,13 @@ export function BootSplash({ ready, onPhase }: BootSplashProps): JSX.Element {
   }
 
   useEffect(() => {
+    if (held) {
+      return;
+    }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timer = window.setTimeout(() => setIntroOver(true), reduced ? INTRO_REDUCED_MS : INTRO_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [held]);
 
   useEffect(() => {
     if (!introOver || !ready) {
@@ -83,10 +97,19 @@ export function BootSplash({ ready, onPhase }: BootSplashProps): JSX.Element {
   }, [exiting, onPhase]);
 
   return (
-    <div className={waited ? "ct-boot-splash is-waiting" : "ct-boot-splash"} data-phase={phase} role="status">
+    <div
+      className={waited ? "ct-boot-splash is-waiting" : "ct-boot-splash"}
+      data-phase={phase}
+      data-held={held || undefined}
+      data-over={overScreen || undefined}
+      role={overScreen ? undefined : "status"}
+      aria-hidden={overScreen || undefined}
+    >
       {/* A live region announces its content, not its name: the text changes
           when the session runs late. */}
-      <span className="sr-only">{waited ? "Oturum kontrol ediliyor" : "Connect açılıyor"}</span>
+      {!overScreen && (
+        <span className="sr-only">{waited ? "Oturum kontrol ediliyor" : "Connect açılıyor"}</span>
+      )}
       <svg className="ct-boot-splash-mark" viewBox="0 0 938 256" aria-hidden="true" focusable="false">
         <g className="ct-boot-splash-lock">
           <path className="ct-boot-splash-room" d={LOGO_ROOM_PATH} pathLength="1" />
