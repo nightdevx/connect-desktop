@@ -6,11 +6,42 @@ import { StreamHostClient } from "./stream-host-client";
 import { SessionStore } from "../session-store";
 import { isSessionFatal, redeemRefreshToken } from "../auth-failure";
 import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
+import { rememberedPresence } from "../presence-memory";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
 
 export const backendClient = new BackendClient(backendBaseUrl);
 let sessionStore: SessionStore | null = null;
+
+// Puts the account's last status back on the server before a stream socket
+// opens, so the connect announces it instead of "online" (presence-memory.ts).
+// "online" is what the server assumes anyway. Never holds a start up for long:
+// a failure or a slow answer only costs the status, not the connection.
+// ponytail: if the server's 12 s grace ends between this answer and the dial,
+// the connect still says "online"; a re-send after the start would close that.
+let presenceRestore: Promise<void> | null = null;
+const restorePresence = (accessToken: string): Promise<void> => {
+  const userId = getSessionStore().get()?.user.id;
+  const status = userId ? rememberedPresence(userId) : null;
+  if (!status || status === "online") {
+    return Promise.resolve();
+  }
+  // The three streams start together: one request for all of them.
+  presenceRestore ??= Promise.race([
+    backendClient.auth.setPresence(accessToken, status).then(
+      () => undefined,
+      () => undefined,
+    ),
+    new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+  ]).finally(() => {
+    presenceRestore = null;
+  });
+  return presenceRestore;
+};
+
+// A status the user picks while a restore is on its way waits for it, or the
+// restore could land second and put the old status back.
+export const presenceRestored = (): Promise<void> => presenceRestore ?? Promise.resolve();
 
 // The renderer's three streams on one socket (/ws), or on three per-stream
 // sockets for a backend that predates it (stream-hub.ts). They run in a utility
@@ -18,6 +49,7 @@ let sessionStore: SessionStore | null = null;
 export const streamHub = new StreamHostClient(
   join(__dirname, "../stream-host-process.js"),
   backendBaseUrl,
+  restorePresence,
 );
 
 export const getWindowFromSender = (sender: Electron.WebContents): BrowserWindow => {

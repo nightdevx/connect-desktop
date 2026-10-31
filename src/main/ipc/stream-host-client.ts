@@ -59,6 +59,9 @@ export class StreamHostClient {
   public constructor(
     private readonly modulePath: string,
     private readonly backendBaseUrl: string,
+    // Runs before every start, ahead of the socket: context.ts restores the
+    // account's presence there, so the connect does not announce "online".
+    private readonly beforeStart?: (accessToken: string) => Promise<void>,
   ) {}
 
   /**
@@ -80,6 +83,7 @@ export class StreamHostClient {
   }
 
   public async start(kind: StreamKind, page: WebContents, accessToken: string): Promise<void> {
+    await this.beforeStart?.(accessToken);
     if (!this.pages.has(page.id)) {
       this.attach(page);
     }

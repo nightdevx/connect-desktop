@@ -12,6 +12,7 @@ import {
   ensureFreshSession,
   endSession,
   withAccessToken,
+  presenceRestored,
 } from "../context";
 import {
   loginSchema,
@@ -43,6 +44,7 @@ import {
   adminSettingsPatchSchema,
 } from "../validators";
 import { DesktopApiError } from "../../backend-client";
+import { rememberPresence } from "../../presence-memory";
 
 export function registerAuthHandlers(): void {
   handle("desktop:auth-register", async (_event, payload: unknown) => {
@@ -398,6 +400,12 @@ export function registerAuthHandlers(): void {
   handle("desktop:auth-presence", async (_event, payload: unknown) => {
     try {
       const parsed = setPresenceSchema.parse(payload);
+      // Before the request: a socket opening meanwhile restores this one.
+      const userId = getSessionStore().get()?.user.id;
+      if (userId) {
+        rememberPresence(userId, parsed.status);
+      }
+      await presenceRestored();
       const result = await withAccessToken((accessToken) => {
         return backendClient.auth.setPresence(accessToken, parsed.status);
       });

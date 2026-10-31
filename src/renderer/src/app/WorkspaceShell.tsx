@@ -635,7 +635,7 @@ function WorkspaceShell({
     selectedStatus: selectedPresenceStatus,
     effectiveStatus: effectivePresenceStatus,
     setSelectedStatus: setSelectedPresenceStatus,
-  } = usePresenceStatus(true);
+  } = usePresenceStatus(true, currentUserId);
 
   useVoiceHotkeys({
     preferences: desktopPreferences,
