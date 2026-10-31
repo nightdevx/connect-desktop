@@ -668,7 +668,7 @@ export function buildMessageMenu(options: MessageMenuOptions): OdakMenuEntry[] {
         })),
         {
           key: "more",
-          label: <MenuIcon name="plus" size={14} />,
+          label: <MenuIcon name="plus" size={16} stroke={2} />,
           ariaLabel: "Başka tepki seç",
           onSelect: options.onOpenReactionPicker,
         },

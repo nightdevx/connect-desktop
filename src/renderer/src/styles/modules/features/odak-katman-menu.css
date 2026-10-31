@@ -520,10 +520,21 @@
   font-size: 16px;
 }
 
+/* The row's title box fills the chip and starts its content at the left
+   (rows above need that): centred here, or every glyph sat 3px left and the
+   "+" 7px, against the left wall of its square (0.3.1, F2.4). */
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip .ant-dropdown-menu-title-content {
+  justify-content: center;
+}
+
 /* The last one opens the full picker. */
 :root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip .ant-dropdown-menu-item:last-child {
   color: #9aa0aa;
   background: #1e2127;
+}
+
+:root[data-odak] :is(.ct-menu-root, .ct-menu-sub) .ant-dropdown-menu .ct-menu-strip .ant-dropdown-menu-item:last-child:is(:hover, .ant-dropdown-menu-item-active) {
+  color: #f2f3f5;
 }
 
 :root[data-odak] .ct-menu-strip-choice {
