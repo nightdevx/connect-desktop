@@ -41,6 +41,7 @@ import {
   DEFAULT_AUDIO_PROCESSING_PREFERENCES,
   isScreenSource as isScreenSourceKind,
   shouldSubscribePublication,
+  visibleScreenTrack,
 } from "./constants";
 import {
   NOT_SPEAKING,
@@ -2797,10 +2798,10 @@ export class LiveKitMediaSession {
     // LiveKit Track objects have stable identities and .attach() methods,
     // which prevents flickering in React components.
     const cameraTrack = cameraPub?.track ?? null;
-    const screenTrack = screenPub?.track ?? null;
+    const screenTrack = visibleScreenTrack(screenPub, p instanceof LocalParticipant);
 
     const cameraStream = this.getStreamFromPub(cameraPub);
-    const screenStream = this.getStreamFromPub(screenPub);
+    const screenStream = screenTrack ? this.getStreamFromPub(screenPub) : null;
 
     if (p instanceof LocalParticipant) {
       const micPub = p.getTrackPublication(Track.Source.Microphone);

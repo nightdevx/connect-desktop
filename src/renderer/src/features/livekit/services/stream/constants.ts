@@ -43,6 +43,25 @@ export const shouldSubscribePublication = (params: {
   return !blockedByDeafen;
 };
 
+/**
+ * The screen track a tile may show, or null.
+ *
+ * Stopping a share only asks the SFU to stop: livekit-client's
+ * setSubscribed(false) leaves publication.track set, a frozen and then black
+ * track, until the sharer stops. Handing that track on hid "Yayını izle" (the
+ * tile thought it was playing) for as long as the share lasted. A remote share
+ * counts only while this viewer still wants it; your own always does.
+ */
+export const visibleScreenTrack = <T>(
+  publication: { track?: T; isSubscribed: boolean } | undefined,
+  isLocal: boolean,
+): T | null => {
+  if (!publication || !(isLocal || publication.isSubscribed)) {
+    return null;
+  }
+  return publication.track ?? null;
+};
+
 // A screen share is watched, not talked over, so it can afford a buffer a voice
 // cannot. ~120 ms on the receiver absorbs network jitter and gives NACK time to
 // replace a lost packet before its frame is due: smoother playback for latency

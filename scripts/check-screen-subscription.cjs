@@ -58,6 +58,7 @@ const main = async () => {
     isScreenSource,
     jitterBufferTargetFor,
     shouldSubscribePublication,
+    visibleScreenTrack,
     SCREEN_SHARE_JITTER_BUFFER_TARGET_MS,
   } = await import(pathToFileURL(bundle).href);
   const { Track } = await import("livekit-client");
@@ -134,6 +135,20 @@ const main = async () => {
   assert.equal(jitterBufferTargetFor(SCREEN_AUDIO), 120, "share audio keeps pace with its picture");
   assert.equal(jitterBufferTargetFor(MIC), null, "voices keep the default buffer");
   assert.equal(jitterBufferTargetFor(CAMERA), null, "cameras keep the default buffer");
+
+  // --- stopping a share brings "Yayını izle" back ------------------------------
+  // setSubscribed(false) leaves publication.track in place. The tile shows the
+  // prompt only when it gets no track, so a stopped share must hand on none.
+  const track = { id: "screen" };
+  assert.equal(visibleScreenTrack({ track, isSubscribed: true }, false), track, "a watched share plays");
+  assert.equal(
+    visibleScreenTrack({ track, isSubscribed: false }, false),
+    null,
+    "a share this viewer stopped must not keep its track (it hid Yayını izle)",
+  );
+  assert.equal(visibleScreenTrack({ isSubscribed: false }, false), null, "never watched: no track");
+  assert.equal(visibleScreenTrack(undefined, false), null, "nothing published: no track");
+  assert.equal(visibleScreenTrack({ track, isSubscribed: false }, true), track, "your own share always shows");
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
