@@ -221,6 +221,9 @@ export interface LobbyStateMember {
   deafened: boolean;
   cameraEnabled: boolean;
   screenSharing: boolean;
+  // The member's picture by version, for everyone in the room (friends or
+  // not); absent for none, and from a backend that predates it.
+  avatarVersion?: string;
 }
 
 // The quoted message shown above a reply. Denormalised by the server so a

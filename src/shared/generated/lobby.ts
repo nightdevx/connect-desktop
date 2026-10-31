@@ -72,6 +72,7 @@ export interface Member {
   screenSharing: boolean;
   cameraProducerId?: string;
   screenProducerId?: string;
+  avatarVersion?: string;
 }
 export interface ReapedMember {
   UserID: string;

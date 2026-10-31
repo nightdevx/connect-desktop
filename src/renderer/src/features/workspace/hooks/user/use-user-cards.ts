@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useQueries, useQuery, type QueryClient } from "@tanstack/react-query";
-import type { UserProfile } from "@shared/auth-contracts";
+import type { LobbyStateMember, UserProfile } from "@shared/auth-contracts";
+import type { DesktopResult } from "@shared/desktop-api-types";
+import { pictureUrl } from "@shared/picture-urls";
 import workspaceService from "../../services";
 import { useStillImage, useStillImages } from "../media/use-still-image";
 
@@ -25,6 +27,9 @@ const CARD_GC_MS = 30 * 60_000;
 // render into hundreds of requests. Window it if rooms ever get large.
 const MAX_PREFETCHED_CARDS = 60;
 
+// How soon a card that failed is asked for again.
+const CARD_RETRY_MS = 30_000;
+
 export const userCardQueryKey = (userId: string): [string, string] => [
   "user-card",
   userId,
@@ -38,6 +43,13 @@ const buildCardQuery = (userId: string) => ({
   // A 404 is the answer for a blocked or deleted account, not a hiccup —
   // retrying it just spends the rate-limit bucket.
   retry: false,
+  // Any other failure is asked again. Kept as the answer, it left that person
+  // faceless for the session: nothing refetches a card while the shell keeps
+  // observing it (no focus refetch, no interval).
+  refetchInterval: (query: { state: { data?: DesktopResult<{ user: UserProfile }> } }) => {
+    const data = query.state.data;
+    return data && !data.ok && data.error?.statusCode !== 404 ? CARD_RETRY_MS : false;
+  },
 });
 
 /**
@@ -134,4 +146,55 @@ export const useUserCards = (
     });
     return byUserId;
   }, [cards, avatarUrls]);
+};
+
+/**
+ * Faces for everyone on the rosters, by user id.
+ *
+ * The roster names each member's picture by version (Member.avatarVersion), so
+ * a stranger's face, and a new one, arrives with the roster itself, like a
+ * friend's does with the directory. Cards were the only source before that,
+ * read once per person and never again while the app ran, which is why a
+ * picture someone set while sitting in the room showed only to people who then
+ * added them. A member without a version (no picture, or an older backend)
+ * still gets their card.
+ */
+export const useRosterAvatars = (
+  lobbyMembersById: Record<string, LobbyStateMember[]>,
+): Record<string, string | null | undefined> => {
+  const roster = useMemo(() => {
+    const pictureIds: string[] = [];
+    const pictureUrls: string[] = [];
+    const cardIds: string[] = [];
+    const seen = new Set<string>();
+    for (const members of Object.values(lobbyMembersById)) {
+      for (const member of members) {
+        if (seen.has(member.userId)) {
+          continue;
+        }
+        seen.add(member.userId);
+        if (member.avatarVersion) {
+          pictureIds.push(member.userId);
+          pictureUrls.push(pictureUrl("avatar", member.userId, member.avatarVersion));
+        } else {
+          cardIds.push(member.userId);
+        }
+      }
+    }
+    return { pictureIds, pictureUrls, cardIds };
+  }, [lobbyMembersById]);
+
+  const cards = useUserCards(roster.cardIds);
+  const pictures = useStillImages(roster.pictureUrls);
+
+  return useMemo(() => {
+    const byUserId: Record<string, string | null | undefined> = {};
+    for (const [userId, card] of Object.entries(cards)) {
+      byUserId[userId] = card.avatarUrl;
+    }
+    roster.pictureIds.forEach((userId, index) => {
+      byUserId[userId] = pictures[index];
+    });
+    return byUserId;
+  }, [cards, roster.pictureIds, pictures]);
 };

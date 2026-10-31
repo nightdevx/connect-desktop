@@ -39,8 +39,8 @@ import {
   usePresenceStatus,
   useRemoteParticipantAudio,
   useRoomTransitions,
+  useRosterAvatars,
   useScreenSubscriptions,
-  useUserCards,
   useVoiceHotkeys,
   useWorkspaceAudioCues,
   useWorkspaceLobbies,
@@ -810,32 +810,18 @@ function WorkspaceShell({
     activeLobbyReconnectProxyRef.current = scheduleActiveLobbyReconnect;
   }, [scheduleActiveLobbyReconnect]);
 
-  // Everyone with a roster row on screen, across every lobby the sidebar lists.
-  // Their cards are what supply an avatar for a non-friend: without this a
-  // voice room was a wall of grey initials until you added each person, because
-  // the only avatar source was the friends-only directory.
-  const rosterUserIds = useMemo(() => {
-    const userIds = new Set<string>();
-    for (const members of Object.values(lobbyMembersById)) {
-      for (const member of members) {
-        userIds.add(member.userId);
-      }
-    }
-    return [...userIds];
-  }, [lobbyMembersById]);
+  // Everyone with a roster row on screen, across every lobby the sidebar lists:
+  // the picture their roster row names, else their card. Without it a voice
+  // room was a wall of blank faces until you added each person, because the
+  // only other avatar source is the friends-only directory.
+  const rosterAvatarByUserId = useRosterAvatars(lobbyMembersById);
 
-  const rosterCardByUserId = useUserCards(rosterUserIds);
-
-  // Cards first, directory over the top: for a friend the directory entry is
-  // the live one (the users-WS pushes profile edits into it), while the card is
-  // a 5-minute cache. For everyone else the card is all there is.
-  const avatarByUserId = useMemo(() => {
-    const merged: Record<string, string | null | undefined> = {};
-    for (const [userId, card] of Object.entries(rosterCardByUserId)) {
-      merged[userId] = card.avatarUrl;
-    }
-    return { ...merged, ...directoryAvatarByUserId };
-  }, [directoryAvatarByUserId, rosterCardByUserId]);
+  // Roster first, directory over the top: for a friend the directory entry is
+  // the live one (the users-WS pushes profile edits into it).
+  const avatarByUserId = useMemo(
+    () => ({ ...rosterAvatarByUserId, ...directoryAvatarByUserId }),
+    [directoryAvatarByUserId, rosterAvatarByUserId],
+  );
 
   // Active-lobby roster prefers the WS snapshot (lobbyMembersById, ~1s push) and
   // falls back to the REST lobbyStateQuery only when the stream hasn't delivered

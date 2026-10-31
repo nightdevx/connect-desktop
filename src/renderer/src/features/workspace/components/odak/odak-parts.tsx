@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { BlankFace } from "@/ui/blank-face";
@@ -112,9 +112,17 @@ export function Avatar({
   presence?: string;
   className: string;
 }) {
+  // A picture that does not load (a block between the two of you answers 404)
+  // shows the blank face rather than an empty circle.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
   return (
     <span className={`ct-odak-avatar ${className}`} style={hueStyle(userId)} aria-hidden="true">
-      {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
+      {avatarUrl && avatarUrl !== failedUrl ? (
+        <img src={avatarUrl} alt="" onError={() => setFailedUrl(avatarUrl)} />
+      ) : (
+        <BlankFace />
+      )}
       {presence && <span className="ct-odak-presence" style={{ background: presence }} />}
     </span>
   );
