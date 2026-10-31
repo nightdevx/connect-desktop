@@ -1,0 +1,348 @@
+/* Odak: the three windows of 0.3.1 Faz 3 (SURUM-031-PLANI.md F3.1-F3.3): the
+   soundboard, the music dialog and Oda ayarları. Kurallar :root[data-odak]
+   altında. Imported by the components themselves (as voice-processing does),
+   so no shared stylesheet had to change. Palette, 16px line icons and motion
+   tokens as in odak-katman-*.css. */
+
+/* ==========================================================================
+   F3.1 The soundboard: a popover off the lobby toolbar
+   ========================================================================== */
+
+:root[data-odak] .ct-emote-popover .ant-popover-container {
+  padding: 0;
+  overflow: hidden;
+}
+
+:root[data-odak] .ct-emote-board {
+  display: flex;
+  width: 340px;
+  max-height: min(580px, calc(100vh - 140px));
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-emote-board-head {
+  display: flex;
+  padding: 14px 16px 10px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+:root[data-odak] .ct-emote-board-head strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-board-head span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-emote-search {
+  display: flex;
+  height: 36px;
+  margin: 0 12px 6px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 10px;
+  color: #7c828c;
+  background: #0b0c0e;
+  transition: border-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-emote-search:focus-within {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-emote-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-emote-search input::placeholder {
+  color: #5d636d;
+}
+
+:root[data-odak] .ct-emote-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0 6px 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:root[data-odak] .ct-emote-group + .ct-emote-group {
+  margin-top: 2px;
+}
+
+:root[data-odak] .ct-emote-group-title {
+  display: flex;
+  margin: 0;
+  padding: 8px 10px 4px;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-emote-group-title span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-odak] .ct-emote-row {
+  display: flex;
+  padding-right: 4px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) {
+  background: var(--odak-raised);
+}
+
+/* The row's main button, the upload button and the chosen file share a
+   shape: a glyph tile, a name, one line under it. */
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload, .ct-emote-file) {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  padding: 6px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 9px;
+  font: inherit;
+  text-align: left;
+  color: #d7dae0;
+  background: none;
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload) {
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload):focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(198, 244, 50, 0.75);
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload):active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+:root[data-odak] .ct-emote-glyph {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border);
+  border-radius: 9px;
+  color: var(--odak-muted);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) .ct-emote-glyph,
+:root[data-odak] .ct-emote-upload:hover:not(:disabled) .ct-emote-glyph {
+  color: var(--odak-accent);
+}
+
+/* Previewing: the tile lights and breathes for as long as the clip runs. */
+:root[data-odak] .ct-emote-row.previewing .ct-emote-glyph {
+  border-color: rgba(198, 244, 50, 0.35);
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.1);
+  animation: odak-breathe 1.2s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-emote-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-emote-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-meta {
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8a909a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Preview and delete: always in the tab order, shown on hover or focus. */
+:root[data-odak] .ct-emote-action {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #7c828c;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) .ct-emote-action,
+:root[data-odak] .ct-emote-row.previewing .ct-emote-action {
+  opacity: 1;
+}
+
+:root[data-odak] .ct-emote-action:hover {
+  color: var(--odak-text);
+  background: #262a31;
+}
+
+:root[data-odak] .ct-emote-row.previewing .ct-emote-action:not(.danger) {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-emote-action.danger:hover {
+  color: #ff8a8a;
+  background: rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] .ct-emote-action:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(198, 244, 50, 0.75);
+}
+
+:root[data-odak] .ct-emote-empty {
+  margin: 0;
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-emote-board-foot {
+  display: flex;
+  padding: 8px 8px 12px;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-emote-upload {
+  flex: none;
+  border: 1px dashed var(--odak-border-strong);
+  border-radius: 11px;
+}
+
+:root[data-odak] .ct-emote-upload .ct-emote-meta {
+  white-space: normal;
+}
+
+:root[data-odak] .ct-emote-upload:hover:not(:disabled) {
+  border-color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-emote-upload:disabled {
+  cursor: not-allowed;
+}
+
+:root[data-odak] .ct-emote-upload:disabled .ct-emote-name {
+  color: var(--odak-muted);
+}
+
+/* The chosen file, at the top of "Sesi adlandır". */
+:root[data-odak] .ct-emote-file {
+  padding: 9px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-emote-file .ct-emote-glyph {
+  color: var(--odak-accent);
+}
+
+/* --- this user's own level, a slider in the Odak shape (shared by the music
+       dialog's) ------------------------------------------------------------ */
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) label span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 500;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-volume {
+  padding: 2px 8px 0;
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider {
+  margin: 8px 4px 2px;
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-rail,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-rail {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-track,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-track {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle::after,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:hover, :active, :focus)::after {
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 12px;
+  height: 12px;
+  outline: 0;
+  background: var(--odak-text);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.35);
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:focus-visible::after {
+  box-shadow: 0 0 0 4px rgba(198, 244, 50, 0.6);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:active, .ant-slider-handle-dragging)::after {
+  transform: scale(1.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-emote-row.previewing .ct-emote-glyph {
+    animation: none;
+  }
+}
