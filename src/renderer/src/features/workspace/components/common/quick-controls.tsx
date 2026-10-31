@@ -11,20 +11,20 @@ import {
   VideoCameraOutlined,
 } from "@ant-design/icons";
 import { getUserStatusLabel } from "../../workspace-utils";
-import type { PresenceStatus } from "@shared/auth-contracts";
+import type { PresenceStatus, SelectablePresenceStatus } from "@shared/auth-contracts";
+import { OdakMenu } from "@/ui/odak-menu";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
-import type { FriendsController } from "../../hooks/user/use-friends";
 import { useWorkspaceAudioConnection } from "../../hooks/lobby/use-workspace-audio-connection";
-import { UserProfileCardPopover } from "../user/user-profile-card";
-import { PresenceGlyph } from "../odak/odak-parts";
+import { PresenceGlyph, presenceMenu } from "../odak/odak-parts";
 
 import { AudioDeviceDropdown } from "./AudioDeviceDropdown";
 
 interface QuickControlsProps {
-  currentUsername: string;
-  currentUserId: string;
-  /** Only so the card can render; nothing here acts on your own friends list. */
-  friends: FriendsController;
+  /** The status you picked (not the automatic "Boşta"), for the menu's ✓. */
+  selectedPresenceStatus: SelectablePresenceStatus;
+  onPresenceStatusChange: (status: SelectablePresenceStatus) => void;
+  onLogout: () => void;
+  isLoggingOut: boolean;
   hasActiveLobby: boolean;
   isLeavingLobby: boolean;
   micEnabled: boolean;
@@ -124,9 +124,10 @@ function VoiceConnectionDot({
  * your microphone state, and the button that gets you out, disappeared.
  */
 export function QuickControls({
-  currentUsername,
-  currentUserId,
-  friends,
+  selectedPresenceStatus,
+  onPresenceStatusChange,
+  onLogout,
+  isLoggingOut,
   hasActiveLobby,
   isLeavingLobby,
   micEnabled,
@@ -209,29 +210,29 @@ export function QuickControls({
       )}
 
       <footer className="ct-quick-idle" aria-label="Hızlı kontroller">
-      {/* Your own name was the only one in the app that was not clickable, so
-          the card you can open for everybody else -- avatar, handle, join date
-          -- was the one thing you could not check about yourself.
-
-          Opens upward: the dock is pinned to the bottom of the window, and the
-          card is taller than the space under it. */}
-      <UserProfileCardPopover
-        userId={currentUserId}
-        fallbackName={currentUsername}
-        currentUserId={currentUserId}
-        friends={friends}
+      {/* Your status: a click opens the menu to change it (and Çıkış yap).
+          Your profile card is the rail's avatar right beside it. Opens upward:
+          the dock is pinned to the bottom of the window. */}
+      <OdakMenu
+        trigger="click"
+        items={presenceMenu({
+          status: selectedPresenceStatus,
+          onChange: onPresenceStatusChange,
+          onLogout,
+          isLoggingOut,
+        })}
         placement="topLeft"
+        width={280}
       >
         <button
           type="button"
           className="ct-quick-idle-left"
-          aria-label="Profilin"
+          aria-label={`Durumunu değiştir, ${getUserStatusLabel(true, presenceStatus)}`}
           aria-description={whereLabel}
         >
           {/* No face and no name here: the rail's avatar right beside it is
               who you are, on every page. The dock says where you are, or how
-              you appear to everyone else when you are nowhere in particular;
-              a click still opens your profile card. */}
+              you appear to everyone else when you are nowhere in particular. */}
           <div className="ct-quick-idle-meta">
             <span className="ct-quick-idle-status">
               {voiceDot ?? <PresenceGlyph status={presenceStatus} className="ct-quick-idle-dot" />}
@@ -245,7 +246,7 @@ export function QuickControls({
             </span>
           </div>
         </button>
-      </UserProfileCardPopover>
+      </OdakMenu>
 
       <div className="ct-quick-controls-inline" aria-label="İşlevler">
         {voiceDot}

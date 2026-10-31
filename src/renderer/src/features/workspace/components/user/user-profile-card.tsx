@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import { Avatar, Button, Image, Input, Popover, Tag, Tooltip } from "antd";
 import type { TooltipPlacement } from "antd/es/tooltip";
@@ -75,6 +76,9 @@ interface UserProfileCardProps {
    * outside -- closing the card would take the picture down with it.
    */
   onPhotoPreviewChange?: (open: boolean) => void;
+  /** Under your own card only: what you can do about yourself (the rail
+      puts your status there). */
+  selfFooter?: ReactNode;
 }
 
 /** The band + avatar frame, shared by the real card and its loading skeleton. */
@@ -105,6 +109,7 @@ export function UserProfileCard({
   currentUserId,
   friends,
   onPhotoPreviewChange,
+  selfFooter,
 }: UserProfileCardProps): ReactElement {
   const { card, isLoading, isUnavailable } = useUserCard(userId);
   const presence = useUserPresence(userId);
@@ -482,6 +487,7 @@ export function UserProfileCard({
       {!isSelf && (
         <QuickMessageBar peerUserId={userId} peerName={card.username} />
       )}
+      {isSelf && selfFooter}
     </div>
   );
 }

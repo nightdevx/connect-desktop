@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import type { PresenceStatus, SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { BlankFace } from "@/ui/blank-face";
+import type { OdakMenuEntry } from "@/ui/odak-menu";
 import { getUserStatusLabel, hueStyle } from "../../workspace-utils";
 
 /** The pieces the Odak rail and the Odak pages share: the line icons, the
@@ -97,6 +98,56 @@ export const PRESENCE_OPTIONS: Array<{ value: SelectablePresenceStatus; label: s
   { value: "idle", label: "Boşta" },
   { value: "dnd", label: "Rahatsız etmeyin" },
   { value: "offline", label: "Çevrimdışı görün" },
+];
+
+// What each choice does that its name does not say (F10.2): "Rahatsız
+// etmeyin" silences message notifications (WorkspaceShell), "Çevrimdışı görün"
+// keeps the connection, "Boşta" also comes on its own after five idle minutes
+// (use-presence-status).
+const PRESENCE_DESCRIPTIONS: Record<SelectablePresenceStatus, string> = {
+  online: "Herkes seni görür",
+  idle: "5 dk hareketsiz kalınca kendiliğinden",
+  dnd: "Mesaj bildirimleri susar",
+  offline: "Bağlı kalırsın, kimse seni görmez",
+};
+
+/**
+ * Your four statuses and "Çıkış yap": the menu the dock's status opens, and
+ * the one under your own profile card (where the dock's status is hidden:
+ * Oyunlar, Fırsatlar, a folded sidebar). The current one carries a ✓;
+ * "Çıkış yap" signs out at once (no confirmation, the owner's decision).
+ */
+export const presenceMenu = ({
+  status,
+  onChange,
+  onLogout,
+  isLoggingOut,
+}: {
+  status: SelectablePresenceStatus;
+  onChange: (status: SelectablePresenceStatus) => void;
+  onLogout: () => void;
+  isLoggingOut: boolean;
+}): OdakMenuEntry[] => [
+  ...PRESENCE_OPTIONS.map(
+    (option): OdakMenuEntry => ({
+      key: option.value,
+      label: option.label,
+      description: PRESENCE_DESCRIPTIONS[option.value],
+      // The glyph the avatars show for it; the label says it in words.
+      icon: <PresenceGlyph status={option.value} className="ct-odak-menu-dot" />,
+      checked: option.value === status,
+      onSelect: () => onChange(option.value),
+    }),
+  ),
+  { type: "divider" },
+  {
+    key: "logout",
+    label: "Çıkış yap",
+    icon: "logout",
+    danger: true,
+    disabled: isLoggingOut,
+    onSelect: onLogout,
+  },
 ];
 
 // One shape per status, so colour is never the only cue (F4.1): a solid dot,

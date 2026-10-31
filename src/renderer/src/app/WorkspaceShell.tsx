@@ -1322,6 +1322,7 @@ function WorkspaceShell({
     onPresenceStatusChange: setSelectedPresenceStatus,
     onLogout,
     isLoggingOut,
+    friends,
   };
 
   // Oyunlar and Fırsatlar have no sidebar (the owner's call, 2026-10-30):
@@ -1334,9 +1335,10 @@ function WorkspaceShell({
   // sidebar column.
   const quickControls = (
     <QuickControls
-      currentUsername={currentUsername}
-      currentUserId={currentUserId}
-      friends={friends}
+      selectedPresenceStatus={selectedPresenceStatus}
+      onPresenceStatusChange={setSelectedPresenceStatus}
+      onLogout={onLogout}
+      isLoggingOut={isLoggingOut}
       hasActiveLobby={hasActiveLobby}
       isLeavingLobby={isLeavingLobby}
       micEnabled={micEnabled}
