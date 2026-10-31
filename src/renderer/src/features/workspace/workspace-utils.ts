@@ -44,30 +44,12 @@ export const getUserStatusLabel = (
   }
 };
 
-// Colours are shared by the sidebar dot, the profile drawer and the presence
-// picker so a status always reads the same way.
-//
-// Token references, not hex. These are handed to `style={{ background }}`, and
-// an inline style is the one place a stylesheet cannot reach — so the literals
-// that used to be here were the only colours in the app that could not follow
-// the light theme. The dark theme's green and amber measure 2.3:1 and 1.7:1 on
-// a white ground, which is a dot that has stopped saying anything.
-export const PRESENCE_COLORS: Record<PresenceStatus, string> = {
-  online: "var(--ct-presence-online)",
-  idle: "var(--ct-presence-idle)",
-  dnd: "var(--ct-presence-dnd)",
-  offline: "var(--ct-presence-offline)",
-};
-
-export const getPresenceColor = (
+// What other people see: "offline" for anyone without a connection, whatever
+// they picked. One status per place, drawn as one glyph (PresenceGlyph).
+export const getVisiblePresence = (
   appOnline?: boolean,
   presence?: PresenceStatus,
-): string => {
-  if (!appOnline) {
-    return PRESENCE_COLORS.offline;
-  }
-  return PRESENCE_COLORS[presence ?? "online"] ?? PRESENCE_COLORS.online;
-};
+): PresenceStatus => (appOnline ? (presence ?? "online") : "offline");
 
 export const formatDateLabel = (value: string): string => {
   const date = new Date(value);

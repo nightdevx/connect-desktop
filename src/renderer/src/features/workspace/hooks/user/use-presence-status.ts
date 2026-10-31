@@ -16,11 +16,30 @@ export interface PresenceStatusController {
   setSelectedStatus: (status: SelectablePresenceStatus) => void;
 }
 
+// The pick survives a restart (F4.2), per account, as the open conversations
+// do. Main remembers what was last published and restores it before a socket
+// opens (presence-memory.ts); this is only what the menu shows and publishes.
+const storageKey = (userId: string): string => `connect.presence.${userId}`;
+const SELECTABLE: ReadonlySet<string> = new Set(["online", "idle", "dnd", "offline"]);
+
+const readStoredStatus = (userId: string): SelectablePresenceStatus => {
+  try {
+    const stored = localStorage.getItem(storageKey(userId));
+    return stored && SELECTABLE.has(stored) ? (stored as SelectablePresenceStatus) : "online";
+  } catch {
+    return "online";
+  }
+};
+
 export const usePresenceStatus = (
   enabled: boolean,
+  userId: string,
 ): PresenceStatusController => {
-  const [selectedStatus, setSelected] =
-    useState<SelectablePresenceStatus>("online");
+  // Read before the first publish, so a restart never announces "online" on
+  // its way back to the stored pick.
+  const [selectedStatus, setSelected] = useState<SelectablePresenceStatus>(() =>
+    readStoredStatus(userId),
+  );
   const [isIdle, setIsIdle] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const publishedRef = useRef<SelectablePresenceStatus | null>(null);
@@ -85,8 +104,13 @@ export const usePresenceStatus = (
       lastActivityRef.current = Date.now();
       setIsIdle(false);
       setSelected(status);
+      try {
+        localStorage.setItem(storageKey(userId), status);
+      } catch {
+        // Storage locked down: the pick still holds for this run.
+      }
     },
-    [],
+    [userId],
   );
 
   return { selectedStatus, effectiveStatus, setSelectedStatus };

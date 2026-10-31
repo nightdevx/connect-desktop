@@ -61,11 +61,12 @@
 }
 
 :root[data-odak] .ct-chat-panel .ct-dm-header .ct-presence-dot {
-  right: -1px;
-  bottom: -1px;
-  width: 11px;
-  height: 11px;
+  right: -2px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
   border-color: var(--odak-surface);
+  background: var(--odak-surface);
 }
 
 :root[data-odak] .ct-chat-panel .ct-dm-header-text strong {
@@ -811,6 +812,7 @@
 
 :root[data-odak] .ct-user-drawer-avatar .ct-presence-dot {
   border-color: var(--odak-surface);
+  background: var(--odak-surface);
 }
 
 :root[data-odak] .ct-user-drawer-identity h3 {
@@ -1033,6 +1035,15 @@
   box-shadow:
     0 0 0 4px var(--odak-surface),
     0 0 0 6px var(--odak-accent);
+}
+
+/* The peer's presence on the big face: a 14 px glyph in a 3 px ring. */
+:root[data-odak] .ct-dm-aside-avatar .ct-odak-presence {
+  right: 1px;
+  bottom: 1px;
+  width: 20px;
+  height: 20px;
+  padding: 3px;
 }
 
 :root[data-odak] .ct-dm-aside-profile h2 {

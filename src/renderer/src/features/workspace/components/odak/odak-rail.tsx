@@ -5,8 +5,8 @@ import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { AuthLogoMark, isAdminRole } from "@/features/auth";
-import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
-import { Avatar, PRESENCE_OPTIONS, SECTIONS } from "./odak-parts";
+import { getUserStatusLabel } from "../../workspace-utils";
+import { Avatar, PRESENCE_OPTIONS, PresenceGlyph, SECTIONS } from "./odak-parts";
 
 // What each choice does that its name does not say (F10.2): "Rahatsız
 // etmeyin" silences message notifications (WorkspaceShell), "Çevrimdışı görün"
@@ -73,12 +73,8 @@ export function OdakRail({
         key: option.value,
         label: option.label,
         description: PRESENCE_DESCRIPTIONS[option.value],
-        icon: (
-          <span
-            className="ct-odak-menu-dot"
-            style={{ background: getPresenceColor(option.value !== "offline", option.value) }}
-          />
-        ),
+        // The glyph the avatars show for it; the label says it in words.
+        icon: <PresenceGlyph status={option.value} className="ct-odak-menu-dot" />,
         checked: option.value === presenceStatus,
         onSelect: () => onPresenceStatusChange(option.value),
       }),
@@ -136,7 +132,7 @@ export function OdakRail({
             userId={currentUserId}
             name={currentUsername}
             avatarUrl={currentUserAvatarUrl}
-            presence={getPresenceColor(presenceStatus !== "offline", presenceStatus)}
+            presence={presenceStatus}
             className="me"
           />
         </button>

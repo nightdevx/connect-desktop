@@ -59,6 +59,9 @@ export class StreamHostClient {
   public constructor(
     private readonly modulePath: string,
     private readonly backendBaseUrl: string,
+    // Runs before every start, ahead of the socket: context.ts restores the
+    // account's presence there, so the connect does not announce "online".
+    private readonly beforeStart?: (accessToken: string) => Promise<void>,
   ) {}
 
   /**
@@ -90,6 +93,13 @@ export class StreamHostClient {
       this.started.set(page.id, kinds);
     }
     kinds.add(kind);
+    if (this.beforeStart) {
+      await this.beforeStart(accessToken);
+      // Stopped while the presence went back: nothing to start.
+      if (!this.started.get(page.id)?.has(kind)) {
+        return;
+      }
+    }
 
     const id = this.nextRequestId++;
     const answered = new Promise<void>((resolve, reject) => {
