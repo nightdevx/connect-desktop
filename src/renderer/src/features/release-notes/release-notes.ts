@@ -36,6 +36,40 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.1",
+    date: "2026-10-31",
+    highlights: [
+      {
+        kind: "improved",
+        text: "Bildirimler yenilendi: üst ortada çıkıyor, birden çok bildirim üst üste duruyor. Üzerine gelince açılıyor, sen okurken kapanmıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Ekran paylaşma penceresi daha hızlı açılıyor.",
+      },
+      {
+        kind: "new",
+        text: "Durumların artık simgesi var. Seçtiğin durum uygulamayı kapatıp açınca da korunuyor; \"Çevrimdışı görün\" artık gerçekten çalışıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Ses efektleri, müzik ve oda ayarları pencereleri yenilendi; ses seviyeleri artık birer birer ayarlanıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Profil resimleri yerine tam oturuyor ve odadaki herkesin resmi görünüyor. Resmi olmayanlarda sade bir kişi simgesi var.",
+      },
+      {
+        kind: "fixed",
+        text: "Yayını izlemeyi bırakınca \"Yayını izle\" düğmesi geri geliyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Lobide kutuların pencereden taşması, \"En yeni mesajlara git\" düğmesi ve İstekler sekmesindeki sayı düzeltildi.",
+      },
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-10-31",
     summary: "Connect yepyeni bir görünümle geliyor ve artık Mac'te de var.",
