@@ -107,14 +107,26 @@ func follow(o options, w *ui, baseline int64, started time.Time) {
 // settings page shows it in development (--demo).
 func playDemo(o options, w *ui) {
 	time.Sleep(900 * time.Millisecond)
+	// The shape of a real update, faster: preparing, unpacking, copying,
+	// finishing (progress.go). Seconds are pretend.
 	est := estimator{baseline: 1000}
-	for i := int64(0); i <= 40; i++ {
-		w.progress("installing", est.installing(i*25, 0, 0))
-		time.Sleep(80 * time.Millisecond)
+	at := 0.0
+	step := func(staged, installed int64, seconds float64, pause time.Duration) {
+		at += seconds
+		w.progress("installing", est.installing(staged, installed, at))
+		time.Sleep(pause)
 	}
-	for i := int64(0); i <= 20; i++ {
-		w.progress("installing", est.installing(1000, i*50, 0))
-		time.Sleep(70 * time.Millisecond)
+	for i := 0; i < 20; i++ {
+		step(-1, 1000*int64(max(0, 4-i))/4, 0.75, 110*time.Millisecond)
+	}
+	for i := int64(0); i <= 15; i++ {
+		step(i*1000/15, 0, 0.2, 90*time.Millisecond)
+	}
+	for i := int64(0); i <= 15; i++ {
+		step(1000, i*1000/15, 0.2, 90*time.Millisecond)
+	}
+	for i := 0; i < 10; i++ {
+		step(1000, 1000, 0.6, 110*time.Millisecond)
 	}
 	w.progress("opening", installedPercent)
 	time.Sleep(1200 * time.Millisecond)

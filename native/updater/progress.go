@@ -9,25 +9,29 @@ import (
 	"time"
 )
 
-// Where each stage of the install lands on the bar. Closing Connect and moving
-// the old files out take a moment; unpacking the new files is most of the
-// wait; copying them into place is the rest. Once the installer has exited
-// the bar is full, and only Connect starting is left.
+// Where each stage of the install lands on the bar, set from a real update
+// of the 350 MB app (connect/planlar/masaustu/GUNCELLEME-PENCERESI-PLANI.md,
+// F4.3): about 15 s of the installer making sure Connect is closed and moving
+// the old version out, 2-3 s unpacking, 3 s copying, then 5-6 s of
+// bookkeeping and Connect starting. The first and last stretches leave
+// nothing to measure on disk, so the bar eases through them on time; the
+// middle is measured.
 const (
 	closingPercent   = 2.0
-	emptiedPercent   = 5.0
-	unpackedPercent  = 70.0
-	copiedPercent    = 95.0
+	preparedPercent  = 30.0 // the eased start heads here
+	unpackedPercent  = 65.0
+	copiedPercent    = 85.0
+	finishingPercent = 97.0 // the eased end never passes it
 	installedPercent = 100.0
 )
 
 // estimator turns what the installer leaves on disk into a percentage.
 //
 // The NSIS installer electron-builder makes (app-builder-lib
-// templates/nsis) first moves the old files out of the install folder
-// (uninstaller.nsh, atomicRMDir), then unpacks the new ones into a staging
-// folder, <its plugins folder in %TEMP%>\7z-out, then copies them into the
-// install folder (extractAppPackage.nsh). Both folders end up the size of the
+// templates/nsis) moves the old files out of the install folder
+// (uninstaller.nsh, atomicRMDir), unpacks the new ones into a staging folder,
+// <its plugins folder in %TEMP%>z-out, then copies them into the install
+// folder (extractAppPackage.nsh). Both folders end up the size of the
 // install, and the old install's size is close enough to the new one's to
 // measure them against.
 type estimator struct {
@@ -35,42 +39,52 @@ type estimator struct {
 	emptied  bool  // the old files have been moved out
 	leftover int64 // bytes still in the install folder when it emptied
 	staged   bool  // the staging folder has been found
+	copied   bool  // the new files are all in place
+	copiedAt float64
 	shown    float64
 }
 
 // installing takes the bytes in the staging folder (-1 while it has not been
 // found), the bytes in the install folder, and the seconds since Connect
-// closed. The result never goes down and stops at copiedPercent: only the
-// installer exiting moves the bar past it.
+// closed. The result never goes down and never passes finishingPercent: only
+// the installer exiting fills the bar.
 func (e *estimator) installing(staged, installed int64, elapsed float64) float64 {
 	if e.baseline <= 0 {
-		// Nothing to measure against: ease towards the copy mark instead.
-		return e.show(emptiedPercent + (copiedPercent-emptiedPercent)*(1-math.Exp(-elapsed/25)))
+		// Nothing to measure against: time alone.
+		return e.show(closingPercent + (finishingPercent-closingPercent)*(1-math.Exp(-elapsed/25)))
 	}
-	if !e.emptied {
-		if installed >= e.baseline/10 {
-			return e.show(closingPercent)
-		}
-		e.emptied = true
-		e.leftover = installed
+	p := closingPercent + (preparedPercent-closingPercent)*(1-math.Exp(-elapsed/8))
+
+	if !e.emptied && installed < e.baseline/10 {
+		e.emptied, e.leftover = true, installed
 	}
 	if staged >= 0 {
 		e.staged = true
 	}
-
-	copied := clamp01(float64(installed-e.leftover) / float64(e.baseline-e.leftover))
-	if !e.staged {
-		return e.show(emptiedPercent + (copiedPercent-emptiedPercent)*copied)
+	if e.staged {
+		p = math.Max(p, preparedPercent+(unpackedPercent-preparedPercent)*clamp01(float64(staged)/float64(e.baseline)))
 	}
-	p := emptiedPercent + (unpackedPercent-emptiedPercent)*clamp01(float64(staged)/float64(e.baseline))
-	if copied > 0.01 {
-		p = math.Max(p, unpackedPercent+(copiedPercent-unpackedPercent)*copied)
+	if e.emptied {
+		copied := clamp01(float64(installed-e.leftover) / float64(e.baseline-e.leftover))
+		from := preparedPercent
+		if e.staged {
+			from = unpackedPercent
+		}
+		if copied > 0.01 {
+			p = math.Max(p, from+(copiedPercent-from)*copied)
+		}
+		if copied >= 0.99 {
+			if !e.copied {
+				e.copied, e.copiedAt = true, elapsed
+			}
+			p = math.Max(p, copiedPercent+(finishingPercent-copiedPercent)*(1-math.Exp(-(elapsed-e.copiedAt)/3)))
+		}
 	}
 	return e.show(p)
 }
 
 func (e *estimator) show(p float64) float64 {
-	e.shown = math.Max(e.shown, math.Min(p, copiedPercent))
+	e.shown = math.Max(e.shown, math.Min(p, finishingPercent))
 	return e.shown
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,32 +10,31 @@ import (
 
 func TestEstimatorFollowsTheInstall(t *testing.T) {
 	e := estimator{baseline: 1000}
-	steps := []struct {
-		name              string
-		staged, installed int64
-		want              float64
-	}{
-		{"old files still there", -1, 1000, closingPercent},
-		{"old files moved out", -1, 4, emptiedPercent},
-		{"staging found", 0, 4, emptiedPercent},
-		{"half unpacked", 500, 4, 37.5},
-		{"unpacked", 1000, 4, unpackedPercent},
-		{"half copied", 1000, 502, 82.5},
-		{"copied", 1000, 1000, copiedPercent},
-		{"new install is bigger", 1200, 1300, copiedPercent},
-	}
-	for _, s := range steps {
-		if got := e.installing(s.staged, s.installed, 0); got != s.want {
-			t.Fatalf("%s: got %.2f, want %.2f", s.name, got, s.want)
+	near := func(name string, got, want float64) {
+		t.Helper()
+		if math.Abs(got-want) > 0.05 {
+			t.Fatalf("%s: got %.2f, want %.2f", name, got, want)
 		}
 	}
+	near("Connect just closed", e.installing(-1, 1000, 0), closingPercent)
+	// Nothing on disk changes while the installer checks for Connect and
+	// moves the old version out: the bar still moves.
+	near("15 s of preparing", e.installing(-1, 1000, 15), 2+28*(1-math.Exp(-15.0/8)))
+	near("old files moved out", e.installing(-1, 4, 15), 2+28*(1-math.Exp(-15.0/8)))
+	near("half unpacked", e.installing(500, 4, 16), 47.5)
+	near("unpacked", e.installing(1000, 4, 17), unpackedPercent)
+	near("half copied", e.installing(1000, 502, 18), 75)
+	near("copied", e.installing(1000, 1000, 19), copiedPercent)
+	near("finishing", e.installing(1000, 1000, 25), 85+12*(1-math.Exp(-2)))
+	near("never full on its own", e.installing(1000, 1000, 500), finishingPercent)
 }
 
 func TestEstimatorNeverGoesBack(t *testing.T) {
 	e := estimator{baseline: 1000}
 	e.installing(-1, 0, 0)
-	high := e.installing(800, 0, 0)
-	if got := e.installing(100, 0, 0); got != high {
+	high := e.installing(800, 0, 1)
+	// The installer removes its staging folder when it is done.
+	if got := e.installing(0, 0, 2); got != high {
 		t.Fatalf("went back from %.2f to %.2f", high, got)
 	}
 }
@@ -42,8 +42,8 @@ func TestEstimatorNeverGoesBack(t *testing.T) {
 func TestEstimatorWithoutStagingUsesTheInstallFolder(t *testing.T) {
 	e := estimator{baseline: 1000}
 	e.installing(-1, 0, 0)
-	if got := e.installing(-1, 500, 0); got != 50 {
-		t.Fatalf("got %.2f, want 50", got)
+	if got := e.installing(-1, 500, 0); math.Abs(got-57.5) > 0.05 {
+		t.Fatalf("got %.2f, want 57.5", got)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestEstimatorWithoutBaselineEasesOverTime(t *testing.T) {
 	e := estimator{}
 	early := e.installing(-1, 0, 1)
 	late := e.installing(-1, 0, 120)
-	if !(early > emptiedPercent && early < late && late <= copiedPercent) {
+	if !(early > closingPercent && early < late && late <= finishingPercent) {
 		t.Fatalf("early %.2f, late %.2f", early, late)
 	}
 }
