@@ -96,6 +96,9 @@ export function registerLobbyHandlers(): void {
           parsed.allowedUsers,
           parsed.password,
           parsed.capacity,
+          // Validated by the schema and expected by the client, but never
+          // passed on: the room's feature switches did not reach the server.
+          parsed.disabledFeatures,
         );
       });
       return ok(result);
