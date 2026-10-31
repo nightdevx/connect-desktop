@@ -433,8 +433,11 @@ export const liveKitTokenSchema = z.object({
   room: z.string().min(2).max(128).optional(),
 }).optional().default({});
 
+// "offline" is the invisible option (SelectablePresenceStatus). It was missing
+// here, so choosing "Çevrimdışı görün" failed this parse, never reached the
+// server, and friends kept seeing the user online.
 export const setPresenceSchema = z.object({
-  status: z.enum(["online", "idle", "dnd"]),
+  status: z.enum(["online", "idle", "dnd", "offline"]),
 });
 
 export const directTypingSchema = z.object({
