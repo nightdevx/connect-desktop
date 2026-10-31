@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Select, Switch, Button, Slider, Segmented } from "antd";
+import { Select, Switch, Button, Segmented } from "antd";
+import { VolumeSlider } from "@/ui/volume-slider";
 import {
   AudioMutedOutlined,
   AudioOutlined,
@@ -707,14 +708,7 @@ interface LevelControlProps {
 function LevelControl({ id, value, onChange }: LevelControlProps) {
   return (
     <div className="ct-settings-level">
-      <Slider
-        id={id}
-        min={0}
-        max={200}
-        value={value}
-        onChange={onChange}
-        tooltip={{ formatter: (next) => `%${next ?? 0}` }}
-      />
+      <VolumeSlider id={id} value={value} onChange={onChange} />
       <span className={`ct-settings-level-value${value > 100 ? " boost" : ""}`}>
         %{value}
       </span>

@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Slider, Tooltip } from "antd";
+import { Modal, Tooltip } from "antd";
+import { VolumeSlider } from "@/ui/volume-slider";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import { MenuIcon, type OdakMenuIcon } from "@/ui/odak-menu";
 import { formatMusicDuration, type MusicLogLine } from "@shared/music";
@@ -393,14 +394,10 @@ export function MusicModal({
             Sende ses seviyesi
             <span>%{volumePercent}</span>
           </label>
-          <Slider
+          <VolumeSlider
             id="ct-music-volume"
-            min={0}
-            max={200}
-            step={5}
             value={volumePercent}
             onChange={onVolumeChange}
-            tooltip={{ formatter: (value) => `%${value ?? 0}` }}
           />
           <small className="ct-field-hint">Yalnız seni etkiler; odadakiler kendi ayarını duyar.</small>
         </div>

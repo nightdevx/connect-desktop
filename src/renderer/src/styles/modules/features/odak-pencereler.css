@@ -307,38 +307,8 @@
   padding: 2px 8px 0;
 }
 
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider {
-  margin: 8px 4px 2px;
-}
-
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-rail,
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-rail {
-  background: var(--odak-border-strong);
-}
-
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-track,
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-track {
-  background: var(--odak-accent);
-}
-
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle::after,
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:hover, :active, :focus)::after {
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  width: 12px;
-  height: 12px;
-  outline: 0;
-  background: var(--odak-text);
-  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.35);
-  transition: transform var(--odak-dur-1) var(--odak-ease-out);
-}
-
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:focus-visible::after {
-  box-shadow: 0 0 0 4px rgba(198, 244, 50, 0.6);
-}
-
-:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:active, .ant-slider-handle-dragging)::after {
-  transform: scale(1.25);
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ct-volume {
+  margin: 8px 0 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -8,6 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { VolumeSlider } from "./volume-slider";
 
 /**
  * The one menu every right-click, ⋯ and drop-down menu in the app is drawn
@@ -435,7 +436,7 @@ export interface OdakMenuGroup {
   items: OdakMenuEntry[];
 }
 
-/** A volume as a row: 0–200 with a notch at 100. ←→ move it 5 at a time. */
+/** A volume as a row: 0–200 with a notch at 100. ←→ move it 1 at a time. */
 export interface OdakMenuSlider {
   type: "slider";
   key: string;
@@ -467,7 +468,7 @@ export type OdakMenuEntry =
   | undefined;
 
 const SLIDER_MAX = 200;
-const SLIDER_STEP = 5;
+const SLIDER_STEP = 1;
 
 const leadNode = (lead: Lead | undefined): ReactNode =>
   lead === undefined ? null : (
@@ -516,23 +517,16 @@ function MenuSlider({ entry }: { entry: OdakMenuSlider }): JSX.Element {
         label={entry.label}
         tail={<span className="ct-menu-slider-value">{entry.status ?? `%${entry.value}`}</span>}
       />
-      <span
+      {/* Not a tab stop: the row is the keyboard's place (←→ move it), the
+          thumb is the pointer's. */}
+      <VolumeSlider
         className="ct-menu-range"
-        style={{ "--v": entry.value / SLIDER_MAX } as CSSProperties}
-      >
-        {/* Not a tab stop: the row is the keyboard's place (←→ move it), the
-            thumb is the pointer's. */}
-        <input
-          type="range"
-          min={0}
-          max={SLIDER_MAX}
-          step={SLIDER_STEP}
-          value={entry.value}
-          tabIndex={-1}
-          aria-label={entry.label}
-          onChange={(event) => entry.onChange(Number(event.target.value))}
-        />
-      </span>
+        max={SLIDER_MAX}
+        value={entry.value}
+        tabIndex={-1}
+        label={entry.label}
+        onChange={entry.onChange}
+      />
       <span className="ct-menu-scale" aria-hidden="true">
         <span>0</span>
         <span>100</span>

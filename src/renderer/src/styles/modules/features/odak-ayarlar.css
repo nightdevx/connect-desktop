@@ -406,43 +406,6 @@
   background: var(--odak-on-accent);
 }
 
-/* Sliders: a lime track on a #22252B rail, a lime knob ringed in the card's
-   colour. The knob grows on a transform while it is held, rather than
-   antd's size change on hover. */
-:root[data-odak] .ct-settings-main-panel .ant-slider .ant-slider-rail,
-:root[data-odak] .ct-settings-main-panel .ant-slider:hover .ant-slider-rail {
-  background: var(--odak-border);
-}
-
-:root[data-odak] .ct-settings-main-panel .ant-slider .ant-slider-track,
-:root[data-odak] .ct-settings-main-panel .ant-slider:hover .ant-slider-track {
-  background: var(--odak-accent);
-}
-
-:root[data-odak] .ct-settings-main-panel .ant-slider-handle::after,
-:root[data-odak] .ct-settings-main-panel .ant-slider-handle:is(:hover, :active, :focus)::after {
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  width: 12px;
-  height: 12px;
-  outline: 0;
-  background: var(--odak-accent);
-  box-shadow: 0 0 0 3px var(--odak-surface);
-  transition:
-    transform var(--odak-dur-1) var(--odak-ease-out),
-    box-shadow var(--odak-dur-1) var(--odak-ease-out);
-}
-
-:root[data-odak] .ct-settings-main-panel .ant-slider-handle:focus-visible::after {
-  box-shadow:
-    0 0 0 3px var(--odak-surface),
-    0 0 0 6px rgba(198, 244, 50, 0.28);
-}
-
-:root[data-odak] .ct-settings-main-panel .ant-slider-handle:is(:active, .ant-slider-handle-dragging)::after {
-  transform: scale(1.33);
-}
-
 /* The number beside a slider, as the mock-up's "−48 dB": mono and grey. */
 :root[data-odak] .ct-settings-level-value {
   padding: 0;

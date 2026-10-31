@@ -19,6 +19,7 @@ import {
 } from "@/store/watch-volume";
 import type { WatchRoom } from "./use-watch-room";
 import { WatchPlayer } from "./watch-player";
+import { VolumeSlider } from "@/ui/volume-slider";
 
 interface WatchStageTileProps {
   room: WatchRoom;
@@ -444,16 +445,14 @@ export function WatchStageTile({
               </button>
             </Tooltip>
 
-            <input
-              type="range"
+            <VolumeSlider
               className="ct-watch-tile__volume"
-              min={0}
               max={100}
               value={volume}
-              aria-label="Ses seviyesi"
+              label="Ses seviyesi"
               title="Ses seviyesi — yalnızca sende"
-              onChange={(event) => {
-                setVolume(Number(event.target.value));
+              onChange={(next) => {
+                setVolume(next);
                 setMuted(false);
               }}
             />

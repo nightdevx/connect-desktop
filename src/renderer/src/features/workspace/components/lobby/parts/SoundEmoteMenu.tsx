@@ -5,7 +5,8 @@ import {
   type JSX,
   type KeyboardEvent,
 } from "react";
-import { Button, Modal, Popover, Slider, Tooltip } from "antd";
+import { Button, Modal, Popover, Tooltip } from "antd";
+import { VolumeSlider } from "@/ui/volume-slider";
 import { NotificationOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
@@ -477,14 +478,11 @@ export function SoundEmoteMenu({
             Sende ses seviyesi
             <span>%{emoteVolumePercent}</span>
           </label>
-          <Slider
+          <VolumeSlider
             id="ct-emote-volume"
-            min={0}
             max={MAX_EMOTE_VOLUME_PERCENT}
-            step={5}
             value={emoteVolumePercent}
             onChange={setEmoteVolumePercent}
-            tooltip={{ formatter: (value) => `%${value}` }}
           />
         </div>
       </footer>

@@ -265,8 +265,6 @@
 .ct-watch-tile__volume {
   @apply shrink-0;
   width: 84px;
-  accent-color: #ffffff;
-  cursor: pointer;
 }
 
 /* The volume slider is the first thing a narrow tile can do without: the

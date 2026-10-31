@@ -331,8 +331,8 @@
   width: 260px;
 }
 
-.ct-settings-level .ant-slider {
-  @apply m-0 flex-1;
+.ct-settings-level .ct-volume {
+  @apply flex-1;
 }
 
 .ct-settings-level-value {
