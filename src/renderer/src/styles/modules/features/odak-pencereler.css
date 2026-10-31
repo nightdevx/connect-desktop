@@ -865,3 +865,257 @@
   }
 }
 
+/* ==========================================================================
+   F3.3 Oda ayarları
+   ========================================================================== */
+
+:root[data-odak] .ct-room-settings {
+  gap: 16px;
+}
+
+/* Whose room, since when: the subject line above the sections. */
+:root[data-odak] .ct-room-subject {
+  display: flex;
+  min-width: 0;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-room-subject-tile {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-room-subject-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-room-subject-text strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-room-subject-text span {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-subject-id {
+  max-width: 120px;
+  overflow: hidden;
+  flex-shrink: 1;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-room-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-room-section ~ .ct-room-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-room-section-title {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-room-section.danger .ct-room-section-title {
+  color: #ff8a8a;
+}
+
+:root[data-odak] .ct-room-section.danger .ct-room-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 92, 92, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 92, 0.16);
+}
+
+/* A setting on one line: icon, what it is and what it does, its control. */
+:root[data-odak] .ct-room-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-room-row-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border);
+  border-radius: 9px;
+  color: var(--odak-muted);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-room-row-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+:root[data-odak] .ct-room-row-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-room-row-text span {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-settings .ct-field-hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-room-people {
+  gap: 8px;
+}
+
+:root[data-odak] .ct-room-lookup .ant-input-search-button {
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-room-delete.ant-btn {
+  height: 34px;
+  flex-shrink: 0;
+  border-color: rgba(255, 92, 92, 0.45);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff8a8a;
+  background: transparent;
+}
+
+:root[data-odak] .ct-room-delete.ant-btn:not(:disabled):hover {
+  border-color: var(--odak-danger);
+  color: #1a0606;
+  background: var(--odak-danger);
+}
+
+/* Switches: 28x16, lime when on with a dark knob, #2A2E35 when off. */
+:root[data-odak] .ct-room-settings .ant-switch {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch:hover:not(.ant-switch-disabled) {
+  background: #363b44;
+}
+
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked,
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked .ant-switch-handle::before {
+  background: var(--odak-on-accent);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.3);
+}
+
+/* Room features: two columns of name and switch. */
+:root[data-odak] .ct-room-settings .ct-lobby-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 0;
+}
+
+:root[data-odak] .ct-room-settings .ct-lobby-feature-row {
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-color: var(--odak-border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #d7dae0;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-room-settings .ct-lobby-feature-row:hover {
+  border-color: var(--odak-border-strong);
+}
+
+/* Left of the buttons: whether anything is waiting to be saved. */
+:root[data-odak] .ct-room-footer-status {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-footer-status.dirty {
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-room-footer-status.dirty::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-room-saved-list {
+  display: flex;
+  margin: 12px 0 0;
+  padding: 0;
+  align-self: stretch;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  text-align: left;
+}
+
+:root[data-odak] .ct-room-saved-list li {
+  padding: 8px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #d7dae0;
+  background: #0b0c0e;
+}
