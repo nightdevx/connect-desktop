@@ -53,12 +53,8 @@ const getUpdateDebugBlockedReason = (reason?: string): string => {
     return "Debug güncelleme ekranı sadece geliştirme modunda açılabilir.";
   }
 
-  if (reason === "ALREADY_IN_HELPER_MODE") {
-    return "Güncelleme debug süreci zaten açık.";
-  }
-
   if (reason === "SPAWN_FAILED") {
-    return "Debug güncelleme penceresi başlatılamadı.";
+    return "Güncelleme penceresi açılamadı. Önce pnpm build:updater çalıştır.";
   }
 
   return "Debug güncelleme şu anda açılamadı.";

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Connect güncelleniyor</title>
+    <style>
+      /*FONTS*/
+
+      /* Odak's palette (src/renderer/src/styles/modules/features/odak.css). */
+      :root {
+        color-scheme: dark;
+        --bg: #0e0f11;
+        --surface: #16181c;
+        --raised: #1e2127;
+        --border: #22252b;
+        --text: #f2f3f5;
+        --muted: #9aa0aa;
+        --accent: #c6f432;
+        --accent-hover: #d3f75a;
+        --on-accent: #0e0f11;
+        --track: rgba(255, 255, 255, 0.07);
+        --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font: 400 13px/1.45 "Space Grotesk", "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        cursor: default;
+        user-select: none;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        padding: 0 36px;
+        text-align: center;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      /* The mark draws in as the boot splash's does (boot-splash.css), and the
+         dot then pulses like the live badge it is while the install runs. */
+      .mark {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 20px;
+        overflow: visible;
+      }
+
+      .room {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 36;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: draw 650ms cubic-bezier(0.45, 0, 0.15, 1) forwards;
+      }
+
+      .dot,
+      .ring {
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      .dot {
+        fill: var(--accent);
+        opacity: 0;
+        transform: scale(0.7);
+        animation: pop 380ms var(--ease-out) 480ms forwards;
+      }
+
+      .ring {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 2px;
+        vector-effect: non-scaling-stroke;
+        opacity: 0;
+      }
+
+      body:not([data-phase="error"]) .ring {
+        animation: pulse 1700ms linear 900ms infinite;
+      }
+
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes pop {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 0.7;
+          transform: scale(1);
+          animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        60%,
+        100% {
+          opacity: 0;
+          transform: scale(2.4);
+        }
+      }
+
+      h1 {
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+      }
+
+      .version {
+        margin-top: 4px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .working {
+        width: 100%;
+        margin-top: 24px;
+      }
+
+      body[data-phase="error"] .working {
+        display: none;
+      }
+
+      .bar {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: var(--track);
+      }
+
+      .bar > span {
+        display: block;
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+        transition: width 420ms var(--ease-out);
+      }
+
+      .status {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-top: 10px;
+        color: var(--muted);
+      }
+
+      .percent {
+        color: var(--text);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .trouble {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .message {
+        max-width: 30ch;
+        margin-top: 6px;
+        color: var(--muted);
+        text-wrap: pretty;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 20px;
+      }
+
+      button {
+        height: 36px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background-color 150ms var(--ease-out),
+          border-color 150ms var(--ease-out),
+          color 150ms var(--ease-out);
+      }
+
+      button:hover {
+        background: var(--raised);
+      }
+
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      button.primary:hover {
+        border-color: var(--accent-hover);
+        background: var(--accent-hover);
+      }
+
+      /* Softer than the accent itself, so the focused lime button reads as
+         focused rather than as drawn twice. Still above 3:1 on the page. */
+      button:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+        outline-offset: 2px;
+      }
+
+      .close {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .close:hover {
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .room {
+          animation: none;
+          stroke-dashoffset: 0;
+        }
+
+        .dot {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+
+        body:not([data-phase="error"]) .ring {
+          animation: none;
+        }
+
+        .bar > span {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body data-phase="closing">
+    <button class="close" id="close" type="button" aria-label="Kapat" hidden>
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+    </button>
+
+    <main>
+      <!-- AuthLogoMark's geometry (src/renderer/src/features/auth/components). -->
+      <svg class="mark" viewBox="36 36 184 184" aria-hidden="true">
+        <path class="room" d="M150 54H96A42 42 0 0 0 54 96V160A42 42 0 0 0 96 202H160A42 42 0 0 0 202 160V106" pathLength="1" />
+        <circle class="ring" cx="189.7" cy="66.3" r="19.5" />
+        <circle class="dot" cx="189.7" cy="66.3" r="19.5" />
+      </svg>
+
+      <h1 id="title">Connect güncelleniyor</h1>
+      <p class="version" id="version"></p>
+
+      <div class="working">
+        <div class="bar" id="bar" role="progressbar" aria-labelledby="title" aria-valuemin="0" aria-valuemax="100">
+          <span id="fill"></span>
+        </div>
+        <div class="status">
+          <span id="status" role="status"></span>
+          <span class="percent" id="percent" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <div class="trouble" id="trouble" hidden>
+        <p class="message" id="message" role="alert"></p>
+        <div class="actions">
+          <button class="primary" id="primary" type="button"></button>
+          <button id="secondary" type="button"></button>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      (() => {
+        const $ = (id) => document.getElementById(id);
+        const post = (message) => window.chrome?.webview?.postMessage(message);
+
+        const working = {
+          closing: "Connect kapatılıyor",
+          installing: "Kuruluyor",
+          opening: "Connect açılıyor",
+        };
+        const retry = "Connect'i açıp yeniden deneyebilirsin.";
+        const reinstall = "Son sürümü indirme sayfasından kurabilirsin.";
+        const troubles = {
+          failed: { title: "Güncelleme kurulamadı", canOpen: retry, cannotOpen: reinstall },
+          stalled: { title: "Kurulum beklenenden uzun sürdü", canOpen: retry, cannotOpen: reinstall },
+          "not-opened": {
+            title: "Connect açılmadı",
+            canOpen: "Güncelleme kuruldu ama Connect kendiliğinden açılmadı.",
+            cannotOpen: reinstall,
+          },
+        };
+
+        let actions = {};
+
+        function update(state) {
+          document.body.dataset.phase = state.phase;
+          $("version").textContent = state.version ? `Sürüm ${state.version}` : "";
+          $("version").hidden = !state.version;
+
+          if (state.phase !== "error") {
+            const percent = Math.floor(state.percent);
+            $("fill").style.width = `${percent}%`;
+            $("bar").setAttribute("aria-valuenow", String(percent));
+            $("percent").textContent = `%${percent}`;
+            if ($("status").textContent !== working[state.phase]) {
+              $("status").textContent = working[state.phase];
+            }
+            return;
+          }
+
+          const trouble = troubles[state.error] ?? troubles.failed;
+          $("title").textContent = trouble.title;
+          $("message").textContent = state.canOpen ? trouble.canOpen : trouble.cannotOpen;
+
+          // The way out that works comes first: Connect if it is there,
+          // otherwise the download page, otherwise just closing.
+          const primary = state.canOpen
+            ? ["Connect'i aç", "open-app"]
+            : state.download
+              ? ["İndirme sayfasını aç", "open-download"]
+              : ["Kapat", "close"];
+          const secondary = state.canOpen && state.download ? ["İndirme sayfası", "open-download"] : null;
+          $("primary").textContent = primary[0];
+          $("secondary").hidden = !secondary;
+          if (secondary) {
+            $("secondary").textContent = secondary[0];
+          }
+          actions = { primary: primary[1], secondary: secondary?.[1] };
+
+          const firstShow = $("trouble").hidden;
+          $("trouble").hidden = false;
+          $("close").hidden = false;
+          if (firstShow) {
+            $("primary").focus();
+          }
+        }
+
+        window.connectUpdater = { update };
+        update(window.connectUpdaterInitial ?? { phase: "closing", percent: 0 });
+
+        $("primary").addEventListener("click", () => post(actions.primary));
+        $("secondary").addEventListener("click", () => post(actions.secondary));
+        $("close").addEventListener("click", () => post("close"));
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && document.body.dataset.phase === "error") {
+            post("close");
+          }
+        });
+
+        // Connect closes on this, so it waits for the font and a painted frame.
+        document.fonts.ready.then(() => {
+          requestAnimationFrame(() => requestAnimationFrame(() => post("ready")));
+        });
+      })();
+    </script>
+  </body>
+</html>

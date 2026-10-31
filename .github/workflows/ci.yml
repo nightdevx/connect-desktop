@@ -36,3 +36,15 @@ jobs:
         env:
           # build:main generates .env.runtime from this.
           CT_BACKEND_URL: http://127.0.0.1:4001
+
+      # The window shown while an update installs.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/updater/go.mod
+          cache-dependency-path: native/updater/go.sum
+
+      - name: Update window (Go)
+        working-directory: native/updater
+        run: |
+          go vet ./...
+          go test ./...
