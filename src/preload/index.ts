@@ -269,8 +269,8 @@ const desktopApi: DesktopApi = {
   seekWatch: async (payload) => ipcRenderer.invoke("desktop:watch-seek", payload),
   describeWatch: async (payload) => ipcRenderer.invoke("desktop:watch-describe", payload),
   stopWatch: async (payload) => ipcRenderer.invoke("desktop:watch-stop", payload),
-  listScreenCaptureSources: async () =>
-    ipcRenderer.invoke("desktop:screen-capture-sources"),
+  listScreenCaptureSources: async (options) =>
+    ipcRenderer.invoke("desktop:screen-capture-sources", options),
   openScreenRecordingSettings: async () =>
     ipcRenderer.invoke("desktop:open-screen-recording-settings"),
   getRunningGame: async () => ipcRenderer.invoke("desktop:running-game"),

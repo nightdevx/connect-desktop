@@ -641,6 +641,12 @@ export const watchPositionSchema = z.object({
   position: z.number().finite().min(0).max(36000).optional(),
 });
 
+// The share dialog wants previews; starting a share and the "Ekran değiştir"
+// menu only need ids and names, which skips the capture of every window.
+export const screenCaptureSourcesSchema = z
+  .object({ previews: z.boolean().optional() })
+  .optional();
+
 export const watchSeekSchema = z.object({
   lobbyId: z.string().min(2).max(128),
   position: z.number().finite().min(0).max(36000),

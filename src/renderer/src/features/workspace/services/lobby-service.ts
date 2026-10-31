@@ -325,12 +325,12 @@ export const lobbyService = {
 
     return window.desktopApi.createNetworkTestToken();
   },
-  listScreenCaptureSources: () => {
+  listScreenCaptureSources: (options?: { previews?: boolean }) => {
     if (typeof window.desktopApi.listScreenCaptureSources !== "function") {
       return Promise.resolve(desktopBridgeOutdatedError);
     }
 
-    return window.desktopApi.listScreenCaptureSources();
+    return window.desktopApi.listScreenCaptureSources(options);
   },
 };
 

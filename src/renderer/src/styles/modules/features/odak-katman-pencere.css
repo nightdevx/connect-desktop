@@ -275,6 +275,49 @@
   grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
 }
 
+/* Loading: placeholder cards under the Odak sheen (as in Fırsatlar), and on a
+   refresh the same sheen passes over the previews already shown. */
+:root[data-odak] .ct-share-source-card.skeleton {
+  cursor: default;
+}
+
+:root[data-odak] .ct-share-source-card.skeleton .ct-share-source-thumb,
+:root[data-odak] .ct-share-source-skeleton-line {
+  border-color: var(--odak-border);
+  background: linear-gradient(
+      100deg,
+      var(--odak-surface) 30%,
+      var(--odak-raised) 50%,
+      var(--odak-surface) 70%
+    )
+    0 0 / 200% 100%;
+  animation: odak-sheen 1.6s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-share-source-skeleton-line {
+  display: block;
+  width: 60%;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 6px;
+}
+
+:root[data-odak] .ct-share-source-grid[aria-busy="true"] .ct-share-source-thumb::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(
+      100deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.09) 50%,
+      transparent 70%
+    )
+    0 0 / 200% 100%;
+  animation: odak-sheen 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
 :root[data-odak] .ct-modal .ct-share-quality-row {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
@@ -633,6 +676,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root[data-odak] :is(
+      .ct-share-source-card.skeleton .ct-share-source-thumb,
+      .ct-share-source-skeleton-line,
+      .ct-share-source-grid[aria-busy="true"] .ct-share-source-thumb::before
+    ) {
+    animation: none;
+  }
+
   :root[data-odak] :is(.ct-profile-card-skeleton-line, .ct-profile-card-photo-root.skeleton, .ct-emoji-picker-loading, .ct-gif-cell.skeleton) {
     animation: none;
   }
