@@ -1,5 +1,7 @@
 import type { JSX } from "react";
 
+import { LOGO_DOT, LOGO_ROOM_PATH } from "./brand-paths";
+
 interface AuthLogoMarkProps {
   className?: string;
   /** Boot splash: draw the room in, drop the dot into its corner, then breathe. */
@@ -40,7 +42,7 @@ export function AuthLogoMark({
           round the room and finishes at the open corner. */}
       <path
         className="ct-logomark-room"
-        d="M150 54H96A42 42 0 0 0 54 96V160A42 42 0 0 0 96 202H160A42 42 0 0 0 202 160V106"
+        d={LOGO_ROOM_PATH}
         pathLength="1"
         fill="none"
         stroke="var(--ct-logo)"
@@ -48,9 +50,9 @@ export function AuthLogoMark({
       />
       <circle
         className="ct-logomark-dot"
-        cx="189.7"
-        cy="66.3"
-        r="19.5"
+        cx={LOGO_DOT.cx}
+        cy={LOGO_DOT.cy}
+        r={LOGO_DOT.r}
         fill="var(--ct-logo)"
       />
     </svg>

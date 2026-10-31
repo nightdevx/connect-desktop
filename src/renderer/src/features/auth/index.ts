@@ -9,6 +9,7 @@ export * from "./hooks/use-auth-actions";
 export * from "./hooks/use-auth-session";
 export * from "./hooks/use-auth-controller";
 export { AuthLogoMark } from "./components/AuthLogoMark";
+export { BootSplash } from "./components/BootSplash";
 export { AuthBrandPanel } from "./components/AuthBrandPanel";
 export { default as LoginPage } from "./pages/LoginPage";
 export { default as RegisterPage } from "./pages/RegisterPage";

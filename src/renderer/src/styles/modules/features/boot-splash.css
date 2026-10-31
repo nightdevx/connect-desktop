@@ -1,0 +1,223 @@
+/* ==========================================================================
+   BOOT SPLASH -- the launch intro, "Kapıdan giriş"
+
+   Plays once per launch over everything under the title bar (BootSplash.tsx;
+   the timing table is in planlar/masaustu/ACILIS-ANIMASYONU-PLANI.md, and the
+   mobile app plays the same one).
+
+   The SVG is the 938x256 lockup box. The mark starts centred in it, shifted
+   341 units right; at 1150 ms the lockup slides home and shrinks to 0.85 while
+   CONNECT comes out from behind the mark. Everything except the room's
+   draw-in is transform and opacity.
+   ========================================================================== */
+
+.ct-boot-splash {
+  position: absolute;
+  inset: var(--ct-titlebar-height) 0 0 0;
+  /* Above antd's modals and popovers, below a mandatory update's gate. */
+  z-index: 1450;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--ct-surface-0);
+}
+
+/* 128 px of mark, as the old boot screen had: 184 of the 938 units. */
+.ct-boot-splash-mark {
+  width: calc(128px * 938 / 184);
+  height: auto;
+  overflow: visible;
+}
+
+.ct-boot-splash-lock {
+  transform: translate(341px, 0);
+  transform-origin: 469px 128px;
+  animation: ctSplashLock 700ms cubic-bezier(0.65, 0, 0.35, 1) 1150ms both;
+}
+
+.ct-boot-splash-room {
+  fill: none;
+  stroke: var(--ct-logo);
+  stroke-width: 36;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ctSplashDraw 650ms cubic-bezier(0.45, 0, 0.15, 1) both;
+}
+
+/* The dot comes in from outside, through the open corner. */
+.ct-boot-splash-dot {
+  animation: ctSplashDotIn 560ms cubic-bezier(0.16, 1, 0.3, 1) 480ms both;
+}
+
+.ct-boot-splash-dot-fill {
+  fill: var(--ct-logo);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ctSplashDotPop 380ms var(--ct-ease-premium) 480ms both;
+}
+
+.ct-boot-splash-ring {
+  fill: none;
+  stroke: var(--ct-logo);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ctSplashRing 700ms cubic-bezier(0.16, 1, 0.3, 1) 900ms;
+}
+
+/* Still waiting on the session once the intro is over: the live badge's pulse. */
+.ct-boot-splash-ring--pulse {
+  animation: none;
+}
+
+.ct-boot-splash.is-waiting .ct-boot-splash-ring--pulse {
+  animation: ctSplashPulse 1700ms linear 150ms infinite;
+}
+
+.ct-boot-splash-word {
+  fill: var(--ct-text-primary);
+  animation: ctSplashWord 700ms cubic-bezier(0.65, 0, 0.35, 1) 1150ms both;
+}
+
+/* The fade out, shrinking on the room where the lockup left it
+   (469 - 341 x 0.85 = 179.15 of 938 units, 19.1 %). On the <svg> box, not on
+   a group inside it, so the compositor runs it while the freshly mounted
+   screen keeps the main thread busy. */
+.ct-boot-splash[data-phase="exit"] {
+  animation: ctSplashOut 260ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+.ct-boot-splash[data-phase="exit"] .ct-boot-splash-mark {
+  transform-origin: 19.1% 50%;
+  animation: ctSplashShrink 260ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+@keyframes ctSplashDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ctSplashDotIn {
+  from {
+    transform: translate(64px, -64px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ctSplashDotPop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ctSplashRing {
+  from {
+    opacity: 0.7;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes ctSplashPulse {
+  0% {
+    opacity: 0.6;
+    transform: none;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes ctSplashLock {
+  from {
+    transform: translate(341px, 0) scale(1);
+  }
+
+  to {
+    transform: translate(0, 0) scale(0.85);
+  }
+}
+
+@keyframes ctSplashWord {
+  from {
+    transform: translateX(-700px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ctSplashIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ctSplashOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ctSplashShrink {
+  to {
+    transform: scale(0.94);
+  }
+}
+
+@keyframes ctSplashDim {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Reduced motion: the finished lockup fades in; while waiting the dot dims and
+   brightens instead of sending out rings. The fade out stays. */
+@media (prefers-reduced-motion: reduce) {
+  .ct-boot-splash:not([data-phase="exit"]) {
+    animation: ctSplashIn 360ms var(--ct-ease-premium) both;
+  }
+
+  .ct-boot-splash-lock,
+  .ct-boot-splash-room,
+  .ct-boot-splash-dot,
+  .ct-boot-splash-dot-fill,
+  .ct-boot-splash-ring,
+  .ct-boot-splash-word,
+  .ct-boot-splash.is-waiting .ct-boot-splash-ring--pulse {
+    animation: none;
+  }
+
+  .ct-boot-splash-lock {
+    transform: scale(0.85);
+  }
+
+  .ct-boot-splash-room {
+    stroke-dashoffset: 0;
+  }
+
+  .ct-boot-splash.is-waiting .ct-boot-splash-dot-fill {
+    animation: ctSplashDim 1800ms ease-in-out infinite;
+  }
+}

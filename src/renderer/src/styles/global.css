@@ -7,6 +7,7 @@
 @import "./modules/ui-elements.css";
 @import "./modules/common.css";
 @import "./modules/features/auth.css";
+@import "./modules/features/boot-splash.css";
 @import "./modules/features/workspace.css";
 @import "./modules/features/admin.css";
 @import "./modules/features/lobby.css";

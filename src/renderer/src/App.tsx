@@ -12,6 +12,7 @@ import {
 import {
   AuthBrandPanel,
   AuthLogoMark,
+  BootSplash,
   EmailVerificationPage,
   LoginPage,
   RegisterPage,
@@ -58,6 +59,11 @@ function App() {
   // the verification screen.
   const [verificationRequired, setVerificationRequired] = useState(false);
   const queryClient = useQueryClient();
+
+  // The launch intro owns the first seconds: "splash" while it plays and the
+  // content area stays empty, "reveal" once the right screen may mount behind
+  // it, "done" when it has faded away.
+  const [bootPhase, setBootPhase] = useState<"splash" | "reveal" | "done">("splash");
 
   // The whole app is in the Odak design, sign-in included: data-odak on
   // <html> points the tokens at its palette. Set once, never cleared, so
@@ -205,7 +211,7 @@ function App() {
           cannot use any of what it is describing yet. */}
       <WhatsNewModal
         version={appVersion}
-        enabled={isAuthenticated && !isBooting && !isUpdateLocked}
+        enabled={isAuthenticated && !isBooting && !isUpdateLocked && bootPhase === "done"}
         manualOpen={isReleaseNotesOpen}
         onManualOpenChange={setIsReleaseNotesOpen}
       />
@@ -314,9 +320,10 @@ function App() {
           {/* The session check is a round trip, and until it answers we do not
               know which of the two screens is the right one. Rendering the
               login card while waiting meant a returning user saw it flash and
-              be replaced by the workspace on every cold start. The placeholder
+              be replaced by the workspace on every cold start. At launch the
+              intro covers the wait; the placeholder is for a later check, and
               fades in on a delay, so a fast answer shows nothing at all. */}
-          {isBooting ? (
+          {bootPhase === "splash" ? null : isBooting ? (
             <div className="ct-boot" role="status" aria-label="Oturum kontrol ediliyor">
               <AuthLogoMark animated />
               <span className="ct-boot-bar" aria-hidden="true" />
@@ -394,6 +401,10 @@ function App() {
             </div>
           )}
         </section>
+
+        {bootPhase !== "done" && (
+          <BootSplash ready={!isBooting} onPhase={setBootPhase} />
+        )}
 
         {isUpdateLocked && updateState && <UpdateGate state={updateState} />}
       </div>
