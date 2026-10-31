@@ -46,15 +46,26 @@ export function useThreadScroll({
   const olderRequestedRef = useRef(false);
   const lastPeerIdRef = useRef<string | null>(null);
 
+  const lastScrollTopRef = useRef(0);
+
   const handleChatScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container) {
       return;
     }
 
-    atBottomRef.current =
+    // Only the reader scrolling UP leaves the end. The virtual list moves the
+    // rows as it measures them, and one of those scrolls read far from an end
+    // that had just grown: opening a conversation with pictures stopped
+    // 1300px short of the newest message (0.3.1, F2.3).
+    const atBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
       AT_BOTTOM_SLACK_PX;
+    const movedUp = container.scrollTop < lastScrollTopRef.current - 1;
+    lastScrollTopRef.current = container.scrollTop;
+    if (atBottom || movedUp) {
+      atBottomRef.current = atBottom;
+    }
 
     if (
       container.scrollTop < LOAD_OLDER_TRIGGER_PX &&
@@ -136,6 +147,11 @@ export function useThreadScroll({
         }
       });
       observer.observe(node);
+      // The scroller too: the typing line and a reply chip take their height
+      // from the thread, and the newest message slid under them.
+      if (node.parentElement) {
+        observer.observe(node.parentElement);
+      }
       listObserverRef.current = observer;
     },
     [containerRef],
