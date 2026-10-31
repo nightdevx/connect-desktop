@@ -756,6 +756,15 @@
   color: var(--odak-accent);
 }
 
+:root[data-odak] .ct-composer-chip-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: var(--odak-raised);
+}
+
 :root[data-odak] .ct-chat-panel .ct-composer-chip-text {
   color: var(--odak-text);
 }

@@ -49,6 +49,7 @@ import { ConfirmActionModal } from "../common";
 import type { FriendsHomeProps } from "../odak/odak-friends-page";
 import {
   ChatAttachButton,
+  pasteImageAsAttachment,
   ChatComposerEmojiButton,
   ChatReplyQuote,
   formatAttachmentSize,
@@ -369,6 +370,9 @@ export function UsersDirectMessagesPanel({
     setChatScroller(node);
   }, []);
   const composerInputRef = useRef<InputRef>(null);
+  // The paper clip and a pasted picture both end here.
+  const selectAttachment: Parameters<typeof pasteImageAsAttachment>[1] = (upload, file) =>
+    onSetPendingAttachment?.({ upload, name: file.name, size: file.size });
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -962,7 +966,17 @@ export function UsersDirectMessagesPanel({
 
           {pendingAttachment && (
             <div className="ct-composer-chip">
-              <span className="ct-composer-chip-label">Dosya</span>
+              {/* A picture shows what will go: a pasted screenshot has no
+                  name worth reading, and the wrong one is easy to paste. */}
+              {pendingAttachment.upload.mimeType?.startsWith("image/") ? (
+                <img
+                  className="ct-composer-chip-thumb"
+                  src={pendingAttachment.upload.dataBase64}
+                  alt=""
+                />
+              ) : (
+                <span className="ct-composer-chip-label">Dosya</span>
+              )}
               <span className="ct-composer-chip-text">
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
@@ -982,17 +996,10 @@ export function UsersDirectMessagesPanel({
           <div className="ct-chat-composer-row">
             {/* Attach, the field, then GIF, emoji and send: the order the
                 eye and the Tab key take, left to right. */}
-            <ChatAttachButton
-              onSelect={(upload, file) =>
-                onSetPendingAttachment?.({
-                  upload,
-                  name: file.name,
-                  size: file.size,
-                })
-              }
-            />
+            <ChatAttachButton onSelect={selectAttachment} />
             <Input
               ref={composerInputRef}
+              onPaste={(event) => pasteImageAsAttachment(event, selectAttachment)}
               placeholder={
                 pendingAttachment ? "Açıklama (isteğe bağlı)…" : "Mesaj yaz..."
               }

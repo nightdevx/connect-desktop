@@ -30,6 +30,7 @@ import { ConfirmActionModal } from "../common";
 import { OdakMenu } from "@/ui/odak-menu";
 import {
   ChatAttachButton,
+  pasteImageAsAttachment,
   ChatComposerEmojiButton,
   ChatAttachmentView,
   ChatMessageBody,
@@ -334,6 +335,9 @@ export function LobbyChatPanel({
     setMessagesScroller(node);
   }, []);
   const composerInputRef = useRef<InputRef>(null);
+  // The paper clip and a pasted picture both end here.
+  const selectAttachment: Parameters<typeof pasteImageAsAttachment>[1] = (upload, file) =>
+    onSetPendingAttachment?.({ upload, name: file.name, size: file.size });
 
   // Who can be named here: the voice roster plus everyone who has posted. The
   // roster alone is wrong for a text-only room, which nobody connects to, and
@@ -696,7 +700,17 @@ export function LobbyChatPanel({
 
           {pendingAttachment && (
             <div className="ct-composer-chip">
-              <span className="ct-composer-chip-label">Dosya</span>
+              {/* A picture shows what will go: a pasted screenshot has no
+                  name worth reading, and the wrong one is easy to paste. */}
+              {pendingAttachment.upload.mimeType?.startsWith("image/") ? (
+                <img
+                  className="ct-composer-chip-thumb"
+                  src={pendingAttachment.upload.dataBase64}
+                  alt=""
+                />
+              ) : (
+                <span className="ct-composer-chip-label">Dosya</span>
+              )}
               <span className="ct-composer-chip-text">
                 {pendingAttachment.name} ·{" "}
                 {formatAttachmentSize(pendingAttachment.size)}
@@ -735,16 +749,15 @@ export function LobbyChatPanel({
             />
             <ChatAttachButton
               disabled={isSendingLobbyMessage}
-              onSelect={(upload, file) =>
-                onSetPendingAttachment?.({
-                  upload,
-                  name: file.name,
-                  size: file.size,
-                })
-              }
+              onSelect={selectAttachment}
             />
             <Input
               ref={composerInputRef}
+              onPaste={(event) => {
+                if (!isSendingLobbyMessage) {
+                  pasteImageAsAttachment(event, selectAttachment);
+                }
+              }}
               placeholder={
                 pendingAttachment
                   ? "Açıklama (isteğe bağlı)…"

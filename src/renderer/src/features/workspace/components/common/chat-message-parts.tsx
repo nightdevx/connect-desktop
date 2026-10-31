@@ -754,8 +754,68 @@ export function ChatComposerEmojiButton({
   );
 }
 
+type AttachmentSelect = (upload: ChatAttachmentUpload, file: File) => void;
+
+// The one way a file becomes the message's attachment, from the paper clip or
+// from a paste: the size check, the read, and what to tell the user if either
+// fails.
+const attachFile = async (file: File, onSelect: AttachmentSelect): Promise<void> => {
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    toast.error("Dosya en fazla 5 MB olabilir");
+    return;
+  }
+
+  try {
+    onSelect(await readFileAsUpload(file), file);
+  } catch {
+    toast.error("Dosya okunamadı");
+  }
+};
+
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+/**
+ * For a composer's onPaste: a picture on the clipboard (a screenshot, or
+ * "Resmi kopyala" in a browser) becomes the message's attachment, as if picked
+ * with the paper clip; the caption field stays free for a line about it.
+ * Anything without a picture pastes as usual.
+ */
+export const pasteImageAsAttachment = (
+  event: React.ClipboardEvent,
+  onSelect: AttachmentSelect,
+): void => {
+  const image = Array.from(event.clipboardData.files).find((file) =>
+    file.type.startsWith("image/"),
+  );
+  if (!image) {
+    return;
+  }
+
+  // A picture copied from a web page carries its address as text too; the
+  // picture is what was meant, so the address does not land in the field.
+  event.preventDefault();
+
+  // The clipboard calls every screenshot "image.png". Named by the local
+  // time instead, so two of them in a conversation can be told apart.
+  const now = new Date();
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const named =
+    image.name && image.name !== "image.png"
+      ? image
+      : new File([image], `gorsel-${stamp}.${IMAGE_EXTENSIONS[image.type] ?? "png"}`, {
+          type: image.type,
+        });
+  void attachFile(named, onSelect);
+};
+
 interface ChatAttachButtonProps {
-  onSelect: (upload: ChatAttachmentUpload, file: File) => void;
+  onSelect: AttachmentSelect;
   disabled?: boolean;
 }
 
@@ -777,16 +837,7 @@ export function ChatAttachButton({
         return;
       }
 
-      if (file.size > MAX_ATTACHMENT_BYTES) {
-        toast.error("Dosya en fazla 5 MB olabilir");
-        return;
-      }
-
-      try {
-        onSelect(await readFileAsUpload(file), file);
-      } catch {
-        toast.error("Dosya okunamadı");
-      }
+      await attachFile(file, onSelect);
     },
     [onSelect],
   );
