@@ -1,9 +1,8 @@
-import { LOBBY_FEATURES, type LobbyFeatureId } from "@shared/desktop-api-types";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { LobbyFeatureId } from "@shared/desktop-api-types";
+import { useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Modal, Input, InputNumber, Popover, Switch, Select, Tag } from "antd";
+import { Popover } from "antd";
 import {
-  EditOutlined,
   AudioMutedOutlined,
   CustomerServiceOutlined,
   VideoCameraOutlined,
@@ -15,8 +14,7 @@ import {
   SoundOutlined,
   RightOutlined,
 } from "@ant-design/icons";
-import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
-import type { FriendEntry, LobbyDescriptor } from "@shared/auth-contracts";
+import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type {
   DesktopResult,
   LobbyStateMember,
@@ -29,10 +27,11 @@ import {
 } from "../user/user-profile-card";
 import { LobbyMemberContextMenu } from "./parts/LobbyMemberContextMenu";
 import { buildRoomMenu } from "./parts/room-menu";
+import { RoomSettingsDialog } from "./parts/room-settings-dialog";
 import { OdakMenu } from "@/ui/odak-menu";
 import { LobbyMemberAvatar } from "./parts/LobbyMemberAvatar";
 import { StreamPreviewImage } from "./stream-preview-image";
-import { fetchUserCard, useUserCards } from "../../hooks/user/use-user-cards";
+import { fetchUserCard } from "../../hooks/user/use-user-cards";
 import {
   DEFAULT_REMOTE_PARTICIPANT_AUDIO_PREFERENCE,
   isRemoteParticipantMuted,
@@ -40,7 +39,7 @@ import {
 import type { RemoteParticipantAudioPreference } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { getApiErrorMessage } from "../../workspace-utils";
-import { canManageLobby, SEED_ADMIN_ID } from "@/features/auth";
+import { canManageLobby } from "@/features/auth";
 import { useUiStore } from "@/store/ui-store";
 import { useMusicRoom } from "@/features/music";
 import { MUSIC_BOT_NAME, isMusicBotIdentity } from "@shared/music";
@@ -225,15 +224,6 @@ export function LobbiesSidebarPanel({
   const [editingLobby, setEditingLobby] = useState<LobbyDescriptor | null>(
     null,
   );
-  const [editLobbyName, setEditLobbyName] = useState("");
-  const [editIsLocked, setEditIsLocked] = useState(false);
-  const [editAllowedUsers, setEditAllowedUsers] = useState<string[]>([]);
-  const [editPassword, setEditPassword] = useState("");
-  // null means "follow the server default", which is what a room that never
-  // chose a limit does.
-  const [editCapacity, setEditCapacity] = useState<number | null>(null);
-  const [editDisabledFeatures, setEditDisabledFeatures] = useState<LobbyFeatureId[]>([]);
-  const [editRemovePassword, setEditRemovePassword] = useState(false);
   // Unfriending from a member row asks first, with the same window as the
   // friends page and the stage: the person cannot undo it on their own.
   const [pendingUnfriend, setPendingUnfriend] = useState<{
@@ -244,44 +234,7 @@ export function LobbiesSidebarPanel({
   } | null>(null);
   const [pendingDeleteLobby, setPendingDeleteLobby] =
     useState<LobbyDescriptor | null>(null);
-  // allUsers is friends + self now, so the select alone can never reach a
-  // stranger. These are the ones pulled in by exact username this session —
-  // kept only so their tag renders a name instead of a bare id.
-  const [lookedUpUsers, setLookedUpUsers] = useState<FriendEntry[]>([]);
-  const [lookupUsername, setLookupUsername] = useState("");
-  const [isLookingUp, setIsLookingUp] = useState(false);
 
-  useEffect(() => {
-    if (editingLobby) {
-      setEditLobbyName(editingLobby.name);
-      setEditIsLocked(!!editingLobby.isLocked);
-      const users = editingLobby.allowedUsers
-        ? editingLobby.allowedUsers.split(",").map((u) => u.trim()).filter(Boolean)
-        : [];
-      setEditAllowedUsers(users);
-      setEditPassword("");
-      setEditRemovePassword(false);
-      // The room reports its live ceiling, so the field opens on what is
-      // actually enforced rather than on an empty box.
-      setEditCapacity(editingLobby.capacity ?? null);
-      setEditDisabledFeatures((editingLobby.disabledFeatures ?? []) as LobbyFeatureId[]);
-      setLookedUpUsers([]);
-      setLookupUsername("");
-    }
-  }, [editingLobby]);
-
-  // The allow-list as it is STORED, for the read-only block at the top of the
-  // settings modal — not editAllowedUsers, which moves while you edit. Empty
-  // whenever the modal is shut, so the card queries cost nothing until it opens.
-  const allowedUserIds = useMemo(
-    () =>
-      editingLobby?.allowedUsers
-        ?.split(",")
-        .map((id) => id.trim())
-        .filter(Boolean) ?? [],
-    [editingLobby],
-  );
-  const allowedUserCards = useUserCards(allowedUserIds);
 
   const isDefaultLobby = (lobby: LobbyDescriptor): boolean => {
     return lobby.id === "main-lobby" || lobby.createdBy === "system";
@@ -370,46 +323,6 @@ export function LobbiesSidebarPanel({
     }
   };
 
-  const handleLookupAdd = async (): Promise<void> => {
-    // A pasted "@ali" is the same person as "ali"; the route matches exactly.
-    const username = lookupUsername.trim().replace(/^@/, "");
-    if (!username) {
-      return;
-    }
-
-    setIsLookingUp(true);
-    try {
-      const result = await workspaceService.lookupUserByUsername({ username });
-      if (!result.ok || !result.data) {
-        toast.error(
-          result.error?.code === "USER_NOT_FOUND" ||
-            result.error?.code === "VALIDATION_ERROR"
-            ? "Kullanıcı bulunamadı."
-            : getApiErrorMessage(result.error),
-        );
-        return;
-      }
-
-      const user = result.data.user;
-      if (user.userId === currentUserId) {
-        toast.info("Lobi sahibi zaten erişebilir.");
-        setLookupUsername("");
-        return;
-      }
-
-      setLookedUpUsers((previous) =>
-        previous.some((entry) => entry.userId === user.userId)
-          ? previous
-          : [...previous, user],
-      );
-      setEditAllowedUsers((previous) =>
-        previous.includes(user.userId) ? previous : [...previous, user.userId],
-      );
-      setLookupUsername("");
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
 
   const handleDeleteConfirm = async (): Promise<void> => {
     if (!pendingDeleteLobby) {
@@ -418,46 +331,15 @@ export function LobbiesSidebarPanel({
 
     const deleted = await onDeleteLobby(pendingDeleteLobby.id);
     if (deleted) {
+      // Opened from Oda ayarları too: the settings of a room that is gone
+      // close with it.
+      if (editingLobby?.id === pendingDeleteLobby.id) {
+        setEditingLobby(null);
+      }
       setPendingDeleteLobby(null);
     }
   };
 
-  const handleUpdateSubmit = async (): Promise<void> => {
-    if (!editingLobby) {
-      return;
-    }
-
-    // password: remove -> "" (clear), a new value -> set, empty -> undefined (keep).
-    const passwordArg = editRemovePassword
-      ? ""
-      : editPassword.trim()
-        ? editPassword.trim()
-        : undefined;
-
-    const updated = await onUpdateLobby(
-      editingLobby.id,
-      editLobbyName,
-      editIsLocked,
-      editAllowedUsers,
-      passwordArg,
-      // 0 rather than undefined when the field is cleared: undefined would keep
-      // whatever the room has, and clearing it means "go back to the default".
-      editingLobby.isTextOnly ? undefined : (editCapacity ?? 0),
-      editDisabledFeatures,
-    );
-    if (!updated) {
-      return;
-    }
-
-    setEditingLobby(null);
-    setEditLobbyName("");
-    setEditIsLocked(false);
-    setEditAllowedUsers([]);
-    setEditPassword("");
-    setEditRemovePassword(false);
-    setEditCapacity(null);
-    setEditDisabledFeatures([]);
-  };
 
   // The room on screen — the same answer `isDisplayed` computes per row, hoisted
   // because a collapsed category needs it to decide what it may not hide.
@@ -1148,276 +1030,19 @@ export function LobbiesSidebarPanel({
         })}
       </div>
 
-      <Modal
-        rootClassName="ct-modal"
-        title={
-          <ModalHeading
-            icon={<EditOutlined />}
-            title="Oda ayarları"
-            description="Odanın adı, kimlerin girebileceği ve odada nelerin açık olduğu."
-          />
+      <RoomSettingsDialog
+        lobby={editingLobby}
+        onClose={() => setEditingLobby(null)}
+        onUpdateLobby={onUpdateLobby}
+        isSaving={editingLobby !== null && renamingLobbyId === editingLobby.id}
+        onDelete={
+          editingLobby && !isDefaultLobby(editingLobby)
+            ? () => setPendingDeleteLobby(editingLobby)
+            : undefined
         }
-        open={editingLobby !== null}
-        onOk={handleUpdateSubmit}
-        onCancel={() => setEditingLobby(null)}
-        okText="Kaydet"
-        cancelText="Vazgeç"
-        width={MODAL_WIDTH.m}
-        destroyOnHidden
-        okButtonProps={{
-          disabled: editLobbyName.trim().length < 2,
-          loading:
-            renamingLobbyId !== null &&
-            editingLobby !== null &&
-            renamingLobbyId === editingLobby.id,
-        }}
-      >
-        <div className="ct-modal-form">
-          {/* Read-only, above the knobs: who made the room, when, how full it
-              is and who its rules actually let in. An admin sees every room in
-              this list, and none of this was rendered anywhere in the
-              workspace before — the owner's name least of all. */}
-          {editingLobby && (
-            <section className="ct-lobby-info">
-              <div className="ct-lobby-info-head">
-                <strong>{editingLobby.name}</strong>
-                <code className="ct-lobby-info-id">{editingLobby.id}</code>
-              </div>
-
-              <div className="ct-lobby-info-row">
-                <span>Sahibi</span>
-                <span>
-                  {editingLobby.createdByUsername
-                    ? `@${editingLobby.createdByUsername}`
-                    : editingLobby.createdBy}
-                </span>
-              </div>
-
-              <div className="ct-lobby-info-row">
-                <span>Oluşturulma</span>
-                <span>
-                  {new Date(editingLobby.createdAt).toLocaleString("tr-TR")}
-                </span>
-              </div>
-
-              <div className="ct-lobby-info-row">
-                <span>Kapasite</span>
-                <span>
-                  {editingLobby.capacity
-                    ? `${editingLobby.memberCount} / ${editingLobby.capacity}`
-                    : // No ceiling reported: an occupancy count under a
-                      // "Kapasite" label reads as one.
-                      "—"}
-                </span>
-              </div>
-
-              <div className="ct-lobby-info-row">
-                <span>Gizlilik</span>
-                <span>
-                  {editingLobby.isLocked ? (
-                    <Tag className="ct-tag warn" icon={<LockOutlined />}>
-                      Kilitli
-                    </Tag>
-                  ) : (
-                    <Tag className="ct-tag success">Herkese açık</Tag>
-                  )}
-                  {editingLobby.hasPassword && (
-                    <Tag className="ct-tag warn" icon={<KeyOutlined />}>
-                      Şifre korumalı
-                    </Tag>
-                  )}
-                  {editingLobby.isTextOnly && (
-                    <Tag className="ct-tag info" icon={<MessageOutlined />}>
-                      Metin odası
-                    </Tag>
-                  )}
-                </span>
-              </div>
-
-              <div className="ct-lobby-info-row">
-                <span>Erişimi olanlar</span>
-                <span>
-                  {allowedUserIds.length === 0 ? (
-                    <Tag className="ct-tag">Liste boş</Tag>
-                  ) : (
-                    // The raw id until its card lands, and permanently for an
-                    // account the server will not name.
-                    allowedUserIds.map((userId) => (
-                      <Tag className="ct-tag info" key={userId}>
-                        {allowedUserCards[userId]
-                          ? `@${allowedUserCards[userId].username}`
-                          : userId}
-                      </Tag>
-                    ))
-                  )}
-                </span>
-              </div>
-
-              {/* A text room refuses every voice join before any privilege
-                  check, so the "always gets in" line only holds for voice
-                  rooms; access to the room itself still follows the list. */}
-              <p className="ct-field-hint">
-                {editingLobby.isTextOnly
-                  ? "Bu bir metin odası: kimse sesli katılamaz, yöneticiler dahil. Listenin dışında oda sahibi ve yöneticiler odayı yine de açabilir."
-                  : "Bu listenin dışında oda sahibi ve tüm yöneticiler her zaman girebilir; oda şifreliyse doğru şifreyi bilen herkes de girer."}
-              </p>
-            </section>
-          )}
-
-          <label className="ct-field" htmlFor="edit-lobby-name">
-            <span>Oda adı</span>
-            <Input
-              id="edit-lobby-name"
-              value={editLobbyName}
-              onChange={(event) => setEditLobbyName(event.target.value)}
-              minLength={2}
-              maxLength={64}
-              disabled={
-                editingLobby !== null && renamingLobbyId === editingLobby.id
-              }
-              autoFocus
-            />
-          </label>
-
-          <div className="ct-field-row">
-            <div className="ct-field-row-text">
-              <strong>Kilitli oda</strong>
-              <span>
-                {editingLobby?.isTextOnly
-                  ? "Sadece davet edilen kullanıcılar görebilir."
-                  : "Sadece davet edilen kullanıcılar katılabilir."}
-              </span>
-            </div>
-            <Switch checked={editIsLocked} onChange={setEditIsLocked} />
-          </div>
-
-          {/* A <div>, not a <label>: there are two controls in here, and a
-              label that points at two things points at neither. */}
-          {editIsLocked && (
-            <div className="ct-field">
-              <span>Erişimi olan kişiler</span>
-              <Select
-                mode="multiple"
-                placeholder="Arkadaşlarından seç…"
-                value={editAllowedUsers}
-                onChange={setEditAllowedUsers}
-                options={[
-                  ...allUsers
-                    .filter(
-                      (u) => u.id !== currentUserId && u.id !== SEED_ADMIN_ID,
-                    )
-                    .map((u) => ({
-                      label: `@${u.username} (${u.displayName})`,
-                      value: u.id,
-                    })),
-                  ...lookedUpUsers.map((u) => ({
-                    label: `@${u.username} (${u.displayName})`,
-                    value: u.userId,
-                  })),
-                ]}
-              />
-              <Input.Search
-                placeholder="Kullanıcı adıyla ekle"
-                enterButton="Ekle"
-                value={lookupUsername}
-                onChange={(event) => setLookupUsername(event.target.value)}
-                onSearch={() => void handleLookupAdd()}
-                loading={isLookingUp}
-                maxLength={32}
-              />
-
-              <p className="ct-field-hint">
-                Listede olmayan birini tam kullanıcı adıyla ekleyebilirsin.
-              </p>
-            </div>
-          )}
-
-          {/* Sesli odalara özel, aynı sebeple: mesaj odasının rosteri yok, bir
-              kişi sınırı orada hiçbir şeye uygulanmaz. */}
-          {!editingLobby?.isTextOnly && (
-            <label className="ct-field">
-              <span>Kişi sınırı</span>
-              <InputNumber
-                className="ct-input-number"
-                min={2}
-                max={100}
-                value={editCapacity}
-                onChange={(value) => setEditCapacity(value ?? null)}
-                placeholder="Sunucu varsayılanı"
-              />
-              <small className="ct-field-hint">
-                Boş bırakırsan sunucunun varsayılan sınırı geçerli olur. Sınırı
-                düşürmek kimseyi odadan çıkarmaz, yalnızca yeni katılımları
-                durdurur.
-              </small>
-            </label>
-          )}
-
-          {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur, mesaj
-              odasına katılım diye bir şey yok. Kilit (izinli kullanıcılar) mesaj
-              odalarında da geçerlidir; sohbet erişimi onun üzerinden denetlenir. */}
-          {!editingLobby?.isTextOnly && (
-            <label className="ct-field">
-              <span>Oda şifresi</span>
-              <Input.Password
-                placeholder={
-                  editingLobby?.hasPassword
-                    ? "Değiştirmek için yeni şifre girin (boş = değişmez)"
-                    : "Şifre belirleyin (boş = şifresiz)"
-                }
-                value={editPassword}
-                onChange={(event) => setEditPassword(event.target.value)}
-                disabled={editRemovePassword}
-                maxLength={128}
-              />
-              {editingLobby?.hasPassword && (
-                <span className="ct-field-inline-toggle">
-                  <Switch
-                    size="small"
-                    checked={editRemovePassword}
-                    onChange={setEditRemovePassword}
-                  />
-                  Şifreyi kaldır
-                </span>
-              )}
-            </label>
-          )}
-
-          <div className="ct-field">
-            <span>Oda özellikleri</span>
-            <small className="ct-field-hint">
-              Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer
-              odalar etkilenmez.
-            </small>
-            <div className="ct-lobby-feature-grid">
-              {LOBBY_FEATURES.filter(
-                (feature) =>
-                  !editingLobby?.isTextOnly ||
-                  feature.id === "chat" ||
-                  feature.id === "attachments",
-              ).map((feature) => {
-                const enabled = !editDisabledFeatures.includes(feature.id);
-                return (
-                  <label key={feature.id} className="ct-lobby-feature-row">
-                    <Switch
-                      size="small"
-                      checked={enabled}
-                      onChange={(next) =>
-                        setEditDisabledFeatures((previous) =>
-                          next
-                            ? previous.filter((id) => id !== feature.id)
-                            : [...previous, feature.id],
-                        )
-                      }
-                    />
-                    <span>{feature.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </Modal>
+        currentUserId={currentUserId}
+        allUsers={allUsers}
+      />
 
       <ConfirmActionModal
         isOpen={pendingDeleteLobby !== null}

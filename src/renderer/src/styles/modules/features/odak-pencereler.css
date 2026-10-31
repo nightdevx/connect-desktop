@@ -1,0 +1,1121 @@
+/* Odak: the three windows of 0.3.1 Faz 3 (SURUM-031-PLANI.md F3.1-F3.3): the
+   soundboard, the music dialog and Oda ayarları. Kurallar :root[data-odak]
+   altında. Imported by the components themselves (as voice-processing does),
+   so no shared stylesheet had to change. Palette, 16px line icons and motion
+   tokens as in odak-katman-*.css. */
+
+/* ==========================================================================
+   F3.1 The soundboard: a popover off the lobby toolbar
+   ========================================================================== */
+
+:root[data-odak] .ct-emote-popover .ant-popover-container {
+  padding: 0;
+  overflow: hidden;
+}
+
+:root[data-odak] .ct-emote-board {
+  display: flex;
+  width: 340px;
+  max-height: min(580px, calc(100vh - 140px));
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-emote-board-head {
+  display: flex;
+  padding: 14px 16px 10px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+:root[data-odak] .ct-emote-board-head strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-board-head span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-emote-search {
+  display: flex;
+  height: 36px;
+  margin: 0 12px 6px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 10px;
+  color: #7c828c;
+  background: #0b0c0e;
+  transition: border-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-emote-search:focus-within {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-emote-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-emote-search input::placeholder {
+  color: #5d636d;
+}
+
+:root[data-odak] .ct-emote-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0 6px 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:root[data-odak] .ct-emote-group + .ct-emote-group {
+  margin-top: 2px;
+}
+
+:root[data-odak] .ct-emote-group-title {
+  display: flex;
+  margin: 0;
+  padding: 8px 10px 4px;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-emote-group-title span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-odak] .ct-emote-row {
+  display: flex;
+  padding-right: 4px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) {
+  background: var(--odak-raised);
+}
+
+/* The row's main button, the upload button and the chosen file share a
+   shape: a glyph tile, a name, one line under it. */
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload, .ct-emote-file) {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  padding: 6px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 9px;
+  font: inherit;
+  text-align: left;
+  color: #d7dae0;
+  background: none;
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload) {
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload):focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(198, 244, 50, 0.75);
+}
+
+:root[data-odak] :is(.ct-emote-send, .ct-emote-upload):active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+:root[data-odak] .ct-emote-glyph {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border);
+  border-radius: 9px;
+  color: var(--odak-muted);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) .ct-emote-glyph,
+:root[data-odak] .ct-emote-upload:hover:not(:disabled) .ct-emote-glyph {
+  color: var(--odak-accent);
+}
+
+/* Previewing: the tile lights and breathes for as long as the clip runs. */
+:root[data-odak] .ct-emote-row.previewing .ct-emote-glyph {
+  border-color: rgba(198, 244, 50, 0.35);
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.1);
+  animation: odak-breathe 1.2s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-emote-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-emote-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-meta {
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8a909a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Preview and delete: always in the tab order, shown on hover or focus. */
+:root[data-odak] .ct-emote-action {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #7c828c;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-emote-row:is(:hover, :focus-within) .ct-emote-action,
+:root[data-odak] .ct-emote-row.previewing .ct-emote-action {
+  opacity: 1;
+}
+
+:root[data-odak] .ct-emote-action:hover {
+  color: var(--odak-text);
+  background: #262a31;
+}
+
+:root[data-odak] .ct-emote-row.previewing .ct-emote-action:not(.danger) {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-emote-action.danger:hover {
+  color: #ff8a8a;
+  background: rgba(255, 92, 92, 0.14);
+}
+
+:root[data-odak] .ct-emote-action:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(198, 244, 50, 0.75);
+}
+
+:root[data-odak] .ct-emote-empty {
+  margin: 0;
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-emote-board-foot {
+  display: flex;
+  padding: 8px 8px 12px;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-emote-upload {
+  flex: none;
+  border: 1px dashed var(--odak-border-strong);
+  border-radius: 11px;
+}
+
+:root[data-odak] .ct-emote-upload .ct-emote-meta {
+  white-space: normal;
+}
+
+:root[data-odak] .ct-emote-upload:hover:not(:disabled) {
+  border-color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-emote-upload:disabled {
+  cursor: not-allowed;
+}
+
+:root[data-odak] .ct-emote-upload:disabled .ct-emote-name {
+  color: var(--odak-muted);
+}
+
+/* The chosen file, at the top of "Sesi adlandır". */
+:root[data-odak] .ct-emote-file {
+  padding: 9px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-emote-file .ct-emote-glyph {
+  color: var(--odak-accent);
+}
+
+/* --- this user's own level, a slider in the Odak shape (shared by the music
+       dialog's) ------------------------------------------------------------ */
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) label span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 500;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-emote-volume {
+  padding: 2px 8px 0;
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider {
+  margin: 8px 4px 2px;
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-rail,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-rail {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider .ant-slider-track,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider:hover .ant-slider-track {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle::after,
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:hover, :active, :focus)::after {
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 12px;
+  height: 12px;
+  outline: 0;
+  background: var(--odak-text);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.35);
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:focus-visible::after {
+  box-shadow: 0 0 0 4px rgba(198, 244, 50, 0.6);
+}
+
+:root[data-odak] :is(.ct-emote-volume, .ct-music-volume) .ant-slider-handle:is(:active, .ant-slider-handle-dragging)::after {
+  transform: scale(1.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] .ct-emote-row.previewing .ct-emote-glyph {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   F3.2 The music dialog
+   ========================================================================== */
+
+:root[data-odak] .ct-music-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* What is playing, above everything that acts on it. */
+:root[data-odak] .ct-music-now {
+  display: flex;
+  padding: 12px;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-music-now-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-music-art {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-now.playing .ct-music-art {
+  color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.12);
+}
+
+/* Live: the glyph breathes while the bot plays, and only then. */
+:root[data-odak] .ct-music-now.playing .ct-music-art svg {
+  animation: odak-breathe 2.4s ease-in-out infinite;
+}
+
+:root[data-odak] .ct-music-now-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-music-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-now.playing .ct-music-kicker {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-music-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-music-subtitle {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-transport {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+:root[data-odak] .ct-music-icon-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 10px;
+  color: #d7dae0;
+  background: transparent;
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-icon-btn:hover:not(:disabled) {
+  border-color: var(--odak-muted);
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+:root[data-odak] .ct-music-icon-btn.danger:hover:not(:disabled) {
+  border-color: rgba(255, 92, 92, 0.4);
+  color: #ff8a8a;
+  background: rgba(255, 92, 92, 0.12);
+}
+
+:root[data-odak] .ct-music-icon-btn:disabled {
+  color: #5d636d;
+  cursor: not-allowed;
+}
+
+:root[data-odak] :is(.ct-music-icon-btn, .ct-music-add, .ct-music-text-btn):focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 2px var(--odak-surface),
+    0 0 0 4px rgba(198, 244, 50, 0.8);
+}
+
+:root[data-odak] .ct-music-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-odak] .ct-music-time {
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-progress {
+  display: block;
+  height: 4px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-music-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--odak-accent);
+  transition: width 1s linear;
+}
+
+:root[data-odak] .ct-music-diagnostics {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ff8a8a;
+}
+
+:root[data-odak] .ct-music-diagnostics > span {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:root[data-odak] .ct-music-diagnostics.ok {
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-diagnostics.ok > span {
+  background: var(--odak-accent);
+}
+
+/* The box and its button: the box takes what the button leaves. */
+:root[data-odak] .ct-music-body .ct-field > label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-composer {
+  display: flex;
+  gap: 8px;
+}
+
+:root[data-odak] .ct-music-query {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 14px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--odak-border-strong);
+  border-radius: 12px;
+  color: #7c828c;
+  background: var(--odak-bg);
+  transition: border-color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-query:hover {
+  border-color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-query:focus-within {
+  border-color: var(--odak-accent);
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.14);
+}
+
+:root[data-odak] .ct-music-query input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--odak-text);
+  background: transparent;
+}
+
+:root[data-odak] .ct-music-query input::placeholder {
+  color: #5d636d;
+}
+
+:root[data-odak] .ct-music-add {
+  height: 44px;
+  min-width: 104px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  cursor: pointer;
+  transition: transform var(--odak-dur-1) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-add:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+:root[data-odak] .ct-music-add:disabled {
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+  cursor: not-allowed;
+}
+
+:root[data-odak] .ct-music-feedback {
+  min-height: 18px;
+}
+
+:root[data-odak] .ct-music-feedback .ct-field-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+:root[data-odak] .ct-music-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #d7dae0;
+  animation: odak-fade var(--odak-dur-2) var(--odak-ease-out);
+}
+
+:root[data-odak] .ct-music-status svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+:root[data-odak] .ct-music-status.done svg {
+  color: var(--odak-accent);
+}
+
+:root[data-odak] .ct-music-spin {
+  display: inline-grid;
+  color: var(--odak-accent);
+  animation: odak-pencereler-spin 0.9s linear infinite;
+}
+
+@keyframes odak-pencereler-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:root[data-odak] .ct-music-note {
+  display: flex;
+  margin: 0;
+  padding: 12px 14px;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #d7dae0;
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-music-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root[data-odak] .ct-music-section-head {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:root[data-odak] .ct-music-section-head h3 {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-section-head h3 span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-odak] .ct-music-text-btn {
+  display: inline-flex;
+  height: 26px;
+  padding: 0 8px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-music-text-btn:hover:not(:disabled) {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-queue {
+  display: flex;
+  max-height: 208px;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+:root[data-odak] .ct-music-queue-row {
+  display: flex;
+  min-width: 0;
+  padding: 6px 6px 6px 8px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+}
+
+:root[data-odak] .ct-music-queue-row:hover {
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-music-queue-row .ct-music-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-color: transparent;
+  color: #7c828c;
+  opacity: 0;
+}
+
+:root[data-odak] .ct-music-queue-row:is(:hover, :focus-within) .ct-music-icon-btn {
+  opacity: 1;
+}
+
+:root[data-odak] .ct-music-queue-index {
+  width: 18px;
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  text-align: right;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-music-queue-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-music-queue-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-music-queue-meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-empty {
+  margin: 0;
+  padding: 2px 0;
+  font-size: 12.5px;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-volume {
+  display: flex;
+  padding-top: 12px;
+  flex-direction: column;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-music-volume .ct-field-hint {
+  font-size: 11.5px;
+  color: #7c828c;
+}
+
+/* The command log, folded: kept for whoever wants the record. */
+:root[data-odak] .ct-music-history summary {
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+  cursor: pointer;
+}
+
+:root[data-odak] .ct-music-history summary:hover {
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-music-log {
+  display: flex;
+  max-height: 112px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-music-log-line {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-music-log-line.command {
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-music-log-line.error {
+  color: #ff8a8a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-odak] :is(.ct-music-now.playing .ct-music-art svg, .ct-music-spin) {
+    animation: none;
+  }
+
+  :root[data-odak] .ct-music-progress-fill {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   F3.3 Oda ayarları
+   ========================================================================== */
+
+:root[data-odak] .ct-room-settings {
+  gap: 16px;
+}
+
+/* Whose room, since when: the subject line above the sections. */
+:root[data-odak] .ct-room-subject {
+  display: flex;
+  min-width: 0;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-room-subject-tile {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+:root[data-odak] .ct-room-subject-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+:root[data-odak] .ct-room-subject-text strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-room-subject-text span {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-subject-id {
+  max-width: 120px;
+  overflow: hidden;
+  flex-shrink: 1;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-room-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-room-section ~ .ct-room-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--odak-border);
+}
+
+:root[data-odak] .ct-room-section-title {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c828c;
+}
+
+:root[data-odak] .ct-room-section.danger .ct-room-section-title {
+  color: #ff8a8a;
+}
+
+:root[data-odak] .ct-room-section.danger .ct-room-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 92, 92, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 92, 0.16);
+}
+
+/* A setting on one line: icon, what it is and what it does, its control. */
+:root[data-odak] .ct-room-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-odak] .ct-room-row-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--odak-border);
+  border-radius: 9px;
+  color: var(--odak-muted);
+  background: var(--odak-strip);
+}
+
+:root[data-odak] .ct-room-row-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+:root[data-odak] .ct-room-row-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--odak-text);
+}
+
+:root[data-odak] .ct-room-row-text span {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-settings .ct-field-hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8a909a;
+}
+
+:root[data-odak] .ct-room-people {
+  gap: 8px;
+}
+
+:root[data-odak] .ct-room-lookup .ant-input-search-button {
+  font-weight: 700;
+}
+
+:root[data-odak] .ct-room-delete.ant-btn {
+  height: 34px;
+  flex-shrink: 0;
+  border-color: rgba(255, 92, 92, 0.45);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff8a8a;
+  background: transparent;
+}
+
+:root[data-odak] .ct-room-delete.ant-btn:not(:disabled):hover {
+  border-color: var(--odak-danger);
+  color: #1a0606;
+  background: var(--odak-danger);
+}
+
+/* Switches: 28x16, lime when on with a dark knob, #2A2E35 when off. */
+:root[data-odak] .ct-room-settings .ant-switch {
+  background: var(--odak-border-strong);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch:hover:not(.ant-switch-disabled) {
+  background: #363b44;
+}
+
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked,
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch.ant-switch-checked .ant-switch-handle::before {
+  background: var(--odak-on-accent);
+}
+
+:root[data-odak] .ct-room-settings .ant-switch:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.3);
+}
+
+/* Room features: two columns of name and switch. */
+:root[data-odak] .ct-room-settings .ct-lobby-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 0;
+}
+
+:root[data-odak] .ct-room-settings .ct-lobby-feature-row {
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-color: var(--odak-border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #d7dae0;
+  background: #0b0c0e;
+}
+
+:root[data-odak] .ct-room-settings .ct-lobby-feature-row:hover {
+  border-color: var(--odak-border-strong);
+}
+
+/* Left of the buttons: whether anything is waiting to be saved. */
+:root[data-odak] .ct-room-footer-status {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+:root[data-odak] .ct-room-footer-status.dirty {
+  color: #d7dae0;
+}
+
+:root[data-odak] .ct-room-footer-status.dirty::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: var(--odak-accent);
+}
+
+:root[data-odak] .ct-room-saved-list {
+  display: flex;
+  margin: 12px 0 0;
+  padding: 0;
+  align-self: stretch;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  text-align: left;
+}
+
+:root[data-odak] .ct-room-saved-list li {
+  padding: 8px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #d7dae0;
+  background: #0b0c0e;
+}

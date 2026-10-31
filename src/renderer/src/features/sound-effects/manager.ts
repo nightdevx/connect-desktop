@@ -49,6 +49,14 @@ const EMOTE_PATTERNS: Record<string, OscillatorTone[]> = {
   ],
 };
 
+/** A built-in emote's length in seconds, read off its pattern (0 if unknown):
+ *  the soundboard shows it beside the name. */
+export const emoteSeconds = (emote: string): number =>
+  (EMOTE_PATTERNS[emote] ?? []).reduce(
+    (ms, tone) => ms + tone.durationMs + (tone.pauseAfterMs ?? 0),
+    0,
+  ) / 1000;
+
 /**
  * The table sounds: a card thrown, a tile put down, a shell landing.
  *
@@ -552,6 +560,12 @@ class SoundEffectManager {
    *  sound out of the cache. */
   public forgetSample(emoteId: string): void {
     this.sampleCache.delete(emoteId);
+  }
+
+  /** An upload's length, once this session has decoded it (somebody played
+   *  it, or it was previewed); null before. The server keeps no duration. */
+  public sampleSeconds(emoteId: string): number | null {
+    return this.sampleCache.get(emoteId)?.duration ?? null;
   }
 
   /**
