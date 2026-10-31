@@ -506,7 +506,8 @@
 }
 
 .ct-quick-idle-dot {
-  @apply block h-1.5 w-1.5 shrink-0 rounded-full;
+  width: 10px;
+  height: 10px;
 }
 
 .ct-quick-idle-where {
@@ -714,6 +715,7 @@
   right: 2px;
   bottom: 2px;
   border: 3px solid var(--ct-surface-2);
+  background: var(--ct-surface-2);
 }
 
 .ct-profile-card-avatar.ant-avatar {

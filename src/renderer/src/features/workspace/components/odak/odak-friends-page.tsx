@@ -11,7 +11,7 @@ import { GameArt } from "../user/game-art";
 import { UnfriendConfirmModal } from "../common";
 import { PersonMenuHeader, buildPersonMenu } from "../common/person-menu";
 import { OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
-import { getPresenceColor, getUserStatusLabel } from "../../workspace-utils";
+import { getUserStatusLabel, getVisiblePresence } from "../../workspace-utils";
 import { Avatar, GamepadIcon, Icon, SpeakerIcon, UsersIcon, staggerStyle } from "./odak-parts";
 import { OdakRail } from "./odak-rail";
 import type { OdakRailProps } from "./odak-rail";
@@ -309,7 +309,7 @@ export function OdakFriendsPage({
               userId={user.userId}
               name={name}
               avatarUrl={user.avatarUrl}
-              presence={getPresenceColor(user.appOnline, user.presence)}
+              presence={getVisiblePresence(user.appOnline, user.presence)}
               className="card"
             />
             <span className="ct-odak-friend-meta">
@@ -563,7 +563,7 @@ export function OdakFriendsPage({
                       userId={conversation.userId}
                       name={name}
                       avatarUrl={conversation.avatarUrl ?? directory?.avatarUrl}
-                      presence={getPresenceColor(directory?.appOnline, directory?.presence)}
+                      presence={getVisiblePresence(directory?.appOnline, directory?.presence)}
                       className="strip"
                     />
                     <span className="ct-odak-strip-text ct-odak-strip-meta">

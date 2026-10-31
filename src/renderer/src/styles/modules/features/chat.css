@@ -200,6 +200,7 @@
     right: 4px;
     bottom: 4px;
     border-color: var(--ct-surface-2);
+    background: var(--ct-surface-2);
   }
 
   .ct-user-drawer-identity h3 {

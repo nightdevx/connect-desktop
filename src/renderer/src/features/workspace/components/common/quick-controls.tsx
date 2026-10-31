@@ -12,7 +12,6 @@ import {
 } from "@ant-design/icons";
 import {
   getDisplayInitials,
-  getPresenceColor,
   getUserStatusLabel,
   hueStyle,
 } from "../../workspace-utils";
@@ -21,6 +20,7 @@ import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit"
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { useWorkspaceAudioConnection } from "../../hooks/lobby/use-workspace-audio-connection";
 import { UserProfileCardPopover } from "../user/user-profile-card";
+import { PresenceGlyph } from "../odak/odak-parts";
 
 import { AudioDeviceDropdown } from "./AudioDeviceDropdown";
 
@@ -250,13 +250,7 @@ export function QuickControls({
             {/* Where you are, or how you appear to everyone else when you are
                 nowhere in particular. */}
             <span className="ct-quick-idle-status">
-              {voiceDot ?? (
-                <span
-                  className="ct-quick-idle-dot"
-                  style={{ background: getPresenceColor(true, presenceStatus) }}
-                  aria-hidden="true"
-                />
-              )}
+              {voiceDot ?? <PresenceGlyph status={presenceStatus} className="ct-quick-idle-dot" />}
               {/* A room or a call can be longer than the dock is wide: the
                   whole name on hover. */}
               <Tooltip title={whereLabel} placement="top">

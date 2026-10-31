@@ -34,7 +34,7 @@ import {
   formatDateLabel,
   getApiErrorMessage,
   getDisplayInitials,
-  getPresenceColor,
+  getVisiblePresence,
   getUserStatusLabel,
   hueStyle,
 } from "../../workspace-utils";
@@ -78,7 +78,14 @@ import { DirectChatMessageRow } from "./direct-chat-message-row";
 import { GameArt } from "./game-art";
 import { CallEncryptionBadge } from "./parts/CallEncryptionBadge";
 import { useThreadScroll } from "./use-thread-scroll";
-import { Avatar as OdakAvatar, GamepadIcon, SpeakerIcon, staggerStyle } from "../odak/odak-parts";
+import {
+  Avatar as OdakAvatar,
+  GamepadIcon,
+  PresenceGlyph,
+  presenceBadgeLabel,
+  SpeakerIcon,
+  staggerStyle,
+} from "../odak/odak-parts";
 import { ElapsedTime } from "../common/elapsed-time";
 import { callLogKind, pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
 
@@ -1079,6 +1086,7 @@ export function UsersDirectMessagesPanel({
   // date exists anywhere, so the card gives the account's age instead. The
   // stylesheet drops the column below ~1100px; "Profili aç" stays the way in.
   const peerName = selectedUser ? selectedUser.displayName || selectedUser.username : "";
+  const peerPresence = getVisiblePresence(selectedUser?.appOnline, selectedUser?.presence);
   const joinedAt = selectedUser ? Date.parse(selectedUser.createdAt) : Number.NaN;
   const nowLobby = headerActivity?.lobby;
   const nowCount = nowLobby ? lobbyMembersById?.[nowLobby.id]?.length : undefined;
@@ -1090,6 +1098,7 @@ export function UsersDirectMessagesPanel({
           userId={selectedUser.userId}
           name={peerName}
           avatarUrl={selectedUser.avatarUrl}
+          presence={peerPresence}
           className="ct-dm-aside-avatar"
         />
         <h2>{peerName}</h2>
@@ -1352,13 +1361,11 @@ export function UsersDirectMessagesPanel({
                     </span>
                     <span
                       className="ct-presence-dot"
-                      style={{
-                        background: getPresenceColor(
-                          selectedUser.appOnline,
-                          selectedUser.presence,
-                        ),
-                      }}
-                    />
+                      role="img"
+                      aria-label={presenceBadgeLabel(peerPresence)}
+                    >
+                      <PresenceGlyph status={peerPresence} />
+                    </span>
                   </span>
 
                   <span className="ct-dm-header-text">
@@ -1525,13 +1532,11 @@ export function UsersDirectMessagesPanel({
                 />
                 <span
                   className="ct-presence-dot"
-                  style={{
-                    background: getPresenceColor(
-                      selectedUser.appOnline,
-                      selectedUser.presence,
-                    ),
-                  }}
-                />
+                  role="img"
+                  aria-label={presenceBadgeLabel(peerPresence)}
+                >
+                  <PresenceGlyph status={peerPresence} />
+                </span>
               </span>
 
               <h3>{selectedUser.displayName || selectedUser.username}</h3>

@@ -377,11 +377,12 @@
 }
 
 :root[data-odak] .ct-profile-card-presence {
-  right: 0;
-  bottom: 0;
-  width: 14px;
-  height: 14px;
+  right: -1px;
+  bottom: -1px;
+  width: 18px;
+  height: 18px;
   border: 3px solid var(--odak-surface);
+  background: var(--odak-surface);
 }
 
 :root[data-odak] .ct-profile-card-names {

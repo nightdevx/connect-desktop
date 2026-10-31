@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { SelectablePresenceStatus } from "@shared/auth-contracts";
+import type { PresenceStatus, SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
-import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { getDisplayInitials, getUserStatusLabel, hueStyle } from "../../workspace-utils";
 
 /** The pieces the Odak rail and the Odak pages share: the line icons, the
     sections in rail order, the presence choices and the avatar. */
@@ -98,6 +98,39 @@ export const PRESENCE_OPTIONS: Array<{ value: SelectablePresenceStatus; label: s
   { value: "offline", label: "Çevrimdışı görün" },
 ];
 
+// One shape per status, so colour is never the only cue (F4.1): a solid dot,
+// a crescent moon, a disc with a bar through it, a hollow ring. A 10-unit box
+// drawn in currentColor; the holes show whatever is behind the glyph, which
+// on an avatar is the ring's own colour.
+const PRESENCE_SHAPES: Record<PresenceStatus, ReactNode> = {
+  online: <circle cx="5" cy="5" r="5" />,
+  idle: <path d="M5.3 0A5 5 0 1 1 0 5.3 3.75 3.75 0 0 0 5.3 0Z" />,
+  dnd: (
+    <path
+      fillRule="evenodd"
+      d="M5 0a5 5 0 1 1 0 10A5 5 0 0 1 5 0ZM3.25 3.75h3.5a1.25 1.25 0 0 1 0 2.5h-3.5a1.25 1.25 0 0 1 0-2.5Z"
+    />
+  ),
+  offline: (
+    <path
+      fillRule="evenodd"
+      d="M5 0a5 5 0 1 1 0 10A5 5 0 0 1 5 0Zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+    />
+  ),
+};
+
+/** A presence glyph, sized by its container's class. Decorative: the badge
+    around it, or the text beside it, says the status in words. */
+export const PresenceGlyph = ({ status, className = "" }: { status: PresenceStatus; className?: string }) => (
+  <svg className={`ct-presence-glyph ${status} ${className}`} viewBox="0 0 10 10" aria-hidden="true">
+    {PRESENCE_SHAPES[status]}
+  </svg>
+);
+
+/** What a badge says aloud: "offline" here is what others see, not the pick. */
+export const presenceBadgeLabel = (status: PresenceStatus): string =>
+  getUserStatusLabel(status !== "offline", status);
+
 export function Avatar({
   userId,
   name,
@@ -108,13 +141,17 @@ export function Avatar({
   userId: string;
   name: string;
   avatarUrl?: string | null;
-  presence?: string;
+  presence?: PresenceStatus;
   className: string;
 }) {
   return (
     <span className={`ct-odak-avatar ${className}`} style={hueStyle(userId)} aria-hidden="true">
       {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(name)}
-      {presence && <span className="ct-odak-presence" style={{ background: presence }} />}
+      {presence && (
+        <span className="ct-odak-presence" role="img" aria-label={presenceBadgeLabel(presence)}>
+          <PresenceGlyph status={presence} />
+        </span>
+      )}
     </span>
   );
 }

@@ -35,9 +35,10 @@ import {
   formatMembershipLength,
   getApiErrorMessage,
   getDisplayInitials,
-  getPresenceColor,
   getUserStatusLabel,
+  getVisiblePresence,
 } from "../../workspace-utils";
+import { PresenceGlyph } from "../odak/odak-parts";
 import { toast } from "@/services/toast";
 
 // Same ceiling the composer uses. Enforced again server-side; this only stops
@@ -340,18 +341,16 @@ export function UserProfileCard({
             >
               <span
                 className="ct-profile-card-presence"
-                style={{
-                  background: getPresenceColor(
-                    presence.appOnline,
-                    presence.presence,
-                  ),
-                }}
                 role="img"
                 aria-label={getUserStatusLabel(
                   presence.appOnline,
                   presence.presence,
                 )}
-              />
+              >
+                <PresenceGlyph
+                  status={getVisiblePresence(presence.appOnline, presence.presence)}
+                />
+              </span>
             </Tooltip>
           )}
         </div>
