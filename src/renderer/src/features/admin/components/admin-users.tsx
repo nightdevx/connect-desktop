@@ -1,6 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, Drawer, Space, Popconfirm, Tooltip, Switch } from "antd";
+import { Table, Input, Button, Modal, Form, Select, Drawer, Popconfirm, Tooltip, Switch } from "antd";
 import {
   SearchOutlined,
   EditOutlined,
@@ -681,13 +681,12 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         onClose={() => setIsEditOpen(false)}
         open={isEditOpen}
         size={420}
+        // One way out: the drawer's own X (as in Tanılama's drawer), plus Esc
+        // and a click outside. A "Kapat" button here repeated it.
         extra={
-          <Space>
-            <Button onClick={() => setIsEditOpen(false)}>Kapat</Button>
-            <Button type="primary" onClick={() => editForm.submit()}>
-              Kaydet
-            </Button>
-          </Space>
+          <Button type="primary" onClick={() => editForm.submit()}>
+            Kaydet
+          </Button>
         }
       >
         <Form
