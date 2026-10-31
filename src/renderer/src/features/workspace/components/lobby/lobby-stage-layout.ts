@@ -45,6 +45,19 @@ export interface StageSize {
 }
 
 /**
+ * The whole pixels a measured box really has: rounded DOWN.
+ *
+ * The fit fills a row exactly, so it may never be fitted to more than is there.
+ * The chat column is 25vw, so most window widths leave the stage at x.5px, and
+ * rounding made a 757.5px stage 758: two 373px tiles and the 12px gap no longer
+ * fit, the row wrapped, and four people stood in one column with the top and
+ * bottom ones off the window (0.3.1, F2.1).
+ */
+function wholePixels(size: number): number {
+  return Number.isFinite(size) ? Math.max(0, Math.floor(size)) : 0;
+}
+
+/**
  * Which size to lay the tiles out for, given the one just measured.
  *
  * A few pixels of GROWTH is not worth reflowing every tile for; a shrink always
@@ -236,16 +249,21 @@ export function useLobbyStageLayout(
 
     // The same content box the observer reports, read synchronously so the
     // first paint is already fitted rather than laid out from the fallback.
+    // From the computed size, not clientWidth: that one is rounded, and a
+    // 757.5px box read as 758 (see wholePixels).
     const readContentBox = (): StageSize => {
       const styles = window.getComputedStyle(stageArea);
-      const horizontal =
-        parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-      const vertical =
-        parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+      const borderBox = styles.boxSizing === "border-box";
+      const horizontal = borderBox
+        ? parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight)
+        : 0;
+      const vertical = borderBox
+        ? parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom)
+        : 0;
 
       return {
-        width: Math.max(0, Math.round(stageArea.clientWidth - horizontal)),
-        height: Math.max(0, Math.round(stageArea.clientHeight - vertical)),
+        width: wholePixels(parseFloat(styles.width) - horizontal),
+        height: wholePixels(parseFloat(styles.height) - vertical),
       };
     };
 
@@ -298,8 +316,8 @@ export function useLobbyStageLayout(
       }
 
       scheduleResize({
-        width: Math.round(entry.contentRect.width),
-        height: Math.round(entry.contentRect.height),
+        width: wholePixels(entry.contentRect.width),
+        height: wholePixels(entry.contentRect.height),
       });
     });
     observer.observe(stageArea);

@@ -390,6 +390,7 @@ export function LobbyChatPanel({
   // A ref, not state: the observer below reads it during layout, before a state
   // update from the same frame would be visible.
   const isPinnedToBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
 
   const handleMessagesScroll = (): void => {
     const container = messagesContainerRef.current;
@@ -399,22 +400,32 @@ export function LobbyChatPanel({
 
     const distance =
       container.scrollHeight - container.scrollTop - container.clientHeight;
-    isPinnedToBottomRef.current = distance <= PINNED_THRESHOLD_PX;
+    // Only the reader scrolling UP lets go of the end. Scrolls nobody asked
+    // for land here too: the virtual list moving the rows as it measures them,
+    // a jump on its way down. One of those read far from an end that had just
+    // grown under it unpinned the thread, and it stopped 600-1000px short
+    // (0.3.1, F2.3).
+    const movedUp = container.scrollTop < lastScrollTopRef.current - 1;
+    lastScrollTopRef.current = container.scrollTop;
+    if (distance <= PINNED_THRESHOLD_PX) {
+      isPinnedToBottomRef.current = true;
+    } else if (movedUp) {
+      isPinnedToBottomRef.current = false;
+    }
     const away = distance > SCROLL_BUTTON_THRESHOLD_PX;
     // Only on a real change: this runs on every scroll frame.
     setIsAwayFromBottom((previous) => (previous === away ? previous : away));
   };
 
+  // To the end at once, pinned: the observer below keeps it there while the
+  // rows on the way are measured and pictures arrive. A smooth scroll aimed at
+  // the height it saw at the click, which the rows still at their estimate
+  // made too short, and the list's own corrections cut it off midway.
   const scrollToBottom = () => {
-    if (messagesContainerRef.current) {
-      // Set before the animation starts: a smooth scroll takes a few hundred
-      // milliseconds, and asking to follow the conversation again should survive
-      // an image finishing in the middle of it.
+    const container = messagesContainerRef.current;
+    if (container) {
       isPinnedToBottomRef.current = true;
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+      container.scrollTop = container.scrollHeight;
     }
   };
 
@@ -491,6 +502,11 @@ export function LobbyChatPanel({
     });
 
     observer.observe(node);
+    // The scroller too: a reply chip or a second line in the composer takes
+    // its height from the thread, and the newest message slid under it.
+    if (node.parentElement) {
+      observer.observe(node.parentElement);
+    }
     listResizeObserverRef.current = observer;
   }, []);
 

@@ -1006,8 +1006,13 @@
   color: var(--odak-text);
 }
 
+/* One line: a watch tile puts the video's title here. */
 :root[data-odak] .ct-lobby-tile-watch-hint {
+  max-width: 100%;
+  overflow: hidden;
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :root[data-odak] .ct-lobby-tile-watch-btn {
@@ -1025,6 +1030,55 @@
 :root[data-odak] .ct-lobby-tile-watch-btn:hover {
   background: var(--odak-accent);
   transform: translateY(-1px);
+}
+
+/* The prompt is four lines (122px) and a tile is 16:9: below 186px of height
+   it ran off the tile, the button sat on the name and the title was cut in
+   half (0.3.1, F2.2). It sheds what matters least as the tile narrows: the
+   icon, then the hint; the name and the button stay. */
+@container participant-tile (max-width: 330px) {
+  :root[data-odak] .ct-lobby-tile-watch-prompt {
+    gap: 8px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-watch-prompt > .anticon {
+    display: none;
+  }
+}
+
+@container participant-tile (max-width: 250px) {
+  :root[data-odak] .ct-lobby-tile-watch-hint {
+    display: none;
+  }
+
+  :root[data-odak] .ct-lobby-tile-watch-title {
+    font-size: 13px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-watch-btn {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+}
+
+@container participant-tile (max-width: 170px) {
+  :root[data-odak] .ct-lobby-tile-watch-prompt {
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-watch-title {
+    font-size: 11px;
+  }
+
+  :root[data-odak] .ct-lobby-tile-watch-btn {
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 11px;
+  }
 }
 
 :root[data-odak] .ct-lobby-tile-fullscreen-btn,
@@ -1175,10 +1229,18 @@
     line-height: 1;
   }
 
+  /* "Yayında" in a row, as wide as the word, like Ayrıl: the column of 64px
+     above squeezed it into 28px and the word ran out of its pill on the left
+     (0.3.1, F2.2). */
   :root[data-odak] .ct-lobby-stage-actions .ant-btn.ct-lobby-action-btn.live-share {
+    flex-direction: row;
+    gap: 8px;
+    width: auto;
     height: 56px;
-    padding: 0 18px;
+    padding: 0 16px 0 18px;
     border-radius: 16px 0 0 16px;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   :root[data-odak] .ct-stream-control-group .ct-stream-menu-btn {
