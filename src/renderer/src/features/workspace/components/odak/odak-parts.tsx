@@ -1,7 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { PresenceStatus, SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
-import { getDisplayInitials, getUserStatusLabel, hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
+import { getUserStatusLabel, hueStyle } from "../../workspace-utils";
 
 /** The pieces the Odak rail and the Odak pages share: the line icons, the
     sections in rail order, the presence choices and the avatar. */
@@ -133,20 +134,28 @@ export const presenceBadgeLabel = (status: PresenceStatus): string =>
 
 export function Avatar({
   userId,
-  name,
   avatarUrl,
   presence,
   className,
 }: {
   userId: string;
+  /** Whose face; no longer drawn (no initials), kept so callers stay as they are. */
   name: string;
   avatarUrl?: string | null;
   presence?: PresenceStatus;
   className: string;
 }) {
+  // A picture that does not load (a block between the two of you answers 404)
+  // shows the blank face rather than an empty circle.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
   return (
     <span className={`ct-odak-avatar ${className}`} style={hueStyle(userId)} aria-hidden="true">
-      {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(name)}
+      {avatarUrl && avatarUrl !== failedUrl ? (
+        <img src={avatarUrl} alt="" onError={() => setFailedUrl(avatarUrl)} />
+      ) : (
+        <BlankFace />
+      )}
       {presence && (
         <span className="ct-odak-presence" role="img" aria-label={presenceBadgeLabel(presence)}>
           <PresenceGlyph status={presence} />

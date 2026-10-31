@@ -16,7 +16,8 @@ import {
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import { AdminStats, AdminLobbyEvent } from "@shared/auth-contracts";
-import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { hueStyle } from "@/ui/person-style";
+import { BlankFace } from "@/ui/blank-face";
 import { useUiStore } from "@/store/ui-store";
 import {
   AdminPageHeader,
@@ -423,7 +424,7 @@ export default function AdminDashboard() {
                       style={hueStyle(item.userId)}
                       aria-hidden="true"
                     >
-                      {getDisplayInitials(item.username)}
+                      <BlankFace />
                     </span>
                     <div className="ct-admin-feed-text">
                       <span>

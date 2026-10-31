@@ -308,6 +308,16 @@ margin-top: 0;
 @apply h-full w-full object-cover;
 }
 
+/* A picture fills its round face whatever its own shape. These faces are
+   grids, and in a grid row sized by its content an <img>'s height:100% does
+   not resolve: the picture took its height from its own proportions, so a
+   tall photo ran out of the circle and over the name below it, and a wide one
+   sat in it as a band. Square boxes, so object-fit: cover crops instead. */
+:is(.ct-odak-avatar, .ct-admin-face, .ct-chat-avatar, .ct-mention-avatar, .ct-leaderboard-face) > img,
+.ct-user-avatar-image {
+aspect-ratio: 1;
+}
+
 .ct-user-avatar-fallback {
 @apply text-xs font-semibold;
 color: var(--ct-text-primary);
@@ -334,6 +344,26 @@ color: var(--ct-on-media);
 
 .ct-user-avatar:has(> .ct-hued) {
 border-color: transparent;
+}
+
+/* A face without a picture (BlankFace): half the face, read off the font size
+   each face already sets for its size; antd's Avatar sets its icon's font size
+   inline and keeps it when a stylesheet shrinks the box, so there it is half
+   the box itself. Hue for antd faces too: antd's own grey would win the tie. */
+.ct-avatar-blank {
+width: 1.3em;
+height: 1.3em;
+flex-shrink: 0;
+}
+
+.ant-avatar > .ct-avatar-blank {
+width: 50%;
+height: 50%;
+}
+
+.ant-avatar.ct-hued:not(.ant-avatar-image) {
+background: oklch(0.55 0.12 var(--ct-name-h));
+color: var(--ct-on-media);
 }
 
 /* Presence is a status, not a piece of chrome, so it reads from the presence

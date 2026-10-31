@@ -804,7 +804,6 @@
 
 :root[data-odak] .ct-user-drawer-avatar .ant-avatar {
   border: 0;
-  background: var(--odak-raised);
   box-shadow:
     0 0 0 4px var(--odak-surface),
     0 0 0 6px var(--odak-accent);

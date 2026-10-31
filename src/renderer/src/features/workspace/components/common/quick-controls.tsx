@@ -11,10 +11,10 @@ import {
   VideoCameraOutlined,
 } from "@ant-design/icons";
 import {
-  getDisplayInitials,
   getUserStatusLabel,
   hueStyle,
 } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import type { PresenceStatus } from "@shared/auth-contracts";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import type { FriendsController } from "../../hooks/user/use-friends";
@@ -242,7 +242,7 @@ export function QuickControls({
                 alt=""
               />
             ) : (
-              getDisplayInitials(currentUsername)
+              <BlankFace />
             )}
           </div>
           <div className="ct-quick-idle-meta">

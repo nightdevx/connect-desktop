@@ -16,6 +16,7 @@ import { ImageCropModal, type CropRect } from "./image-crop-modal";
 import DownscaleWorker from "./downscale-worker?worker";
 import { useStillImage } from "../../hooks/media/use-still-image";
 import { hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
@@ -97,19 +98,6 @@ const assertUploadable = (file: File): void => {
 // draws it from --ct-profile-banner-ratio; if these two disagree the dialog is
 // framing something other than what gets shown.
 const BANNER_ASPECT = 16 / 9;
-
-const getInitials = (value: string): string => {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return "?";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-};
 
 const readFileAsDataURL = (file: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -555,9 +543,8 @@ export function SettingsProfile({
                   src={previewAvatarUrl}
                   className={`ct-settings-profile-avatar${profileSettings.avatarUrl ? "" : " ct-hued"}`}
                   style={profileSettings.avatarUrl ? undefined : hueStyle(currentUserId)}
-                >
-                  {!profileSettings.avatarUrl && getInitials(shownName)}
-                </Avatar>
+                  icon={profileSettings.avatarUrl ? undefined : <BlankFace />}
+                />
 
                 <div className="ct-settings-profile-card-names">
                   <strong>{shownName}</strong>

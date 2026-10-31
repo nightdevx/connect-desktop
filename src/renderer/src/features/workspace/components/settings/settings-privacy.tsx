@@ -16,7 +16,8 @@ import { authService } from "@/features/auth";
 import { userService } from "../../services";
 import { useBlockedUsers } from "../../hooks";
 import { useDesktopAppPreferences } from "./settings-app-preferences";
-import { getDisplayInitials, hueStyle } from "../../workspace-utils";
+import { hueStyle } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
 
@@ -268,7 +269,7 @@ export function SettingsPrivacy() {
                   style={hueStyle(user.userId)}
                   aria-hidden="true"
                 >
-                  {getDisplayInitials(user.displayName || user.username)}
+                  <BlankFace />
                 </span>
                 <div className="ct-settings-row-text">
                   <strong>{user.displayName}</strong>

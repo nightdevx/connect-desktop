@@ -47,10 +47,10 @@ import type { PendingAttachment } from "../../hooks/chat/use-direct-messages";
 import {
   formatTimeLabel,
   getApiErrorMessage,
-  getDisplayInitials,
   getUsernameHue,
   hueStyle,
 } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 import { renderMessageBody, type MentionCandidate } from "../../mentions";
 import { MentionPicker, useMentionPicker } from "../common/mention-picker";
 
@@ -150,7 +150,7 @@ const LobbyChatMessageRow = memo(function LobbyChatMessageRow({
     >
     <div className={`ct-chat-row ${isOwnMessage ? "own" : ""}`}>
       <span className="ct-chat-avatar ct-hued" style={hueStyle(message.userId)} aria-hidden="true">
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(message.username)}
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
       </span>
       <div className={`ct-chat-bubble ${isOwnMessage ? "own" : ""} ${message.localState ? "pending" : ""}`}>
         <div className="ct-chat-bubble-meta">

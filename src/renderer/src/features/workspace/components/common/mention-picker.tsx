@@ -8,7 +8,7 @@ import {
   findActiveMention,
   type MentionCandidate,
 } from "../../mentions";
-import { getDisplayInitials } from "../../workspace-utils";
+import { BlankFace } from "@/ui/blank-face";
 
 // A stable empty result, so "no active mention" does not mint a new array — and
 // therefore a new memo identity — on every keystroke.
@@ -199,11 +199,7 @@ export function MentionPicker({
           }}
         >
           <span className="ct-mention-avatar" aria-hidden="true">
-            {candidate.avatarUrl ? (
-              <img src={candidate.avatarUrl} alt="" />
-            ) : (
-              getDisplayInitials(candidate.displayName || candidate.username)
-            )}
+            {candidate.avatarUrl ? <img src={candidate.avatarUrl} alt="" /> : <BlankFace />}
           </span>
           <span className="ct-mention-name">
             {candidate.displayName || candidate.username}

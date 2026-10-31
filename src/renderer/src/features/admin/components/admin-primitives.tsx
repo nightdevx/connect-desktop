@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { ColumnsType } from "antd/es/table";
 import { PageHeader } from "@/ui/page-header";
-import { getDisplayInitials, hueStyle } from "@/ui/person-style";
+import { hueStyle } from "@/ui/person-style";
+import { BlankFace } from "@/ui/blank-face";
 import { useUiStore } from "@/store/ui-store";
 
 /**
@@ -273,7 +274,7 @@ export function AdminPerson({
   return (
     <div className="ct-admin-person">
       <span className="ct-admin-face ct-hued" style={hueStyle(userId)} aria-hidden="true">
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : getDisplayInitials(name)}
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : <BlankFace />}
       </span>
       <div className="ct-admin-person-text">
         <strong>{name}</strong>
