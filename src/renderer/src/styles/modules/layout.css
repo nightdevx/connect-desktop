@@ -80,6 +80,16 @@
   user-select: none;
 }
 
+/* Drawers open under the bar, like the app's own overlays (toasts, the call
+   card, the Odak pages). Electron applies the bar's drag region by position,
+   not by stacking: a drawer drawn over the bar had the top half of its header
+   buttons (Kapat, Kaydet, the X) in that region, so a click there dragged the
+   window and only their lower edge worked. The mask starts under the bar
+   too, so the bar's own buttons still work while a drawer is open. */
+:root .ant-drawer {
+  top: var(--ct-titlebar-height);
+}
+
 /* macOS draws its traffic lights at the left end (16 px in, 52 px wide). */
 .ct-titlebar--traffic-lights {
   padding-left: 84px;
