@@ -23,6 +23,13 @@
 //               the box stops moving. Folding the sidebar left two people a
 //               column of 360px apiece in a 736px stage that fits them side by
 //               side at 361px.
+//   ROUNDING    a box with half a pixel in it (the chat column is 25vw, so most
+//               window widths leave the stage at x.5px). Rounded, 757.5 became
+//               758, and two 373px tiles plus the gap no longer fit 757.5: the
+//               row wrapped and four people stood in one column, the top and
+//               bottom ones off the window (0.3.1, F2.1). The fit takes the
+//               whole pixels the box really has, from the observer and from
+//               the first read alike.
 //
 // And a stage smaller than the 240x160 the fit used to treat as its floor (the
 // old design at 901-930px with the sidebar and the chat open): the tiles get
@@ -147,6 +154,9 @@ const main = async () => {
   };
   globalThis.window = {
     getComputedStyle: (box) => ({
+      boxSizing: "border-box",
+      width: `${box.width}px`,
+      height: `${box.height}px`,
       paddingLeft: `${box.pad}px`,
       paddingRight: `${box.pad}px`,
       paddingTop: `${box.pad}px`,
@@ -162,8 +172,15 @@ const main = async () => {
     },
     clearTimeout: (id) => timers.delete(id),
   };
-  // A box whose content area is width x height, inside 18px of padding.
-  const box = (width, height) => ({ pad: 18, clientWidth: width + 36, clientHeight: height + 36 });
+  // A box whose content area is width x height, inside 18px of padding. Its
+  // client size is rounded, as the browser's is.
+  const box = (width, height) => ({
+    pad: 18,
+    width: width + 36,
+    height: height + 36,
+    clientWidth: Math.round(width + 36),
+    clientHeight: Math.round(height + 36),
+  });
   const report = (target, width, height) => {
     for (const observer of observers) {
       if (observer.targets.has(target)) {
@@ -349,6 +366,17 @@ const main = async () => {
       people = 4;
       chatOpen = true;
     },
+    // 4 people, chat open, a 1490x760 window: the stage is 757.5px wide.
+    ROUNDING: () => {
+      const stage = box(757.5, 530);
+      start(stage);
+      expectFit(757, 530, "the first read of a x.5 box");
+      assert.ok(fits(4, fitted(current.stageLayoutStyle), 757.5, 530, 12), "the first read fits the 757.5px box");
+      report(stage, 727.5, 530);
+      frame();
+      expectFit(727, 530, "a x.5 size from the observer");
+      assert.ok(fits(4, fitted(current.stageLayoutStyle), 727.5, 530, 12), "two to a row fit the 727.5px box");
+    },
   };
   const failures = [];
   for (const [name, run] of Object.entries(cases)) {
@@ -387,7 +415,7 @@ const main = async () => {
 
   fs.rmSync(outDir, { recursive: true, force: true });
   console.log(
-    "stage-resize self-check passed (shrinks always land, growth waits and lands once the box stops, fit holds down to tiny stages, the box on screen is the one measured, focused share keeps 16:9)",
+    "stage-resize self-check passed (shrinks always land, growth waits and lands once the box stops, fit holds down to tiny stages, the box on screen is the one measured, half pixels never round up, focused share keeps 16:9)",
   );
 };
 
