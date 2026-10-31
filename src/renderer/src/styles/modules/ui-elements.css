@@ -307,6 +307,16 @@ margin-top: 0;
 @apply h-full w-full object-cover;
 }
 
+/* A picture fills its round face whatever its own shape. These faces are
+   grids, and in a grid row sized by its content an <img>'s height:100% does
+   not resolve: the picture took its height from its own proportions, so a
+   tall photo ran out of the circle and over the name below it, and a wide one
+   sat in it as a band. Square boxes, so object-fit: cover crops instead. */
+:is(.ct-odak-avatar, .ct-admin-face, .ct-chat-avatar, .ct-mention-avatar, .ct-leaderboard-face) > img,
+.ct-user-avatar-image {
+aspect-ratio: 1;
+}
+
 .ct-user-avatar-fallback {
 @apply text-xs font-semibold;
 color: var(--ct-text-primary);
