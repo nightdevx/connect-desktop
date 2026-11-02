@@ -36,6 +36,32 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.3",
+    date: "2026-11-03",
+    highlights: [
+      {
+        kind: "new",
+        text: "Windows'ta bas-konuş, Connect arka plandayken ya da önde bir oyun açıkken de çalışıyor.",
+      },
+      {
+        kind: "new",
+        text: "Bas-konuş için bir tuş, birlikte basılan tuşlar (örneğin Ctrl + T) ya da farenin yan tuşu seçilebiliyor. Tuş artık baştan atanmamış geliyor; Ayarlar › Ses › Bas-konuş tuşu'ndan seçebilirsin.",
+      },
+      {
+        kind: "new",
+        text: "Odaya biri girip çıktığında ve yayın başladığında kısa bir ses çalıyor. Seviyesini ve hangi olaylarda çalacağını Ayarlar › Ses › Bildirim sesleri'nden seçebilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Connect donarsa kapatıp açmana gerek kalmadan kendini birkaç saniyede toparlıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Odada mikrofonunu değiştirince konuşma halkan hemen yanıyor; art arda taşındığında doğru odada kalıyorsun.",
+      },
+    ],
+  },
+  {
     version: "0.3.2",
     date: "2026-10-31",
     highlights: [

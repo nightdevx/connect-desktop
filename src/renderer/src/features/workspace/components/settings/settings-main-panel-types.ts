@@ -4,11 +4,16 @@ export interface CameraPreferences {
 }
 
 import { type NoiseSuppressionPreset } from "@/features/voice-processing";
+import { type NotificationSoundGroups } from "@/features/sound-effects";
 
 export interface AudioPreferences {
   defaultMicEnabled: boolean;
   defaultHeadphoneEnabled: boolean;
   notificationSoundsEnabled: boolean;
+  /** The room cues' own level, 0-200; 100 is the level they ship at. */
+  notificationSoundVolume: number;
+  /** Which families of room cues play. */
+  notificationSoundGroups: NotificationSoundGroups;
   enhancedNoiseSuppressionEnabled: boolean;
   echoCancellationEnabled: boolean;
   noiseSuppressionPreset: NoiseSuppressionPreset;

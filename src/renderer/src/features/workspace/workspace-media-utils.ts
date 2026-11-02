@@ -12,6 +12,10 @@ import {
   getDefaultScreenShareQuality as getBaseDefaultScreenShareQuality,
 } from "../screen-share";
 import { type VideoCodecPreference } from "../livekit";
+import {
+  ALL_NOTIFICATION_SOUND_GROUPS,
+  type NotificationSoundGroups,
+} from "../sound-effects";
 
 export type {
   ScreenShareSourceKind,
@@ -67,19 +71,7 @@ export const readCameraPreferences = (): CameraPreferences => {
   }
 };
 
-export const readAudioPreferences = (): {
-  defaultMicEnabled: boolean;
-  defaultHeadphoneEnabled: boolean;
-  notificationSoundsEnabled: boolean;
-  enhancedNoiseSuppressionEnabled: boolean;
-  echoCancellationEnabled: boolean;
-  noiseSuppressionPreset: NoiseSuppressionPreset;
-  selectedAudioInputDeviceId: string | null;
-  selectedAudioOutputDeviceId: string | null;
-  masterVolume: number;
-  microphoneVolume: number;
-  voiceLevellingEnabled: boolean;
-} => {
+export const readAudioPreferences = (): AudioPreferences => {
   try {
     const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
     if (!raw) {
@@ -95,6 +87,8 @@ export const readAudioPreferences = (): {
         masterVolume: 100,
         microphoneVolume: 100,
         voiceLevellingEnabled: true,
+        notificationSoundVolume: 100,
+        notificationSoundGroups: { ...ALL_NOTIFICATION_SOUND_GROUPS },
       };
     }
 
@@ -110,6 +104,8 @@ export const readAudioPreferences = (): {
       masterVolume?: number;
       microphoneVolume?: number;
       voiceLevellingEnabled?: boolean;
+      notificationSoundVolume?: number;
+      notificationSoundGroups?: Partial<NotificationSoundGroups>;
     };
 
     const normalizeVolume = (value: unknown): number => {
@@ -140,6 +136,14 @@ export const readAudioPreferences = (): {
       masterVolume: normalizeVolume(parsed.masterVolume),
       microphoneVolume: normalizeVolume(parsed.microphoneVolume),
       voiceLevellingEnabled: parsed.voiceLevellingEnabled !== false,
+      notificationSoundVolume: normalizeVolume(parsed.notificationSoundVolume),
+      // A group is on unless it was switched off: settings saved before the
+      // groups existed play everything, as they did.
+      notificationSoundGroups: {
+        presence: parsed.notificationSoundGroups?.presence !== false,
+        streams: parsed.notificationSoundGroups?.streams !== false,
+        controls: parsed.notificationSoundGroups?.controls !== false,
+      },
     };
   } catch {
     return {
@@ -154,6 +158,8 @@ export const readAudioPreferences = (): {
       masterVolume: 100,
       microphoneVolume: 100,
       voiceLevellingEnabled: true,
+      notificationSoundVolume: 100,
+      notificationSoundGroups: { ...ALL_NOTIFICATION_SOUND_GROUPS },
     };
   }
 };

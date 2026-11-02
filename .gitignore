@@ -19,3 +19,6 @@ pnpm-debug.log*
 # Pre-refactor copies of files that were split. Local safety net, not history —
 # git already has that.
 /backup/
+
+# Built by scripts/build-native.cjs; dist:win rebuilds it on every release.
+native/keyboard-hook/build/

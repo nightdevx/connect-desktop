@@ -11,6 +11,8 @@ import { isAdminRole } from "@/features/auth";
 import {
   useLivekitSession,
   liveKitConnectRequest,
+  physicalOutputId,
+  pickPlaybackDevice,
   type LiveKitConnectRequest,
 } from "@/features/livekit";
 import {
@@ -64,6 +66,7 @@ import { useAudioPreferenceSync } from "./workspace-shell/use-audio-preference-s
 import { useDesktopPreferences } from "./workspace-shell/use-desktop-preferences";
 import { useLobbyEmotePlayback } from "./workspace-shell/use-lobby-emote-playback";
 import { useGameActivitySync } from "@/features/minigames";
+import { toast } from "@/services/toast";
 
 // A Record over the union rather than a chain of ifs ending in a fallback.
 // The chain was, in its own words, "the one failure the type system cannot
@@ -82,6 +85,11 @@ const SECTION_TITLES: Record<WorkspaceSection, string> = {
   settings: "Ayarlar",
   admin: "Yönetim",
 };
+
+// How long a moderator's moves have to stand still before the media follows.
+// Moves closer together than this are followed once, to where they ended; a
+// single move pays it once, which is less than the connect that follows it.
+const MODERATOR_MOVE_SETTLE_MS = 250;
 
 interface WorkspaceShellProps {
   currentUserId: string;
@@ -178,9 +186,9 @@ function WorkspaceShell({
   // Filled in below for the same reason: a moderator can move this account into
   // another room at any moment, and the listener that hears about it is
   // registered long before the join path exists.
-  const followModeratorMoveRef = useRef<(lobbyId: string) => void>(
-    () => undefined,
-  );
+  const followModeratorMoveRef = useRef<
+    (lobbyId: string, movedBy: string | null) => void
+  >(() => undefined);
 
   // Marks a lobbyId the current user was just server-kicked from. While set,
   // the reconnect loop must not silently rejoin that lobby (it would undo the
@@ -214,8 +222,15 @@ function WorkspaceShell({
   useEffect(() => {
     soundEffectManager.configure({
       enabled: audioPreferences.notificationSoundsEnabled,
+      groups: audioPreferences.notificationSoundGroups,
     });
-  }, [audioPreferences.notificationSoundsEnabled]);
+  }, [audioPreferences.notificationSoundsEnabled, audioPreferences.notificationSoundGroups]);
+
+  useEffect(() => {
+    soundEffectManager.setNotificationVolumePercent(
+      audioPreferences.notificationSoundVolume,
+    );
+  }, [audioPreferences.notificationSoundVolume]);
 
   // Open the output device before anything needs it.
   //
@@ -237,6 +252,30 @@ function WorkspaceShell({
       window.removeEventListener("keydown", primeOnGesture);
     };
   }, []);
+
+  // Cues on the voices' device, chosen by the voice path's own rule: the picked
+  // output, else Windows' communications endpoint, else the default. The
+  // communications endpoint is addressed by its real id, so the cue context is
+  // never a call stream (see physicalOutputId). The device lists re-run it when
+  // a headset is plugged in or pulled out.
+  useEffect(() => {
+    const devices = [...audioInputDevices, ...audioOutputDevices];
+    soundEffectManager.setOutputDevice(
+      physicalOutputId(
+        devices,
+        pickPlaybackDevice(
+          devices,
+          audioPreferences.selectedAudioOutputDeviceId,
+          audioPreferences.selectedAudioInputDeviceId,
+        ).deviceId,
+      ),
+    );
+  }, [
+    audioInputDevices,
+    audioOutputDevices,
+    audioPreferences.selectedAudioInputDeviceId,
+    audioPreferences.selectedAudioOutputDeviceId,
+  ]);
 
   // An unplugged device must not stay selected. The capture path already falls
   // back to the default microphone on its own, but the stored preference kept
@@ -1000,6 +1039,7 @@ function WorkspaceShell({
     updateLobby,
     deleteLobby,
     joinLobby,
+    followModeratorMove,
     leaveActiveLobby,
     pendingPasswordLobby,
     cancelPasswordPrompt,
@@ -1099,20 +1139,42 @@ function WorkspaceShell({
     [lobbies, handleJoinLobby],
   );
 
-  // Following a move is an ordinary join, deliberately: the server has already
-  // put this account in the destination, so this brings the media across and
-  // re-declares mic/camera the same way clicking the room would. Going through
-  // the same funnel is also what tears the old room down first — otherwise the
-  // client would hold two LiveKit rooms at once.
+  // Following a move: the server has already put this account in the
+  // destination, so this only brings the media across (followModeratorMove).
+  //
+  // After the moves settle, and to the last one only. A moderator dragging
+  // someone out and back sends a move per drag, often faster than a follow
+  // takes, and connecting to a room the person has already been taken out of
+  // is not harmless: the server admits a fresh media session into that room's
+  // roster (AdmitFromMedia), which undoes the moderator's move by another road.
+  const moderatorMoveTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    followModeratorMoveRef.current = (lobbyId: string): void => {
-      // Ahead of the join, and synchronously: the SFU eviction for the old room
-      // is already in flight, and without this it lands as "you were removed
-      // from the voice room" one second before arriving in the new one.
+    followModeratorMoveRef.current = (lobbyId: string, movedBy: string | null): void => {
+      // Synchronously, for every move: the SFU eviction from the old room is
+      // already in flight, and without this it lands as "you were removed from
+      // the voice room" a moment before arriving in the new one.
       liveKitSessionRef.current?.expectRoomChange();
-      handleSelectLobby(lobbyId);
+      if (moderatorMoveTimerRef.current !== null) {
+        window.clearTimeout(moderatorMoveTimerRef.current);
+      }
+      moderatorMoveTimerRef.current = window.setTimeout(() => {
+        moderatorMoveTimerRef.current = null;
+        if (activeLobbyRef.current !== lobbyId) {
+          toast.info(`${movedBy ?? "Bir yetkili"} sizi başka bir odaya taşıdı.`);
+        }
+        setOpenTextRoomId(null);
+        followModeratorMove(lobbyId);
+      }, MODERATOR_MOVE_SETTLE_MS);
     };
   });
+  useEffect(
+    () => () => {
+      if (moderatorMoveTimerRef.current !== null) {
+        window.clearTimeout(moderatorMoveTimerRef.current);
+      }
+    },
+    [],
+  );
 
   // ----- CALL PRESENCE -----
   //

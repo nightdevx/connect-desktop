@@ -306,6 +306,18 @@
   border-bottom: 1px solid var(--ct-border-strong);
 }
 
+/* Several details under one row are siblings, not a chain: the line runs on
+   past each tick to the next, so they read as one branch (├ ├ └) rather than
+   as separate hooks, each looking as if it hung from the one above. */
+.ct-settings-row.detail:has(+ .ct-settings-row.detail)::after {
+  content: "";
+  position: absolute;
+  left: 36px;
+  top: 50%;
+  bottom: 0;
+  border-left: 1px solid var(--ct-border-strong);
+}
+
 /* A value that is shown, not set: the username. */
 .ct-settings-value {
   @apply rounded-full border px-3 py-1 font-semibold;
@@ -333,6 +345,12 @@
 
 .ct-settings-level .ct-volume {
   @apply flex-1;
+}
+
+/* A level with something to try it with beside it (the notification
+   sounds' "Dinle"). */
+.ct-settings-level-action {
+  @apply flex flex-wrap items-center gap-3;
 }
 
 .ct-settings-level-value {
@@ -790,6 +808,18 @@
     width: min(100%, 320px);
   }
 
+  /* The slider gives way so its "Dinle" can stay beside it; the button only
+     drops below when there is no room for a usable slider at all. */
+  .ct-settings-level-action {
+    width: min(100%, 420px);
+  }
+
+  .ct-settings-level-action .ct-settings-level {
+    flex: 1 1 160px;
+    width: auto;
+    min-width: 0;
+  }
+
   .ct-settings-group-head {
     @apply flex-col;
   }
@@ -818,7 +848,8 @@
     padding-left: 28px;
   }
 
-  .ct-settings-row.detail::before {
+  .ct-settings-row.detail::before,
+  .ct-settings-row.detail:has(+ .ct-settings-row.detail)::after {
     content: none;
   }
 

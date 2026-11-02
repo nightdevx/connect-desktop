@@ -3,7 +3,8 @@
 //   - src/main/utils/atomic-write.ts: a write that dies halfway leaves the old
 //     file whole (session.json, app-preferences.json).
 //   - src/main/window-state.ts: a saved window position is used only while it
-//     is on an attached screen; a page that keeps crashing stops reloading.
+//     is on an attached screen; a page that keeps crashing stops reloading; a
+//     page counts as frozen only while the user is trying to use it.
 //   - src/main/taskbar-pins.ts: a taskbar pin of this exe under the old
 //     AppUserModelID is re-stamped, nothing else is touched.
 //   - src/main/ipc/handle.ts: an IPC call or a stream-port request from any
@@ -81,7 +82,7 @@ const main = async () => {
     }
 
     // --- window placement --------------------------------------------------
-    const { restoreWindowState, createCrashLoopGuard } = await bundle(
+    const { restoreWindowState, createCrashLoopGuard, createFreezeWatch } = await bundle(
       outDir,
       "src/main/window-state.ts",
       "window-state.mjs",
@@ -159,6 +160,100 @@ const main = async () => {
       assert.equal(spaced(0), true);
       assert.equal(spaced(50_000), true);
       assert.equal(spaced(120_000), true, "crashes older than the window no longer count");
+    }
+
+    // --- freeze watch ------------------------------------------------------
+    {
+      // One second per step: the preload beats (unless the scenario stops a
+      // beat), main looks, and the events are collected with their second.
+      const run = (seconds, { timer = () => true, frame = () => true, input = () => false, canDraw = () => true } = {}) => {
+        const watch = createFreezeWatch();
+        const events = [];
+        watch.check(0, true);
+        for (let s = 1; s <= seconds; s += 1) {
+          const now = s * 1000;
+          if (timer(s)) watch.beat("timer", now - 500);
+          if (frame(s)) watch.beat("frame", now - 480);
+          if (input(s)) watch.input(now - 200);
+          const event = watch.check(now, canDraw(s));
+          if (event) events.push({ s, ...event });
+        }
+        return events;
+      };
+      const clicksFrom = (first) => (s) => s >= first;
+
+      assert.deepEqual(run(60, { input: () => true }), [], "a healthy page that is being used never freezes");
+
+      assert.deepEqual(
+        run(33, { timer: (s) => s < 10, frame: (s) => s < 10, input: clicksFrom(11) }),
+        [
+          { s: 14, type: "froze", stall: "busy" },
+          { s: 29, type: "reload", stall: "busy", ms: 20_500 },
+        ],
+        "a page that runs nothing while clicked is reported, then reloaded",
+      );
+
+      assert.deepEqual(
+        run(33, { frame: (s) => s < 10, input: clicksFrom(11) }),
+        [
+          { s: 14, type: "froze", stall: "drawing" },
+          { s: 29, type: "reload", stall: "drawing", ms: 20_480 },
+        ],
+        "a page that runs timers but draws nothing is the other kind",
+      );
+
+      assert.deepEqual(
+        run(40, { timer: (s) => s < 10 || s > 17, frame: (s) => s < 10 || s > 17, input: clicksFrom(11) }),
+        [
+          { s: 14, type: "froze", stall: "busy" },
+          { s: 18, type: "recovered", stall: "busy", ms: 9_500 },
+        ],
+        "a page that comes back by itself is reported with how long it was gone",
+      );
+
+      assert.deepEqual(
+        run(60, { timer: (s) => s < 10, frame: (s) => s < 10 }),
+        [],
+        "nobody clicked: a stopped page nobody is using is left to Chromium's own hang check",
+      );
+
+      assert.deepEqual(
+        run(60, { frame: () => false, input: () => true, canDraw: () => false }),
+        [],
+        "a hidden or minimised window owes no frames",
+      );
+      assert.deepEqual(
+        run(30, { frame: (s) => s < 3 || s > 20, input: () => true, canDraw: (s) => s < 3 || s > 20 }),
+        [],
+        "nor right after it is shown again",
+      );
+
+      {
+        // Main itself was held up for 10 s (or the machine slept): the beats
+        // may still be queued behind it, so the look starts over.
+        const watch = createFreezeWatch();
+        watch.check(0, true);
+        watch.input(500);
+        assert.equal(watch.check(10_000, true), null, "a late look is no freeze");
+        watch.beat("timer", 10_100);
+        watch.beat("frame", 10_120);
+        assert.equal(watch.check(11_000, true), null, "and the beats behind it count again");
+      }
+
+      {
+        // The page was reloaded: the next one is judged from its own beats.
+        const watch = createFreezeWatch();
+        watch.check(0, true);
+        for (let s = 1; s <= 25; s += 1) {
+          watch.input(s * 1000 - 200);
+          watch.check(s * 1000, true);
+        }
+        watch.reset(25_500);
+        watch.beat("timer", 26_500);
+        watch.beat("frame", 26_520);
+        watch.input(26_800);
+        assert.equal(watch.check(27_000, true), null, "a fresh page is not frozen");
+      }
     }
 
     // --- taskbar pins -----------------------------------------------------

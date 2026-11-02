@@ -1,6 +1,6 @@
-// Rules for the main window that need no Electron: where it reopens, and when a
-// crashed page is reloaded. Kept import-free so scripts/check-window-shell.cjs
-// can run them under plain Node.
+// Rules for the main window that need no Electron: where it reopens, when a
+// crashed page is reloaded and when a page counts as frozen. Kept import-free
+// so scripts/check-desktop-shell.cjs can run them under plain Node.
 
 export interface WindowRect {
   x: number;
@@ -105,5 +105,113 @@ export const createCrashLoopGuard = (
     }
     crashes.push(now);
     return crashes.length < limit;
+  };
+};
+
+// The preload's two beats, each about once a second: "timer" from a timer,
+// "frame" from the animation frame that timer asks for.
+export type PageBeat = "timer" | "frame";
+
+// "busy": the page's thread runs no tasks, so no timer fires. "drawing": timers
+// fire but no frame is drawn, so the screen stays as it was.
+export type PageStall = "busy" | "drawing";
+
+export type FreezeEvent =
+  | { type: "froze"; stall: PageStall }
+  | { type: "recovered"; stall: PageStall; ms: number }
+  | { type: "reload"; stall: PageStall; ms: number };
+
+export interface FreezeWatch {
+  beat: (kind: PageBeat, now: number) => void;
+  /** A click or key press sent to the page. */
+  input: (now: number) => void;
+  /**
+   * One look, about once a second. canDraw: the window is shown and not
+   * minimised, so frames are due.
+   */
+  check: (now: number, canDraw: boolean) => FreezeEvent | null;
+  reset: (now: number) => void;
+}
+
+/**
+ * Tells a frozen page from a quiet one.
+ *
+ * Chromium's own hang report (page-recovery.ts) needs an input event left
+ * unanswered for about 15 s, and every late answer starts that count over, so a
+ * page that answers one click in twenty seconds is never reported. Users saw
+ * exactly that: the stream kept playing, nothing else moved, and only closing
+ * the app ended it.
+ *
+ * A beat that stops counts only once the user has clicked or typed since it
+ * stopped: a hidden, minimised or covered window is not frozen, just unseen.
+ * A look that comes late (main itself was held up, or the machine slept)
+ * starts over, since the beats may still be queued behind it.
+ */
+export const createFreezeWatch = ({
+  reportAfterMs = 5_000,
+  reloadAfterMs = 20_000,
+  checkEveryMs = 1_000,
+} = {}): FreezeWatch => {
+  const lastBeat: Record<PageBeat, number> = { timer: 0, frame: 0 };
+  let lastInput = Number.NEGATIVE_INFINITY;
+  let lastCheck: number | null = null;
+  let episode: { stall: PageStall; since: number } | null = null;
+
+  const reset = (now: number): void => {
+    lastBeat.timer = now;
+    lastBeat.frame = now;
+    lastCheck = now;
+    episode = null;
+  };
+
+  return {
+    beat: (kind, now) => {
+      lastBeat[kind] = now;
+    },
+    input: (now) => {
+      lastInput = now;
+    },
+    check: (now, canDraw) => {
+      if (lastCheck === null || now - lastCheck > checkEveryMs * 3) {
+        reset(now);
+        return null;
+      }
+      lastCheck = now;
+      if (!canDraw) {
+        lastBeat.frame = now;
+      }
+
+      const stall: PageStall | null =
+        now - lastBeat.timer >= reportAfterMs
+          ? "busy"
+          : now - lastBeat.frame >= reportAfterMs
+            ? "drawing"
+            : null;
+
+      if (episode) {
+        const ms = now - episode.since;
+        if (!stall) {
+          const ended = episode.stall;
+          episode = null;
+          return { type: "recovered", stall: ended, ms };
+        }
+        if (ms >= reloadAfterMs) {
+          const ended = episode.stall;
+          reset(now);
+          return { type: "reload", stall: ended, ms };
+        }
+        return null;
+      }
+
+      if (stall) {
+        const since = lastBeat[stall === "busy" ? "timer" : "frame"];
+        if (lastInput > since) {
+          episode = { stall, since };
+          return { type: "froze", stall };
+        }
+      }
+      return null;
+    },
+    reset,
   };
 };

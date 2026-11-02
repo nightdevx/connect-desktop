@@ -33,7 +33,7 @@ const projectRoot = path.join(__dirname, "..");
 // What the old palette sat at, and what it has to clear now.
 const OLD_CUE_GAIN = 0.022;
 // The shared compressor's threshold is -24 dBFS (~0.063 linear) and the master
-// gain after it is 0.48. Past this the compressor is not adding polish, it is
+// gain after it is 1.2. Past this the compressor is not adding polish, it is
 // rescuing the mix.
 const PEAK_CEILING = 0.25;
 // Below this a note ends abruptly enough to read as a beep however quiet it is.

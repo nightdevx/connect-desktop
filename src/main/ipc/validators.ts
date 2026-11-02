@@ -501,7 +501,7 @@ export const appPreferencesSchema = z.object({
   hotkeyToggleMute: z.string().max(64).optional(),
   hotkeyToggleDeafen: z.string().max(64).optional(),
   pushToTalk: z.boolean().optional(),
-  pushToTalkKey: z.string().max(24).optional(),
+  pushToTalkKey: z.string().max(100).optional(),
   freeGameNotifications: z.boolean().optional(),
   shareGameActivity: z.boolean().optional(),
 });

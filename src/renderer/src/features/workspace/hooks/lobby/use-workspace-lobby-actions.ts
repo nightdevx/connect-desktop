@@ -92,6 +92,7 @@ export interface WorkspaceLobbyActionsState {
   ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
   joinLobby: (lobbyId: string, password?: string) => Promise<void>;
+  followModeratorMove: (lobbyId: string) => void;
   leaveActiveLobby: (reason?: LobbyLeaveIntent) => Promise<void>;
   pendingPasswordLobby: { lobbyId: string; wrong: boolean } | null;
   cancelPasswordPrompt: () => void;
@@ -365,6 +366,31 @@ export const useWorkspaceLobbyActions = ({
     }
   };
 
+  /**
+   * Takes the media to the room a moderator has already put this account in.
+   *
+   * Not a join. The server made the move before telling us, so there is
+   * nothing to ask it, and asking is what undid fast moves: following used to be
+   * a full join with a POST /lobby/join per move, and when a moderator dragged
+   * someone out and back, each of those landed after the moderator's next move
+   * and put the person back where they had just been taken from. Everyone else
+   * heard the roster flap, or, inside the member-left hold, nothing at all.
+   */
+  const followModeratorMove = (lobbyId: string): void => {
+    const connectRequest = liveKitConnectRequest("moderator-move");
+    activeLobbyPasswordRef.current = null;
+    kickedLobbyIdRef.current = null;
+    setActiveLobbyId(lobbyId);
+    clearActiveLobbyReconnectTimer();
+    activeLobbyReconnectAttemptRef.current = 0;
+    activeLobbyReconnectInFlightRef.current = false;
+    void performPostJoinSynchronization(lobbyId, connectRequest).catch(() => {
+      scheduleActiveLobbyReconnect("livekit-disconnected", true);
+    });
+    soundEffectManager.playSelfJoinedLobby();
+    refreshLobbiesIfUnstreamed();
+  };
+
   const leaveActiveLobby = async (reason: LobbyLeaveIntent = "user"): Promise<void> => {
     if (!activeLobbyId || lobbyTransitionRef.current.isLeaving) {
       return;
@@ -391,6 +417,10 @@ export const useWorkspaceLobbyActions = ({
         return;
       }
 
+      // The moment the server has let you go, not after the media teardown:
+      // that waits on the microphone mute and LiveKit's goodbye, and the cue
+      // confirming the click used to arrive behind both.
+      soundEffectManager.playSelfLeftLobby();
       setActiveLobbyId(null);
       activeLobbyPasswordRef.current = null;
       resetLocalMediaCapture();
@@ -398,7 +428,6 @@ export const useWorkspaceLobbyActions = ({
       // the next room, and a teardown still in flight when the next connect()
       // starts used to take the new room down with it.
       await liveKitSessionRef.current?.disconnect();
-      soundEffectManager.playSelfLeftLobby();
       // The kick warning already told the user what happened; a second
       // contradicting "ok" toast right after is confusing, not informative.
       if (reason !== "kicked") {
@@ -421,6 +450,7 @@ export const useWorkspaceLobbyActions = ({
     updateLobby,
     deleteLobby,
     joinLobby,
+    followModeratorMove,
     leaveActiveLobby,
     pendingPasswordLobby,
     cancelPasswordPrompt: () => setPendingPasswordLobby(null),

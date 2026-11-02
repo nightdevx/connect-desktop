@@ -79,6 +79,28 @@ ipcRenderer.on(STREAM_PORT_CHANNEL, (event) => {
 });
 ipcRenderer.send(STREAM_PORT_REQUEST_CHANNEL);
 
+// Beats for main's freeze watch (src/main/page-recovery.ts): the timer beat
+// says this page's thread still runs tasks, the frame beat after it that the
+// page still draws. One animation frame a second, not a running loop, so an
+// idle page stays idle; and only one asked for at a time, so a window left in
+// the tray all night does not queue a frame for every second it was hidden.
+// requestAnimationFrame comes through the same narrow view as PagePort.
+const PAGE_BEAT_CHANNEL = "desktop:page-beat";
+const pageFrames = globalThis as unknown as {
+  requestAnimationFrame: (callback: () => void) => number;
+};
+let pageFrameAsked = false;
+setInterval(() => {
+  ipcRenderer.send(PAGE_BEAT_CHANNEL, "timer");
+  if (!pageFrameAsked) {
+    pageFrameAsked = true;
+    pageFrames.requestAnimationFrame(() => {
+      pageFrameAsked = false;
+      ipcRenderer.send(PAGE_BEAT_CHANNEL, "frame");
+    });
+  }
+}, 1_000);
+
 const STREAMING_LOOPBACK_START_CHANNEL = "streaming:loopback-start";
 const STREAMING_LOOPBACK_STOP_CHANNEL = "streaming:loopback-stop";
 const STREAMING_LOOPBACK_PCM_CHANNEL = "streaming:loopback-pcm";

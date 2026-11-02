@@ -21,6 +21,10 @@ import {
   useDesktopAppPreferences,
 } from "./settings-app-preferences";
 import { toast } from "@/services/toast";
+import {
+  soundEffectManager,
+  type NotificationSoundGroup,
+} from "@/features/sound-effects";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 
 interface SettingsAudioProps {
@@ -381,6 +385,13 @@ export function SettingsAudio({
     })),
   ];
 
+  const notificationSoundsEnabled = draftAudioPreferences.notificationSoundsEnabled;
+  // On, with every family switched off: nothing will play, and the switch
+  // still says on. The row says why instead of leaving it to be discovered.
+  const noNotificationSoundGroup = !Object.values(
+    draftAudioPreferences.notificationSoundGroups,
+  ).some(Boolean);
+
   return (
     <SettingsPage
       title="Ses"
@@ -627,15 +638,73 @@ export function SettingsAudio({
         <SettingsRow
           icon={<NotificationOutlined />}
           title="Oda sesleri"
-          description="Birisi odaya girdiğinde, çıktığında, kamerasını açtığında veya yayın başlattığında kısa bir ses çalar. Her olayın kendi sesi vardır."
+          description={
+            notificationSoundsEnabled && noNotificationSoundGroup
+              ? "Hiçbir olay seçili değil, bu yüzden ses çalmıyor. Aşağıdan en az birini aç."
+              : "Birisi odaya girdiğinde, çıktığında, kamerasını açtığında veya yayın başlattığında kısa bir ses çalar. Her olayın kendi sesi vardır. Açıkken seviyesini ve hangi olaylarda çalacağını seçebilirsin."
+          }
+          htmlFor="settings-audio-notification-sounds"
         >
           <Switch
-            checked={draftAudioPreferences.notificationSoundsEnabled}
+            id="settings-audio-notification-sounds"
+            checked={notificationSoundsEnabled}
             onChange={(checked) =>
               handlePreferenceChange("notificationSoundsEnabled", checked)
             }
           />
         </SettingsRow>
+
+        {/* Like the noise-suppression profile: these only mean something while
+            the switch above is on, so they hang under it and leave with it. */}
+        {notificationSoundsEnabled && (
+          <>
+            <SettingsRow
+              detail
+              title="Ses seviyesi"
+              description="Yalnızca bu seslerin seviyesi; konuşmaları etkilemez."
+              htmlFor="settings-audio-notification-volume"
+            >
+              <div className="ct-settings-level-action">
+                <LevelControl
+                  id="settings-audio-notification-volume"
+                  value={draftAudioPreferences.notificationSoundVolume}
+                  onChange={(next) =>
+                    handlePreferenceChange("notificationSoundVolume", next)
+                  }
+                />
+                <Button
+                  icon={<PlayCircleOutlined />}
+                  aria-label="Dinle: bildirim sesini bu seviyede çal"
+                  disabled={draftAudioPreferences.notificationSoundVolume === 0}
+                  onClick={() => soundEffectManager.previewNotification()}
+                >
+                  Dinle
+                </Button>
+              </div>
+            </SettingsRow>
+
+            {NOTIFICATION_SOUND_GROUP_OPTIONS.map((group) => (
+              <SettingsRow
+                key={group.id}
+                detail
+                title={group.title}
+                description={group.description}
+                htmlFor={`settings-audio-notification-${group.id}`}
+              >
+                <Switch
+                  id={`settings-audio-notification-${group.id}`}
+                  checked={draftAudioPreferences.notificationSoundGroups[group.id]}
+                  onChange={(checked) =>
+                    handlePreferenceChange("notificationSoundGroups", {
+                      ...draftAudioPreferences.notificationSoundGroups,
+                      [group.id]: checked,
+                    })
+                  }
+                />
+              </SettingsRow>
+            ))}
+          </>
+        )}
       </SettingsGroup>
 
       <SettingsGroup
@@ -645,7 +714,13 @@ export function SettingsAudio({
         <SettingsRow
           icon={<KeyOutlined />}
           title="Bas-konuş"
-          description="Mikrofon kapalı kalır, tuşu basılı tuttuğun sürece açılır. Yalnızca uygulama penceresi öndeyken çalışır."
+          description={
+            // The keyboard hook that makes it work in the background is
+            // Windows-only (main/push-to-talk.ts).
+            window.desktopApi.platform === "win32"
+              ? "Mikrofon kapalı kalır, tuşu basılı tuttuğun sürece açılır. Uygulama arka plandayken de çalışır."
+              : "Mikrofon kapalı kalır, tuşu basılı tuttuğun sürece açılır. Yalnızca uygulama penceresi öndeyken çalışır."
+          }
         >
           <Switch
             checked={appPreferences.pushToTalk}
@@ -659,7 +734,7 @@ export function SettingsAudio({
         {appPreferences.pushToTalk && (
           <HotkeyCaptureField
             label="Bas-konuş tuşu"
-            hint="Alana tıklayıp kullanmak istediğin tuşa bas."
+            hint="Alana tıklayıp bir tuşa, birlikte kullanmak istediğin tuşlara ya da farenin yan tuşuna bas."
             value={appPreferences.pushToTalkKey}
             mode="key"
             detail
@@ -697,6 +772,29 @@ export function SettingsAudio({
     </SettingsPage>
   );
 }
+
+// The three families of room cues, in the order people meet them in a room.
+const NOTIFICATION_SOUND_GROUP_OPTIONS: Array<{
+  id: NotificationSoundGroup;
+  title: string;
+  description: string;
+}> = [
+  {
+    id: "presence",
+    title: "Giriş ve çıkışlar",
+    description: "Sen ya da başkası odaya girip çıktığında.",
+  },
+  {
+    id: "streams",
+    title: "Yayın ve kamera",
+    description: "Biri yayın ya da kamera açtığında, yayınına biri geldiğinde.",
+  },
+  {
+    id: "controls",
+    title: "Mikrofon ve kulaklık",
+    description: "Kendi mikrofonunu ya da kulaklığını açıp kapattığında.",
+  },
+];
 
 interface LevelControlProps {
   id: string;

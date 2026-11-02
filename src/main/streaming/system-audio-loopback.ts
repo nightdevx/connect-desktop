@@ -1,10 +1,9 @@
-import { app, type WebContents } from "electron";
-import { join } from "node:path";
-import { createRequire } from "node:module";
+import type { WebContents } from "electron";
 import {
   STREAMING_LOOPBACK_PCM_CHANNEL,
   type LoopbackStartResult,
 } from "../../shared/streaming-contracts";
+import { loadNativeAddon } from "../utils/native-addon";
 
 // Native addon contract: start(cb) begins WASAPI process-loopback capture that
 // EXCLUDES this process tree and invokes cb(Float32Array) with interleaved
@@ -17,49 +16,17 @@ interface LoopbackAddon {
   stop: () => void;
 }
 
-const nativeRequire = createRequire(__filename);
-
 let addon: LoopbackAddon | null | undefined;
 
-// Resolve the native module across dev (project root) and packaged
-// (asarUnpack'd app dir) layouts. Returns null if it cannot be loaded so the
-// caller can degrade to "no system audio" instead of crashing or echoing.
+// Null when the addon cannot be loaded, so the caller can degrade to "no
+// system audio" instead of crashing or echoing.
 const loadAddon = (): LoopbackAddon | null => {
-  if (addon !== undefined) {
-    return addon;
-  }
-
-  const candidates = [
-    // dev: dist/main/streaming -> up to project root -> native/...
-    join(__dirname, "..", "..", "..", "native", "audio-loopback"),
-    join(process.cwd(), "native", "audio-loopback"),
-    join(app.getAppPath(), "native", "audio-loopback"),
-    join(app.getAppPath(), "..", "native", "audio-loopback"),
-    // packaged: native is asarUnpack'd next to resources
-    join(process.resourcesPath ?? "", "native", "audio-loopback"),
-    join(process.resourcesPath ?? "", "app.asar.unpacked", "native", "audio-loopback"),
-  ];
-
-  const errors: string[] = [];
-  for (const candidate of candidates) {
-    try {
-      addon = nativeRequire(candidate) as LoopbackAddon;
-      console.log(`[system-audio-loopback] native addon loaded from: ${candidate}`);
-      return addon;
-    } catch (error) {
-      errors.push(
-        `  - ${candidate}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+  if (addon === undefined) {
+    addon = loadNativeAddon<LoopbackAddon>("audio-loopback");
+    if (!addon) {
+      console.warn("[system-audio-loopback] system audio capture disabled");
     }
   }
-
-  console.warn(
-    "[system-audio-loopback] native addon NOT loaded; system audio capture disabled.\n" +
-      `appPath=${app.getAppPath()} resourcesPath=${process.resourcesPath}\n` +
-      "tried:\n" +
-      errors.join("\n"),
-  );
-  addon = null;
   return addon;
 };
 

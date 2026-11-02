@@ -19,6 +19,9 @@ files:
   - native/audio-loopback/index.js
   - native/audio-loopback/package.json
   - native/audio-loopback/build/Release/*.node
+  - native/keyboard-hook/index.js
+  - native/keyboard-hook/package.json
+  - native/keyboard-hook/build/Release/*.node
   - "!**/*.map"
   - "!**/*.d.ts"
   - "!**/*.d.cts"
@@ -124,9 +127,10 @@ mac:
   identity: "-"
   hardenedRuntime: false
   artifactName: Connect-${version}-mac.${ext}
-  # The audio-loopback addon is Windows-only (WASAPI), and its build output in
-  # the repo is a Windows .node: nothing in it loads on macOS, and the main
-  # process already runs without it (streaming/system-audio-loopback.ts).
+  # Both native addons are Windows-only (WASAPI, a Win32 keyboard hook), and
+  # the audio-loopback build output in the repo is a Windows .node: nothing in
+  # them loads on macOS, and the main process already runs without them
+  # (streaming/system-audio-loopback.ts, push-to-talk.ts).
   files:
     - "!native/**"
   extendInfo:

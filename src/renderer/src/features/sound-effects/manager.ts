@@ -2,8 +2,13 @@ import {
   clampEmoteVolumePercent,
   readEmoteVolumePercent,
 } from "@/store/emote-volume";
-import { type OscillatorTone, type SoundEffectOptions } from "./types";
-import { CUE_PATTERNS } from "./cues";
+import {
+  ALL_NOTIFICATION_SOUND_GROUPS,
+  type NotificationSoundGroups,
+  type OscillatorTone,
+  type SoundEffectOptions,
+} from "./types";
+import { CUE_GROUPS, CUE_PATTERNS, type CueName } from "./cues";
 
 // One pattern per emote id. Keys mirror the closed set the backend enforces
 // (internal/lobby/emote.go); an id missing from here plays nothing rather than
@@ -119,6 +124,14 @@ export type MinigameCue = keyof typeof MINIGAME_PATTERNS;
 // thread by the time it reads them.
 const SCHEDULE_LEAD_SECONDS = 0.02;
 
+type PatternDestination = "cue" | "emote" | "notification";
+
+// setSinkId and sinkId on AudioContext are missing from TypeScript's DOM lib.
+type SinkableAudioContext = AudioContext & {
+  sinkId?: unknown;
+  setSinkId?: (sinkId: string | { type: "none" }) => Promise<void>;
+};
+
 // Two of the same cue inside this window are one event as far as a listener is
 // concerned. A roster snapshot arrives about once a second and can carry three
 // arrivals in it.
@@ -141,10 +154,102 @@ class SoundEffectManager {
   // Read at construction, so the first emote of a session already plays at the
   // volume the user chose rather than at 100% until something sets it.
   private emoteVolumePercent = readEmoteVolumePercent();
+  // The room cues' own level, Ayarlar > Ses > Bildirim sesleri. Separate from
+  // the soundboard's for the reason above, and from the minigame table sounds,
+  // which are the game's and not a notification.
+  private notificationGainNode: GainNode | null = null;
+  private notificationVolumePercent = 100;
   private enabled = true;
+  private groups: NotificationSoundGroups = ALL_NOTIFICATION_SOUND_GROUPS;
+  // Where the cues play, as setSinkId takes it: a device id, or "" for the
+  // system default. Set by the shell to the device the room's voices play on.
+  private outputDeviceId = "";
 
   public configure(options: SoundEffectOptions): void {
     this.enabled = options.enabled;
+    this.groups = options.groups;
+    // Switched on mid-session, the device has not been opened: prime() skipped
+    // it while the sounds were off, and the first cue would pay for it.
+    if (this.enabled) {
+      this.prime();
+    }
+  }
+
+  /** How loud the room cues are, 0-200%. 100% is the level they ship at. */
+  public setNotificationVolumePercent(percent: number): void {
+    this.notificationVolumePercent = Math.max(0, Math.min(200, Math.round(percent)));
+
+    if (this.notificationGainNode && this.audioContext) {
+      this.notificationGainNode.gain.setValueAtTime(
+        this.notificationVolumePercent / 100,
+        this.audioContext.currentTime,
+      );
+    }
+  }
+
+  private getNotificationOutputNode(context: AudioContext): AudioNode {
+    if (this.notificationGainNode) {
+      return this.notificationGainNode;
+    }
+
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(this.notificationVolumePercent / 100, context.currentTime);
+    gain.connect(this.getOutputNode(context));
+    this.notificationGainNode = gain;
+    return gain;
+  }
+
+  /**
+   * Plays the cues on the same device as the room's voices.
+   *
+   * The context used to stay on the system default while voices went to the
+   * device picked in settings, or with nothing picked to Windows'
+   * "communications" endpoint. Somebody with their headset picked heard every
+   * voice in it and every join, leave and share cue on the speakers, or
+   * nowhere when the speakers were off.
+   */
+  public setOutputDevice(deviceId: string): void {
+    this.outputDeviceId = deviceId;
+    if (this.audioContext) {
+      void this.applyOutputDevice(this.audioContext);
+    }
+  }
+
+  private async applyOutputDevice(context: AudioContext): Promise<void> {
+    const sink = context as SinkableAudioContext;
+    if (typeof sink.setSinkId !== "function" || sink.sinkId === this.outputDeviceId) {
+      return;
+    }
+
+    try {
+      await sink.setSinkId(this.outputDeviceId);
+    } catch {
+      // The device is gone. The default plays something; staying on a missing
+      // endpoint plays nothing.
+      await sink.setSinkId("").catch(() => undefined);
+    }
+  }
+
+  /**
+   * The device failed under a running context: unplugged, or its driver reset.
+   * Chromium reports that as an "error" event and leaves the context silent
+   * until it is pointed at a device again, so every cue after it was lost for
+   * the rest of the session. setSinkId with the id the context already has is
+   * a no-op, so it is parked on no device first. The voice bus recovers the
+   * same way (remote-media-handler.ts, reopenOutputDevice).
+   */
+  private async reopenOutputDevice(context: AudioContext): Promise<void> {
+    const sink = context as SinkableAudioContext;
+    if (typeof sink.setSinkId !== "function") {
+      return;
+    }
+
+    try {
+      await sink.setSinkId({ type: "none" });
+      await sink.setSinkId(this.outputDeviceId);
+    } catch {
+      await sink.setSinkId("").catch(() => undefined);
+    }
   }
 
   /**
@@ -259,6 +364,11 @@ class SoundEffectManager {
         void this.audioContext.resume().catch(() => undefined);
       }
     });
+    const context = this.audioContext;
+    context.addEventListener("error", () => {
+      void this.reopenOutputDevice(context);
+    });
+    void this.applyOutputDevice(context);
 
     return this.audioContext;
   }
@@ -275,8 +385,12 @@ class SoundEffectManager {
     compressor.attack.setValueAtTime(0.004, context.currentTime);
     compressor.release.setValueAtTime(0.16, context.currentTime);
 
+    // 1.2, up from 0.48 (about +8 dB). At 0.48 the cues peaked near -23 dBFS,
+    // 15-20 dB under the voices around them, and were simply not heard over a
+    // conversation or a game. They now peak near -15 dBFS: still under speech,
+    // no longer under the noise floor of a busy room.
     const masterGain = context.createGain();
-    masterGain.gain.setValueAtTime(0.48, context.currentTime);
+    masterGain.gain.setValueAtTime(1.2, context.currentTime);
 
     compressor.connect(masterGain);
     masterGain.connect(context.destination);
@@ -286,8 +400,11 @@ class SoundEffectManager {
 
   private playPattern(
     pattern: OscillatorTone[],
-    /** Emotes route through the soundboard gain; UI cues do not. */
-    destination: "cue" | "emote" = "cue",
+    /**
+     * Emotes route through the soundboard gain, room cues through the
+     * notification level, and the table sounds straight to the output.
+     */
+    destination: PatternDestination = "cue",
     /**
      * Which cue this is. Two of the same inside COALESCE_WINDOW_MS play once:
      * a roster snapshot that brings three people in at once used to start three
@@ -328,7 +445,7 @@ class SoundEffectManager {
   private schedulePattern(
     context: AudioContext,
     pattern: OscillatorTone[],
-    destination: "cue" | "emote",
+    destination: PatternDestination,
   ): void {
     if (!this.enabled || context.state === "closed") {
       return;
@@ -337,7 +454,9 @@ class SoundEffectManager {
     const outputNode =
       destination === "emote"
         ? this.getEmoteOutputNode(context)
-        : this.getOutputNode(context);
+        : destination === "notification"
+          ? this.getNotificationOutputNode(context)
+          : this.getOutputNode(context);
 
     // Scheduled a hair ahead rather than at currentTime. An envelope that
     // starts in the past is applied from wherever the audio thread has already
@@ -444,44 +563,60 @@ class SoundEffectManager {
     }
   }
 
+  /**
+   * A room cue, unless its group is switched off in settings. Coalesced by
+   * name, except where every press is its own feedback (the toggles).
+   */
+  private playCue(name: CueName, coalesce = true): void {
+    if (!this.groups[CUE_GROUPS[name]]) {
+      return;
+    }
+    this.playPattern(CUE_PATTERNS[name], "notification", coalesce ? name : undefined);
+  }
+
+  /** The settings page's "Dinle": an arrival, at the level just chosen. */
+  public previewNotification(): void {
+    this.playPattern(CUE_PATTERNS.memberJoined, "notification");
+  }
+
   /** You walked into a room: the full three-note chime. */
   public playSelfJoinedLobby(): void {
-    this.playPattern(CUE_PATTERNS.selfJoinedLobby, "cue", "selfJoinedLobby");
+    this.playCue("selfJoinedLobby");
   }
 
   /** You walked out: the same three notes, the other way up. */
   public playSelfLeftLobby(): void {
-    this.playPattern(CUE_PATTERNS.selfLeftLobby, "cue", "selfLeftLobby");
+    this.playCue("selfLeftLobby");
   }
 
   public playMemberJoined(): void {
-    this.playPattern(CUE_PATTERNS.memberJoined, "cue", "memberJoined");
+    this.playCue("memberJoined");
   }
 
   public playMemberLeft(): void {
-    this.playPattern(CUE_PATTERNS.memberLeft, "cue", "memberLeft");
+    this.playCue("memberLeft");
   }
 
   public playCameraEnabled(): void {
-    this.playPattern(CUE_PATTERNS.cameraEnabled, "cue", "cameraEnabled");
+    this.playCue("cameraEnabled");
   }
 
   public playScreenEnabled(): void {
-    this.playPattern(CUE_PATTERNS.screenEnabled, "cue", "screenEnabled");
+    this.playCue("screenEnabled");
   }
 
   /** Somebody started watching a share you are broadcasting or watching. */
   public playStreamViewerJoined(): void {
-    this.playPattern(CUE_PATTERNS.streamViewerJoined, "cue", "streamViewerJoined");
+    this.playCue("streamViewerJoined");
   }
 
   /** You started watching somebody else's share. */
   public playStreamWatchStarted(): void {
-    this.playPattern(CUE_PATTERNS.streamWatchStarted, "cue", "streamWatchStarted");
+    this.playCue("streamWatchStarted");
   }
 
   public playMicToggle(enabled: boolean): void {
-    this.playPattern(enabled ? CUE_PATTERNS.micOn : CUE_PATTERNS.micOff);
+    this.playCue(enabled ? "micOn" : "micOff", false);
   }
 
   /**
@@ -582,9 +717,7 @@ class SoundEffectManager {
   }
 
   public playHeadphoneToggle(enabled: boolean): void {
-    this.playPattern(
-      enabled ? CUE_PATTERNS.headphoneOn : CUE_PATTERNS.headphoneOff,
-    );
+    this.playCue(enabled ? "headphoneOn" : "headphoneOff", false);
   }
 }
 

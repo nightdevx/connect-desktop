@@ -10,6 +10,10 @@
 //            plays turns to narrowband mono. With the headset's own microphone
 //            open that mode is unavoidable and the call endpoint is kept.
 //
+//   PHYSICAL physicalOutputId, same file. The notification cues play on the
+//            voices' device, but by the real endpoint's id: "communications"
+//            itself would open a call-role stream for the whole session.
+//
 //   LIMITER  needsMasterLimiter in .../stream/constants.ts. The master
 //            limiter's 6 ms look-ahead is paid on every word, so it is on the
 //            path only when something can push the mix past full scale: a
@@ -86,7 +90,7 @@ const main = async () => {
     path.join(servicesDir, "stream/constants.ts"),
     "stream-constants",
   );
-  const { pickPlaybackDevice } = devices.module;
+  const { physicalOutputId, pickPlaybackDevice } = devices.module;
   const { needsMasterLimiter } = constants.module;
 
   // --- DEVICE ---------------------------------------------------------------
@@ -211,6 +215,42 @@ const main = async () => {
       `"${spelling}" is a Hands-Free endpoint`,
     );
   }
+
+  // --- PHYSICAL OUTPUT (the notification cues) --------------------------------
+  // Same device as the voices, never through the communications role.
+  assert.equal(
+    physicalOutputId(headsetMachine(true), "communications"),
+    "call-id",
+    "the communications entry resolves to the real endpoint it stands for",
+  );
+  assert.equal(
+    physicalOutputId(
+      [
+        ...wired,
+        out("speakers-id", "Speakers (Realtek(R) Audio)"),
+        out("hyperx-id", "Headset Earphone (HyperX Cloud)"),
+      ],
+      "communications",
+    ),
+    "hyperx-id",
+    "a wired headset set aside for calls, by its own id",
+  );
+  assert.equal(
+    physicalOutputId(wired, "communications"),
+    "",
+    "no real entry to match: the system default, not the call role",
+  );
+  assert.equal(
+    physicalOutputId(blank, "communications"),
+    "",
+    "blank labels before permission cannot be matched either",
+  );
+  assert.equal(physicalOutputId(headsetMachine(false), ""), "", "the default stays the default");
+  assert.equal(
+    physicalOutputId(headsetMachine(false), "stereo-id"),
+    "stereo-id",
+    "a picked device is used as it is",
+  );
 
   // --- LIMITER --------------------------------------------------------------
   const voice = (gain) => ({ voice: true, gain });

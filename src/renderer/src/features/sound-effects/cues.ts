@@ -1,4 +1,4 @@
-import type { OscillatorTone } from "./types";
+import type { NotificationSoundGroup, OscillatorTone } from "./types";
 
 // The UI cues: joining, leaving, going live, opening a microphone.
 //
@@ -130,6 +130,24 @@ export const CUE_PATTERNS = {
     { frequency: 880, durationMs: 52, gain: 0.05, type: "triangle", filterFrequency: 2600, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 420, pauseAfterMs: 0 },
   ],
 } satisfies Record<string, OscillatorTone[]>;
+
+export type CueName = keyof typeof CUE_PATTERNS;
+
+/** Which switch in Ayarlar > Ses > Bildirim sesleri each cue answers to. */
+export const CUE_GROUPS: Record<CueName, NotificationSoundGroup> = {
+  selfJoinedLobby: "presence",
+  selfLeftLobby: "presence",
+  memberJoined: "presence",
+  memberLeft: "presence",
+  screenEnabled: "streams",
+  cameraEnabled: "streams",
+  streamViewerJoined: "streams",
+  streamWatchStarted: "streams",
+  micOn: "controls",
+  micOff: "controls",
+  headphoneOn: "controls",
+  headphoneOff: "controls",
+};
 
 /** The two controls whose on/off states are meant to sound like each other. */
 export const CUE_SIBLING_PAIRS: Array<[keyof typeof CUE_PATTERNS, keyof typeof CUE_PATTERNS]> = [

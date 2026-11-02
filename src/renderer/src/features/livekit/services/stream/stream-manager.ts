@@ -371,6 +371,21 @@ export class LiveKitMediaSession {
   }
 
   private readLocalAudioLevel(): number | null {
+    // The analyser hangs off one MediaStreamTrack, and the published one is
+    // replaced without any room event: switching the microphone restarts the
+    // capture and the voice processor hands LiveKit a new output track. The
+    // analyser used to be rebound only from updateMediaMap, so after a switch it
+    // read the ended track: everyone else saw you talking, your own ring stayed
+    // dark until you left and rejoined. Checked here because every sample passes
+    // through, whatever replaced the track.
+    const micStream = this.getStreamFromPub(
+      this.room?.localParticipant.getTrackPublication(Track.Source.Microphone),
+    );
+    if ((micStream?.id ?? null) !== this.lastCapturedStreamId) {
+      void this.updateLocalAudioSource(micStream);
+      return null;
+    }
+
     if (!this.localAnalyser) {
       return null;
     }

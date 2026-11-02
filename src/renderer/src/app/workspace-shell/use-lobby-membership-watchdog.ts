@@ -56,7 +56,9 @@ export interface LobbyMembershipWatchdogOptions {
    * built further down the shell than this hook is called, and re-registering
    * the removal listener on every render of it would drop frames.
    */
-  followModeratorMoveRef: MutableRefObject<(lobbyId: string) => void>;
+  followModeratorMoveRef: MutableRefObject<
+    (lobbyId: string, movedBy: string | null) => void
+  >;
   /**
    * Recovery, delegated.
    *
@@ -104,6 +106,8 @@ export function useLobbyMembershipWatchdog({
   // identity per push, so comparing references is what makes the effect
   // snapshot-driven instead of render-driven.
   const judgedRosterRef = useRef<unknown>(null);
+  // Where the last moderator move sent this account. See the removal listener.
+  const moderatorDestinationRef = useRef<string | null>(null);
 
   const leaveActiveLobbyRef = useRef(leaveActiveLobby);
   useEffect(() => {
@@ -176,7 +180,15 @@ export function useLobbyMembershipWatchdog({
     return workspaceService.onLobbyStreamEvent((event) => {
       if (event.type !== "lobby-removed") return;
 
-      const lobbyId = activeLobbyRef.current;
+      // A moderator's move names the room it took us out of. When moves come
+      // faster than the follow (which waits for them to settle), that is the
+      // room the previous move sent us to, which is not the active room yet,
+      // and dropping the frame left the person wherever the earlier move had
+      // put them.
+      const onTheWay =
+        event.reason === "moved-by-moderator" &&
+        event.lobbyId === moderatorDestinationRef.current;
+      const lobbyId = onTheWay ? event.lobbyId : activeLobbyRef.current;
       // Only frames about the room we are actually standing in matter. A frame
       // for any other room is either stale or about a session we already left.
       if (!lobbyId || lobbyId !== event.lobbyId) return;
@@ -226,10 +238,9 @@ export function useLobbyMembershipWatchdog({
             return;
           }
 
-          toast.info(
-            `${event.movedBy ?? "Bir yetkili"} sizi başka bir odaya taşıdı.`,
-          );
-          followModeratorMoveRef.current(destination);
+          // Told once the moves settle, by the follow, not once per drag.
+          moderatorDestinationRef.current = destination;
+          followModeratorMoveRef.current(destination, event.movedBy ?? null);
           return;
         }
         case "media-timeout":
@@ -274,6 +285,17 @@ export function useLobbyMembershipWatchdog({
       }
       recoverMembership(lobbyId, why);
     };
+
+    // Listed where a moderator just sent us, with the follow still settling: not
+    // lost, on the way. A re-join of the old room from here would undo the move.
+    const awaited = moderatorDestinationRef.current;
+    if (
+      awaited &&
+      awaited !== activeLobbyId &&
+      lobbyMembersById[awaited]?.some((member) => member.userId === currentUserId)
+    ) {
+      return;
+    }
 
     const members = lobbyMembersById[activeLobbyId];
     if (members) {

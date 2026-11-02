@@ -1,0 +1,10 @@
+{
+  "name": "keyboard-hook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows low-level keyboard hook that reports press and release of chosen keys, so push-to-talk works while another window has focus.",
+  "main": "index.js",
+  "dependencies": {
+    "node-addon-api": "^8.0.0"
+  }
+}

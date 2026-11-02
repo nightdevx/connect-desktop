@@ -92,6 +92,7 @@ export type LiveKitConnectTrigger =
   | "network-online"
   | "livekit-disconnected"
   | "membership-lost"
+  | "moderator-move"
   | "unspecified";
 
 /**

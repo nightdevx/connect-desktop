@@ -2,6 +2,10 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { DesktopAppPreferences } from "../shared/desktop-api-types";
+import {
+  clearUnusedLegacyKey,
+  parsePushToTalkKeys,
+} from "../shared/push-to-talk-keys";
 import { writeFileAtomic } from "./utils/atomic-write";
 import type { SavedWindowState } from "./window-state";
 
@@ -16,7 +20,8 @@ const defaultAppPreferences: DesktopAppPreferences = {
   hotkeyToggleMute: "",
   hotkeyToggleDeafen: "",
   pushToTalk: false,
-  pushToTalkKey: "Space",
+  // Unbound, like the toggles above: the key is heard system-wide.
+  pushToTalkKey: "",
   freeGameNotifications: true,
   shareGameActivity: true,
 };
@@ -38,13 +43,15 @@ const sanitizeAccelerator = (value: unknown, fallback: string): string => {
   return trimmed;
 };
 
-const sanitizeKeyCode = (value: unknown, fallback: string): string => {
-  if (typeof value !== "string") {
-    return fallback;
+// Ends up in the keyboard hook, so only keys it knows, in canonical form. ""
+// is a binding the user cleared on purpose and stays cleared: falling back to
+// Space would arm a key they just removed.
+const sanitizePushToTalkKey = (value: unknown, fallback: string): string => {
+  if (typeof value === "string" && value.trim() === "") {
+    return "";
   }
-  const trimmed = value.trim();
-  // KeyboardEvent.code values are ASCII identifiers.
-  return /^[A-Za-z0-9]{1,24}$/.test(trimmed) ? trimmed : fallback;
+  const codes = parsePushToTalkKeys(value);
+  return codes.length > 0 ? codes.join("+") : fallback;
 };
 
 type PreferencesListener = (preferences: DesktopAppPreferences) => void;
@@ -97,7 +104,7 @@ const sanitizeLoadedPreferences = (payload: unknown): DesktopAppPreferences => {
       typeof source.pushToTalk === "boolean"
         ? source.pushToTalk
         : defaultAppPreferences.pushToTalk,
-    pushToTalkKey: sanitizeKeyCode(
+    pushToTalkKey: sanitizePushToTalkKey(
       source.pushToTalkKey,
       defaultAppPreferences.pushToTalkKey,
     ),
@@ -154,7 +161,12 @@ class AppPreferencesStore {
       }
 
       const raw: unknown = JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
-      this.currentPreferences = sanitizeLoadedPreferences(raw);
+      const loaded = sanitizeLoadedPreferences(raw);
+      loaded.pushToTalkKey = clearUnusedLegacyKey(
+        loaded.pushToTalk,
+        loaded.pushToTalkKey,
+      );
+      this.currentPreferences = loaded;
       this.windowState =
         raw && typeof raw === "object"
           ? ((raw as Record<string, unknown>).windowState ?? null)

@@ -30,10 +30,15 @@ interface UseWorkspaceAudioCuesProps {
 // to ring a "left" and a "joined" chime for everybody in the room. The audible
 // symptom of a problem that had already been fixed everywhere else.
 //
-// Holding the departure briefly costs nothing (a real leave is announced a beat
-// later) and makes a flap silent: if they are back before the timer fires, both
-// sounds are cancelled, because nothing actually happened.
-const MEMBER_LEFT_HOLD_MS = 2_000;
+// Holding the departure briefly makes a flap silent: if they are back before
+// the timer fires, both sounds are cancelled, because nothing actually happened.
+//
+// Briefly is the word. It was 2 seconds, which made every "Ayrıl" two seconds
+// late, and a moderator dragging someone out and back within that window rang
+// nothing at all. The server already holds a dropped media session for 12
+// seconds before it touches the roster, so the flaps left for this to absorb
+// are snapshot races, which are over in a few hundred milliseconds.
+const MEMBER_LEFT_HOLD_MS = 300;
 
 export function useWorkspaceAudioCues({
   activeLobbyId,

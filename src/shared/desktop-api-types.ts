@@ -111,10 +111,11 @@ export interface DesktopAppPreferences {
   // work while the app is in the background.
   hotkeyToggleMute: string;
   hotkeyToggleDeafen: string;
-  // Hold-to-talk. Electron's globalShortcut only reports key-DOWN, so genuine
-  // hold-to-talk cannot be done globally without a native keyboard hook; this
-  // one is handled in the renderer and therefore only applies while the window
-  // has focus. pushToTalkKey is a KeyboardEvent.code ("Space", "KeyV", …).
+  // Hold-to-talk. On Windows a native keyboard hook makes it work whichever
+  // window has focus; elsewhere only while a Connect window has focus (see
+  // main/push-to-talk.ts). pushToTalkKey is one to four KeyboardEvent.code
+  // values joined by "+" ("Space", "ControlLeft+KeyT"); Mouse4 and Mouse5 are
+  // the mouse side buttons (Windows only).
   pushToTalk: boolean;
   pushToTalkKey: string;
   // A toast when a game becomes free. Separate from desktopNotifications
@@ -145,9 +146,9 @@ export interface DesktopNotificationRequest {
   lobbyId?: string;
 }
 
-export interface DesktopHotkeyEvent {
-  action: "toggle-mute" | "toggle-deafen";
-}
+export type DesktopHotkeyEvent =
+  | { action: "toggle-mute" | "toggle-deafen" }
+  | { action: "push-to-talk"; pressed: boolean };
 
 // Defined in auth-contracts (the admin contracts there need it); re-exported
 // here so every existing import path keeps working.

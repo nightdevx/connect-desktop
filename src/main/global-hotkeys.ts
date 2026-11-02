@@ -4,32 +4,31 @@ import {
   getDesktopAppPreferences,
   onDesktopAppPreferencesChanged,
 } from "./app-preferences";
+import { configurePushToTalk } from "./push-to-talk";
 
 export const HOTKEY_EVENT_CHANNEL = "desktop:hotkey";
 
 // Mute and deafen could only be toggled by finding the window and clicking.
 // While gaming full-screen that means alt-tabbing out mid-sentence.
 //
-// Scope limit, stated plainly: Electron's globalShortcut fires on key-DOWN only
-// and gives no key-up, so genuine hold-to-talk is impossible here without a
-// native keyboard hook (a new native dependency on every platform). These are
-// toggles. Hold-to-talk exists too, but is handled in the renderer and
-// therefore only works while the window has focus — see usePushToTalk.
+// Electron's globalShortcut fires on key-DOWN only, which is enough for these
+// toggles. Hold-to-talk needs the key-up too, so it comes from push-to-talk.ts
+// and goes out on the same channel.
 
 type HotkeyBinding = {
-  action: DesktopHotkeyEvent["action"];
+  action: "toggle-mute" | "toggle-deafen";
   accelerator: string;
 };
 
 let registered: string[] = [];
 let unsubscribePreferences: (() => void) | null = null;
 
-const broadcast = (action: DesktopHotkeyEvent["action"]): void => {
+const broadcast = (event: DesktopHotkeyEvent): void => {
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed() || window.webContents.isDestroyed()) {
       continue;
     }
-    window.webContents.send(HOTKEY_EVENT_CHANNEL, { action });
+    window.webContents.send(HOTKEY_EVENT_CHANNEL, event);
   }
 };
 
@@ -48,6 +47,13 @@ const applyBindings = (): void => {
   unregisterAll();
 
   const preferences = getDesktopAppPreferences();
+  configurePushToTalk(
+    preferences.pushToTalk ? preferences.pushToTalkKey : null,
+    (pressed) => {
+      broadcast({ action: "push-to-talk", pressed });
+    },
+  );
+
   const bindings: HotkeyBinding[] = [
     { action: "toggle-mute", accelerator: preferences.hotkeyToggleMute },
     { action: "toggle-deafen", accelerator: preferences.hotkeyToggleDeafen },
@@ -63,7 +69,7 @@ const applyBindings = (): void => {
       // combination. Failing silently would leave the user pressing a key that
       // does nothing with no explanation, so it is logged.
       const ok = globalShortcut.register(binding.accelerator, () => {
-        broadcast(binding.action);
+        broadcast({ action: binding.action });
       });
 
       if (!ok) {
@@ -95,4 +101,5 @@ export const disposeGlobalHotkeys = (): void => {
   unsubscribePreferences?.();
   unsubscribePreferences = null;
   unregisterAll();
+  configurePushToTalk(null, () => undefined);
 };

@@ -94,6 +94,44 @@ export const pickPlaybackDevice = (
   };
 };
 
+/**
+ * The real endpoint behind Windows' virtual "communications" output, for a
+ * stream that has to play on the same device without being a call.
+ *
+ * Chromium opens "communications" through the communications role, and
+ * Windows can turn every other app down while a stream in that role is open
+ * (Sound settings, Communications: 80% by default). The room's voices are a
+ * call and take that role on purpose. A context that stays open for the whole
+ * session, like the notification cues, must not: it would hold other apps down
+ * from the moment Connect starts. The virtual entry is labelled after the
+ * device it stands for ("Communications - <label>"), which is how the real one
+ * is found. Any other id is returned as it is; with no match, the system
+ * default ("") rather than the call role.
+ */
+export const physicalOutputId = (
+  devices: readonly DeviceEntry[],
+  deviceId: string,
+): string => {
+  if (deviceId !== COMMUNICATIONS_DEVICE_ID) {
+    return deviceId;
+  }
+
+  const virtual = devices.find(
+    (device) =>
+      device.kind === "audiooutput" && device.deviceId === COMMUNICATIONS_DEVICE_ID,
+  );
+  const real = devices.find(
+    (device) =>
+      device.kind === "audiooutput" &&
+      device.deviceId !== COMMUNICATIONS_DEVICE_ID &&
+      device.deviceId !== "default" &&
+      device.label !== "" &&
+      virtual !== undefined &&
+      virtual.label.endsWith(` - ${device.label}`),
+  );
+  return real?.deviceId ?? "";
+};
+
 export const resolvePlaybackDevice = async (
   selectedOutputId: string | null,
   selectedInputId: string | null,

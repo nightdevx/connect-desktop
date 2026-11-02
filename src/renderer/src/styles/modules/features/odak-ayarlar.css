@@ -195,7 +195,8 @@
   background: transparent;
 }
 
-:root[data-odak] .ct-settings-row.detail::before {
+:root[data-odak] .ct-settings-row.detail::before,
+:root[data-odak] .ct-settings-row.detail:has(+ .ct-settings-row.detail)::after {
   left: 37px;
   border-color: var(--odak-border-strong);
 }
@@ -364,6 +365,13 @@
   border-radius: 9px;
   font-weight: 500;
   --ant-btn-bg-color: #1a1c21;
+}
+
+/* Listening for keys: drawn like a focused input, so the field visibly waits
+   while a chord is being held. */
+:root[data-odak] .ct-settings-main-panel .ct-hotkey-button.capturing.ant-btn {
+  border-color: var(--odak-accent);
+  color: var(--odak-accent);
 }
 
 :root[data-odak] .ct-settings-main-panel .ct-hotkey-button.empty.ant-btn {

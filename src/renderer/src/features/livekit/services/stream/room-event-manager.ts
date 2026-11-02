@@ -62,6 +62,11 @@ export class RoomEventManager {
       .on(RoomEvent.TrackPublished, this.handleTrackPublished)
       .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
       .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
+      // A share is opt-in, so most viewers never subscribe to it and its end
+      // raises this and nothing else. Without it the map kept "sharing" until
+      // some other event, and a share restarted before then was not news: no
+      // cue, and a watch button left on a share that had ended.
+      .on(RoomEvent.TrackUnpublished, this.updateMediaMap)
       .on(RoomEvent.TrackMuted, this.updateMediaMap)
       .on(RoomEvent.TrackUnmuted, this.updateMediaMap)
       .on(RoomEvent.LocalTrackPublished, this.updateMediaMap)

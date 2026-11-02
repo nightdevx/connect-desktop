@@ -2,7 +2,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "antd";
 import type { DesktopAppPreferences } from "@shared/desktop-api-types";
 import { toast } from "@/services/toast";
+import { setHotkeyCapturing } from "@/store/hotkey-capture";
 import { SettingsRow } from "./settings-layout";
+import {
+  formatHotkey,
+  formatKeyChord,
+  useAcceleratorCapture,
+  useChordCapture,
+  useKeyboardLayout,
+} from "./hotkey-capture";
 
 const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -13,7 +21,7 @@ const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   hotkeyToggleMute: "",
   hotkeyToggleDeafen: "",
   pushToTalk: false,
-  pushToTalkKey: "Space",
+  pushToTalkKey: "",
   freeGameNotifications: true,
   shareGameActivity: true,
 };
@@ -118,66 +126,13 @@ export function useDesktopAppPreferences() {
   return { preferences, isSaving, needsRelaunch, savePreference };
 }
 
-const isMac = window.desktopApi.platform === "darwin";
-
-// Electron accelerators name modifiers differently from KeyboardEvent, and
-// nobody should have to type "CommandOrControl+Shift+M" by hand. On macOS
-// Command and Control are two keys, and CommandOrControl means Command there.
-const toAccelerator = (event: KeyboardEvent): string | null => {
-  const parts: string[] = [];
-  if (isMac) {
-    if (event.metaKey) parts.push("CommandOrControl");
-    if (event.ctrlKey) parts.push("Control");
-  } else if (event.ctrlKey || event.metaKey) {
-    parts.push("CommandOrControl");
-  }
-  if (event.altKey) parts.push("Alt");
-  if (event.shiftKey) parts.push("Shift");
-
-  const code = event.code;
-  let key: string | null = null;
-  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
-  else if (/^Digit[0-9]$/.test(code)) key = code.slice(5);
-  else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) key = code;
-  else if (code === "Space") key = "Space";
-
-  if (!key) {
-    return null;
-  }
-
-  // A bare letter would swallow that key for every application on the machine.
-  if (parts.length === 0 && !/^F\d/.test(key)) {
-    return null;
-  }
-
-  parts.push(key);
-  return parts.join("+");
-};
-
-// What is stored is for Electron and KeyboardEvent; what is shown is what is
-// printed on the keys: "CommandOrControl+Shift+M" reads "Ctrl + Shift + M"
-// (on macOS "⌘ + Shift + M"), "KeyV" reads "V".
-const formatHotkey = (value: string): string =>
-  value
-    .split("+")
-    .map((part) =>
-      part === "CommandOrControl"
-        ? isMac
-          ? "⌘"
-          : "Ctrl"
-        : isMac && part === "Alt"
-          ? "Option"
-          : part.replace(/^Key(?=[A-Z]$)/, "").replace(/^Digit(?=\d$)/, ""),
-    )
-    .join(" + ");
-
 interface HotkeyCaptureFieldProps {
   icon?: ReactNode;
   label: string;
   hint: string;
   value: string;
-  // "accelerator" produces an Electron global-shortcut string; "key" stores a
-  // raw KeyboardEvent.code for the renderer-side push-to-talk listener.
+  // "accelerator" produces an Electron global-shortcut string; "key" stores
+  // one key or a chord of KeyboardEvent.code values for push-to-talk.
   mode: "accelerator" | "key";
   disabled: boolean;
   // Set on a field that only exists while the row above it is on -- the
@@ -198,47 +153,46 @@ export function HotkeyCaptureField({
   onChange,
 }: HotkeyCaptureFieldProps) {
   const [capturing, setCapturing] = useState(false);
+  const layout = useKeyboardLayout();
+  const handlers = {
+    onCommit: (next: string) => {
+      onChange(next);
+      setCapturing(false);
+    },
+    onCancel: () => setCapturing(false),
+    onClear: () => {
+      onChange("");
+      setCapturing(false);
+    },
+  };
+  const chord = useChordCapture({
+    active: capturing && mode === "key",
+    ...handlers,
+  });
+  useAcceleratorCapture({
+    active: capturing && mode === "accelerator",
+    ...handlers,
+  });
 
+  // The keys pressed here are often the current bindings; they must not talk
+  // or toggle the mic while being recorded (use-voice-hotkeys.ts).
   useEffect(() => {
     if (!capturing) {
       return;
     }
+    setHotkeyCapturing(true);
+    return () => setHotkeyCapturing(false);
+  }, [capturing]);
 
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (event.key === "Escape") {
-        setCapturing(false);
-        return;
-      }
-
-      if (event.key === "Backspace" || event.key === "Delete") {
-        onChange("");
-        setCapturing(false);
-        return;
-      }
-
-      if (mode === "key") {
-        if (/^(Key[A-Z]|Digit[0-9]|F\d{1,2}|Space)$/.test(event.code)) {
-          onChange(event.code);
-          setCapturing(false);
-        }
-        return;
-      }
-
-      const accelerator = toAccelerator(event);
-      if (accelerator) {
-        onChange(accelerator);
-        setCapturing(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [capturing, mode, onChange]);
+  let text = "Atanmadı";
+  if (capturing) {
+    text =
+      chord.length > 0
+        ? `${formatKeyChord(chord.join("+"), layout)} …`
+        : "Tuşa bas…";
+  } else if (value) {
+    text = mode === "key" ? formatKeyChord(value, layout) : formatHotkey(value);
+  }
 
   return (
     <SettingsRow icon={icon} title={label} description={hint} detail={detail}>
@@ -251,7 +205,7 @@ export function HotkeyCaptureField({
         // it here or not at all.
         aria-live="polite"
       >
-        {capturing ? "Tuşa bas…" : value ? formatHotkey(value) : "Atanmadı"}
+        {text}
       </Button>
     </SettingsRow>
   );
