@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "antd";
 import type { DesktopAppPreferences } from "@shared/desktop-api-types";
 import { toast } from "@/services/toast";
+import { publishDesktopPreferences } from "@/store/desktop-preferences";
 import { setHotkeyCapturing } from "@/store/hotkey-capture";
 import { SettingsRow } from "./settings-layout";
 import {
@@ -101,6 +102,7 @@ export function useDesktopAppPreferences() {
       }
 
       setPreferences(result.data.preferences);
+      publishDesktopPreferences(result.data.preferences);
 
       // GPU/WebRTC switches are read once at process start, so this one needs a
       // restart before it does anything.

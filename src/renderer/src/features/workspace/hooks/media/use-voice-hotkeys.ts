@@ -131,13 +131,12 @@ export const useVoiceHotkeys = ({
     };
   }, [pushToTalk, pushToTalkKey]);
 
-  // Push-to-talk with a key closes the mic: the whole point is that it is shut
-  // until you hold the key. Without a key (the default) nothing could open it
-  // again, so it is left alone until one is set.
-  const hasBinding = pushToTalkCodes.length > 0;
+  // Turning push-to-talk on closes the mic: the whole point is that it is shut
+  // until you hold the key. With no key bound yet it stays shut too; leaving it
+  // open made the switch look broken ("my voice still goes out").
   useEffect(() => {
-    if (pushToTalk && hasBinding && micEnabledRef.current) {
+    if (pushToTalk && micEnabledRef.current) {
       handlersRef.current.onSetMic(false);
     }
-  }, [pushToTalk, hasBinding]);
+  }, [pushToTalk]);
 };
