@@ -36,6 +36,16 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.4",
+    date: "2026-11-03",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Bas-konuşu açınca mikrofon hemen kapanıyor; sesin yalnızca tuşu basılı tuttuğunda gidiyor.",
+      },
+    ],
+  },
+  {
     version: "0.3.3",
     date: "2026-11-03",
     highlights: [
