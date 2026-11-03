@@ -36,10 +36,10 @@ export interface OscillatorTone {
 
 /**
  * The families of room cues a person can switch off one by one: people coming
- * and going, shares and cameras, and the feedback on their own microphone and
- * headphone buttons.
+ * and going, shares and cameras, the feedback on their own microphone and
+ * headphone buttons, and their own voice connection dropping and coming back.
  */
-export type NotificationSoundGroup = "presence" | "streams" | "controls";
+export type NotificationSoundGroup = "presence" | "streams" | "controls" | "connection";
 
 export type NotificationSoundGroups = Record<NotificationSoundGroup, boolean>;
 
@@ -47,6 +47,7 @@ export const ALL_NOTIFICATION_SOUND_GROUPS: NotificationSoundGroups = {
   presence: true,
   streams: true,
   controls: true,
+  connection: true,
 };
 
 export interface SoundEffectOptions {
