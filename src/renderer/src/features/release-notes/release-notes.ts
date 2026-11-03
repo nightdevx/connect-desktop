@@ -40,6 +40,24 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.5",
+    date: "2026-11-03",
+    highlights: [
+      {
+        kind: "new",
+        text: "Yayın bittiğinde, biri yayınını izlemeyi bıraktığında, başka bir odaya taşındığında ve bağlantın kopup geri geldiğinde de kısa bir ses çalıyor. Bağlantı seslerini Ayarlar › Ses › Bildirim sesleri'nden kapatabilirsin.",
+      },
+      {
+        kind: "new",
+        text: "Odanın sahibiysen, kendi odanda bir üyeyi susturabilirsin. Susturma yalnızca o odada geçerli.",
+      },
+      {
+        kind: "improved",
+        text: "Yenilikler penceresi daha geniş ve okunaklı: değişiklikler türüne göre gruplu, eski sürümlere soldaki listeden bakabilirsin.",
+      },
+    ],
+  },
+  {
     version: "0.3.4",
     date: "2026-11-03",
     highlights: [
