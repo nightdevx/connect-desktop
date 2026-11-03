@@ -318,7 +318,7 @@ function App() {
               className="ct-titlebar-notes"
               onClick={() => setIsReleaseNotesOpen(true)}
               title="Yenilikler"
-              aria-label="Yama notlarını aç"
+              aria-label="Yenilikler"
             >
               <QuestionCircleOutlined />
             </button>

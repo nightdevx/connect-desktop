@@ -12,85 +12,201 @@
    ========================================================================== */
 
 .ct-whats-new-body {
-  @apply flex flex-col gap-5 overflow-y-auto pr-1;
+  @apply flex flex-col overflow-y-auto pr-1;
+  gap: 22px;
   max-height: 60vh;
   --ct-scrollbar-size: 8px;
 }
 
-.ct-whats-new-release {
-  @apply flex flex-col gap-2;
-}
-
-.ct-whats-new-release-head {
-  @apply flex items-baseline gap-2;
-}
-
-.ct-whats-new-version {
-  @apply rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums;
-  color: var(--ct-text-inverse);
-  background: var(--ct-accent);
-}
-
-.ct-whats-new-date {
-  @apply text-2xs;
-  color: var(--ct-text-muted);
-}
-
-.ct-whats-new-summary {
-  @apply m-0 text-xs;
-  color: var(--ct-text-secondary);
-}
-
-.ct-whats-new-list {
-  @apply m-0 flex list-none flex-col gap-2 p-0;
-}
-
-/* The tag sits in the first column at a fixed width, so the sentences beside it
-   all start on the same vertical however long their labels are — three ragged
-   left edges is what a plain inline badge gives you. */
-.ct-whats-new-item {
-  @apply grid items-start gap-2.5;
-  grid-template-columns: 76px minmax(0, 1fr);
-}
-
-.ct-whats-new-tag {
-  @apply inline-flex items-center justify-center rounded-md border px-1.5 py-0.5 text-micro font-bold uppercase tracking-[0.06em];
+/* Stacked releases (after an update that skipped some): a hairline between
+   them, on the sections that have one above. */
+.ct-whats-new-release + .ct-whats-new-release {
+  @apply border-t;
+  padding-top: 22px;
   border-color: var(--ct-border);
-  color: var(--ct-text-muted);
+}
+
+/* The whole changelog, opened by hand: the versions down the left, one release
+   beside them. A fixed height, so picking a short release after a long one
+   does not make the whole dialog jump; the two columns scroll on their own. */
+.ct-whats-new-body.browse {
+  @apply grid overflow-hidden pr-0;
+  grid-template-columns: 188px minmax(0, 1fr);
+  height: min(520px, calc(100vh - 300px));
+  min-height: 180px;
+  max-height: none;
+}
+
+/* The app's strip in miniature: a recessed panel holding the list, its rows
+   raised when picked — the same two steps of surface as the Ayarlar page list
+   beside the page it opens. */
+.ct-whats-new-versions {
+  @apply flex flex-col overflow-y-auto;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--ct-panel-solid);
+  --ct-scrollbar-size: 6px;
+}
+
+.ct-whats-new-version-tab {
+  @apply flex w-full shrink-0 cursor-pointer items-baseline justify-between border-0 text-left;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font: inherit;
+  color: var(--ct-text-secondary);
+  background: transparent;
+  transition:
+    background-color var(--odak-dur-1) var(--odak-ease-out),
+    color var(--odak-dur-1) var(--odak-ease-out);
+}
+
+/* Under the pointer a step lighter than the panel, never as light as the
+   picked row: two rows that look picked at once was the old hover. */
+.ct-whats-new-version-tab:hover {
+  color: var(--ct-text-primary);
   background: var(--ct-alpha-04);
 }
 
-/* Three tones, because the three kinds are read differently: a new feature is
-   worth looking for, a fix is worth knowing about, an improvement is neither.
+.ct-whats-new-version-tab[aria-selected="true"] {
+  color: var(--ct-text-primary);
+  background: var(--ct-panel-raised);
+}
+
+/* Full lime, inset so the panel's edge cannot clip it. */
+.ct-whats-new-version-tab:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px var(--ct-accent);
+}
+
+.ct-whats-new-version-tab-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-whats-new-version-tab[aria-selected="true"] .ct-whats-new-version-tab-name {
+  color: var(--ct-accent);
+}
+
+.ct-whats-new-version-tab-date {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ct-text-muted);
+  white-space: nowrap;
+}
+
+/* The picked release. Each pick is a new element (keyed on the version), so it
+   comes in with the shell's own small rise rather than swapping in place. It is
+   a tab stop of its own, so a long release scrolls from the keyboard too. */
+.ct-whats-new-detail {
+  @apply min-h-0 overflow-y-auto;
+  padding: 2px 8px 2px 22px;
+  border-radius: 12px;
+  --odak-rise: 4px;
+  animation: odak-enter var(--odak-dur-3) var(--odak-ease-out) backwards;
+}
+
+.ct-whats-new-detail:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: -2px;
+}
+
+.ct-whats-new-release {
+  @apply flex flex-col;
+  gap: 18px;
+}
+
+.ct-whats-new-release-head {
+  @apply flex items-baseline;
+  gap: 10px;
+}
+
+/* Under the dialog's own 17px title, never over it. */
+.ct-whats-new-version {
+  @apply m-0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--ct-text-primary);
+}
+
+.ct-whats-new-date {
+  font-size: 12.5px;
+  color: var(--ct-text-muted);
+}
+
+/* One line under the version, so it sits closer to it than the groups do. */
+.ct-whats-new-summary {
+  @apply m-0;
+  max-width: 68ch;
+  margin-top: -8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ct-text-primary);
+  text-wrap: pretty;
+}
+
+/* What is new is the one thing worth finding at a glance, so it is the one
+   kind marked in the app's lime. Improvements and fixes are told apart by their
+   headings alone: a stock green, blue and amber on top of the lime were three
+   colours the rest of the app does not use, and a green beside the lime read
+   as two accents.
 
    Keyed on data-kind rather than on a second class, because one of the kinds is
    literally `fixed` and Tailwind owns `.fixed`. See whats-new-modal.tsx. */
-.ct-whats-new-tag[data-kind="new"] {
-  border-color: color-mix(in srgb, var(--ct-success) 32%, transparent);
-  color: var(--ct-success);
-  background: color-mix(in srgb, var(--ct-success) 10%, transparent);
+.ct-whats-new-group {
+  @apply flex flex-col;
+  gap: 8px;
+  --whats-new-kind: var(--ct-text-muted);
 }
 
-.ct-whats-new-tag[data-kind="improved"] {
-  border-color: color-mix(in srgb, var(--ct-info) 32%, transparent);
-  color: var(--ct-info);
-  background: color-mix(in srgb, var(--ct-info) 10%, transparent);
+.ct-whats-new-group[data-kind="new"] {
+  --whats-new-kind: var(--ct-accent);
 }
 
-.ct-whats-new-tag[data-kind="fixed"] {
-  border-color: color-mix(in srgb, var(--ct-warning) 32%, transparent);
-  color: var(--ct-warning);
-  background: color-mix(in srgb, var(--ct-warning) 10%, transparent);
+.ct-whats-new-group-title {
+  @apply m-0 flex items-center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ct-text-primary);
 }
 
-.ct-whats-new-text {
-  @apply min-w-0 text-xs;
+.ct-whats-new-group-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--whats-new-kind);
+}
+
+.ct-whats-new-list {
+  @apply m-0 flex list-none flex-col p-0;
+  gap: 7px;
+}
+
+.ct-whats-new-item {
+  @apply relative;
+  max-width: 72ch;
+  padding-left: 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
   color: var(--ct-text-secondary);
-  line-height: 1.5;
+  text-wrap: pretty;
 }
 
-/* A hairline between releases, on the sections that have one above them. */
-.ct-whats-new-release + .ct-whats-new-release {
-  @apply border-t pt-5;
-  border-color: var(--ct-border);
+/* Centred on the first line: half its 1.55 line box, less half the dot. */
+.ct-whats-new-item::before {
+  content: "";
+  position: absolute;
+  top: calc(0.775em - 2px);
+  left: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--whats-new-kind);
+  opacity: 0.7;
 }
