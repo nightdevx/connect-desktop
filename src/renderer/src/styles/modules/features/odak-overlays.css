@@ -176,8 +176,10 @@
   background: #ff7373;
 }
 
-/* Keyboard focus on a footer button: a lime ring off the card's edge. */
-:root[data-odak] .ct-modal .ant-btn:focus-visible {
+/* Keyboard focus on a footer button or the close X: a lime ring off the
+   card's edge. The X had antd's own olive outline, a third ring style in the
+   same dialog and too faint to find. */
+:root[data-odak] .ct-modal :is(.ant-btn, .ant-modal-close):focus-visible {
   outline: 0;
   box-shadow:
     0 0 0 2px var(--odak-surface),

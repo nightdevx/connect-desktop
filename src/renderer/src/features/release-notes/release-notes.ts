@@ -28,10 +28,14 @@ export interface ReleaseNote {
   highlights: ReleaseHighlight[];
 }
 
+/**
+ * The heading each kind is grouped under in the dialog, in the order the groups
+ * appear: what is new first, then what got better, then what was broken.
+ */
 export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
   new: "Yeni",
-  improved: "İyileştirme",
-  fixed: "Düzeltme",
+  improved: "İyileştirmeler",
+  fixed: "Düzeltmeler",
 };
 
 export const RELEASE_NOTES: ReleaseNote[] = [
