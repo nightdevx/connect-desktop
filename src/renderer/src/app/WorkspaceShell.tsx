@@ -1025,6 +1025,7 @@ function WorkspaceShell({
     activeLobbyId,
     currentUserId,
     lobbyMembers: activeLobbyId?.startsWith("call_") ? callMembers : activeLobbyRosterMembers,
+    liveKitConnectionState,
     remoteParticipantStreams,
   });
 
@@ -1159,11 +1160,12 @@ function WorkspaceShell({
       }
       moderatorMoveTimerRef.current = window.setTimeout(() => {
         moderatorMoveTimerRef.current = null;
-        if (activeLobbyRef.current !== lobbyId) {
+        const moved = activeLobbyRef.current !== lobbyId;
+        if (moved) {
           toast.info(`${movedBy ?? "Bir yetkili"} sizi başka bir odaya taşıdı.`);
         }
         setOpenTextRoomId(null);
-        followModeratorMove(lobbyId);
+        followModeratorMove(lobbyId, moved);
       }, MODERATOR_MOVE_SETTLE_MS);
     };
   });

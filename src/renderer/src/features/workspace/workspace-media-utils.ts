@@ -143,6 +143,7 @@ export const readAudioPreferences = (): AudioPreferences => {
         presence: parsed.notificationSoundGroups?.presence !== false,
         streams: parsed.notificationSoundGroups?.streams !== false,
         controls: parsed.notificationSoundGroups?.controls !== false,
+        connection: parsed.notificationSoundGroups?.connection !== false,
       },
     };
   } catch {

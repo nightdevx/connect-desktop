@@ -773,7 +773,7 @@ export function SettingsAudio({
   );
 }
 
-// The three families of room cues, in the order people meet them in a room.
+// The families of room cues, in the order people meet them in a room.
 const NOTIFICATION_SOUND_GROUP_OPTIONS: Array<{
   id: NotificationSoundGroup;
   title: string;
@@ -793,6 +793,11 @@ const NOTIFICATION_SOUND_GROUP_OPTIONS: Array<{
     id: "controls",
     title: "Mikrofon ve kulaklık",
     description: "Kendi mikrofonunu ya da kulaklığını açıp kapattığında.",
+  },
+  {
+    id: "connection",
+    title: "Bağlantı",
+    description: "Ses bağlantın koptuğunda ve geri geldiğinde.",
   },
 ];
 
