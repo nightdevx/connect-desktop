@@ -92,7 +92,8 @@ export interface WorkspaceLobbyActionsState {
   ) => Promise<boolean>;
   deleteLobby: (lobbyId: string) => Promise<boolean>;
   joinLobby: (lobbyId: string, password?: string) => Promise<void>;
-  followModeratorMove: (lobbyId: string) => void;
+  /** moved: false when the moves ended in the room they started from. */
+  followModeratorMove: (lobbyId: string, moved: boolean) => void;
   leaveActiveLobby: (reason?: LobbyLeaveIntent) => Promise<void>;
   pendingPasswordLobby: { lobbyId: string; wrong: boolean } | null;
   cancelPasswordPrompt: () => void;
@@ -376,7 +377,7 @@ export const useWorkspaceLobbyActions = ({
    * and put the person back where they had just been taken from. Everyone else
    * heard the roster flap, or, inside the member-left hold, nothing at all.
    */
-  const followModeratorMove = (lobbyId: string): void => {
+  const followModeratorMove = (lobbyId: string, moved: boolean): void => {
     const connectRequest = liveKitConnectRequest("moderator-move");
     activeLobbyPasswordRef.current = null;
     kickedLobbyIdRef.current = null;
@@ -387,7 +388,11 @@ export const useWorkspaceLobbyActions = ({
     void performPostJoinSynchronization(lobbyId, connectRequest).catch(() => {
       scheduleActiveLobbyReconnect("livekit-disconnected", true);
     });
-    soundEffectManager.playSelfJoinedLobby();
+    // Its own cue, not the join chime: walking in and being put somewhere are
+    // different news. Nothing when the moves ended where they began.
+    if (moved) {
+      soundEffectManager.playSelfMoved();
+    }
     refreshLobbiesIfUnstreamed();
   };
 

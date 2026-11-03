@@ -615,6 +615,31 @@ class SoundEffectManager {
     this.playCue("streamWatchStarted");
   }
 
+  /** Somebody in the room stopped sharing their screen. */
+  public playScreenDisabled(): void {
+    this.playCue("screenDisabled");
+  }
+
+  /** Somebody stopped watching a share you are broadcasting or watching. */
+  public playStreamViewerLeft(): void {
+    this.playCue("streamViewerLeft");
+  }
+
+  /** A moderator put you in another room. */
+  public playSelfMoved(): void {
+    this.playCue("selfMoved");
+  }
+
+  /** Your voice connection dropped and stayed down. */
+  public playConnectionLost(): void {
+    this.playCue("connectionLost");
+  }
+
+  /** It came back after playConnectionLost. */
+  public playConnectionRestored(): void {
+    this.playCue("connectionRestored");
+  }
+
   public playMicToggle(enabled: boolean): void {
     this.playCue(enabled ? "micOn" : "micOff", false);
   }

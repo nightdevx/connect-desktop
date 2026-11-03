@@ -32,18 +32,27 @@ import type { NotificationSoundGroup, OscillatorTone } from "./types";
 //   headphone off   2    falling   low      sharp   short   triangle
 //   viewer joined   3    rising    high     sharp   short   sine
 //   watch started   3    falling   high     sharp   short   triangle
+//   stream off      2    falling   low      SWELL   long    triangle
+//   viewer left     3    falling   mid      sharp   short   sine
+//   moved           3    flat      high     sharp   long    sine
+//   connection lost 1    falling   low      sharp   long    sine
+//   connection back 1    rising    low      sharp   long    sine
 //
 // The note COUNT alone separates the microphone (one) from the toggles and
 // person-cues (two) from arriving and leaving yourself (three); direction,
-// register and length finish the job. The stream cue is the one that has to cut
-// through a room that is already talking, so it is the only one that fades in —
-// nothing else in the app has a slow attack, which makes it recognisable before
-// the pitch even registers.
+// register and length finish the job. The stream cues are the ones that have to
+// cut through a room that is already talking, so they are the only ones that
+// fade in — nothing else in the app has a slow attack, which makes them
+// recognisable before the pitch even registers.
 //
-// The two toggle pairs are deliberately siblings rather than strangers: mic
-// on/off and headphone on/off are one control in two states, so they share a
-// shape and differ in direction. Every other pair of cues is two different
-// events and has to be told apart on its own.
+// The connection pair are the only long single notes: one slow bend, down when
+// the room is lost and up when it comes back, low enough that a dropped call is
+// never mistaken for a microphone toggle.
+//
+// Four pairs are deliberately siblings rather than strangers: mic on/off,
+// headphone on/off, stream on/off and the connection pair are one thing in two
+// states, so they share a shape and differ in direction. Every other pair of cues is two
+// different events and has to be told apart on its own.
 //
 // Frequencies come from a C-major pentatonic (C, D, E, G, A). Cues overlap all
 // the time — somebody joins while your microphone opens — so this is what makes
@@ -129,6 +138,36 @@ export const CUE_PATTERNS = {
     { frequency: 1046.5, durationMs: 34, gain: 0.048, type: "triangle", filterFrequency: 3000, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 190, pauseAfterMs: 18 },
     { frequency: 880, durationMs: 52, gain: 0.05, type: "triangle", filterFrequency: 2600, overtoneGainRatio: 0.12, attackMs: 5, releaseMs: 420, pauseAfterMs: 0 },
   ],
+  // Going off the air: the stream cue's swell, bending down instead of up, and
+  // landing on a low bell rather than a bright one.
+  screenDisabled: [
+    { frequency: 392, glideToFrequency: 261.63, glideMs: 220, durationMs: 240, gain: 0.058, type: "triangle", filterFrequency: 1400, overtoneGainRatio: 0.2, attackMs: 80, releaseMs: 380, pauseAfterMs: 30 },
+    { frequency: 329.63, durationMs: 90, gain: 0.052, type: "sine", filterFrequency: 2400, overtoneGainRatio: 0.24, attackMs: 6, releaseMs: 480, pauseAfterMs: 0 },
+  ],
+  // Somebody stopped watching a share you are broadcasting or watching. The
+  // viewer-joined ticks turned round and an octave down: news, but smaller news
+  // than an arrival.
+  streamViewerLeft: [
+    { frequency: 783.99, durationMs: 34, gain: 0.05, type: "sine", filterFrequency: 4200, overtoneGainRatio: 0.2, attackMs: 4, releaseMs: 170, pauseAfterMs: 18 },
+    { frequency: 659.25, durationMs: 34, gain: 0.05, type: "sine", filterFrequency: 4000, overtoneGainRatio: 0.2, attackMs: 4, releaseMs: 190, pauseAfterMs: 18 },
+    { frequency: 523.25, durationMs: 52, gain: 0.054, type: "sine", filterFrequency: 3800, overtoneGainRatio: 0.22, attackMs: 4, releaseMs: 380, pauseAfterMs: 0 },
+  ],
+  // A moderator put you in another room. C6 - E6 - C6: a hop that lands where
+  // it started, the only three-note cue that neither rises nor falls, so it is
+  // never heard as walking in or out on your own.
+  selfMoved: [
+    { frequency: 1046.5, durationMs: 70, gain: 0.05, type: "sine", filterFrequency: 5200, overtoneGainRatio: 0.2, attackMs: 6, releaseMs: 240, pauseAfterMs: 10 },
+    { frequency: 1318.5, durationMs: 80, gain: 0.052, type: "sine", filterFrequency: 5400, overtoneGainRatio: 0.22, attackMs: 6, releaseMs: 280, pauseAfterMs: 10 },
+    { frequency: 1046.5, durationMs: 120, gain: 0.054, type: "sine", filterFrequency: 5200, overtoneGainRatio: 0.22, attackMs: 6, releaseMs: 520, pauseAfterMs: 0 },
+  ],
+  // Your voice connection dropped and has stayed down: G4 bending to C4.
+  connectionLost: [
+    { frequency: 392, glideToFrequency: 261.63, glideMs: 280, durationMs: 300, gain: 0.06, type: "sine", filterFrequency: 1800, overtoneGainRatio: 0.18, attackMs: 10, releaseMs: 520 },
+  ],
+  // And it is back: the same bend the other way, C4 up to G4.
+  connectionRestored: [
+    { frequency: 261.63, glideToFrequency: 392, glideMs: 240, durationMs: 270, gain: 0.06, type: "sine", filterFrequency: 2200, overtoneGainRatio: 0.2, attackMs: 10, releaseMs: 520 },
+  ],
 } satisfies Record<string, OscillatorTone[]>;
 
 export type CueName = keyof typeof CUE_PATTERNS;
@@ -139,18 +178,25 @@ export const CUE_GROUPS: Record<CueName, NotificationSoundGroup> = {
   selfLeftLobby: "presence",
   memberJoined: "presence",
   memberLeft: "presence",
+  selfMoved: "presence",
   screenEnabled: "streams",
+  screenDisabled: "streams",
   cameraEnabled: "streams",
   streamViewerJoined: "streams",
+  streamViewerLeft: "streams",
   streamWatchStarted: "streams",
   micOn: "controls",
   micOff: "controls",
   headphoneOn: "controls",
   headphoneOff: "controls",
+  connectionLost: "connection",
+  connectionRestored: "connection",
 };
 
-/** The two controls whose on/off states are meant to sound like each other. */
+/** The controls whose on/off states are meant to sound like each other. */
 export const CUE_SIBLING_PAIRS: Array<[keyof typeof CUE_PATTERNS, keyof typeof CUE_PATTERNS]> = [
   ["micOn", "micOff"],
   ["headphoneOn", "headphoneOff"],
+  ["screenEnabled", "screenDisabled"],
+  ["connectionLost", "connectionRestored"],
 ];

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { LobbyStateMember } from "@shared/desktop-api-types";
 import {
   useScreenWatchersStore,
+  type LiveKitConnectionStatus,
   type ParticipantMediaMap,
 } from "@/features/livekit";
 import { soundEffectManager } from "@/features/sound-effects";
@@ -10,6 +11,8 @@ interface UseWorkspaceAudioCuesProps {
   activeLobbyId: string | null;
   currentUserId: string;
   lobbyMembers: LobbyStateMember[];
+  /** This client's own voice connection, for the lost / back cues. */
+  liveKitConnectionState: LiveKitConnectionStatus;
   /**
    * LiveKit's own view of the room, which is where the camera and screen cues
    * come from now.
@@ -40,10 +43,16 @@ interface UseWorkspaceAudioCuesProps {
 // are snapshot races, which are over in a few hundred milliseconds.
 const MEMBER_LEFT_HOLD_MS = 300;
 
+// How long the voice connection has to stay down before "connection lost"
+// plays. LiveKit resumes most drops by itself within a second or two, and a
+// cue for each of those would be noise about something that fixed itself.
+const CONNECTION_LOST_HOLD_MS = 2_000;
+
 export function useWorkspaceAudioCues({
   activeLobbyId,
   currentUserId,
   lobbyMembers,
+  liveKitConnectionState,
   remoteParticipantStreams,
 }: UseWorkspaceAudioCuesProps) {
   const observedLobbyIdRef = useRef<string | null>(null);
@@ -169,10 +178,24 @@ export function useWorkspaceAudioCues({
       if (!before.screen && state.screen) {
         soundEffectManager.playScreenEnabled();
       }
+      // Only while they are still here: somebody who leaves mid-share drops out
+      // of this map altogether, and their leave cue is the news.
+      if (before.screen && !state.screen) {
+        soundEffectManager.playScreenDisabled();
+      }
     }
 
     previousMediaRef.current = next;
   }, [activeLobbyId, currentUserId, remoteParticipantStreams]);
+
+  // What the watcher diff below needs to know without re-running on every
+  // media or roster push.
+  const streamsRef = useRef(remoteParticipantStreams);
+  const membersRef = useRef(lobbyMembers);
+  useEffect(() => {
+    streamsRef.current = remoteParticipantStreams;
+    membersRef.current = lobbyMembers;
+  });
 
   // Who is watching whose share.
   //
@@ -231,13 +254,105 @@ export function useWorkspaceAudioCues({
       }
     }
 
+    // And the other way: somebody stopped watching. Heard by the same two
+    // parties, and only for a viewer who stopped while the share is still on
+    // and they are still in the room. A share ending drops its whole audience,
+    // and a viewer leaving the room drops out of it too; both already have a
+    // cue of their own, and your own click on "stop watching" needs none.
+    let someoneElseStoppedWatching = false;
+    const owners = new Set([...Object.keys(previous), ...Object.keys(watchersByUserId)]);
+    for (const ownerUserId of owners) {
+      const viewers = watchersByUserId[ownerUserId] ?? [];
+      const isOwnShare = ownerUserId === currentUserId;
+      if (!isOwnShare && !viewers.includes(currentUserId)) {
+        continue;
+      }
+      if (!streamsRef.current[ownerUserId]?.screenAvailable) {
+        continue;
+      }
+      const stillHere = (userId: string): boolean =>
+        membersRef.current.some((member) => member.userId === userId);
+      if (
+        (previous[ownerUserId] ?? []).some(
+          (viewer) =>
+            viewer !== currentUserId && !viewers.includes(viewer) && stillHere(viewer),
+        )
+      ) {
+        someoneElseStoppedWatching = true;
+      }
+    }
+
     if (selfStartedWatching) {
       soundEffectManager.playStreamWatchStarted();
     }
     if (someoneElseStartedWatching) {
       soundEffectManager.playStreamViewerJoined();
     }
+    if (someoneElseStoppedWatching) {
+      soundEffectManager.playStreamViewerLeft();
+    }
   }, [activeLobbyId, currentUserId, watchersByUserId]);
+
+  // Your own voice connection: lost, and back.
+  //
+  // Only after this room has been connected once, so joining (which starts
+  // "disconnected") is not a loss, and only once the drop has lasted
+  // CONNECTION_LOST_HOLD_MS. "Back" plays only after "lost" did. A room change
+  // goes through "connecting", never through a drop, and leaving clears it all.
+  const connectedOnceRef = useRef(false);
+  const lostCuePlayedRef = useRef(false);
+  const lostTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const clearLostTimer = (): void => {
+      if (lostTimerRef.current !== null) {
+        window.clearTimeout(lostTimerRef.current);
+        lostTimerRef.current = null;
+      }
+    };
+
+    if (!activeLobbyId) {
+      clearLostTimer();
+      connectedOnceRef.current = false;
+      lostCuePlayedRef.current = false;
+      return;
+    }
+
+    if (liveKitConnectionState === "connected") {
+      clearLostTimer();
+      connectedOnceRef.current = true;
+      if (lostCuePlayedRef.current) {
+        lostCuePlayedRef.current = false;
+        soundEffectManager.playConnectionRestored();
+      }
+      return;
+    }
+
+    const dropped =
+      liveKitConnectionState === "reconnecting" ||
+      liveKitConnectionState === "disconnected";
+    if (
+      !dropped ||
+      !connectedOnceRef.current ||
+      lostCuePlayedRef.current ||
+      lostTimerRef.current !== null
+    ) {
+      return;
+    }
+    lostTimerRef.current = window.setTimeout(() => {
+      lostTimerRef.current = null;
+      lostCuePlayedRef.current = true;
+      soundEffectManager.playConnectionLost();
+    }, CONNECTION_LOST_HOLD_MS);
+  }, [activeLobbyId, liveKitConnectionState]);
+
+  useEffect(
+    () => () => {
+      if (lostTimerRef.current !== null) {
+        window.clearTimeout(lostTimerRef.current);
+      }
+    },
+    [],
+  );
 
   // Unmounting mid-hold must not fire a chime into a workspace that is gone.
   useEffect(() => {
