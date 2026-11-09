@@ -159,7 +159,7 @@ export const useScreenShareControls = ({
         });
         if (!result.ok) {
           setStatus(
-            `Yayin durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            "Yayın durumun diğer kişilere iletilemedi.",
             "warn"
           );
         }
@@ -180,7 +180,7 @@ export const useScreenShareControls = ({
     if (!result.ok || !result.data) {
       return {
         sources: [],
-        error: result.error?.message ?? "Yayin kaynaklari alinamadi",
+        error: result.error?.message ?? "Yayın kaynaklari alinamadi",
       };
     }
 
@@ -343,7 +343,7 @@ export const useScreenShareControls = ({
     setScreenShareModalError(null);
 
     try {
-      const { stream, warning, sourceName } = await startScreenCapture({
+      const { stream, warning } = await startScreenCapture({
         frameRate: qualityOption.frameRate,
         resolution: qualityOption.resolution,
         captureSystemAudio,
@@ -391,7 +391,6 @@ export const useScreenShareControls = ({
       }
 
       if (warning) setStatus(warning, "warn");
-      else if (sourceName) setStatus(`Yayın başlatıldı: ${sourceName}`, "ok");
 
       liveShareRef.current = {
         sourceId: selectedSourceId,
@@ -426,16 +425,13 @@ export const useScreenShareControls = ({
 
         if (!result.ok) {
           setStatus(
-            `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            "Yayın durumun diğer kişilere iletilemedi.",
             "warn"
           );
         }
       }
-    } catch (error) {
-      setStatus(
-        `Ekran paylasimi baslatilamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-        "error"
-      );
+    } catch {
+      setStatus("Ekran paylaşımı başlatılamadı. Tekrar dene.", "error");
     } finally {
       setIsStartingScreenShare(false);
     }
@@ -514,7 +510,7 @@ export const useScreenShareControls = ({
 
       let nextVideoTrack: MediaStreamTrack | undefined;
       try {
-        const { stream, sourceName } = await startScreenCapture({
+        const { stream } = await startScreenCapture({
           frameRate,
           resolution: qualityOption.resolution,
           captureSystemAudio: false,
@@ -605,19 +601,14 @@ export const useScreenShareControls = ({
         // this a success would leave viewers frozen on the last frame with the
         // toolbar still lit.
         const sourceEnded = isTrackEnded(nextVideoTrack);
-        setStatus(
-          sourceEnded
-            ? "Seçilen kaynak kapandı, yayın durduruldu"
-            : sourceName
-              ? `Yayin guncellendi: ${sourceName}`
-              : "Yayin guncellendi",
-          sourceEnded ? "warn" : "ok",
-        );
+        if (sourceEnded) {
+          setStatus("Seçilen kaynak kapandı, yayın durduruldu", "warn");
+        }
 
         // Attached last: for an ended track the handler fires synchronously and
         // has to unwind the state written just above, not race it.
         attachScreenShareEndHandler(nextVideoTrack);
-      } catch (error) {
+      } catch {
         // Only the new video track, never the whole stream: the still-published
         // system audio tracks were moved into it above, so stopping the stream
         // would cut the audio of a share that is still running. Without this the
@@ -625,10 +616,7 @@ export const useScreenShareControls = ({
         // lit OS screen-capture indicator — and nothing in the UI could reach
         // it, because localScreenStream still pointed at the old stream.
         nextVideoTrack?.stop();
-        setStatus(
-          `Yayin ayari uygulanamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-          "error",
-        );
+        setStatus("Yayın ayarı uygulanamadı. Mevcut yayın sürüyor.", "error");
       } finally {
         isSwappingLiveShareRef.current = false;
       }
@@ -673,7 +661,6 @@ export const useScreenShareControls = ({
         await stopActiveSystemLoopback();
         if (applied) {
           persist(false);
-          setStatus("Yayın sesi kapatıldı", "ok");
         }
         return;
       }
@@ -684,10 +671,7 @@ export const useScreenShareControls = ({
 
       const track = await startSystemLoopbackAudioTrack();
       if (!track) {
-        setStatus(
-          "Sistem sesi bu cihazda yakalanamadı (yankısız ses modülü yüklenemedi)",
-          "warn",
-        );
+        setStatus("Bilgisayar sesi alınamadı. Yayın sessiz devam ediyor.", "warn");
         return;
       }
 
@@ -705,7 +689,6 @@ export const useScreenShareControls = ({
       }
 
       persist(true);
-      setStatus("Yayın sesi açıldı", "ok");
     },
     [liveKitSessionRef, onSaveStreamPreferences, setStatus],
   );
@@ -781,10 +764,6 @@ export const useScreenShareControls = ({
         to: higher,
         ceiling,
       });
-      setStatus(
-        `Yayın kalitesi "${getScreenShareQualityOption(higher).label}" seviyesine yükseltildi.`,
-        "ok",
-      );
 
       void applyLiveScreenShareChange({ quality: higher }).finally(() => {
         liveKitSessionRef.current?.resetEncoderOverloadNotice();
@@ -852,7 +831,7 @@ export const useScreenShareControls = ({
         }).then((result) => {
           if (!result.ok) {
             setStatus(
-              `Yayin durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              "Yayın durumun diğer kişilere iletilemedi.",
               "warn"
             );
           }

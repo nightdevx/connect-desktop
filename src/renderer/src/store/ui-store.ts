@@ -49,16 +49,12 @@ export type AdminSection =
   | "dashboard"
   | "users"
   | "lobbies"
-  | "activity"
   | "sounds"
   | "moderation"
   | "minigames"
   | "music"
   | "chat"
-  | "audit"
-  | "media"
-  | "diagnostics"
-  | "media-health"
+  | "records"
   | "access"
   | "settings";
 export type SettingsSection =

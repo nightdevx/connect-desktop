@@ -155,6 +155,8 @@ export interface AdminUserDetail {
   allowCallsFrom: PrivacyAudience;
   allowFriendRequests: boolean;
   deletionScheduledAt?: string;
+  appOnline: boolean;
+  presence: PresenceStatus;
   createdAt: string;
   updatedAt: string;
   lastIp: string;

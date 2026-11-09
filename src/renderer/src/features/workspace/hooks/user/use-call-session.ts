@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import workspaceService from "../../services";
 import type { UserDirectoryEntry } from "@shared/auth-contracts";
 import { CALL_LOG_BODIES, readMutedCallers, setCallerMuted } from "./call-log";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
 
 export type CallStatus = "idle" | "incoming" | "outgoing" | "active";
 
@@ -293,14 +294,14 @@ export const useCallSession = ({
 
   const initiateCall = useCallback(async (targetUser: UserDirectoryEntry) => {
     if (callStateRef.current.status !== "idle") {
-      setStatus("Zaten aktif bir arama veya oda bağlantınız mevcut.", "warn");
+      setStatus("Zaten bir aramadasın ya da bir odaya bağlısın.", "warn");
       return;
     }
 
     try {
       const result = await workspaceService.initiateCall({ targetUserId: targetUser.userId });
       if (!result.ok || !result.data) {
-        setStatus(`Arama başlatılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`, "error");
+        setStatus(`Arama başlatılamadı: ${getApiErrorMessage(result.error)}`, "error");
         return;
       }
 
@@ -316,7 +317,6 @@ export const useCallSession = ({
 
       setActiveLobbyId(`call_${callId}`);
       getSynth().startDialTone();
-      setStatus(`${targetUser.displayName} aranıyor...`, "ok");
     } catch (error) {
       // Exception mesajları teknik ve çoğu zaman İngilizce; kullanıcıya sabit
       // bir açıklama, ayrıntı konsola.
@@ -333,7 +333,7 @@ export const useCallSession = ({
       getSynth().stop();
       const result = await workspaceService.acceptCall({ callId, callerId });
       if (!result.ok) {
-        setStatus(`Arama kabul edilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`, "error");
+        setStatus(`Arama kabul edilemedi: ${getApiErrorMessage(result.error)}`, "error");
         setCallState(initialCallState);
         return;
       }
@@ -344,7 +344,6 @@ export const useCallSession = ({
         connectedAt: new Date().toISOString(),
       }));
       setActiveLobbyId(`call_${callId}`);
-      setStatus("Arama başladı.", "ok");
     } catch (error) {
       console.error("[call-session] acceptCall failed:", error);
       setStatus("Arama kabul edilemedi. Lütfen tekrar dene.", "error");
@@ -371,7 +370,6 @@ export const useCallSession = ({
     } finally {
       setCallState(initialCallState);
       setOngoingCall(null);
-      setStatus("Arama reddedildi.", "warn");
     }
   }, [getSynth, setStatus]);
 
@@ -395,7 +393,6 @@ export const useCallSession = ({
     } finally {
       setCallState(initialCallState);
       setOngoingCall(null);
-      setStatus("Arama iptal edildi.", "warn");
     }
   }, [getSynth, setStatus]);
 
@@ -455,7 +452,6 @@ export const useCallSession = ({
     }
     // If soft leave (peerInRoom = true): ongoingCall is intentionally kept for rejoin
 
-    setStatus("Arama sonlandırıldı.", "ok");
   }, [currentUserId, getSynth, setActiveLobbyId, setStatus]);
 
   // Handle incoming real-time signaling signals
@@ -548,7 +544,6 @@ export const useCallSession = ({
               peerUserId: callerId,
             });
           }
-          setStatus(`${callerName} sizi arıyor...`, "ok");
         }
 
         // 2. CALL ACCEPTED
@@ -560,7 +555,6 @@ export const useCallSession = ({
             connectedAt: new Date().toISOString(),
           }));
           setActiveLobbyId(`call_${callId}`);
-          setStatus("Arama kabul edildi.", "ok");
           if (targetUserId) {
             void workspaceService.sendDirectMessage({ peerUserId: targetUserId, body: CALL_LOG_BODIES.started });
           }
@@ -584,7 +578,7 @@ export const useCallSession = ({
           setCallState(initialCallState);
           setActiveLobbyId(null);
           setOngoingCall(null);
-          setStatus("Arama sonlandırıldı.", "warn");
+          setStatus("Arama reddedildi.", "warn");
         }
 
         // 4. CALL CANCELLED
@@ -603,7 +597,7 @@ export const useCallSession = ({
           setCallState(initialCallState);
           setActiveLobbyId(null);
           setOngoingCall(null);
-          setStatus("Arama sonlandırıldı.", "warn");
+          setStatus("Arayan kişi aramayı iptal etti.", "warn");
         }
       }
     });
@@ -656,7 +650,6 @@ export const useCallSession = ({
         connectedAt: new Date().toISOString(),
       });
       setActiveLobbyId(`call_${active.callId}`);
-      setStatus("Aramaya tekrar katıldınız.", "ok");
     } catch (error) {
       console.error("[call-session] rejoinCall failed:", error);
       setStatus("Aramaya katılınamadı. Lütfen tekrar dene.", "error");

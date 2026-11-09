@@ -23,7 +23,8 @@ import { WatchModal, useWatchRoom } from "@/features/watch";
 import { watchStageIdentity, watchVideoRef } from "@shared/watch";
 import { MUSIC_BOT_NAME, musicBotIdentity } from "@shared/music";
 import { Track } from "livekit-client";
-import { MessageOutlined } from "@ant-design/icons";
+import { CloseOutlined, MessageOutlined } from "@ant-design/icons";
+import { Button, Tooltip } from "antd";
 import { useUiStore } from "@/store/ui-store";
 import workspaceService from "../../services";
 import { LobbyChatPanel } from "./lobby-chat-panel";
@@ -52,6 +53,10 @@ interface LobbiesMainPanelProps {
   lobbiesCount: number;
   lobbies: LobbyDescriptor[];
   activeLobbyId: string | null;
+  /** The room is a voice room opened for its chat only, without joining it. */
+  chatOnly?: boolean;
+  /** Set while a room is open only as a chat (voice or message room): the header's close. */
+  onCloseRoomChat?: () => void;
   /** Unread messages in the room on screen, so a collapsed chat still says so. */
   unreadLobbyMessages?: number;
   currentUserId: string;
@@ -139,6 +144,8 @@ export function LobbiesMainPanel({
   lobbiesCount,
   lobbies,
   activeLobbyId,
+  chatOnly = false,
+  onCloseRoomChat,
   unreadLobbyMessages = 0,
   currentUserId,
   currentUsername,
@@ -437,7 +444,7 @@ export function LobbiesMainPanel({
   // somewhere else. That is also why LobbyActionToolbar must stay inside this
   // branch: its leave button, and the sidebar's disconnect, belong to the voice
   // lobby that may well still be running underneath this chat.
-  const isTextOnly = activeLobby?.isTextOnly ?? false;
+  const isTextOnly = (activeLobby?.isTextOnly ?? false) || chatOnly;
 
   // The stage says exactly one thing at a time: what it is waiting for, why it
   // failed, that the room is empty, or the tiles. These used to be four
@@ -484,7 +491,7 @@ export function LobbiesMainPanel({
               : `${targetName} sesi açıldı`,
           );
         } else {
-          toast.error(getApiErrorMessage(result.error));
+          toast.error(`Susturma uygulanamadı: ${getApiErrorMessage(result.error)}`);
         }
       });
   };
@@ -499,7 +506,7 @@ export function LobbiesMainPanel({
         if (result.ok) {
           toast.success(`${targetName} odadan atıldı`);
         } else {
-          toast.error(getApiErrorMessage(result.error));
+          toast.error(`Odadan atılamadı: ${getApiErrorMessage(result.error)}`);
         }
       });
   };
@@ -513,9 +520,9 @@ export function LobbiesMainPanel({
       .moveLobbyMember({ lobbyId: activeLobbyId, userId: targetId, targetLobbyId })
       .then((result) => {
         if (result.ok) {
-          toast.success(`${targetName} → ${roomName}`);
+          toast.success(`${targetName}, "${roomName}" odasına taşındı.`);
         } else {
-          toast.error(getApiErrorMessage(result.error));
+          toast.error(`Taşınamadı: ${getApiErrorMessage(result.error)}`);
         }
       });
   };
@@ -529,10 +536,10 @@ export function LobbiesMainPanel({
       .then((result) => {
         if (result.ok) {
           toast.success(
-            `${targetName} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
+            `${targetName} ${describeDuration(durationSeconds)} boyunca odaya giremeyecek.`,
           );
         } else {
-          toast.error(getApiErrorMessage(result.error));
+          toast.error(`Zaman aşımı verilemedi: ${getApiErrorMessage(result.error)}`);
         }
       });
   };
@@ -757,6 +764,19 @@ export function LobbiesMainPanel({
       <article
         className={`ct-content-card ct-lobby-room-card connected ct-lobby-main-layer room ${activeLobbyId ? "" : "hidden-layer"}`}
       >
+        {/* A chat opened from the list is a view, not a connection: it needs its
+            own way out, top right where a window's close sits. */}
+        {onCloseRoomChat && activeLobbyId && (
+          <Tooltip title="Sohbeti kapat" placement="left">
+            <Button
+              type="text"
+              className="ct-lobby-chat-close"
+              icon={<CloseOutlined />}
+              aria-label="Sohbeti kapat"
+              onClick={onCloseRoomChat}
+            />
+          </Tooltip>
+        )}
         {(activeLobbyId || hiddenLayerReady) && (
         <div
           className={`ct-lobby-room-grid-v2 ${isTextOnly ? "stage-closed" : isLobbyChatOpen ? "chat-open" : "chat-closed"}`}
@@ -775,6 +795,8 @@ export function LobbiesMainPanel({
                 ?.joinedAt
             }
             liveShareCount={lobbyMembers.filter((member) => member.screenSharing).length}
+            chatOnly={chatOnly}
+            onJoin={activeLobby ? () => onJoinLobby(activeLobby.id) : undefined}
           />
 
           {!isTextOnly && (

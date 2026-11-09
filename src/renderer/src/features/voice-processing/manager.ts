@@ -94,9 +94,7 @@ export class ProcessorManager {
     });
 
     if (!processor) {
-      this.onWarning?.(
-        "AudioWorklet desteklenmediği için mikrofon işleme zinciri devreye alınamadı.",
-      );
+      console.warn("[voice-processing] AudioWorklet unsupported; the processing chain is off");
       logLiveKitDebug("mic-controller", "processor-unavailable", { preset });
       return null;
     }

@@ -125,7 +125,7 @@ export default function AdminDiagnostics() {
         "Tanılama kaydı indirilemedi",
       );
       if (data.saved) {
-        toast.success(`Kaydedildi: ${data.path}`);
+        toast.success("Tanılama kaydı kaydedildi.");
       }
     } catch (error) {
       toast.error(toErrorMessage(error, "Tanılama kaydı indirilemedi"));
@@ -145,7 +145,7 @@ export default function AdminDiagnostics() {
         "Tanılama kayıtları indirilemedi",
       );
       if (data.saved) {
-        toast.success(`Kaydedildi: ${data.path}`);
+        toast.success("Tanılama kayıtları kaydedildi.");
       }
     } catch (error) {
       toast.error(toErrorMessage(error, "Tanılama kayıtları indirilemedi"));

@@ -287,7 +287,7 @@ export function useLivekitSession(
 
           if (shouldEmitReconnectStatus("livekit", 7_000)) {
             setStatus(
-              "Canlı ses bağlantısı koptu, LiveKit yeniden bağlanmayı deniyor...",
+              "Ses bağlantısı koptu, yeniden bağlanılıyor…",
               "warn",
             );
           }

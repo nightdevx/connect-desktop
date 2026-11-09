@@ -1783,7 +1783,7 @@ export class LiveKitMediaSession {
       if (now - this.downlinkWarnedAt >= DOWNLINK_WARNING_INTERVAL_MS) {
         this.downlinkWarnedAt = now;
         this.callbacks.onWarning?.(
-          "Konuşan herkesin sesi aynı anda kayıplı geliyor: sorun bu bilgisayarın internet bağlantısında (indirme). Wi-Fi yerine kablo kullanmak çoğu zaman çözer.",
+          "Sesler kesik geliyor. İnternet bağlantını kontrol et; Wi-Fi yerine kablo çoğu zaman çözer.",
         );
       }
     }
@@ -1902,9 +1902,7 @@ export class LiveKitMediaSession {
       to: this.screenCodecFallback,
       implementation: screen.encoderImplementation,
     });
-    this.callbacks.onWarning?.(
-      "Donanım kodlayıcı bu video biçimini kullanamadı, yayın H.264'e geçiriliyor.",
-    );
+    console.warn("[stream-manager] hardware encoder refused the codec; falling back to H.264");
 
     void this.enqueueVideo(async () => {
       try {
@@ -2003,7 +2001,7 @@ export class LiveKitMediaSession {
       resolution: `${screen.frameWidth}x${screen.frameHeight}`,
     });
     this.callbacks.onWarning?.(
-      "Ekran kartının kodlayıcısı yayının ortasında devre dışı kaldı, yayın artık işlemciyle kodlanıyor. Ekran kartı sürücüsünü güncellemek ya da kodlayıcıyı kullanan başka bir programı (OBS gibi) kapatmak çoğu zaman düzeltir.",
+      "Yayın artık işlemciyle kodlanıyor. Ekran kartı sürücüsünü güncellemek ya da OBS gibi programları kapatmak yardımcı olabilir.",
     );
   }
 

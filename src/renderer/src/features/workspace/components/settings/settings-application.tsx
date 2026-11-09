@@ -28,6 +28,8 @@ import { useDesktopAppPreferences } from "./settings-app-preferences";
 import { AuthLogoMark } from "@/features/auth";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
+import { toErrorMessage } from "@shared/error-message";
 
 // macOS has a menu bar where Windows has a tray.
 const isMac = window.desktopApi.platform === "darwin";
@@ -146,7 +148,7 @@ export function SettingsApplication() {
 
         if (!result.ok) {
           toast.error(
-            `Güncelleme durumu alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            `Güncelleme durumu alınamadı: ${getApiErrorMessage(result.error)}`,
           );
         }
       })
@@ -156,7 +158,7 @@ export function SettingsApplication() {
         }
 
         toast.error(
-          `Güncelleme durumu alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+          `Güncelleme durumu alınamadı: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
         );
       });
 
@@ -169,7 +171,12 @@ export function SettingsApplication() {
         setUpdateState(event.state);
 
         if (event.type === "update-error") {
-          toast.error(`Güncelleme hatası: ${event.errorMessage}`);
+          // The updater's own text is English and often a URL: shown only
+          // behind "Ayrıntıyı kopyala".
+          toast.error({
+            title: "Güncelleme alınamadı. Biraz sonra tekrar dene.",
+            detail: event.errorMessage,
+          });
         }
       },
     );
@@ -187,7 +194,7 @@ export function SettingsApplication() {
       const result = await window.desktopApi.checkForAppUpdates();
       if (!result.ok) {
         toast.error(
-          `Güncelleme kontrolü başlatılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Güncelleme kontrolü başlatılamadı: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -200,7 +207,7 @@ export function SettingsApplication() {
       toast.success("Güncelleme kontrolü başlatıldı.");
     } catch (error) {
       toast.error(
-        `Güncelleme kontrolü başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Güncelleme kontrolü başlatılamadı: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsCheckingForUpdates(false);
@@ -214,7 +221,7 @@ export function SettingsApplication() {
       const result = await window.desktopApi.launchMockUpdateDebug();
       if (!result.ok) {
         toast.error(
-          `Debug güncelleme açılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Debug güncelleme açılamadı: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -227,7 +234,7 @@ export function SettingsApplication() {
       toast.success("Debug güncelleme penceresi açıldı.");
     } catch (error) {
       toast.error(
-        `Debug güncelleme açılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Debug güncelleme açılamadı: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsLaunchingUpdateDebug(false);

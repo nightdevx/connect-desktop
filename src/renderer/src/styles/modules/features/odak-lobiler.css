@@ -138,6 +138,19 @@
   color: var(--odak-accent);
 }
 
+:root[data-odak] .ct-lobby-row-chat {
+  border-radius: 9px;
+  color: var(--odak-muted);
+  background: var(--odak-raised);
+  box-shadow: inset 0 0 0 1px var(--odak-border);
+}
+
+:root[data-odak] .ct-lobby-row-chat:hover,
+:root[data-odak] .ct-lobby-row-chat.active {
+  color: var(--odak-accent);
+  box-shadow: inset 0 0 0 1px var(--odak-accent);
+}
+
 :root[data-odak] .ct-lobby-row-count {
   font-family: var(--ct-font-mono);
   font-size: 11px;

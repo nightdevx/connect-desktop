@@ -30,6 +30,7 @@ import { MAX_EMOTE_VOLUME_PERCENT } from "@/store/emote-volume";
 import { useUiStore } from "@/store/ui-store";
 import { toast } from "@/services/toast";
 import "@/styles/modules/features/odak-pencereler.css";
+import { toErrorMessage } from "@shared/error-message";
 
 // Label and line icon per built-in emote. The ids come from the shared set so
 // this cannot offer one the server would refuse; the board breaks at compile
@@ -285,9 +286,7 @@ export function SoundEmoteMenu({
         // validation error the user had done nothing to cause.
         setPendingName(upload.fileName.slice(0, EMOTE_MAX_NAME_LENGTH));
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Ses dosyası okunamadı.",
-        );
+        toast.error(toErrorMessage(error, "Ses dosyası okunamadı."));
       }
     },
     [],
@@ -308,7 +307,7 @@ export function SoundEmoteMenu({
     } catch (error) {
       toast.error({
         key: "ct-emote-upload",
-        title: error instanceof Error ? error.message : "Ses yüklenemedi",
+        title: toErrorMessage(error, "Ses yüklenemedi"),
       });
     }
   }, [library, pending, pendingName]);
@@ -319,7 +318,7 @@ export function SoundEmoteMenu({
         await library.remove(emoteId);
         toast.success("Ses silindi");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Ses silinemedi");
+        toast.error(toErrorMessage(error, "Ses silinemedi"));
       }
     },
     [library],

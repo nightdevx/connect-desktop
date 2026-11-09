@@ -10,7 +10,6 @@ import type {
 } from "@shared/desktop-api-types";
 import { authService } from "../services/service";
 import { useUiStore } from "@/store/ui-store";
-import { summarizeAuthError } from "../auth-error-messages";
 
 // The backend's own message is English and written for developers. It is no
 // longer shown to anyone; auth-error-messages.ts turns the error CODE into
@@ -43,22 +42,13 @@ export const useAuthActions = () => {
       if (!result.ok && result.error?.code === "TOTP_REQUIRED") {
         return;
       }
+      // A failure is shown inline by the form (AuthErrorAlert); a toast too
+      // said it twice, and the screen changing says a success.
       if (!result.ok || !result.data) {
-        setStatus(
-          `Giriş başarısız: ${summarizeAuthError(result.error, "login")}`,
-          "error",
-        );
         return;
       }
 
       updateSessionCache(result);
-      setStatus("Giriş başarılı", "ok");
-    },
-    onError: (error) => {
-      setStatus(
-        `Giriş başarısız: ${summarizeAuthError(asErrorPayload(error), "login")}`,
-        "error",
-      );
     },
   });
 
@@ -66,21 +56,11 @@ export const useAuthActions = () => {
     mutationFn: (payload: RegisterRequest) => authService.register(payload),
     onSuccess: (result) => {
       if (!result.ok || !result.data) {
-        setStatus(
-          `Kayıt başarısız: ${summarizeAuthError(result.error, "register")}`,
-          "error",
-        );
         return;
       }
 
       updateSessionCache(result);
-      setStatus("Kayıt ve giriş başarılı", "ok");
-    },
-    onError: (error) => {
-      setStatus(
-        `Kayıt başarısız: ${summarizeAuthError(asErrorPayload(error), "register")}`,
-        "error",
-      );
+      setStatus("Hesabın oluşturuldu.", "ok");
     },
   });
 
@@ -88,25 +68,18 @@ export const useAuthActions = () => {
     mutationFn: () => authService.logout(),
     onSuccess: (result) => {
       if (!result.ok || !result.data) {
-        setStatus(
-          `Çıkış başarısız: ${summarizeAuthError(result.error, "login")}`,
-          "error",
-        );
+        setStatus("Çıkış yapılamadı. Tekrar dene.", "error");
         return;
       }
 
       updateSessionCache(result);
-      setStatus("Çıkış yapıldı", "ok");
       setWorkspaceSection("lobbies");
       setSettingsSection("profile");
       setAdminSection("dashboard");
       setActivePage("login");
     },
-    onError: (error) => {
-      setStatus(
-        `Çıkış başarısız: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-        "error",
-      );
+    onError: () => {
+      setStatus("Çıkış yapılamadı. Tekrar dene.", "error");
     },
   });
 

@@ -8,17 +8,13 @@ import AdminSidebar from "./admin-sidebar";
 import AdminDashboard from "./admin-dashboard";
 import AdminUsers from "./admin-users";
 import AdminLobbies from "./admin-lobbies";
-import AdminActivity from "./admin-activity";
+import AdminRecords from "./admin-records";
 import AdminSounds from "./admin-sounds";
 import AdminModeration from "./admin-moderation";
 import AdminSettings from "./admin-settings";
 import AdminMinigames from "./admin-minigames";
 import AdminMusic from "./admin-music";
 import AdminChat from "./admin-chat";
-import AdminAudit from "./admin-audit";
-import AdminMedia from "./admin-media";
-import AdminDiagnostics from "./admin-diagnostics";
-import AdminMediaHealth from "./admin-media-health";
 import AdminAccess from "./admin-access";
 
 interface AdminPanelProps {
@@ -82,9 +78,7 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
       case "users":
         return <AdminUsers currentUserId={currentUserId} />;
       case "lobbies":
-        return <AdminLobbies />;
-      case "activity":
-        return <AdminActivity />;
+        return <AdminLobbies currentUserId={currentUserId} />;
       case "sounds":
         return <AdminSounds />;
       case "moderation":
@@ -95,14 +89,8 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminMusic />;
       case "chat":
         return <AdminChat />;
-      case "audit":
-        return <AdminAudit />;
-      case "media":
-        return <AdminMedia />;
-      case "diagnostics":
-        return <AdminDiagnostics />;
-      case "media-health":
-        return <AdminMediaHealth />;
+      case "records":
+        return <AdminRecords />;
       case "access":
         return <AdminAccess />;
       case "settings":

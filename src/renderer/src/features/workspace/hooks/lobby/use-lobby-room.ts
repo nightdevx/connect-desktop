@@ -25,6 +25,7 @@ import {
   startSend,
   withPendingMessages,
 } from "../chat/pending-sends";
+import { toErrorMessage } from "@shared/error-message";
 
 interface UseLobbyRoomParams {
   activeLobbyId: string | null;
@@ -130,6 +131,9 @@ export const useLobbyRoom = ({
   // The draft the last send took, until the composer has rendered empty: a
   // double Enter in between would otherwise post it twice.
   const consumedDraftRef = useRef<string | null>(null);
+  // The staged file that send took. An image-only send leaves the draft ""
+  // before and after, so the draft alone would block every later image.
+  const consumedUploadRef = useRef<unknown>(null);
   useEffect(() => {
     if (lobbyMessageDraft !== consumedDraftRef.current) {
       consumedDraftRef.current = null;
@@ -388,7 +392,7 @@ export const useLobbyRoom = ({
     },
     onError: (error) => {
       setStatus(
-        `Mesaj silinemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Mesaj silinemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
         "error",
       );
     },
@@ -416,7 +420,11 @@ export const useLobbyRoom = ({
       return;
     }
 
-    if (!isOverride && consumedDraftRef.current === lobbyMessageDraft) {
+    if (
+      !isOverride &&
+      consumedDraftRef.current === lobbyMessageDraft &&
+      consumedUploadRef.current === (lobbyPendingAttachment?.upload ?? null)
+    ) {
       return;
     }
 
@@ -447,6 +455,7 @@ export const useLobbyRoom = ({
     // A GIF did not come out of the composer and leaves it as it is.
     if (!isOverride) {
       consumedDraftRef.current = lobbyMessageDraft;
+      consumedUploadRef.current = lobbyPendingAttachment?.upload ?? null;
       setLobbyMessageDraft("");
       setLobbyReplyTo(null);
       setLobbyPendingAttachment(null);
@@ -459,14 +468,14 @@ export const useLobbyRoom = ({
           error: {
             code: "UNEXPECTED_ERROR",
             statusCode: 500,
-            message: error instanceof Error ? error.message : "Bilinmeyen hata",
+            message: toErrorMessage(error, "Bir sorun oluştu."),
           },
           data: undefined,
         }),
       );
       const sent = result.ok ? result.data?.message : undefined;
       if (!sent) {
-        setStatus(`Lobi mesajı gönderilemedi: ${getApiErrorMessage(result.error)}`, "error");
+        setStatus(`Mesaj gönderilemedi: ${getApiErrorMessage(result.error)}`, "error");
         return false;
       }
       queryClient.setQueryData<DesktopResult<{ messages: ChatMessage[] }>>(

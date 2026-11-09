@@ -40,6 +40,44 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.6",
+    date: "2026-11-09",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Windows'ta animasyonlar kapalıyken bir pencere kapanınca uygulamanın tıklanamaz hâle gelip donması düzeltildi.",
+      },
+      {
+        kind: "fixed",
+        text: "Sohbete art arda görsel yapıştırıp göndermek artık çalışıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Sesli oda kurarken yazdığın kişi sayısı artık uygulanıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Rahatsız etmeyin seçiliyken çevrimiçi görünmüyorsun.",
+      },
+      {
+        kind: "new",
+        text: "Lobi listesinde bir odanın üstüne gelince, katılmadan sohbetini açabilirsin.",
+      },
+      {
+        kind: "new",
+        text: "Ayarlar › Yayın'dan, başka pencereye geçsen de kendi önizlemenin oynamaya devam etmesini seçebilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Oda kurma ve oda ayarları pencereleri daha geniş; Genel, Erişim ve İzinler sekmeleri var. Oda kurarken izinleri de seçebilirsin.",
+      },
+      {
+        kind: "improved",
+        text: "Hata ve uyarı mesajları artık anlaşılır Türkçe. Büyütülen görselin alt düğmeleri de daha net.",
+      },
+    ],
+  },
+  {
     version: "0.3.5",
     date: "2026-11-03",
     highlights: [

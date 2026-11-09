@@ -4,6 +4,7 @@ import {
   CodeOutlined,
   DashboardOutlined,
   DesktopOutlined,
+  EyeOutlined,
   SoundOutlined,
   StopOutlined,
 } from "@ant-design/icons";
@@ -11,6 +12,7 @@ import type { StreamPreferences } from "./settings-main-panel-types";
 import { startScreenCapture } from "@/features/screen-share";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
+import { useUiStore } from "@/store/ui-store";
 
 interface SettingsStreamProps {
   streamPreferences: StreamPreferences;
@@ -146,13 +148,10 @@ export function SettingsStream({
       setStreamTestStream(stream);
       if (warning) {
         toast.warning(warning);
-      } else {
-        toast.success("Yayın testi başlatıldı.");
       }
     } catch (error) {
-      toast.error(
-        `Yayın testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-      );
+      console.error("[settings-stream] stream test failed:", error);
+      toast.error("Yayın testi başlatılamadı.");
     } finally {
       setIsStartingStreamTest(false);
     }
@@ -171,6 +170,9 @@ export function SettingsStream({
     // replaces, so depending on it would make the restart trigger itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftStreamPreferences.frameRate, draftStreamPreferences.captureSystemAudio]);
+
+  const keepPreviewPlaying = useUiStore((state) => state.viewPreferences.keepPreviewPlaying);
+  const setViewPreference = useUiStore((state) => state.setViewPreference);
 
   return (
     <SettingsPage
@@ -241,6 +243,23 @@ export function SettingsStream({
         )}
       </SettingsGroup>
 
+      <SettingsGroup
+        title="Kendi önizlemen"
+        description="Ekranını ya da kameranı paylaşırken kendi ekranında gördüğün önizleme. Yayının izleyenlere gitmeye devam eder, bu yalnız senin gördüğün görüntüyü etkiler."
+      >
+        <SettingsRow
+          icon={<EyeOutlined />}
+          title="Başka pencereye geçince önizleme durmasın"
+          description="Açıkken önizleme, pencereyi küçültmediğin sürece başka bir pencereye geçsen de oynamaya devam eder. Kapalıyken Connect arka plana geçince durur ve bilgisayarı yormaz."
+        >
+          <Switch
+            checked={keepPreviewPlaying}
+            onChange={(checked) => setViewPreference("keepPreviewPlaying", checked)}
+            aria-label="Başka pencereye geçince önizleme durmasın"
+          />
+        </SettingsRow>
+      </SettingsGroup>
+
       {/* Same as the camera page: the control that starts the preview sits on
           the title line of the card it fills. */}
       <SettingsGroup
@@ -253,7 +272,6 @@ export function SettingsStream({
             onClick={() => {
               if (streamTestStream) {
                 stopStreamTest();
-                toast.info("Yayın testi durduruldu.");
                 return;
               }
 

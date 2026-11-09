@@ -28,6 +28,7 @@ import {
   verifyEmailSchema,
   adminUpdateUserSchema,
   adminResetPasswordSchema,
+  adminDeleteUserSchema,
   adminListLobbyEventsSchema,
   adminListUsersSchema,
   adminListLobbiesSchema,
@@ -602,10 +603,11 @@ export function registerAuthHandlers(): void {
     }
   });
 
-  handle("desktop:admin-delete-user", async (_event, userId: string) => {
+  handle("desktop:admin-delete-user", async (_event, arg: unknown) => {
     try {
+      const { userId, reason } = adminDeleteUserSchema.parse(arg);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.auth.adminDeleteUser(accessToken, userId);
+        return backendClient.auth.adminDeleteUser(accessToken, userId, reason);
       });
       return ok(result);
     } catch (error) {

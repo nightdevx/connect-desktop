@@ -402,6 +402,10 @@ export interface AdminUserDetail {
   // person's IP" refusable rather than a guess.
   lastIp?: string;
   restrictions?: UserRestriction[];
+  // The real connection, which the member-facing directory hides for someone
+  // who chose to look offline. Absent from a server that predates the column.
+  appOnline?: boolean;
+  presence?: PresenceStatus;
 }
 
 // Profile fields an operator can lock an account out of editing.

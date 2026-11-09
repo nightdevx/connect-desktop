@@ -12,6 +12,8 @@ import {
   useChordCapture,
   useKeyboardLayout,
 } from "./hotkey-capture";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
+import { toErrorMessage } from "@shared/error-message";
 
 const DEFAULT_APP_PREFERENCES: DesktopAppPreferences = {
   launchOnStartup: false,
@@ -57,7 +59,7 @@ export function useDesktopAppPreferences() {
 
         if (!result.ok) {
           toast.error(
-            `Uygulama ayarları alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            `Uygulama ayarları alınamadı: ${getApiErrorMessage(result.error)}`,
           );
         }
       })
@@ -67,7 +69,7 @@ export function useDesktopAppPreferences() {
         }
 
         toast.error(
-          `Uygulama ayarları alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+          `Uygulama ayarları alınamadı: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
         );
       });
 
@@ -96,7 +98,7 @@ export function useDesktopAppPreferences() {
       if (!result.ok || !result.data?.preferences) {
         setPreferences(previousPreferences);
         toast.error(
-          `Uygulama ayarı kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Uygulama ayarı kaydedilemedi: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -118,7 +120,7 @@ export function useDesktopAppPreferences() {
     } catch (error) {
       setPreferences(previousPreferences);
       toast.error(
-        `Uygulama ayarı kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Uygulama ayarı kaydedilemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsSaving(false);

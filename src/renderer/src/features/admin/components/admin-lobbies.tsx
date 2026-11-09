@@ -1,6 +1,6 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Popconfirm, Segmented, Select, Switch, Tooltip } from "antd";
+import { Table, Button, Space, Tag, Modal, Input, Popconfirm, Segmented, Select, Switch, Tooltip } from "antd";
 import type { TablePaginationConfig } from "antd";
 import {
   HomeOutlined,
@@ -17,6 +17,7 @@ import {
   MessageOutlined,
   KeyOutlined,
   CustomerServiceOutlined,
+  DisconnectOutlined,
 } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type {
@@ -26,7 +27,6 @@ import type {
   LobbyTimeout,
 } from "@shared/auth-contracts";
 import type { LobbyFeatureId, LobbyStateMember } from "@shared/desktop-api-types";
-import { LOBBY_FEATURES } from "@shared/desktop-api-types";
 import {
   AdminPageHeader,
   AdminPerson,
@@ -37,27 +37,21 @@ import {
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
-import { ConfirmActionModal } from "@/features/workspace";
+import { ConfirmActionModal, RoomSettingsDialog } from "@/features/workspace";
 
-interface EditLobbyFormValues {
-  name: string;
-  isLocked?: boolean;
-  allowedUsers?: string[];
-  // The room's own member ceiling. Cleared (null/undefined) hands the room back
-  // to the server default rather than pinning it at today's value.
-  capacity?: number | null;
-  // Blank leaves the room's password alone; removePassword clears it. The same
-  // contract the room owner's own settings dialog uses, because it is the same
-  // endpoint underneath.
-  password?: string;
-  removePassword?: boolean;
-  disabledFeatures?: LobbyFeatureId[];
-}
-
+// The main room cannot be deleted (it is where everyone lands); everything
+// else about it is editable.
+const isDefaultRoom = (lobby: LobbyDescriptor): boolean =>
+  lobby.id === "main-lobby" || lobby.createdBy === "system";
 
 // antd hands the pagination object back with every field optional; this is what
 // a page-size reset falls back to.
 const DEFAULT_PAGE_SIZE = 10;
+
+// Somebody is publishing a picture: the camera or the screen. A microphone is
+// not counted: nearly everyone in a voice room has one open.
+const isLive = (member: LobbyStateMember): boolean =>
+  Boolean(member.cameraEnabled || member.screenSharing);
 
 // The three privacy flags are independent — a room can be locked and password
 // protected at once — so they stack, and "Herkese açık" is the empty case
@@ -83,7 +77,7 @@ const privacyStates = (lobby: LobbyDescriptor) => {
   );
 };
 
-export default function AdminLobbies() {
+export default function AdminLobbies({ currentUserId }: { currentUserId: string }) {
   const [lobbies, setLobbies] = useState<AdminLobbySnapshot[]>([]);
   // The lobby whose timeouts are open, and what they are. Held here rather than
   // fetched with the table: a timeout list is read when somebody asks to be let
@@ -103,15 +97,18 @@ export default function AdminLobbies() {
   // so half this table's columns say nothing for the wrong kind. Filtered
   // server-side, because the table is paged there.
   const [kindFilter, setKindFilter] = useState<"voice" | "text">("voice");
+  // Only the rooms where somebody is sharing a screen or a camera, which is
+  // what the separate "Canlı Yayınlar" page was for. Applied to the page being
+  // shown: a room count of a few dozen fits one page.
+  const [liveOnly, setLiveOnly] = useState(false);
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [tableRef, fitColumns] = useTableFit();
 
   // Edit State
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingLobby, setEditingLobby] = useState<AdminLobbySnapshot | null>(null);
-  const [editForm] = Form.useForm();
+  const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [allUsers, setAllUsers] = useState<AdminUserDetail[]>([]);
 
   const fetchLobbies = useCallback(
@@ -187,48 +184,42 @@ export default function AdminLobbies() {
   const handleEditClick = (record: AdminLobbySnapshot) => {
     void loadAllowListOptions();
     setEditingLobby(record);
-    editForm.setFieldsValue({
-      name: record.lobby.name,
-      isLocked: record.lobby.isLocked,
-      allowedUsers: record.lobby.allowedUsers ? record.lobby.allowedUsers.split(",").filter(Boolean) : [],
-      capacity: record.lobby.capacity ?? null,
-      password: "",
-      removePassword: false,
-      disabledFeatures: record.lobby.disabledFeatures ?? [],
-    });
-    setIsEditOpen(true);
   };
 
-  const handleEditSubmit = async (values: EditLobbyFormValues): Promise<void> => {
-    if (!editingLobby) return;
+  // The dialog's save, in the dialog's own terms: "" clears the password,
+  // undefined keeps it, 0 hands the ceiling back to the server's default. The
+  // dialog shows what was saved in place, so success needs no toast.
+  const handleUpdateRoom = async (
+    lobbyId: string,
+    name: string,
+    isLocked?: boolean,
+    allowedUsers?: string[],
+    password?: string | null,
+    capacity?: number,
+    disabledFeatures?: LobbyFeatureId[],
+  ): Promise<boolean> => {
+    setIsSavingRoom(true);
     try {
       const res = await window.desktopApi.updateLobby({
-        lobbyId: editingLobby.lobby.id,
-        name: values.name,
-        isLocked: values.isLocked,
-        allowedUsers: values.allowedUsers || [],
-        // 0, not undefined: undefined keeps whatever the room has, and clearing
-        // the field means "follow the server default again". A text room has no
-        // roster to limit, so it never sends one.
-        capacity: editingLobby.lobby.isTextOnly ? undefined : (values.capacity ?? 0),
-        // undefined leaves it, null clears it, a string sets it — so an
-        // untouched password box must not send an empty string.
-        password: values.removePassword
-          ? null
-          : values.password && values.password.trim() !== ""
-            ? values.password
-            : undefined,
-        disabledFeatures: values.disabledFeatures ?? [],
+        lobbyId,
+        name,
+        isLocked,
+        allowedUsers,
+        password,
+        capacity,
+        disabledFeatures,
       });
-      if (res.ok) {
-        toast.success("Oda güncellendi");
-        setIsEditOpen(false);
-        fetchLobbies();
-      } else {
-        throw new Error(toErrorMessage(res.error, "Güncelleme başarısız"));
+      if (!res.ok) {
+        toast.error(toErrorMessage(res.error, "Oda güncellenemedi"));
+        return false;
       }
+      void fetchLobbies();
+      return true;
     } catch (err) {
-      toast.error(toErrorMessage(err, "İşlem başarısız"));
+      toast.error(toErrorMessage(err, "Oda güncellenemedi"));
+      return false;
+    } finally {
+      setIsSavingRoom(false);
     }
   };
 
@@ -243,6 +234,32 @@ export default function AdminLobbies() {
       }
     } catch (err) {
       toast.error(toErrorMessage(err, "İşlem başarısız"));
+    }
+  };
+
+  // What the Canlı Yayınlar page did, now on the person's own row: close one of
+  // their streams, or cut their media altogether, without removing them from
+  // the room.
+  const stopTrack = async (
+    userId: string,
+    kind: "camera" | "screen" | "microphone",
+  ): Promise<void> => {
+    try {
+      await adminService.unwrap(adminService.ops.forceTrackOff({ userId, kind }), "Yayın durdurulamadı");
+      toast.success("Yayın durduruldu");
+      void fetchLobbies();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "Yayın durdurulamadı"));
+    }
+  };
+
+  const disconnectMedia = async (userId: string): Promise<void> => {
+    try {
+      await adminService.unwrap(adminService.ops.disconnectMedia({ userId }), "Yayından koparılamadı");
+      toast.success("Yayından koparıldı");
+      void fetchLobbies();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "Yayından koparılamadı"));
     }
   };
 
@@ -346,6 +363,39 @@ export default function AdminLobbies() {
                 ) : null}
               </div>
             ),
+          },
+        ]
+      : []),
+    // Voice only, like the one before it: who in the room is on camera or
+    // sharing a screen.
+    ...(kindFilter === "voice"
+      ? [
+          {
+            title: "Yayın",
+            key: "live",
+            width: 100,
+            hideBelow: 860,
+            render: (_value: unknown, record: AdminLobbySnapshot) => {
+              const cameras = record.members.filter((member) => member.cameraEnabled).length;
+              const screens = record.members.filter((member) => member.screenSharing).length;
+              if (cameras === 0 && screens === 0) {
+                return <span className="ct-admin-muted">—</span>;
+              }
+              return (
+                <span className="ct-admin-states">
+                  {screens > 0 && (
+                    <AdminState tone="info" icon={<DesktopOutlined />}>
+                      {screens}
+                    </AdminState>
+                  )}
+                  {cameras > 0 && (
+                    <AdminState tone="info" icon={<VideoCameraOutlined />}>
+                      {cameras}
+                    </AdminState>
+                  )}
+                </span>
+              );
+            },
           },
         ]
       : []),
@@ -535,20 +585,69 @@ export default function AdminLobbies() {
       {
         title: "",
         key: "actions",
-        width: 110,
+        width: 268,
         align: "right" as const,
         render: (_value: unknown, member: LobbyStateMember) => (
-          <Popconfirm
-            title="Odadan atılsın mı?"
-            description="Yeniden katılabilir."
-            onConfirm={() => handleKickUser(record.lobby.id, member.userId)}
-            okText="Odadan at"
-            cancelText="Vazgeç"
-          >
-            <Button type="text" danger size="small">
-              Odadan at
-            </Button>
-          </Popconfirm>
+          <div className="ct-admin-actions">
+            <Tooltip title="Mikrofonu kapat">
+              <Button
+                type="text"
+                size="small"
+                icon={<AudioMutedOutlined />}
+                disabled={member.muted || member.serverMuted}
+                aria-label="Mikrofonu kapat"
+                onClick={() => void stopTrack(member.userId, "microphone")}
+              />
+            </Tooltip>
+            <Tooltip title="Kamerayı kapat">
+              <Button
+                type="text"
+                size="small"
+                icon={<VideoCameraOutlined />}
+                disabled={!member.cameraEnabled}
+                aria-label="Kamerayı kapat"
+                onClick={() => void stopTrack(member.userId, "camera")}
+              />
+            </Tooltip>
+            <Tooltip title="Ekran paylaşımını kapat">
+              <Button
+                type="text"
+                size="small"
+                icon={<DesktopOutlined />}
+                disabled={!member.screenSharing}
+                aria-label="Ekran paylaşımını kapat"
+                onClick={() => void stopTrack(member.userId, "screen")}
+              />
+            </Tooltip>
+            <Popconfirm
+              title="Yayından koparılsın mı?"
+              description="Mikrofon, kamera ve ekranı kapanır; odada kalır."
+              onConfirm={() => disconnectMedia(member.userId)}
+              okText="Kopar"
+              cancelText="Vazgeç"
+            >
+              <Tooltip title="Yayından kopar">
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DisconnectOutlined />}
+                  aria-label="Yayından kopar"
+                />
+              </Tooltip>
+            </Popconfirm>
+            <Popconfirm
+              title="Odadan atılsın mı?"
+              description="Yeniden katılabilir."
+              onConfirm={() => handleKickUser(record.lobby.id, member.userId)}
+              okText="Odadan at"
+              cancelText="Vazgeç"
+            >
+              <Button type="text" danger size="small">
+                Odadan at
+              </Button>
+            </Popconfirm>
+          </div>
         ),
       },
     ];
@@ -579,7 +678,7 @@ export default function AdminLobbies() {
     <div className="ct-admin-page">
       <AdminPageHeader
         title="Odalar"
-        description="Sistemdeki tüm sesli görüşme odalarını ve katılımcılarını anlık izleyin. Liste 4 saniyede bir yenilenir."
+        description="Odaları, içindekileri ve kimin ses, kamera ya da ekran yayını yaptığını anlık izleyin; yayınları buradan kapatabilirsiniz. Liste 4 saniyede bir yenilenir."
         actions={
           <Button
             icon={<ReloadOutlined />}
@@ -622,6 +721,13 @@ export default function AdminLobbies() {
               ]}
             />
 
+            {kindFilter === "voice" && (
+              <label className="ct-admin-toolbar-switch">
+                <Switch size="small" checked={liveOnly} onChange={setLiveOnly} />
+                <span>Yalnız yayın olanlar</span>
+              </label>
+            )}
+
             <Select
               value={lockedFilter}
               onChange={setLockedFilter}
@@ -638,7 +744,11 @@ export default function AdminLobbies() {
         <Table
           size="middle"
           ref={tableRef}
-          dataSource={lobbies}
+          dataSource={
+            liveOnly && kindFilter === "voice"
+              ? lobbies.filter((room) => room.members.some(isLive))
+              : lobbies
+          }
           columns={fitColumns(columns)}
           rowKey={(record) => record.lobby.id}
           loading={loading}
@@ -650,7 +760,9 @@ export default function AdminLobbies() {
           locale={{
             emptyText: searchText
               ? "Bu aramayla eşleşen oda yok."
-              : kindFilter === "voice"
+              : liveOnly && kindFilter === "voice"
+                ? "Şu anda yayın yapan kimse yok."
+                : kindFilter === "voice"
                 ? "Şu anda açık sesli oda yok."
                 : "Şu anda yazılı sohbet yok.",
           }}
@@ -738,124 +850,27 @@ export default function AdminLobbies() {
         />
       </Modal>
 
-      {/* Edit Name Modal */}
-      <Modal
-        rootClassName="ct-modal"
-        title={
-          <ModalHeading
-            icon={<EditOutlined />}
-            title="Oda yetkilerini düzenle"
-            description="Odanın adı, sınırı, kilidi, şifresi, kapalı özellikleri ve erişim listesi."
-          />
+      {/* The very dialog a room's owner gets from the lobby list: one set of
+          tabs, rules and messages for editing a room, whoever opens it. The
+          panel's own form here had drifted from it (its "remove password"
+          sent null, which the server reads as "keep"). */}
+      <RoomSettingsDialog
+        lobby={editingLobby?.lobby ?? null}
+        onClose={() => setEditingLobby(null)}
+        onUpdateLobby={handleUpdateRoom}
+        isSaving={isSavingRoom}
+        onDelete={
+          editingLobby && !isDefaultRoom(editingLobby.lobby)
+            ? () => setPendingDeleteLobby(editingLobby)
+            : undefined
         }
-        open={isEditOpen}
-        onCancel={() => setIsEditOpen(false)}
-        width={MODAL_WIDTH.m}
-        footer={[
-          <Button key="cancel" onClick={() => setIsEditOpen(false)}>
-            Vazgeç
-          </Button>,
-          <Button key="submit" type="primary" onClick={() => editForm.submit()}>
-            Kaydet
-          </Button>,
-        ]}
-      >
-        <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
-          <Form.Item
-            name="name"
-            label="Oda Adı"
-            rules={[
-              { required: true, message: "Oda adı girilmelidir" },
-              { min: 2, message: "En az 2 karakter olmalıdır" },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-
-          {/* Voice only: nobody is ever on a text room roster, so a limit there
-              is a number that never applies. */}
-          {!editingLobby?.lobby.isTextOnly && (
-            <Form.Item
-              name="capacity"
-              label="Kişi Sınırı"
-              extra="Boş bırakılırsa sunucunun varsayılan sınırı geçerli olur. Sınırı düşürmek kimseyi odadan çıkarmaz, yalnızca yeni katılımları durdurur."
-            >
-              <InputNumber min={2} max={100} placeholder="Sunucu varsayılanı" className="ct-input-number" />
-            </Form.Item>
-          )}
-
-          <Form.Item
-            name="isLocked"
-            valuePropName="checked"
-            label="Kilitli Oda"
-            extra="Kilitliyken yalnızca aşağıdaki listedeki kullanıcılar ve odayı kuran kişi girebilir."
-          >
-            <Switch />
-          </Form.Item>
-
-          {/* Voice only, for the same reason the sidebar dialog hides it: a
-              password is asked for at join, and nobody joins a text room. */}
-          {!editingLobby?.lobby.isTextOnly && (
-            <>
-              <Form.Item
-                name="password"
-                label="Oda Şifresi"
-                extra={
-                  editingLobby?.lobby.hasPassword
-                    ? "Boş bırakılırsa mevcut şifre korunur."
-                    : "Boş bırakılırsa oda şifresiz kalır."
-                }
-              >
-                <Input.Password maxLength={128} placeholder="Yeni şifre" />
-              </Form.Item>
-
-              {editingLobby?.lobby.hasPassword ? (
-                <Form.Item name="removePassword" valuePropName="checked" label="Şifreyi Kaldır">
-                  <Switch />
-                </Form.Item>
-              ) : null}
-            </>
-          )}
-
-          <Form.Item
-            name="disabledFeatures"
-            label="Kapalı Özellikler"
-            extra="Seçilen özellikler yalnızca bu odada kullanılamaz. Diğer odalar etkilenmez."
-          >
-            <Select
-              mode="multiple"
-              allowClear
-              placeholder="Hepsi açık"
-              options={LOBBY_FEATURES.filter(
-                (feature) =>
-                  !editingLobby?.lobby.isTextOnly ||
-                  feature.id === "chat" ||
-                  feature.id === "attachments",
-              ).map((feature) => ({ value: feature.id, label: feature.label }))}
-            />
-          </Form.Item>
-
-          <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.isLocked !== currentValues.isLocked}>
-            {({ getFieldValue }) => {
-              const isLocked = getFieldValue("isLocked");
-              return isLocked ? (
-                <Form.Item name="allowedUsers" label="İzin Verilen Kullanıcılar">
-                  <Select
-                    mode="multiple"
-                    placeholder="Kullanıcıları seçin..."
-                    options={allUsers
-                      .filter((u) => u.id !== editingLobby?.lobby.createdBy)
-                      .map((u) => ({
-                        label: `@${u.username} (${u.displayName})`,
-                        value: u.id,
-                      }))}
-                  />
-                </Form.Item>
-              ) : null;
-            }}
-          </Form.Item>
-        </Form>
-      </Modal>
+        currentUserId={currentUserId}
+        allUsers={allUsers.map((user) => ({
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+        }))}
+      />
 
       <ConfirmActionModal
         isOpen={pendingDeleteLobby !== null}

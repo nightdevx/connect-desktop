@@ -130,7 +130,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
       const email = values.email.trim();
       const result = await window.desktopApi.forgotPassword({ email });
       if (result.ok) {
-        toast.success("Şifre sıfırlama kodu e-postanıza gönderildi!");
+        toast.success("Şifre sıfırlama kodu e-postana gönderildi.");
         setResetEmail(email);
         setMode("reset");
         form.resetFields();
@@ -138,7 +138,7 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
-      toast.error("Bir hata oluştu!");
+      toast.error("İşlem tamamlanamadı. Bağlantını kontrol edip tekrar dene.");
     } finally {
       setActionLoading(false);
     }
@@ -153,13 +153,13 @@ function LoginPage({ loading, onSubmit, onGoRegister }: LoginPageProps) {
         newPassword: values.newPassword,
       });
       if (result.ok) {
-        toast.success("Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.");
+        toast.success("Şifren sıfırlandı. Yeni şifrenle giriş yapabilirsin.");
         goToMode("login");
       } else {
         toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch {
-      toast.error("Bir hata oluştu!");
+      toast.error("İşlem tamamlanamadı. Bağlantını kontrol edip tekrar dene.");
     } finally {
       setActionLoading(false);
     }

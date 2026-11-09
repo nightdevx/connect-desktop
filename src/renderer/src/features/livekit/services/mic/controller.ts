@@ -383,7 +383,7 @@ export class LiveKitMicrophoneController {
         ) {
           if (desiredProcessor && !appliedProcessor) {
             this.onWarning?.(
-              "RNNoise başlatılamadı, mikrofon tarayıcı ses filtreleri ile açılıyor.",
+              "Gürültü engelleme açılamadı, mikrofon normal modda çalışıyor.",
             );
           }
 
@@ -442,7 +442,7 @@ export class LiveKitMicrophoneController {
       logLiveKitDebug("mic-controller", "emergency-fallback-success", {
         participantMicEnabled: participant.isMicrophoneEnabled,
       });
-      this.onWarning?.("Mikrofon yayını acil fallback ile yeniden başlatıldı.");
+      console.warn("[mic-controller] microphone restarted through the emergency fallback");
       return;
     }
 
@@ -667,9 +667,7 @@ export class LiveKitMicrophoneController {
   ): Promise<MicrophoneProcessor | null> {
     const context = await this.ensureParticipantAudioContext(participant);
     if (!context) {
-      this.onWarning?.(
-        "AudioContext oluşturulamadı, mikrofon işleme zinciri devre dışı; tarayıcı filtreleri kullanılıyor.",
-      );
+      console.warn("[mic-controller] no AudioContext; the processing chain is off");
       return null;
     }
 

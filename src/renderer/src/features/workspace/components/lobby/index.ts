@@ -6,3 +6,4 @@ export * from "./lobby-participant-tile";
 export * from "./lobby-stage-layout";
 
 export * from "./lobby-password-prompt-modal";
+export { RoomSettingsDialog } from "./parts/room-settings-dialog";

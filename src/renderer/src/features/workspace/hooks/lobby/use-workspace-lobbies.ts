@@ -494,10 +494,10 @@ export function useWorkspaceLobbies({
               setStatusRef.current("Arama bağlantısı yeniden kuruldu", "ok");
             }
           })
-          .catch((error: unknown) => {
+          .catch(() => {
             activeLobbyReconnectAttemptRef.current = attempt + 1;
             if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
-              setStatusRef.current(`Arama bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
+              setStatusRef.current("Bağlantı yeniden kurulamadı, tekrar deneniyor…", "warn");
             }
             scheduleActiveLobbyReconnect(reason);
           })
@@ -527,7 +527,7 @@ export function useWorkspaceLobbies({
 
             activeLobbyReconnectAttemptRef.current = attempt + 1;
             if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
-              setStatusRef.current(`Lobi bağlantısı geri yüklenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`, "warn");
+              setStatusRef.current("Bağlantı yeniden kurulamadı, tekrar deneniyor…", "warn");
             }
             scheduleActiveLobbyReconnect(reason);
             return;
@@ -567,10 +567,10 @@ export function useWorkspaceLobbies({
           }
           void lobbiesQueryRef.current.refetch();
         })
-        .catch((error: unknown) => {
+        .catch(() => {
           activeLobbyReconnectAttemptRef.current = attempt + 1;
           if (shouldEmitReconnectStatusRef.current("activeLobby", 10_000)) {
-            setStatusRef.current(`Lobi bağlantısı geri yüklenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`, "warn");
+            setStatusRef.current("Bağlantı yeniden kurulamadı, tekrar deneniyor…", "warn");
           }
           scheduleActiveLobbyReconnect(reason);
         })
@@ -719,7 +719,7 @@ export function useWorkspaceLobbies({
         }
         return;
       }
-      setStatus(`Lobi akışı başlatılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`, "error");
+      // No notice: the fallback sync and the retry below are automatic.
       void syncLobbiesFromFallback();
       lobbyStreamReconnectAttemptRef.current += 1;
       scheduleLobbyStreamReconnect(true);

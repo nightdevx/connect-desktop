@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AdminPageHeader,
   AdminSection,
@@ -29,6 +29,7 @@ import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
 import { toast } from "@/services/toast";
 import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
+import { ChannelCell, useChannelDirectory } from "./admin-channel";
 
 type Pane = "messages" | "reports" | "attachments";
 
@@ -94,6 +95,9 @@ export default function AdminChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesTotal, setMessagesTotal] = useState(0);
   const [query, setQuery] = useState("");
+  // "" = every channel; otherwise one room, so a moderator can read a single
+  // conversation instead of searching the whole server for it.
+  const [roomFilter, setRoomFilter] = useState("");
   const [page, setPage] = useState(1);
 
   const [reports, setReports] = useState<AdminChatReport[]>([]);
@@ -112,6 +116,7 @@ export default function AdminChat() {
       const data = await adminService.unwrap(
         adminService.ops.searchChat({
           q: query.trim() || undefined,
+          lobbyId: roomFilter || undefined,
           limit: PAGE_SIZE,
           offset: (page - 1) * PAGE_SIZE,
         }),
@@ -124,7 +129,7 @@ export default function AdminChat() {
     } finally {
       setLoading(false);
     }
-  }, [query, page]);
+  }, [query, page, roomFilter]);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -156,6 +161,18 @@ export default function AdminChat() {
       setLoading(false);
     }
   }, []);
+
+  // The channels on screen, named: room and kind, or the two people of a
+  // private conversation, instead of "lobby:main-lobby" and "dm:<id>::<id>".
+  const channelIds = useMemo(
+    () => [
+      ...messages.map((row) => row.channel),
+      ...reports.map((row) => row.channel),
+      ...attachments.map((row) => row.channel),
+    ],
+    [messages, reports, attachments],
+  );
+  const { resolve: channelInfo, rooms } = useChannelDirectory(channelIds);
 
   const refresh = useCallback(() => {
     if (pane === "messages") return loadMessages();
@@ -194,18 +211,17 @@ export default function AdminChat() {
   const messageColumns: FitColumns<ChatMessage> = [
     {
       title: "Zaman",
-      hideBelow: 560,
+      hideBelow: 680,
       dataIndex: "createdAt",
       width: 150,
       render: (value: string) => <span className="ct-admin-muted">{adminDateTime(value)}</span>,
     },
     {
-      title: "Kanal",
-      hideBelow: 720,
+      title: "Sohbet",
+      hideBelow: 480,
       dataIndex: "channel",
-      width: 170,
-      ellipsis: true,
-      render: (value: string) => <span className="ct-admin-mono">{value}</span>,
+      width: 210,
+      render: (value: string) => <ChannelCell info={channelInfo(value)} />,
     },
     {
       title: "Gönderen",
@@ -258,12 +274,11 @@ export default function AdminChat() {
       render: (value: string) => <strong>{value}</strong>,
     },
     {
-      title: "Kanal",
-      hideBelow: 940,
+      title: "Sohbet",
+      hideBelow: 720,
       dataIndex: "channel",
-      width: 170,
-      ellipsis: true,
-      render: (value: string) => <span className="ct-admin-mono">{value}</span>,
+      width: 210,
+      render: (value: string) => <ChannelCell info={channelInfo(value)} />,
     },
     { title: "Gerekçe", dataIndex: "reason", ellipsis: true },
     {
@@ -332,8 +347,15 @@ export default function AdminChat() {
       ),
     },
     {
+      title: "Sohbet",
+      hideBelow: 700,
+      dataIndex: "channel",
+      width: 210,
+      render: (value: string) => <ChannelCell info={channelInfo(value)} />,
+    },
+    {
       title: "Tür",
-      hideBelow: 740,
+      hideBelow: 880,
       dataIndex: "mimeType",
       width: 140,
       ellipsis: true,
@@ -382,7 +404,7 @@ export default function AdminChat() {
       {modalHolder}
       <AdminPageHeader
         title="Sohbet Moderasyonu"
-        description={"Oda mesajları, şikâyet kuyruğu ve ek dosyalar. Özel mesajlar yalnızca bir şikâyetle buraya düşer."}
+        description={"Hangi odada kimin ne yazdığını görün, şikâyetleri ve ek dosyaları yönetin. Özel mesajlar yalnızca bir şikâyetle buraya düşer."}
         actions={
           <>
             <Button icon={<ReloadOutlined />} onClick={() => void refresh()} loading={loading}>
@@ -405,21 +427,48 @@ export default function AdminChat() {
 
       {pane === "messages" && (
         <AdminSection
-          title="Oda mesajları"
+          title={roomFilter ? `${channelInfo(`lobby:${roomFilter}`).title} mesajları` : "Oda mesajları"}
           icon={<MessageOutlined />}
           hint={`${messagesTotal} mesaj`}
           flush
           toolbar={
-            <Input.Search
-              placeholder="Mesaj içinde ara"
-              allowClear
-              prefix={<SearchOutlined className="ct-admin-muted" />}
-              onSearch={(value) => {
-                setPage(1);
-                setQuery(value);
-              }}
-              className="ct-admin-toolbar-search"
-            />
+            <>
+              <Input.Search
+                placeholder="Mesaj içinde ara"
+                allowClear
+                prefix={<SearchOutlined className="ct-admin-muted" />}
+                onSearch={(value) => {
+                  setPage(1);
+                  setQuery(value);
+                }}
+                className="ct-admin-toolbar-search"
+              />
+              <Select
+                showSearch
+                optionFilterProp="label"
+                value={roomFilter}
+                onChange={(value) => {
+                  setPage(1);
+                  setRoomFilter(value);
+                }}
+                className="ct-admin-toolbar-filter wide"
+                options={[
+                  { value: "", label: "Tüm sohbetler" },
+                  {
+                    label: "Sesli odalar",
+                    options: rooms
+                      .filter((room) => !room.isTextOnly)
+                      .map((room) => ({ value: room.id, label: room.name })),
+                  },
+                  {
+                    label: "Yazılı odalar",
+                    options: rooms
+                      .filter((room) => room.isTextOnly)
+                      .map((room) => ({ value: room.id, label: room.name })),
+                  },
+                ]}
+              />
+            </>
           }
         >
           <Table

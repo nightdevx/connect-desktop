@@ -28,6 +28,7 @@ import type {
   PostJoinOptions,
   ScheduleActiveLobbyReconnect,
 } from "./use-workspace-lobbies";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
 
 type StatusTone = "ok" | "warn" | "error";
 
@@ -80,6 +81,8 @@ export interface WorkspaceLobbyActionsState {
     allowedUsers?: string[],
     password?: string,
     isTextOnly?: boolean,
+    capacity?: number,
+    disabledFeatures?: LobbyFeatureId[],
   ) => Promise<boolean>;
   updateLobby: (
     lobbyId: string,
@@ -102,7 +105,6 @@ export interface WorkspaceLobbyActionsState {
 export const useWorkspaceLobbyActions = ({
   activeLobbyId,
   setActiveLobbyId,
-  lobbies,
   lobbiesQuery,
   setKnownLobbies,
   setStatus,
@@ -152,6 +154,12 @@ export const useWorkspaceLobbyActions = ({
     password?: string,
     // Create-only: there is no edit path, so updateLobby has no counterpart.
     isTextOnly?: boolean,
+    // The member ceiling. It used to stop at the sidebar's modal: this function
+    // had no parameter for it, so every new room took the server's default.
+    capacity?: number,
+    // Switched off from the start. The create route has no such field, so it
+    // is applied right after, as the same update the settings dialog sends.
+    disabledFeatures?: LobbyFeatureId[],
   ): Promise<boolean> => {
     const trimmed = name.trim();
     if (trimmed.length < 2) {
@@ -167,10 +175,11 @@ export const useWorkspaceLobbyActions = ({
         allowedUsers,
         password,
         isTextOnly,
+        capacity,
       });
       if (!result.ok) {
         setStatus(
-          `Lobi oluşturulamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Oda oluşturulamadı: ${getApiErrorMessage(result.error)}`,
           "error",
         );
         return false;
@@ -191,9 +200,33 @@ export const useWorkspaceLobbyActions = ({
 
           return [...previous, createdLobby];
         });
+
+        // The switches chosen in the create dialog: the same PATCH the settings
+        // dialog sends. If it fails the room exists with every feature on, and
+        // the owner is told where to finish.
+        if (disabledFeatures && disabledFeatures.length > 0) {
+          const featureResult = await workspaceService.updateLobby({
+            lobbyId: createdLobby.id,
+            name: createdLobby.name,
+            disabledFeatures,
+          });
+          if (featureResult.ok && featureResult.data?.lobby) {
+            const withFeatures = featureResult.data.lobby;
+            setKnownLobbies((previous) =>
+              previous.map((lobby) => (lobby.id === withFeatures.id ? withFeatures : lobby)),
+            );
+          } else {
+            setStatus(
+              `"${trimmed}" odası oluşturuldu ama izinler kaydedilemedi. Oda ayarlarından tekrar dene.`,
+              "warn",
+            );
+            refreshLobbiesIfUnstreamed();
+            return true;
+          }
+        }
       }
 
-      setStatus(`"${trimmed}" lobisi oluşturuldu`, "ok");
+      setStatus(`"${trimmed}" odası oluşturuldu`, "ok");
       refreshLobbiesIfUnstreamed();
       return true;
     } finally {
@@ -232,7 +265,7 @@ export const useWorkspaceLobbyActions = ({
 
       if (!result.ok) {
         setStatus(
-          `Lobi güncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Oda güncellenemedi: ${getApiErrorMessage(result.error)}`,
           "error",
         );
         return false;
@@ -251,7 +284,7 @@ export const useWorkspaceLobbyActions = ({
         });
       }
 
-      setStatus("Lobi güncellendi", "ok");
+      setStatus("Oda güncellendi", "ok");
       refreshLobbiesIfUnstreamed();
       return true;
     } finally {
@@ -265,7 +298,7 @@ export const useWorkspaceLobbyActions = ({
       const result = await workspaceService.deleteLobby({ lobbyId });
       if (!result.ok) {
         setStatus(
-          `Lobi silinemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Oda silinemedi: ${getApiErrorMessage(result.error)}`,
           "error",
         );
         return false;
@@ -279,7 +312,7 @@ export const useWorkspaceLobbyActions = ({
         setActiveLobbyId(null);
       }
 
-      setStatus("Lobi silindi", "ok");
+      setStatus("Oda silindi", "ok");
       refreshLobbiesIfUnstreamed();
       return true;
     } finally {
@@ -325,7 +358,7 @@ export const useWorkspaceLobbyActions = ({
           return;
         }
         setStatus(
-          `Lobiye katılınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Odaya katılınamadı: ${getApiErrorMessage(result.error)}`,
           "error",
         );
         return;
@@ -358,8 +391,6 @@ export const useWorkspaceLobbyActions = ({
 
       soundEffectManager.playSelfJoinedLobby();
 
-      const joinedLobby = lobbies.find((item) => item.id === lobbyId);
-      setStatus(`${joinedLobby?.name ?? lobbyId} lobisine katıldın`, "ok");
       refreshLobbiesIfUnstreamed();
     } finally {
       lobbyTransitionRef.current.joiningLobbyId = null;
@@ -416,7 +447,7 @@ export const useWorkspaceLobbyActions = ({
       });
       if (!result.ok) {
         setStatus(
-          `Lobiden ayrılınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Odadan ayrılınamadı: ${getApiErrorMessage(result.error)}`,
           "error",
         );
         return;
@@ -435,9 +466,6 @@ export const useWorkspaceLobbyActions = ({
       await liveKitSessionRef.current?.disconnect();
       // The kick warning already told the user what happened; a second
       // contradicting "ok" toast right after is confusing, not informative.
-      if (reason !== "kicked") {
-        setStatus("Lobiden ayrıldın", "ok");
-      }
       refreshLobbiesIfUnstreamed();
     } finally {
       lobbyTransitionRef.current.isLeaving = false;

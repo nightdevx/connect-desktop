@@ -7,7 +7,7 @@ import {
   type FitColumns,
 } from "./admin-primitives";
 import { Button, Input, Select, Table } from "antd";
-import { AuditOutlined, ReloadOutlined, DownloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { AuditOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AdminAuditEntry } from "@shared/desktop-api-types";
 import { toErrorMessage } from "@shared/error-message";
 import { adminService } from "../services/admin-service";
@@ -121,14 +121,6 @@ export default function AdminAudit() {
           <>
             <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
               Yenile
-            </Button>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={() => {
-                toast.info("CSV dökümü GET /admin/audit/export adresinden alınır.");
-              }}
-            >
-              CSV
             </Button>
           </>
         }

@@ -20,6 +20,7 @@ import { hueStyle } from "../../workspace-utils";
 import { BlankFace } from "@/ui/blank-face";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
 
 // Mirrors the backend column defaults, so an account created before privacy
 // existed shows what it actually does: reachable by everyone.
@@ -69,7 +70,7 @@ export function SettingsPrivacy() {
 
         if (!result.ok) {
           toast.error(
-            `Gizlilik ayarları alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            `Gizlilik ayarları alınamadı: ${getApiErrorMessage(result.error)}`,
           );
           return;
         }
@@ -109,7 +110,7 @@ export function SettingsPrivacy() {
 
       if (!result.ok || !result.data?.privacy) {
         toast.error(
-          `Gizlilik ayarları kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Gizlilik ayarları kaydedilemedi: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }

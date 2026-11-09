@@ -491,10 +491,17 @@ export class AuthClient {
     });
   }
 
-  public async adminDeleteUser(accessToken: string, userId: string): Promise<{ deleted: boolean }> {
+  public async adminDeleteUser(
+    accessToken: string,
+    userId: string,
+    reason: string,
+  ): Promise<{ deleted: boolean }> {
+    // The server writes the reason into the audit log and refuses a delete
+    // without one (REASON_REQUIRED).
     return this.baseClient.request<{ deleted: boolean }>(`/admin/users/${userId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ reason }),
     });
   }
 

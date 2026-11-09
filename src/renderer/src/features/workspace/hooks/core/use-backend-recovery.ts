@@ -31,7 +31,7 @@ export function useBackendRecovery(enabled: boolean): void {
     const onStatus = (stream: RecoveryStream, status: StreamStatus): void => {
       const now = Date.now();
       if (announceRef.current.observe(status, now)) {
-        setStatus("Sunucu bağlantısı geri geldi, veriler yenilendi.", "ok");
+        setStatus("Sunucu bağlantısı geri geldi.", "ok");
       }
       if (!trackers[stream].observe(status, now)) {
         return;

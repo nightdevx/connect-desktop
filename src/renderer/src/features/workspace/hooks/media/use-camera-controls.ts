@@ -7,6 +7,7 @@ import {
   buildCameraVideoConstraints,
   stopMediaStreamTracks,
 } from "../../workspace-media-utils";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
 
 interface UseCameraControlsParams {
   currentUserId: string;
@@ -61,7 +62,7 @@ export const useCameraControls = ({
         });
         if (!result.ok) {
           setStatus(
-            `Kamera durumu uygulanamadi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            "Kamera durumun diğer kişilere iletilemedi.",
             "warn"
           );
         }
@@ -89,15 +90,15 @@ export const useCameraControls = ({
       const [videoTrack] = stream.getVideoTracks();
       if (videoTrack) {
         videoTrack.onended = () => {
-          setCameraShareModalError("Kamera onizlemesi durduruldu.");
+          setCameraShareModalError("Kamera önizlemesi durduruldu.");
           setCameraPreviewStream(null);
         };
       }
 
       setCameraPreviewStream(stream);
-    } catch (error) {
+    } catch {
       setCameraShareModalError(
-        `Kamera onizlemesi baslatilamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
+        "Kamera açılamadı. İzinleri ve cihazı kontrol et."
       );
     } finally {
       setIsPreparingCameraPreview(false);
@@ -153,7 +154,7 @@ export const useCameraControls = ({
 
     const previewStream = cameraPreviewStream;
     if (!previewStream) {
-      setCameraShareModalError("Once kamera onizlemesi baslatilmali. Yenile'ye basip tekrar dene.");
+      setCameraShareModalError("Once kamera önizlemesi baslatilmali. Yenile'ye basip tekrar dene.");
       return;
     }
 
@@ -208,17 +209,16 @@ export const useCameraControls = ({
 
         if (!result.ok) {
           setStatus(
-            `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+            `Kamera durumu güncellenemedi: ${getApiErrorMessage(result.error)}`,
             "warn"
           );
         }
       }
 
       setIsCameraShareModalOpen(false);
-    } catch (error) {
-      const msg = `Kamera paylasimi baslatilamadi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`;
-      setCameraShareModalError(msg);
-      setStatus(msg, "error");
+    } catch {
+      // The dialog shows it in place; a toast over it said it twice.
+      setCameraShareModalError("Kamera başlatılamadı. İzinleri ve cihazı kontrol et.");
     } finally {
       setIsStartingCameraShare(false);
     }
@@ -253,7 +253,7 @@ export const useCameraControls = ({
         }).then((result) => {
           if (!result.ok) {
             setStatus(
-              `Kamera durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              `Kamera durumu güncellenemedi: ${getApiErrorMessage(result.error)}`,
               "warn"
             );
           }

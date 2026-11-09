@@ -195,9 +195,8 @@ export class MicrophoneTrackProcessorFactory {
       logLiveKitDebug("mic-controller", "processor-prewarm-wrong-sample-rate", {
         sampleRate: audioContext.sampleRate,
       });
-      this.onWarning?.(
-        `Ses aygıtı ${audioContext.sampleRate} Hz çalışıyor; RNNoise 48 kHz gerektirdiği için tarayıcı gürültü filtresi kullanılıyor.`,
-      );
+      console.warn(`[voice-processing] device runs at ${audioContext.sampleRate} Hz; noise suppression needs 48 kHz`);
+      this.onWarning?.("Bu ses cihazında gürültü engelleme kullanılamıyor.");
       return false;
     }
 
@@ -339,9 +338,8 @@ export class MicrophoneTrackProcessorFactory {
               wasmModule = await this.getRnnoiseModule();
             } catch (error) {
               // Degrade to volume + limiter rather than losing the mic entirely.
-              this.onWarning?.(
-                `RNNoise başlatılamadı, mikrofon filtresiz yayınlanıyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
-              );
+              console.error("[voice-processing] noise suppression failed to start:", error);
+              this.onWarning?.("Gürültü engelleme açılamadı, mikrofonun filtresiz çalışıyor.");
             }
           }
 
@@ -395,9 +393,8 @@ export class MicrophoneTrackProcessorFactory {
             await context.resume();
           }
         } catch (error) {
-          this.onWarning?.(
-            `Mikrofon işleme zinciri başlatılamadı, ham mikrofon yayınlanıyor: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
-          );
+          console.error("[voice-processing] processing chain failed to start:", error);
+          this.onWarning?.("Mikrofon ayarları uygulanamadı, mikrofonun ham sesle çalışıyor.");
           processor.processedTrack = opts.track;
         }
       },
@@ -496,9 +493,8 @@ export class MicrophoneTrackProcessorFactory {
 
       if (!this.warnedAboutWasmCspBlock) {
         this.warnedAboutWasmCspBlock = true;
-        this.onWarning?.(
-          `RNNoise WASM CSP nedeniyle başlatılamadı, tarayıcı filtrelerine geri dönüldü: ${error instanceof Error ? error.message : "bilinmeyen hata"}`,
-        );
+        console.error("[voice-processing] noise suppression WASM blocked:", error);
+        this.onWarning?.("Gürültü engelleme açılamadı, mikrofonun filtresiz çalışıyor.");
       }
     }
 
