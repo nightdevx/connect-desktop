@@ -315,9 +315,8 @@ export function SettingsAudio({
         `Mikrofon testi başlatıldı.${usedDeviceLabel ? ` Aktif mikrofon: ${usedDeviceLabel}.` : ""} Konuşurken seviye çubuğunu kontrol et.`,
       );
     } catch (error) {
-      toast.error(
-        `Ses testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-      );
+      console.error("[settings-audio] mic test failed:", error);
+      toast.error("Mikrofon testi başlatılamadı. İzinleri ve cihazı kontrol et.");
     } finally {
       setIsStartingAudioTest(false);
     }
@@ -361,11 +360,9 @@ export function SettingsAudio({
         void closeAudioContextSafely(audioContext);
       };
 
-      toast.success("Test sesi çalındı.");
     } catch (error) {
-      toast.error(
-        `Test sesi çalınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-      );
+      console.error("[settings-audio] test tone failed:", error);
+      toast.error("Test sesi çalınamadı.");
     }
   };
 
@@ -466,9 +463,7 @@ export function SettingsAudio({
               icon={audioTestStream ? <StopOutlined /> : <AudioOutlined />}
               onClick={() => {
                 if (audioTestStream) {
-                  void stopAudioTest().then(() => {
-                    toast.info("Mikrofon testi durduruldu.");
-                  });
+                  void stopAudioTest();
                   return;
                 }
 

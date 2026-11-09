@@ -38,7 +38,7 @@ const main = async () => {
     },
   });
 
-  const { toErrorMessage, isTransientApiError, TRANSIENT_API_ERROR_MESSAGE } =
+  const { toErrorMessage, isTransientApiError, TRANSIENT_API_ERROR_MESSAGE, translateBackendMessage } =
     await import(pathToFileURL(path.join(outDir, "error-message.mjs")).href);
 
   const FALLBACK = "Bilinmeyen hata";
@@ -98,6 +98,18 @@ const main = async () => {
     assert.ok(result.trim().length > 0, "never an empty message");
     assert.ok(!result.includes("undefined"), "never the word undefined");
   }
+
+  // --- backend English becomes Turkish; unknown English gives way ------------
+  assert.equal(
+    toErrorMessage(new Error("message can only be edited by sender"), FALLBACK),
+    "Yalnızca kendi mesajını düzenleyebilirsin.",
+  );
+  assert.equal(translateBackendMessage("lobby is full"), "Oda dolu.");
+  assert.equal(translateBackendMessage("emote limit reached (5)"), "Ses sınırına ulaştın (5).");
+  assert.equal(toErrorMessage({ message: "Permission denied" }, FALLBACK), FALLBACK, "library English falls back");
+  assert.equal(toErrorMessage(new Error("Requested device not found"), FALLBACK), FALLBACK);
+  assert.equal(translateBackendMessage("Oda dolu"), "Oda dolu", "Turkish without special letters stays");
+  assert.equal(translateBackendMessage("Bu odaya giremezsin."), "Bu odaya giremezsin.");
 
   // --- a request that never got an answer ------------------------------------
   // The main process's timeout and transport errors, and the proxy's 502-504

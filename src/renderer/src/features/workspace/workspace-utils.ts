@@ -1,7 +1,9 @@
 import type { PresenceStatus } from "@shared/auth-contracts";
 import {
+  GENERIC_ERROR_MESSAGE,
   isTransientApiError,
   TRANSIENT_API_ERROR_MESSAGE,
+  translateBackendMessage,
 } from "@shared/error-message";
 
 export type UserFilter = "all" | "online" | "offline";
@@ -16,10 +18,10 @@ export const getApiErrorMessage = (error?: {
   }
 
   if (!error?.message?.trim()) {
-    return "Bilinmeyen hata";
+    return GENERIC_ERROR_MESSAGE;
   }
 
-  return error.message;
+  return translateBackendMessage(error.message) ?? GENERIC_ERROR_MESSAGE;
 };
 
 export const getUserStatusLabel = (

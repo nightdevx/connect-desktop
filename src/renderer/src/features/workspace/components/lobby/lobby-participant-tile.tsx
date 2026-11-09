@@ -18,7 +18,7 @@ import { logLiveKitDebug } from "@/services/debug-log";
 import { hueStyle } from "../../workspace-utils";
 import { BlankFace } from "@/ui/blank-face";
 import { AudioDeviceDropdown } from "../common/AudioDeviceDropdown";
-import { useWindowActive } from "../../hooks/media/use-window-active";
+import { useWindowActive, useWindowVisible } from "../../hooks/media/use-window-active";
 import {
   closePip,
   openPip,
@@ -33,6 +33,7 @@ import {
 import { ScreenWatcherBadge } from "./lobby-screen-watchers";
 import { StreamPreviewImage } from "./stream-preview-image";
 import { useLobbyEmoteFlash } from "@/store/lobby-emote-flash";
+import { useUiStore } from "@/store/ui-store";
 
 // useWindowActive reports whether this app window is in the foreground.
 //
@@ -132,6 +133,10 @@ function LobbyParticipantTileImpl({
   streamPreviewLobbyId = null,
 }: LobbyParticipantTileProps) {
   const windowActive = useWindowActive();
+  const windowVisible = useWindowVisible();
+  // Settings > Yayın: keep the preview going while another window has focus.
+  // Off by default, which is how it always behaved.
+  const keepPreviewPlaying = useUiStore((state) => state.viewPreferences.keepPreviewPlaying);
 
   // A remote screen tile with nothing playing means the stream exists but this
   // viewer has not asked for it. Offer the button instead of a black rectangle.
@@ -171,7 +176,9 @@ function LobbyParticipantTileImpl({
   // surface. PiP no longer needs the same exemption — it renders on its own
   // element, which this one never touches.
   const previewSuspended =
-    participant.isLocalUser && !windowActive && !isFullscreen;
+    participant.isLocalUser &&
+    !(keepPreviewPlaying ? windowVisible : windowActive) &&
+    !isFullscreen;
 
   const handleVideoLoadedMetadata = () => {
     const videoElement = videoRef.current;

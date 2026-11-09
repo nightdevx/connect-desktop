@@ -5,6 +5,7 @@ import {
   CheckOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
+  LockOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MessageOutlined,
@@ -31,6 +32,14 @@ import type { FriendsController } from "../../hooks/user/use-friends";
 import { FreeGamesSidebarPanel } from "@/features/free-games";
 import { MinigamesSidebarPanel } from "@/features/minigames";
 import { LobbiesCompactList, LobbiesSidebarPanel } from "../lobby";
+import {
+  FieldError,
+  RoomFeatureGrid,
+  RoomTabBar,
+  Section,
+  passwordProblem,
+  type RoomTab,
+} from "../lobby/parts/room-settings-dialog";
 import { SettingsSidebarTabs } from "../settings";
 import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
@@ -70,6 +79,8 @@ interface WorkspaceSidebarProps {
     voiceRoomId?: string | null;
     /** The text room being read, which is never a connection — see WorkspaceShell. */
     openTextRoomId: string | null;
+    /** The row's chat button: read a voice room's chat without joining it. */
+    onOpenRoomChat?: (lobbyId: string) => void;
     joiningLobbyId: string | null;
     unreadByLobbyId: Record<string, number>;
     /** The room menu's "Okundu işaretle". */
@@ -82,6 +93,7 @@ interface WorkspaceSidebarProps {
       password?: string,
       isTextOnly?: boolean,
       capacity?: number,
+      disabledFeatures?: LobbyFeatureId[],
     ) => Promise<boolean>;
     onUpdateLobby: (
       lobbyId: string,
@@ -151,6 +163,9 @@ export function WorkspaceSidebar({
   // Empty means "whatever the server's default is", which is what every room
   // used to get with no way to say otherwise.
   const [newLobbyCapacity, setNewLobbyCapacity] = useState<number | null>(null);
+  // The room's feature switches (İzinler), off ones listed. Empty = all on.
+  const [newDisabledFeatures, setNewDisabledFeatures] = useState<LobbyFeatureId[]>([]);
+  const [createTab, setCreateTab] = useState<RoomTab>("general");
   // allUsers is friends + self now, so the select alone can never reach a
   // stranger. These are the ones pulled in by exact username while this modal
   // is open — kept only so their tag renders a name instead of a bare id.
@@ -181,6 +196,9 @@ export function WorkspaceSidebar({
     // open and silently locked the next lobby created.
     setNewLobbyPassword("");
     setIsTextOnly(false);
+    setNewLobbyCapacity(null);
+    setNewDisabledFeatures([]);
+    setCreateTab("general");
     setLookedUpUsers([]);
     setLookupUsername("");
     setIsCreateLobbyOpen(true);
@@ -204,7 +222,7 @@ export function WorkspaceSidebar({
           result.error?.code === "USER_NOT_FOUND" ||
             result.error?.code === "VALIDATION_ERROR"
             ? "Kullanıcı bulunamadı."
-            : getApiErrorMessage(result.error),
+            : `Kullanıcı aranamadı: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -288,6 +306,7 @@ export function WorkspaceSidebar({
       isTextOnly,
       // A text room has no roster to limit, so its ceiling is never sent.
       isTextOnly ? undefined : (newLobbyCapacity ?? undefined),
+      newDisabledFeatures,
     );
     if (!created) {
       return;
@@ -299,6 +318,8 @@ export function WorkspaceSidebar({
     setNewLobbyPassword("");
     setIsTextOnly(false);
     setNewLobbyCapacity(null);
+    setNewDisabledFeatures([]);
+    setCreateTab("general");
     setLookedUpUsers([]);
     setLookupUsername("");
     setIsCreateLobbyOpen(false);
@@ -412,6 +433,20 @@ export function WorkspaceSidebar({
     </Modal>
   );
 
+  const newLobbyNameError =
+    newLobbyName.trim().length > 0 && newLobbyName.trim().length < 2
+      ? "Oda adı en az 2 karakter olmalı."
+      : null;
+  const newLobbyPasswordError = isTextOnly ? null : passwordProblem(newLobbyPassword);
+  const canCreateLobby =
+    newLobbyName.trim().length >= 2 && !newLobbyPasswordError && !lobbiesProps.isCreatingLobby;
+
+  const createTabHasError: Record<RoomTab, boolean> = {
+    general: Boolean(newLobbyNameError),
+    access: Boolean(newLobbyPasswordError),
+    permissions: false,
+  };
+
   // Both branches too: the folded strip has its own "+" at the foot.
   const createLobbyModal = (
     <Modal
@@ -420,153 +455,235 @@ export function WorkspaceSidebar({
         <ModalHeading
           icon={<PlusOutlined />}
           title="Yeni oda oluştur"
-          description="Arkadaşlarının katılabileceği bir oda aç."
+          description="Adı, türü ve kimlerin girebileceğini seç. Tür dışındakileri sonradan Oda ayarları'ndan değiştirebilirsin."
         />
       }
       open={isCreateLobbyOpen}
       onOk={() => void handleCreateLobbySubmit()}
       onCancel={() => setIsCreateLobbyOpen(false)}
       confirmLoading={lobbiesProps.isCreatingLobby}
-      okButtonProps={{ disabled: newLobbyName.trim().length < 2 }}
+      okButtonProps={{ disabled: !canCreateLobby }}
       okText={lobbiesProps.isCreatingLobby ? "Oluşturuluyor…" : "Oluştur"}
       cancelText="Vazgeç"
-      width={MODAL_WIDTH.m}
+      width={MODAL_WIDTH.l}
       destroyOnHidden
     >
-      <div className="ct-modal-form">
-        <label className="ct-field">
-          <span className="ct-field-label-row">
-            Oda adı
-            <span className="ct-field-count">{newLobbyName.length}/64</span>
-          </span>
-          <input
-            type="text"
-            className="ct-input"
-            value={newLobbyName}
-            onChange={(event) => setNewLobbyName(event.target.value)}
-            placeholder="Örn. Oyun Odası"
-            maxLength={64}
-            autoFocus
-          />
-        </label>
+      <div className="ct-modal-form ct-room-settings">
+        <RoomTabBar tab={createTab} onChange={setCreateTab} hasError={createTabHasError} />
 
-        {/* Create-only: the flag is immutable afterwards, so "Lobi Ayarları"
-            has no counterpart for it. Two cards rather than a select: the
-            hint under each says what the type means. */}
-        <div className="ct-field">
-          <span id="ct-room-type-label">Tür</span>
-          <div className="ct-choice-row" role="radiogroup" aria-labelledby="ct-room-type-label">
-            {ROOM_TYPES.map((choice) => (
-              <button
-                key={choice.title}
-                type="button"
-                role="radio"
-                aria-checked={isTextOnly === choice.textOnly}
-                className={`ct-choice${isTextOnly === choice.textOnly ? " selected" : ""}`}
-                onClick={() => handleRoomTypeChange(choice.textOnly)}
-              >
-                <strong>
-                  {choice.icon}
-                  {choice.title}
-                </strong>
-                <span>{choice.hint}</span>
-                {isTextOnly === choice.textOnly && (
-                  <span className="ct-choice-check" aria-hidden="true">
-                    <CheckOutlined />
-                  </span>
+        {createTab === "general" && (
+          <div
+            className="ct-room-panel"
+            role="tabpanel"
+            id="ct-room-panel-general"
+            aria-labelledby="ct-room-tab-general"
+          >
+            <Section title="Oda">
+              <label className="ct-field" htmlFor="new-lobby-name">
+                <span className="ct-field-label-row">
+                  Oda adı
+                  <span className="ct-field-count">{newLobbyName.length}/64</span>
+                </span>
+                <input
+                  id="new-lobby-name"
+                  type="text"
+                  className={`ct-input${newLobbyNameError ? " invalid" : ""}`}
+                  value={newLobbyName}
+                  onChange={(event) => setNewLobbyName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && canCreateLobby) {
+                      event.preventDefault();
+                      void handleCreateLobbySubmit();
+                    }
+                  }}
+                  placeholder="Örn. Oyun Odası"
+                  maxLength={64}
+                  aria-invalid={newLobbyNameError ? true : undefined}
+                  autoFocus
+                />
+                {newLobbyNameError && (
+                  <FieldError id="new-lobby-name-error">{newLobbyNameError}</FieldError>
                 )}
-              </button>
-            ))}
-          </div>
-        </div>
+              </label>
 
-        {/* Voice only: nobody is ever on a text room's roster, so a limit
-            there would be a number that never applies to anything. */}
-        {!isTextOnly && (
-          <label className="ct-field">
-            <span>Kişi sınırı</span>
-            <InputNumber
-              className="ct-input-number"
-              min={2}
-              max={100}
-              value={newLobbyCapacity}
-              onChange={(value) => setNewLobbyCapacity(value ?? null)}
-              placeholder="Sunucu varsayılanı"
-            />
-            <small className="ct-field-hint">
-              Boş bırakırsan sunucunun varsayılan sınırı geçerli olur.
-            </small>
-          </label>
+
+              {/* Create-only: the flag is immutable afterwards, so "Oda ayarları"
+                  has no counterpart for it. Two cards rather than a select: the
+                  hint under each says what the type means. */}
+              <div className="ct-field">
+                <span id="ct-room-type-label">Oda türü</span>
+                <div className="ct-choice-row" role="radiogroup" aria-labelledby="ct-room-type-label">
+                  {ROOM_TYPES.map((choice) => (
+                    <button
+                      key={choice.title}
+                      type="button"
+                      role="radio"
+                      aria-checked={isTextOnly === choice.textOnly}
+                      className={`ct-choice${isTextOnly === choice.textOnly ? " selected" : ""}`}
+                      onClick={() => handleRoomTypeChange(choice.textOnly)}
+                    >
+                      <strong>
+                        {choice.icon}
+                        {choice.title}
+                      </strong>
+                      <span>{choice.hint}</span>
+                      {isTextOnly === choice.textOnly && (
+                        <span className="ct-choice-check" aria-hidden="true">
+                          <CheckOutlined />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <small className="ct-field-hint">Tür oda açıldıktan sonra değiştirilemez.</small>
+              </div>
+            </Section>
+
+          {/* Voice only: nobody is ever on a text room's roster, so a limit
+              there would be a number that never applies to anything. */}
+          {!isTextOnly && (
+            <Section title="Kapasite">
+              <label className="ct-field" htmlFor="new-lobby-capacity">
+                <span>Kişi sınırı</span>
+                <InputNumber
+                  id="new-lobby-capacity"
+                  className="ct-input-number"
+                  min={2}
+                  max={100}
+                  value={newLobbyCapacity}
+                  onChange={(value) => setNewLobbyCapacity(value ?? null)}
+                  placeholder="Sunucu varsayılanı"
+                  aria-describedby="new-lobby-capacity-hint"
+                />
+                <small id="new-lobby-capacity-hint" className="ct-field-hint">
+                  2 ile 100 arası. Boş bırakırsan sunucunun varsayılan sınırı geçerli olur.
+                </small>
+              </label>
+            </Section>
+          )}
+          </div>
         )}
 
-        <div className="ct-field-row">
-          <div className="ct-field-row-text">
-            <strong>Kilitli oda</strong>
-            <span>
-              {isTextOnly
-                ? "Yalnızca davet edilen kişiler görebilir"
-                : "Yalnızca davet edilen kişiler katılabilir"}
-            </span>
-          </div>
-          <Switch checked={isLocked} onChange={setIsLocked} />
-        </div>
+        {createTab === "access" && (
+          <div
+            className="ct-room-panel"
+            role="tabpanel"
+            id="ct-room-panel-access"
+            aria-labelledby="ct-room-tab-access"
+          >
+            <Section title="Erişim">
+              <div className="ct-room-row">
+                <span className="ct-room-row-icon" aria-hidden="true">
+                  <LockOutlined />
+                </span>
+                <span className="ct-room-row-text">
+                  <strong id="ct-new-room-lock-label">Kilitli oda</strong>
+                  <span>
+                    {isTextOnly
+                      ? "Açıkken odayı yalnız izin verdiğin kişiler görür."
+                      : "Açıkken odaya yalnız izin verdiğin kişiler katılır."}
+                  </span>
+                </span>
+                <Switch
+                  size="small"
+                  checked={isLocked}
+                  onChange={setIsLocked}
+                  aria-labelledby="ct-new-room-lock-label"
+                />
+              </div>
 
-        {isLocked && (
-          <label className="ct-field">
-            <span>İzin verilecek kişiler</span>
-            <Select
-              mode="multiple"
-              placeholder="Arkadaşlarından seç…"
-              value={allowedUsers}
-              onChange={setAllowedUsers}
-              options={[
-                ...lobbiesProps.allUsers
-                  .filter(
-                    (u) =>
-                      u.id !== lobbiesProps.currentUserId &&
-                      u.id !== SEED_ADMIN_ID,
-                  )
-                  .map((u) => ({
-                    label: `@${u.username} (${u.displayName})`,
-                    value: u.id,
-                  })),
-                ...lookedUpUsers.map((u) => ({
-                  label: `@${u.username} (${u.displayName})`,
-                  value: u.userId,
-                })),
-              ]}
-            />
-            <Input.Search
-              placeholder="Kullanıcı adıyla ekle"
-              enterButton="Ekle"
-              value={lookupUsername}
-              onChange={(event) => setLookupUsername(event.target.value)}
-              onSearch={() => void handleLookupAdd()}
-              loading={isLookingUp}
-              maxLength={32}
-            />
-          </label>
+              {/* A <div>, not a <label>: two controls in here, and a label that
+                  points at two things points at neither. */}
+              {isLocked && (
+                <div className="ct-field ct-room-people">
+                  <span>İzin verilen kişiler</span>
+                  <Select
+                    mode="multiple"
+                    placeholder="Arkadaşlarından seç"
+                    value={allowedUsers}
+                    onChange={setAllowedUsers}
+                    aria-label="İzin verilen kişiler"
+                    options={[
+                      ...lobbiesProps.allUsers
+                        .filter((u) => u.id !== lobbiesProps.currentUserId && u.id !== SEED_ADMIN_ID)
+                        .map((u) => ({
+                          label: `@${u.username} (${u.displayName})`,
+                          value: u.id,
+                        })),
+                      ...lookedUpUsers.map((u) => ({
+                        label: `@${u.username} (${u.displayName})`,
+                        value: u.userId,
+                      })),
+                    ]}
+                  />
+                  <Input.Search
+                    className="ct-room-lookup"
+                    placeholder="Listede yoksa tam kullanıcı adını yaz"
+                    enterButton="Ekle"
+                    value={lookupUsername}
+                    onChange={(event) => setLookupUsername(event.target.value)}
+                    onSearch={() => void handleLookupAdd()}
+                    loading={isLookingUp}
+                    maxLength={32}
+                    aria-label="Kullanıcı adıyla ekle"
+                  />
+                  <small className="ct-field-hint">
+                    Listeye girmeyen biri katılamaz; oda sahibi ve yöneticiler her zaman girer.
+                  </small>
+                </div>
+              )}
+
+              {/* Voice only: the password is asked when joining, and nobody joins a
+                  text room. The lock applies to both. */}
+              {!isTextOnly && (
+                <label className="ct-field" htmlFor="new-lobby-password">
+                  <span>Oda şifresi (isteğe bağlı)</span>
+                  <Input.Password
+                    id="new-lobby-password"
+                    placeholder="Şifre koymak için yaz"
+                    value={newLobbyPassword}
+                    onChange={(event) => setNewLobbyPassword(event.target.value)}
+                    maxLength={128}
+                    status={newLobbyPasswordError ? "error" : undefined}
+                    aria-invalid={newLobbyPasswordError ? true : undefined}
+                    aria-describedby="new-lobby-password-hint"
+                  />
+                  {newLobbyPasswordError ? (
+                    <FieldError id="new-lobby-password-hint">{newLobbyPasswordError}</FieldError>
+                  ) : (
+                    <small id="new-lobby-password-hint" className="ct-field-hint">
+                      Boş bırakırsan oda şifresiz olur. Şifreyi bilen herkes, listede olmasa da girer.
+                    </small>
+                  )}
+                </label>
+              )}
+            </Section>
+          </div>
         )}
 
-        {/* Sesli odalara özel: şifre yalnızca katılma sırasında sorulur ve
-            mesaj odasına katılım diye bir şey yok. */}
-        {!isTextOnly && (
-          <label className="ct-field">
-            <span>Oda şifresi (isteğe bağlı)</span>
-            <Input.Password
-              placeholder="Şifre belirle (boş = şifresiz)"
-              value={newLobbyPassword}
-              onChange={(event) => setNewLobbyPassword(event.target.value)}
-              maxLength={128}
-            />
-            <small className="ct-field-hint">
-              Şifreyi bilen herkes bu odaya katılabilir.
-            </small>
-          </label>
+        {createTab === "permissions" && (
+          <div
+            className="ct-room-panel"
+            role="tabpanel"
+            id="ct-room-panel-permissions"
+            aria-labelledby="ct-room-tab-permissions"
+          >
+            <Section title="İzinler">
+              <small className="ct-field-hint">
+                Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer odalar etkilenmez.
+              </small>
+              <RoomFeatureGrid
+                disabledFeatures={newDisabledFeatures}
+                onChange={setNewDisabledFeatures}
+                isTextOnly={isTextOnly}
+              />
+            </Section>
+          </div>
         )}
       </div>
     </Modal>
   );
+
 
   if (collapsed) {
     return (
@@ -665,6 +782,7 @@ export function WorkspaceSidebar({
             avatarByUserId={lobbiesProps.avatarByUserId}
             activeLobbyId={lobbiesProps.activeLobbyId}
             openTextRoomId={lobbiesProps.openTextRoomId}
+            onOpenRoomChat={lobbiesProps.onOpenRoomChat}
             joiningLobbyId={lobbiesProps.joiningLobbyId}
             unreadByLobbyId={lobbiesProps.unreadByLobbyId}
             onMarkLobbyRead={lobbiesProps.onMarkLobbyRead}

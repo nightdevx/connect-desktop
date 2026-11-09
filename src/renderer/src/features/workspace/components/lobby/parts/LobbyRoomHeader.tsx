@@ -1,4 +1,4 @@
-import { Tooltip } from "antd";
+import { Button, Tooltip } from "antd";
 import {
   KeyOutlined,
   LockOutlined,
@@ -19,6 +19,9 @@ interface LobbyRoomHeaderProps {
   connectedSince?: string | null;
   /** People in the room sharing a screen right now. */
   liveShareCount?: number;
+  /** A voice room opened for its chat without joining: the status becomes a Katıl button. */
+  chatOnly?: boolean;
+  onJoin?: () => void;
 }
 
 /**
@@ -40,6 +43,8 @@ export function LobbyRoomHeader({
   isConnected,
   connectedSince,
   liveShareCount = 0,
+  chatOnly = false,
+  onJoin,
 }: LobbyRoomHeaderProps) {
   if (!lobby) {
     return null;
@@ -100,7 +105,20 @@ export function LobbyRoomHeader({
         )}
       </div>
 
-      {!isTextOnly && (
+      {chatOnly && (
+        // Not connected and not trying to be: saying "Bağlanıyor…" here made a
+        // chat read look like a join that had stalled.
+        <span className="ct-lobby-room-readonly" role="status">
+          <span>Katılmadan okuyorsun</span>
+          {onJoin && (
+            <Button size="small" type="primary" onClick={onJoin}>
+              Katıl
+            </Button>
+          )}
+        </span>
+      )}
+
+      {!isTextOnly && !chatOnly && (
         // Connected, it is how long you have been here -- the green dot
         // already says "connected".
         <span

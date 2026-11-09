@@ -91,6 +91,11 @@ const SECTION_TITLES: Record<WorkspaceSection, string> = {
 // single move pays it once, which is less than the connect that follows it.
 const MODERATOR_MOVE_SETTLE_MS = 250;
 
+// The dock's "where" line: the room and how many are in it. Nothing about
+// status -- how you appear to others is the avatar badge's job.
+const roomWithCount = (name: string | undefined, count: number): string | undefined =>
+  name ? `${name} · ${count} kişi` : undefined;
+
 interface WorkspaceShellProps {
   currentUserId: string;
   currentUsername: string;
@@ -748,10 +753,8 @@ function WorkspaceShell({
             request,
           );
         } catch (error) {
-          setStatus(
-            `LiveKit bağlantısı kurulamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-            "warn",
-          );
+          console.error("[livekit] connect failed:", error);
+          setStatus("Ses bağlantısı kurulamadı. Tekrar dene.", "warn");
           throw error;
         }
       })();
@@ -941,14 +944,16 @@ function WorkspaceShell({
   // deleted while it was open would otherwise stay on screen as a room that no
   // longer exists — and, with no descriptor to read isTextOnly from, would come
   // back as a full voice stage complete with mic and camera controls.
+  //
+  // Any room can be read this way: a message room always is, and a voice room
+  // is when its chat is opened from the list without joining it. The voice
+  // lobby the user is in, if any, carries on underneath.
   const openTextRoom = useMemo(() => {
     if (!openTextRoomId) return null;
-    return (
-      lobbies.find(
-        (lobby) => lobby.id === openTextRoomId && lobby.isTextOnly,
-      ) ?? null
-    );
+    return lobbies.find((lobby) => lobby.id === openTextRoomId) ?? null;
   }, [openTextRoomId, lobbies]);
+  // A voice room being read without being joined: its chat only, no stage.
+  const isChatOnlyVoiceRoom = Boolean(openTextRoom && !openTextRoom.isTextOnly);
 
   const hasActiveLobby = activeLobbyId !== null;
 
@@ -1139,6 +1144,13 @@ function WorkspaceShell({
     },
     [lobbies, handleJoinLobby],
   );
+
+  // The row's hover button: read and write a voice room's chat without
+  // joining it. Joining stays one click on the row.
+  const handleOpenRoomChat = useCallback((lobbyId: string): void => {
+    setWorkspaceSection("lobbies");
+    setOpenTextRoomId(lobbyId);
+  }, [setWorkspaceSection]);
 
   // Following a move: the server has already put this account in the
   // destination, so this only brings the media across (followModeratorMove).
@@ -1431,7 +1443,10 @@ function WorkspaceShell({
         isInCallRoom
           ? `Görüşmede: ${callState.peerUser?.displayName || callState.peerUser?.username || "arama"}`
           : activeLobbyId
-            ? lobbiesQuery.data?.data?.lobbies.find((lobby) => lobby.id === activeLobbyId)?.name
+            ? roomWithCount(
+                lobbiesQuery.data?.data?.lobbies.find((lobby) => lobby.id === activeLobbyId)?.name,
+                (lobbyMembersById[activeLobbyId] ?? []).length,
+              )
             : undefined
       }
       // A call ringing out or running while the user is elsewhere: a row at
@@ -1493,6 +1508,7 @@ function WorkspaceShell({
                 // reads this, and a call is a connection the lobby list hides.
                 voiceRoomId: activeLobbyId,
                 openTextRoomId: openTextRoom?.id ?? null,
+                onOpenRoomChat: handleOpenRoomChat,
                 joiningLobbyId,
                 unreadByLobbyId,
                 onMarkLobbyRead: clearLobbyUnread,
@@ -1571,6 +1587,8 @@ function WorkspaceShell({
             lobbies={lobbies}
             activeLobbyId={activeLobbyId}
             lobbyRoomId={lobbyRoomId}
+            chatOnlyRoom={isChatOnlyVoiceRoom}
+            onCloseRoomChat={openTextRoom ? () => setOpenTextRoomId(null) : undefined}
             unreadLobbyMessages={
               lobbyRoomId ? (unreadByLobbyId[lobbyRoomId] ?? 0) : 0
             }

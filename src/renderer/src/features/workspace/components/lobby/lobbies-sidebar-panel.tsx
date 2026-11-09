@@ -1,7 +1,7 @@
 import type { LobbyFeatureId } from "@shared/desktop-api-types";
 import { useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Popover } from "antd";
+import { Popover, Tooltip } from "antd";
 import {
   AudioMutedOutlined,
   CustomerServiceOutlined,
@@ -69,6 +69,8 @@ interface LobbiesSidebarPanelProps {
   activeLobbyId: string | null;
   /** The open text room. It is read, not joined, so it is never activeLobbyId. */
   openTextRoomId: string | null;
+  /** The row's chat button: read a voice room's chat without joining it. */
+  onOpenRoomChat?: (lobbyId: string) => void;
   joiningLobbyId: string | null;
   /** Unread chat messages per lobby, for rooms not currently being read. */
   unreadByLobbyId?: Record<string, number>;
@@ -112,6 +114,7 @@ export function LobbiesSidebarPanel({
   avatarByUserId,
   activeLobbyId,
   openTextRoomId,
+  onOpenRoomChat,
   joiningLobbyId,
   unreadByLobbyId = {},
   onMarkLobbyRead,
@@ -260,9 +263,9 @@ export function LobbiesSidebarPanel({
     });
 
     if (result.ok) {
-      toast.success(`${username} → ${targetName}`);
+      toast.success(`${username}, "${targetName}" odasına taşındı.`);
     } else {
-      toast.error(getApiErrorMessage(result.error));
+      toast.error(`Taşınamadı: ${getApiErrorMessage(result.error)}`);
     }
   };
 
@@ -275,7 +278,7 @@ export function LobbiesSidebarPanel({
     if (result.ok) {
       toast.success(`${username} odadan atıldı`);
     } else {
-      toast.error(getApiErrorMessage(result.error));
+      toast.error(`Odadan atılamadı: ${getApiErrorMessage(result.error)}`);
     }
   };
 
@@ -292,10 +295,10 @@ export function LobbiesSidebarPanel({
     });
     if (result.ok) {
       toast.success(
-        `${username} lobiye giremeyecek (${describeDuration(durationSeconds)})`,
+        `${username} ${describeDuration(durationSeconds)} boyunca odaya giremeyecek.`,
       );
     } else {
-      toast.error(getApiErrorMessage(result.error));
+      toast.error(`Zaman aşımı verilemedi: ${getApiErrorMessage(result.error)}`);
     }
   };
 
@@ -319,7 +322,7 @@ export function LobbiesSidebarPanel({
           : `${username} sesi açıldı`,
       );
     } else {
-      toast.error(getApiErrorMessage(result.error));
+      toast.error(`Susturma uygulanamadı: ${getApiErrorMessage(result.error)}`);
     }
   };
 
@@ -409,7 +412,11 @@ export function LobbiesSidebarPanel({
           const isDropTarget = acceptsDrop && dropTargetLobbyId === lobby.id;
 
           const handleLobbyClick = (): void => {
-            if (isDisabled || isDisplayed) {
+            // A voice room shown only for its chat is not joined: clicking its
+            // row is the way in. Without this the row counted as "already on
+            // screen" and swallowed the click.
+            const isChatOnlyView = openTextRoomId === lobby.id && !lobby.isTextOnly;
+            if (isDisabled || (isDisplayed && !isChatOnlyView)) {
               return;
             }
 
@@ -584,9 +591,33 @@ export function LobbiesSidebarPanel({
                 );
               }}
             >
-              <OdakMenu trigger="contextMenu" items={roomMenu}>
-                {lobbyRow}
-              </OdakMenu>
+              <div className="ct-lobby-row-wrap">
+                <OdakMenu trigger="contextMenu" items={roomMenu}>
+                  {lobbyRow}
+                </OdakMenu>
+
+                {/* On hover: this room's chat, read and written without joining
+                    the voice. Not for a room already joined (its chat is one
+                    click away there), nor for a message room (the row is its
+                    chat), nor for one the person cannot read: a locked or
+                    password room refuses its chat to anybody not let in. */}
+                {onOpenRoomChat &&
+                  !lobby.isTextOnly &&
+                  !isJoined &&
+                  !isDisabled &&
+                  (!(lobby.isLocked || lobby.hasPassword) || isOwner) && (
+                    <Tooltip title="Katılmadan sohbeti aç" placement="right">
+                      <button
+                        type="button"
+                        className={`ct-lobby-row-chat${openTextRoomId === lobby.id ? " active" : ""}`}
+                        aria-label={`${lobby.name} sohbetini aç`}
+                        onClick={() => onOpenRoomChat(lobby.id)}
+                      >
+                        <MessageOutlined aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                  )}
+              </div>
 
               {/* A message room has no occupancy at all — nobody is ever "in"
                   one — and an empty voice lobby says so only on the row being

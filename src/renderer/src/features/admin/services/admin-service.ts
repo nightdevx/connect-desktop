@@ -118,8 +118,8 @@ class AdminService {
     return res.data;
   }
 
-  public async deleteUser(userId: string): Promise<{ deleted: boolean }> {
-    const res = await window.desktopApi.adminDeleteUser(userId);
+  public async deleteUser(userId: string, reason: string): Promise<{ deleted: boolean }> {
+    const res = await window.desktopApi.adminDeleteUser(userId, reason);
     if (!res.ok || !res.data) throw new Error(res.error?.message || "Kullanıcı silinemedi");
     return res.data;
   }

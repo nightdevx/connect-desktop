@@ -89,6 +89,7 @@ import {
 } from "../odak/odak-parts";
 import { ElapsedTime } from "../common/elapsed-time";
 import { callLogKind, pairCallLog, readMutedCallers, setCallerMuted } from "../../hooks/user/call-log";
+import { toast } from "@/services/toast";
 
 // Mention matching, highlighting and "was I named" live in ../../mentions so the
 // lobby composer and this message list share one set of rules. Re-exported
@@ -718,7 +719,11 @@ export function UsersDirectMessagesPanel({
   // same frame the peer gets, so hearing it is the confirmation it went out.
   const handleSendEmote = (emote: string): void => {
     if (!activeLobbyId) return;
-    void workspaceService.sendLobbyEmote({ lobbyId: activeLobbyId, emote });
+    void workspaceService.sendLobbyEmote({ lobbyId: activeLobbyId, emote }).then((result) => {
+      if (!result.ok) {
+        toast.error(getApiErrorMessage(result.error));
+      }
+    });
   };
 
   // Odak draws the thread as two columns of bubbles, with a line where the day

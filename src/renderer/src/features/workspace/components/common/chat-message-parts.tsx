@@ -359,7 +359,7 @@ export function ChatMessageBody({
         onDownload={async () => {
           const result = await chatService.saveChatImage({ url: imageUrl });
           if (!result.ok) {
-            toast.error(result.error?.message ?? "Görsel indirilemedi");
+            toast.error({ title: "Görsel indirilemedi.", detail: result.error?.message });
           } else if (result.data?.saved) {
             toast.success("Görsel kaydedildi");
           }
@@ -431,7 +431,7 @@ export function ChatAttachmentView({
         fileName: attachment.name,
       });
       if (!result.ok) {
-        toast.error(result.error?.message ?? "Dosya kaydedilemedi");
+        toast.error({ title: "Dosya kaydedilemedi.", detail: result.error?.message });
       } else if (result.data?.saved) {
         toast.success("Dosya kaydedildi");
       }

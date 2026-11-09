@@ -11,6 +11,8 @@ import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { SettingsTwoFactor } from "./settings-two-factor";
 import { toast } from "@/services/toast";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
+import { toErrorMessage } from "@shared/error-message";
 
 // Matches the backend's AccountDeletionGrace. Only used for the wording, but
 // keep the two in step: telling someone "14 days" and purging after 7 is worse
@@ -38,7 +40,7 @@ export function SettingsSecurity() {
       const result = await authService.exportAccountData();
       if (!result.ok) {
         toast.error(
-          `Veriler dışa aktarılamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Veriler dışa aktarılamadı: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -69,7 +71,7 @@ export function SettingsSecurity() {
 
       if (!result.ok) {
         toast.error(
-          `Hesap silinemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Hesap silinemedi: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -82,7 +84,7 @@ export function SettingsSecurity() {
       window.location.reload();
     } catch (error) {
       toast.error(
-        `Hesap silinemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Hesap silinemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsDeletingAccount(false);
@@ -114,7 +116,7 @@ export function SettingsSecurity() {
 
       if (!result.ok || !result.data?.changed) {
         toast.error(
-          `Şifre değiştirilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Şifre değiştirilemedi: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -125,7 +127,7 @@ export function SettingsSecurity() {
       toast.success("Şifre başarıyla değiştirildi.");
     } catch (error) {
       toast.error(
-        `Şifre değiştirilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Şifre değiştirilemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsChangingPassword(false);

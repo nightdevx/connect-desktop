@@ -264,11 +264,9 @@ export function SettingsCamera({
       });
 
       setCameraTestStream(stream);
-      toast.success("Kamera testi başlatıldı.");
     } catch (error) {
-      toast.error(
-        `Kamera testi başlatılamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-      );
+      console.error("[settings-camera] camera test failed:", error);
+      toast.error("Kamera açılamadı. İzinleri ve cihazı kontrol et.");
     } finally {
       setIsStartingCameraTest(false);
     }
@@ -353,7 +351,6 @@ export function SettingsCamera({
             onClick={() => {
               if (cameraTestStream) {
                 stopCameraTest();
-                toast.info("Kamera testi durduruldu.");
                 return;
               }
 

@@ -83,6 +83,10 @@ interface WorkspaceMainPanelProps {
    * id, which meant being in a call replaced the lobby list with an empty room.
    */
   lobbyRoomId: string | null;
+  /** lobbyRoomId is a voice room read without joining: its chat only. */
+  chatOnlyRoom?: boolean;
+  /** Closes a room that is open only as a chat; absent when nothing is. */
+  onCloseRoomChat?: () => void;
   unreadLobbyMessages: number;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
@@ -240,6 +244,8 @@ export function WorkspaceMainPanel({
   lobbies,
   activeLobbyId,
   lobbyRoomId,
+  chatOnlyRoom = false,
+  onCloseRoomChat,
   unreadLobbyMessages,
   joiningLobbyId,
   onJoinLobby,
@@ -403,6 +409,8 @@ export function WorkspaceMainPanel({
             lobbiesCount={lobbies.length}
             lobbies={lobbies}
             activeLobbyId={lobbyRoomId}
+            chatOnly={chatOnlyRoom}
+            onCloseRoomChat={onCloseRoomChat}
             unreadLobbyMessages={unreadLobbyMessages}
             currentUserId={currentUserId}
             currentUsername={currentUsername}

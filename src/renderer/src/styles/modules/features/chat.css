@@ -832,6 +832,25 @@
     @apply flex items-center gap-1;
   }
 
+  /* The enlarged picture's toolbar (zoom, rotate, flip). antd gives it a 10%
+     black wash, which vanishes on a light picture; a solid dark pill keeps the
+     buttons readable on any image. The preview is portalled to <body>, so this
+     cannot sit under a .ct-chat-* parent. */
+  .ant-image-preview .ant-image-preview-actions {
+    background: rgba(16, 18, 24, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .ant-image-preview .ant-image-preview-actions .ant-image-preview-actions-action {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .ant-image-preview .ant-image-preview-actions .ant-image-preview-actions-action-disabled {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
   /* --- Reply quote, attachment, reactions --------------------------------
      Shared by both conversation surfaces. */
 

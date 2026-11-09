@@ -43,7 +43,7 @@ const sameSet = (a: readonly string[], b: readonly string[]): boolean =>
 
 // The server's rule (internal/lobby/handler.go): 6 characters, at most 72
 // bytes, which a Turkish letter spends two of.
-const passwordProblem = (password: string): string | null => {
+export const passwordProblem = (password: string): string | null => {
   const value = password.trim();
   if (value === "") return null;
   if (value.length < 6) return "Şifre en az 6 karakter olmalı.";
@@ -53,7 +53,7 @@ const passwordProblem = (password: string): string | null => {
   return null;
 };
 
-function Section({
+export function Section({
   title,
   danger,
   children,
@@ -70,7 +70,7 @@ function Section({
   );
 }
 
-function FieldError({ id, children }: { id: string; children: ReactNode }): JSX.Element {
+export function FieldError({ id, children }: { id: string; children: ReactNode }): JSX.Element {
   return (
     <small id={id} className="ct-field-error" role="alert">
       <MenuIcon name="alert" size={14} />
@@ -79,9 +79,92 @@ function FieldError({ id, children }: { id: string; children: ReactNode }): JSX.
   );
 }
 
+/** The three pages of a room's settings, in the edit dialog and the create one. */
+export type RoomTab = "general" | "access" | "permissions";
+
+const ROOM_TABS: Array<{ id: RoomTab; label: string }> = [
+  { id: "general", label: "Genel" },
+  { id: "access", label: "Erişim" },
+  { id: "permissions", label: "İzinler" },
+];
+
+export function RoomTabBar({
+  tab,
+  onChange,
+  hasError,
+}: {
+  tab: RoomTab;
+  onChange: (next: RoomTab) => void;
+  /** A problem on a page that is not showing gets a dot on its tab. */
+  hasError: Record<RoomTab, boolean>;
+}): JSX.Element {
+  return (
+    <div className="ct-room-tabs" role="tablist" aria-label="Oda ayarları bölümleri">
+      {ROOM_TABS.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          role="tab"
+          id={`ct-room-tab-${entry.id}`}
+          aria-selected={tab === entry.id}
+          aria-controls={`ct-room-panel-${entry.id}`}
+          className={`ct-room-tab${tab === entry.id ? " active" : ""}`}
+          onClick={() => onChange(entry.id)}
+        >
+          {entry.label}
+          {hasError[entry.id] && (
+            <span className="ct-room-tab-dot" role="img" aria-label="Düzeltilecek alan var" />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One switch per room feature; a text room only has chat and attachments. */
+export function RoomFeatureGrid({
+  disabledFeatures,
+  onChange,
+  isTextOnly,
+}: {
+  disabledFeatures: LobbyFeatureId[];
+  /** A state setter: a click is applied to the latest list, never a stale copy. */
+  onChange: (update: (previous: LobbyFeatureId[]) => LobbyFeatureId[]) => void;
+  isTextOnly: boolean;
+}): JSX.Element {
+  return (
+    <div className="ct-lobby-feature-grid">
+      {LOBBY_FEATURES.filter(
+        (feature) => !isTextOnly || feature.id === "chat" || feature.id === "attachments",
+      ).map((feature) => {
+        const enabled = !disabledFeatures.includes(feature.id);
+        return (
+          <label key={feature.id} className="ct-lobby-feature-row">
+            <span>{feature.label}</span>
+            <Switch
+              size="small"
+              checked={enabled}
+              onChange={(next) =>
+                onChange((previous) =>
+                  next
+                    ? previous.filter((id) => id !== feature.id)
+                    : previous.includes(feature.id)
+                      ? previous
+                      : [...previous, feature.id],
+                )
+              }
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
- * Oda ayarları, for whoever manages the room: grouped as Genel, Erişim,
- * Kapasite, Özellikler and, last, Tehlikeli bölge. Kaydet wakes only when
+ * Oda ayarları, for whoever manages the room: three tabs, Genel (name, type,
+ * ceiling, and the delete at its foot), Erişim (lock, allow-list, password)
+ * and İzinler (the room's feature switches). Kaydet wakes only when
  * something changed and every field is valid; a field's problem is said under
  * it. Saving turns the dialog into what was saved, in place. Enter in a text
  * field saves, Esc leaves.
@@ -118,6 +201,7 @@ export function RoomSettingsDialog({
   const [isLookingUp, setIsLookingUp] = useState(false);
   // What was saved, shown in place of the form until the dialog is closed.
   const [saved, setSaved] = useState<string[] | null>(null);
+  const [tab, setTab] = useState<RoomTab>("general");
 
   // Reset to the room's values each time the dialog opens on a room: during
   // render, not in an effect, so the first frame already shows them.
@@ -141,6 +225,7 @@ export function RoomSettingsDialog({
     setLookupUsername("");
     setLookupError(null);
     setSaved(null);
+    setTab("general");
   }
 
   // The allow-list as it is STORED, resolved to names: a stranger let in by
@@ -179,6 +264,14 @@ export function RoomSettingsDialog({
     }
     return list;
   }, [allowedUsers, capacity, disabledFeatures, isLocked, isTextOnly, lobby, password, removePassword, trimmedName]);
+
+  // A problem in a tab that is not showing would leave Kaydet shut with no
+  // visible reason, so the tab itself carries a dot.
+  const tabHasError: Record<RoomTab, boolean> = {
+    general: Boolean(nameError),
+    access: Boolean(passwordError),
+    permissions: false,
+  };
 
   const isDirty = changes.length > 0;
   const isValid = !nameError && !passwordError;
@@ -280,7 +373,7 @@ export function RoomSettingsDialog({
   }
 
   const footerStatus = !isValid
-    ? "Kırmızı alanı düzelt"
+    ? "Kırmızı işaretli alanı düzelt"
     : isDirty
       ? `${changes.length} değişiklik kaydedilmedi`
       : "Değişiklik yok";
@@ -297,7 +390,7 @@ export function RoomSettingsDialog({
       }
       open={lobby !== null}
       onCancel={onClose}
-      width={MODAL_WIDTH.m}
+      width={MODAL_WIDTH.l}
       destroyOnHidden
       footer={
         saved
@@ -359,223 +452,232 @@ export function RoomSettingsDialog({
             <code className="ct-room-subject-id">{lobby.id}</code>
           </div>
 
-          <Section title="Genel">
-            <label className="ct-field" htmlFor="edit-lobby-name">
-              <span className="ct-field-label-row">
-                Oda adı
-                <span className="ct-field-count">{name.length}/64</span>
-              </span>
-              <input
-                id="edit-lobby-name"
-                type="text"
-                className={`ct-input${nameError ? " invalid" : ""}`}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                maxLength={64}
-                disabled={isSaving}
-                autoFocus
-                aria-invalid={nameError ? true : undefined}
-                aria-describedby="edit-lobby-name-hint"
-              />
-              {nameError ? (
-                <FieldError id="edit-lobby-name-hint">{nameError}</FieldError>
-              ) : (
-                <small id="edit-lobby-name-hint" className="ct-field-hint">
-                  Listede ve odanın başlığında herkes bu adı görür.
-                </small>
-              )}
-            </label>
+          <RoomTabBar tab={tab} onChange={setTab} hasError={tabHasError} />
 
-            <div className="ct-room-row">
-              <span className="ct-room-row-icon" aria-hidden="true">
-                <MenuIcon name={isTextOnly ? "message" : "volume"} />
-              </span>
-              <span className="ct-room-row-text">
-                <strong>{isTextOnly ? "Mesaj odası" : "Sesli oda"}</strong>
-                <span>Tür oda açılırken seçilir, sonradan değişmez.</span>
-              </span>
-            </div>
-          </Section>
-
-          <Section title="Erişim">
-            <div className="ct-room-row">
-              <span className="ct-room-row-icon" aria-hidden="true">
-                <MenuIcon name="lock" />
-              </span>
-              <span className="ct-room-row-text">
-                <strong id="ct-room-lock-label">Kilitli oda</strong>
-                <span>
-                  {isTextOnly
-                    ? "Açıkken odayı yalnız izin verdiğin kişiler görür."
-                    : "Açıkken odaya yalnız izin verdiğin kişiler katılır."}
+          {tab === "general" && (
+            <div
+              className="ct-room-panel"
+              role="tabpanel"
+              id="ct-room-panel-general"
+              aria-labelledby="ct-room-tab-general"
+            >
+            <Section title="Genel">
+              <label className="ct-field" htmlFor="edit-lobby-name">
+                <span className="ct-field-label-row">
+                  Oda adı
+                  <span className="ct-field-count">{name.length}/64</span>
                 </span>
-              </span>
-              <Switch
-                size="small"
-                checked={isLocked}
-                onChange={setIsLocked}
-                aria-labelledby="ct-room-lock-label"
-              />
-            </div>
-
-            {/* A <div>, not a <label>: there are two controls in here, and a
-                label that points at two things points at neither. */}
-            {isLocked && (
-              <div className="ct-field ct-room-people">
-                <span>İzin verilen kişiler</span>
-                <Select
-                  mode="multiple"
-                  placeholder="Arkadaşlarından seç"
-                  value={allowedUsers}
-                  onChange={setAllowedUsers}
-                  options={peopleOptions}
-                  aria-label="İzin verilen kişiler"
+                <input
+                  id="edit-lobby-name"
+                  type="text"
+                  className={`ct-input${nameError ? " invalid" : ""}`}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={64}
+                  disabled={isSaving}
+                  autoFocus
+                  aria-invalid={nameError ? true : undefined}
+                  aria-describedby="edit-lobby-name-hint"
                 />
-                <Input.Search
-                  className="ct-room-lookup"
-                  placeholder="Listede yoksa tam kullanıcı adını yaz"
-                  enterButton="Ekle"
-                  value={lookupUsername}
-                  onChange={(event) => {
-                    setLookupUsername(event.target.value);
-                    setLookupError(null);
-                  }}
-                  onSearch={() => void handleLookupAdd()}
-                  loading={isLookingUp}
-                  maxLength={32}
-                  status={lookupError ? "error" : undefined}
-                  aria-label="Kullanıcı adıyla ekle"
-                />
-                {lookupError ? (
-                  <FieldError id="ct-room-lookup-hint">{lookupError}</FieldError>
+                {nameError ? (
+                  <FieldError id="edit-lobby-name-hint">{nameError}</FieldError>
                 ) : (
-                  <small className="ct-field-hint">
-                    Listeye girmeyen biri katılamaz; oda sahibi ve yöneticiler her zaman girer.
-                  </small>
-                )}
-              </div>
-            )}
-
-            {/* Voice rooms only: the password is asked when joining, and nobody
-                joins a text room. The lock applies to both. */}
-            {!isTextOnly && (
-              <label className="ct-field" htmlFor="edit-lobby-password">
-                <span>Oda şifresi</span>
-                <Input.Password
-                  id="edit-lobby-password"
-                  placeholder={
-                    lobby.hasPassword ? "Değiştirmek için yeni şifreyi yaz" : "Şifre koymak için yaz"
-                  }
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={removePassword}
-                  maxLength={128}
-                  status={passwordError ? "error" : undefined}
-                  aria-invalid={passwordError ? true : undefined}
-                  aria-describedby="edit-lobby-password-hint"
-                />
-                {passwordError ? (
-                  <FieldError id="edit-lobby-password-hint">{passwordError}</FieldError>
-                ) : (
-                  <small id="edit-lobby-password-hint" className="ct-field-hint">
-                    {lobby.hasPassword
-                      ? "Odanın şifresi var. Boş bırakırsan aynı kalır."
-                      : "Boş bırakırsan oda şifresiz kalır. Şifreyi bilen herkes, listede olmasa da girer."}
+                  <small id="edit-lobby-name-hint" className="ct-field-hint">
+                    Listede ve odanın başlığında herkes bu adı görür.
                   </small>
                 )}
               </label>
-            )}
 
-            {!isTextOnly && lobby.hasPassword && (
               <div className="ct-room-row">
                 <span className="ct-room-row-icon" aria-hidden="true">
-                  <MenuIcon name="x" />
+                  <MenuIcon name={isTextOnly ? "message" : "volume"} />
                 </span>
                 <span className="ct-room-row-text">
-                  <strong id="ct-room-unpass-label">Şifreyi kaldır</strong>
-                  <span>Kaydedince oda şifre sormaz.</span>
+                  <strong>{isTextOnly ? "Mesaj odası" : "Sesli oda"}</strong>
+                  <span>Tür oda açılırken seçilir, sonradan değişmez.</span>
+                </span>
+              </div>
+            </Section>
+            {/* Voice rooms only: a text room has no roster, so a ceiling there
+                would be a number that never applies to anything. */}
+            {!isTextOnly && (
+              <Section title="Kapasite">
+                <label className="ct-field" htmlFor="edit-lobby-capacity">
+                  <span>Kişi sınırı</span>
+                  <InputNumber
+                    id="edit-lobby-capacity"
+                    className="ct-input-number"
+                    min={2}
+                    max={100}
+                    value={capacity}
+                    onChange={(value) => setCapacity(value ?? null)}
+                    placeholder="Sunucu varsayılanı"
+                    aria-describedby="edit-lobby-capacity-hint"
+                  />
+                  <small id="edit-lobby-capacity-hint" className="ct-field-hint">
+                    2 ile 100 arası. Şu an odada {lobby.memberCount} kişi var. Boş bırakırsan
+                    sunucunun sınırı geçerli olur; sınırı düşürmek kimseyi çıkarmaz, yalnız yeni
+                    girişleri durdurur.
+                  </small>
+                </label>
+              </Section>
+            )}
+            <Section title="Tehlikeli bölge" danger>
+              <div className="ct-room-row">
+                <span className="ct-room-row-text">
+                  <strong>Odayı sil</strong>
+                  <span>
+                    {onDelete
+                      ? "Oda herkes için kalkar, içindekilerin bağlantısı kesilir. Geri alınamaz."
+                      : "Ana oda herkesin girdiği yer olduğu için silinemez."}
+                  </span>
+                </span>
+                {onDelete && (
+                  <Button danger className="ct-room-delete" onClick={onDelete}>
+                    Odayı sil…
+                  </Button>
+                )}
+              </div>
+            </Section>
+            </div>
+          )}
+
+          {tab === "access" && (
+            <div
+              className="ct-room-panel"
+              role="tabpanel"
+              id="ct-room-panel-access"
+              aria-labelledby="ct-room-tab-access"
+            >
+            <Section title="Erişim">
+              <div className="ct-room-row">
+                <span className="ct-room-row-icon" aria-hidden="true">
+                  <MenuIcon name="lock" />
+                </span>
+                <span className="ct-room-row-text">
+                  <strong id="ct-room-lock-label">Kilitli oda</strong>
+                  <span>
+                    {isTextOnly
+                      ? "Açıkken odayı yalnız izin verdiğin kişiler görür."
+                      : "Açıkken odaya yalnız izin verdiğin kişiler katılır."}
+                  </span>
                 </span>
                 <Switch
                   size="small"
-                  checked={removePassword}
-                  onChange={setRemovePassword}
-                  aria-labelledby="ct-room-unpass-label"
+                  checked={isLocked}
+                  onChange={setIsLocked}
+                  aria-labelledby="ct-room-lock-label"
                 />
               </div>
-            )}
-          </Section>
 
-          {/* Voice rooms only: a text room has no roster, so a ceiling there
-              would be a number that never applies to anything. */}
-          {!isTextOnly && (
-            <Section title="Kapasite">
-              <label className="ct-field" htmlFor="edit-lobby-capacity">
-                <span>Kişi sınırı</span>
-                <InputNumber
-                  id="edit-lobby-capacity"
-                  className="ct-input-number"
-                  min={2}
-                  max={100}
-                  value={capacity}
-                  onChange={(value) => setCapacity(value ?? null)}
-                  placeholder="Sunucu varsayılanı"
-                  aria-describedby="edit-lobby-capacity-hint"
-                />
-                <small id="edit-lobby-capacity-hint" className="ct-field-hint">
-                  2 ile 100 arası. Şu an odada {lobby.memberCount} kişi var. Boş bırakırsan
-                  sunucunun sınırı geçerli olur; sınırı düşürmek kimseyi çıkarmaz, yalnız yeni
-                  girişleri durdurur.
-                </small>
-              </label>
+              {/* A <div>, not a <label>: there are two controls in here, and a
+                  label that points at two things points at neither. */}
+              {isLocked && (
+                <div className="ct-field ct-room-people">
+                  <span>İzin verilen kişiler</span>
+                  <Select
+                    mode="multiple"
+                    placeholder="Arkadaşlarından seç"
+                    value={allowedUsers}
+                    onChange={setAllowedUsers}
+                    options={peopleOptions}
+                    aria-label="İzin verilen kişiler"
+                  />
+                  <Input.Search
+                    className="ct-room-lookup"
+                    placeholder="Listede yoksa tam kullanıcı adını yaz"
+                    enterButton="Ekle"
+                    value={lookupUsername}
+                    onChange={(event) => {
+                      setLookupUsername(event.target.value);
+                      setLookupError(null);
+                    }}
+                    onSearch={() => void handleLookupAdd()}
+                    loading={isLookingUp}
+                    maxLength={32}
+                    status={lookupError ? "error" : undefined}
+                    aria-label="Kullanıcı adıyla ekle"
+                  />
+                  {lookupError ? (
+                    <FieldError id="ct-room-lookup-hint">{lookupError}</FieldError>
+                  ) : (
+                    <small className="ct-field-hint">
+                      Listeye girmeyen biri katılamaz; oda sahibi ve yöneticiler her zaman girer.
+                    </small>
+                  )}
+                </div>
+              )}
+
+              {/* Voice rooms only: the password is asked when joining, and nobody
+                  joins a text room. The lock applies to both. */}
+              {!isTextOnly && (
+                <label className="ct-field" htmlFor="edit-lobby-password">
+                  <span>Oda şifresi</span>
+                  <Input.Password
+                    id="edit-lobby-password"
+                    placeholder={
+                      lobby.hasPassword ? "Değiştirmek için yeni şifreyi yaz" : "Şifre koymak için yaz"
+                    }
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={removePassword}
+                    maxLength={128}
+                    status={passwordError ? "error" : undefined}
+                    aria-invalid={passwordError ? true : undefined}
+                    aria-describedby="edit-lobby-password-hint"
+                  />
+                  {passwordError ? (
+                    <FieldError id="edit-lobby-password-hint">{passwordError}</FieldError>
+                  ) : (
+                    <small id="edit-lobby-password-hint" className="ct-field-hint">
+                      {lobby.hasPassword
+                        ? "Odanın şifresi var. Boş bırakırsan aynı kalır."
+                        : "Boş bırakırsan oda şifresiz kalır. Şifreyi bilen herkes, listede olmasa da girer."}
+                    </small>
+                  )}
+                </label>
+              )}
+
+              {!isTextOnly && lobby.hasPassword && (
+                <div className="ct-room-row">
+                  <span className="ct-room-row-icon" aria-hidden="true">
+                    <MenuIcon name="x" />
+                  </span>
+                  <span className="ct-room-row-text">
+                    <strong id="ct-room-unpass-label">Şifreyi kaldır</strong>
+                    <span>Kaydedince oda şifre sormaz.</span>
+                  </span>
+                  <Switch
+                    size="small"
+                    checked={removePassword}
+                    onChange={setRemovePassword}
+                    aria-labelledby="ct-room-unpass-label"
+                  />
+                </div>
+              )}
             </Section>
+            </div>
           )}
 
-          <Section title="Özellikler">
-            <small className="ct-field-hint">
-              Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer odalar etkilenmez.
-            </small>
-            <div className="ct-lobby-feature-grid">
-              {LOBBY_FEATURES.filter(
-                (feature) => !isTextOnly || feature.id === "chat" || feature.id === "attachments",
-              ).map((feature) => {
-                const enabled = !disabledFeatures.includes(feature.id);
-                return (
-                  <label key={feature.id} className="ct-lobby-feature-row">
-                    <span>{feature.label}</span>
-                    <Switch
-                      size="small"
-                      checked={enabled}
-                      onChange={(next) =>
-                        setDisabledFeatures((previous) =>
-                          next
-                            ? previous.filter((id) => id !== feature.id)
-                            : [...previous, feature.id],
-                        )
-                      }
-                    />
-                  </label>
-                );
-              })}
+          {tab === "permissions" && (
+            <div
+              className="ct-room-panel"
+              role="tabpanel"
+              id="ct-room-panel-permissions"
+              aria-labelledby="ct-room-tab-permissions"
+            >
+            <Section title="İzinler">
+              <small className="ct-field-hint">
+                Kapattığın özellik bu odada kimse tarafından kullanılamaz. Diğer odalar etkilenmez.
+              </small>
+              <RoomFeatureGrid
+                disabledFeatures={disabledFeatures}
+                onChange={setDisabledFeatures}
+                isTextOnly={isTextOnly}
+              />
+            </Section>
             </div>
-          </Section>
-
-          <Section title="Tehlikeli bölge" danger>
-            <div className="ct-room-row">
-              <span className="ct-room-row-text">
-                <strong>Odayı sil</strong>
-                <span>
-                  {onDelete
-                    ? "Oda herkes için kalkar, içindekilerin bağlantısı kesilir. Geri alınamaz."
-                    : "Ana oda herkesin girdiği yer olduğu için silinemez."}
-                </span>
-              </span>
-              {onDelete && (
-                <Button danger className="ct-room-delete" onClick={onDelete}>
-                  Odayı sil…
-                </Button>
-              )}
-            </div>
-          </Section>
+          )}
         </div>
       ) : null}
     </Modal>

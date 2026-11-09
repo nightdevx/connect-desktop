@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { LOBBY_FEATURE_IDS, type LobbyFeatureId } from "../../shared/desktop-api-types";
-import type { AdminRuntimeSettingsPatch } from "../../shared/auth-contracts";
+import { USER_RESTRICTION_IDS, type AdminRuntimeSettingsPatch, type UserRestriction } from "../../shared/auth-contracts";
 import type { Bound, ContractDrift } from "../../shared/api-contracts";
 import type * as Auth from "../../shared/generated/auth";
 import type * as Chat from "../../shared/generated/chat";
@@ -555,19 +555,42 @@ export const callPeerSchema = z.object({
   callId: z.string().min(2).max(128),
 });
 
+// Every field the admin edit form sends. zod drops keys it does not know, and
+// this schema once named only four of them: username, e-mail verification,
+// the privacy choices, the admin note and the locked profile fields all
+// vanished here, so "Kaydet" said done and the account never changed. strict()
+// turns a future omission into an error instead of silence.
 export const adminUpdateUserSchema = z.object({
   userId: z.string().min(2).max(128),
-  payload: z.object({
-    displayName: z.string().min(3).max(32).optional(),
-    email: z.string().max(128).nullable().optional(),
-    bio: z.string().max(240).nullable().optional(),
-    role: z.enum(["admin", "member"]).optional(),
-  }),
+  payload: z
+    .object({
+      username: z.string().trim().min(3).max(32).optional(),
+      displayName: z.string().min(3).max(32).optional(),
+      email: z.string().max(128).nullable().optional(),
+      emailVerified: z.boolean().optional(),
+      bio: z.string().max(240).nullable().optional(),
+      avatarUrl: z.string().max(4_000_000).nullable().optional(),
+      bannerUrl: z.string().max(4_000_000).nullable().optional(),
+      // Who may be given which role is the server's rank rule, not this one's.
+      role: z.enum(["owner", "admin", "moderator", "member"]).optional(),
+      allowDmFrom: z.enum(["everyone", "friends"]).optional(),
+      allowCallsFrom: z.enum(["everyone", "friends"]).optional(),
+      allowFriendRequests: z.boolean().optional(),
+      adminNote: z.string().max(2000).optional(),
+      restrictions: z.array(z.enum(USER_RESTRICTION_IDS as [UserRestriction, ...UserRestriction[]])).optional(),
+      reason: z.string().max(280).optional(),
+    })
+    .strict(),
 });
 
 export const adminResetPasswordSchema = z.object({
   userId: z.string().min(2).max(128),
   newPassword: z.string().min(8).max(256),
+});
+
+export const adminDeleteUserSchema = z.object({
+  userId: z.string().min(2).max(128),
+  reason: z.string().trim().min(1).max(280),
 });
 
 export const adminListLobbyEventsSchema = z.object({

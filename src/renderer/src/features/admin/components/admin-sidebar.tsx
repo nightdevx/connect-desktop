@@ -11,11 +11,7 @@ import {
   PlayCircleOutlined,
   CustomerServiceOutlined,
   MessageOutlined,
-  VideoCameraOutlined,
-  FundProjectionScreenOutlined,
-  CloudServerOutlined,
   SafetyCertificateOutlined,
-  AuditOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
@@ -53,18 +49,11 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Görüşmeler",
-    items: [
-      { key: "media", label: "Canlı Yayınlar", icon: <VideoCameraOutlined /> },
-      { key: "diagnostics", label: "Yayın Tanılama", icon: <FundProjectionScreenOutlined /> },
-      { key: "media-health", label: "Medya Sağlığı", icon: <CloudServerOutlined /> },
-    ],
-  },
-  {
     label: "Kayıtlar",
     items: [
-      { key: "activity", label: "Oda Etkinliği", icon: <HistoryOutlined /> },
-      { key: "audit", label: "Denetim Kaydı", icon: <AuditOutlined /> },
+      // Yayın tanılama, oda etkinliği, denetim kaydı and medya sağlığı: tabs of
+      // one page (admin-records.tsx).
+      { key: "records", label: "Kayıt ve Tanılama", icon: <HistoryOutlined /> },
     ],
   },
   {
