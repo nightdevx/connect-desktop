@@ -315,6 +315,29 @@
   min-width: 150px;
 }
 
+/* The tab strip of the merged records page; each tab brings its own page. */
+.ct-admin-records {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ct-admin-records-tabs {
+  align-self: flex-start;
+}
+
+.ct-admin-toolbar-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ct-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .ct-admin-toolbar-filter.wide {
   flex-basis: 260px;
 }

@@ -81,13 +81,13 @@ export const useAudioControls = ({
 
       if (!muteResult.ok) {
         setStatus(
-          `Mikrofon durumu uygulanamadi: ${muteResult.error?.message ?? "Bilinmeyen hata"}`,
+          "Mikrofon durumun diğer kişilere iletilemedi.",
           "warn",
         );
       }
       if (!deafenResult.ok) {
         setStatus(
-          `Kulaklik durumu uygulanamadi: ${deafenResult.error?.message ?? "Bilinmeyen hata"}`,
+          "Kulaklık durumun diğer kişilere iletilemedi.",
           "warn",
         );
       }
@@ -185,9 +185,9 @@ export const useAudioControls = ({
 
       void liveKitSessionRef.current
         ?.setMicrophoneEnabled(next)
-        .catch((error: unknown) => {
+        .catch(() => {
           setStatus(
-            `Mikrofon yayini guncellenemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+            "Mikrofon yayını güncellenemedi. Tekrar dene.",
             "warn"
           );
         });
@@ -198,7 +198,7 @@ export const useAudioControls = ({
           .then((result) => {
             if (!result.ok) {
               setStatus(
-                `Mikrofon durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+                "Mikrofon durumun diğer kişilere iletilemedi.",
                 "warn"
               );
             }
@@ -283,7 +283,7 @@ export const useAudioControls = ({
         .then((result) => {
           if (!result.ok) {
             setStatus(
-              `Kulaklik durumu guncellenemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              "Kulaklık durumun diğer kişilere iletilemedi.",
               "warn"
             );
           }

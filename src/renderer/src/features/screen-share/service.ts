@@ -296,7 +296,7 @@ const startElectronDesktopCapture = async (
         stream.addTrack(loopbackTrack);
       } else {
         warning =
-          "Sistem sesi bu cihazda yakalanamadı (yankısız ses modülü yüklenemedi). Yayın görüntü olarak başlatıldı.";
+          "Bilgisayar sesi alınamadı. Yayın görüntü olarak başlatıldı.";
       }
     }
 

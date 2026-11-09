@@ -69,7 +69,9 @@ export function LobbiesCompactList({
       : `${lobby.name} · ${seatCount} kişi`;
 
     const join = (): void => {
-      if (!isDisabled && !isDisplayed) {
+      // A voice room read only for its chat is not joined; its click joins.
+      const isChatOnlyView = openTextRoomId === lobby.id && !lobby.isTextOnly;
+      if (!isDisabled && (!isDisplayed || isChatOnlyView)) {
         onJoinLobby(lobby.id);
       }
     };

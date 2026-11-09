@@ -63,10 +63,8 @@ export function useAudioPreferenceSync({
         liveKitSessionRef.current
           .refreshMicrophoneProcessing()
           .catch((error: unknown) => {
-            setStatus(
-              `Mikrofon yenileme hatası: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-              "warn",
-            );
+            console.error("[audio-sync] mic refresh failed:", error);
+            setStatus("Mikrofon yenilenemedi. Ses ayarlarından tekrar seç.", "warn");
           });
       }
     }

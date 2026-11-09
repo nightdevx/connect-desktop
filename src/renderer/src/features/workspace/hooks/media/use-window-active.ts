@@ -52,6 +52,41 @@ const subscribe = (listener: () => void): (() => void) => {
   };
 };
 
+// Visible, whether or not it has the focus: false only once the window is
+// minimised or fully covered. A second store beside the first, with its own
+// two listeners, because a caller that wants this answer should not also wake
+// for every alt-tab.
+const visibleListeners = new Set<() => void>();
+let visible = typeof document === "undefined" || document.visibilityState === "visible";
+
+const publishVisible = (): void => {
+  const next = document.visibilityState === "visible";
+  if (next === visible) {
+    return;
+  }
+  visible = next;
+  for (const listener of visibleListeners) {
+    listener();
+  }
+};
+
+const subscribeVisible = (listener: () => void): (() => void) => {
+  visibleListeners.add(listener);
+  if (visibleListeners.size === 1) {
+    document.addEventListener("visibilitychange", publishVisible);
+    publishVisible();
+  }
+  return () => {
+    visibleListeners.delete(listener);
+    if (visibleListeners.size === 0) {
+      document.removeEventListener("visibilitychange", publishVisible);
+    }
+  };
+};
+
+export const useWindowVisible = (): boolean =>
+  useSyncExternalStore(subscribeVisible, () => visible, () => true);
+
 export const useWindowActive = (): boolean =>
   useSyncExternalStore(
     subscribe,

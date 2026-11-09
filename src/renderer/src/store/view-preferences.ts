@@ -27,6 +27,10 @@ export interface ViewPreferences {
   /** The sidebar at full width, in every section; folded, it is a strip of
       icons (room badges in Lobiler). */
   sidebarOpen: boolean;
+  /** Your own screen-share or camera preview keeps playing when another window
+      has the focus. Off, it is suspended until this window is back in front. A
+      minimised or covered window suspends it either way. */
+  keepPreviewPlaying: boolean;
 }
 
 const VIEW_PREFERENCES_STORAGE_KEY = "ct.settings.view";
@@ -38,6 +42,7 @@ export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   lobbyVoiceCategoryOpen: true,
   lobbyTextCategoryOpen: true,
   sidebarOpen: true,
+  keepPreviewPlaying: false,
 };
 
 export const readViewPreferences = (): ViewPreferences => {

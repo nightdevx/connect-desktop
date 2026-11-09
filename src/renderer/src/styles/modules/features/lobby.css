@@ -41,10 +41,10 @@
    fold is remembered (view-preferences) rather than reset every time the panel
    is unmounted.
 
-   The header sticks to the top of the sidebar's scroller, so scrolling through
-   twenty rooms never leaves you looking at rows with no idea which group they
-   belong to. -12px cancels the body's gutter so the sticky band spans the full
-   column width instead of leaving two transparent stripes at its edges.
+   The header scrolls away with its group. It used to stick to the top of the
+   sidebar's scroller, and in a long list that left one band pinned over the
+   rows with the next group's header sliding under it. -12px cancels the body's
+   gutter so the band spans the full column width.
    -------------------------------------------------------------------------- */
 
 .ct-lobby-category {
@@ -52,7 +52,7 @@
 }
 
 .ct-lobby-category-header {
-  @apply sticky top-0 z-10 flex w-full cursor-pointer items-center gap-1.5 border-0 py-1.5 text-left text-micro font-bold uppercase tracking-[0.14em];
+  @apply relative flex w-full cursor-pointer items-center gap-1.5 border-0 py-1.5 text-left text-micro font-bold uppercase tracking-[0.14em];
   margin-inline: calc(var(--ct-gutter) * -1);
   padding-inline: var(--ct-gutter);
   color: var(--ct-text-muted);
@@ -64,8 +64,7 @@
   color: var(--ct-text-primary);
 }
 
-/* A hairline under the sticky band, so a row scrolling beneath it reads as
-   passing UNDER the header rather than colliding with it. */
+/* A hairline under the band, setting the group's title off from its rows. */
 .ct-lobby-category-header::after {
   content: "";
   position: absolute;
@@ -123,6 +122,75 @@
 
 .ct-lobby-group + .ct-lobby-group {
   @apply mt-1;
+}
+
+/* The row and the chat button that appears over it on hover. Beside the row,
+   not inside it: a button may not hold a button. */
+.ct-lobby-row-wrap {
+  @apply relative;
+}
+
+.ct-lobby-row-chat {
+  @apply absolute grid place-items-center border-0;
+  top: 50%;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  translate: 0 -50%;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--ct-text-muted);
+  background: var(--ct-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ct-border);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--ct-duration-fast) ease, color var(--ct-duration-fast) ease;
+}
+
+/* The count, the flags and the unread pill sit exactly where the button
+   shows; they give way while it is there. */
+.ct-lobby-row-wrap:hover .ct-lobby-row-chat,
+.ct-lobby-row-wrap:focus-within .ct-lobby-row-chat,
+.ct-lobby-row-chat.active {
+  opacity: 1;
+}
+
+.ct-lobby-row-wrap:has(.ct-lobby-row-chat:is(:hover, :focus-visible, .active)) .ct-lobby-row-count,
+.ct-lobby-row-wrap:hover:has(.ct-lobby-row-chat) .ct-lobby-row-count {
+  visibility: hidden;
+}
+
+.ct-lobby-row-chat:hover,
+.ct-lobby-row-chat.active {
+  color: var(--ct-text-primary);
+}
+
+/* The room's top right, level with the header pill. */
+.ct-lobby-chat-close.ant-btn {
+  @apply absolute z-10 grid place-items-center;
+  top: 16px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: var(--ct-text-muted);
+  background: var(--ct-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ct-border);
+}
+
+.ct-lobby-chat-close.ant-btn:hover {
+  color: var(--ct-text-primary);
+}
+
+/* A voice room read without joining: what it is, and the way in. */
+.ct-lobby-room-readonly {
+  @apply ml-auto inline-flex items-center gap-3 text-xs;
+  color: var(--ct-text-muted);
+}
+
+.ct-lobby-row-chat:focus-visible {
+  outline: 2px solid var(--ct-accent, #c6f432);
+  outline-offset: 1px;
 }
 
 /* The room under the cursor while a member is being dragged over it. Its own

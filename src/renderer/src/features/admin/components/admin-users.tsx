@@ -62,6 +62,10 @@ interface ResetPasswordFormValues {
   password: string;
 }
 
+// The server refuses an account delete without a reason and writes it to the
+// audit log, so that dialog asks for one. A password reset asks for none.
+const MIN_REASON_LENGTH = 3;
+
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Sahip",
@@ -106,6 +110,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     user: AdminUserDetail;
   } | null>(null);
   const [isActing, setIsActing] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   // Whether the open account has two-step sign-in. null: not known yet, or a
   // server older than the feature -- the reset button then stays hidden.
   const [editingTwoFactor, setEditingTwoFactor] = useState<boolean | null>(null);
@@ -228,9 +233,11 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
       await adminService.updateUser(editingUser.id, {
         username: values.username,
         displayName: values.displayName,
-        email: values.email || null,
+        // "" clears, null would leave it: the server reads an absent value as
+        // "keep", so emptying the field has to say so.
+        email: values.email?.trim() ?? "",
         emailVerified: values.emailVerified,
-        bio: values.bio || null,
+        bio: values.bio ?? "",
         role: values.role,
         adminNote: values.adminNote ?? "",
         allowDmFrom: values.allowDmFrom,
@@ -264,9 +271,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: string, reason: string) => {
     try {
-      await adminService.deleteUser(userId);
+      await adminService.deleteUser(userId, reason);
       toast.success("Kullanıcı başarıyla silindi");
       setIsEditOpen(false);
       fetchUsers();
@@ -456,6 +463,41 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
         ),
     },
     {
+      title: "Bağlantı",
+      key: "connection",
+      width: 190,
+      hideBelow: 520,
+      // The real state, not what the member shows others: someone who chose to
+      // look offline still has the app open, and the panel is where that is
+      // worth knowing. A server older than the column sends nothing.
+      render: (_value: unknown, record: AdminUserDetail) => {
+        if (record.appOnline === undefined) {
+          return <span className="ct-admin-muted">—</span>;
+        }
+        if (!record.appOnline) {
+          return <AdminState tone="muted">Kapalı</AdminState>;
+        }
+        if (record.presence === "offline") {
+          return (
+            <Tooltip title="Uygulaması açık, ama diğer kullanıcılara çevrimdışı görünüyor.">
+              <span>
+                <AdminState tone="warn">Açık · çevrimdışı görünüyor</AdminState>
+              </span>
+            </Tooltip>
+          );
+        }
+        return (
+          <AdminState tone="ok">
+            {record.presence === "idle"
+              ? "Açık · boşta"
+              : record.presence === "dnd"
+                ? "Açık · rahatsız etme"
+                : "Açık"}
+          </AdminState>
+        );
+      },
+    },
+    {
       title: "Kayıt",
       dataIndex: "createdAt",
       key: "createdAt",
@@ -549,7 +591,10 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
                 icon={<DeleteOutlined />}
                 disabled={record.role === "admin" || isSelf}
                 aria-label="Sil"
-                onClick={() => setPendingAction({ kind: "delete", user: record })}
+                onClick={() => {
+                  setDeleteReason("");
+                  setPendingAction({ kind: "delete", user: record });
+                }}
               />
             </Tooltip>
           </div>
@@ -979,6 +1024,9 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               : "Yasakla"
         }
         isProcessing={isActing}
+        confirmDisabled={
+          pendingAction?.kind === "delete" && deleteReason.trim().length < MIN_REASON_LENGTH
+        }
         onCancel={() => setPendingAction(null)}
         onConfirm={() => {
           if (!pendingAction) {
@@ -988,7 +1036,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
           setIsActing(true);
           void (
             kind === "delete"
-              ? handleDeleteUser(user.id)
+              ? handleDeleteUser(user.id, deleteReason.trim())
               : kind === "ip"
                 ? handleBanUserIp(user)
                 : handleToggleBan(user)
@@ -997,7 +1045,28 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
             setPendingAction(null);
           });
         }}
-      />
+      >
+        {pendingAction?.kind === "delete" && (
+          <label className="ct-field" htmlFor="admin-delete-reason" style={{ marginTop: 16 }}>
+            <span>Gerekçe</span>
+            <Input
+              id="admin-delete-reason"
+              value={deleteReason}
+              onChange={(event) => setDeleteReason(event.target.value)}
+              maxLength={280}
+              placeholder="Örn. Kullanım koşullarını ihlal etti"
+              status={
+                deleteReason.length > 0 && deleteReason.trim().length < MIN_REASON_LENGTH
+                  ? "error"
+                  : undefined
+              }
+            />
+            <small className="ct-field-hint">
+              Zorunlu, en az {MIN_REASON_LENGTH} karakter. Denetim kaydına yazılır.
+            </small>
+          </label>
+        )}
+      </ConfirmActionModal>
     </div>
   );
 }

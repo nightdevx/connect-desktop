@@ -9,6 +9,7 @@ import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
 import { rememberedPresence } from "../presence-memory";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
+import { describeValidationError } from "../../shared/validation-message";
 
 export const backendClient = new BackendClient(backendBaseUrl);
 let sessionStore: SessionStore | null = null;
@@ -55,7 +56,7 @@ export const streamHub = new StreamHostClient(
 export const getWindowFromSender = (sender: Electron.WebContents): BrowserWindow => {
   const win = BrowserWindow.fromWebContents(sender);
   if (!win) {
-    throw new DesktopApiError("WINDOW_NOT_FOUND", 404, "Window not found");
+    throw new DesktopApiError("WINDOW_NOT_FOUND", 404, "Pencere bulunamadı.");
   }
 
   return win;
@@ -79,6 +80,12 @@ export const toErrorPayload = (error: unknown): ApiErrorPayload => {
     };
   }
 
+  // A payload that failed its zod schema: a sentence, not the issue list as JSON.
+  const invalid = describeValidationError(error);
+  if (invalid) {
+    return { code: "VALIDATION_ERROR", message: invalid, statusCode: 400 };
+  }
+
   if (error instanceof Error) {
     return {
       code: "UNEXPECTED_ERROR",
@@ -89,7 +96,7 @@ export const toErrorPayload = (error: unknown): ApiErrorPayload => {
 
   return {
     code: "UNEXPECTED_ERROR",
-    message: "Unexpected desktop error",
+    message: "Beklenmeyen bir hata oluştu.",
     statusCode: 500,
   };
 };
@@ -187,7 +194,7 @@ const refreshSession = async (): Promise<void> => {
 
   const current = getSessionStore().get();
   if (!current) {
-    throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
+    throw new DesktopApiError("UNAUTHORIZED", 401, "Oturum bulunamadı. Tekrar giriş yap.");
   }
 
   refreshInFlight = redeemRefreshToken(() => backendClient.auth.refresh(current.refreshToken))
@@ -218,7 +225,7 @@ const refreshSession = async (): Promise<void> => {
 const currentAccessToken = (): string => {
   const current = getSessionStore().get();
   if (!current) {
-    throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
+    throw new DesktopApiError("UNAUTHORIZED", 401, "Oturum bulunamadı. Tekrar giriş yap.");
   }
   return current.accessToken;
 };
@@ -257,7 +264,7 @@ const withFreshAccessToken = async <T>(
 ): Promise<T> => {
   const current = getSessionStore().get();
   if (!current) {
-    throw new DesktopApiError("UNAUTHORIZED", 401, "No active session");
+    throw new DesktopApiError("UNAUTHORIZED", 401, "Oturum bulunamadı. Tekrar giriş yap.");
   }
 
   // Refresh before the request rather than after the 401.

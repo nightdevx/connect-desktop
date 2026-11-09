@@ -235,7 +235,12 @@ export function QuickControls({
               you appear to everyone else when you are nowhere in particular. */}
           <div className="ct-quick-idle-meta">
             <span className="ct-quick-idle-status">
-              {voiceDot ?? <PresenceGlyph status={presenceStatus} className="ct-quick-idle-dot" />}
+              {/* In a room the line is the room's name and head count; a green
+                  connection dot there read as "online" whatever status was set.
+                  The dot stays among the controls and the connection card. */}
+              {whereLabel ? null : (
+                <PresenceGlyph status={presenceStatus} className="ct-quick-idle-dot" />
+              )}
               {/* A room or a call can be longer than the dock is wide: the
                   whole name on hover. */}
               <Tooltip title={whereLabel} placement="top">

@@ -4,6 +4,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { FriendEntry, FriendRequestLists } from "@shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult } from "@shared/desktop-api-types";
 import workspaceService from "../../services";
+import { toast } from "@/services/toast";
 
 const FRIENDS_QUERY_KEY = ["friends"];
 const FRIEND_REQUESTS_QUERY_KEY = ["friend-requests"];
@@ -295,6 +296,8 @@ export const useFriends = (enabled: boolean): FriendsController => {
           void queryClient.invalidateQueries({
             queryKey: FRIEND_REQUESTS_QUERY_KEY,
           });
+          // Nothing said before: the row just stayed, and the click looked dead.
+          toast.error("İstek yanıtlanamadı. Liste yenilendi, tekrar dene.");
           return false;
         }
 
@@ -323,6 +326,7 @@ export const useFriends = (enabled: boolean): FriendsController => {
           void queryClient.invalidateQueries({
             queryKey: FRIEND_REQUESTS_QUERY_KEY,
           });
+          toast.error("İşlem yapılamadı. Liste yenilendi, tekrar dene.");
           return false;
         }
 

@@ -6,14 +6,6 @@ import { useUiStore } from "@/store/ui-store";
 import { toast } from "@/services/toast";
 import { banEndText } from "../auth-error-messages";
 
-const getErrorMessage = (error?: { message?: string }): string => {
-  if (!error?.message?.trim()) {
-    return "Bilinmeyen hata";
-  }
-
-  return error.message;
-};
-
 const emptySession: SessionSnapshot = {
   authenticated: false,
   user: null,
@@ -151,18 +143,12 @@ export const useAuthSession = () => {
     // Transient backend blip while still authenticated: workspace stays mounted,
     // just warn — don't scare the user with an error or tear anything down.
     if (isBackendUnreachable) {
-      setStatus(
-        "Bağlantı geçici olarak koptu, yeniden deneniyor...",
-        "warn",
-      );
+      setStatus("Sunucuya ulaşılamıyor, yeniden deneniyor…", "warn");
       return;
     }
 
     if (sessionQuery.isError) {
-      setStatus(
-        "Oturum kontrolü sırasında beklenmeyen bir hata oluştu",
-        "error",
-      );
+      setStatus("Oturum doğrulanamadı. Uygulamayı yeniden başlat.", "error");
       return;
     }
 
@@ -172,19 +158,12 @@ export const useAuthSession = () => {
     }
 
     if (!result.ok) {
-      setStatus(
-        `Oturum kontrolü başarısız: ${getErrorMessage(result.error)}`,
-        "error",
-      );
+      setStatus("Oturum doğrulanamadı. Tekrar giriş yap.", "error");
       return;
     }
 
-    if (result.data?.authenticated) {
-      setStatus("Kimlik doğrulandı", "ok");
-      return;
-    }
-
-    setStatus("Giriş gerekli", "warn");
+    // Signed in, or on the login page already: neither needs a notice, and the
+    // first fired on every launch.
   }, [
     sessionQuery.data,
     sessionQuery.isError,

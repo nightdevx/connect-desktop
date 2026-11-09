@@ -2,7 +2,7 @@
 // the document, so this import stays first.
 import "./styles/global.css";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useSyncExternalStore } from "react";
 import ReactDOM from "react-dom/client";
 import * as Sentry from "@sentry/electron/renderer";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -53,6 +53,20 @@ const ODAK_MOTION = {
   motionEaseOutBack: "var(--odak-ease-spring)",
 };
 
+// Windows' "Show animations" switch reaches Chromium as prefers-reduced-motion.
+// With it on, the Odak tokens above are 0 ms, and antd's modals, drawers and
+// image previews wait for a transition-end that never comes: a closed one kept
+// its full-screen wrapper, which swallowed every click until the app was
+// restarted. antd's own `motion: false` takes those components out of the
+// animation path altogether.
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const subscribeReducedMotion = (onChange: () => void): (() => void) => {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const readReducedMotion = (): boolean => window.matchMedia(REDUCED_MOTION_QUERY).matches;
+
 // Every value here comes from the design tokens, so Ant Design components and
 // the hand-written .ct-* classes cannot drift apart. Rebuilt whenever the theme
 // changes: the CSS custom properties have already been swapped by then, so
@@ -64,6 +78,7 @@ function ThemedApp() {
   "use no memo";
   const themeMode = useUiStore((state) => state.themeMode);
   const odakTheme = useUiStore((state) => state.odakTheme);
+  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion);
 
   const antdTheme = useMemo(() => {
     const tokens = readTokens();
@@ -92,6 +107,7 @@ function ThemedApp() {
         fontFamily: tokens.fontSans,
         fontSize: 13,
         ...(odakTheme ? ODAK_MOTION : {}),
+        motion: !reducedMotion,
       },
       components: {
         Button: {
@@ -137,7 +153,7 @@ function ThemedApp() {
         },
       },
     };
-  }, [themeMode, odakTheme]);
+  }, [themeMode, odakTheme, reducedMotion]);
 
   return (
     // Turkish defaults for antd's own words ("Veri yok", the pager, the

@@ -43,7 +43,7 @@ const TRANSPORT: Record<string, AuthErrorInfo> = {
   },
   REQUEST_TIMEOUT: {
     title: "Sunucu yanıt vermedi",
-    detail: "İstek zaman aşımına uğradı.",
+    detail: "Sunucu zamanında yanıt vermedi.",
     hint: "Tekrar deneyin. Kayıt sırasındaysa önce giriş yapmayı deneyin.",
     retryable: true,
   },
@@ -237,7 +237,7 @@ const UPDATE_REQUIRED: AuthErrorInfo = {
 
 const UNKNOWN: AuthErrorInfo = {
   title: "Bilinmeyen hata",
-  detail: "Sunucu tanınmayan bir hata döndürdü.",
+  detail: "İşlem tamamlanamadı.",
   hint: "Tekrar deneyin.",
   retryable: true,
 };

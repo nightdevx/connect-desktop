@@ -4,6 +4,7 @@ import { Tooltip } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import type { FriendEntry, UserDirectoryEntry } from "@shared/auth-contracts";
 import { gameActivityLabel, useGameActivityByUser } from "@/features/minigames";
+import { isAdminRole } from "@/features/auth";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import type { OpenConversation } from "../../hooks/user/use-open-conversations";
 import { UserProfileCardAnchor } from "../user/user-profile-card";
@@ -195,12 +196,20 @@ export function OdakFriendsPage({
 
   // Friends only, as on the old page: the directory is already friends-only,
   // and the intersection closes the window an unfriend leaves in a cached list.
-  const friendUsers = useMemo(() => {
-    const ids = new Set(friends.friendIds);
-    return directoryUsers
-      .filter((user) => ids.has(user.userId))
-      .sort((a, b) => nameOf(a).localeCompare(nameOf(b), "tr"));
-  }, [directoryUsers, friends.friendIds]);
+  // An administrator's directory carries everybody (the server decides that by
+  // rank), and this page shows all of it: they are not all friends, so there is
+  // no intersection to take, only the account itself to leave out.
+  const seesEveryone = isAdminRole(rail.currentUserRole);
+  const friendIdSet = useMemo(() => new Set(friends.friendIds), [friends.friendIds]);
+  const friendUsers = useMemo(
+    () =>
+      directoryUsers
+        .filter((user) =>
+          seesEveryone ? user.userId !== currentUserId : friendIdSet.has(user.userId),
+        )
+        .sort((a, b) => nameOf(a).localeCompare(nameOf(b), "tr")),
+    [directoryUsers, friendIdSet, seesEveryone, currentUserId],
+  );
 
   const onlineCount = friendUsers.filter((user) => user.appOnline).length;
   // The tab lists both directions, so its count is both (F4.3): counting only
@@ -282,9 +291,10 @@ export function OdakFriendsPage({
         ? { username: user.username, onSelect: () => void onCopyUsername(user.username) }
         : undefined,
       friendship: {
-        state: "friend",
+        // Everyone is listed for an administrator, friends or not.
+        state: friendIdSet.has(user.userId) ? "friend" : "none",
         pending: friends.pendingUserIds.includes(user.userId),
-        onAdd: () => undefined,
+        onAdd: () => void friends.sendRequest(user.username),
         onRemove: () =>
           setPendingUnfriend({ userId: user.userId, username: user.username, name: nameOf(user) }),
         confirms: true,

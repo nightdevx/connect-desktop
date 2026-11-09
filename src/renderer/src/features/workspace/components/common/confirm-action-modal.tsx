@@ -28,6 +28,8 @@ interface ConfirmActionModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   isProcessing?: boolean;
+  /** Holds the confirm button back, e.g. until a required reason is typed. */
+  confirmDisabled?: boolean;
   /** The heading's badge. Defaults to a bin: most confirmations here delete. */
   icon?: ReactNode;
   /** Optional body under the list (a reason field). */
@@ -49,6 +51,7 @@ export function ConfirmActionModal({
   confirmLabel = "Sil",
   cancelLabel = "Vazgeç",
   isProcessing = false,
+  confirmDisabled = false,
   icon = <DeleteOutlined />,
   children,
   onConfirm,
@@ -95,6 +98,7 @@ export function ConfirmActionModal({
           type="primary"
           danger
           loading={isProcessing}
+          disabled={confirmDisabled}
           onClick={onConfirm}
         >
           {confirmLabel}

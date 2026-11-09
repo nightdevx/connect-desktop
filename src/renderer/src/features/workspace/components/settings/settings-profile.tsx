@@ -19,6 +19,8 @@ import { hueStyle } from "../../workspace-utils";
 import { BlankFace } from "@/ui/blank-face";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./settings-layout";
 import { toast } from "@/services/toast";
+import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
+import { toErrorMessage } from "@shared/error-message";
 
 interface ProfileSettings {
   displayName: string;
@@ -240,7 +242,7 @@ export function SettingsProfile({
 
           if (!result.ok) {
             toast.error(
-              `Profil bilgisi alınamadı: ${result.error?.message ?? "Bilinmeyen hata"}`,
+              `Profil bilgisi alınamadı: ${getApiErrorMessage(result.error)}`,
             );
           }
           return;
@@ -273,7 +275,7 @@ export function SettingsProfile({
         });
         setSavedEmail("");
         toast.error(
-          `Profil bilgisi alınamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+          `Profil bilgisi alınamadı: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
         );
       })
       .finally(() => {
@@ -324,7 +326,7 @@ export function SettingsProfile({
 
       if (!result.ok || !result.data?.profile) {
         toast.error(
-          `Profil kaydedilemedi: ${result.error?.message ?? "Bilinmeyen hata"}`,
+          `Profil kaydedilemedi: ${getApiErrorMessage(result.error)}`,
         );
         return;
       }
@@ -355,7 +357,7 @@ export function SettingsProfile({
       toast.success(successMessage);
     } catch (error) {
       toast.error(
-        `Profil kaydedilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Profil kaydedilemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
       );
     } finally {
       setIsSavingProfile(false);
@@ -380,13 +382,13 @@ export function SettingsProfile({
       if (result.ok) {
         setVerificationSent(true);
         setVerificationCode("");
-        toast.success("Doğrulama kodu e-posta adresinize gönderildi!");
+        toast.success("Doğrulama kodu e-posta adresine gönderildi.");
       } else {
         toast.error(authErrorToast(result.error, "recovery"));
       }
     } catch (error) {
       toast.error(
-        `Kod gönderilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
+        `Kod gönderilemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`
       );
     } finally {
       setIsSendingCode(false);
@@ -407,7 +409,7 @@ export function SettingsProfile({
       });
 
       if (result.ok) {
-        toast.success("E-posta adresiniz başarıyla doğrulandı!");
+        toast.success("E-posta adresin doğrulandı.");
         setProfileSettings((prev) => ({
           ...prev,
           emailVerified: true,
@@ -419,7 +421,7 @@ export function SettingsProfile({
       }
     } catch (error) {
       toast.error(
-        `Doğrulama başarısız: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`
+        `Doğrulama başarısız: ${toErrorMessage(error, "Bir sorun oluştu.")}`
       );
     } finally {
       setIsVerifyingCode(false);

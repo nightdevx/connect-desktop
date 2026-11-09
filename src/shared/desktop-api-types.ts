@@ -1088,7 +1088,7 @@ export interface DesktopApi {
   adminResetTwoFactor: (userId: string) => Promise<DesktopResult<{ twoFactorEnabled: boolean }>>;
   adminUpdateUser: (userId: string, payload: AdminUpdateUserRequest) => Promise<DesktopResult<{ user: AdminUserDetail }>>;
   adminResetPassword: (userId: string, newPassword: string) => Promise<DesktopResult<{ reset: boolean }>>;
-  adminDeleteUser: (userId: string) => Promise<DesktopResult<{ deleted: boolean }>>;
+  adminDeleteUser: (userId: string, reason: string) => Promise<DesktopResult<{ deleted: boolean }>>;
   adminBanUser: (userId: string) => Promise<DesktopResult<{ banned: boolean }>>;
   adminListVoiceMutes: () => Promise<DesktopResult<{ mutes: AdminVoiceMute[] }>>;
   adminSetVoiceMute: (payload: {

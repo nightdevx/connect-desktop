@@ -45,6 +45,7 @@ import {
   startSend,
   withPendingMessages,
 } from "./pending-sends";
+import { toErrorMessage } from "@shared/error-message";
 
 const DIRECT_STREAM_RECONNECT_BASE_MS = 1_000;
 const DIRECT_STREAM_RECONNECT_MAX_MS = 10_000;
@@ -184,6 +185,9 @@ export const useDirectMessages = ({
   // The draft the last send took, until the composer has rendered empty: a
   // double Enter in between would otherwise post it twice.
   const consumedDraftRef = useRef<string | null>(null);
+  // The staged file that send took. An image-only send leaves the draft ""
+  // before and after, so the draft alone would block every later image.
+  const consumedUploadRef = useRef<unknown>(null);
   useEffect(() => {
     if (messageDraft !== consumedDraftRef.current) {
       consumedDraftRef.current = null;
@@ -260,10 +264,7 @@ export const useDirectMessages = ({
       }
 
       if (shouldEmitWarnStatus(selectedPeerWarnAtRef, 10_000)) {
-        setStatus(
-          `Mesaj akışı yeniden bağlanamadı: ${getApiErrorMessage(result.error)}`,
-          "warn",
-        );
+        setStatus("Mesajlara bağlanılamıyor, yeniden deneniyor.", "warn");
       }
 
       return false;
@@ -608,7 +609,7 @@ export const useDirectMessages = ({
         // Ham akış hatası teknik; kullanıcıya olan biteni söyle, ayrıntı
         // konsola. Hemen altta yeniden bağlanma zaten planlanıyor.
         console.error("[direct-messages] stream error:", streamEvent.message);
-        setStatus("Mesaj bağlantısı koptu, yeniden bağlanılıyor...", "error");
+        setStatus("Mesaj bağlantısı koptu, yeniden bağlanılıyor.", "warn");
       }
       scheduleDirectStreamReconnect();
       return;
@@ -619,12 +620,8 @@ export const useDirectMessages = ({
       streamEvent.status === "closed"
     ) {
       streamDroppedRef.current = true;
-      if (shouldEmitWarnStatus(selectedPeerWarnAtRef, 6_000)) {
-        setStatus(
-          `Mesaj akışı kapandı${streamEvent.detail ? `: ${streamEvent.detail}` : ""}`,
-          "warn",
-        );
-      }
+      // No notice: the reconnect below is automatic, and the close detail is
+      // the socket's own text ("websocket closed (1006)").
       scheduleDirectStreamReconnect(
         false,
         streamEvent.code === SERVICE_RESTART_CLOSE_CODE,
@@ -653,7 +650,11 @@ export const useDirectMessages = ({
 
     // A second Enter before the cleared composer has rendered reads the same
     // draft again; that one already went.
-    if (!isOverride && consumedDraftRef.current === messageDraft) {
+    if (
+      !isOverride &&
+      consumedDraftRef.current === messageDraft &&
+      consumedUploadRef.current === (pendingAttachment?.upload ?? null)
+    ) {
       return;
     }
 
@@ -682,6 +683,7 @@ export const useDirectMessages = ({
     // The message is on screen from here on, so the composer is free at once.
     if (!isOverride) {
       consumedDraftRef.current = messageDraft;
+      consumedUploadRef.current = pendingAttachment?.upload ?? null;
       setMessageDraft("");
       setReplyTo(null);
       setPendingAttachment(null);
@@ -694,7 +696,7 @@ export const useDirectMessages = ({
           error: {
             code: "UNEXPECTED_ERROR",
             statusCode: 500,
-            message: error instanceof Error ? error.message : "Bilinmeyen hata",
+            message: toErrorMessage(error, "Bir sorun oluştu."),
           },
           data: undefined,
         }),
@@ -837,7 +839,7 @@ export const useDirectMessages = ({
     },
     onError: (error) => {
       setStatus(
-        `Mesaj silinemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        `Mesaj silinemedi: ${toErrorMessage(error, "Bir sorun oluştu.")}`,
         "error",
       );
     },
