@@ -40,6 +40,20 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.3.7",
+    date: "2026-11-16",
+    highlights: [
+      {
+        kind: "fixed",
+        text: "Ses bağlantısı göstergesi ping düşükken bile \"zayıf\" diyebiliyordu. Artık yalnız senin bağlantını ölçüyor; sessizdeki biri ya da bağlantısı kötü tek bir kişi seni zayıf göstermiyor.",
+      },
+      {
+        kind: "improved",
+        text: "Ses bağlantısı penceresi sadeleşti: ping ve tahmini gecikmeyi görüyorsun. Ayrıntılı ölçümler yöneticilere açık.",
+      },
+    ],
+  },
+  {
     version: "0.3.6",
     date: "2026-11-09",
     highlights: [
