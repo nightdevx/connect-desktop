@@ -44,7 +44,7 @@ import { SettingsSidebarTabs } from "../settings";
 import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { Avatar } from "../odak/odak-parts";
-import { SEED_ADMIN_ID } from "@/features/auth";
+import { SEED_ADMIN_ID, isAdminRole } from "@/features/auth";
 import workspaceService from "../../services";
 import { toast } from "@/services/toast";
 
@@ -823,6 +823,7 @@ export function WorkspaceSidebar({
       {(workspaceSection === "lobbies" || workspaceSection === "minigames") && (
         <WorkspaceAudioStatus
           activeLobbyId={lobbiesProps.voiceRoomId ?? lobbiesProps.activeLobbyId}
+          isAdmin={isAdminRole(lobbiesProps.currentUserRole)}
           liveKitConnectionState={liveKitConnectionState}
           audioProcessingProps={audioProcessingProps}
         />
