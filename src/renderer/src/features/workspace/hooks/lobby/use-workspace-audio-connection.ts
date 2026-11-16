@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   classifyIcePath,
+  downlinkVoiceJitterMs,
   poolPacketLossPct,
   type IcePathKind,
   type MediaIcePaths,
@@ -12,9 +13,23 @@ import type {
 
 export type AudioConnectionTone = "ok" | "warn" | "error" | "idle";
 
+/**
+ * Which reading put the card in warn or error, so the panel can name it.
+ * Calling every warning "high ping" sent people looking at a 23 ms ping.
+ */
+export type AudioConnectionReason =
+  | "ping"
+  | "loss"
+  | "jitter"
+  | "path"
+  | "reconnecting"
+  | "disconnected";
+
 export interface AudioConnectionSnapshot {
   statusText: string;
   tone: AudioConnectionTone;
+  /** Null while the tone is ok or idle. */
+  reason: AudioConnectionReason | null;
   pingMs: number | null;
   packetLossPct: number | null;
   jitterMs: number | null;
@@ -96,6 +111,7 @@ const createIdleAudioSnapshot = (): AudioConnectionSnapshot => {
   return {
     statusText: "Ses bağlantısı: Lobiye bağlı değil",
     tone: "idle",
+    reason: null,
     pingMs: null,
     packetLossPct: null,
     jitterMs: null,
@@ -217,28 +233,31 @@ export const useWorkspaceAudioConnection = ({
       poolPacketLossPct(windowsOf(audioOut)),
       poolPacketLossPct(windowsOf(audioIn)),
     ]);
-    // Jitter stays a maximum: it is a delay, not a ratio, so a quiet track
-    // cannot inflate it and the worst one is what the user actually hears.
-    const jitterMs = maxOrNull(audioIn.map((entry) => entry.jitterMs));
+    // Not the worst inbound track: that counted muted microphones, whose
+    // jitter freezes at whatever their last packet left, screen-share audio,
+    // and any one remote's bad uplink. downlinkVoiceJitterMs says why.
+    const jitterMs = downlinkVoiceJitterMs(mediaStats.inbound);
 
     const pingDisplay =
       effectivePingMs !== null ? ` (${Math.round(effectivePingMs)} ms)` : "";
 
     let tone: AudioConnectionTone = "ok";
+    let reason: AudioConnectionReason | null = null;
     let statusText = `Ses bağlantısı iyi${pingDisplay}`;
 
-    if (
-      (packetLossPct !== null && packetLossPct >= LOSS_ERROR_PCT) ||
-      (effectivePingMs !== null && effectivePingMs >= PING_ERROR_MS)
-    ) {
+    const lossErrors = packetLossPct !== null && packetLossPct >= LOSS_ERROR_PCT;
+    const pingErrors = effectivePingMs !== null && effectivePingMs >= PING_ERROR_MS;
+    const lossWarns = packetLossPct !== null && packetLossPct >= LOSS_WARN_PCT;
+    const pingWarns = effectivePingMs !== null && effectivePingMs >= PING_WARN_MS;
+    const jitterWarns = jitterMs !== null && jitterMs >= JITTER_WARN_MS;
+
+    if (lossErrors || pingErrors) {
       tone = "error";
+      reason = lossErrors ? "loss" : "ping";
       statusText = `Ses bağlantısı sorunlu${pingDisplay}`;
-    } else if (
-      (packetLossPct !== null && packetLossPct >= LOSS_WARN_PCT) ||
-      (effectivePingMs !== null && effectivePingMs >= PING_WARN_MS) ||
-      (jitterMs !== null && jitterMs >= JITTER_WARN_MS)
-    ) {
+    } else if (lossWarns || pingWarns || jitterWarns) {
       tone = "warn";
+      reason = lossWarns ? "loss" : pingWarns ? "ping" : "jitter";
       statusText = `Ses bağlantısı zayıf${pingDisplay}`;
     } else if (effectivePingMs === null) {
       statusText = "Ses bağlantısı ölçülüyor";
@@ -250,6 +269,7 @@ export const useWorkspaceAudioConnection = ({
     const transportPath = worstTransportPath(mediaStats.icePaths);
     if (transportPath && transportPath !== "udp" && tone === "ok") {
       tone = "warn";
+      reason = "path";
       statusText =
         transportPath === "tcp"
           ? `Ses yedek yoldan (TCP) akıyor${pingDisplay}`
@@ -261,9 +281,11 @@ export const useWorkspaceAudioConnection = ({
     if (liveKitConnectionState === "closed") {
       // Ended deliberately by the server, so nothing is retrying behind this.
       tone = "error";
+      reason = "disconnected";
       statusText = "Ses bağlantısı sonlandırıldı";
     } else if (liveKitConnectionState === "disconnected") {
       tone = "error";
+      reason = "disconnected";
       statusText = `Ses bağlantısı yok${pingDisplay}`;
     } else if (
       liveKitConnectionState === "reconnecting" ||
@@ -272,12 +294,14 @@ export const useWorkspaceAudioConnection = ({
       if (tone !== "error") {
         tone = "warn";
       }
+      reason = "reconnecting";
       statusText = "Ses bağlantısı yeniden kuruluyor";
     }
 
     setAudioConnection({
       statusText,
       tone,
+      reason,
       pingMs:
         effectivePingMs === null ? null : Math.max(1, Math.round(effectivePingMs)),
       packetLossPct,

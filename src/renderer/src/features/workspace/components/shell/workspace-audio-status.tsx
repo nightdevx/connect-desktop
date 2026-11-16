@@ -17,6 +17,7 @@ import { useVideoQuality } from "../../hooks/lobby/use-video-quality";
 import {
   JITTER_WARN_MS,
   useWorkspaceAudioConnection,
+  type AudioConnectionReason,
   type AudioConnectionTone,
 } from "../../hooks/lobby/use-workspace-audio-connection";
 
@@ -39,6 +40,12 @@ const describeLatency = (estimate: MouthToEarEstimate | null | undefined): strin
 
 interface WorkspaceAudioStatusProps {
   activeLobbyId: string | null;
+  /**
+   * Admins get the whole diagnostic panel. Everyone else sees the status and
+   * the two latency figures: loss, jitter, transport path, stream quality and
+   * the latency breakdown are for whoever is fixing the call, not in it.
+   */
+  isAdmin: boolean;
   liveKitConnectionState?: LiveKitConnectionStatus;
   audioProcessingProps: {
     enhancedNoiseSuppressionEnabled: boolean;
@@ -51,10 +58,29 @@ interface WorkspaceAudioStatusProps {
 
 const TONE_LABELS: Record<AudioConnectionTone, string> = {
   ok: "Gecikme düşük",
-  warn: "Yüksek ping",
-  error: "Bağlantı kesildi",
+  warn: "Bağlantı zayıf",
+  error: "Bağlantı sorunlu",
   idle: "Bağlanıyor",
 };
+
+// Names the reading that raised the warning. One label for every warning sent
+// people looking at a 23 ms ping while jitter was what had tripped it.
+const REASON_LABELS: Record<AudioConnectionReason, string> = {
+  ping: "Yüksek ping",
+  loss: "Paket kaybı",
+  jitter: "Bağlantı dalgalı",
+  path: "Yedek bağlantı yolu",
+  reconnecting: "Yeniden bağlanıyor",
+  disconnected: "Bağlantı kesildi",
+};
+
+// Reasons a non-admin sees by name: the ones that need no diagnostic vocabulary.
+// Loss, jitter and the transport path read as a plain "weak/troubled" instead.
+const PLAIN_REASONS: ReadonlySet<AudioConnectionReason> = new Set([
+  "ping",
+  "reconnecting",
+  "disconnected",
+]);
 
 const TRANSPORT_PATH_LABELS: Record<IcePathKind, string> = {
   udp: "UDP · doğrudan",
@@ -74,6 +100,7 @@ const TRANSPORT_PATH_LABELS: Record<IcePathKind, string> = {
  */
 export function WorkspaceAudioStatus({
   activeLobbyId,
+  isAdmin,
   liveKitConnectionState,
   audioProcessingProps,
 }: WorkspaceAudioStatusProps) {
@@ -88,6 +115,36 @@ export function WorkspaceAudioStatus({
   });
 
   const videoQualityProps = useVideoQuality(mediaStats);
+
+  const { reason, pingMs } = audioConnectionProps;
+  const statusLabel =
+    reason !== null && (isAdmin || PLAIN_REASONS.has(reason))
+      ? REASON_LABELS[reason]
+      : TONE_LABELS[audioConnectionProps.tone];
+  // The card's own line names TCP and TURN for a fallback path; for everyone
+  // else that is just a weak connection.
+  const cardText =
+    !isAdmin && reason === "path"
+      ? `Ses bağlantısı zayıf${pingMs !== null ? ` (${pingMs} ms)` : ""}`
+      : audioConnectionProps.statusText;
+
+  // Full row under the admin's four tiles; beside the ping tile otherwise.
+  const latencyTile = (
+    <div className={`ct-metric-tile${isAdmin ? " wide" : ""}`}>
+      <span>
+        <FieldTimeOutlined /> Tahmini Gecikme
+      </span>
+      <strong
+        className={
+          (mediaStats.latency?.totalMs ?? 0) > MOUTH_TO_EAR_WARN_MS
+            ? "alarm"
+            : undefined
+        }
+      >
+        {mediaStats.latency ? `~${mediaStats.latency.totalMs} ms` : "-"}
+      </strong>
+    </div>
+  );
 
   const audioStatusIcon =
     audioConnectionProps.tone === "error" ? (
@@ -141,9 +198,7 @@ export function WorkspaceAudioStatus({
           {audioStatusIcon}
         </span>
         <div className="ct-audio-connection-content">
-          <span className="ct-audio-connection-text">
-            {audioConnectionProps.statusText}
-          </span>
+          <span className="ct-audio-connection-text">{cardText}</span>
         </div>
       </button>
 
@@ -169,13 +224,7 @@ export function WorkspaceAudioStatus({
           <p
             className={`ct-audio-popover-status ${audioConnectionProps.tone}`}
           >
-            {/* A warning raised by the path, not the ping: "high ping" would
-                send the user looking at the wrong number. */}
-            {audioConnectionProps.tone === "warn" &&
-            audioConnectionProps.transportPath !== null &&
-            audioConnectionProps.transportPath !== "udp"
-              ? "Yedek bağlantı yolu"
-              : TONE_LABELS[audioConnectionProps.tone]}
+            {statusLabel}
           </p>
 
           <div className="ct-audio-details-grid">
@@ -190,77 +239,72 @@ export function WorkspaceAudioStatus({
               </strong>
             </div>
 
-            <div className="ct-metric-tile">
-              <span>
-                <DisconnectOutlined /> Paket kaybı
-              </span>
-              <strong
-                className={
-                  (audioConnectionProps.packetLossPct ?? 0) > 1
-                    ? "alarm"
-                    : undefined
-                }
-              >
-                {audioConnectionProps.packetLossPct !== null
-                  ? `${audioConnectionProps.packetLossPct.toFixed(1)}%`
-                  : "%0.0"}
-              </strong>
-            </div>
+            {isAdmin && (
+              <>
+                <div className="ct-metric-tile">
+                  <span>
+                    <DisconnectOutlined /> Paket kaybı
+                  </span>
+                  <strong
+                    className={
+                      (audioConnectionProps.packetLossPct ?? 0) > 1
+                        ? "alarm"
+                        : undefined
+                    }
+                  >
+                    {audioConnectionProps.packetLossPct !== null
+                      ? `${audioConnectionProps.packetLossPct.toFixed(1)}%`
+                      : "%0.0"}
+                  </strong>
+                </div>
 
-            <div className="ct-metric-tile">
-              <span>
-                <LineChartOutlined /> Titreşim (Jitter)
-              </span>
-              <strong
-                className={
-                  (audioConnectionProps.jitterMs ?? 0) >= JITTER_WARN_MS
-                    ? "alarm"
-                    : undefined
-                }
-              >
-                {audioConnectionProps.jitterMs !== null
-                  ? `${audioConnectionProps.jitterMs} ms`
-                  : "-"}
-              </strong>
-            </div>
+                <div className="ct-metric-tile">
+                  <span>
+                    <LineChartOutlined /> Titreşim (Jitter)
+                  </span>
+                  <strong
+                    className={
+                      (audioConnectionProps.jitterMs ?? 0) >= JITTER_WARN_MS
+                        ? "alarm"
+                        : undefined
+                    }
+                  >
+                    {audioConnectionProps.jitterMs !== null
+                      ? `${audioConnectionProps.jitterMs} ms`
+                      : "-"}
+                  </strong>
+                </div>
 
-            <div className="ct-metric-tile">
-              <span>
-                <ApiOutlined /> Bağlantı yolu
-              </span>
-              <strong
-                className={
-                  audioConnectionProps.transportPath !== null &&
-                  audioConnectionProps.transportPath !== "udp"
-                    ? "alarm"
-                    : undefined
-                }
-              >
-                {audioConnectionProps.transportPath !== null
-                  ? TRANSPORT_PATH_LABELS[audioConnectionProps.transportPath]
-                  : "-"}
-              </strong>
-            </div>
+                <div className="ct-metric-tile">
+                  <span>
+                    <ApiOutlined /> Bağlantı yolu
+                  </span>
+                  <strong
+                    className={
+                      audioConnectionProps.transportPath !== null &&
+                      audioConnectionProps.transportPath !== "udp"
+                        ? "alarm"
+                        : undefined
+                    }
+                  >
+                    {audioConnectionProps.transportPath !== null
+                      ? TRANSPORT_PATH_LABELS[audioConnectionProps.transportPath]
+                      : "-"}
+                  </strong>
+                </div>
+              </>
+            )}
 
-            <Tooltip title={describeLatency(mediaStats.latency)}>
-              <div className="ct-metric-tile wide">
-                <span>
-                  <FieldTimeOutlined /> Tahmini Gecikme
-                </span>
-                <strong
-                  className={
-                    (mediaStats.latency?.totalMs ?? 0) > MOUTH_TO_EAR_WARN_MS
-                      ? "alarm"
-                      : undefined
-                  }
-                >
-                  {mediaStats.latency ? `~${mediaStats.latency.totalMs} ms` : "-"}
-                </strong>
-              </div>
-            </Tooltip>
+            {isAdmin ? (
+              <Tooltip title={describeLatency(mediaStats.latency)}>
+                {latencyTile}
+              </Tooltip>
+            ) : (
+              latencyTile
+            )}
           </div>
 
-          {videoQualityProps.active && (
+          {isAdmin && videoQualityProps.active && (
             <section
               className={`ct-video-quality ${videoQualityProps.tone}`}
               aria-label="Yayın kalitesi"
@@ -373,7 +417,7 @@ export function WorkspaceAudioStatus({
               />
             </div>
 
-            {audioProcessingProps.enhancedNoiseSuppressionEnabled && (
+            {isAdmin && audioProcessingProps.enhancedNoiseSuppressionEnabled && (
               <div
                 className={`ct-ns-mode-badge ct-ns-mode-badge--${audioProcessingProps.activeNoiseMode}`}
                 role="status"
