@@ -33,7 +33,10 @@ const {
   computePacketRate,
   summarizeTransport,
   downlinkVoiceJitterMs,
+  downlinkVoiceLossPct,
   voiceJitterBufferMs,
+  INITIAL_HELD_READINGS,
+  stepHeldReadings,
 } = stats;
 
 // --- bitrate ---------------------------------------------------------------
@@ -891,6 +894,100 @@ assert.equal(
   ]),
   null,
   "screen-share audio's buffer is not a voice's",
+);
+
+// --- Download loss: the best of the talking voices ---------------------------
+// Pooling every inbound track counted one remote's bad uplink as this
+// machine's loss: the SFU forwards the gap it never received. Only loss every
+// talking voice shares is this machine's download.
+const lossy = (trackKey, packets, packetsLost) =>
+  voice(trackKey, 5, packets, { window: { packets, packetsLost } });
+assert.equal(downlinkVoiceLossPct([]), null, "nobody talking");
+assert.equal(
+  downlinkVoiceLossPct([lossy("ali:microphone", 3, 2)]),
+  null,
+  "DTX trickle is too few packets to judge",
+);
+assert.equal(
+  downlinkVoiceLossPct([
+    lossy("ali:microphone", 100, 0),
+    lossy("veli:microphone", 80, 20),
+  ]),
+  0,
+  "one remote's uplink loss does not paint this machine's link",
+);
+assert.equal(
+  downlinkVoiceLossPct([
+    lossy("ali:microphone", 95, 5),
+    lossy("veli:microphone", 90, 10),
+  ]),
+  5,
+  "everyone losing packets is this machine's download",
+);
+assert.equal(
+  downlinkVoiceLossPct([
+    lossy("ali:microphone", 90, 10),
+    lossy("ali:screen_share_audio", 100, 0),
+  ]),
+  10,
+  "screen-share audio is not a voice",
+);
+assert.equal(
+  downlinkVoiceLossPct([lossy("ali:microphone", 40, 60)]),
+  60,
+  "a voice losing most of its packets still counts as talking",
+);
+
+// --- Held readings: two samples in a row before a reading counts ------------
+const readings = (rttMs, packetLossPct = 0, jitterMs = 5) => ({ rttMs, packetLossPct, jitterMs });
+const run = (samples) => {
+  let state = INITIAL_HELD_READINGS;
+  const held = [];
+  for (const [at, value] of samples) {
+    const step = stepHeldReadings(state, at, value);
+    state = step.state;
+    held.push(step.held);
+  }
+  return held;
+};
+{
+  const held = run([[2000, readings(40)], [4000, readings(400)], [6000, readings(40)]]);
+  assert.equal(held[0].rttMs, null, "first sample has nothing to be held against");
+  assert.equal(held[1].rttMs, 40, "one RTT spike does not count");
+  assert.equal(held[2].rttMs, 40);
+}
+{
+  const held = run([[2000, readings(40)], [4000, readings(400)], [6000, readings(300)]]);
+  assert.equal(held[2].rttMs, 300, "a spike that held for two measurements counts");
+}
+{
+  // Audio RTCP comes every few seconds: two stats ticks read one measurement.
+  const held = run([[2000, readings(40)], [4000, readings(400)], [6000, readings(400)]]);
+  assert.equal(held[2].rttMs, 40, "the same RTCP measurement read twice is one spike");
+  const later = run([
+    [2000, readings(40)],
+    [4000, readings(400)],
+    [6000, readings(400)],
+    [8000, readings(380)],
+  ]);
+  assert.equal(later[3].rttMs, 380, "a new measurement after the repeat confirms it");
+}
+{
+  const held = run([[2000, readings(40, 0)], [4000, readings(40, 12)], [6000, readings(40, 0)]]);
+  assert.equal(held[1].packetLossPct, 0, "one lossy window does not count");
+  const lasting = run([[2000, readings(40, 5, 40)], [4000, readings(40, 12, 35)]]);
+  assert.equal(lasting[1].packetLossPct, 5, "loss held for two windows: the lower");
+  assert.equal(lasting[1].jitterMs, 35);
+}
+{
+  // A connection-state change re-runs the badge with the same sample.
+  const held = run([[2000, readings(40)], [4000, readings(400)], [4000, readings(400)]]);
+  assert.equal(held[2].rttMs, 40, "the same sample seen twice is not two samples");
+}
+assert.equal(
+  run([[2000, readings(null)], [4000, readings(400)]])[1].rttMs,
+  null,
+  "a missing reading breaks the run",
 );
 
 console.log("media-stats self-check passed");
