@@ -720,6 +720,70 @@ export const poolPacketLossPct = (
   return Math.round((lost / (lost + received)) * 1000) / 10;
 };
 
+/**
+ * Packets a remote voice must deliver in one sampling window (the collector
+ * samples every 2 s) to count as talking. Speech is 50 packets a second; Opus
+ * DTX silence trickles a handful, and a muted microphone sends none.
+ */
+export const MIN_VOICE_WINDOW_PACKETS = 40;
+
+type VoiceReading = Pick<
+  InboundTrackStats,
+  "trackKey" | "kind" | "jitterMs" | "jitterBufferDelayMs" | "jitterBufferWindowMs" | "window"
+>;
+
+// LiveKit's Track.Source.Microphone; the collector keys tracks
+// "<identity>:<source>". Screen-share audio is a different source.
+const isVoice = (entry: VoiceReading): boolean =>
+  entry.kind === "audio" && entry.trackKey.endsWith(":microphone");
+
+const isTalking = (entry: VoiceReading): boolean =>
+  entry.window !== null && entry.window.packets >= MIN_VOICE_WINDOW_PACKETS;
+
+/**
+ * This machine's download jitter, as far as the voices arriving now can show
+ * it: the lowest jitter among remote microphones that are talking.
+ *
+ * Chromium updates an inbound stream's `jitter` only when a packet arrives, so
+ * a muted microphone keeps whatever value its last packet left -- and one
+ * timestamp jump of ~2 s adds ~125 ms to it. A talking voice decays such a
+ * spike within a second. Each voice's jitter also carries its speaker's own
+ * uplink; the lowest one is what is common to all of them, which is this
+ * machine's link. One remote on bad Wi-Fi does not move it.
+ */
+export const downlinkVoiceJitterMs = (inbound: VoiceReading[]): number | null => {
+  let best: number | null = null;
+  for (const entry of inbound) {
+    if (!isVoice(entry) || !isTalking(entry) || entry.jitterMs === null) {
+      continue;
+    }
+    best = best === null ? entry.jitterMs : Math.min(best, entry.jitterMs);
+  }
+  return best;
+};
+
+/**
+ * What the jitter buffers hold for the voices, for the mouth-to-ear estimate:
+ * the average over voices that played something in the last window. Only when
+ * none did does it fall back to the call-long averages, which a muted voice
+ * keeps from whenever it last spoke.
+ */
+export const voiceJitterBufferMs = (inbound: VoiceReading[]): number | null => {
+  const voices = inbound.filter(isVoice);
+  const recent = voices
+    .map((entry) => entry.jitterBufferWindowMs)
+    .filter((value): value is number => value !== null);
+  const values =
+    recent.length > 0
+      ? recent
+      : voices
+          .map((entry) => entry.jitterBufferDelayMs)
+          .filter((value): value is number => value !== null);
+  return values.length > 0
+    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : null;
+};
+
 export type QualityLimitationKind = "bandwidth" | "cpu" | "other";
 
 export interface QualityLimitationVerdict {

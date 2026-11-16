@@ -63,6 +63,7 @@ import {
   EMPTY_ICE_PATHS,
   classifyIcePath,
   estimateMouthToEar,
+  voiceJitterBufferMs,
   findQualityLimitation,
   icePathKey,
   type MediaIcePaths,
@@ -1835,18 +1836,10 @@ export class LiveKitMediaSession {
    * playback bus adds. estimateMouthToEar says what is assumed.
    */
   private estimateLatency(snapshot: MediaStatsSnapshot): MouthToEarEstimate | null {
-    const suffix = `:${Track.Source.Microphone}`;
-    const buffers = snapshot.inbound
-      .filter((entry) => entry.kind === "audio" && entry.trackKey.endsWith(suffix))
-      .map((entry) => entry.jitterBufferWindowMs ?? entry.jitterBufferDelayMs)
-      .filter((value): value is number => value !== null);
     const playout = this.remoteMediaHandler?.playoutLatency();
     return estimateMouthToEar({
       rttMs: snapshot.rttMs,
-      jitterBufferMs:
-        buffers.length > 0
-          ? Math.round(buffers.reduce((sum, value) => sum + value, 0) / buffers.length)
-          : null,
+      jitterBufferMs: voiceJitterBufferMs(snapshot.inbound),
       outputMs: playout?.outputMs ?? null,
       playbackDynamicsStages: playout?.dynamicsStages ?? 0,
     });

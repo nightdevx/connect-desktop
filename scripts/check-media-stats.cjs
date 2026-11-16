@@ -32,6 +32,8 @@ const {
   BWE_PLACEHOLDER_BPS,
   computePacketRate,
   summarizeTransport,
+  downlinkVoiceJitterMs,
+  voiceJitterBufferMs,
 } = stats;
 
 // --- bitrate ---------------------------------------------------------------
@@ -804,5 +806,91 @@ assert.deepEqual(
 assert.equal(summarizeTransport([], new Map(), "t"), null, "no selected pair, no transport row");
 assert.equal(computePacketRate(undefined, sample(1000, 0, 10)), null);
 assert.equal(computePacketRate(sample(1000, 0, 10), sample(2000, 0, 5)), null, "a counter reset is not a negative rate");
+
+// --- Voice jitter: only voices that are talking, and the best of them --------
+// The connection card judged jitter by the worst inbound audio track. That
+// counted muted microphones, whose `jitter` stays frozen at whatever the last
+// packet left it (a single ~2 s timestamp jump adds ~125 ms), screen-share
+// audio, and one remote's bad uplink -- none of which is this machine's link.
+const voice = (trackKey, jitterMs, packets, extra = {}) => ({
+  trackKey,
+  kind: "audio",
+  jitterMs,
+  jitterBufferDelayMs: null,
+  jitterBufferWindowMs: null,
+  window: packets === null ? null : { packets, packetsLost: 0 },
+  ...extra,
+});
+assert.equal(downlinkVoiceJitterMs([]), null, "nobody in the room");
+assert.equal(
+  downlinkVoiceJitterMs([voice("ali:microphone", 127, 0)]),
+  null,
+  "a muted microphone's frozen jitter is not a reading",
+);
+assert.equal(
+  downlinkVoiceJitterMs([voice("ali:microphone", 127, 5)]),
+  null,
+  "DTX silence trickles a few packets; too few to trust",
+);
+assert.equal(
+  downlinkVoiceJitterMs([voice("ali:microphone", 127, null)]),
+  null,
+  "no window yet",
+);
+assert.equal(
+  downlinkVoiceJitterMs([
+    voice("ali:microphone", 4, 100),
+    voice("ali:screen_share_audio", 90, 100),
+  ]),
+  4,
+  "screen-share audio is not a voice",
+);
+assert.equal(
+  downlinkVoiceJitterMs([
+    voice("ali:microphone", 4, 100),
+    voice("veli:microphone", 80, 100),
+    voice("ayse:microphone", 127, 0),
+  ]),
+  4,
+  "one remote's uplink does not paint this machine's link",
+);
+assert.equal(
+  downlinkVoiceJitterMs([
+    voice("ali:microphone", 45, 100),
+    voice("veli:microphone", 60, 100),
+  ]),
+  45,
+  "everyone jittery is this machine's download",
+);
+assert.equal(
+  downlinkVoiceJitterMs([{ ...voice("ali:microphone", 9, 100), kind: "video" }]),
+  null,
+  "video is not a voice",
+);
+
+assert.equal(voiceJitterBufferMs([]), null);
+assert.equal(
+  voiceJitterBufferMs([
+    voice("ali:microphone", 4, 100, { jitterBufferWindowMs: 40, jitterBufferDelayMs: 300 }),
+    voice("veli:microphone", 4, 0, { jitterBufferWindowMs: null, jitterBufferDelayMs: 900 }),
+  ]),
+  40,
+  "a muted voice's call-long average does not drag the estimate",
+);
+assert.equal(
+  voiceJitterBufferMs([
+    voice("ali:microphone", 4, 0, { jitterBufferDelayMs: 50 }),
+    voice("veli:microphone", 4, 0, { jitterBufferDelayMs: 70 }),
+  ]),
+  60,
+  "nobody talking: fall back to the call averages",
+);
+assert.equal(
+  voiceJitterBufferMs([
+    voice("ali:screen_share_audio", 4, 100, { jitterBufferWindowMs: 120 }),
+  ]),
+  null,
+  "screen-share audio's buffer is not a voice's",
+);
 
 console.log("media-stats self-check passed");
