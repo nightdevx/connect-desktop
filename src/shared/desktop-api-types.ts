@@ -399,12 +399,6 @@ export type LobbyStreamEvent =
       at?: string;
     }
   | {
-      // The user's server list changed (joined, left, kicked, a role, a
-      // rename): GET /guilds again.
-      type: "guilds-changed";
-      at?: string;
-    }
-  | {
       type: "system-error";
       code: string;
       message: string;
@@ -534,6 +528,12 @@ export type UserDirectoryStreamEvent =
         callerUsername?: string;
         targetUserId: string;
       };
+      at?: string;
+    }
+  | {
+      // The user's server list changed (joined, left, kicked, a role, a
+      // rename): GET /guilds again.
+      type: "guilds-changed";
       at?: string;
     }
   | {
@@ -704,6 +704,8 @@ export interface DesktopApi {
     }>
   >;
   createLobby: (payload: {
+    /** The server to open it in; omitted: NIGHT. */
+    guildId?: string;
     name: string;
     isLocked?: boolean;
     allowedUsers?: string[];
@@ -843,27 +845,27 @@ export interface DesktopApi {
   }) => Promise<DesktopResult<{ table: MinigameTable | null }>>;
   // Every solo game this account holds a record at. Read once when the page
   // opens; a submission answers with the new value, so nothing polls.
-  listMinigameScores: () => Promise<DesktopResult<{ scores: MinigameScoreMap }>>;
+  listMinigameScores: (payload?: { guildId?: string }) => Promise<DesktopResult<{ scores: MinigameScoreMap }>>;
   // Records a finished run. Idempotent: the server keeps the score only if it
   // beats what is stored, which is what lets the desktop re-send its local
   // records on every launch to catch up whatever was earned offline.
-  submitMinigameScore: (payload: { game: string; score: number }) => Promise<
+  submitMinigameScore: (payload: { game: string; score: number; guildId?: string }) => Promise<
     DesktopResult<{ updated: boolean; game: string; best: number }>
   >;
   // One game ranked, plus the caller's own place in it. Public to every
   // signed-in account — a board only its holder can see is not a board.
-  getMinigameLeaderboard: (payload: { game: string; limit?: number }) => Promise<
+  getMinigameLeaderboard: (payload: { game: string; limit?: number; guildId?: string }) => Promise<
     DesktopResult<MinigameLeaderboard>
   >;
   // The uploaded soundboard. The list carries no audio; getEmoteSample is the
   // one call that does, and a client reads each id once and caches it.
-  listEmotes: () => Promise<
+  listEmotes: (payload?: { guildId?: string }) => Promise<
     DesktopResult<{ emotes: CustomEmoteSummary[]; quota: number; used: number }>
   >;
   getEmoteSample: (payload: { emoteId: string }) => Promise<
     DesktopResult<{ id: string; name: string; mimeType: string; dataUrl: string }>
   >;
-  uploadEmote: (payload: { name: string; dataUrl: string }) => Promise<
+  uploadEmote: (payload: { name: string; dataUrl: string; guildId?: string }) => Promise<
     DesktopResult<{ emote: CustomEmoteSummary; quota: number; used: number }>
   >;
   deleteEmote: (payload: { emoteId: string }) => Promise<
@@ -1141,9 +1143,10 @@ export interface DesktopApi {
     lobbyId: string;
     command: string;
   }) => Promise<DesktopResult<{ state: MusicState; reply: string; isDj: boolean }>>;
-  adminListMusicDJs: () => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
-  adminGrantMusicDJ: (userId: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
-  adminRevokeMusicDJ: (userId: string) => Promise<DesktopResult<{ revoked: boolean }>>;
+  // guildId: the server whose DJ list it is; omitted: NIGHT.
+  adminListMusicDJs: (guildId?: string) => Promise<DesktopResult<{ djs: MusicDJ[]; spotifyEnabled: boolean }>>;
+  adminGrantMusicDJ: (userId: string, guildId?: string) => Promise<DesktopResult<{ dj: MusicDJ }>>;
+  adminRevokeMusicDJ: (userId: string, guildId?: string) => Promise<DesktopResult<{ revoked: boolean }>>;
   getWatchPlayerUrl: () => Promise<DesktopResult<{ url: string; directUrl: string }>>;
   resolveWatchSource: (payload: {
     pageUrl: string;
