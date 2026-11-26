@@ -61,6 +61,7 @@ import type {
 } from "./admin-ops-types";
 import type { AppUpdateEvent, AppUpdateSnapshot } from "./update-contracts";
 import type { FreeGamesSnapshot } from "./free-games";
+import type { GuildAction, GuildCalls } from "./guild-contracts";
 import type {
   MinigameLeaderboard,
   MinigameScoreMap,
@@ -395,6 +396,12 @@ export type LobbyStreamEvent =
       type: "watch-state";
       lobbyId: string;
       state: WatchState;
+      at?: string;
+    }
+  | {
+      // The user's server list changed (joined, left, kicked, a role, a
+      // rename): GET /guilds again.
+      type: "guilds-changed";
       at?: string;
     }
   | {
@@ -1167,6 +1174,11 @@ export interface DesktopApi {
     durationSeconds: number;
   }) => Promise<DesktopResult<WatchSnapshot>>;
   stopWatch: (payload: { lobbyId: string }) => Promise<DesktopResult<WatchSnapshot>>;
+  /** Servers: every /guilds call by name (GuildCalls in guild-contracts). */
+  guilds: <K extends GuildAction>(
+    action: K,
+    payload: GuildCalls[K]["in"],
+  ) => Promise<DesktopResult<GuildCalls[K]["out"]>>;
   adminOps: {
     userSessions: (payload: { userId: string }) => Promise<DesktopResult<{ sessions: AdminSessionSummary[] }>>;
     revokeSession: (payload: { userId: string; sessionId: string }) => Promise<DesktopResult<{ revoked: boolean }>>;

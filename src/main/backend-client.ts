@@ -2,6 +2,7 @@ import { AdminOpsClient } from "./clients/admin-ops-client";
 import { AuthClient } from "./clients/auth-client";
 import { BaseClient, DesktopApiError } from "./clients/base-client";
 import { ChatClient } from "./clients/chat-client";
+import { GuildClient } from "./clients/guild-client";
 import { LobbyClient } from "./clients/lobby-client";
 import { MediaClient } from "./clients/media-client";
 import { MinigameClient } from "./clients/minigame-client";
@@ -18,6 +19,7 @@ export class BackendClient {
   public readonly music: MusicClient;
   public readonly watch: WatchClient;
   public readonly adminOps: AdminOpsClient;
+  public readonly guilds: GuildClient;
 
   public constructor(baseUrl: string) {
     this.base = new BaseClient(baseUrl);
@@ -29,6 +31,7 @@ export class BackendClient {
     this.music = new MusicClient(this.base);
     this.watch = new WatchClient(this.base);
     this.adminOps = new AdminOpsClient(this.base);
+    this.guilds = new GuildClient(this.base);
   }
 }
 

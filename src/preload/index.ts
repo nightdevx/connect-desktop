@@ -436,6 +436,7 @@ const desktopApi: DesktopApi = {
   adminListTimeouts: async () => ipcRenderer.invoke("desktop:admin-list-timeouts"),
   adminClearTimeout: async (payload) =>
     ipcRenderer.invoke("desktop:admin-clear-timeout", payload),
+  guilds: async (action, payload) => ipcRenderer.invoke("desktop:guilds", action, payload),
   adminOps: {
     userSessions: async (payload) => ipcRenderer.invoke("desktop:admin-user-sessions", payload),
     revokeSession: async (payload) => ipcRenderer.invoke("desktop:admin-revoke-session", payload),
