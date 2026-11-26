@@ -1,6 +1,7 @@
 import { AdminOpsClient } from "./clients/admin-ops-client";
 import { AuthClient } from "./clients/auth-client";
 import { BaseClient, DesktopApiError } from "./clients/base-client";
+import { getAttachmentCache } from "./attachment-cache";
 import { ChatClient } from "./clients/chat-client";
 import { LobbyClient } from "./clients/lobby-client";
 import { MediaClient } from "./clients/media-client";
@@ -24,7 +25,7 @@ export class BackendClient {
     this.auth = new AuthClient(this.base);
     this.lobby = new LobbyClient(this.base);
     this.media = new MediaClient(this.base);
-    this.chat = new ChatClient(this.base);
+    this.chat = new ChatClient(this.base, getAttachmentCache());
     this.minigame = new MinigameClient(this.base);
     this.music = new MusicClient(this.base);
     this.watch = new WatchClient(this.base);
