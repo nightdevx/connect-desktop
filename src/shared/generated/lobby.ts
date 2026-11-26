@@ -85,6 +85,7 @@ export interface ReapedMember {
 
 export interface LobbyRealtimeSnapshot {
   id: string;
+  guildId: string;
   name: string;
   createdAt: string;
   createdBy: string;

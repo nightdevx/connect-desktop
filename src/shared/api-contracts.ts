@@ -173,9 +173,7 @@ type _DirectTyping = Bound<ContractDrift<DirectFrame<"direct-chat-typing">, Chat
 // --- lobbies: the list, the rosters and the room events -------------------------
 type _LobbyDescriptor = Bound<ContractDrift<LobbyDescriptor, Lobby.LobbySummary>>;
 type _LobbyStateMember = Bound<ContractDrift<LobbyStateMember, Lobby.Member>>;
-// guildId: read when the socket carries it; the snapshot frames do not yet, so
-// the room's server comes from GET /lobby/rooms (useRoomGuilds).
-type _LobbyRealtimeSnapshot = Bound<ContractDrift<LobbyRealtimeSnapshot, Lobby.LobbyRealtimeSnapshot, "guildId">>;
+type _LobbyRealtimeSnapshot = Bound<ContractDrift<LobbyRealtimeSnapshot, Lobby.LobbyRealtimeSnapshot>>;
 type _LobbiesSnapshot = Bound<ContractDrift<LobbyFrame<"lobbies-snapshot">, Lobby.LobbiesSnapshotFrame>>;
 // type and at are the envelope removalFrame and emoteFrame put round the event.
 type _LobbyRemoved = Bound<ContractDrift<LobbyFrame<"lobby-removed">, Lobby.RemovalEvent, "type" | "at">>;
