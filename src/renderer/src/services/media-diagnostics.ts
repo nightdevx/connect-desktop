@@ -165,6 +165,9 @@ class MediaDiagnosticsCollector {
   // the summary of whichever batch it stored last, so a periodic batch still in
   // flight when the session ends must not land after the final one.
   private uploads: Promise<unknown> = Promise.resolve();
+  // The session whose server answered enabled:false. Nothing more is sent for
+  // it; the next session has a new id and asks again.
+  private serverOffSessionId: string | null = null;
 
   private durationMs = 0;
   private events = 0;
@@ -972,6 +975,10 @@ class MediaDiagnosticsCollector {
     if (!sessionId || this.flushing || this.pending.length === 0) {
       return;
     }
+    if (this.serverOffSessionId === sessionId) {
+      this.pending = [];
+      return;
+    }
 
     this.flushing = true;
     const batches = this.takeBatches(sessionId, false);
@@ -1030,10 +1037,16 @@ class MediaDiagnosticsCollector {
         return false;
       }
       for (const batch of batches) {
+        if (this.serverOffSessionId === batch.sessionId) {
+          return true;
+        }
         try {
           const result = await upload(batch);
           if (!result?.ok) {
             return false;
+          }
+          if (result.data?.enabled === false) {
+            this.serverOffSessionId = batch.sessionId;
           }
         } catch {
           return false;
