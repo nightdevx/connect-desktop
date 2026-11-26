@@ -221,9 +221,11 @@ export class ModularUpdater {
       return { requested: false, reason: "INSTALL_IN_PROGRESS" };
     }
 
-    writeLastCheckAt(Date.now());
     try {
       await this.checkForUpdatesWithTimeout(30_000);
+      // Only a check that went through counts as the day's check: at autostart
+      // the network is often not up yet, and a failure must not use the day up.
+      writeLastCheckAt(Date.now());
       return { requested: true };
     } catch (error) {
       this.handleUpdaterError(error);
