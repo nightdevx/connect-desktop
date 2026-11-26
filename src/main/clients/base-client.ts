@@ -109,6 +109,10 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 export const FEATURES_HEADER = "X-Connect-Features";
 export const CLIENT_FEATURES = "guilds";
 
+/** "?guildId=…" for the routes scoped to one server, "" for NIGHT. */
+export const guildQuery = (guildId?: string): string =>
+  guildId ? `?guildId=${encodeURIComponent(guildId)}` : "";
+
 export class BaseClient {
   public constructor(private readonly baseUrl: string) {}
 

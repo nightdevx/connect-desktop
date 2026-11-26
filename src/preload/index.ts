@@ -242,12 +242,12 @@ const desktopApi: DesktopApi = {
   listMinigameTables: async () => ipcRenderer.invoke("desktop:minigame-list"),
   playMinigame: async (payload) =>
     ipcRenderer.invoke("desktop:minigame-play", payload),
-  listMinigameScores: async () => ipcRenderer.invoke("desktop:minigame-scores"),
+  listMinigameScores: async (payload) => ipcRenderer.invoke("desktop:minigame-scores", payload ?? {}),
   submitMinigameScore: async (payload) =>
     ipcRenderer.invoke("desktop:minigame-score-submit", payload),
   getMinigameLeaderboard: async (payload) =>
     ipcRenderer.invoke("desktop:minigame-leaderboard", payload),
-  listEmotes: async () => ipcRenderer.invoke("desktop:emotes-list"),
+  listEmotes: async (payload) => ipcRenderer.invoke("desktop:emotes-list", payload ?? {}),
   getEmoteSample: async (payload) =>
     ipcRenderer.invoke("desktop:emotes-sample", payload),
   uploadEmote: async (payload) =>
@@ -277,11 +277,11 @@ const desktopApi: DesktopApi = {
     ipcRenderer.invoke("desktop:music-state", payload),
   sendMusicCommand: async (payload) =>
     ipcRenderer.invoke("desktop:music-command", payload),
-  adminListMusicDJs: async () => ipcRenderer.invoke("desktop:admin-list-music-djs"),
-  adminGrantMusicDJ: async (userId) =>
-    ipcRenderer.invoke("desktop:admin-grant-music-dj", { userId }),
-  adminRevokeMusicDJ: async (userId) =>
-    ipcRenderer.invoke("desktop:admin-revoke-music-dj", { userId }),
+  adminListMusicDJs: async (guildId) => ipcRenderer.invoke("desktop:admin-list-music-djs", { guildId }),
+  adminGrantMusicDJ: async (userId, guildId) =>
+    ipcRenderer.invoke("desktop:admin-grant-music-dj", { userId, guildId }),
+  adminRevokeMusicDJ: async (userId, guildId) =>
+    ipcRenderer.invoke("desktop:admin-revoke-music-dj", { userId, guildId }),
   getWatchPlayerUrl: async () => ipcRenderer.invoke("desktop:watch-player-url"),
   resolveWatchSource: async (payload) => ipcRenderer.invoke("desktop:watch-resolve", payload),
   getWatchState: async (payload) => ipcRenderer.invoke("desktop:watch-state", payload),

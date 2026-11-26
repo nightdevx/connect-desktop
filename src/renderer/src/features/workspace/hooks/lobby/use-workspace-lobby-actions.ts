@@ -29,6 +29,7 @@ import type {
   ScheduleActiveLobbyReconnect,
 } from "./use-workspace-lobbies";
 import { getApiErrorMessage } from "@/features/workspace/workspace-utils";
+import { useGuildUi } from "@/features/guilds";
 
 type StatusTone = "ok" | "warn" | "error";
 
@@ -170,6 +171,8 @@ export const useWorkspaceLobbyActions = ({
     setIsCreatingLobby(true);
     try {
       const result = await workspaceService.createLobby({
+        // The server picked in the column: the room list shows its rooms.
+        guildId: useGuildUi.getState().selectedGuildId ?? undefined,
         name: trimmed,
         isLocked,
         allowedUsers,

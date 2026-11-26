@@ -113,6 +113,7 @@ export const lobbyService = {
     return window.desktopApi.getLobbyStates();
   },
   createLobby: (payload: {
+    guildId?: string;
     name: string;
     isLocked?: boolean;
     allowedUsers?: string[];
@@ -262,7 +263,7 @@ export const lobbyService = {
 
     return window.desktopApi.sendLobbyEmote(payload);
   },
-  listEmotes: () => {
+  listEmotes: (guildId?: string) => {
     if (typeof window.desktopApi.listEmotes !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{
@@ -273,7 +274,7 @@ export const lobbyService = {
       );
     }
 
-    return window.desktopApi.listEmotes();
+    return window.desktopApi.listEmotes({ guildId });
   },
   getEmoteSample: (payload: { emoteId: string }) => {
     if (typeof window.desktopApi.getEmoteSample !== "function") {
@@ -289,7 +290,7 @@ export const lobbyService = {
 
     return window.desktopApi.getEmoteSample(payload);
   },
-  uploadEmote: (payload: { name: string; dataUrl: string }) => {
+  uploadEmote: (payload: { name: string; dataUrl: string; guildId?: string }) => {
     if (typeof window.desktopApi.uploadEmote !== "function") {
       return Promise.resolve(
         desktopBridgeOutdatedError as DesktopResult<{

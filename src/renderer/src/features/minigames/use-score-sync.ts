@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiStore } from "@/store/ui-store";
 import { splitScoreKey, tracksScore, type MinigameId } from "@/store/minigame-scores";
 import { scoreService } from "./score-service";
+import { useGuildUi } from "@/features/guilds";
 
 /**
  * Keeps this machine's records and the server's in step.
@@ -34,6 +35,8 @@ import { scoreService } from "./score-service";
 export function useScoreSync(): number {
   const bestScores = useUiStore((state) => state.minigameBestScores);
   const recordScore = useUiStore((state) => state.recordMinigameScore);
+  // Another server is another board: catch it up with this machine's records.
+  const guildId = useGuildUi((state) => state.selectedGuildId);
   const [syncedAt, setSyncedAt] = useState(0);
 
   // A counter rather than a timestamp: two submissions inside one millisecond
@@ -102,7 +105,7 @@ export function useScoreSync(): number {
     return () => {
       cancelled = true;
     };
-  }, [recordScore, markSynced]);
+  }, [recordScore, markSynced, guildId]);
 
   // Every later record, as it is set. The store is written by the games the
   // moment one ends, so this is what carries a fresh record to the board.

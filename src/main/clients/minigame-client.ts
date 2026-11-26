@@ -1,4 +1,4 @@
-import type { BaseClient } from "./base-client";
+import { guildQuery, type BaseClient } from "./base-client";
 import type {
   MinigameLeaderboard,
   MinigameScoreMap,
@@ -64,8 +64,8 @@ export class MinigameClient {
   // --- records ---------------------------------------------------------------
 
   /** Every solo game this account holds a record at. */
-  public async listScores(accessToken: string): Promise<{ scores: MinigameScoreMap }> {
-    return this.baseClient.request<{ scores: MinigameScoreMap }>(`/minigame/scores`, {
+  public async listScores(accessToken: string, guildId?: string): Promise<{ scores: MinigameScoreMap }> {
+    return this.baseClient.request<{ scores: MinigameScoreMap }>(`/minigame/scores${guildQuery(guildId)}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -84,9 +84,10 @@ export class MinigameClient {
     accessToken: string,
     game: string,
     score: number,
+    guildId?: string,
   ): Promise<{ updated: boolean; game: string; best: number }> {
     return this.baseClient.request<{ updated: boolean; game: string; best: number }>(
-      `/minigame/scores`,
+      `/minigame/scores${guildQuery(guildId)}`,
       {
         method: "POST",
         headers: {
@@ -102,8 +103,12 @@ export class MinigameClient {
     accessToken: string,
     game: string,
     limit?: number,
+    guildId?: string,
   ): Promise<MinigameLeaderboard> {
-    const query = limit ? `?limit=${limit}` : "";
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    if (guildId) params.set("guildId", guildId);
+    const query = params.size > 0 ? `?${params.toString()}` : "";
     return this.baseClient.request<MinigameLeaderboard>(
       `/minigame/leaderboard/${encodeURIComponent(game)}${query}`,
       {

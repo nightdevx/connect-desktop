@@ -1,4 +1,4 @@
-import type { BaseClient } from "./base-client";
+import { guildQuery, type BaseClient } from "./base-client";
 import type { MusicCatalog, MusicDJ, MusicState } from "../../shared/music";
 
 const RESOLVE_TIMEOUT_MS = 30_000;
@@ -44,9 +44,10 @@ export class MusicClient {
 
   public async listDJs(
     accessToken: string,
+    guildId?: string,
   ): Promise<{ djs: MusicDJ[]; spotifyEnabled: boolean }> {
     return this.baseClient.request<{ djs: MusicDJ[]; spotifyEnabled: boolean }>(
-      `/admin/music/djs`,
+      `/admin/music/djs${guildQuery(guildId)}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -54,9 +55,9 @@ export class MusicClient {
     );
   }
 
-  public async grantDJ(accessToken: string, userId: string): Promise<{ dj: MusicDJ }> {
+  public async grantDJ(accessToken: string, userId: string, guildId?: string): Promise<{ dj: MusicDJ }> {
     return this.baseClient.request<{ dj: MusicDJ }>(
-      `/admin/music/djs/${encodeURIComponent(userId)}`,
+      `/admin/music/djs/${encodeURIComponent(userId)}${guildQuery(guildId)}`,
       {
         method: "PUT",
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -64,9 +65,9 @@ export class MusicClient {
     );
   }
 
-  public async revokeDJ(accessToken: string, userId: string): Promise<{ revoked: boolean }> {
+  public async revokeDJ(accessToken: string, userId: string, guildId?: string): Promise<{ revoked: boolean }> {
     return this.baseClient.request<{ revoked: boolean }>(
-      `/admin/music/djs/${encodeURIComponent(userId)}`,
+      `/admin/music/djs/${encodeURIComponent(userId)}${guildQuery(guildId)}`,
       {
         method: "DELETE",
         headers: { Authorization: `Bearer ${accessToken}` },

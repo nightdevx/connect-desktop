@@ -4,7 +4,7 @@ import type {
   LobbyJoinResult,
   LobbyLeaveReason,
 } from "../../shared/desktop-api-types";
-import type { BaseClient } from "./base-client";
+import { guildQuery, type BaseClient } from "./base-client";
 
 export class LobbyClient {
   public constructor(private readonly baseClient: BaseClient) {}
@@ -28,6 +28,7 @@ export class LobbyClient {
     password?: string,
     isTextOnly?: boolean,
     capacity?: number,
+    guildId?: string,
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
@@ -36,7 +37,7 @@ export class LobbyClient {
       },
       // isTextOnly is create-only: there is no edit path for it, so updateLobby
       // deliberately does not carry it.
-      body: JSON.stringify({ name, isLocked, allowedUsers, password, isTextOnly, capacity }),
+      body: JSON.stringify({ guildId, name, isLocked, allowedUsers, password, isTextOnly, capacity }),
     });
   }
 
@@ -376,8 +377,9 @@ export class LobbyClient {
   // below, which is the one that moves bytes and is read once per id.
   public async listEmotes(
     accessToken: string,
+    guildId?: string,
   ): Promise<{ emotes: CustomEmoteSummary[]; quota: number; used: number }> {
-    return this.baseClient.request(`/lobby/emotes`, {
+    return this.baseClient.request(`/lobby/emotes${guildQuery(guildId)}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -400,13 +402,14 @@ export class LobbyClient {
     accessToken: string,
     name: string,
     dataUrl: string,
+    guildId?: string,
   ): Promise<{ emote: CustomEmoteSummary; quota: number; used: number }> {
     return this.baseClient.request(
       `/lobby/emotes`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ name, dataUrl }),
+        body: JSON.stringify({ guildId, name, dataUrl }),
       },
       // A 400 KB body on a slow uplink is not a hung request; the default 8s
       // budget is sized for control-plane calls.

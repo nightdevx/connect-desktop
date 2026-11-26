@@ -1,6 +1,10 @@
 import type { UserProfile } from "@shared/auth-contracts";
 import type { DesktopResult } from "@shared/desktop-api-types";
 import type { MinigameLeaderboard, MinigameScoreMap } from "@shared/minigames";
+import { useGuildUi } from "@/features/guilds";
+
+// Records and boards are per server: the one selected in the column.
+const selectedGuild = (): string | undefined => useGuildUi.getState().selectedGuildId ?? undefined;
 
 /**
  * The bridge, for records and boards.
@@ -40,7 +44,7 @@ export const scoreService = {
       );
     }
 
-    return window.desktopApi.listMinigameScores();
+    return window.desktopApi.listMinigameScores({ guildId: selectedGuild() });
   },
 
   /**
@@ -61,7 +65,7 @@ export const scoreService = {
       );
     }
 
-    return window.desktopApi.submitMinigameScore({ game, score });
+    return window.desktopApi.submitMinigameScore({ game, score, guildId: selectedGuild() });
   },
 
   leaderboard: (
@@ -74,6 +78,6 @@ export const scoreService = {
       );
     }
 
-    return window.desktopApi.getMinigameLeaderboard({ game, limit });
+    return window.desktopApi.getMinigameLeaderboard({ game, limit, guildId: selectedGuild() });
   },
 };
