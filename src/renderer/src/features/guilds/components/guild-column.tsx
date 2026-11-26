@@ -1,0 +1,87 @@
+import { Tooltip } from "antd";
+import { MenuIcon, OdakMenu } from "@/ui/odak-menu";
+import { useGuildList } from "../use-guilds";
+import { useGuildUi } from "../guild-store";
+import { GuildIcon } from "./guild-icon";
+
+export interface GuildColumnProps {
+  selectedGuildId: string | null;
+  /** Servers with a room that has unread messages. */
+  unreadGuildIds: ReadonlySet<string>;
+  /** The server of the voice room the user is in. */
+  voiceGuildId: string | null;
+  /** Shows a server: selects it and opens its rooms. */
+  onSelect: (guildId: string) => void;
+}
+
+/**
+ * The server column at the far left: one icon per server, the selected one
+ * marked, a dot for unread rooms, a speaker on the server whose room the
+ * user is in, and + for Kur / Katıl / Keşfet.
+ */
+export function GuildColumn({ selectedGuildId, unreadGuildIds, voiceGuildId, onSelect }: GuildColumnProps) {
+  const { data } = useGuildList();
+  const discovering = useGuildUi((state) => state.discovering);
+  const openDialog = useGuildUi((state) => state.openDialog);
+  const openDiscover = useGuildUi((state) => state.openDiscover);
+  const guilds = data?.guilds ?? [];
+  const deleted = data?.deleted.length ?? 0;
+
+  return (
+    <nav className="ct-guild-column" aria-label="Sunucular">
+      <ul className="ct-guild-list">
+        {guilds.map((guild) => {
+          const selected = guild.id === selectedGuildId && !discovering;
+          const unread = unreadGuildIds.has(guild.id);
+          const inVoice = guild.id === voiceGuildId;
+          const label = [guild.name, unread && "okunmamış mesaj var", inVoice && "sesli odadasın"]
+            .filter(Boolean)
+            .join(", ");
+          return (
+            <li key={guild.id} className={`ct-guild-item${selected ? " selected" : ""}${unread ? " unread" : ""}`}>
+              <Tooltip title={guild.name} placement="right">
+                <button
+                  type="button"
+                  className="ct-guild-button"
+                  aria-label={label}
+                  aria-current={selected ? "page" : undefined}
+                  onClick={() => onSelect(guild.id)}
+                >
+                  <GuildIcon guild={guild} />
+                  {inVoice && (
+                    <span className="ct-guild-voice" aria-hidden="true">
+                      <MenuIcon name="volume" size={11} stroke={2.4} />
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+            </li>
+          );
+        })}
+      </ul>
+      <OdakMenu
+        trigger="click"
+        placement="topLeft"
+        width={240}
+        items={[
+          { key: "create", icon: "plus", label: "Sunucu kur", opensDialog: true, onSelect: () => openDialog({ kind: "create" }) },
+          { key: "join", icon: "login", label: "Kodla katıl", opensDialog: true, onSelect: () => openDialog({ kind: "join" }) },
+          { key: "discover", icon: "search", label: "Keşfet", onSelect: openDiscover },
+          deleted > 0 && {
+            key: "deleted",
+            icon: "clock",
+            label: "Silinen sunucular",
+            value: String(deleted),
+            onSelect: openDiscover,
+          },
+        ]}
+      >
+        <Tooltip title="Sunucu ekle" placement="right">
+          <button type="button" className={`ct-guild-add${discovering ? " active" : ""}`} aria-label="Sunucu ekle">
+            <MenuIcon name="plus" size={20} stroke={2} />
+          </button>
+        </Tooltip>
+      </OdakMenu>
+    </nav>
+  );
+}

@@ -1,0 +1,585 @@
+/* ==========================================================================
+   SERVERS -- the server column, the server pages and dialogs, the invite card.
+   Odak palette throughout; the dialogs borrow the room settings' rows and
+   tabs (odak-pencereler.css).
+   ========================================================================== */
+
+/* --- the column, left of the section rail ------------------------------- */
+.ct-odak-railset {
+  display: flex;
+  flex-shrink: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.ct-guild-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: var(--ct-guilds-width);
+  flex-shrink: 0;
+  min-height: 0;
+  padding: 14px 0;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  background: #08090b;
+  border-right: 1px solid var(--odak-border);
+}
+
+.ct-guild-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.ct-guild-item {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* The marker on the left edge: a dot for unread rooms, a tall pill for the
+   server on screen. */
+.ct-guild-item::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 4px;
+  height: 0;
+  border-radius: 0 4px 4px 0;
+  background: var(--odak-text);
+  transform: translateY(-50%);
+  transition: height var(--odak-dur-1, 140ms) ease-out;
+}
+
+.ct-guild-item.unread::before {
+  height: 8px;
+}
+
+.ct-guild-item:hover:not(.selected)::before {
+  height: 18px;
+  background: var(--odak-muted);
+}
+
+.ct-guild-item.selected::before {
+  height: 32px;
+  background: var(--odak-accent);
+}
+
+.ct-guild-button {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ct-guild-button:focus-visible,
+.ct-guild-add:focus-visible,
+.ct-guild-header:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+.ct-guild-item.selected .ct-guild-icon {
+  box-shadow: 0 0 0 2px var(--odak-accent);
+}
+
+.ct-guild-item:not(.selected) .ct-guild-button:hover .ct-guild-icon {
+  background: var(--odak-border-strong);
+}
+
+/* In this server's voice room: a speaker on the icon's corner. */
+.ct-guild-voice {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--odak-on-accent);
+  background: var(--odak-accent);
+  box-shadow: 0 0 0 2px #08090b;
+}
+
+.ct-guild-add {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 2px;
+  border: 1px dashed var(--odak-border-strong);
+  border-radius: 13px;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color var(--odak-dur-1, 140ms) ease-out,
+    border-color var(--odak-dur-1, 140ms) ease-out;
+}
+
+.ct-guild-add:hover,
+.ct-guild-add.active {
+  border-color: var(--odak-accent);
+  color: var(--odak-accent);
+}
+
+/* --- a server's icon ----------------------------------------------------- */
+.ct-guild-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  overflow: hidden;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  user-select: none;
+  transition:
+    background-color var(--odak-dur-1, 140ms) ease-out,
+    box-shadow var(--odak-dur-1, 140ms) ease-out;
+}
+
+.ct-guild-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* --- the room list's head ------------------------------------------------ */
+.ct-guild-header {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--odak-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ct-guild-header:hover,
+.ct-guild-header[aria-expanded="true"] {
+  background: var(--odak-raised);
+}
+
+.ct-guild-header svg {
+  flex-shrink: 0;
+  color: var(--odak-muted);
+  transform: rotate(90deg);
+}
+
+.ct-guild-header-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- the page in place of the rooms: first run and Keşfet ---------------- */
+.ct-main-panel.ct-guild-home {
+  display: block;
+  grid-column: 3;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--odak-bg);
+}
+
+.ct-guild-home-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 28px 48px;
+}
+
+.ct-guild-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 560px;
+  padding: 56px 0 8px;
+}
+
+.ct-guild-empty h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--odak-text);
+}
+
+.ct-guild-empty p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--odak-muted);
+}
+
+.ct-guild-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ct-guild-home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ct-guild-home-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--odak-text);
+}
+
+.ct-guild-home-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ct-guild-home-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--odak-muted);
+}
+
+.ct-guild-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-guild-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 12px 14px;
+  padding: 16px;
+}
+
+.ct-guild-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ct-guild-card-text strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+.ct-guild-card-meta {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--odak-muted);
+}
+
+.ct-guild-card-text p {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c3c7cf;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ct-guild-card-action {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- rows: requests, deleted servers, members, invites, bans ------------- */
+.ct-guild-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-guild-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-guild-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-guild-row-text strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+.ct-guild-row-text span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-muted);
+}
+
+.ct-guild-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-guild-code,
+.ct-guild-code-input.ant-input {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+}
+
+.ct-guild-code {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--odak-accent);
+  background: var(--odak-raised);
+}
+
+.ct-guild-role {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--odak-muted);
+}
+
+.ct-guild-role.owner {
+  color: var(--odak-accent);
+}
+
+.ct-guild-role-select {
+  width: 124px;
+}
+
+.ct-guild-filter {
+  max-width: none;
+}
+
+/* --- dialogs ------------------------------------------------------------- */
+.ct-guild-icon-picker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ct-guild-icon-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.ct-guild-icon-picker-actions .ct-field-hint {
+  flex-basis: 100%;
+}
+
+.ct-guild-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ct-guild-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color var(--odak-dur-1, 140ms) ease-out;
+}
+
+.ct-guild-mode:hover {
+  border-color: var(--odak-border-strong);
+}
+
+.ct-guild-mode.active {
+  border-color: var(--odak-accent);
+  background: rgba(198, 244, 50, 0.05);
+}
+
+.ct-guild-mode input {
+  margin-top: 3px;
+  accent-color: var(--odak-accent);
+}
+
+.ct-guild-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ct-guild-mode-text strong {
+  font-size: 13.5px;
+  color: var(--odak-text);
+}
+
+.ct-guild-mode-text span {
+  font-size: 12px;
+  color: var(--odak-muted);
+}
+
+.ct-guild-preview,
+.ct-guild-invite-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--odak-border);
+  border-radius: 14px;
+  background: var(--odak-surface);
+}
+
+.ct-guild-preview-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ct-guild-preview-text strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--odak-text);
+}
+
+.ct-guild-preview-text span {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--odak-muted);
+}
+
+/* In a chat message: under the text, no wider than a message reads. */
+.ct-guild-invite-card {
+  width: min(100%, 360px);
+  margin-top: 6px;
+}
+
+.ct-guild-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ct-guild-heir {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.ct-guild-invite-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ct-guild-invite-form .ant-select {
+  width: 160px;
+}
+
+.ct-guild-ban-form {
+  margin-top: 14px;
+}
+
+.ct-guild-tab-count {
+  position: static;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-guild-item::before,
+  .ct-guild-icon,
+  .ct-guild-add,
+  .ct-guild-mode {
+    transition: none;
+  }
+}
+
+/* --- the platform panel's Sunucular page --------------------------------- */
+.ct-admin-guild-members {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-admin-guild-count {
+  min-width: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-admin-guild-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ct-admin-guild-limit .ant-input-number {
+  width: 76px;
+}
