@@ -66,6 +66,19 @@ import { useAudioPreferenceSync } from "./workspace-shell/use-audio-preference-s
 import { useDesktopPreferences } from "./workspace-shell/use-desktop-preferences";
 import { useLobbyEmotePlayback } from "./workspace-shell/use-lobby-emote-playback";
 import { useGameActivitySync } from "@/features/minigames";
+import {
+  GuildCreateDialog,
+  GuildHome,
+  GuildJoinDialog,
+  GuildSettingsDialog,
+  guildsWithUnread,
+  roleInGuild,
+  roomGuildId,
+  roomsOfGuild,
+  showGuild,
+  useGuildUi,
+  useGuilds,
+} from "@/features/guilds";
 import { toast } from "@/services/toast";
 
 // A Record over the union rather than a chain of ifs ending in a fallback.
@@ -1025,6 +1038,24 @@ function WorkspaceShell({
   // missing key is now a compile error.
   const sectionTitle = SECTION_TITLES[workspaceSection];
 
+  // ----- SERVERS -----
+  // The room list shows the selected server's rooms; the room on screen is
+  // moderated with the role held in ITS server, which may be another one.
+  const guilds = useGuilds();
+  const isDiscovering = useGuildUi((state) => state.discovering);
+  const guildRooms = useMemo(
+    () => roomsOfGuild(lobbies, guilds.selectedGuildId),
+    [lobbies, guilds.selectedGuildId],
+  );
+  const roleInRoomGuild = (guildId: string | null): UserRole =>
+    roleInGuild(
+      currentUserRole,
+      guilds.list.guilds.find((guild) => guild.id === guildId)?.myRole,
+    ) as UserRole;
+  const selectedGuildRole = roleInRoomGuild(guilds.selectedGuildId);
+  const activeRoom = lobbies.find((lobby) => lobby.id === activeLobbyId);
+  const activeRoomRole = activeRoom ? roleInRoomGuild(roomGuildId(activeRoom)) : selectedGuildRole;
+
   // ----- SOUND CUES -----
   useWorkspaceAudioCues({
     activeLobbyId,
@@ -1252,7 +1283,6 @@ function WorkspaceShell({
 
   const {
     unreadByLobbyId,
-    totalUnread: totalUnreadLobbyMessages,
     clearLobbyUnread,
   } = useLobbyUnread({
     currentUserId,
@@ -1389,7 +1419,6 @@ function WorkspaceShell({
   const railProps = {
     onSectionChange: handleSectionChange,
     currentUserRole,
-    unreadLobbyMessages: totalUnreadLobbyMessages,
     unreadDirectMessages: totalUnreadDirectMessages,
     currentUserId,
     currentUsername,
@@ -1399,12 +1428,22 @@ function WorkspaceShell({
     onLogout,
     isLoggingOut,
     friends,
+    guildServers: {
+      selectedGuildId: guilds.selectedGuildId,
+      unreadGuildIds: guildsWithUnread(lobbies, unreadByLobbyId),
+      voiceGuildId: activeRoom ? roomGuildId(activeRoom) : null,
+      onSelect: showGuild,
+    },
   };
 
   // Oyunlar and Fırsatlar have no sidebar (the owner's call, 2026-10-30):
   // their lists and tabs are on the page, as in the mock-ups. The fold
   // preference is left alone for the sections that keep one.
-  const hasNoSidebar = workspaceSection === "minigames" || workspaceSection === "free-games";
+  // No server yet, or Keşfet open: the servers' own page takes the rooms'
+  // place, full width.
+  const showGuildHome = workspaceSection === "lobbies" && (guilds.isEmpty || isDiscovering);
+  const hasNoSidebar =
+    workspaceSection === "minigames" || workspaceSection === "free-games" || showGuildHome;
 
   // The Odak page shows the dock at the foot of its own strip, Oyunlar and
   // Fırsatlar at the foot of the rail; everywhere else it sits under the
@@ -1500,7 +1539,9 @@ function WorkspaceShell({
               }}
               lobbiesProps={{
                 lobbiesQuery,
-                lobbies,
+                lobbies: guildRooms,
+                guild: guilds.selectedGuild,
+                accountRole: currentUserRole,
                 lobbyMembersById,
                 avatarByUserId,
                 activeLobbyId: isInCallRoom ? null : activeLobbyId,
@@ -1520,7 +1561,7 @@ function WorkspaceShell({
                 renamingLobbyId,
                 deletingLobbyId,
                 currentUserId,
-                currentUserRole,
+                currentUserRole: selectedGuildRole,
                 allUsers: (usersQuery.data?.data?.users || []).map((u) => ({
                   id: u.userId,
                   username: u.username,
@@ -1555,7 +1596,13 @@ function WorkspaceShell({
             />
           )}
 
+          {showGuildHome ? (
+            <GuildHome empty={guilds.isEmpty} />
+          ) : (
           <WorkspaceMainPanel
+            guildLobbies={guildRooms}
+            guildName={guilds.selectedGuild?.name}
+            lobbyRole={activeRoomRole}
             currentUserId={currentUserId}
             workspaceSection={workspaceSection}
             currentUsername={currentUsername}
@@ -1683,6 +1730,7 @@ function WorkspaceShell({
             onEndActiveCall={handleEndActiveCall}
             onRejoinCall={handleRejoinCall}
           />
+          )}
         </>
       )}
 
@@ -1746,6 +1794,10 @@ function WorkspaceShell({
         onRefreshPreview={prepareCameraPreview}
         audience={mediaAudience?.before}
       />
+
+      <GuildCreateDialog />
+      <GuildJoinDialog />
+      <GuildSettingsDialog currentUserId={currentUserId} accountRole={currentUserRole} />
 
       <LobbyPasswordPromptModal
         pending={pendingPasswordLobby}

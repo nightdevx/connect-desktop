@@ -47,7 +47,7 @@ const main = async () => {
       lib: {
         entry: path.join(
           projectRoot,
-          "src/renderer/src/features/workspace/components/settings/crop-geometry.ts",
+          "src/renderer/src/ui/crop-geometry.ts",
         ),
         formats: ["es"],
         fileName: () => "crop-geometry.mjs",

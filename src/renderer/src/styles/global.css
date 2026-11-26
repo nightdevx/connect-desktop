@@ -34,6 +34,7 @@
 @import "./modules/features/odak-firsatlar.css";
 @import "./modules/features/odak-ayarlar.css";
 @import "./modules/features/odak-yonetim.css";
+@import "./modules/features/guilds.css";
 @import "./modules/theme.css";
 @import "./modules/overlays.css";
 @import "./modules/responsive.css";

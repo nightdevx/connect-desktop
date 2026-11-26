@@ -103,6 +103,16 @@ export class DesktopApiError extends Error {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 
+// What this build understands beyond the original API. "guilds": it knows
+// about servers, so the backend shows every server the user is in; a client
+// that does not say so sees NIGHT only. Sockets say it as ?features=.
+export const FEATURES_HEADER = "X-Connect-Features";
+export const CLIENT_FEATURES = "guilds";
+
+/** "?guildId=…" for the routes scoped to one server, "" for NIGHT. */
+export const guildQuery = (guildId?: string): string =>
+  guildId ? `?guildId=${encodeURIComponent(guildId)}` : "";
+
 export class BaseClient {
   public constructor(private readonly baseUrl: string) {}
 
@@ -169,6 +179,7 @@ export class BaseClient {
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
+            [FEATURES_HEADER]: CLIENT_FEATURES,
             ...(init.headers ?? {}),
           },
         }),
@@ -241,7 +252,7 @@ export class BaseClient {
         requestInit({
           ...init,
           signal: controller.signal,
-          headers: { ...(init.headers ?? {}) },
+          headers: { [FEATURES_HEADER]: CLIENT_FEATURES, ...(init.headers ?? {}) },
         }),
       );
 

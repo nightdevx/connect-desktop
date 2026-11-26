@@ -7,6 +7,7 @@ import { registerAppHandlers } from "./handlers/app-handlers";
 import { registerMusicHandlers } from "./handlers/music-handlers";
 import { registerWatchHandlers } from "./handlers/watch-handlers";
 import { registerMediaDiagnosticsHandlers } from "./handlers/media-diagnostics-handlers";
+import { registerGuildHandlers } from "./handlers/guild-handlers";
 import {
   streamHub,
   getSessionStore,
@@ -224,6 +225,7 @@ const IPC_INVOKE_CHANNELS = [
   "desktop:admin-list-invites",
   "desktop:admin-create-invite",
   "desktop:admin-delete-invite",
+  "desktop:guilds",
 ] as const;
 
 const clearIpcInvokeHandlers = (): void => {
@@ -262,6 +264,7 @@ export function registerIpcHandlers(): void {
   registerMusicHandlers();
   registerWatchHandlers();
   registerMediaDiagnosticsHandlers();
+  registerGuildHandlers();
 
   // Every page load asks for its port to the stream host (see the preload).
   // A listener rather than a handler: the answer is a port, posted back.

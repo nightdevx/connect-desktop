@@ -20,6 +20,7 @@ export const RoleMember: UserRole = "member";
 export const RoleModerator: UserRole = "moderator";
 export const RoleAdmin: UserRole = "admin";
 export const RoleOwner: UserRole = "owner";
+export const RolePlatform: UserRole = "platform";
 export const SeedAdminID = "admin-master-id";
 export type PrivacyAudience = string;
 export const AudienceEveryone: PrivacyAudience = "everyone";

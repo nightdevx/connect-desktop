@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { DesktopApiError } from "../clients/base-client";
+import { CLIENT_FEATURES, DesktopApiError } from "../clients/base-client";
 import { awaitSocketOpen } from "./await-socket-open";
 import { LobbyList } from "./lobby-list";
 import { attachPictureUrls } from "../../shared/picture-urls";
@@ -385,6 +385,7 @@ export class StreamHub {
     url.pathname = "/ws";
     url.search = "";
     url.searchParams.set("access_token", accessToken);
+    url.searchParams.set("features", CLIENT_FEATURES);
     // The v2 room list (lobby-list.ts). A backend that predates it ignores
     // both and sends v1 snapshots, which LobbyList takes as they are.
     url.searchParams.set("proto", "2");

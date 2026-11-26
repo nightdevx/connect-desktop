@@ -21,6 +21,8 @@ interface LobbySelectionScreenProps {
   avatarByUserId: Record<string, string | null | undefined>;
   joiningLobbyId: string | null;
   onJoinLobby: (lobbyId: string) => void;
+  /** The server's name; "Lobiler" before the list has loaded. */
+  title?: string;
 }
 
 /** Faces shown on a card before the rest collapse into "+N". */
@@ -44,6 +46,7 @@ export function LobbySelectionScreen({
   avatarByUserId,
   joiningLobbyId,
   onJoinLobby,
+  title = "Lobiler",
 }: LobbySelectionScreenProps) {
   // Split rather than filtered in place: the two are different objects to the
   // user — one is a room you join, the other a channel you open — and mixing
@@ -68,7 +71,7 @@ export function LobbySelectionScreen({
       <AuthLogoMark className="ct-brand-mural" />
 
       <PageHeader
-        title="Lobiler"
+        title={title}
         description="Bir odaya katılarak sesli, görüntülü veya yazılı olarak sohbet edebilirsin."
         actions={
           lobbiesCount > 0 && (

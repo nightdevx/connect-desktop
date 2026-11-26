@@ -7,6 +7,7 @@ import {
   withAccessToken,
 } from "../context";
 import {
+  guildScopeSchema,
   createLobbySchema,
   updateLobbySchema,
   deleteLobbySchema,
@@ -76,6 +77,7 @@ export function registerLobbyHandlers(): void {
           parsed.password,
           parsed.isTextOnly,
           parsed.capacity,
+          parsed.guildId,
         );
       });
       return ok(result);
@@ -319,10 +321,11 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  handle("desktop:emotes-list", async () => {
+  handle("desktop:emotes-list", async (_event, payload: unknown) => {
     try {
+      const { guildId } = guildScopeSchema.parse(payload ?? {});
       const result = await withAccessToken((accessToken) => {
-        return backendClient.lobby.listEmotes(accessToken);
+        return backendClient.lobby.listEmotes(accessToken, guildId);
       });
       return ok(result);
     } catch (error) {
@@ -350,6 +353,7 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.name,
           parsed.dataUrl,
+          parsed.guildId,
         );
       });
       return ok(result);
@@ -412,10 +416,11 @@ export function registerLobbyHandlers(): void {
     }
   });
 
-  handle("desktop:minigame-scores", async () => {
+  handle("desktop:minigame-scores", async (_event, payload: unknown) => {
     try {
+      const { guildId } = guildScopeSchema.parse(payload ?? {});
       const result = await withAccessToken((accessToken) => {
-        return backendClient.minigame.listScores(accessToken);
+        return backendClient.minigame.listScores(accessToken, guildId);
       });
       return ok(result);
     } catch (error) {
@@ -433,6 +438,7 @@ export function registerLobbyHandlers(): void {
             accessToken,
             parsed.game,
             parsed.score,
+            parsed.guildId,
           );
         });
         return ok(result);
@@ -450,6 +456,7 @@ export function registerLobbyHandlers(): void {
           accessToken,
           parsed.game,
           parsed.limit,
+          parsed.guildId,
         );
       });
       return ok(result);

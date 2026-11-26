@@ -16,6 +16,7 @@ import AdminMinigames from "./admin-minigames";
 import AdminMusic from "./admin-music";
 import AdminChat from "./admin-chat";
 import AdminAccess from "./admin-access";
+import AdminGuilds from "./admin-guilds";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -79,6 +80,8 @@ export default function AdminPanel({ currentUserId }: AdminPanelProps) {
         return <AdminUsers currentUserId={currentUserId} />;
       case "lobbies":
         return <AdminLobbies currentUserId={currentUserId} />;
+      case "guilds":
+        return <AdminGuilds />;
       case "sounds":
         return <AdminSounds />;
       case "moderation":

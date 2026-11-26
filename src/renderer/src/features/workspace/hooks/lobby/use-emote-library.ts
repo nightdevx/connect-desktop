@@ -32,7 +32,9 @@ export const EMOTE_MAX_SECONDS = 12;
 // code, so a long filename used to reach the server and come back rejected.
 export const EMOTE_MAX_NAME_LENGTH = 24;
 
-const EMOTE_LIBRARY_KEY = ["emote-library"] as const;
+// Each server has its own soundboard; a change refreshes them all.
+const EMOTE_LIBRARIES = ["emote-library"] as const;
+const emoteLibraryKey = (guildId?: string) => [...EMOTE_LIBRARIES, guildId ?? ""] as const;
 const emoteSampleKey = (emoteId: string): [string, string] => [
   "emote-sample",
   emoteId,
@@ -97,12 +99,12 @@ export interface EmoteLibraryController {
   canUploadMore: boolean;
 }
 
-export const useEmoteLibrary = (): EmoteLibraryController => {
+/** guildId: the server of the room the board is open in. */
+export const useEmoteLibrary = (guildId?: string): EmoteLibraryController => {
   const queryClient = useQueryClient();
-
   const query = useQuery({
-    queryKey: EMOTE_LIBRARY_KEY,
-    queryFn: () => workspaceService.listEmotes(),
+    queryKey: emoteLibraryKey(guildId),
+    queryFn: () => workspaceService.listEmotes(guildId),
     // The board is shared: every upload lands in everybody's list, not just the
     // uploader's. Nothing pushes that -- there is no library event on the lobby
     // stream -- and the app turns refetchOnWindowFocus off globally, so this
@@ -115,7 +117,7 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
   });
 
   const refresh = useCallback((): void => {
-    void queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARY_KEY });
+    void queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARIES });
   }, [queryClient]);
 
   const library =
@@ -123,7 +125,7 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
 
   const uploadMutation = useMutation({
     mutationFn: (payload: { name: string; dataUrl: string }) =>
-      workspaceService.uploadEmote(payload),
+      workspaceService.uploadEmote({ ...payload, guildId }),
   });
 
   const upload = useCallback(
@@ -133,7 +135,7 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
         throw new Error(getApiErrorMessage(result.error));
       }
 
-      await queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARY_KEY });
+      await queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARIES });
       return true;
     },
     [queryClient, uploadMutation],
@@ -150,7 +152,7 @@ export const useEmoteLibrary = (): EmoteLibraryController => {
       // second one an id that came back would play the deleted sound.
       queryClient.removeQueries({ queryKey: emoteSampleKey(emoteId) });
       soundEffectManager.forgetSample(emoteId);
-      await queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARY_KEY });
+      await queryClient.invalidateQueries({ queryKey: EMOTE_LIBRARIES });
       return true;
     },
     [queryClient],

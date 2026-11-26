@@ -41,6 +41,8 @@ interface LobbyActionToolbarProps {
   onSendEmote: (emote: string) => void;
   currentUserId: string;
   currentUserRole: string;
+  /** The room's server, for its soundboard. */
+  guildId?: string;
   emotesDisabled?: boolean;
   cameraDisabled?: boolean;
   screenDisabled?: boolean;
@@ -81,6 +83,7 @@ export function LobbyActionToolbar({
   onSendEmote,
   currentUserId,
   currentUserRole,
+  guildId,
   emotesDisabled,
   cameraDisabled,
   screenDisabled,
@@ -225,6 +228,7 @@ export function LobbyActionToolbar({
           currentUserId={currentUserId}
           currentUserRole={currentUserRole}
           disabled={isLeavingLobby}
+          guildId={guildId}
         />
       )}
 

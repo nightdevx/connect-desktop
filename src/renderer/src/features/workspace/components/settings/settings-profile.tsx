@@ -12,7 +12,7 @@ import {
 import { authErrorToast, authService } from "@/features/auth";
 import { OTP_CODE_LENGTH, isRestricted } from "@shared/auth-contracts";
 import type { UserRestriction } from "@shared/auth-contracts";
-import { ImageCropModal, type CropRect } from "./image-crop-modal";
+import { ImageCropModal, type CropRect } from "@/ui/image-crop-modal";
 import DownscaleWorker from "./downscale-worker?worker";
 import { useStillImage } from "../../hooks/media/use-still-image";
 import { hueStyle } from "../../workspace-utils";

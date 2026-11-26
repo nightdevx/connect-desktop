@@ -2,6 +2,7 @@ import type { StreamSender } from "./stream-hub";
 import WebSocket from "ws";
 import type { UserDirectoryStreamEvent } from "../../shared/desktop-api-types";
 import { awaitSocketOpen } from "./await-socket-open";
+import { CLIENT_FEATURES } from "../clients/base-client";
 
 export const USER_DIRECTORY_EVENT_CHANNEL = "desktop:user-directory-event";
 
@@ -255,6 +256,7 @@ export class UserDirectoryStreamManager {
     url.pathname = "/auth/users/ws";
     url.search = "";
     url.searchParams.set("access_token", accessToken);
+    url.searchParams.set("features", CLIENT_FEATURES);
     return url.toString();
   }
 }

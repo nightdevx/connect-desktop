@@ -154,7 +154,12 @@ export const directSearchSchema = z.object({
   limit: z.number().int().min(1).max(100).optional().default(40),
 });
 
+// The server a room, a sound or a score belongs to. Omitted: NIGHT, which is
+// what a backend from before servers assumes anyway.
+export const guildIdSchema = z.string().min(1).max(128).optional();
+
 export const createLobbySchema = z.object({
+  guildId: guildIdSchema,
   name: z.string().min(2).max(64),
   isLocked: z.boolean().optional(),
   allowedUsers: z.array(z.string()).optional(),
@@ -248,6 +253,9 @@ export const adminSettingsPatchSchema = z.object({
   maxLobbies: z.number().int().min(1).max(1000).optional(),
   maxLobbiesPerUser: z.number().int().min(1).max(200).optional(),
   lobbyCapacity: z.number().int().min(2).max(100).optional(),
+  guildsPerUser: z.number().int().min(1).max(100).optional(),
+  membersPerGuild: z.number().int().min(2).max(100_000).optional(),
+  roomsPerGuild: z.number().int().min(1).max(1000).optional(),
   disabledMinigames: z.array(z.string().min(1).max(32)).max(64).optional(),
   maintenanceMode: z.boolean().optional(),
   maintenanceMessage: z.string().max(280).optional(),
@@ -399,11 +407,13 @@ export const minigameActionSchema = z.object({
 // a finite non-negative integer, so a NaN or an Infinity never becomes a round
 // trip.
 export const minigameScoreSchema = z.object({
+  guildId: guildIdSchema,
   game: z.string().min(1).max(32),
   score: z.number().int().min(0).max(10_000_000),
 });
 
 export const minigameLeaderboardSchema = z.object({
+  guildId: guildIdSchema,
   game: z.string().min(1).max(32),
   limit: z.number().int().min(1).max(100).optional(),
 });
@@ -411,6 +421,7 @@ export const minigameLeaderboardSchema = z.object({
 // The upload. Every bound here is also enforced server-side — this only stops
 // an obviously bad request from becoming a round trip.
 export const emoteUploadSchema = z.object({
+  guildId: guildIdSchema,
   name: z.string().min(1).max(24),
   // 400 KB of base64, matching maxEmoteDataURLLength in the backend.
   dataUrl: z
@@ -644,7 +655,10 @@ export const musicCommandSchema = z.object({
 
 export const musicUserSchema = z.object({
   userId: z.string().min(1).max(128),
+  guildId: guildIdSchema,
 });
+
+export const guildScopeSchema = z.object({ guildId: guildIdSchema });
 
 export const watchLobbySchema = z.object({
   lobbyId: z.string().min(2).max(128),

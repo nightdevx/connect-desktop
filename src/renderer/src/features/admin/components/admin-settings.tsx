@@ -1,7 +1,7 @@
 import { toErrorMessage } from "@shared/error-message";
 import { useCallback, useEffect, useState } from "react";
 import { Input, InputNumber, Spin, Switch } from "antd";
-import { LockOutlined, MessageOutlined, TeamOutlined, ToolOutlined } from "@ant-design/icons";
+import { ClusterOutlined, LockOutlined, MessageOutlined, TeamOutlined, ToolOutlined } from "@ant-design/icons";
 import adminService from "../services/admin-service";
 import type { AdminRuntimeSettings, AdminRuntimeSettingsPatch } from "@shared/auth-contracts";
 import { AdminPageHeader, AdminSection } from "./admin-primitives";
@@ -20,6 +20,13 @@ import { toast } from "@/services/toast";
  * wants it closed now, and a switch that silently needed a second click is the
  * failure mode that matters here.
  */
+// The backend's bounds (internal/lobby/runtime_settings.go).
+const GUILD_LIMITS = [
+  { key: "guildsPerUser", title: "Kullanıcı Başına Sunucu", hint: "Bir hesabın kurabileceği sunucu sayısı.", min: 1, max: 100 },
+  { key: "membersPerGuild", title: "Sunucu Başına Üye", hint: "Bir sunucudaki en fazla üye. Sunucuya özel sınır Sunucular sayfasından verilir.", min: 2, max: 100000 },
+  { key: "roomsPerGuild", title: "Sunucu Başına Oda", hint: "Bir sunucuda açılabilecek oda sayısı.", min: 1, max: 1000 },
+] as const;
+
 export default function AdminSettings() {
   const [settings, setSettings] = useState<AdminRuntimeSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +67,7 @@ export default function AdminSettings() {
     return (
       <div className="ct-admin-page">
         <AdminPageHeader
-          title="Sunucu Ayarları"
+          title="Platform Ayarları"
           description="Değişiklikler anında geçerli olur; sunucuyu yeniden başlatmak gerekmez."
         />
         <div className="ct-admin-center-state">
@@ -82,7 +89,7 @@ export default function AdminSettings() {
     // "a setting" is one shape in this app rather than four.
     <div className="ct-admin-page">
       <AdminPageHeader
-        title="Sunucu Ayarları"
+        title="Platform Ayarları"
         description="Değişiklikler anında geçerli olur; sunucuyu yeniden başlatmak gerekmez."
       />
 
@@ -337,6 +344,31 @@ export default function AdminSettings() {
               }
             />
           </div>
+        </div>
+      </AdminSection>
+
+      <AdminSection
+        title="Sunucu limitleri"
+        description="Kullanıcıların kurduğu sunucular. Yöneticiler bu limitlerden muaf."
+        icon={<ClusterOutlined />}
+        flush
+      >
+        <div className="ct-settings-card">
+          {GUILD_LIMITS.map((limit) => (
+            <div key={limit.key} className="ct-settings-row">
+              <div className="ct-settings-row-text">
+                <strong>{limit.title}</strong>
+                <span>{limit.hint}</span>
+              </div>
+              <InputNumber
+                min={limit.min}
+                max={limit.max}
+                value={settings[limit.key]}
+                disabled={saving}
+                onChange={(value) => typeof value === "number" && void apply({ [limit.key]: value })}
+              />
+            </div>
+          ))}
         </div>
       </AdminSection>
     </div>

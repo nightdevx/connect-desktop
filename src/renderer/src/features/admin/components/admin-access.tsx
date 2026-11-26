@@ -270,7 +270,7 @@ export default function AdminAccess() {
     <div className="ct-admin-page">
       <AdminPageHeader
         title="Erişim Denetimi"
-        description={"IP yasakları ve davet kodları. Davet zorunluluğu Sunucu Ayarları'ndan açılır."}
+        description={"IP yasakları ve davet kodları. Davet zorunluluğu Platform Ayarları'ndan açılır."}
         actions={
           <>
             <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading}>
