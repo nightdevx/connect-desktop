@@ -73,6 +73,11 @@ interface WorkspaceMainPanelProps {
   onSaveAudioPreferences: (next: AudioPreferences) => void;
   onSaveStreamPreferences: (next: StreamPreferences) => void;
   lobbies: LobbyDescriptor[];
+  /** The selected server's rooms and name, for the room list page. */
+  guildLobbies: LobbyDescriptor[];
+  guildName?: string;
+  /** The role the user acts with in the room on screen (its server's). */
+  lobbyRole: UserRole;
   activeLobbyId: string | null;
   /**
    * activeLobbyId with 1:1 call rooms filtered out.
@@ -242,6 +247,9 @@ export function WorkspaceMainPanel({
   onSaveAudioPreferences,
   onSaveStreamPreferences,
   lobbies,
+  guildLobbies,
+  guildName,
+  lobbyRole,
   activeLobbyId,
   lobbyRoomId,
   chatOnlyRoom = false,
@@ -406,15 +414,16 @@ export function WorkspaceMainPanel({
 
         {workspaceSection === "lobbies" && (
           <LobbiesMainPanel
-            lobbiesCount={lobbies.length}
             lobbies={lobbies}
+            guildLobbies={guildLobbies}
+            guildName={guildName}
             activeLobbyId={lobbyRoomId}
             chatOnly={chatOnlyRoom}
             onCloseRoomChat={onCloseRoomChat}
             unreadLobbyMessages={unreadLobbyMessages}
             currentUserId={currentUserId}
             currentUsername={currentUsername}
-            currentUserRole={currentUserRole}
+            currentUserRole={lobbyRole}
             micEnabled={micEnabled}
             micLocked={micLocked}
             headphoneEnabled={headphoneEnabled}

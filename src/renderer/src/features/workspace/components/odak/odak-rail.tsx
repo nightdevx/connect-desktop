@@ -5,6 +5,7 @@ import { OdakMenu } from "@/ui/odak-menu";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { AuthLogoMark, isAdminRole } from "@/features/auth";
+import { GuildColumn, type GuildColumnProps } from "@/features/guilds";
 import { getUserStatusLabel } from "../../workspace-utils";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { UserProfileCardPopover } from "../user/user-profile-card";
@@ -28,6 +29,8 @@ export interface OdakRailProps {
   /** The shell's quick-controls dock, in the sections that have no sidebar
       to carry it (Oyunlar, Fırsatlar); folded, above the avatar. */
   dock?: ReactNode;
+  /** The server column drawn at the rail's left. */
+  guildColumn: GuildColumnProps;
 }
 
 /**
@@ -51,6 +54,7 @@ export function OdakRail({
   isLoggingOut,
   friends,
   dock,
+  guildColumn,
 }: OdakRailProps) {
   // A count already showing when the rail mounts (a section switch) stays
   // still; one that turns up afterwards pops.
@@ -68,6 +72,8 @@ export function OdakRail({
   });
 
   return (
+    <div className="ct-odak-railset">
+    <GuildColumn {...guildColumn} />
     <nav className={`ct-odak-rail ${calm ? "calm" : ""}`} aria-label="Bölümler">
       <span className="ct-odak-logo" aria-hidden="true">
         <AuthLogoMark />
@@ -130,5 +136,6 @@ export function OdakRail({
         </Tooltip>
       </UserProfileCardPopover>
     </nav>
+    </div>
   );
 }

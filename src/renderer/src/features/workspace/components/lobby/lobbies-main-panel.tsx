@@ -18,6 +18,7 @@ import type {
 import type { ParticipantMediaMap, RemoteParticipantAudioPreference } from "@/features/livekit";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { canManageLobby } from "@/features/auth";
+import { roomGuildId } from "@/features/guilds";
 import { MusicModal, useMusicRoom } from "@/features/music";
 import { WatchModal, useWatchRoom } from "@/features/watch";
 import { watchStageIdentity, watchVideoRef } from "@shared/watch";
@@ -50,8 +51,12 @@ import { toast } from "@/services/toast";
 import { TransientQueryError } from "@/services/query-client";
 
 interface LobbiesMainPanelProps {
-  lobbiesCount: number;
+  /** Every room the user can see, in every server. */
   lobbies: LobbyDescriptor[];
+  /** The selected server's rooms: what the selection screen lists. */
+  guildLobbies: LobbyDescriptor[];
+  /** The selected server's name, the selection screen's title. */
+  guildName?: string;
   activeLobbyId: string | null;
   /** The room is a voice room opened for its chat only, without joining it. */
   chatOnly?: boolean;
@@ -141,8 +146,9 @@ const DEFAULT_REMOTE_AUDIO_PREFERENCE: RemoteParticipantAudioPreference = {
 };
 
 export function LobbiesMainPanel({
-  lobbiesCount,
   lobbies,
+  guildLobbies,
+  guildName,
   activeLobbyId,
   chatOnly = false,
   onCloseRoomChat,
@@ -751,8 +757,9 @@ export function LobbiesMainPanel({
       {(!activeLobbyId || hiddenLayerReady) && (
       <LobbySelectionScreen
         activeLobbyId={activeLobbyId}
-        lobbiesCount={lobbiesCount}
-        lobbies={lobbies}
+        lobbiesCount={guildLobbies.length}
+        lobbies={guildLobbies}
+        title={guildName}
         lobbyMembersById={lobbyMembersById}
         avatarByUserId={avatarByUserId}
         joiningLobbyId={joiningLobbyId}
@@ -848,6 +855,7 @@ export function LobbiesMainPanel({
                 toolbar's own height, and every change to either side had to be
                 re-derived by hand. */}
             <LobbyActionToolbar
+              guildId={activeLobby ? roomGuildId(activeLobby) : undefined}
               micEnabled={micEnabled}
               micLocked={micLocked}
               headphoneEnabled={headphoneEnabled}
@@ -991,8 +999,11 @@ export function LobbiesMainPanel({
             isBotContextTarget
               ? undefined
               : buildMoveTargets(
-                  lobbies.filter((candidate) =>
-                    canManageLobby(candidate.createdBy, currentUserId, currentUserRole),
+                  // Moves stay inside the room's own server.
+                  lobbies.filter(
+                    (candidate) =>
+                      (!activeLobby || roomGuildId(candidate) === roomGuildId(activeLobby)) &&
+                      canManageLobby(candidate.createdBy, currentUserId, currentUserRole),
                   ),
                   activeLobbyId ?? "",
                 )
