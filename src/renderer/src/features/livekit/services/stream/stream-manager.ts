@@ -778,7 +778,7 @@ export class LiveKitMediaSession {
       this.replacingRoom = true;
       this.replacementLobbyId = lobbyId;
       try {
-        await this.disconnect();
+        await this.disconnect({ keepScreenShare: true });
       } finally {
         this.replacingRoom = false;
         this.replacementLobbyId = null;
@@ -1069,7 +1069,7 @@ export class LiveKitMediaSession {
     }
   }
 
-  public async disconnect(): Promise<void> {
+  public async disconnect(options: { keepScreenShare?: boolean } = {}): Promise<void> {
     // Pin the room this call is tearing down, the same way connectInternal
     // does. `this.room` is read again after several awaits below, and callers
     // do not always await this method — leaveActiveLobby fires it and returns,
@@ -1149,12 +1149,12 @@ export class LiveKitMediaSession {
       }
     }
 
-    // A share that is still desired is being carried to the next room (a move,
-    // a rebuild). room.disconnect() stops every local track, which killed the
+    // Only a room switch carries a share to the next room (a move, a rebuild);
+    // any other leave must stop the capture. room.disconnect() stops every local track, which killed the
     // capture while the UI still said "sharing". Unpublish its tracks without
     // stopping them first; an ended share already cleared desiredScreenEnabled
     // and its owner stops the capture itself.
-    if (room && this.desiredScreenEnabled) {
+    if (room && options.keepScreenShare && this.desiredScreenEnabled) {
       for (const pub of Array.from(room.localParticipant.trackPublications.values())) {
         if (
           pub.track &&
