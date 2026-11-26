@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog } from "electron";
 import { handle } from "../handle";
+import { clearAttachmentCache } from "../../attachment-cache";
 import { writeFile } from "node:fs/promises";
 import {
   backendClient,
@@ -214,6 +215,8 @@ export function registerAuthHandlers(): void {
     }
 
     getSessionStore().clear();
+    // Never let a cache failure block the sign-out.
+    await clearAttachmentCache().catch(() => undefined);
     return ok(getSessionSnapshot());
   });
 
@@ -228,6 +231,8 @@ export function registerAuthHandlers(): void {
       // the app does not sit there retrying with a token that will never work.
       streamHub.stopAll();
       getSessionStore().clear();
+      // Same as sign-out: never let a cache failure block this.
+      await clearAttachmentCache().catch(() => undefined);
 
       return ok(result);
     } catch (error) {

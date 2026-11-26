@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import type { LiveKitTokenPayload } from "../../shared/desktop-api-types";
 import type { MediaDiagnosticsBatchWire } from "../../shared/media-diagnostics";
 import type { BaseClient } from "./base-client";
@@ -117,8 +118,10 @@ export class MediaClient {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          // 13-16 KB of JSON every 20 s shrinks about 13x; the server unpacks it.
+          "Content-Encoding": "gzip",
         },
-        body: JSON.stringify(batch),
+        body: gzipSync(JSON.stringify(batch)),
       },
       15_000,
     );

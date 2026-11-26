@@ -18,7 +18,9 @@ import {
   type VideoCodec,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
+import { summarizeAudioCodecs } from "./audio-codec-summary";
 import { createCallEncryptionOptions, startCallEncryption } from "./call-e2ee";
+import { RECONNECT_POLICY } from "./reconnect-policy";
 import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
@@ -59,6 +61,7 @@ import {
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
+import { usableScreenTracks } from "./screen-stream-guard";
 import {
   EMPTY_ICE_PATHS,
   classifyIcePath,
@@ -296,6 +299,10 @@ export class LiveKitMediaSession {
   private downlinkStreak = 0;
   private downlinkWarnedAt = 0;
   private downlinkRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+  // Track whose codecs were already logged, and the one retry for a sender
+  // that has not negotiated yet (single peer connection mode).
+  private micCodecLoggedSid: string | null = null;
+  private micCodecRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly loweredScreens = new Set<RemoteTrackPublication>();
   // The Hands-Free endpoint the user was last told about, so a device change
   // that lands on the same one does not repeat it.
@@ -768,6 +775,30 @@ export class LiveKitMediaSession {
     const previousState = this.room?.state;
     const replacing = this.room !== null;
     if (this.room) {
+      // Another room (a click, or a move by a moderator) ends the camera and
+      // the screen share instead of carrying them over: leaving the old room
+      // stops every local track, so a carried share would be a dead one. The
+      // capture's own "ended" handlers turn the UI off and release it. A
+      // rebuild of the SAME room after a drop is not a switch; it keeps going.
+      if (this.currentLobbyId !== lobbyId && (this.desiredScreenEnabled || this.desiredCameraEnabled)) {
+        const screenStream = this.desiredScreenEnabled ? this.desiredScreenStream : null;
+        const cameraStream = this.desiredCameraEnabled ? this.desiredCameraStream : null;
+        logLiveKitDebug("stream-manager", "room-switch-ends-share", {
+          screen: this.desiredScreenEnabled,
+          camera: this.desiredCameraEnabled,
+          from: this.currentLobbyId,
+          to: lobbyId,
+        });
+        this.desiredScreenEnabled = false;
+        this.desiredScreenStream = null;
+        this.desiredCameraEnabled = false;
+        this.desiredCameraStream = null;
+        for (const stream of [screenStream, cameraStream]) {
+          if (!stream) continue;
+          stream.getTracks().forEach((track) => track.stop());
+          stream.getVideoTracks()[0]?.dispatchEvent(new Event("ended"));
+        }
+      }
       this.replacingRoom = true;
       this.replacementLobbyId = lobbyId;
       try {
@@ -825,6 +856,7 @@ export class LiveKitMediaSession {
 
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },
+      reconnectPolicy: RECONNECT_POLICY,
       dynacast: true,
       singlePeerConnection: USE_SINGLE_PEER_CONNECTION,
       ...(callEncryption ? { encryption: callEncryption } : {}),
@@ -1114,6 +1146,7 @@ export class LiveKitMediaSession {
       this.downlinkRestoreTimer = null;
     }
     this.loweredScreens.clear();
+    this.clearMicCodecState();
 
     // 1. Mute the microphone before tearing the room down, so nothing is still
     // going out while the socket closes — but do not wait on it indefinitely.
@@ -2110,6 +2143,31 @@ export class LiveKitMediaSession {
       preferences: this.buildMicrophonePreferences(),
       publishOptions: this.buildMicrophonePublishOptions(),
     });
+    this.logMicrophoneCodec(true);
+  }
+
+  // Once per publish: the bandwidth analysis assumes Opus + RED + FEC + DTX,
+  // and this records whether that is what actually got negotiated.
+  private logMicrophoneCodec(retry: boolean): void {
+    const publication = this.room?.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const sid = publication?.trackSid;
+    if (!publication?.track || !sid || sid === this.micCodecLoggedSid) return;
+    const summary = summarizeAudioCodecs(publication.track.sender?.getParameters().codecs);
+    if (summary) {
+      this.micCodecLoggedSid = sid;
+      logLiveKitDebug("stream-manager", "mic-codec", summary);
+    } else if (retry && this.micCodecRetryTimer === null) {
+      this.micCodecRetryTimer = setTimeout(() => {
+        this.micCodecRetryTimer = null;
+        this.logMicrophoneCodec(false);
+      }, 3000);
+    }
+  }
+
+  private clearMicCodecState(): void {
+    if (this.micCodecRetryTimer !== null) clearTimeout(this.micCodecRetryTimer);
+    this.micCodecRetryTimer = null;
+    this.micCodecLoggedSid = null;
   }
 
   // The captured track is the ground truth: a source that could not honour the
@@ -2482,6 +2540,24 @@ export class LiveKitMediaSession {
 
     const screenTrack = this.desiredScreenStream?.getVideoTracks()[0];
     if (screenTrack) {
+      // A capture stopped while no room held it (a room switch) is not a share.
+      // End it through the app's own "capture ended" handler instead of
+      // publishing a stream that sends nothing.
+      const usable = usableScreenTracks(this.desiredScreenStream);
+      if (!usable) {
+        const dead = this.desiredScreenStream;
+        logLiveKitDebug("stream-manager", "screen-share-dead", {
+          videoTrackId: screenTrack.id,
+          videoReadyState: screenTrack.readyState,
+          audioReadyStates: dead?.getAudioTracks().map((t) => t.readyState) ?? [],
+        });
+        this.desiredScreenEnabled = false;
+        this.desiredScreenStream = null;
+        // stop() fires no event, so this is what turns the UI's share state off.
+        dead?.getTracks().forEach((t) => t.stop());
+        screenTrack.dispatchEvent(new Event("ended"));
+        return;
+      }
       // Check if this specific track is already published
       const isAlreadyPublished = Array.from(participant.trackPublications.values()).some(
         (pub) => pub.track?.mediaStreamTrack === screenTrack
@@ -2544,8 +2620,13 @@ export class LiveKitMediaSession {
       );
 
       // Also publish audio track if available (screen share audio)
-      const audioTracks = this.desiredScreenStream?.getAudioTracks() ?? [];
+      const audioTracks = usable.audio;
       const audioTrack = audioTracks[0];
+      const deadAudio =
+        (this.desiredScreenStream?.getAudioTracks().length ?? 0) - audioTracks.length;
+      if (deadAudio > 0) {
+        logLiveKitDebug("stream-manager", "screen-audio-dead", { count: deadAudio });
+      }
       
       logLiveKitDebug("stream-manager", "screen-capture-status", {
         hasStream: !!this.desiredScreenStream,
@@ -2730,6 +2811,7 @@ export class LiveKitMediaSession {
       this.downlinkRestoreTimer = null;
     }
     this.loweredScreens.clear();
+    this.clearMicCodecState();
     if (this.room) {
       try {
         this.room.removeAllListeners();

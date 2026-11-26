@@ -20,6 +20,8 @@ export interface VoiceProcessorStats {
   maxMs: number;
   underruns: number;
   vadMean: number;
+  /** Frames this second for which the model was skipped (digital silence). */
+  skippedFrames: number;
   /** Share of the second's frames the voice gate let through. */
   gateOpenRatio: number;
   /** "date": whole-millisecond timing, so p99Ms and maxMs move in 1 ms steps. */

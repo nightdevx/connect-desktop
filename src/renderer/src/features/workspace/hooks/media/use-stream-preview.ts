@@ -1,13 +1,14 @@
 import { useEffect, useState, type MutableRefObject } from "react";
 import workspaceService from "../../services";
+import { shouldPostPreview, startPreviewPoll } from "./stream-preview-poll";
 
 // Stream previews: while you share your screen in a room, a small JPEG of it
 // goes to the server every 20 s; anyone who can see the room gets the newest
 // one before deciding to watch (the unwatched stage tile, the room list).
 // Call rooms (call_) have no previews: the other party is already looking.
 
-const PREVIEW_WIDTH = 480;
-const PREVIEW_QUALITY = 0.72;
+const PREVIEW_WIDTH = 320;
+const PREVIEW_QUALITY = 0.6;
 const FIRST_FRAME_DELAY_MS = 2_000;
 const PREVIEW_INTERVAL_MS = 20_000;
 
@@ -75,6 +76,7 @@ export const useStreamPreviewPublisher = (
       return;
     }
     let cancelled = false;
+    let last: { image: string; atMs: number } | null = null;
     const publish = async (): Promise<void> => {
       const image = await captureTrackFrame(track);
       if (cancelled || !image) {
@@ -82,7 +84,15 @@ export const useStreamPreviewPublisher = (
       }
       // A refusal (the roster not yet saying "sharing", the feature off in
       // this room) only means no preview this time.
-      await workspaceService.postStreamPreview({ lobbyId, image });
+      // A still screen is not re-sent every 20 s, only often enough that the
+      // server's 2-minute expiry never hides a live share.
+      if (!shouldPostPreview(image, last, Date.now())) {
+        return;
+      }
+      const result = await workspaceService.postStreamPreview({ lobbyId, image });
+      if (result.ok) {
+        last = { image, atMs: Date.now() };
+      }
     };
     const first = window.setTimeout(() => void publish(), FIRST_FRAME_DELAY_MS);
     const interval = window.setInterval(() => void publish(), PREVIEW_INTERVAL_MS);
@@ -112,11 +122,20 @@ export const useStreamPreview = (lobbyId: string, userId: string): string | null
         setImage(result.data.image);
       }
     };
-    void load();
-    const interval = window.setInterval(() => void load(), PREVIEW_INTERVAL_MS);
+    // No polling while the window is hidden or minimised; it fetches at once
+    // when shown again.
+    const stop = startPreviewPoll({
+      load: () => void load(),
+      isHidden: () => document.visibilityState === "hidden",
+      onVisibilityChange: (cb) => {
+        document.addEventListener("visibilitychange", cb);
+        return () => document.removeEventListener("visibilitychange", cb);
+      },
+      intervalMs: PREVIEW_INTERVAL_MS,
+    });
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stop();
     };
   }, [lobbyId, userId]);
 

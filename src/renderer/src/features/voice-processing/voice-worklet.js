@@ -65,6 +65,12 @@ const DEFAULT_GATE = {
 const SAMPLE_RATE = 48000;
 const ATTACK = 1 - Math.exp(-1 / (0.002 * SAMPLE_RATE));
 const RELEASE = 1 - Math.exp(-1 / (0.08 * SAMPLE_RATE));
+// Digital silence (a muted microphone, push-to-talk between presses) is not
+// sent to the model: after SILENT_RUN silent frames in a row (100 ms, more than
+// the model's own 20 ms tail) the frame is written as zeros and the model keeps
+// its state, which would otherwise decay into subnormal floats.
+const SILENT_PEAK = 1e-7;
+const SILENT_RUN = 10;
 const DECISIONS = 64; // frames of decision history, far more than the queue holds
 
 // Peak limiter, after the volume: nothing leaves above -1 dBFS. It has no
@@ -167,6 +173,8 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.maxMs = 0;
     this.underruns = 0;
     this.vadSum = 0;
+    this.silentRun = 0;
+    this.skipped = 0;
 
     this.port.onmessage = (event) => {
       if (event.data?.type === "destroy") {
@@ -241,9 +249,19 @@ class VoiceProcessor extends AudioWorkletProcessor {
   }
 
   denoiseFrame() {
-    const started = now();
-    const vad = this.denoiser.process(this.frame);
-    const ms = now() - started;
+    let peak = 0;
+    for (let i = 0; i < FRAME; i++) peak = Math.max(peak, Math.abs(this.frame[i]));
+    this.silentRun = peak < SILENT_PEAK ? this.silentRun + 1 : 0;
+    let vad = 0;
+    let ms = 0;
+    if (this.silentRun > SILENT_RUN) {
+      this.frame.fill(0);
+      this.skipped += 1;
+    } else {
+      const started = now();
+      vad = this.denoiser.process(this.frame);
+      ms = now() - started;
+    }
     this.decide(vad); // on the model's output alone, before the limit
 
     if (this.dryMix > 0) {
@@ -287,6 +305,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
       maxMs: this.maxMs,
       underruns: this.underruns,
       vadMean: this.vadSum / this.frames,
+      skippedFrames: this.skipped,
       gateOpenRatio: this.openFrames / this.frames,
       clock: HAS_PERFORMANCE ? "performance" : "date",
     });
@@ -296,6 +315,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.maxMs = 0;
     this.underruns = 0;
     this.vadSum = 0;
+    this.skipped = 0;
     this.openFrames = 0;
   }
 

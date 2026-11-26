@@ -164,6 +164,8 @@ export class RemoteMediaHandler {
 
   private currentOutputDeviceId: string | null = null;
   private reopeningOutput = false;
+  private waking = false;
+  private wakeTimer: ReturnType<typeof setTimeout> | null = null;
   private isDeafened = false;
   private masterVolume = 1.0;
   private voiceLevelling = true;
@@ -220,6 +222,14 @@ export class RemoteMediaHandler {
 
       context.addEventListener("error", () => {
         void this.reopenOutputDevice();
+      });
+      // The bus never suspends itself, so a stop is Chromium's (device switch,
+      // Bluetooth, sleep, exclusive mode) and everyone goes silent: wake it.
+      context.addEventListener("statechange", () => {
+        const state: string = context.state;
+        if (state === "suspended" || state === "interrupted") {
+          void this.wakePlayback(context, state);
+        }
       });
       void this.applyOutputDevice();
       if (context.state === "suspended") {
@@ -723,9 +733,49 @@ export class RemoteMediaHandler {
     await this.applyOutputDevice();
   }
 
+  // One recovery loop per stall: resume once a second, reopen the device
+  // after 3 failed tries, then keep checking slowly until the bus runs.
+  private async wakePlayback(
+    context: AudioContext,
+    state: string,
+  ): Promise<void> {
+    if (this.waking) {
+      return;
+    }
+    this.waking = true;
+    logLiveKitDebug("remote-media", "playback-suspended", { state });
+    let tries = 0;
+    let reopened = false;
+    // A function, so TypeScript does not narrow the state across the awaits.
+    const running = (): boolean => context.state === "running";
+    while (this.audioContext === context && !running()) {
+      tries += 1;
+      await context.resume().catch(() => undefined);
+      if (this.audioContext !== context || running()) {
+        break;
+      }
+      if (tries === 3) {
+        reopened = true;
+        await this.reopenOutputDevice();
+      }
+      await new Promise<void>((resolve) => {
+        this.wakeTimer = setTimeout(resolve, tries < 3 ? 1000 : 2000);
+      });
+    }
+    this.wakeTimer = null;
+    this.waking = false;
+    if (this.audioContext === context) {
+      logLiveKitDebug("remote-media", "playback-woken", { tries, reopened });
+    }
+  }
+
   // ---- Dispose ----
 
   public dispose() {
+    if (this.wakeTimer !== null) {
+      clearTimeout(this.wakeTimer);
+      this.wakeTimer = null;
+    }
     for (const key of Array.from(this.inputs.keys())) {
       const separator = key.lastIndexOf(":");
       if (separator < 0) {
