@@ -775,10 +775,34 @@ export class LiveKitMediaSession {
     const previousState = this.room?.state;
     const replacing = this.room !== null;
     if (this.room) {
+      // Another room (a click, or a move by a moderator) ends the camera and
+      // the screen share instead of carrying them over: leaving the old room
+      // stops every local track, so a carried share would be a dead one. The
+      // capture's own "ended" handlers turn the UI off and release it. A
+      // rebuild of the SAME room after a drop is not a switch; it keeps going.
+      if (this.currentLobbyId !== lobbyId && (this.desiredScreenEnabled || this.desiredCameraEnabled)) {
+        const screenStream = this.desiredScreenEnabled ? this.desiredScreenStream : null;
+        const cameraStream = this.desiredCameraEnabled ? this.desiredCameraStream : null;
+        logLiveKitDebug("stream-manager", "room-switch-ends-share", {
+          screen: this.desiredScreenEnabled,
+          camera: this.desiredCameraEnabled,
+          from: this.currentLobbyId,
+          to: lobbyId,
+        });
+        this.desiredScreenEnabled = false;
+        this.desiredScreenStream = null;
+        this.desiredCameraEnabled = false;
+        this.desiredCameraStream = null;
+        for (const stream of [screenStream, cameraStream]) {
+          if (!stream) continue;
+          stream.getTracks().forEach((track) => track.stop());
+          stream.getVideoTracks()[0]?.dispatchEvent(new Event("ended"));
+        }
+      }
       this.replacingRoom = true;
       this.replacementLobbyId = lobbyId;
       try {
-        await this.disconnect({ keepScreenShare: true });
+        await this.disconnect();
       } finally {
         this.replacingRoom = false;
         this.replacementLobbyId = null;
@@ -1069,7 +1093,7 @@ export class LiveKitMediaSession {
     }
   }
 
-  public async disconnect(options: { keepScreenShare?: boolean } = {}): Promise<void> {
+  public async disconnect(): Promise<void> {
     // Pin the room this call is tearing down, the same way connectInternal
     // does. `this.room` is read again after several awaits below, and callers
     // do not always await this method — leaveActiveLobby fires it and returns,
@@ -1146,23 +1170,6 @@ export class LiveKitMediaSession {
         ]);
       } catch (err) {
         console.warn("[LiveKitMediaSession] Failed to mute mic before disconnect:", err);
-      }
-    }
-
-    // Only a room switch carries a share to the next room (a move, a rebuild);
-    // any other leave must stop the capture. room.disconnect() stops every local track, which killed the
-    // capture while the UI still said "sharing". Unpublish its tracks without
-    // stopping them first; an ended share already cleared desiredScreenEnabled
-    // and its owner stops the capture itself.
-    if (room && options.keepScreenShare && this.desiredScreenEnabled) {
-      for (const pub of Array.from(room.localParticipant.trackPublications.values())) {
-        if (
-          pub.track &&
-          (pub.source === Track.Source.ScreenShare ||
-            pub.source === Track.Source.ScreenShareAudio)
-        ) {
-          await room.localParticipant.unpublishTrack(pub.track, false).catch(() => undefined);
-        }
       }
     }
 

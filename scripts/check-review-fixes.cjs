@@ -8,9 +8,9 @@
 //       clears the attachment cache, not only the sign-out button.
 //   R4  two downloads of the same attachment at once never leave a half-written
 //       file in the cache.
-//   R8  only a room switch carries a screen share's tracks over without
-//       stopping them; any other leave (sign-out, window teardown) still stops
-//       them, so a capture never keeps running after the app left the room.
+//   R8  a room switch ends the camera and the screen share (owner's decision,
+//       2026-11-27): nothing is carried into the next room, the capture stops,
+//       the UI turns off, the microphone stays as it is.
 //
 // Needs dist/ (build main first).
 //   node scripts/check-review-fixes.cjs
@@ -118,22 +118,27 @@ const main = async () => {
   }
 
   // ---------------------------------------------------------------- R8
+  // Owner's decision (2026-11-27): a room switch never carries the camera or
+  // the screen share over. They end, through the app's own "capture ended"
+  // handlers so the UI turns off too; the microphone is not touched.
   {
     const manager = read("src/renderer/src/features/livekit/services/stream/stream-manager.ts");
-    const discStart = manager.indexOf("public async disconnect(");
-    const disc = manager.slice(discStart, manager.indexOf("await room.disconnect()", discStart));
-    assert.match(manager.slice(discStart, discStart + 120), /disconnect\(\s*(options|\{)[^)]*\)/,
-      "R8: disconnect() must take an option saying whether the share is being carried to another room");
-    const keepBlock = disc.slice(disc.indexOf("unpublishTrack(") - 600, disc.indexOf("unpublishTrack(") + 60);
-    assert.match(keepBlock, /keepScreenShare/, "R8: the unpublish-without-stop must run only when the caller asked to keep the share");
-    const replacing = manager.slice(manager.indexOf("replaced-room") - 1500, manager.indexOf("replaced-room") + 1500);
-    assert.match(manager, /this\.disconnect\(\s*\{\s*keepScreenShare:\s*true\s*\}\s*\)/, "R8: the room-switch path must ask to keep the share");
-    assert.ok(replacing.length > 0);
-    const session = read("src/renderer/src/features/livekit/hooks/use-livekit-session.ts");
-    assert.doesNotMatch(session, /disconnect\(\s*\{\s*keepScreenShare:\s*true/, "R8: tearing the session down must not keep the share alive");
+    assert.doesNotMatch(manager, /keepScreenShare/, "R8: nothing may keep a share alive across a room switch any more");
+    assert.doesNotMatch(manager, /unpublishTrack\([^)]*,\s*false\s*\)/, "R8: tracks are never unpublished without being stopped");
+    const from = manager.indexOf("const replacing = this.room !== null");
+    assert.ok(from > 0, "the replacing branch of connectInternal was not found");
+    const to = manager.indexOf("await this.disconnect(", from);
+    assert.ok(to > from, "the old room is no longer left with this.disconnect() in connectInternal");
+    const switchBlock = manager.slice(from, to);
+    assert.match(switchBlock, /this\.currentLobbyId\s*!==\s*lobbyId|lobbyId\s*!==\s*this\.currentLobbyId/, "R8: only a switch to ANOTHER room ends them; a rebuild of the same room after a drop is not a room switch");
+    assert.match(switchBlock, /logLiveKitDebug\(\s*"stream-manager",\s*"room-switch-ends-share"/, "R8: a room switch logs stream-manager / room-switch-ends-share, before the old room is left");
+    assert.match(switchBlock, /desiredScreenEnabled/, "R8: the room switch must end the screen share");
+    assert.match(switchBlock, /desiredCameraEnabled/, "R8: the room switch must end the camera");
+    assert.match(switchBlock, /dispatchEvent\(\s*new Event\(\s*"ended"\s*\)\s*\)/, "R8: the UI learns through the capture's own ended handler");
+    assert.doesNotMatch(switchBlock, /icrophone/, "R8: the microphone is not touched by a room switch");
   }
 
-  console.log("review-fixes check passed (failed update check does not use up the day; every session end clears attachments; concurrent puts never cache a partial file; only a room switch keeps the share's tracks)");
+  console.log("review-fixes check passed (failed update check does not use up the day; every session end clears attachments; concurrent puts never cache a partial file; a room switch ends camera and screen share)");
 };
 
 main().catch((error) => {

@@ -13,11 +13,9 @@
 //   ENDS CLEANLY a share whose video is dead at republish time ends the share
 //                (desired state cleared, the app told the share ended), it is
 //                not left "on" with nothing behind it.
-//   ROOT CAUSE   leaving a room for another must not stop the share's tracks
-//                behind the app's back (livekit stops unpublished tracks
-//                unless told not to), or else the app ends the share on
-//                purpose before switching. Either way: no republish of a
-//                stream this app did not mean to keep.
+//   ROOT CAUSE   a room switch ends the share on purpose (owner's decision,
+//                2026-11-27): livekit stops every local track when the old
+//                room is left, so a carried-over share was a dead one.
 //
 //   node scripts/check-screen-republish.cjs
 
@@ -75,15 +73,13 @@ const main = async () => {
   assert.match(applyScreen, /desiredScreenEnabled\s*=\s*false/, "ENDS CLEANLY: a dead share must clear the desired state");
   assert.match(applyScreen, /logLiveKitDebug\(\s*"stream-manager",\s*"screen-share-dead"/, "ENDS CLEANLY: log stream-manager / screen-share-dead");
 
-  // ROOT CAUSE: either livekit is told not to stop unpublished tracks during a
-  // room switch, or the app ends the share deliberately before switching.
-  const keepsTracks = /stopLocalTrackOnUnpublish\s*:\s*false/.test(manager) || /unpublishTrack\([^)]*,\s*false\s*\)/.test(manager);
-  const endsShareOnSwitch = /room-switch-ends-share/.test(manager);
-  assert.ok(keepsTracks || endsShareOnSwitch,
-    "ROOT CAUSE: a room switch must either keep the share's tracks alive (stopLocalTrackOnUnpublish: false / unpublishTrack(track, false)) or end the share on purpose (log 'room-switch-ends-share')");
+  // ROOT CAUSE, owner's decision (2026-11-27): a room switch ends the share on
+  // purpose instead of carrying it over.
+  assert.match(manager, /room-switch-ends-share/, "ROOT CAUSE: a room switch must end the share on purpose (log 'room-switch-ends-share')");
+  assert.doesNotMatch(manager, /unpublishTrack\([^)]*,\s*false\s*\)/, "ROOT CAUSE: no share is carried over by unpublishing without stopping");
 
   fs.rmSync(outDir, { recursive: true, force: true });
-  console.log("screen-republish check passed (ended video never published, ended audio left out, a dead share ends cleanly, room switch no longer kills the share behind the app's back)");
+  console.log("screen-republish check passed (ended video never published, ended audio left out, a dead share ends cleanly, a room switch ends the share on purpose)");
 };
 
 main().catch((error) => {
