@@ -11,6 +11,7 @@
 import type { GameActivity } from "./game-activity";
 import type * as Auth from "./generated/auth";
 import type * as Chat from "./generated/chat";
+import type * as GuildApi from "./generated/guild";
 import type * as Lobby from "./generated/lobby";
 import type {
   AdminUpdateUserRequest,
@@ -47,6 +48,19 @@ import type {
   LobbyStreamEvent,
   UserDirectoryStreamEvent,
 } from "./desktop-api-types";
+import type {
+  AdminGuild,
+  Guild,
+  GuildBan,
+  GuildDiscoverEntry,
+  GuildInvite,
+  GuildInvitePreview,
+  GuildJoinRequest,
+  GuildLimits,
+  GuildMember,
+  GuildCalls,
+  GuildEditInput,
+} from "./guild-contracts";
 
 // A type as tygo can state it: no null, and a union of literals widened to its
 // primitive, all the way down.
@@ -159,8 +173,25 @@ type _DirectTyping = Bound<ContractDrift<DirectFrame<"direct-chat-typing">, Chat
 // --- lobbies: the list, the rosters and the room events -------------------------
 type _LobbyDescriptor = Bound<ContractDrift<LobbyDescriptor, Lobby.LobbySummary>>;
 type _LobbyStateMember = Bound<ContractDrift<LobbyStateMember, Lobby.Member>>;
-type _LobbyRealtimeSnapshot = Bound<ContractDrift<LobbyRealtimeSnapshot, Lobby.LobbyRealtimeSnapshot>>;
+// guildId: read when the socket carries it; the snapshot frames do not yet, so
+// the room's server comes from GET /lobby/rooms (useRoomGuilds).
+type _LobbyRealtimeSnapshot = Bound<ContractDrift<LobbyRealtimeSnapshot, Lobby.LobbyRealtimeSnapshot, "guildId">>;
 type _LobbiesSnapshot = Bound<ContractDrift<LobbyFrame<"lobbies-snapshot">, Lobby.LobbiesSnapshotFrame>>;
 // type and at are the envelope removalFrame and emoteFrame put round the event.
 type _LobbyRemoved = Bound<ContractDrift<LobbyFrame<"lobby-removed">, Lobby.RemovalEvent, "type" | "at">>;
 type _LobbyEmote = Bound<ContractDrift<LobbyFrame<"lobby-emote">, Lobby.EmoteEvent, "type" | "at">>;
+
+// --- servers ------------------------------------------------------------------
+// tygo draws Go's embedded structs as a nested field; on the wire they are flat.
+type FlatGuildView = GuildApi.Guild & Omit<GuildApi.GuildView, "Guild">;
+type _Guild = Bound<ContractDrift<Guild, FlatGuildView>>;
+type _AdminGuild = Bound<ContractDrift<AdminGuild, FlatGuildView & { ownerUsername: string }>>;
+type _GuildLimits = Bound<ContractDrift<GuildLimits, GuildApi.Limits>>;
+type _GuildDiscoverEntry = Bound<ContractDrift<GuildDiscoverEntry, GuildApi.DiscoverEntry>>;
+type _GuildInvitePreview = Bound<ContractDrift<GuildInvitePreview, GuildApi.InvitePreview>>;
+type _GuildInvite = Bound<ContractDrift<GuildInvite, GuildApi.Invite>>;
+type _GuildMember = Bound<ContractDrift<GuildMember, GuildApi.Member & { username: string }>>;
+type _GuildBan = Bound<ContractDrift<GuildBan, GuildApi.Ban & { username: string }>>;
+type _GuildJoinRequest = Bound<ContractDrift<GuildJoinRequest, GuildApi.JoinRequestEntry & { username: string }>>;
+type _GuildCreate = Bound<ContractDrift<GuildCalls["create"]["in"], GuildApi.CreateInput>>;
+type _GuildUpdate = Bound<ContractDrift<GuildEditInput, GuildApi.UpdateInput>>;

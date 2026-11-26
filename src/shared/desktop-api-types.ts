@@ -186,6 +186,7 @@ export interface LiveKitTokenPayload {
 // next REST refetch put them back.
 export interface LobbyRealtimeSnapshot {
   id: string;
+  guildId?: string;
   name: string;
   createdAt: string;
   createdBy: string;

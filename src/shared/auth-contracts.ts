@@ -190,6 +190,8 @@ export interface UserDirectoryEntry {
 
 export interface LobbyDescriptor {
   id: string;
+  /** The server the room belongs to. Absent from a backend before servers: NIGHT. */
+  guildId?: string;
   name: string;
   createdAt: string;
   createdBy: string;

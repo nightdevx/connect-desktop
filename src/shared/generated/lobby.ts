@@ -37,6 +37,7 @@ export interface RemovalEvent {
 
 export interface LobbySummary {
   id: string;
+  guildId: string;
   name: string;
   createdAt: string;
   createdBy: string;
