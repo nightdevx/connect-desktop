@@ -6,6 +6,7 @@ import { StreamHostClient } from "./stream-host-client";
 import { SessionStore } from "../session-store";
 import { isSessionFatal, redeemRefreshToken } from "../auth-failure";
 import { isAccessTokenExpired, isAccessTokenExpiring } from "../access-token";
+import { clearAttachmentCache } from "../attachment-cache";
 import { rememberedPresence } from "../presence-memory";
 import type { UserProfile } from "../../shared/auth-contracts";
 import type { ApiErrorPayload, DesktopResult, SessionSnapshot } from "../../shared/desktop-api-types";
@@ -177,6 +178,8 @@ export const endSession = (reason: string, bannedUntil?: string): void => {
   }
 
   getSessionStore().clear();
+  // Expiry and ban end the session too; the next account must not see these.
+  void clearAttachmentCache().catch(() => undefined);
   streamHub.stopAll();
 
   for (const win of BrowserWindow.getAllWindows()) {

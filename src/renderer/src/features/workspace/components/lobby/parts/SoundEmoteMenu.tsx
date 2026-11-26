@@ -59,6 +59,8 @@ interface SoundEmoteMenuProps {
   currentUserId: string;
   currentUserRole: string;
   disabled?: boolean;
+  /** The server of the room: each server has its own soundboard. */
+  guildId?: string;
 }
 
 interface PendingUpload {
@@ -154,6 +156,7 @@ export function SoundEmoteMenu({
   currentUserId,
   currentUserRole,
   disabled,
+  guildId,
 }: SoundEmoteMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   // This user's own knob for how loud everyone else's soundboard is. It lives
@@ -174,7 +177,7 @@ export function SoundEmoteMenu({
   const boardRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const previewTimer = useRef<number | undefined>(undefined);
-  const library = useEmoteLibrary();
+  const library = useEmoteLibrary(guildId);
   const queryClient = useQueryClient();
 
   // Not memoised: a handful of rows, and an upload's length comes from the

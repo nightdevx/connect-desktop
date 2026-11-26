@@ -49,6 +49,7 @@ export type AdminSection =
   | "dashboard"
   | "users"
   | "lobbies"
+  | "guilds"
   | "sounds"
   | "moderation"
   | "minigames"

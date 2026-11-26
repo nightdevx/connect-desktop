@@ -39,6 +39,7 @@ const USER_FRAMES = new Set([
   "call-accepted",
   "call-rejected",
   "call-cancelled",
+  "guilds-changed",
 ]);
 
 export const streamOfFrame = (type: string): StreamKind | null => {

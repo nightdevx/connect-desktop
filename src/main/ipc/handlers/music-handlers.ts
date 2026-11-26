@@ -1,6 +1,6 @@
 import { handle } from "../handle";
 import { backendClient, ok, fail, withAccessToken } from "../context";
-import { musicCommandSchema, musicLobbySchema, musicUserSchema } from "../validators";
+import { guildScopeSchema, musicCommandSchema, musicLobbySchema, musicUserSchema } from "../validators";
 
 export function registerMusicHandlers(): void {
   handle("desktop:music-catalog", async () => {
@@ -38,10 +38,11 @@ export function registerMusicHandlers(): void {
     }
   });
 
-  handle("desktop:admin-list-music-djs", async () => {
+  handle("desktop:admin-list-music-djs", async (_event, payload: unknown) => {
     try {
+      const { guildId } = guildScopeSchema.parse(payload ?? {});
       const result = await withAccessToken((accessToken) => {
-        return backendClient.music.listDJs(accessToken);
+        return backendClient.music.listDJs(accessToken, guildId);
       });
       return ok(result);
     } catch (error) {
@@ -51,9 +52,9 @@ export function registerMusicHandlers(): void {
 
   handle("desktop:admin-grant-music-dj", async (_event, payload: unknown) => {
     try {
-      const { userId } = musicUserSchema.parse(payload);
+      const { userId, guildId } = musicUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.music.grantDJ(accessToken, userId);
+        return backendClient.music.grantDJ(accessToken, userId, guildId);
       });
       return ok(result);
     } catch (error) {
@@ -63,9 +64,9 @@ export function registerMusicHandlers(): void {
 
   handle("desktop:admin-revoke-music-dj", async (_event, payload: unknown) => {
     try {
-      const { userId } = musicUserSchema.parse(payload);
+      const { userId, guildId } = musicUserSchema.parse(payload);
       const result = await withAccessToken((accessToken) => {
-        return backendClient.music.revokeDJ(accessToken, userId);
+        return backendClient.music.revokeDJ(accessToken, userId, guildId);
       });
       return ok(result);
     } catch (error) {

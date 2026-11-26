@@ -13,12 +13,12 @@ import {
   type AppUpdatePhase,
   type AppUpdateSnapshot,
 } from "../../shared/update-contracts";
+import { shouldCheckOnStart } from "./update-schedule";
 import { showUpdaterWindow } from "./updater-window";
 
 interface ModularUpdaterOptions {
   beforeInstall: () => Promise<void>;
   startupCheckDelayMs?: number;
-  periodicCheckMs?: number;
 }
 
 export interface CheckForUpdatesResponse {
@@ -32,7 +32,37 @@ export interface InstallUpdateResponse {
 }
 
 const defaultStartupCheckDelayMs = 15_000;
-const defaultPeriodicCheckMs = 15 * 60 * 1_000;
+
+/* -------------------------------------------------------------------------
+   When to check
+
+   Only when the app starts, and then at most once a day (update-schedule.ts):
+   a check is about five requests on two hosts, too much to repeat all day.
+   The time of the last check is kept in a small file beside the gate file.
+   Not subject to the day rule: the "check now" button, a mandatory update
+   known from an earlier run, and the server's minimum version.
+   ------------------------------------------------------------------------- */
+
+const lastCheckFilePath = (): string => join(app.getPath("userData"), "update-last-check.json");
+
+const readLastCheckAt = (): number | null => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(lastCheckFilePath(), "utf-8"));
+    const value =
+      parsed && typeof parsed === "object" ? (parsed as { at?: unknown }).at : undefined;
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeLastCheckAt = (atMs: number): void => {
+  try {
+    writeFileSync(lastCheckFilePath(), JSON.stringify({ at: atMs }), "utf-8");
+  } catch {
+    // Best effort: the worst case is one more check at the next start.
+  }
+};
 
 // macOS: the release is found but never downloaded or installed; "İndir" opens
 // its page and the user installs the dmg (AppUpdateSnapshot.downloadUrl).
@@ -102,7 +132,6 @@ export class ModularUpdater {
   private initialized = false;
   private listenersBound = false;
   private startupCheckTimer: NodeJS.Timeout | null = null;
-  private periodicTimer: NodeJS.Timeout | null = null;
   private installing = false;
   // A mandatory update the user confirmed before its download finished.
   private installWhenDownloaded = false;
@@ -165,7 +194,7 @@ export class ModularUpdater {
     }
 
     this.bindListeners();
-    this.scheduleChecks(lockedAtStart ? 0 : undefined);
+    this.scheduleStartupCheck(lockedAtStart);
   }
 
   public getSnapshot(): AppUpdateSnapshot {
@@ -176,11 +205,6 @@ export class ModularUpdater {
     if (this.startupCheckTimer) {
       clearTimeout(this.startupCheckTimer);
       this.startupCheckTimer = null;
-    }
-
-    if (this.periodicTimer) {
-      clearInterval(this.periodicTimer);
-      this.periodicTimer = null;
     }
   }
 
@@ -199,6 +223,9 @@ export class ModularUpdater {
 
     try {
       await this.checkForUpdatesWithTimeout(30_000);
+      // Only a check that went through counts as the day's check: at autostart
+      // the network is often not up yet, and a failure must not use the day up.
+      writeLastCheckAt(Date.now());
       return { requested: true };
     } catch (error) {
       this.handleUpdaterError(error);
@@ -415,13 +442,15 @@ export class ModularUpdater {
     });
   }
 
-  private scheduleChecks(startupDelayOverrideMs?: number): void {
-    const startupCheckDelayMs =
-      startupDelayOverrideMs ??
-      this.options.startupCheckDelayMs ??
-      defaultStartupCheckDelayMs;
-    const periodicCheckMs =
-      this.options.periodicCheckMs ?? defaultPeriodicCheckMs;
+  // One check per start: at once when a mandatory update is known, else after
+  // the usual delay and only if a day has passed since the last check.
+  private scheduleStartupCheck(lockedAtStart: boolean): void {
+    if (!lockedAtStart && !shouldCheckOnStart(readLastCheckAt(), Date.now())) {
+      return;
+    }
+    const startupCheckDelayMs = lockedAtStart
+      ? 0
+      : this.options.startupCheckDelayMs ?? defaultStartupCheckDelayMs;
 
     this.startupCheckTimer = setTimeout(() => {
       void this.checkForUpdates();
@@ -429,14 +458,6 @@ export class ModularUpdater {
 
     if (this.startupCheckTimer.unref) {
       this.startupCheckTimer.unref();
-    }
-
-    this.periodicTimer = setInterval(() => {
-      void this.checkForUpdates();
-    }, periodicCheckMs);
-
-    if (this.periodicTimer.unref) {
-      this.periodicTimer.unref();
     }
   }
 

@@ -36,6 +36,7 @@ import { useUiStore } from "@/store/ui-store";
 import { MenuIcon, OdakMenu, type OdakMenuEntry } from "@/ui/odak-menu";
 import chatService from "../../services/chat-service";
 import { toast } from "@/services/toast";
+import { InviteCard } from "@/features/guilds";
 
 // Shared message furniture for both conversation surfaces (direct messages and
 // lobby chat). They render the same message shape, so the reply quote,
@@ -368,7 +369,13 @@ export function ChatMessageBody({
     );
   }
 
-  return <p>{children ?? body}</p>;
+  // A server invite code shows as a card under the text (InviteCard decides).
+  return (
+    <>
+      <p>{children ?? body}</p>
+      <InviteCard body={body} />
+    </>
+  );
 }
 
 interface ChatAttachmentViewProps {

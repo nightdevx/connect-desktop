@@ -5,6 +5,7 @@ import { OdakMenu } from "@/ui/odak-menu";
 import type { SelectablePresenceStatus } from "@shared/auth-contracts";
 import type { WorkspaceSection } from "@/store/ui-store";
 import { AuthLogoMark, isAdminRole } from "@/features/auth";
+import { GuildRailServers, type GuildRailServersProps } from "@/features/guilds";
 import { getUserStatusLabel } from "../../workspace-utils";
 import type { FriendsController } from "../../hooks/user/use-friends";
 import { UserProfileCardPopover } from "../user/user-profile-card";
@@ -14,7 +15,6 @@ export interface OdakRailProps {
   activeSection: WorkspaceSection;
   onSectionChange: (section: WorkspaceSection) => void;
   currentUserRole: string;
-  unreadLobbyMessages: number;
   unreadDirectMessages: number;
   currentUserId: string;
   currentUsername: string;
@@ -28,19 +28,21 @@ export interface OdakRailProps {
   /** The shell's quick-controls dock, in the sections that have no sidebar
       to carry it (Oyunlar, Fırsatlar); folded, above the avatar. */
   dock?: ReactNode;
+  /** The servers, under the tabs: a server is the way to its rooms. */
+  guildServers: Omit<GuildRailServersProps, "showingLobbies">;
 }
 
 /**
- * The Odak section rail: the shell draws it for every section, and the
- * Arkadaşlar page draws the same one in the same place over the shell. Both
- * sections that keep a badge are unmounted while elsewhere, so this is the
- * only thing that can report their traffic.
+ * The Odak rail, the app's one left column: the logo, the section tabs, the
+ * servers (each opens its rooms; there is no Lobiler tab), then the dock and
+ * your face. The shell draws it for every section, and the Arkadaşlar page
+ * draws the same one in the same place over the shell. Unread rooms show as a
+ * dot on their server; unread conversations as the Arkadaşlar badge.
  */
 export function OdakRail({
   activeSection,
   onSectionChange,
   currentUserRole,
-  unreadLobbyMessages,
   unreadDirectMessages,
   currentUserId,
   currentUsername,
@@ -51,6 +53,7 @@ export function OdakRail({
   isLoggingOut,
   friends,
   dock,
+  guildServers,
 }: OdakRailProps) {
   // A count already showing when the rail mounts (a section switch) stays
   // still; one that turns up afterwards pops.
@@ -72,15 +75,13 @@ export function OdakRail({
       <span className="ct-odak-logo" aria-hidden="true">
         <AuthLogoMark />
       </span>
-      {SECTIONS.filter((section) => section.id !== "admin" || isAdminRole(currentUserRole)).map(
+      {/* No Lobiler tab: the servers below open their rooms. */}
+      {SECTIONS.filter(
+        (section) => section.id !== "lobbies" && (section.id !== "admin" || isAdminRole(currentUserRole)),
+      ).map(
         (section) => {
           const active = section.id === activeSection;
-          const badge =
-            section.id === "lobbies"
-              ? unreadLobbyMessages
-              : section.id === "users"
-                ? unreadDirectMessages
-                : 0;
+          const badge = section.id === "users" ? unreadDirectMessages : 0;
           return (
             <button
               key={section.id}
@@ -96,6 +97,7 @@ export function OdakRail({
           );
         },
       )}
+      <GuildRailServers {...guildServers} showingLobbies={activeSection === "lobbies"} />
       <div className="ct-odak-fill" />
       {dock && <div className="ct-odak-rail-dock">{dock}</div>}
       {/* Your face opens your profile card, as anyone's does elsewhere. Your

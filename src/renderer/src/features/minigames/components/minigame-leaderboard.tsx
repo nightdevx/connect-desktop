@@ -7,6 +7,7 @@ import type { MinigameLeaderboard as Board } from "@shared/minigames";
 import { DIFFICULTY_IDS, scoreKey, type DifficultyId } from "@/store/minigame-scores";
 import { DIFFICULTY_LABELS, describeDifficulty, type SoloGameId } from "../difficulty";
 import { scoreService } from "../score-service";
+import { useGuildUi } from "@/features/guilds";
 import { hueStyle } from "@/ui/person-style";
 import { BlankFace } from "@/ui/blank-face";
 
@@ -84,6 +85,7 @@ export function MinigameLeaderboard({
   }, [refresh]);
 
   const key = scoreKey(game, scope);
+  const guildId = useGuildUi((state) => state.selectedGuildId);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +108,7 @@ export function MinigameLeaderboard({
     return () => {
       cancelled = true;
     };
-  }, [key, syncedAt, reloadNonce]);
+  }, [key, syncedAt, reloadNonce, guildId]);
 
   // Faces. The board carries no picture -- an avatar is base64 and the board
   // polls -- so each row reads the profile card the rest of the app already

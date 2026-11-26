@@ -2,6 +2,7 @@ import type { StreamSender } from "./stream-hub";
 import WebSocket from "ws";
 import type { DirectMessagesStreamEvent } from "../../shared/desktop-api-types";
 import { awaitSocketOpen } from "./await-socket-open";
+import { CLIENT_FEATURES } from "../clients/base-client";
 
 export const DIRECT_MESSAGES_EVENT_CHANNEL = "desktop:direct-messages-event";
 
@@ -258,6 +259,7 @@ export class DirectMessagesStreamManager {
     url.pathname = "/chat/direct/ws";
     url.search = "";
     url.searchParams.set("access_token", accessToken);
+    url.searchParams.set("features", CLIENT_FEATURES);
     return url.toString();
   }
 }

@@ -45,6 +45,8 @@ import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { Avatar } from "../odak/odak-parts";
 import { SEED_ADMIN_ID, isAdminRole } from "@/features/auth";
+import { GuildHeaderMenu } from "@/features/guilds";
+import type { Guild } from "@shared/guild-contracts";
 import workspaceService from "../../services";
 import { toast } from "@/services/toast";
 
@@ -67,7 +69,12 @@ interface WorkspaceSidebarProps {
       DesktopResult<{ lobbies: LobbyDescriptor[] }>,
       Error
     >;
+    /** The selected server's rooms. */
     lobbies: LobbyDescriptor[];
+    /** The selected server: its name and menu head the room list. */
+    guild: Guild | null;
+    /** The account's own role, for what the server menu offers. */
+    accountRole: string;
     lobbyMembersById: Record<string, LobbyStateMember[]>;
     avatarByUserId: Record<string, string | null | undefined>;
     activeLobbyId: string | null;
@@ -742,7 +749,11 @@ export function WorkspaceSidebar({
     <aside key="full" className="ct-sidebar" aria-label="Yan panel">
 
       <header className="ct-sidebar-header">
-        <h3>{sectionTitle}</h3>
+        {workspaceSection === "lobbies" && lobbiesProps.guild ? (
+          <GuildHeaderMenu guild={lobbiesProps.guild} accountRole={lobbiesProps.accountRole} />
+        ) : (
+          <h3>{sectionTitle}</h3>
+        )}
 
         {workspaceSection === "lobbies" && (
           <Tooltip title="Oda oluştur">
@@ -750,7 +761,7 @@ export function WorkspaceSidebar({
               type="button"
               className="ct-sidebar-header-action ct-sidebar-header-create"
               onClick={handleCreateLobbyClick}
-              disabled={lobbiesProps.isCreatingLobby}
+              disabled={lobbiesProps.isCreatingLobby || !lobbiesProps.guild}
               aria-label="Lobi oluştur"
             >
               <PlusOutlined />

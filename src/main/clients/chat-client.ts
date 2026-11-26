@@ -2,6 +2,7 @@ import type { Bound, ContractDrift } from "../../shared/api-contracts";
 import type { ChatMessage, FriendEntry } from "../../shared/auth-contracts";
 import type { ChatAttachmentUpload } from "../../shared/desktop-api-types";
 import type * as Chat from "../../shared/generated/chat";
+import type { AttachmentCache } from "../attachment-cache";
 import { DesktopApiError, type BaseClient } from "./base-client";
 
 // A send may carry a 5 MB attachment as base64. The client's default 8s budget
@@ -24,7 +25,10 @@ export class ChatClient {
   // refuses every field it does not know. Back on at the next launch.
   private nonceSupported = true;
 
-  public constructor(private readonly baseClient: BaseClient) {}
+  public constructor(
+    private readonly baseClient: BaseClient,
+    private readonly attachmentCache?: AttachmentCache,
+  ) {}
 
   // A send, with its nonce while the backend takes one.
   private async send(path: string, accessToken: string, payload: SendMessagePayload): Promise<{ message: ChatMessage }> {
@@ -165,10 +169,14 @@ export class ChatClient {
     accessToken: string,
     attachmentId: string,
   ): Promise<{ dataUrl: string; mimeType: string; size: number }> {
-    const { mimeType, bytes } = await this.downloadAttachment(
-      accessToken,
-      attachmentId,
-    );
+    // Attachments never change under their id, so a copy on disk is always
+    // right. Only a successful download is stored; errors throw before put.
+    let found = await this.attachmentCache?.get(attachmentId);
+    if (!found) {
+      found = await this.downloadAttachment(accessToken, attachmentId);
+      await this.attachmentCache?.put(attachmentId, found.mimeType, found.bytes);
+    }
+    const { mimeType, bytes } = found;
 
     return {
       dataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`,

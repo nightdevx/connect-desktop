@@ -4,9 +4,17 @@ import type {
   LobbyJoinResult,
   LobbyLeaveReason,
 } from "../../shared/desktop-api-types";
-import type { BaseClient } from "./base-client";
+import { guildQuery, type BaseClient } from "./base-client";
+
+// Frames kept for If-None-Match: one per (room, sharer) someone is looking at.
+const MAX_HELD_PREVIEWS = 50;
 
 export class LobbyClient {
+  private readonly previews = new Map<
+    string,
+    { etag: string; frame: { image: string; capturedAt: string } }
+  >();
+
   public constructor(private readonly baseClient: BaseClient) {}
 
   public async listLobbies(
@@ -28,6 +36,7 @@ export class LobbyClient {
     password?: string,
     isTextOnly?: boolean,
     capacity?: number,
+    guildId?: string,
   ): Promise<{ lobby: LobbyDescriptor }> {
     return this.baseClient.request<{ lobby: LobbyDescriptor }>("/lobby/rooms", {
       method: "POST",
@@ -36,7 +45,7 @@ export class LobbyClient {
       },
       // isTextOnly is create-only: there is no edit path for it, so updateLobby
       // deliberately does not carry it.
-      body: JSON.stringify({ name, isLocked, allowedUsers, password, isTextOnly, capacity }),
+      body: JSON.stringify({ guildId, name, isLocked, allowedUsers, password, isTextOnly, capacity }),
     });
   }
 
@@ -339,18 +348,47 @@ export class LobbyClient {
     );
   }
 
+  // Previews come back with an ETag; sending it again turns an unchanged frame
+  // into a bodiless 304 and we answer with the frame we already hold.
   public async getStreamPreview(
     accessToken: string,
     lobbyId: string,
     userId: string,
   ): Promise<{ image: string; capturedAt: string }> {
-    return this.baseClient.request<{ image: string; capturedAt: string }>(
-      `/lobby/rooms/${encodeURIComponent(lobbyId)}/stream-preview/${encodeURIComponent(userId)}`,
-      {
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      },
-    );
+    const key = `${lobbyId}/${userId}`;
+    const held = this.previews.get(key);
+    try {
+      const { status, etag, body } = await this.baseClient.requestConditional<{
+        image: string;
+        capturedAt: string;
+      }>(
+        `/lobby/rooms/${encodeURIComponent(lobbyId)}/stream-preview/${encodeURIComponent(userId)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            ...(held ? { "If-None-Match": held.etag } : {}),
+          },
+        },
+      );
+      if (status === 304 && held) {
+        return held.frame;
+      }
+      if (!body) {
+        throw new Error("empty stream preview");
+      }
+      this.previews.delete(key); // re-insert so the oldest entry is the first key
+      if (etag) {
+        this.previews.set(key, { etag, frame: body });
+        if (this.previews.size > MAX_HELD_PREVIEWS) {
+          this.previews.delete(this.previews.keys().next().value as string);
+        }
+      }
+      return body;
+    } catch (error) {
+      this.previews.delete(key);
+      throw error;
+    }
   }
 
   // The emote id is validated server-side against a closed set; nothing here
@@ -376,8 +414,9 @@ export class LobbyClient {
   // below, which is the one that moves bytes and is read once per id.
   public async listEmotes(
     accessToken: string,
+    guildId?: string,
   ): Promise<{ emotes: CustomEmoteSummary[]; quota: number; used: number }> {
-    return this.baseClient.request(`/lobby/emotes`, {
+    return this.baseClient.request(`/lobby/emotes${guildQuery(guildId)}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -400,13 +439,14 @@ export class LobbyClient {
     accessToken: string,
     name: string,
     dataUrl: string,
+    guildId?: string,
   ): Promise<{ emote: CustomEmoteSummary; quota: number; used: number }> {
     return this.baseClient.request(
       `/lobby/emotes`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ name, dataUrl }),
+        body: JSON.stringify({ guildId, name, dataUrl }),
       },
       // A 400 KB body on a slow uplink is not a hung request; the default 8s
       // budget is sized for control-plane calls.

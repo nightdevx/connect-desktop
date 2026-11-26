@@ -631,6 +631,8 @@ export function useWorkspaceLobbies({
           nextMembersById[snapshot.id] = snapshot.members;
           return {
             id: snapshot.id,
+            // The room's server: the room list filters on it.
+            guildId: snapshot.guildId,
             name: snapshot.name,
             createdAt: snapshot.createdAt,
             createdBy: snapshot.createdBy,

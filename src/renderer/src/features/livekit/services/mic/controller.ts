@@ -1,6 +1,7 @@
 import {
   type LocalAudioTrack,
   Track,
+  TrackEvent,
   type AudioCaptureOptions,
   type LocalParticipant,
   type LocalTrackPublication,
@@ -16,6 +17,7 @@ import {
   type NoiseSuppressionPreset,
 } from "@/features/voice-processing";
 import { AudioContextManager } from "./audio-context-manager";
+import { lostCaptureConstraints } from "./capture-constraints";
 import { DeviceResolver } from "./device-resolver";
 import {
   type ApplyMicrophoneStateOptions,
@@ -47,6 +49,11 @@ export class LiveKitMicrophoneController {
   private readonly processorManager: ProcessorManager;
   private readonly deviceResolver: DeviceResolver;
   private readonly noiseSuppressionRuntime: LiveKitNoiseSuppressionRuntime;
+
+  // The published microphone we listen to for livekit's own restarts, and the
+  // preferences of the latest apply, which a restart re-applies.
+  private watchedTrack: LocalAudioTrack | null = null;
+  private latestPreferences: MicrophoneProcessingPreferences | null = null;
 
   private lastAppliedParticipantIdentity: string | null = null;
   private lastAppliedEnabled: boolean | null = null;
@@ -120,6 +127,7 @@ export class LiveKitMicrophoneController {
   public releaseForRoomChange(): Promise<void> {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "release-for-room-change");
+      this.watchMicrophoneTrack(null);
       this.lastAppliedParticipantIdentity = null;
       this.lastAppliedEnabled = null;
       this.lastAppliedDeviceId = null;
@@ -241,6 +249,7 @@ export class LiveKitMicrophoneController {
   public dispose(): Promise<void> {
     return this.enqueue(async () => {
       logLiveKitDebug("mic-controller", "dispose-start");
+      this.watchMicrophoneTrack(null);
       this.lastAppliedParticipantIdentity = null;
       this.lastAppliedEnabled = null;
       this.lastAppliedDeviceId = null;
@@ -269,6 +278,7 @@ export class LiveKitMicrophoneController {
     publishOptions,
   }: ApplyMicrophoneStateOptions): Promise<void> {
     const participantIdentity = participant.identity;
+    this.latestPreferences = preferences;
     const deviceId = preferences.selectedAudioInputDeviceId ?? "default";
     const nsEnabled = preferences.enhancedNoiseSuppressionEnabled;
     const preset = preferences.noiseSuppressionPreset;
@@ -490,6 +500,7 @@ export class LiveKitMicrophoneController {
     )?.track as LocalAudioTrack | undefined;
 
     if (publishedTrack) {
+      this.watchMicrophoneTrack(publishedTrack);
       const appliedProcessor = processor
         ? publishedTrack.getProcessor() === processor ||
           (await this.attachProcessorToMicrophoneTrack(
@@ -510,6 +521,7 @@ export class LiveKitMicrophoneController {
     const [track] = (await participant.createTracks({
       audio: options,
     })) as LocalAudioTrack[];
+    this.watchMicrophoneTrack(track);
     try {
       const appliedProcessor = processor
         ? await this.attachProcessorToMicrophoneTrack(
@@ -521,10 +533,43 @@ export class LiveKitMicrophoneController {
       const publication = await participant.publishTrack(track, publishOptions);
       return { publication, appliedProcessor };
     } catch (error) {
+      this.watchMicrophoneTrack(null);
       track.stop();
       throw error;
     }
   }
+
+  private watchMicrophoneTrack(track: LocalAudioTrack | null): void {
+    if (this.watchedTrack === track) return;
+    this.watchedTrack?.off(TrackEvent.Restarted, this.onTrackRestarted);
+    this.watchedTrack = track;
+    track?.on(TrackEvent.Restarted, this.onTrackRestarted);
+  }
+
+  // livekit restarts an ended microphone with the device id only, which drops
+  // the app's capture settings. Put them back, once: the restart this causes
+  // finds nothing lost.
+  private readonly onTrackRestarted = (): void => {
+    const track = this.watchedTrack;
+    const preferences = this.latestPreferences;
+    if (!track || !preferences) return;
+    void this.enqueue(async () => {
+      if (this.watchedTrack !== track) return;
+      const options = await this.buildCaptureOptions(
+        preferences,
+        this.processorManager.isNoiseSuppressionReady(),
+      );
+      options.deviceId = track.constraints.deviceId ?? "default";
+      const lost = lostCaptureConstraints(track.constraints, options);
+      logLiveKitDebug("mic-controller", "mic-track-restarted", {
+        deviceId: unwrapDeviceId(options.deviceId) ?? null,
+        lost,
+      });
+      if (lost) await track.restartTrack(options);
+    }).catch((error) => {
+      logLiveKitDebug("mic-controller", "mic-track-restart-failed", { error });
+    });
+  };
 
   /**
    * Points a published microphone at the device it should be using.

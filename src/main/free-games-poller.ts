@@ -24,10 +24,10 @@ import {
 
 export const FREE_GAMES_EVENT_CHANNEL = "desktop:free-games-updated";
 
-// Epic rotates its weekly giveaway at 15:00 UTC and GamerPower caches its own
-// answer for 10 minutes, so a faster poll only costs requests. 15 minutes puts
-// the worst-case lag well inside the hour that matters for a week-long offer.
-const POLL_INTERVAL_MS = 15 * 60_000;
+// Once an hour: a toast within the hour is enough for offers that run for a
+// week, and GamerPower and CheapShark cache their answers anyway. At 15 minutes
+// this poll was two thirds of a minimised app's traffic.
+const POLL_INTERVAL_MS = 60 * 60_000;
 
 // Long enough to be behind the session restore and the first lobby sync, short
 // enough that the page has data before anyone navigates to it.
@@ -194,7 +194,7 @@ export const startFreeGamesPoller = (): void => {
       .then(broadcast)
       .catch(() => {
         // Nothing to recover: the snapshot stays null, the renderer's own
-        // request will try again, and the next interval is 15 minutes away.
+        // request will try again, and the next interval is an hour away.
       });
   }, STARTUP_DELAY_MS);
   startupTimer.unref?.();

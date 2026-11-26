@@ -14,6 +14,7 @@ import {
   SafetyCertificateOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  ClusterOutlined,
 } from "@ant-design/icons";
 
 // Grouped by what the screen is FOR, the way the settings menu is: the people
@@ -35,6 +36,7 @@ const NAV_GROUPS = [
     label: "Topluluk",
     items: [
       { key: "users", label: "Kullanıcılar", icon: <UserOutlined /> },
+      { key: "guilds", label: "Sunucular", icon: <ClusterOutlined /> },
       { key: "lobbies", label: "Odalar", icon: <HomeOutlined /> },
       { key: "moderation", label: "Moderasyon", icon: <StopOutlined /> },
       { key: "chat", label: "Sohbet", icon: <MessageOutlined /> },
@@ -59,7 +61,7 @@ const NAV_GROUPS = [
   {
     label: "Sistem",
     items: [
-      { key: "settings", label: "Sunucu Ayarları", icon: <SettingOutlined /> },
+      { key: "settings", label: "Platform Ayarları", icon: <SettingOutlined /> },
       { key: "access", label: "Erişim Denetimi", icon: <SafetyCertificateOutlined /> },
     ],
   },
