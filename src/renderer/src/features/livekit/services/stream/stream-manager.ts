@@ -18,6 +18,7 @@ import {
   type VideoCodec,
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
+import { summarizeAudioCodecs } from "./audio-codec-summary";
 import { createCallEncryptionOptions, startCallEncryption } from "./call-e2ee";
 import { RECONNECT_POLICY } from "./reconnect-policy";
 import { mediaDiagnostics } from "@/services/media-diagnostics";
@@ -297,6 +298,10 @@ export class LiveKitMediaSession {
   private downlinkStreak = 0;
   private downlinkWarnedAt = 0;
   private downlinkRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+  // Track whose codecs were already logged, and the one retry for a sender
+  // that has not negotiated yet (single peer connection mode).
+  private micCodecLoggedSid: string | null = null;
+  private micCodecRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly loweredScreens = new Set<RemoteTrackPublication>();
   // The Hands-Free endpoint the user was last told about, so a device change
   // that lands on the same one does not repeat it.
@@ -1116,6 +1121,7 @@ export class LiveKitMediaSession {
       this.downlinkRestoreTimer = null;
     }
     this.loweredScreens.clear();
+    this.clearMicCodecState();
 
     // 1. Mute the microphone before tearing the room down, so nothing is still
     // going out while the socket closes — but do not wait on it indefinitely.
@@ -2112,6 +2118,31 @@ export class LiveKitMediaSession {
       preferences: this.buildMicrophonePreferences(),
       publishOptions: this.buildMicrophonePublishOptions(),
     });
+    this.logMicrophoneCodec(true);
+  }
+
+  // Once per publish: the bandwidth analysis assumes Opus + RED + FEC + DTX,
+  // and this records whether that is what actually got negotiated.
+  private logMicrophoneCodec(retry: boolean): void {
+    const publication = this.room?.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const sid = publication?.trackSid;
+    if (!publication?.track || !sid || sid === this.micCodecLoggedSid) return;
+    const summary = summarizeAudioCodecs(publication.track.sender?.getParameters().codecs);
+    if (summary) {
+      this.micCodecLoggedSid = sid;
+      logLiveKitDebug("stream-manager", "mic-codec", summary);
+    } else if (retry && this.micCodecRetryTimer === null) {
+      this.micCodecRetryTimer = setTimeout(() => {
+        this.micCodecRetryTimer = null;
+        this.logMicrophoneCodec(false);
+      }, 3000);
+    }
+  }
+
+  private clearMicCodecState(): void {
+    if (this.micCodecRetryTimer !== null) clearTimeout(this.micCodecRetryTimer);
+    this.micCodecRetryTimer = null;
+    this.micCodecLoggedSid = null;
   }
 
   // The captured track is the ground truth: a source that could not honour the
@@ -2732,6 +2763,7 @@ export class LiveKitMediaSession {
       this.downlinkRestoreTimer = null;
     }
     this.loweredScreens.clear();
+    this.clearMicCodecState();
     if (this.room) {
       try {
         this.room.removeAllListeners();
