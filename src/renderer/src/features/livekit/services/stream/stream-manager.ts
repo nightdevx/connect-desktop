@@ -19,6 +19,7 @@ import {
 } from "livekit-client";
 import { logLiveKitDebug } from "@/services/debug-log";
 import { createCallEncryptionOptions, startCallEncryption } from "./call-e2ee";
+import { RECONNECT_POLICY } from "./reconnect-policy";
 import { mediaDiagnostics } from "@/services/media-diagnostics";
 import { LiveKitMicrophoneController } from "../mic";
 import type { MicrophoneProcessingPreferences } from "../mic/types";
@@ -825,6 +826,7 @@ export class LiveKitMediaSession {
 
     const options: RoomOptions = {
       adaptiveStream: { pixelDensity: "screen" },
+      reconnectPolicy: RECONNECT_POLICY,
       dynacast: true,
       singlePeerConnection: USE_SINGLE_PEER_CONNECTION,
       ...(callEncryption ? { encryption: callEncryption } : {}),
