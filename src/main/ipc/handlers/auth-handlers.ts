@@ -231,6 +231,8 @@ export function registerAuthHandlers(): void {
       // the app does not sit there retrying with a token that will never work.
       streamHub.stopAll();
       getSessionStore().clear();
+      // Same as sign-out: never let a cache failure block this.
+      await clearAttachmentCache().catch(() => undefined);
 
       return ok(result);
     } catch (error) {
