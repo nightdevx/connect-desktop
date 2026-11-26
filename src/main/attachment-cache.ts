@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -22,11 +22,17 @@ export const createAttachmentCache = ({ dir, maxBytes }: { dir: string; maxBytes
   // on screen survives.
   const trim = async (): Promise<void> => {
     const entries = await Promise.all(
-      (await readdir(dir)).map(async (name) => {
-        const info = await stat(path.join(dir, name));
-        return { name, size: info.size, used: info.mtimeMs };
+      // A put in flight owns its .tmp file, and a file can vanish between
+      // readdir and stat; neither may abort the size cap.
+      (await readdir(dir)).filter((name) => !name.endsWith(".tmp")).map(async (name) => {
+        try {
+          const info = await stat(path.join(dir, name));
+          return { name, size: info.size, used: info.mtimeMs };
+        } catch {
+          return null;
+        }
       }),
-    );
+    ).then((found) => found.filter((entry) => entry !== null));
     let total = entries.reduce((sum, entry) => sum + entry.size, 0);
     for (const entry of entries.sort((a, b) => a.used - b.used)) {
       if (total <= maxBytes) break;
@@ -54,9 +60,16 @@ export const createAttachmentCache = ({ dir, maxBytes }: { dir: string; maxBytes
       try {
         await mkdir(dir, { recursive: true });
         const file = fileFor(id);
-        const tmp = `${file}.${process.pid}.tmp`;
-        await writeFile(tmp, Buffer.concat([Buffer.from(`${mimeType}\n`, "utf8"), bytes]));
-        await rename(tmp, file);
+        // Unique per put: concurrent puts of one id must not share a tmp file,
+        // or one truncates what another is about to rename.
+        const tmp = `${file}.${randomUUID()}.tmp`;
+        try {
+          await writeFile(tmp, Buffer.concat([Buffer.from(`${mimeType}\n`, "utf8"), bytes]));
+          await rename(tmp, file);
+        } catch (error) {
+          await rm(tmp, { force: true }).catch(() => undefined);
+          throw error;
+        }
         await trim();
       } catch {
         // Not cached; the next view downloads again.
