@@ -35,14 +35,14 @@ export function GuildHeaderMenu({ guild, accountRole }: { guild: Guild; accountR
                 copyCode(invite.code);
               }).catch(() => undefined),
           },
-          {
+          (can.edit || can.moderate) && {
             key: "settings",
             icon: "sliders",
             label: "Sunucu ayarları",
             opensDialog: true,
             onSelect: () => openDialog({ kind: "settings", guildId: guild.id }),
           },
-          !can.own && { type: "divider", key: "divider" },
+          !can.own && can.moderate && { type: "divider", key: "divider" },
           !can.own && {
             key: "leave",
             icon: "logout",

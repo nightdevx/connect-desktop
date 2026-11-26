@@ -22,9 +22,9 @@ import { toast } from "@/services/toast";
  */
 // The backend's bounds (internal/lobby/runtime_settings.go).
 const GUILD_LIMITS = [
-  { key: "guildsPerUser", title: "Kullanıcı başına sunucu", hint: "Bir hesabın kurabileceği sunucu sayısı.", min: 1, max: 100 },
-  { key: "membersPerGuild", title: "Sunucu başına üye", hint: "Bir sunucudaki en fazla üye. Sunucuya özel sınır Sunucular sayfasından verilir.", min: 2, max: 100000 },
-  { key: "roomsPerGuild", title: "Sunucu başına oda", hint: "Bir sunucuda açılabilecek oda sayısı.", min: 1, max: 1000 },
+  { key: "guildsPerUser", title: "Kullanıcı Başına Sunucu", hint: "Bir hesabın kurabileceği sunucu sayısı.", min: 1, max: 100 },
+  { key: "membersPerGuild", title: "Sunucu Başına Üye", hint: "Bir sunucudaki en fazla üye. Sunucuya özel sınır Sunucular sayfasından verilir.", min: 2, max: 100000 },
+  { key: "roomsPerGuild", title: "Sunucu Başına Oda", hint: "Bir sunucuda açılabilecek oda sayısı.", min: 1, max: 1000 },
 ] as const;
 
 export default function AdminSettings() {

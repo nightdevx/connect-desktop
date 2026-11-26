@@ -11,11 +11,37 @@ import type { GuildConfirmRequest } from "./guild-confirm";
 import { GuildIconPicker } from "./guild-icon-picker";
 import { JoinModeField } from "./join-mode-field";
 
+/** Genel's fields, held by the dialog so a tab switch keeps them. */
+export interface GeneralDraft {
+  name: string;
+  description: string;
+  icon: string;
+  joinMode: GuildJoinMode;
+}
+
+export const draftOf = (guild: Guild): GeneralDraft => ({
+  name: guild.name,
+  description: guild.description,
+  icon: guild.iconDataUrl,
+  joinMode: guild.joinMode,
+});
+
+/** What the draft changes, as the PATCH body; empty when nothing does. */
+export const patchOf = (guild: Guild, draft: GeneralDraft) => ({
+  ...(draft.name.trim() !== guild.name && { name: draft.name.trim() }),
+  ...(draft.description.trim() !== guild.description && { description: draft.description.trim() }),
+  ...(draft.icon !== guild.iconDataUrl && { iconDataUrl: draft.icon }),
+  ...(draft.joinMode !== guild.joinMode && { joinMode: draft.joinMode }),
+});
+
 export interface PanelProps {
   guild: Guild;
   currentUserId: string;
   accountRole: string;
   confirm: (request: GuildConfirmRequest) => void;
+  draft: GeneralDraft;
+  onDraft: (draft: GeneralDraft) => void;
+  busy: boolean;
 }
 
 const when = (iso?: string): string =>
@@ -63,6 +89,19 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="ct-guild-home-note">{children}</p>;
 }
 
+/** Loading, failed or empty, said once for every list. */
+function ListState({ query, empty }: { query: { isLoading: boolean; isError: boolean; error: unknown }; empty: string }) {
+  if (query.isLoading) return <Empty>Yükleniyor…</Empty>;
+  if (query.isError) {
+    return (
+      <p className="ct-guild-home-note" role="alert">
+        {errorText(query.error)}
+      </p>
+    );
+  }
+  return <Empty>{empty}</Empty>;
+}
+
 function PersonRow({ name, detail, children }: { name: string; detail: string; children?: ReactNode }) {
   return (
     <li className="ct-guild-row">
@@ -77,25 +116,13 @@ function PersonRow({ name, detail, children }: { name: string; detail: string; c
 
 // --- Genel ---------------------------------------------------------------------
 
-export function GeneralPanel({ guild, currentUserId, accountRole, confirm }: PanelProps) {
+export function GeneralPanel({ guild, currentUserId, accountRole, confirm, draft, onDraft, busy }: PanelProps) {
   const can = guildPermissions(guild, accountRole);
-  const [name, setName] = useState(guild.name);
-  const [description, setDescription] = useState(guild.description);
-  const [icon, setIcon] = useState(guild.iconDataUrl);
-  const [joinMode, setJoinMode] = useState<GuildJoinMode>(guild.joinMode);
-  const { write, busy } = useGuildWrite(guild.id);
+  const { write } = useGuildWrite(guild.id);
   const members = useGuildPart(guild.id, "members");
   const [heir, setHeir] = useState<string | null>(null);
-
-  const patch = {
-    ...(name.trim() !== guild.name && { name: name.trim() }),
-    ...(description.trim() !== guild.description && { description: description.trim() }),
-    ...(icon !== guild.iconDataUrl && { iconDataUrl: icon }),
-    ...(joinMode !== guild.joinMode && { joinMode }),
-  };
-  const dirty = Object.keys(patch).length > 0;
-  const save = () =>
-    write("save", () => callGuild("update", { guildId: guild.id, ...patch }), "Ayarlar kaydedildi").catch(() => undefined);
+  const set = (change: Partial<GeneralDraft>) => onDraft({ ...draft, ...change });
+  const { name, description, icon, joinMode } = draft;
 
   const others = (members.data?.members ?? []).filter((member) => member.userId !== currentUserId);
   const heirName = others.find((member) => member.userId === heir)?.username;
@@ -104,13 +131,13 @@ export function GeneralPanel({ guild, currentUserId, accountRole, confirm }: Pan
     <div className="ct-room-panel">
       {can.edit && (
         <Section title="Genel">
-          <GuildIconPicker value={icon} name={name} onChange={setIcon} disabled={busy !== null} />
+          <GuildIconPicker value={icon} name={name} onChange={(next) => set({ icon: next })} disabled={busy} />
           <label className="ct-field">
             <span className="ct-field-label-row">
               Sunucu adı
               <span className="ct-field-count">{name.length}/48</span>
             </span>
-            <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={48} />
+            <Input value={name} onChange={(event) => set({ name: event.target.value })} maxLength={48} />
           </label>
           <label className="ct-field">
             <span className="ct-field-label-row">
@@ -119,18 +146,12 @@ export function GeneralPanel({ guild, currentUserId, accountRole, confirm }: Pan
             </span>
             <Input.TextArea
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => set({ description: event.target.value })}
               maxLength={300}
               autoSize={{ minRows: 2, maxRows: 4 }}
             />
           </label>
-          <JoinModeField value={joinMode} onChange={setJoinMode} disabled={busy !== null} />
-          <div className="ct-guild-save-row">
-            <span className="ct-field-hint">{dirty ? "Kaydedilmemiş değişiklik var" : "Değişiklik yok"}</span>
-            <Button type="primary" disabled={!dirty || !name.trim()} loading={busy === "save"} onClick={() => void save()}>
-              Kaydet
-            </Button>
-          </div>
+          <JoinModeField value={joinMode} onChange={(mode) => set({ joinMode: mode })} disabled={busy} />
         </Section>
       )}
 
@@ -151,6 +172,7 @@ export function GeneralPanel({ guild, currentUserId, accountRole, confirm }: Pan
                 showSearch
                 optionFilterProp="label"
                 options={others.map((member) => ({ value: member.userId, label: `@${member.username}` }))}
+                notFoundContent={members.isError ? "Üyeler yüklenemedi" : "Başka üye yok"}
                 aria-label="Yeni sahip"
               />
               <Button
@@ -283,10 +305,8 @@ export function InvitesPanel({ guild }: PanelProps) {
         <span className="ct-field-hint">Kodu sohbette paylaş: mesajda katılma kartı olarak görünür.</span>
       </Section>
       <Section title="Davetler">
-        {invites.isLoading ? (
-          <Empty>Yükleniyor…</Empty>
-        ) : list.length === 0 ? (
-          <Empty>Henüz davet yok.</Empty>
+        {invites.isLoading || invites.isError || list.length === 0 ? (
+          <ListState query={invites} empty="Henüz davet yok." />
         ) : (
           <ul className="ct-guild-rows">
             {list.map((invite) => (
@@ -361,7 +381,12 @@ export function MembersPanel({ guild, currentUserId, accountRole, confirm }: Pan
         <div className="ct-modal-form ct-guild-ban-form">
           <label className="ct-field">
             <span>Süre</span>
-            <Select defaultValue={1440} options={BAN_LENGTHS} onChange={(value) => (lengthRef.current = value)} />
+            <Select
+              defaultValue={1440}
+              options={BAN_LENGTHS}
+              aria-label="Yasak süresi"
+              onChange={(value) => (lengthRef.current = value)}
+            />
           </label>
           <label className="ct-field">
             <span>Sebep (isteğe bağlı)</span>
@@ -391,8 +416,10 @@ export function MembersPanel({ guild, currentUserId, accountRole, confirm }: Pan
           <MenuIcon name="search" size={15} />
           <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Üye ara" aria-label="Üye ara" />
         </label>
-        {members.isLoading ? (
-          <Empty>Yükleniyor…</Empty>
+        {members.isLoading || members.isError ? (
+          <ListState query={members} empty="" />
+        ) : list.length === 0 ? (
+          <Empty>“{filter.trim()}” ile eşleşen üye yok.</Empty>
         ) : (
           <ul className="ct-guild-rows">
             {list.map((member) => {
@@ -478,10 +505,8 @@ export function RequestsPanel({ guild }: PanelProps) {
   return (
     <div className="ct-room-panel">
       <Section title="İstekler">
-        {requests.isLoading ? (
-          <Empty>Yükleniyor…</Empty>
-        ) : list.length === 0 ? (
-          <Empty>Bekleyen istek yok.</Empty>
+        {requests.isLoading || requests.isError || list.length === 0 ? (
+          <ListState query={requests} empty="Bekleyen istek yok." />
         ) : (
           <ul className="ct-guild-rows">
             {list.map((request) => (
@@ -511,10 +536,8 @@ export function BansPanel({ guild }: PanelProps) {
   return (
     <div className="ct-room-panel">
       <Section title="Yasaklar">
-        {bans.isLoading ? (
-          <Empty>Yükleniyor…</Empty>
-        ) : list.length === 0 ? (
-          <Empty>Yasaklı kimse yok.</Empty>
+        {bans.isLoading || bans.isError || list.length === 0 ? (
+          <ListState query={bans} empty="Yasaklı kimse yok." />
         ) : (
           <ul className="ct-guild-rows">
             {list.map((ban) => (

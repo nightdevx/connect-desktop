@@ -163,6 +163,7 @@ export default function AdminGuilds() {
             <Tooltip title="Geri yükle">
               <Button
                 type="text"
+                aria-label={`${guild.name}: geri yükle`}
                 icon={<RollbackOutlined />}
                 loading={busy === `restore-${guild.id}`}
                 onClick={() => void act(`restore-${guild.id}`, () => callGuild("adminRestore", { guildId: guild.id }), `${guild.name} geri yüklendi`)}
@@ -173,6 +174,7 @@ export default function AdminGuilds() {
               <Tooltip title="Katıl ve aç">
                 <Button
                   type="text"
+                  aria-label={`${guild.name}: katıl ve aç`}
                   icon={<LoginOutlined />}
                   loading={busy === `join-${guild.id}`}
                   onClick={() =>
@@ -193,20 +195,32 @@ export default function AdminGuilds() {
                   }
                 />
               </Tooltip>
-              <Tooltip title={guild.suspendedAt ? "Askıyı kaldır" : "Askıya al"}>
-                <Button
-                  type="text"
-                  icon={guild.suspendedAt ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-                  loading={busy === `suspend-${guild.id}`}
-                  onClick={() =>
-                    void act(
-                      `suspend-${guild.id}`,
-                      () => callGuild("adminSuspend", { guildId: guild.id, suspended: !guild.suspendedAt }),
-                      guild.suspendedAt ? "Askı kaldırıldı" : "Sunucu askıya alındı",
-                    )
-                  }
-                />
-              </Tooltip>
+              <Popconfirm
+                title={guild.suspendedAt ? `${guild.name} yeniden açılsın mı?` : `${guild.name} askıya alınsın mı?`}
+                description={
+                  guild.suspendedAt
+                    ? "Üyeleri sunucuyu ve odalarını yeniden görür."
+                    : "Sunucu ve odaları herkesten gizlenir, odadakilerin bağlantısı kesilir."
+                }
+                okText={guild.suspendedAt ? "Askıyı kaldır" : "Askıya al"}
+                cancelText="Vazgeç"
+                onConfirm={() =>
+                  void act(
+                    `suspend-${guild.id}`,
+                    () => callGuild("adminSuspend", { guildId: guild.id, suspended: !guild.suspendedAt }),
+                    guild.suspendedAt ? "Askı kaldırıldı" : "Sunucu askıya alındı",
+                  )
+                }
+              >
+                <Tooltip title={guild.suspendedAt ? "Askıyı kaldır" : "Askıya al"}>
+                  <Button
+                    type="text"
+                    aria-label={`${guild.name}: ${guild.suspendedAt ? "askıyı kaldır" : "askıya al"}`}
+                    icon={guild.suspendedAt ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+                    loading={busy === `suspend-${guild.id}`}
+                  />
+                </Tooltip>
+              </Popconfirm>
             </>
           )}
           <Popconfirm
@@ -218,7 +232,13 @@ export default function AdminGuilds() {
             onConfirm={() => void act(`purge-${guild.id}`, () => callGuild("adminPurge", { guildId: guild.id }), "Sunucu kalıcı olarak silindi")}
           >
             <Tooltip title="Kalıcı sil">
-              <Button type="text" danger icon={<DeleteOutlined />} loading={busy === `purge-${guild.id}`} />
+              <Button
+                type="text"
+                danger
+                aria-label={`${guild.name}: kalıcı sil`}
+                icon={<DeleteOutlined />}
+                loading={busy === `purge-${guild.id}`}
+              />
             </Tooltip>
           </Popconfirm>
         </div>

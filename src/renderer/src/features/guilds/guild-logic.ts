@@ -77,7 +77,7 @@ export const ROLE_LABELS: Record<GuildRole, string> = {
 export const JOIN_MODE_LABELS: Record<GuildJoinMode, { label: string; hint: string }> = {
   invite: { label: "Yalnız davetle", hint: "Kod alan katılır. Keşfet'te görünmez." },
   public: { label: "Herkese açık", hint: "Keşfet'te görünür, isteyen hemen katılır." },
-  request: { label: "İstekle", hint: "Keşfet'te görünür, bir moderatör onaylayınca katılınır." },
+  request: { label: "İstekle", hint: "Keşfet'te görünür, bir moderatör onaylayınca katılır." },
 };
 
 /** Up to two letters for a server without an icon. */

@@ -21,8 +21,7 @@
   flex-shrink: 0;
   min-height: 0;
   padding: 14px 0;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  background: #08090b;
+  background: var(--odak-rail);
   border-right: 1px solid var(--odak-border);
 }
 
@@ -112,7 +111,7 @@
   border-radius: 50%;
   color: var(--odak-on-accent);
   background: var(--odak-accent);
-  box-shadow: 0 0 0 2px #08090b;
+  box-shadow: 0 0 0 2px var(--odak-rail);
 }
 
 .ct-guild-add {
@@ -319,9 +318,15 @@
   overflow: hidden;
   font-size: 13px;
   line-height: 1.45;
-  color: #c3c7cf;
+  color: var(--odak-muted);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* The card itself does nothing; only its button does. */
+.ct-guild-card.ct-odak-card:hover {
+  border-color: var(--odak-border);
+  background: var(--odak-surface);
 }
 
 .ct-guild-card-action {
@@ -412,7 +417,15 @@
   width: 124px;
 }
 
+/* The search boxes on these pages show where the keyboard is. */
+.ct-guild-home .ct-odak-search:focus-within,
+.ct-guild-filter:focus-within {
+  border-color: var(--odak-accent);
+}
+
+/* The search box is a row's child elsewhere; in a column it would stretch. */
 .ct-guild-filter {
+  flex: none;
   max-width: none;
 }
 
@@ -466,6 +479,15 @@
 .ct-guild-mode input {
   margin-top: 3px;
   accent-color: var(--odak-accent);
+}
+
+.ct-guild-mode:has(input:focus-visible) {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 2px;
+}
+
+.ct-guild-mode input:focus-visible {
+  outline: 0;
 }
 
 .ct-guild-mode-text {
@@ -523,12 +545,6 @@
   margin-top: 6px;
 }
 
-.ct-guild-save-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 
 .ct-guild-heir {
   width: 160px;
