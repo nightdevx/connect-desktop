@@ -185,13 +185,14 @@ assert.match(
 
 // Every write re-derives the rule against the session it is about to change,
 // under the lock that protects it, with the moderator override read from
-// CanControl. Checking before the lock is not the same question a moment later:
+// CanControl (per room since servers: a moderator of one server is not one in
+// another). Checking before the lock is not the same question a moment later:
 // a moderator replacing the video hands the session to somebody else, and a
 // stale answer would let the previous starter stop it.
 for (const name of ["transition", "Stop", "Start"]) {
   assert.match(
     goFunc(name),
-    /moderator := m\.CanControl\(actor\)/,
+    /moderator := m\.CanControl\((?:lobbyID, )?actor\)/,
     `check-watch-control: watch.Manager.${name} no longer honours the moderator override`,
   );
   assert.match(
@@ -228,7 +229,7 @@ assert.match(
 // here would go stale on the client the moment somebody else started a video.
 assert.match(
   handlerSource,
-  /"canControl":\s*h\.manager\.CanControl\(actor\)/,
+  /"canControl":\s*h\.manager\.CanControl\((?:state\.LobbyID, )?actor\)/,
   "check-watch-control: writeState no longer sends the moderator half — the client caches this value",
 );
 
