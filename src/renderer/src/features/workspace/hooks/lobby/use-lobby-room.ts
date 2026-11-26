@@ -156,9 +156,10 @@ export const useLobbyRoom = ({
     // Slowed rather than switched off. `false` would stop the timer entirely,
     // and react-query would not re-evaluate it until something else fired — so a
     // stream that died without announcing itself would leave the roster frozen
-    // with nothing left to notice. 30s costs almost nothing and guarantees the
-    // roster cannot be stuck for longer than that under any failure.
-    refetchInterval: isRosterStreamLive ? 30_000 : 8_000,
+    // with nothing left to notice. The stream pushes every roster change, so
+    // this only catches a stream that died silently; 120s is the same backstop
+    // as the chat poll below.
+    refetchInterval: isRosterStreamLive ? 120_000 : 8_000,
     refetchIntervalInBackground: true,
     staleTime: 4_000,
   });
