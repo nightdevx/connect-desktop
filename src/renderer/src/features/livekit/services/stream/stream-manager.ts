@@ -61,6 +61,7 @@ import {
 import { RemoteMediaHandler } from "./remote-media-handler";
 import { RoomEventManager } from "./room-event-manager";
 import { MediaStatsCollector, type MediaStatsSnapshot } from "./stats-collector";
+import { usableScreenTracks } from "./screen-stream-guard";
 import {
   EMPTY_ICE_PATHS,
   classifyIcePath,
@@ -1145,6 +1146,23 @@ export class LiveKitMediaSession {
         ]);
       } catch (err) {
         console.warn("[LiveKitMediaSession] Failed to mute mic before disconnect:", err);
+      }
+    }
+
+    // A share that is still desired is being carried to the next room (a move,
+    // a rebuild). room.disconnect() stops every local track, which killed the
+    // capture while the UI still said "sharing". Unpublish its tracks without
+    // stopping them first; an ended share already cleared desiredScreenEnabled
+    // and its owner stops the capture itself.
+    if (room && this.desiredScreenEnabled) {
+      for (const pub of Array.from(room.localParticipant.trackPublications.values())) {
+        if (
+          pub.track &&
+          (pub.source === Track.Source.ScreenShare ||
+            pub.source === Track.Source.ScreenShareAudio)
+        ) {
+          await room.localParticipant.unpublishTrack(pub.track, false).catch(() => undefined);
+        }
       }
     }
 
@@ -2515,6 +2533,24 @@ export class LiveKitMediaSession {
 
     const screenTrack = this.desiredScreenStream?.getVideoTracks()[0];
     if (screenTrack) {
+      // A capture stopped while no room held it (a room switch) is not a share.
+      // End it through the app's own "capture ended" handler instead of
+      // publishing a stream that sends nothing.
+      const usable = usableScreenTracks(this.desiredScreenStream);
+      if (!usable) {
+        const dead = this.desiredScreenStream;
+        logLiveKitDebug("stream-manager", "screen-share-dead", {
+          videoTrackId: screenTrack.id,
+          videoReadyState: screenTrack.readyState,
+          audioReadyStates: dead?.getAudioTracks().map((t) => t.readyState) ?? [],
+        });
+        this.desiredScreenEnabled = false;
+        this.desiredScreenStream = null;
+        // stop() fires no event, so this is what turns the UI's share state off.
+        dead?.getTracks().forEach((t) => t.stop());
+        screenTrack.dispatchEvent(new Event("ended"));
+        return;
+      }
       // Check if this specific track is already published
       const isAlreadyPublished = Array.from(participant.trackPublications.values()).some(
         (pub) => pub.track?.mediaStreamTrack === screenTrack
@@ -2577,8 +2613,13 @@ export class LiveKitMediaSession {
       );
 
       // Also publish audio track if available (screen share audio)
-      const audioTracks = this.desiredScreenStream?.getAudioTracks() ?? [];
+      const audioTracks = usable.audio;
       const audioTrack = audioTracks[0];
+      const deadAudio =
+        (this.desiredScreenStream?.getAudioTracks().length ?? 0) - audioTracks.length;
+      if (deadAudio > 0) {
+        logLiveKitDebug("stream-manager", "screen-audio-dead", { count: deadAudio });
+      }
       
       logLiveKitDebug("stream-manager", "screen-capture-status", {
         hasStream: !!this.desiredScreenStream,
