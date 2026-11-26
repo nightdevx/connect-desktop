@@ -40,6 +40,53 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.4.0",
+    date: "2026-11-27",
+    summary: "Artık kendi sunucunu kurabilirsin.",
+    highlights: [
+      {
+        kind: "new",
+        text: "Artık kendi sunucunu kurabilirsin: odaların, üyelerin ve moderatörlerin sana ait.",
+      },
+      {
+        kind: "new",
+        text: "Sunuculara davet koduyla, Keşfet listesinden ya da katılma isteğiyle girebilirsin.",
+      },
+      {
+        kind: "new",
+        text: "Eski topluluğumuz NIGHT sunucusunda, her şey yerinde duruyor.",
+      },
+      {
+        kind: "improved",
+        text: "Sol sütunda sunucuların ve sekmeler bir arada; sunucuya basınca odaları açılır.",
+      },
+      {
+        kind: "improved",
+        text: "Emojiler, DJ listesi ve oyun skorları artık her sunucunun kendine ait.",
+      },
+      {
+        kind: "improved",
+        text: "Başka bir odaya geçince kamera ve ekran paylaşımın kapanıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Bağlantın kopunca sesli odaya daha hızlı dönüyorsun.",
+      },
+      {
+        kind: "improved",
+        text: "Uygulama daha az internet harcıyor; sohbetteki fotoğraflar bir kez iniyor, sonra hemen açılıyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Kulaklık değişince ya da bilgisayar uykudan uyanınca diğerlerinin sesi bazen gelmiyordu. Artık kendiliğinden geri geliyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Mikrofon çıkarılıp takılınca sesin farklı duyulabiliyordu. Artık ayarların korunuyor.",
+      },
+    ],
+  },
+  {
     version: "0.3.7",
     date: "2026-11-16",
     highlights: [

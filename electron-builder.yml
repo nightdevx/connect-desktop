@@ -89,7 +89,7 @@ publish:
 # scripts/check-release-notes.cjs refuses it.
 releaseInfo:
   vendor:
-    minimumVersion: "0.3.2"
+    minimumVersion: "0.4.0"
 win:
   icon: build/icon.ico
   artifactName: Connect-Setup-${version}.${ext}
