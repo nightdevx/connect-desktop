@@ -18,6 +18,8 @@ import {
   useTableFit,
 } from "./admin-primitives";
 import { toast } from "@/services/toast";
+import { NIGHT_GUILD_ID } from "@shared/guild-contracts";
+import { useAdminGuilds } from "./admin-guilds";
 
 export default function AdminMusic() {
   const [djs, setDjs] = useState<MusicDJ[]>([]);
@@ -28,11 +30,16 @@ export default function AdminMusic() {
   const [disabled, setDisabled] = useState(false);
   const [granting, setGranting] = useState(false);
   const [candidateId, setCandidateId] = useState<string | undefined>();
+  // The DJ list is per server.
+  const [guildId, setGuildId] = useState(NIGHT_GUILD_ID);
+  const guildOptions = (useAdminGuilds().data?.guilds ?? [])
+    .filter((guild) => !guild.deletedAt)
+    .map((guild) => ({ value: guild.id, label: guild.name }));
 
   const fetchDjs = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      const result = await adminService.listMusicDJs();
+      const result = await adminService.listMusicDJs(guildId);
       setDjs(result.djs);
       setSpotifyEnabled(result.spotifyEnabled);
       setDisabled(false);
@@ -43,7 +50,7 @@ export default function AdminMusic() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [guildId]);
 
   useEffect(() => {
     void fetchDjs();
@@ -62,7 +69,7 @@ export default function AdminMusic() {
     }
     try {
       setGranting(true);
-      await adminService.grantMusicDJ(candidateId);
+      await adminService.grantMusicDJ(candidateId, guildId);
       setCandidateId(undefined);
       toast.success("DJ yetkisi verildi");
       void fetchDjs();
@@ -71,19 +78,19 @@ export default function AdminMusic() {
     } finally {
       setGranting(false);
     }
-  }, [candidateId, fetchDjs]);
+  }, [candidateId, fetchDjs, guildId]);
 
   const revoke = useCallback(
     async (userId: string): Promise<void> => {
       try {
-        await adminService.revokeMusicDJ(userId);
+        await adminService.revokeMusicDJ(userId, guildId);
         toast.success("DJ yetkisi alındı");
         void fetchDjs();
       } catch (error) {
         toast.error(toErrorMessage(error, "DJ yetkisi alınamadı"));
       }
     },
-    [fetchDjs],
+    [fetchDjs, guildId],
   );
 
   const nameOf = useCallback(
@@ -156,9 +163,20 @@ export default function AdminMusic() {
         title="Müzik"
         description="Odalarda müzik botunu kullanabilecek kişileri belirleyin. Yöneticiler her zaman kullanabilir."
         actions={
-          <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void fetchDjs()}>
-            Yenile
-          </Button>
+          <>
+            <Select
+              value={guildId}
+              onChange={setGuildId}
+              options={guildOptions.length > 0 ? guildOptions : [{ value: NIGHT_GUILD_ID, label: "NIGHT" }]}
+              showSearch
+              optionFilterProp="label"
+              className="ct-admin-toolbar-filter"
+              aria-label="Sunucu"
+            />
+            <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void fetchDjs()}>
+              Yenile
+            </Button>
+          </>
         }
       />
 
@@ -182,7 +200,7 @@ export default function AdminMusic() {
 
       <AdminSection
         title="DJ yetkileri"
-        description="Bu kişiler odalarda müzik botuna şarkı ekleyip kuyruğu yönetebilir."
+        description="Bu kişiler seçili sunucunun odalarında müzik botuna şarkı ekleyip kuyruğu yönetebilir."
         icon={<CustomerServiceOutlined />}
         hint={`${djs.length} kişi`}
         toolbar={

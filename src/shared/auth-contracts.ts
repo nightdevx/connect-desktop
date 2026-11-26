@@ -238,6 +238,10 @@ export interface AdminRuntimeSettings {
   maxLobbies: number;
   maxLobbiesPerUser: number;
   lobbyCapacity: number;
+  // Server ceilings; absent from a backend before servers.
+  guildsPerUser?: number;
+  membersPerGuild?: number;
+  roomsPerGuild?: number;
   disabledMinigames: string[];
   maintenanceMode: boolean;
   maintenanceMessage: string;
@@ -259,6 +263,9 @@ export interface AdminRuntimeSettingsPatch {
   maxLobbies?: number;
   maxLobbiesPerUser?: number;
   lobbyCapacity?: number;
+  guildsPerUser?: number;
+  membersPerGuild?: number;
+  roomsPerGuild?: number;
   disabledMinigames?: string[];
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
