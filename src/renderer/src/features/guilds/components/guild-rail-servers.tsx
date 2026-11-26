@@ -4,8 +4,10 @@ import { useGuildList } from "../use-guilds";
 import { useGuildUi } from "../guild-store";
 import { GuildIcon } from "./guild-icon";
 
-export interface GuildColumnProps {
+export interface GuildRailServersProps {
   selectedGuildId: string | null;
+  /** The lobbies section is on screen: only then is a server "selected". */
+  showingLobbies: boolean;
   /** Servers with a room that has unread messages. */
   unreadGuildIds: ReadonlySet<string>;
   /** The server of the voice room the user is in. */
@@ -15,11 +17,18 @@ export interface GuildColumnProps {
 }
 
 /**
- * The server column at the far left: one icon per server, the selected one
- * marked, a dot for unread rooms, a speaker on the server whose room the
- * user is in, and + for Kur / Katıl / Keşfet.
+ * The servers, in the section rail under its tabs: one icon per server (a
+ * click opens its rooms), the one on screen marked, a dot for unread rooms,
+ * a speaker on the server whose room the user is in, and + for Kur / Katıl /
+ * Keşfet. There is no Lobiler tab: a server is the way to its rooms.
  */
-export function GuildColumn({ selectedGuildId, unreadGuildIds, voiceGuildId, onSelect }: GuildColumnProps) {
+export function GuildRailServers({
+  selectedGuildId,
+  showingLobbies,
+  unreadGuildIds,
+  voiceGuildId,
+  onSelect,
+}: GuildRailServersProps) {
   const { data } = useGuildList();
   const discovering = useGuildUi((state) => state.discovering);
   const openDialog = useGuildUi((state) => state.openDialog);
@@ -28,10 +37,11 @@ export function GuildColumn({ selectedGuildId, unreadGuildIds, voiceGuildId, onS
   const deleted = data?.deleted.length ?? 0;
 
   return (
-    <nav className="ct-guild-column" aria-label="Sunucular">
-      <ul className="ct-guild-list">
+    <>
+      <span className="ct-guild-divider" role="separator" aria-hidden="true" />
+      <ul className="ct-guild-list" aria-label="Sunucular">
         {guilds.map((guild) => {
-          const selected = guild.id === selectedGuildId && !discovering;
+          const selected = showingLobbies && guild.id === selectedGuildId && !discovering;
           const unread = unreadGuildIds.has(guild.id);
           const inVoice = guild.id === voiceGuildId;
           const label = [guild.name, unread && "okunmamış mesaj var", inVoice && "sesli odadasın"]
@@ -77,11 +87,15 @@ export function GuildColumn({ selectedGuildId, unreadGuildIds, voiceGuildId, onS
         ]}
       >
         <Tooltip title="Sunucu ekle" placement="right">
-          <button type="button" className={`ct-guild-add${discovering ? " active" : ""}`} aria-label="Sunucu ekle">
+          <button
+            type="button"
+            className={`ct-guild-add${showingLobbies && discovering ? " active" : ""}`}
+            aria-label="Sunucu ekle"
+          >
             <MenuIcon name="plus" size={20} stroke={2} />
           </button>
         </Tooltip>
       </OdakMenu>
-    </nav>
+    </>
   );
 }

@@ -1,28 +1,32 @@
 /* ==========================================================================
-   SERVERS -- the server column, the server pages and dialogs, the invite card.
+   SERVERS -- the servers in the rail, the server pages and dialogs, the invite card.
    Odak palette throughout; the dialogs borrow the room settings' rows and
    tabs (odak-pencereler.css).
    ========================================================================== */
 
-/* --- the column, left of the section rail ------------------------------- */
-.ct-odak-railset {
-  display: flex;
+/* --- the servers, in the section rail ---------------------------------- */
+/* Under the section tabs: a rule, then one icon per server. The list scrolls
+   when there are many; the tabs, the dock and the avatar keep their room. */
+.ct-guild-divider {
   flex-shrink: 0;
-  min-height: 0;
-  height: 100%;
+  width: 32px;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--odak-border-strong);
 }
 
-.ct-guild-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: var(--ct-guilds-width);
-  flex-shrink: 0;
-  min-height: 0;
-  padding: 14px 0;
-  background: var(--odak-rail);
-  border-right: 1px solid var(--odak-border);
+/* With the dock in the rail (Oyunlar, Fırsatlar) everything else keeps its
+   height (odak.css); the servers are the one part that gives, and scrolls,
+   down to one icon. */
+:root[data-odak] .ct-odak-rail:has(> .ct-odak-rail-dock) > .ct-guild-list {
+  flex-shrink: 1;
+}
+
+/* A window too short for all of it (the 720x480 minimum with the dock in
+   the rail): the rail scrolls rather than cutting off the avatar. */
+:root[data-odak] .ct-odak-rail {
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .ct-guild-list {
@@ -31,9 +35,11 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 0;
+  /* Squeezed, it keeps one icon in view and scrolls. */
+  min-height: 48px;
   margin: 0;
-  padding: 0;
+  /* Room for the selected ring and the voice badge at the scroll edges. */
+  padding: 3px 0 4px;
   overflow-y: auto;
   list-style: none;
   scrollbar-width: none;

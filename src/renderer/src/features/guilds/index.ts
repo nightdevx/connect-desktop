@@ -1,6 +1,6 @@
 // Servers (guilds): the column, the dialogs, Keşfet and the chat invite card,
 // plus the selection the rest of the app reads.
-export { GuildColumn, type GuildColumnProps } from "./components/guild-column";
+export { GuildRailServers, type GuildRailServersProps } from "./components/guild-rail-servers";
 export { GuildHome } from "./components/guild-home";
 export { GuildCreateDialog } from "./components/guild-create-dialog";
 export { GuildJoinDialog } from "./components/guild-join-dialog";

@@ -40,12 +40,12 @@
    conversation panel shows to their right (see .is-odak-users). */
 .ct-odak.docked {
   right: auto;
-  width: calc(148px + var(--ct-guilds-width));
+  width: 148px;
   transition: width var(--ct-duration-slow) var(--ct-ease-spring);
 }
 
 .ct-odak.docked.strip-open {
-  width: calc(320px + var(--ct-guilds-width));
+  width: 320px;
 }
 
 .ct-odak button,
@@ -199,9 +199,8 @@
   border-right: 1px solid var(--odak-border);
 }
 
-/* The server column and the rail, side by side (guilds.css). In the shell:
-   column 1, both rows, like the old rail. */
-.ct-workspace-shell > .ct-odak-railset {
+/* In the shell: column 1, both rows, like the old rail. */
+.ct-workspace-shell > .ct-odak-rail {
   grid-column: 1;
   grid-row: 1 / -1;
 }
@@ -921,11 +920,11 @@
    the shell); the old sidebar steps aside (the dock moves into the strip), and
    the conversation panel takes the rest. */
 .ct-workspace-shell.is-odak-users {
-  grid-template-columns: calc(320px + var(--ct-guilds-width)) 0 minmax(0, 1fr);
+  grid-template-columns: 320px 0 minmax(0, 1fr);
 }
 
 .ct-workspace-shell.is-odak-users.is-sidebar-collapsed {
-  grid-template-columns: calc(148px + var(--ct-guilds-width)) 0 minmax(0, 1fr);
+  grid-template-columns: 148px 0 minmax(0, 1fr);
 }
 
 .ct-workspace-shell.is-odak-users > .ct-sidebar {
@@ -945,8 +944,7 @@
    nothing. The rail stays 72px for the same reason (the old one shrank to
    56px under 760px; folding the sidebar is the way to buy width now). */
 :root[data-odak] .ct-workspace-shell {
-  /* The server column (64px) and the section rail (72px). */
-  --ct-rail-width: calc(72px + var(--ct-guilds-width));
+  --ct-rail-width: 72px;
   --ct-sidebar-width: 248px;
 }
 

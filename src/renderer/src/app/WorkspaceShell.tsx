@@ -1283,7 +1283,6 @@ function WorkspaceShell({
 
   const {
     unreadByLobbyId,
-    totalUnread: totalUnreadLobbyMessages,
     clearLobbyUnread,
   } = useLobbyUnread({
     currentUserId,
@@ -1420,7 +1419,6 @@ function WorkspaceShell({
   const railProps = {
     onSectionChange: handleSectionChange,
     currentUserRole,
-    unreadLobbyMessages: totalUnreadLobbyMessages,
     unreadDirectMessages: totalUnreadDirectMessages,
     currentUserId,
     currentUsername,
@@ -1430,7 +1428,7 @@ function WorkspaceShell({
     onLogout,
     isLoggingOut,
     friends,
-    guildColumn: {
+    guildServers: {
       selectedGuildId: guilds.selectedGuildId,
       unreadGuildIds: guildsWithUnread(lobbies, unreadByLobbyId),
       voiceGuildId: activeRoom ? roomGuildId(activeRoom) : null,

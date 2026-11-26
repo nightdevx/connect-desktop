@@ -48,7 +48,11 @@ export const useGuildUi = create<GuildUiState>((set) => ({
     rememberGuild(guildId);
     set({ selectedGuildId: guildId, discovering: false });
   },
-  openDiscover: () => set({ discovering: true }),
+  // Keşfet is drawn where the rooms are: open that section with it.
+  openDiscover: () => {
+    useUiStore.getState().setWorkspaceSection("lobbies");
+    set({ discovering: true });
+  },
   closeDiscover: () => set({ discovering: false }),
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
