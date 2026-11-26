@@ -503,7 +503,6 @@ if (hasSingleInstanceLock) {
 
     initializeModularUpdater({
       beforeInstall: cleanupBeforeAppQuit,
-      periodicCheckMs: 15 * 60 * 1000,
     });
     setClientOutdatedHandler(requireAppUpdate);
     registerIpcHandlers();
