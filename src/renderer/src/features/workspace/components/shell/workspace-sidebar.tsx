@@ -789,6 +789,7 @@ export function WorkspaceSidebar({
           <LobbiesSidebarPanel
             lobbiesQuery={lobbiesProps.lobbiesQuery}
             lobbies={lobbiesProps.lobbies}
+            guildId={lobbiesProps.guild?.id}
             lobbyMembersById={lobbiesProps.lobbyMembersById}
             avatarByUserId={lobbiesProps.avatarByUserId}
             activeLobbyId={lobbiesProps.activeLobbyId}

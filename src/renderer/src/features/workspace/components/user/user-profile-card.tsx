@@ -42,6 +42,7 @@ import {
 import { PresenceGlyph } from "../odak/odak-parts";
 import { BlankFace } from "@/ui/blank-face";
 import { toast } from "@/services/toast";
+import { serverBadge, useServerRole } from "@/features/guilds";
 
 // Same ceiling the composer uses. Enforced again server-side; this only stops
 // the request being made at all.
@@ -79,6 +80,12 @@ interface UserProfileCardProps {
   /** Under your own card only: what you can do about yourself (the rail
       puts your status there). */
   selfFooter?: ReactNode;
+  /**
+   * The server the card is opened in (a room's roster, its chat). Inside a
+   * server the badge is the person's server role, never their account role.
+   * Friends and DMs leave it out and keep the account badge.
+   */
+  guildId?: string | null;
 }
 
 /** The band + avatar frame, shared by the real card and its loading skeleton. */
@@ -110,8 +117,10 @@ export function UserProfileCard({
   friends,
   onPhotoPreviewChange,
   selfFooter,
+  guildId,
 }: UserProfileCardProps): ReactElement {
   const { card, isLoading, isUnavailable } = useUserCard(userId);
+  const serverRole = useServerRole(guildId, userId);
   const presence = useUserPresence(userId);
   const [isSending, setIsSending] = useState(false);
   const [hasCopiedHandle, setHasCopiedHandle] = useState(false);
@@ -304,7 +313,7 @@ export function UserProfileCard({
   }
 
   const displayName = card.displayName.trim() || card.username;
-  const isAdmin = card.role === "admin";
+  const badge = serverBadge(guildId, card.role, serverRole);
 
   return (
     <div className="ct-profile-card">
@@ -390,9 +399,9 @@ export function UserProfileCard({
               saturated chips into an otherwise monochrome card. The variants are
               classes now, built from the tokens, so they follow the theme. */}
           <div className="ct-profile-card-tags">
-            {isAdmin ? (
+            {badge ? (
               <Tag className="ct-profile-card-tag admin" icon={<CrownOutlined />}>
-                Yönetici
+                {badge}
               </Tag>
             ) : (
               <Tag className="ct-profile-card-tag">Üye</Tag>

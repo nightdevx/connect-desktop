@@ -1042,6 +1042,7 @@ export function LobbiesMainPanel({
           fallbackName={profileCardTarget.name}
           currentUserId={currentUserId}
           friends={friends}
+          guildId={activeLobby ? roomGuildId(activeLobby) : undefined}
           onClose={() => setProfileCardTarget(null)}
         />
       )}
