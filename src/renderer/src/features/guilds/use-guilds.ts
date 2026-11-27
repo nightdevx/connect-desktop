@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Guild, GuildList, GuildRole } from "@shared/guild-contracts";
 import { callGuild } from "./guild-service";
 import { resolveSelectedGuild } from "./guild-logic";
@@ -11,7 +11,8 @@ const EMPTY: GuildList = {
   guilds: [],
   deleted: [],
   requests: [],
-  limits: { guildsPerUser: 0, membersPerGuild: 0, roomsPerGuild: 0 },
+  canCreate: false,
+  limits: { guildsPerUser: 0, membersPerGuild: 0, roomsPerGuild: 0, creationClosed: false },
 };
 
 /** GET /guilds, cached; every component that needs the list reads this. */
@@ -47,10 +48,21 @@ export const useServerRole = (guildId: string | null | undefined, userId: string
     retry: false,
   }).data?.members.find((member) => member.userId === userId)?.role;
 
+/**
+ * Every view of the server list: mine, all (staff) and Keşfet (any search), so
+ * a server created, deleted, left or changed does not linger in one of them.
+ */
+export const invalidateGuildViews = (queryClient: QueryClient) =>
+  Promise.all([
+    queryClient.invalidateQueries({ queryKey: GUILDS_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: ALL_GUILDS_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: ["guild-discover"] }),
+  ]);
+
 /** Refetches the list (after a change this client made, or one it heard of). */
 export const useRefreshGuilds = () => {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: GUILDS_QUERY_KEY });
+  return () => invalidateGuildViews(queryClient);
 };
 
 export interface GuildsState {
@@ -84,8 +96,7 @@ export function useGuilds(): GuildsState {
           event.type === "guilds-changed" ||
           (event.type === "stream-status" && event.status === "connected")
         ) {
-          void queryClient.invalidateQueries({ queryKey: GUILDS_QUERY_KEY });
-          void queryClient.invalidateQueries({ queryKey: ALL_GUILDS_QUERY_KEY });
+          void invalidateGuildViews(queryClient);
         }
       }),
     [queryClient],

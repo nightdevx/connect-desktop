@@ -256,6 +256,7 @@ export const adminSettingsPatchSchema = z.object({
   guildsPerUser: z.number().int().min(1).max(100).optional(),
   membersPerGuild: z.number().int().min(2).max(100_000).optional(),
   roomsPerGuild: z.number().int().min(1).max(1000).optional(),
+  guildCreationClosed: z.boolean().optional(),
   disabledMinigames: z.array(z.string().min(1).max(32)).max(64).optional(),
   maintenanceMode: z.boolean().optional(),
   maintenanceMessage: z.string().max(280).optional(),

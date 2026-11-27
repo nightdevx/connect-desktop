@@ -219,6 +219,7 @@ export const RestrictAvatar: UserRestriction = "avatar";
 export const RestrictBanner: UserRestriction = "banner";
 export const RestrictBio: UserRestriction = "bio";
 export const RestrictEmail: UserRestriction = "email";
+export const RestrictGuildCreate: UserRestriction = "guildCreate";
 
 //////////
 // source: presence.go

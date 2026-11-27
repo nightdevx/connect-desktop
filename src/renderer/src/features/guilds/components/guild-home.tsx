@@ -89,7 +89,7 @@ function DiscoverList() {
   const discover = useQuery({
     queryKey: ["guild-discover", query],
     queryFn: () => callGuild("discover", { q: query }),
-    staleTime: 30_000,
+    staleTime: 0, // asks again each time Keşfet opens
   });
   const memberOf = new Set(list?.guilds.map((guild) => guild.id));
   const requested = new Set(list?.requests.map((entry) => entry.id));
@@ -237,6 +237,7 @@ export function GuildHome({ empty }: { empty: boolean }) {
   const closeDiscover = useGuildUi((state) => state.closeDiscover);
   const browsingAll = useGuildUi((state) => state.browsingAll);
   const closeAllGuilds = useGuildUi((state) => state.closeAllGuilds);
+  const canCreate = useGuildList().data?.canCreate ?? false;
 
   return (
     <main className="ct-main-panel ct-guild-home">
@@ -266,13 +267,23 @@ export function GuildHome({ empty }: { empty: boolean }) {
         ) : (
           <div className="ct-guild-empty">
             <h2>Henüz bir sunucuda değilsin</h2>
-            <p>Arkadaşlarınla kendi sunucunu kur, bir davet koduyla katıl ya da açık sunuculara göz at.</p>
+            <p>
+              {canCreate
+                ? "Arkadaşlarınla kendi sunucunu kur, bir davet koduyla katıl ya da açık sunuculara göz at."
+                : "Bir davet koduyla katıl ya da açık sunuculara göz at."}
+            </p>
             <div className="ct-guild-empty-actions">
-              <button type="button" className="ct-odak-primary" onClick={() => openDialog({ kind: "create" })}>
-                <MenuIcon name="plus" size={16} stroke={2.2} />
-                Sunucu kur
-              </button>
-              <button type="button" className="ct-odak-secondary" onClick={() => openDialog({ kind: "join" })}>
+              {canCreate && (
+                <button type="button" className="ct-odak-primary" onClick={() => openDialog({ kind: "create" })}>
+                  <MenuIcon name="plus" size={16} stroke={2.2} />
+                  Sunucu kur
+                </button>
+              )}
+              <button
+                type="button"
+                className={canCreate ? "ct-odak-secondary" : "ct-odak-primary"}
+                onClick={() => openDialog({ kind: "join" })}
+              >
                 <MenuIcon name="login" size={16} />
                 Kodla katıl
               </button>

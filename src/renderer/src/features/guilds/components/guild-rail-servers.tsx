@@ -79,7 +79,8 @@ export function GuildRailServers({
         placement="topLeft"
         width={240}
         items={[
-          { key: "create", icon: "plus", label: "Sunucu kur", opensDialog: true, onSelect: () => openDialog({ kind: "create" }) },
+          // Hidden, not greyed, when this account may not create servers.
+          data?.canCreate && { key: "create", icon: "plus", label: "Sunucu kur", opensDialog: true, onSelect: () => openDialog({ kind: "create" }) },
           { key: "join", icon: "login", label: "Kodla katıl", opensDialog: true, onSelect: () => openDialog({ kind: "join" }) },
           { key: "discover", icon: "search", label: "Keşfet", onSelect: openDiscover },
           isStaff && { key: "all", icon: "users", label: "Tüm sunucular", onSelect: openAllGuilds },

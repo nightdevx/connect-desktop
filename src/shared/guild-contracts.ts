@@ -29,6 +29,8 @@ export interface GuildLimits {
   guildsPerUser: number;
   membersPerGuild: number;
   roomsPerGuild: number;
+  /** The panel switch is off: members may not create servers. */
+  creationClosed: boolean;
 }
 
 /** A public server in Keşfet, or one the user asked to join. */
@@ -47,6 +49,8 @@ export interface GuildList {
   deleted: Guild[];
   /** Join requests still waiting for a moderator. */
   requests: GuildDiscoverEntry[];
+  /** This user may create a server now (switch, restriction and quota all allow it). */
+  canCreate: boolean;
   limits: GuildLimits;
 }
 
