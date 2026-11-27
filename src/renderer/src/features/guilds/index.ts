@@ -21,6 +21,7 @@ export {
   visibleRooms,
   roleInGuild,
   roomGuildId,
+  stageRoomId,
   roomsOfGuild,
   JOIN_MODE_LABELS,
   ROLE_LABELS,

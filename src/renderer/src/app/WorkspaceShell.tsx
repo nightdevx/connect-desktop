@@ -77,6 +77,7 @@ import {
   roomGuildId,
   roomsOfGuild,
   showGuild,
+  stageRoomId,
   useGuildUi,
   useGuilds,
 } from "@/features/guilds";
@@ -1259,7 +1260,21 @@ function WorkspaceShell({
 
   // What the lobbies panel puts on screen. An open text room wins: that is what
   // the user just clicked, and the voice lobby carries on underneath it.
-  const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : activeLobbyId);
+  const voiceStageRoomId = stageRoomId(
+    activeLobbyId,
+    activeRoom ? roomGuildId(activeRoom) : null,
+    guilds.selectedGuildId,
+  );
+  const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : voiceStageRoomId);
+  // In a voice room of one server while looking at another: the dock's room
+  // line takes the user back (selects the room's server, tiles return).
+  const returnToVoiceRoom =
+    activeRoom && !isInCallRoom && voiceStageRoomId === null
+      ? () => {
+          setOpenTextRoomId(null);
+          showGuild(roomGuildId(activeRoom));
+        }
+      : undefined;
 
   // ----- LOBBY CHAT UNREAD -----
   useEffect(() => {
@@ -1482,6 +1497,7 @@ function WorkspaceShell({
       onDisconnect={handleLeaveLobbyOrEndCall}
       presenceStatus={effectivePresenceStatus}
       voiceRoomId={activeLobbyId}
+      onReturnToRoom={returnToVoiceRoom}
       liveKitConnectionState={liveKitConnectionState}
       whereLabel={
         isInCallRoom

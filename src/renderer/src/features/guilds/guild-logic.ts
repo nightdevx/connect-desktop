@@ -12,6 +12,22 @@ import {
 /** A room's server. A room from a backend before servers is NIGHT's. */
 export const roomGuildId = (room: { guildId?: string }): string => room.guildId || NIGHT_GUILD_ID;
 
+/**
+ * The voice room whose tiles fill the main area. Only while the selected
+ * server is the room's own: pick another server and the main area shows that
+ * server's rooms while the room carries on in the dock. A room from before
+ * servers (no guildId) is NIGHT's; no selection yet changes nothing.
+ */
+export const stageRoomId = (
+  activeLobbyId: string | null,
+  activeRoomGuildId: string | null | undefined,
+  selectedGuildId: string | null,
+): string | null => {
+  if (!activeLobbyId) return null;
+  if (!selectedGuildId) return activeLobbyId;
+  return roomGuildId({ guildId: activeRoomGuildId || undefined }) === selectedGuildId ? activeLobbyId : null;
+};
+
 export const roomsOfGuild = <T extends { guildId?: string }>(rooms: T[], guildId: string | null): T[] =>
   guildId ? rooms.filter((room) => roomGuildId(room) === guildId) : [];
 
