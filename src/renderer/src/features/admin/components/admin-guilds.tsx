@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClusterOutlined,
   DeleteOutlined,
-  LoginOutlined,
+  EyeOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -13,12 +13,11 @@ import {
 import type { AdminGuild } from "@shared/guild-contracts";
 import { toast } from "@/services/toast";
 import {
-  GuildCallError,
   GuildIcon,
   JOIN_MODE_LABELS,
   callGuild,
   errorText,
-  showGuild,
+  useGuildUi,
   useRefreshGuilds,
 } from "@/features/guilds";
 import { AdminPageHeader, AdminSection, AdminState, adminDateTime, useTableFit } from "./admin-primitives";
@@ -66,6 +65,7 @@ export default function AdminGuilds() {
   const query = useAdminGuilds();
   const queryClient = useQueryClient();
   const refreshMine = useRefreshGuilds();
+  const view = useGuildUi((state) => state.view);
   const [tableRef, fitColumns] = useTableFit();
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -171,28 +171,12 @@ export default function AdminGuilds() {
             </Tooltip>
           ) : (
             <>
-              <Tooltip title="Katıl ve aç">
+              <Tooltip title="Aç (üye olmadan, görünmez)">
                 <Button
                   type="text"
-                  aria-label={`${guild.name}: katıl ve aç`}
-                  icon={<LoginOutlined />}
-                  loading={busy === `join-${guild.id}`}
-                  onClick={() =>
-                    void act(
-                      `join-${guild.id}`,
-                      async () => {
-                        try {
-                          await callGuild("adminJoin", { guildId: guild.id });
-                        } catch (failure) {
-                          // Already in it: just open it.
-                          if (!(failure instanceof GuildCallError && failure.code === "ALREADY_MEMBER")) throw failure;
-                        }
-                        await refreshMine();
-                        showGuild(guild.id);
-                      },
-                      `${guild.name} açıldı`,
-                    )
-                  }
+                  aria-label={`${guild.name}: aç`}
+                  icon={<EyeOutlined />}
+                  onClick={() => view(guild.id)}
                 />
               </Tooltip>
               <Popconfirm

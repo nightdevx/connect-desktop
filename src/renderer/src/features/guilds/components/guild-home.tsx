@@ -9,6 +9,7 @@ import { daysLeft } from "../guild-logic";
 import { callGuild, errorText } from "../guild-service";
 import { showGuild, useGuildUi } from "../guild-store";
 import { useGuildList, useRefreshGuilds } from "../use-guilds";
+import { AllGuildsList } from "./all-guilds";
 import { GuildIcon } from "./guild-icon";
 
 /** Runs one server action with a busy key, a toast on failure, and a list refresh. */
@@ -234,11 +235,23 @@ export function GuildHome({ empty }: { empty: boolean }) {
   const openDialog = useGuildUi((state) => state.openDialog);
   const openDiscover = useGuildUi((state) => state.openDiscover);
   const closeDiscover = useGuildUi((state) => state.closeDiscover);
+  const browsingAll = useGuildUi((state) => state.browsingAll);
+  const closeAllGuilds = useGuildUi((state) => state.closeAllGuilds);
 
   return (
     <main className="ct-main-panel ct-guild-home">
       <div className="ct-guild-home-inner">
-        {discovering ? (
+        {browsingAll ? (
+          <PageHeader
+            title="Tüm sunucular"
+            description="Platformdaki bütün sunucular. Aç dersen üye olmadan görünmez bakarsın."
+            actions={
+              <Button onClick={closeAllGuilds} icon={<MenuIcon name="x" size={15} />}>
+                Kapat
+              </Button>
+            }
+          />
+        ) : discovering ? (
           <PageHeader
             title="Keşfet"
             description="Herkese açık sunucular. Hemen katıl ya da istek gönder."
@@ -270,8 +283,8 @@ export function GuildHome({ empty }: { empty: boolean }) {
             </div>
           </div>
         )}
-        <PendingLists />
-        {discovering && <DiscoverList />}
+        {!browsingAll && <PendingLists />}
+        {browsingAll ? <AllGuildsList /> : discovering && <DiscoverList />}
       </div>
     </main>
   );

@@ -429,6 +429,63 @@
   border-color: var(--odak-accent);
 }
 
+/* Tüm sunucular: search and the two filters share a line, wrapping when narrow. */
+.ct-guild-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-guild-filter-select {
+  width: 120px;
+}
+
+.ct-guild-filter-select.wide {
+  width: 156px;
+}
+
+/* Slim notice above the rooms of a server viewed without membership. */
+.ct-guild-viewing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 8px 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-guild-viewing p {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.ct-guild-viewing button {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--odak-accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ct-guild-viewing button:hover {
+  background: var(--odak-raised);
+}
+
+.ct-guild-viewing button:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 1px;
+}
+
 /* The search box is a row's child elsewhere; in a column it would stretch. */
 .ct-guild-filter {
   flex: none;
