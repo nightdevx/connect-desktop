@@ -40,6 +40,32 @@ export const RELEASE_HIGHLIGHT_LABELS: Record<ReleaseHighlightKind, string> = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "0.4.1",
+    date: "2026-11-27",
+    highlights: [
+      {
+        kind: "new",
+        text: "Sunucu ayarları artık ayrı bir sayfada açılıyor.",
+      },
+      {
+        kind: "improved",
+        text: "Sunucu içinde birinin profil kartında artık o sunucudaki rolü görünüyor.",
+      },
+      {
+        kind: "fixed",
+        text: "Sesli odadayken başka bir sunucuya geçince oda listesi kişi kutularının üstüne karışıyordu. Artık ses alttaki çubukta sürüyor; çubuğa tıklayınca odana dönüyorsun.",
+      },
+      {
+        kind: "fixed",
+        text: "Silinen bir sunucu Keşfet'te görünmeye devam edebiliyordu.",
+      },
+      {
+        kind: "fixed",
+        text: "Ses bağlantısı kartı artık yalnız senin bağlantını gösteriyor; başkasının kötü bağlantısı seninkini kırmızı göstermiyor.",
+      },
+    ],
+  },
+  {
     version: "0.4.0",
     date: "2026-11-27",
     summary: "Artık kendi sunucunu kurabilirsin.",
