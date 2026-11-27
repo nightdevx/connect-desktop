@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   classifyIcePath,
   downlinkVoiceJitterMs,
+  downlinkVoiceLossPct,
+  INITIAL_HELD_READINGS,
   poolPacketLossPct,
+  stepHeldReadings,
+  type HeldReadingsState,
   type IcePathKind,
   type MediaIcePaths,
 } from "@shared/media-stats";
@@ -183,11 +187,13 @@ export const useWorkspaceAudioConnection = ({
     useState<AudioConnectionSnapshot>(createIdleAudioSnapshot);
 
   const smoothedPingRef = useRef<number | null>(null);
+  const previousReadingsRef = useRef<HeldReadingsState>(INITIAL_HELD_READINGS);
   const successfulSamplesRef = useRef(0);
   const failedSamplesRef = useRef(0);
 
   useEffect(() => {
     smoothedPingRef.current = null;
+    previousReadingsRef.current = INITIAL_HELD_READINGS;
     successfulSamplesRef.current = 0;
     failedSamplesRef.current = 0;
     if (!activeLobbyId) {
@@ -218,25 +224,30 @@ export const useWorkspaceAudioConnection = ({
     }
 
     const effectivePingMs = smoothedPingRef.current;
-    // Pooled per direction, then the worse of the two -- not the worst single
-    // track in the room.
-    //
-    // Taking the maximum over every track made the badge a function of how many
-    // people were in the lobby: every extra participant is another chance for
-    // one thin window to read high, and with ten people something always did.
-    // That is the whole of the "lobide surekli paket kaybi" report, and it got
-    // worse in the multiplayer games for the obvious reason -- that is where the
-    // rooms are full. Both directions still count, because both are this
-    // machine's own link: uplink is what it sends, and inbound loss is measured
-    // on what the SFU already forwarded to it.
+    // The worse of this machine's two directions. Uplink is pooled over what it
+    // sends. Download is not pooled over every inbound track: the SFU forwards
+    // a speaker's own uplink loss as a gap, so one remote on bad Wi-Fi painted
+    // everyone else's card. downlinkVoiceLossPct says why the lowest voice is
+    // this machine's share.
     const packetLossPct = maxOrNull([
       poolPacketLossPct(windowsOf(audioOut)),
-      poolPacketLossPct(windowsOf(audioIn)),
+      downlinkVoiceLossPct(audioIn),
     ]);
     // Not the worst inbound track: that counted muted microphones, whose
     // jitter freezes at whatever their last packet left, screen-share audio,
     // and any one remote's bad uplink. downlinkVoiceJitterMs says why.
     const jitterMs = downlinkVoiceJitterMs(mediaStats.inbound);
+
+    // Judged on the raw round trip, not the smoothed one shown: the smoothing
+    // is for a steady number on screen, and it drags a spike out.
+    const step = stepHeldReadings(previousReadingsRef.current, mediaStats.at, {
+      rttMs,
+      packetLossPct,
+      jitterMs,
+    });
+    previousReadingsRef.current = step.state;
+    const { rttMs: heldRttMs, packetLossPct: heldLossPct, jitterMs: heldJitterMs } =
+      step.held;
 
     const pingDisplay =
       effectivePingMs !== null ? ` (${Math.round(effectivePingMs)} ms)` : "";
@@ -245,11 +256,11 @@ export const useWorkspaceAudioConnection = ({
     let reason: AudioConnectionReason | null = null;
     let statusText = `Ses bağlantısı iyi${pingDisplay}`;
 
-    const lossErrors = packetLossPct !== null && packetLossPct >= LOSS_ERROR_PCT;
-    const pingErrors = effectivePingMs !== null && effectivePingMs >= PING_ERROR_MS;
-    const lossWarns = packetLossPct !== null && packetLossPct >= LOSS_WARN_PCT;
-    const pingWarns = effectivePingMs !== null && effectivePingMs >= PING_WARN_MS;
-    const jitterWarns = jitterMs !== null && jitterMs >= JITTER_WARN_MS;
+    const lossErrors = heldLossPct !== null && heldLossPct >= LOSS_ERROR_PCT;
+    const pingErrors = heldRttMs !== null && heldRttMs >= PING_ERROR_MS;
+    const lossWarns = heldLossPct !== null && heldLossPct >= LOSS_WARN_PCT;
+    const pingWarns = heldRttMs !== null && heldRttMs >= PING_WARN_MS;
+    const jitterWarns = heldJitterMs !== null && heldJitterMs >= JITTER_WARN_MS;
 
     if (lossErrors || pingErrors) {
       tone = "error";

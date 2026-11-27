@@ -763,6 +763,96 @@ export const downlinkVoiceJitterMs = (inbound: VoiceReading[]): number | null =>
 };
 
 /**
+ * This machine's download loss, by the same reasoning as the jitter above: the
+ * lowest loss among remote microphones that are talking. The SFU forwards a
+ * speaker's uplink loss as a gap in the sequence numbers, so a voice's loss is
+ * its speaker's uplink plus this machine's downlink; only what every voice
+ * shares is this machine's. Talking is judged on packets received, so a voice
+ * losing most of its packets still has to clear MIN_VOICE_WINDOW_PACKETS
+ * across received and lost.
+ */
+export const downlinkVoiceLossPct = (inbound: VoiceReading[]): number | null => {
+  let best: number | null = null;
+  for (const entry of inbound) {
+    if (!isVoice(entry) || entry.window === null) {
+      continue;
+    }
+    const { packets, packetsLost } = entry.window;
+    if (packets < 0 || packetsLost < 0 || packets + packetsLost < MIN_VOICE_WINDOW_PACKETS) {
+      continue;
+    }
+    const pct = Math.round((packetsLost / (packets + packetsLost)) * 1000) / 10;
+    best = best === null ? pct : Math.min(best, pct);
+  }
+  return best;
+};
+
+/** The readings the connection card is judged by. */
+export interface LinkReadings {
+  rttMs: number | null;
+  packetLossPct: number | null;
+  jitterMs: number | null;
+}
+
+export interface HeldReadingsState {
+  /** The stats sample `current` came from. */
+  at: number;
+  previous: LinkReadings;
+  current: LinkReadings;
+}
+
+const NO_LINK_READINGS: LinkReadings = { rttMs: null, packetLossPct: null, jitterMs: null };
+
+export const INITIAL_HELD_READINGS: HeldReadingsState = {
+  at: -1,
+  previous: NO_LINK_READINGS,
+  current: NO_LINK_READINGS,
+};
+
+const lowerOfBoth = (a: number | null, b: number | null): number | null =>
+  a === null || b === null ? null : Math.min(a, b);
+
+/**
+ * A reading only counts against the link once it held for two samples in a
+ * row (~4 s at the 2 s stats interval): the lower of the two. One late RTCP
+ * report or one thin loss window used to turn the card yellow on its own.
+ *
+ * The microphone's round trip only changes when an RTCP report arrives, and
+ * audio reports every few seconds, so two stats ticks can read the same
+ * measurement: a repeated value is not a second measurement. The same sample
+ * seen again (`at` unchanged: the card re-runs on a connection-state change)
+ * is not a second sample either.
+ */
+export const stepHeldReadings = (
+  state: HeldReadingsState,
+  at: number,
+  readings: LinkReadings,
+): { state: HeldReadingsState; held: LinkReadings } => {
+  const next: HeldReadingsState =
+    at === state.at
+      ? state
+      : {
+          at,
+          previous: {
+            ...state.current,
+            rttMs:
+              readings.rttMs === state.current.rttMs
+                ? state.previous.rttMs
+                : state.current.rttMs,
+          },
+          current: readings,
+        };
+  return {
+    state: next,
+    held: {
+      rttMs: lowerOfBoth(next.previous.rttMs, next.current.rttMs),
+      packetLossPct: lowerOfBoth(next.previous.packetLossPct, next.current.packetLossPct),
+      jitterMs: lowerOfBoth(next.previous.jitterMs, next.current.jitterMs),
+    },
+  };
+};
+
+/**
  * What the jitter buffers hold for the voices, for the mouth-to-ear estimate:
  * the average over voices that played something in the last window. Only when
  * none did does it fall back to the call-long averages, which a muted voice
