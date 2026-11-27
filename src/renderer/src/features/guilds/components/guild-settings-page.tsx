@@ -1,7 +1,7 @@
-import { useState, type JSX } from "react";
-import { Button, Modal } from "antd";
+import { useEffect, useState, type JSX } from "react";
+import { Button } from "antd";
 import type { Guild } from "@shared/guild-contracts";
-import { MODAL_WIDTH, ModalHeading } from "@/ui/modal-heading";
+import { PageHeader } from "@/ui/page-header";
 import { MenuIcon } from "@/ui/odak-menu";
 import "@/styles/modules/features/odak-pencereler.css";
 import { ROLE_LABELS, guildPermissions } from "../guild-logic";
@@ -9,7 +9,6 @@ import { callGuild } from "../guild-service";
 import { useGuildUi } from "../guild-store";
 import { useGuildList } from "../use-guilds";
 import { GuildConfirm, type GuildConfirmRequest } from "./guild-confirm";
-import { GuildIcon } from "./guild-icon";
 import {
   BansPanel,
   GeneralPanel,
@@ -41,7 +40,20 @@ const PANELS: Record<Tab, (props: PanelProps) => JSX.Element> = {
   bans: BansPanel,
 };
 
-function SettingsModal({
+/** Esc leaves the page, unless a dialog or an open dropdown is taking it. */
+function useEscapeToClose(onClose: () => void) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector(".ant-modal-wrap, .ant-select-open, .ant-dropdown:not(.ant-dropdown-hidden)")) return;
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+}
+
+function SettingsBody({
   guild,
   currentUserId,
   accountRole,
@@ -58,7 +70,7 @@ function SettingsModal({
   const tabs = TABS.filter((entry) => !entry.moderators || can.moderate);
   // A moderator who cannot edit has little on Genel: start on Davetler.
   const [picked, setPicked] = useState<Tab>(can.moderate && !can.edit ? "invites" : "general");
-  // A role lost while open takes its tabs with it.
+  // A role lost while open takes its sections with it.
   const tab = tabs.some((entry) => entry.id === picked) ? picked : "general";
   const [draft, setDraft] = useState<GeneralDraft>(() => draftOf(guild));
   const { write, busy } = useGuildWrite(guild.id);
@@ -66,48 +78,24 @@ function SettingsModal({
   const changes = Object.keys(patch).length;
   const editing = tab === "general" && can.edit;
   const Panel = PANELS[tab];
+  useEscapeToClose(onClose);
 
   const save = () =>
     void write("save", () => callGuild("update", { guildId: guild.id, ...patch }), "Ayarlar kaydedildi").catch(() => undefined);
 
-  const footer = editing
-    ? [
-        <span key="status" className={`ct-room-footer-status${changes > 0 ? " dirty" : ""}`}>
-          {!draft.name.trim() ? "Sunucu adı boş olamaz" : changes > 0 ? `${changes} değişiklik kaydedilmedi` : "Değişiklik yok"}
-        </span>,
-        <Button key="cancel" onClick={onClose}>
-          Vazgeç
-        </Button>,
-        <Button key="save" type="primary" disabled={changes === 0 || !draft.name.trim()} loading={busy === "save"} onClick={save}>
-          Kaydet
-        </Button>,
-      ]
-    : [
-        <Button key="close" onClick={onClose}>
-          Kapat
-        </Button>,
-      ];
-
   return (
-    <Modal
-      rootClassName="ct-modal"
-      open
-      onCancel={onClose}
-      width={MODAL_WIDTH.l}
-      title={<ModalHeading icon={<MenuIcon name="sliders" size={19} />} title="Sunucu ayarları" />}
-      footer={footer}
-    >
-      <div className="ct-modal-form ct-room-settings">
-        <div className="ct-room-subject">
-          <GuildIcon guild={guild} size={34} />
-          <span className="ct-room-subject-text">
-            <strong>{guild.name}</strong>
-            <span>
-              {guild.memberCount} üye · Rolün: {ROLE_LABELS[guild.myRole] ?? "Platform yöneticisi"}
-            </span>
-          </span>
-        </div>
-        <div className="ct-room-tabs" role="tablist" aria-label="Sunucu ayarları bölümleri">
+    <>
+      <PageHeader
+        title="Sunucu ayarları"
+        description={`${guild.name} · ${guild.memberCount} üye · Rolün: ${ROLE_LABELS[guild.myRole] ?? "Platform yöneticisi"}`}
+        actions={
+          <Button onClick={onClose} icon={<MenuIcon name="x" size={15} />}>
+            Kapat
+          </Button>
+        }
+      />
+      <div className="ct-guild-settings">
+        <nav className="ct-guild-settings-nav" role="tablist" aria-orientation="vertical" aria-label="Sunucu ayarları bölümleri">
           {tabs.map((entry) => (
             <button
               key={entry.id}
@@ -116,7 +104,7 @@ function SettingsModal({
               id={`ct-guild-tab-${entry.id}`}
               aria-selected={tab === entry.id}
               aria-controls={`ct-guild-panel-${entry.id}`}
-              className={`ct-room-tab${tab === entry.id ? " active" : ""}`}
+              className={`ct-guild-settings-link${tab === entry.id ? " active" : ""}`}
               onClick={() => setPicked(entry.id)}
             >
               {entry.label}
@@ -125,8 +113,13 @@ function SettingsModal({
               )}
             </button>
           ))}
-        </div>
-        <div role="tabpanel" id={`ct-guild-panel-${tab}`} aria-labelledby={`ct-guild-tab-${tab}`}>
+        </nav>
+        <div
+          className="ct-guild-settings-body ct-modal-form ct-room-settings"
+          role="tabpanel"
+          id={`ct-guild-panel-${tab}`}
+          aria-labelledby={`ct-guild-tab-${tab}`}
+        >
           <Panel
             guild={guild}
             currentUserId={currentUserId}
@@ -136,36 +129,54 @@ function SettingsModal({
             onDraft={setDraft}
             busy={busy !== null}
           />
+          {editing && (
+            <div className="ct-guild-settings-save">
+              <span className={`ct-room-footer-status${changes > 0 ? " dirty" : ""}`}>
+                {!draft.name.trim() ? "Sunucu adı boş olamaz" : changes > 0 ? `${changes} değişiklik kaydedilmedi` : "Değişiklik yok"}
+              </span>
+              <Button disabled={changes === 0} onClick={() => setDraft(draftOf(guild))}>
+                Vazgeç
+              </Button>
+              <Button type="primary" disabled={changes === 0 || !draft.name.trim()} loading={busy === "save"} onClick={save}>
+                Kaydet
+              </Button>
+            </div>
+          )}
         </div>
       </div>
-    </Modal>
+    </>
   );
 }
 
 /**
- * Sunucu ayarları: what the user's role allows, one tab each. Genel carries
- * the name, icon, description and join mode for admins, saved from the
- * footer as in Oda ayarları, and at its foot the way out: delete or hand over
- * for the owner, leave for everyone else.
+ * Sunucu ayarları as a page in the rooms' place: what the user's role
+ * allows, one section each in a column on the left, as in Ayarlar. Genel
+ * carries the name, icon, description and join mode for admins, saved from
+ * the bar under it, and at its foot the way out: delete or hand over for the
+ * owner, leave for everyone else.
  */
-export function GuildSettingsDialog({ currentUserId, accountRole }: { currentUserId: string; accountRole: string }) {
-  const dialog = useGuildUi((state) => state.dialog);
-  const closeDialog = useGuildUi((state) => state.closeDialog);
-  const guildId = dialog?.kind === "settings" ? dialog.guildId : null;
-  const guild = useGuildList().data?.guilds.find((entry) => entry.id === guildId) ?? null;
+export function GuildSettingsPage({ currentUserId, accountRole }: { currentUserId: string; accountRole: string }) {
+  const guildId = useGuildUi((state) => state.settingsGuildId);
+  const closeSettings = useGuildUi((state) => state.closeSettings);
+  const list = useGuildList().data;
+  const guild = list?.guilds.find((entry) => entry.id === guildId) ?? null;
   const [confirm, setConfirm] = useState<GuildConfirmRequest | null>(null);
+  // The server is gone (deleted, left): so is the page.
+  const gone = list !== undefined && guildId !== null && guild === null;
+  useEffect(() => {
+    if (gone) closeSettings();
+  }, [gone, closeSettings]);
 
   return (
     <>
-      {/* Mounted per server, so each opening starts from that server's values;
-          gone with the server (deleted, left) while open. */}
+      {/* Mounted per server, so each opening starts from that server's values. */}
       {guild && (
-        <SettingsModal
+        <SettingsBody
           key={guild.id}
           guild={guild}
           currentUserId={currentUserId}
           accountRole={accountRole}
-          onClose={closeDialog}
+          onClose={closeSettings}
           confirm={setConfirm}
         />
       )}

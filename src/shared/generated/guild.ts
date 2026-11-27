@@ -56,6 +56,7 @@ export interface Limits {
   guildsPerUser: number /* int */;
   membersPerGuild: number /* int */;
   roomsPerGuild: number /* int */;
+  creationClosed: boolean;
 }
 export interface GuildView {
   Guild: Guild;

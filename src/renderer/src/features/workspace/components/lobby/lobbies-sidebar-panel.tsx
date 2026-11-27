@@ -64,6 +64,8 @@ interface LobbiesSidebarPanelProps {
     Error
   >;
   lobbies: LobbyDescriptor[];
+  /** The server these rooms belong to: its role badges show on the cards. */
+  guildId?: string | null;
   lobbyMembersById: Record<string, LobbyStateMember[]>;
   avatarByUserId: Record<string, string | null | undefined>;
   activeLobbyId: string | null;
@@ -110,6 +112,7 @@ interface LobbiesSidebarPanelProps {
 export function LobbiesSidebarPanel({
   lobbiesQuery,
   lobbies,
+  guildId,
   lobbyMembersById,
   avatarByUserId,
   activeLobbyId,
@@ -729,6 +732,7 @@ export function LobbiesSidebarPanel({
                             fallbackName={member.username}
                             currentUserId={currentUserId}
                             friends={friends}
+                            guildId={guildId}
                           >
                             <button
                               type="button"
@@ -1119,6 +1123,7 @@ export function LobbiesSidebarPanel({
           fallbackName={profileCardTarget.name}
           currentUserId={currentUserId}
           friends={friends}
+          guildId={guildId}
           onClose={() => setProfileCardTarget(null)}
         />
       )}

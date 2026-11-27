@@ -826,7 +826,7 @@ export default function AdminUsers({ currentUserId }: AdminUsersProps) {
               mode="multiple"
               allowClear
               placeholder="Kısıtlama yok"
-              options={USER_RESTRICTIONS.map((entry) => ({
+              options={[...USER_RESTRICTIONS, { id: "guildCreate", label: "Sunucu kuramaz" }].map((entry) => ({
                 value: entry.id,
                 label: entry.label,
               }))}

@@ -12,7 +12,7 @@ import { copyCode, leaveRequest, useGuildWrite } from "./guild-settings-panels";
  * code, the settings, leaving.
  */
 export function GuildHeaderMenu({ guild, accountRole }: { guild: Guild; accountRole: string }) {
-  const openDialog = useGuildUi((state) => state.openDialog);
+  const openSettings = useGuildUi((state) => state.openSettings);
   const can = guildPermissions(guild, accountRole);
   const { write } = useGuildWrite(guild.id);
   const [confirm, setConfirm] = useState<GuildConfirmRequest | null>(null);
@@ -39,8 +39,7 @@ export function GuildHeaderMenu({ guild, accountRole }: { guild: Guild; accountR
             key: "settings",
             icon: "sliders",
             label: "Sunucu ayarları",
-            opensDialog: true,
-            onSelect: () => openDialog({ kind: "settings", guildId: guild.id }),
+            onSelect: () => openSettings(guild.id),
           },
           !can.own && can.moderate && { type: "divider", key: "divider" },
           !can.own && {
