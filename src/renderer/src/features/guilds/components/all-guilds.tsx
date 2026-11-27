@@ -85,9 +85,9 @@ export function AllGuildsList() {
                     {guild.ownerUsername} · {guild.memberCount} üye · {JOIN_MODE_LABELS[guild.joinMode].label}
                   </span>
                 </span>
-                {status !== "active" && <span className="ct-guild-role">{STATUS_LABELS[status]}</span>}
+                {status !== "active" && <span className={"ct-guild-role " + status}>{STATUS_LABELS[status]}</span>}
                 {guild.member && <span className="ct-guild-role owner">Üyesin</span>}
-                <Button size="small" onClick={() => view(guild.id)}>
+                <Button size="small" aria-label={guild.name + ": aç"} onClick={() => view(guild.id)}>
                   Aç
                 </Button>
               </li>

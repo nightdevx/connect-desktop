@@ -2,7 +2,8 @@ import { useState } from "react";
 import { toast } from "@/services/toast";
 import { callGuild, errorText } from "../guild-service";
 import { useGuildUi } from "../guild-store";
-import { useGuildList, useRefreshGuilds } from "../use-guilds";
+import { guildStatus } from "../guild-logic";
+import { useAllGuilds, useGuildList, useRefreshGuilds } from "../use-guilds";
 
 /**
  * Above the rooms of a server platform staff look at without being in it:
@@ -14,6 +15,8 @@ export function GuildViewingNotice() {
   const selectGuild = useGuildUi((state) => state.selectGuild);
   const mine = useGuildList().data?.guilds;
   const refresh = useRefreshGuilds();
+  const viewed = useAllGuilds(Boolean(viewingGuildId)).data?.guilds.find((guild) => guild.id === viewingGuildId);
+  const status = viewed ? guildStatus(viewed) : "active";
   const [busy, setBusy] = useState(false);
   if (!viewingGuildId || !mine || mine.some((guild) => guild.id === viewingGuildId)) return null;
 
@@ -37,11 +40,17 @@ export function GuildViewingNotice() {
 
   return (
     <div className="ct-guild-viewing" role="status">
-      <p>Bu sunucuya üye değilsin, görünmez bakıyorsun.</p>
-      <button type="button" disabled={busy} onClick={() => void join()}>
-        Katıl
-      </button>
-      <button type="button" onClick={stopViewing}>
+      <p>
+        Bu sunucuya üye değilsin, görünmez bakıyorsun.
+        {status === "suspended" && " Sunucu askıda."}
+        {status === "deleted" && " Sunucu silinmiş."}
+      </p>
+      {status !== "deleted" && (
+        <button type="button" disabled={busy} aria-label="Bu sunucuya üye ol" onClick={() => void join()}>
+          Katıl
+        </button>
+      )}
+      <button type="button" aria-label="Görüntülemeyi kapat" onClick={stopViewing}>
         Kapat
       </button>
     </div>

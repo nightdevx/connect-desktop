@@ -415,6 +415,14 @@
   color: var(--odak-muted);
 }
 
+.ct-guild-role.suspended {
+  color: var(--ct-warning);
+}
+
+.ct-guild-role.deleted {
+  color: var(--ct-danger);
+}
+
 .ct-guild-role.owner {
   color: var(--odak-accent);
 }
