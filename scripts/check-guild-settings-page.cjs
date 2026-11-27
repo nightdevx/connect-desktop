@@ -23,7 +23,7 @@ assert.ok(!/kind:\s*"settings"/.test(store), "GuildDialog no longer has a settin
 
 // The page state lives in the guild UI store.
 for (const name of ["settingsGuildId", "openSettings", "closeSettings"]) {
-  assert.match(store, new RegExp(`\b${name}\b`), `useGuildUi has ${name}`);
+  assert.match(store, new RegExp(String.raw`\b${name}\b`), `useGuildUi has ${name}`);
 }
 // Selecting a server, Keşfet or Tüm sunucular leaves the settings page.
 assert.match(store, /selectGuild:[\s\S]{0,300}settingsGuildId:\s*null/, "selectGuild closes the settings page");
