@@ -9,11 +9,11 @@ jobs:
   verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # pnpm 11 imports node:sqlite, which only exists from 22.13.
           node-version: 22
@@ -38,7 +38,7 @@ jobs:
           CT_BACKEND_URL: http://127.0.0.1:4001
 
       # The window shown while an update installs.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: native/updater/go.mod
           cache-dependency-path: native/updater/go.sum
