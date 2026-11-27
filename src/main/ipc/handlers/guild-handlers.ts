@@ -55,6 +55,7 @@ const SCHEMAS: { [K in GuildAction]: z.ZodType<GuildCalls[K]["in"]> } = {
     ttlHours: z.number().int().min(0).max(720),
   }),
   deleteInvite: id.extend({ code }),
+  allList: none,
   adminList: none,
   adminSuspend: id.extend({ suspended: z.boolean() }),
   adminRestore: id,

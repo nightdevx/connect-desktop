@@ -168,11 +168,12 @@ export const useWorkspaceLobbyActions = ({
       return false;
     }
 
+    const { viewingGuildId, selectedGuildId } = useGuildUi.getState();
     setIsCreatingLobby(true);
     try {
       const result = await workspaceService.createLobby({
-        // The server picked in the column: the room list shows its rooms.
-        guildId: useGuildUi.getState().selectedGuildId ?? undefined,
+        // The server on screen (viewed, or picked in the column): the room list shows its rooms.
+        guildId: viewingGuildId ?? selectedGuildId ?? undefined,
         name: trimmed,
         isLocked,
         allowedUsers,

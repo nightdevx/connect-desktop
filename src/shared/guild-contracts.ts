@@ -98,6 +98,11 @@ export interface AdminGuild extends Guild {
   ownerUsername: string;
 }
 
+/** A row of Tüm sunucular: any server, and whether the viewer is in it. */
+export interface AllGuild extends AdminGuild {
+  member: boolean;
+}
+
 export interface GuildEditInput {
   name?: string;
   description?: string;
@@ -141,6 +146,8 @@ export interface GuildCalls {
   invites: { in: Id; out: { invites: GuildInvite[] } };
   createInvite: { in: Id & { maxUses: number; ttlHours: number }; out: { invite: GuildInvite } };
   deleteInvite: { in: Id & { code: string }; out: void };
+  /** Platform staff: every server, members or not (GET /guilds?scope=all). */
+  allList: { in: Record<string, never>; out: { guilds: AllGuild[] } };
   adminList: { in: Record<string, never>; out: { guilds: AdminGuild[]; limits: GuildLimits } };
   adminSuspend: { in: Id & { suspended: boolean }; out: void };
   adminRestore: { in: Id; out: void };

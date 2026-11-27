@@ -23,11 +23,82 @@ export const guildsWithUnread = (
   new Set(rooms.filter((room) => (unreadByRoomId[room.id] ?? 0) > 0).map(roomGuildId));
 
 /**
- * The server to show: the one picked last if the user is still in it, else
- * the first in their list, else none.
+ * The server to show: the one being viewed (platform staff, no membership),
+ * else the one picked last if the user is still in it, else the first in
+ * their list, else none.
  */
-export const resolveSelectedGuild = (guilds: Array<{ id: string }>, stored: string | null): string | null =>
-  guilds.some((guild) => guild.id === stored) ? stored : (guilds[0]?.id ?? null);
+export const resolveSelectedGuild = (
+  guilds: Array<{ id: string }>,
+  stored: string | null,
+  viewingGuildId?: string | null,
+): string | null =>
+  viewingGuildId ||
+  (guilds.some((guild) => guild.id === stored) ? stored : (guilds[0]?.id ?? null));
+
+/**
+ * The rooms that reach the screens. Platform staff are sent every server's
+ * rooms (staff-view); keep the user's servers, the one being viewed and the
+ * one whose room the user sits in, so leaving the view keeps their room.
+ */
+export const visibleRooms = <T extends { id: string; guildId?: string }>(
+  rooms: T[],
+  myGuildIds: Iterable<string>,
+  viewingGuildId: string | null,
+  currentRoomId: string | null,
+): T[] => {
+  const keep = new Set(myGuildIds);
+  if (viewingGuildId) keep.add(viewingGuildId);
+  const current = currentRoomId ? rooms.find((room) => room.id === currentRoomId) : undefined;
+  if (current) keep.add(roomGuildId(current));
+  return rooms.filter((room) => keep.has(roomGuildId(room)));
+};
+
+export type GuildStatus = "active" | "suspended" | "deleted";
+
+export const guildStatus = (guild: { suspendedAt?: string; deletedAt?: string }): GuildStatus =>
+  guild.deletedAt ? "deleted" : guild.suspendedAt ? "suspended" : "active";
+
+export interface AllGuildsFilter {
+  query: string;
+  status: GuildStatus | "all";
+  joinMode: GuildJoinMode | "all";
+}
+
+/** The Tüm sunucular rows: filtered, sorted by name (Turkish). Input untouched. */
+export const filterAllGuilds = <
+  T extends { name: string; ownerUsername: string; joinMode: GuildJoinMode; suspendedAt?: string; deletedAt?: string },
+>(
+  guilds: T[],
+  filter: AllGuildsFilter,
+): T[] => {
+  const lower = (text: string) => text.toLocaleLowerCase("tr-TR");
+  const query = lower(filter.query.trim());
+  return guilds
+    .filter(
+      (guild) =>
+        (filter.status === "all" || guildStatus(guild) === filter.status) &&
+        (filter.joinMode === "all" || guild.joinMode === filter.joinMode) &&
+        (!query || lower(guild.name).includes(query) || lower(guild.ownerUsername).includes(query)),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+};
+
+/**
+ * The badge next to a person. Inside a server (guildId set) only the server
+ * role counts: owner, admin and moderator show, a member shows none, and the
+ * account role never does. Outside a server (friends, DMs) the account admin
+ * badge stays.
+ */
+export const serverBadge = (
+  guildId: string | null | undefined,
+  accountRole: string,
+  guildRole: GuildRole | undefined,
+): string | null => {
+  if (guildId) {
+    return guildRole && guildRole !== "member" ? ROLE_LABELS[guildRole] : null;
+  }
+  return accountRole === "admin" ? ROLE_LABELS.admin : null;
+};
 
 const RANK: Record<string, number> = { owner: 40, admin: 30, moderator: 20, member: 10 };
 

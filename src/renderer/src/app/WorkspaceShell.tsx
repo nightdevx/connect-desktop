@@ -72,6 +72,7 @@ import {
   GuildJoinDialog,
   GuildSettingsDialog,
   guildsWithUnread,
+  isPlatformStaff,
   roleInGuild,
   roomGuildId,
   roomsOfGuild,
@@ -846,6 +847,7 @@ function WorkspaceShell({
     hasLiveSnapshotRef,
   } = useWorkspaceLobbies({
     isOnline,
+    isStaff: isPlatformStaff(currentUserRole),
     shouldEmitReconnectStatus,
     setStatus,
     activeLobbyId,
@@ -1043,6 +1045,8 @@ function WorkspaceShell({
   // moderated with the role held in ITS server, which may be another one.
   const guilds = useGuilds();
   const isDiscovering = useGuildUi((state) => state.discovering);
+  const isBrowsingAll = useGuildUi((state) => state.browsingAll);
+  const isViewing = useGuildUi((state) => state.viewingGuildId !== null);
   const guildRooms = useMemo(
     () => roomsOfGuild(lobbies, guilds.selectedGuildId),
     [lobbies, guilds.selectedGuildId],
@@ -1433,6 +1437,7 @@ function WorkspaceShell({
       unreadGuildIds: guildsWithUnread(lobbies, unreadByLobbyId),
       voiceGuildId: activeRoom ? roomGuildId(activeRoom) : null,
       onSelect: showGuild,
+      isStaff: isPlatformStaff(currentUserRole),
     },
   };
 
@@ -1441,7 +1446,7 @@ function WorkspaceShell({
   // preference is left alone for the sections that keep one.
   // No server yet, or Keşfet open: the servers' own page takes the rooms'
   // place, full width.
-  const showGuildHome = workspaceSection === "lobbies" && (guilds.isEmpty || isDiscovering);
+  const showGuildHome = workspaceSection === "lobbies" && ((guilds.isEmpty && !isViewing) || isDiscovering || isBrowsingAll);
   const hasNoSidebar =
     workspaceSection === "minigames" || workspaceSection === "free-games" || showGuildHome;
 

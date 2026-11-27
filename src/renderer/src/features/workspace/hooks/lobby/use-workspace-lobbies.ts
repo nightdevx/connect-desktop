@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { LobbyDescriptor } from "@shared/auth-contracts";
 import type { LobbyStateMember, DesktopResult } from "@shared/desktop-api-types";
@@ -6,6 +6,7 @@ import {
   liveKitConnectRequest,
   type LiveKitConnectRequest,
 } from "@/features/livekit";
+import { useGuildList, useGuildUi, visibleRooms } from "@/features/guilds";
 import workspaceService from "../../services";
 import type { ReconnectStatusKey } from "../core/use-network-reconnect";
 import { SERVICE_RESTART_CLOSE_CODE } from "../core/backend-recovery";
@@ -37,6 +38,8 @@ export interface PostJoinOptions {
 
 interface UseWorkspaceLobbiesProps {
   isOnline: boolean;
+  /** Platform staff are sent every server's rooms: only some may reach the screens. */
+  isStaff: boolean;
   shouldEmitReconnectStatus: (
     key: ReconnectStatusKey,
     cooldownMs: number,
@@ -147,6 +150,7 @@ const sortLobbiesWithMainFirst = (
 
 export function useWorkspaceLobbies({
   isOnline,
+  isStaff,
   shouldEmitReconnectStatus,
   setStatus,
   activeLobbyId,
@@ -161,8 +165,27 @@ export function useWorkspaceLobbies({
   onLobbyStreamLiveChange,
   membershipDepartureRef,
 }: UseWorkspaceLobbiesProps) {
-  const [knownLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
-  const [lobbyMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
+  const [allLobbies, setKnownLobbies] = useState<LobbyDescriptor[]>([]);
+  const [allMembersById, setLobbyMembersById] = useState<Record<string, LobbyStateMember[]>>({});
+
+  // Where the lobby list enters the screens. Staff are sent every server's
+  // rooms (staff-view); every screen below sees only their servers, the one
+  // they are viewing and the one of the room they sit in. Anyone else is sent
+  // their own servers only, so their lists pass through untouched.
+  const myGuilds = useGuildList().data?.guilds;
+  const viewingGuildId = useGuildUi((state) => state.viewingGuildId);
+  const knownLobbies = useMemo(
+    () =>
+      isStaff && myGuilds
+        ? visibleRooms(allLobbies, myGuilds.map((guild) => guild.id), viewingGuildId, activeLobbyId)
+        : allLobbies,
+    [isStaff, myGuilds, allLobbies, viewingGuildId, activeLobbyId],
+  );
+  const lobbyMembersById = useMemo(() => {
+    if (knownLobbies === allLobbies) return allMembersById;
+    const shown = new Set(knownLobbies.map((lobby) => lobby.id));
+    return Object.fromEntries(Object.entries(allMembersById).filter(([id]) => shown.has(id)));
+  }, [knownLobbies, allLobbies, allMembersById]);
   
   const activeLobbyRef = useRef(activeLobbyId);
   const onlineRef = useRef(isOnline);

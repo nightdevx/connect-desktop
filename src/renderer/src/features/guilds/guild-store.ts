@@ -30,10 +30,18 @@ export type GuildDialog =
 interface GuildUiState {
   /** The server picked in the column, remembered on this machine. */
   selectedGuildId: string | null;
+  /** A server platform staff look at without being in it. Not remembered. */
+  viewingGuildId: string | null;
   /** Keşfet is on screen in place of the rooms. */
   discovering: boolean;
+  /** "Tüm sunucular" (platform staff) is on screen in place of the rooms. */
+  browsingAll: boolean;
   dialog: GuildDialog | null;
   selectGuild: (guildId: string | null) => void;
+  view: (guildId: string) => void;
+  stopViewing: () => void;
+  openAllGuilds: () => void;
+  closeAllGuilds: () => void;
   openDiscover: () => void;
   closeDiscover: () => void;
   openDialog: (dialog: GuildDialog) => void;
@@ -42,16 +50,29 @@ interface GuildUiState {
 
 export const useGuildUi = create<GuildUiState>((set) => ({
   selectedGuildId: readSelected(),
+  viewingGuildId: null,
   discovering: false,
+  browsingAll: false,
   dialog: null,
+  // Picking one of the user's own servers ends a view.
   selectGuild: (guildId) => {
     rememberGuild(guildId);
-    set({ selectedGuildId: guildId, discovering: false });
+    set({ selectedGuildId: guildId, discovering: false, browsingAll: false, viewingGuildId: null });
   },
-  // Keşfet is drawn where the rooms are: open that section with it.
+  view: (guildId) => {
+    useUiStore.getState().setWorkspaceSection("lobbies");
+    set({ viewingGuildId: guildId, discovering: false, browsingAll: false });
+  },
+  stopViewing: () => set({ viewingGuildId: null }),
+  // Keşfet and Tüm sunucular are drawn where the rooms are: open that section with them.
+  openAllGuilds: () => {
+    useUiStore.getState().setWorkspaceSection("lobbies");
+    set({ browsingAll: true, discovering: false });
+  },
+  closeAllGuilds: () => set({ browsingAll: false }),
   openDiscover: () => {
     useUiStore.getState().setWorkspaceSection("lobbies");
-    set({ discovering: true });
+    set({ discovering: true, browsingAll: false });
   },
   closeDiscover: () => set({ discovering: false }),
   openDialog: (dialog) => set({ dialog }),
