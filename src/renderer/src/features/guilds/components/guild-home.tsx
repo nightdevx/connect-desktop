@@ -9,7 +9,9 @@ import { daysLeft } from "../guild-logic";
 import { callGuild, errorText } from "../guild-service";
 import { showGuild, useGuildUi } from "../guild-store";
 import { useGuildList, useRefreshGuilds } from "../use-guilds";
+import { AllGuildsList } from "./all-guilds";
 import { GuildIcon } from "./guild-icon";
+import { GuildSettingsPage } from "./guild-settings-page";
 
 /** Runs one server action with a busy key, a toast on failure, and a list refresh. */
 const useGuildAction = () => {
@@ -88,7 +90,7 @@ function DiscoverList() {
   const discover = useQuery({
     queryKey: ["guild-discover", query],
     queryFn: () => callGuild("discover", { q: query }),
-    staleTime: 30_000,
+    staleTime: 0, // asks again each time Keşfet opens
   });
   const memberOf = new Set(list?.guilds.map((guild) => guild.id));
   const requested = new Set(list?.requests.map((entry) => entry.id));
@@ -227,18 +229,35 @@ function PendingLists() {
 
 /**
  * Where the rooms would be when there are none to show: the first-run empty
- * state (no servers yet) with Kur / Katıl / Keşfet, or Keşfet itself.
+ * state (no servers yet) with Kur / Katıl / Keşfet, Keşfet itself, or a
+ * server's settings.
  */
-export function GuildHome({ empty }: { empty: boolean }) {
+export function GuildHome({ empty, currentUserId, accountRole }: { empty: boolean; currentUserId: string; accountRole: string }) {
   const discovering = useGuildUi((state) => state.discovering);
   const openDialog = useGuildUi((state) => state.openDialog);
   const openDiscover = useGuildUi((state) => state.openDiscover);
   const closeDiscover = useGuildUi((state) => state.closeDiscover);
+  const browsingAll = useGuildUi((state) => state.browsingAll);
+  const closeAllGuilds = useGuildUi((state) => state.closeAllGuilds);
+  const editingGuild = useGuildUi((state) => state.settingsGuildId !== null);
+  const canCreate = useGuildList().data?.canCreate ?? false;
 
   return (
     <main className="ct-main-panel ct-guild-home">
-      <div className="ct-guild-home-inner">
-        {discovering ? (
+      <div className={`ct-guild-home-inner${editingGuild ? " wide" : ""}`}>
+        {editingGuild ? (
+          <GuildSettingsPage currentUserId={currentUserId} accountRole={accountRole} />
+        ) : browsingAll ? (
+          <PageHeader
+            title="Tüm sunucular"
+            description="Platformdaki bütün sunucular. Aç dersen üye olmadan görünmez bakarsın."
+            actions={
+              <Button onClick={closeAllGuilds} icon={<MenuIcon name="x" size={15} />}>
+                Kapat
+              </Button>
+            }
+          />
+        ) : discovering ? (
           <PageHeader
             title="Keşfet"
             description="Herkese açık sunucular. Hemen katıl ya da istek gönder."
@@ -253,13 +272,23 @@ export function GuildHome({ empty }: { empty: boolean }) {
         ) : (
           <div className="ct-guild-empty">
             <h2>Henüz bir sunucuda değilsin</h2>
-            <p>Arkadaşlarınla kendi sunucunu kur, bir davet koduyla katıl ya da açık sunuculara göz at.</p>
+            <p>
+              {canCreate
+                ? "Arkadaşlarınla kendi sunucunu kur, bir davet koduyla katıl ya da açık sunuculara göz at."
+                : "Bir davet koduyla katıl ya da açık sunuculara göz at."}
+            </p>
             <div className="ct-guild-empty-actions">
-              <button type="button" className="ct-odak-primary" onClick={() => openDialog({ kind: "create" })}>
-                <MenuIcon name="plus" size={16} stroke={2.2} />
-                Sunucu kur
-              </button>
-              <button type="button" className="ct-odak-secondary" onClick={() => openDialog({ kind: "join" })}>
+              {canCreate && (
+                <button type="button" className="ct-odak-primary" onClick={() => openDialog({ kind: "create" })}>
+                  <MenuIcon name="plus" size={16} stroke={2.2} />
+                  Sunucu kur
+                </button>
+              )}
+              <button
+                type="button"
+                className={canCreate ? "ct-odak-secondary" : "ct-odak-primary"}
+                onClick={() => openDialog({ kind: "join" })}
+              >
                 <MenuIcon name="login" size={16} />
                 Kodla katıl
               </button>
@@ -270,8 +299,8 @@ export function GuildHome({ empty }: { empty: boolean }) {
             </div>
           </div>
         )}
-        <PendingLists />
-        {discovering && <DiscoverList />}
+        {!browsingAll && !editingGuild && <PendingLists />}
+        {editingGuild ? null : browsingAll ? <AllGuildsList /> : discovering && <DiscoverList />}
       </div>
     </main>
   );

@@ -70,12 +70,13 @@ import {
   GuildCreateDialog,
   GuildHome,
   GuildJoinDialog,
-  GuildSettingsDialog,
   guildsWithUnread,
+  isPlatformStaff,
   roleInGuild,
   roomGuildId,
   roomsOfGuild,
   showGuild,
+  stageRoomId,
   useGuildUi,
   useGuilds,
 } from "@/features/guilds";
@@ -846,6 +847,7 @@ function WorkspaceShell({
     hasLiveSnapshotRef,
   } = useWorkspaceLobbies({
     isOnline,
+    isStaff: isPlatformStaff(currentUserRole),
     shouldEmitReconnectStatus,
     setStatus,
     activeLobbyId,
@@ -1043,6 +1045,9 @@ function WorkspaceShell({
   // moderated with the role held in ITS server, which may be another one.
   const guilds = useGuilds();
   const isDiscovering = useGuildUi((state) => state.discovering);
+  const isBrowsingAll = useGuildUi((state) => state.browsingAll);
+  const isEditingGuild = useGuildUi((state) => state.settingsGuildId !== null);
+  const isViewing = useGuildUi((state) => state.viewingGuildId !== null);
   const guildRooms = useMemo(
     () => roomsOfGuild(lobbies, guilds.selectedGuildId),
     [lobbies, guilds.selectedGuildId],
@@ -1255,7 +1260,21 @@ function WorkspaceShell({
 
   // What the lobbies panel puts on screen. An open text room wins: that is what
   // the user just clicked, and the voice lobby carries on underneath it.
-  const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : activeLobbyId);
+  const voiceStageRoomId = stageRoomId(
+    activeLobbyId,
+    activeRoom ? roomGuildId(activeRoom) : null,
+    guilds.selectedGuildId,
+  );
+  const lobbyRoomId = openTextRoom?.id ?? (isInCallRoom ? null : voiceStageRoomId);
+  // In a voice room of one server while looking at another: the dock's room
+  // line takes the user back (selects the room's server, tiles return).
+  const returnToVoiceRoom =
+    activeRoom && !isInCallRoom && voiceStageRoomId === null
+      ? () => {
+          setOpenTextRoomId(null);
+          showGuild(roomGuildId(activeRoom));
+        }
+      : undefined;
 
   // ----- LOBBY CHAT UNREAD -----
   useEffect(() => {
@@ -1433,15 +1452,16 @@ function WorkspaceShell({
       unreadGuildIds: guildsWithUnread(lobbies, unreadByLobbyId),
       voiceGuildId: activeRoom ? roomGuildId(activeRoom) : null,
       onSelect: showGuild,
+      isStaff: isPlatformStaff(currentUserRole),
     },
   };
 
   // Oyunlar and Fırsatlar have no sidebar (the owner's call, 2026-10-30):
   // their lists and tabs are on the page, as in the mock-ups. The fold
   // preference is left alone for the sections that keep one.
-  // No server yet, or Keşfet open: the servers' own page takes the rooms'
+  // No server yet, Keşfet or a server's settings open: the servers' own page takes the rooms'
   // place, full width.
-  const showGuildHome = workspaceSection === "lobbies" && (guilds.isEmpty || isDiscovering);
+  const showGuildHome = workspaceSection === "lobbies" && ((guilds.isEmpty && !isViewing) || isDiscovering || isBrowsingAll || isEditingGuild);
   const hasNoSidebar =
     workspaceSection === "minigames" || workspaceSection === "free-games" || showGuildHome;
 
@@ -1477,6 +1497,7 @@ function WorkspaceShell({
       onDisconnect={handleLeaveLobbyOrEndCall}
       presenceStatus={effectivePresenceStatus}
       voiceRoomId={activeLobbyId}
+      onReturnToRoom={returnToVoiceRoom}
       liveKitConnectionState={liveKitConnectionState}
       whereLabel={
         isInCallRoom
@@ -1597,7 +1618,7 @@ function WorkspaceShell({
           )}
 
           {showGuildHome ? (
-            <GuildHome empty={guilds.isEmpty} />
+            <GuildHome empty={guilds.isEmpty} currentUserId={currentUserId} accountRole={currentUserRole} />
           ) : (
           <WorkspaceMainPanel
             guildLobbies={guildRooms}
@@ -1797,7 +1818,6 @@ function WorkspaceShell({
 
       <GuildCreateDialog />
       <GuildJoinDialog />
-      <GuildSettingsDialog currentUserId={currentUserId} accountRole={currentUserRole} />
 
       <LobbyPasswordPromptModal
         pending={pendingPasswordLobby}

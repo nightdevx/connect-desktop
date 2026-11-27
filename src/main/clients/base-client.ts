@@ -105,9 +105,10 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 
 // What this build understands beyond the original API. "guilds": it knows
 // about servers, so the backend shows every server the user is in; a client
-// that does not say so sees NIGHT only. Sockets say it as ?features=.
+// that does not say so sees NIGHT only. "staff-view": platform staff get every
+// server's rooms, to open one without joining. Sockets say it as ?features=.
 export const FEATURES_HEADER = "X-Connect-Features";
-export const CLIENT_FEATURES = "guilds";
+export const CLIENT_FEATURES = "guilds,staff-view";
 
 /** "?guildId=…" for the routes scoped to one server, "" for NIGHT. */
 export const guildQuery = (guildId?: string): string =>

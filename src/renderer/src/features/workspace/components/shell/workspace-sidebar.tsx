@@ -45,7 +45,7 @@ import { WorkspaceAudioStatus } from "./workspace-audio-status";
 import { getApiErrorMessage } from "../../workspace-utils";
 import { Avatar } from "../odak/odak-parts";
 import { SEED_ADMIN_ID, isAdminRole } from "@/features/auth";
-import { GuildHeaderMenu } from "@/features/guilds";
+import { GuildHeaderMenu, GuildViewingNotice } from "@/features/guilds";
 import type { Guild } from "@shared/guild-contracts";
 import workspaceService from "../../services";
 import { toast } from "@/services/toast";
@@ -785,10 +785,12 @@ export function WorkspaceSidebar({
       </header>
 
       <div className="ct-sidebar-body">
+        {workspaceSection === "lobbies" && <GuildViewingNotice />}
         {workspaceSection === "lobbies" && (
           <LobbiesSidebarPanel
             lobbiesQuery={lobbiesProps.lobbiesQuery}
             lobbies={lobbiesProps.lobbies}
+            guildId={lobbiesProps.guild?.id}
             lobbyMembersById={lobbiesProps.lobbyMembersById}
             avatarByUserId={lobbiesProps.avatarByUserId}
             activeLobbyId={lobbiesProps.activeLobbyId}

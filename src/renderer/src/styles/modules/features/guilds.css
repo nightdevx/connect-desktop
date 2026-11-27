@@ -415,6 +415,14 @@
   color: var(--odak-muted);
 }
 
+.ct-guild-role.suspended {
+  color: var(--ct-warning);
+}
+
+.ct-guild-role.deleted {
+  color: var(--ct-danger);
+}
+
 .ct-guild-role.owner {
   color: var(--odak-accent);
 }
@@ -427,6 +435,63 @@
 .ct-guild-home .ct-odak-search:focus-within,
 .ct-guild-filter:focus-within {
   border-color: var(--odak-accent);
+}
+
+/* Tüm sunucular: search and the two filters share a line, wrapping when narrow. */
+.ct-guild-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-guild-filter-select {
+  width: 120px;
+}
+
+.ct-guild-filter-select.wide {
+  width: 156px;
+}
+
+/* Slim notice above the rooms of a server viewed without membership. */
+.ct-guild-viewing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 8px 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--odak-muted);
+  background: var(--odak-surface);
+  border: 1px solid var(--odak-border);
+}
+
+.ct-guild-viewing p {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.ct-guild-viewing button {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--odak-accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ct-guild-viewing button:hover {
+  background: var(--odak-raised);
+}
+
+.ct-guild-viewing button:focus-visible {
+  outline: 2px solid var(--odak-accent);
+  outline-offset: 1px;
 }
 
 /* The search box is a row's child elsewhere; in a column it would stretch. */
@@ -604,4 +669,94 @@
 
 .ct-admin-guild-limit .ant-input-number {
   width: 76px;
+}
+
+/* --- Sunucu ayarları: a column of sections beside the panel, as in Ayarlar --- */
+.ct-guild-home-inner.wide {
+  max-width: 1120px;
+}
+
+.ct-guild-settings {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.ct-guild-settings-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ct-guild-settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--odak-dur-1) ease, background-color var(--odak-dur-1) ease;
+}
+
+.ct-guild-settings-link:hover {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+.ct-guild-settings-link.active {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  box-shadow: inset 2px 0 0 var(--odak-accent);
+}
+
+.ct-guild-settings-link:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.3);
+}
+
+.ct-guild-settings-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Genel: the save bar stays in reach while the form scrolls. */
+.ct-guild-settings-save {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--odak-border);
+  background: var(--odak-bg);
+}
+
+@media (max-width: 860px) {
+  .ct-guild-settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .ct-guild-settings-nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .ct-guild-settings-link {
+    flex-shrink: 0;
+  }
 }

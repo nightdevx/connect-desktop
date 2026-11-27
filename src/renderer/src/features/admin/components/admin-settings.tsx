@@ -354,6 +354,20 @@ export default function AdminSettings() {
         flush
       >
         <div className="ct-settings-card">
+          <div className="ct-settings-row">
+            <div className="ct-settings-row-text">
+              <strong>Kullanıcılar sunucu kurabilir</strong>
+              <span>
+                Kapatılınca kimse yeni sunucu kuramaz; katılmak ve Keşfet açık kalır. Tek bir kişiyi
+                kapatmak için Kullanıcılar'daki "Sunucu kuramaz" kısıtlamasını kullan.
+              </span>
+            </div>
+            <Switch
+              checked={!settings.guildCreationClosed}
+              disabled={saving}
+              onChange={(open) => void apply({ guildCreationClosed: !open })}
+            />
+          </div>
           {GUILD_LIMITS.map((limit) => (
             <div key={limit.key} className="ct-settings-row">
               <div className="ct-settings-row-text">

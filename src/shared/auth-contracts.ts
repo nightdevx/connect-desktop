@@ -242,6 +242,8 @@ export interface AdminRuntimeSettings {
   guildsPerUser?: number;
   membersPerGuild?: number;
   roomsPerGuild?: number;
+  // True stops members creating servers; absent from a backend before it.
+  guildCreationClosed?: boolean;
   disabledMinigames: string[];
   maintenanceMode: boolean;
   maintenanceMessage: string;
@@ -266,6 +268,7 @@ export interface AdminRuntimeSettingsPatch {
   guildsPerUser?: number;
   membersPerGuild?: number;
   roomsPerGuild?: number;
+  guildCreationClosed?: boolean;
   disabledMinigames?: string[];
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
@@ -430,11 +433,14 @@ export const USER_RESTRICTIONS = [
   { id: "email", label: "E-posta" },
 ] as const;
 
-export type UserRestriction = (typeof USER_RESTRICTIONS)[number]["id"];
+// "guildCreate" is not a profile field: it closes "Sunucu kur" for the account
+// (the admin panel labels it itself).
+export type UserRestriction = (typeof USER_RESTRICTIONS)[number]["id"] | "guildCreate";
 
-export const USER_RESTRICTION_IDS: UserRestriction[] = USER_RESTRICTIONS.map(
-  (entry) => entry.id,
-);
+export const USER_RESTRICTION_IDS: UserRestriction[] = [
+  ...USER_RESTRICTIONS.map((entry) => entry.id),
+  "guildCreate",
+];
 
 export const isRestricted = (
   restrictions: UserRestriction[] | undefined,

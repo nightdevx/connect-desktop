@@ -37,6 +37,7 @@ const ROUTES: { [K in GuildAction]: Route<K> } = {
   invites: (p) => ["GET", `${at(p.guildId)}/invites`],
   createInvite: (p) => ["POST", `${at(p.guildId)}/invites`, { maxUses: p.maxUses, ttlHours: p.ttlHours }],
   deleteInvite: (p) => ["DELETE", `${at(p.guildId)}/invites/${encodeURIComponent(p.code)}`],
+  allList: () => ["GET", "/guilds?scope=all"],
   adminList: () => ["GET", "/admin/guilds"],
   adminSuspend: (p) => ["POST", `${admin(p.guildId)}/suspend`, { suspended: p.suspended }],
   adminRestore: (p) => ["POST", `${admin(p.guildId)}/restore`],

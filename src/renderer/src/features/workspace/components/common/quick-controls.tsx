@@ -12,7 +12,7 @@ import {
 } from "@ant-design/icons";
 import { getUserStatusLabel } from "../../workspace-utils";
 import type { PresenceStatus, SelectablePresenceStatus } from "@shared/auth-contracts";
-import { OdakMenu } from "@/ui/odak-menu";
+import { MenuIcon, OdakMenu } from "@/ui/odak-menu";
 import { useMediaStats, type LiveKitConnectionStatus } from "@/features/livekit";
 import { useWorkspaceAudioConnection } from "../../hooks/lobby/use-workspace-audio-connection";
 import { PresenceGlyph, presenceMenu } from "../odak/odak-parts";
@@ -63,6 +63,9 @@ interface QuickControlsProps {
   /** The room the voice is in, a call's included; with the transport state
       it drives the connection dot. */
   voiceRoomId?: string | null;
+  /** Set while the room's server is not the one on screen: the room line then
+      goes back to it instead of opening the status menu. */
+  onReturnToRoom?: () => void;
   liveKitConnectionState?: LiveKitConnectionStatus;
 }
 
@@ -151,6 +154,7 @@ export function QuickControls({
   presenceStatus = "online",
   whereLabel,
   voiceRoomId,
+  onReturnToRoom,
   liveKitConnectionState = "disconnected",
 }: QuickControlsProps) {
   // Two of them: open, the dot stands in for the presence dot on the "where"
@@ -213,6 +217,23 @@ export function QuickControls({
       {/* Your status: a click opens the menu to change it (and Çıkış yap).
           Your profile card is the rail's avatar right beside it. Opens upward:
           the dock is pinned to the bottom of the window. */}
+      {onReturnToRoom && whereLabel ? (
+        <Tooltip title={`Odaya dön: ${whereLabel}`} placement="top">
+          <button
+            type="button"
+            className="ct-quick-idle-left"
+            aria-label={`Sesli odana dön, ${whereLabel}`}
+            onClick={onReturnToRoom}
+          >
+            <div className="ct-quick-idle-meta">
+              <span className="ct-quick-idle-status">
+                <MenuIcon name="volume" size={13} stroke={2.2} />
+                <strong className="ct-quick-idle-where">{whereLabel}</strong>
+              </span>
+            </div>
+          </button>
+        </Tooltip>
+      ) : (
       <OdakMenu
         trigger="click"
         items={presenceMenu({
@@ -252,6 +273,7 @@ export function QuickControls({
           </div>
         </button>
       </OdakMenu>
+      )}
 
       <div className="ct-quick-controls-inline" aria-label="İşlevler">
         {voiceDot}
