@@ -670,3 +670,93 @@
 .ct-admin-guild-limit .ant-input-number {
   width: 76px;
 }
+
+/* --- Sunucu ayarları: a column of sections beside the panel, as in Ayarlar --- */
+.ct-guild-home-inner.wide {
+  max-width: 1120px;
+}
+
+.ct-guild-settings {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.ct-guild-settings-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ct-guild-settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--odak-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--odak-dur-1) ease, background-color var(--odak-dur-1) ease;
+}
+
+.ct-guild-settings-link:hover {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+}
+
+.ct-guild-settings-link.active {
+  color: var(--odak-text);
+  background: var(--odak-raised);
+  box-shadow: inset 2px 0 0 var(--odak-accent);
+}
+
+.ct-guild-settings-link:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.3);
+}
+
+.ct-guild-settings-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Genel: the save bar stays in reach while the form scrolls. */
+.ct-guild-settings-save {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--odak-border);
+  background: var(--odak-bg);
+}
+
+@media (max-width: 860px) {
+  .ct-guild-settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .ct-guild-settings-nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .ct-guild-settings-link {
+    flex-shrink: 0;
+  }
+}

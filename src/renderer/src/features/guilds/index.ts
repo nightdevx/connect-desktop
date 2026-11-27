@@ -4,7 +4,6 @@ export { GuildRailServers, type GuildRailServersProps } from "./components/guild
 export { GuildHome } from "./components/guild-home";
 export { GuildCreateDialog } from "./components/guild-create-dialog";
 export { GuildJoinDialog } from "./components/guild-join-dialog";
-export { GuildSettingsDialog } from "./components/guild-settings-dialog";
 export { GuildHeaderMenu } from "./components/guild-header-menu";
 export { GuildViewingNotice } from "./components/guild-viewing-notice";
 export { GuildIcon } from "./components/guild-icon";

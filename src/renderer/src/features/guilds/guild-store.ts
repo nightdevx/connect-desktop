@@ -24,8 +24,7 @@ export const rememberGuild = (guildId: string | null): void => {
 /** Which dialog of the servers feature is open, if any. */
 export type GuildDialog =
   | { kind: "create" }
-  | { kind: "join"; code?: string }
-  | { kind: "settings"; guildId: string };
+  | { kind: "join"; code?: string };
 
 interface GuildUiState {
   /** The server picked in the column, remembered on this machine. */
@@ -36,6 +35,8 @@ interface GuildUiState {
   discovering: boolean;
   /** "Tüm sunucular" (platform staff) is on screen in place of the rooms. */
   browsingAll: boolean;
+  /** Sunucu ayarları (this server) is on screen in place of the rooms. */
+  settingsGuildId: string | null;
   dialog: GuildDialog | null;
   selectGuild: (guildId: string | null) => void;
   view: (guildId: string) => void;
@@ -44,6 +45,8 @@ interface GuildUiState {
   closeAllGuilds: () => void;
   openDiscover: () => void;
   closeDiscover: () => void;
+  openSettings: (guildId: string) => void;
+  closeSettings: () => void;
   openDialog: (dialog: GuildDialog) => void;
   closeDialog: () => void;
 }
@@ -53,28 +56,35 @@ export const useGuildUi = create<GuildUiState>((set) => ({
   viewingGuildId: null,
   discovering: false,
   browsingAll: false,
+  settingsGuildId: null,
   dialog: null,
   // Picking one of the user's own servers ends a view.
   selectGuild: (guildId) => {
     rememberGuild(guildId);
-    set({ selectedGuildId: guildId, discovering: false, browsingAll: false, viewingGuildId: null });
+    set({ selectedGuildId: guildId, discovering: false, browsingAll: false, settingsGuildId: null, viewingGuildId: null });
   },
   view: (guildId) => {
     useUiStore.getState().setWorkspaceSection("lobbies");
-    set({ viewingGuildId: guildId, discovering: false, browsingAll: false });
+    set({ viewingGuildId: guildId, discovering: false, browsingAll: false, settingsGuildId: null });
   },
   stopViewing: () => set({ viewingGuildId: null }),
-  // Keşfet and Tüm sunucular are drawn where the rooms are: open that section with them.
+  // Keşfet, Tüm sunucular and the settings are drawn where the rooms are: open that section with them.
   openAllGuilds: () => {
     useUiStore.getState().setWorkspaceSection("lobbies");
-    set({ browsingAll: true, discovering: false });
+    set({ browsingAll: true, discovering: false, settingsGuildId: null });
   },
   closeAllGuilds: () => set({ browsingAll: false }),
   openDiscover: () => {
     useUiStore.getState().setWorkspaceSection("lobbies");
-    set({ discovering: true, browsingAll: false });
+    set({ discovering: true, browsingAll: false, settingsGuildId: null });
   },
   closeDiscover: () => set({ discovering: false }),
+  // Server settings are drawn where the rooms are, like Keşfet.
+  openSettings: (guildId) => {
+    useUiStore.getState().setWorkspaceSection("lobbies");
+    set({ settingsGuildId: guildId, discovering: false, browsingAll: false });
+  },
+  closeSettings: () => set({ settingsGuildId: null }),
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
 }));

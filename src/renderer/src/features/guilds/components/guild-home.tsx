@@ -11,6 +11,7 @@ import { showGuild, useGuildUi } from "../guild-store";
 import { useGuildList, useRefreshGuilds } from "../use-guilds";
 import { AllGuildsList } from "./all-guilds";
 import { GuildIcon } from "./guild-icon";
+import { GuildSettingsPage } from "./guild-settings-page";
 
 /** Runs one server action with a busy key, a toast on failure, and a list refresh. */
 const useGuildAction = () => {
@@ -228,21 +229,25 @@ function PendingLists() {
 
 /**
  * Where the rooms would be when there are none to show: the first-run empty
- * state (no servers yet) with Kur / Katıl / Keşfet, or Keşfet itself.
+ * state (no servers yet) with Kur / Katıl / Keşfet, Keşfet itself, or a
+ * server's settings.
  */
-export function GuildHome({ empty }: { empty: boolean }) {
+export function GuildHome({ empty, currentUserId, accountRole }: { empty: boolean; currentUserId: string; accountRole: string }) {
   const discovering = useGuildUi((state) => state.discovering);
   const openDialog = useGuildUi((state) => state.openDialog);
   const openDiscover = useGuildUi((state) => state.openDiscover);
   const closeDiscover = useGuildUi((state) => state.closeDiscover);
   const browsingAll = useGuildUi((state) => state.browsingAll);
   const closeAllGuilds = useGuildUi((state) => state.closeAllGuilds);
+  const editingGuild = useGuildUi((state) => state.settingsGuildId !== null);
   const canCreate = useGuildList().data?.canCreate ?? false;
 
   return (
     <main className="ct-main-panel ct-guild-home">
-      <div className="ct-guild-home-inner">
-        {browsingAll ? (
+      <div className={`ct-guild-home-inner${editingGuild ? " wide" : ""}`}>
+        {editingGuild ? (
+          <GuildSettingsPage currentUserId={currentUserId} accountRole={accountRole} />
+        ) : browsingAll ? (
           <PageHeader
             title="Tüm sunucular"
             description="Platformdaki bütün sunucular. Aç dersen üye olmadan görünmez bakarsın."
@@ -294,8 +299,8 @@ export function GuildHome({ empty }: { empty: boolean }) {
             </div>
           </div>
         )}
-        {!browsingAll && <PendingLists />}
-        {browsingAll ? <AllGuildsList /> : discovering && <DiscoverList />}
+        {!browsingAll && !editingGuild && <PendingLists />}
+        {editingGuild ? null : browsingAll ? <AllGuildsList /> : discovering && <DiscoverList />}
       </div>
     </main>
   );

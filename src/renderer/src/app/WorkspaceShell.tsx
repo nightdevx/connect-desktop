@@ -70,7 +70,6 @@ import {
   GuildCreateDialog,
   GuildHome,
   GuildJoinDialog,
-  GuildSettingsDialog,
   guildsWithUnread,
   isPlatformStaff,
   roleInGuild,
@@ -1047,6 +1046,7 @@ function WorkspaceShell({
   const guilds = useGuilds();
   const isDiscovering = useGuildUi((state) => state.discovering);
   const isBrowsingAll = useGuildUi((state) => state.browsingAll);
+  const isEditingGuild = useGuildUi((state) => state.settingsGuildId !== null);
   const isViewing = useGuildUi((state) => state.viewingGuildId !== null);
   const guildRooms = useMemo(
     () => roomsOfGuild(lobbies, guilds.selectedGuildId),
@@ -1459,9 +1459,9 @@ function WorkspaceShell({
   // Oyunlar and Fırsatlar have no sidebar (the owner's call, 2026-10-30):
   // their lists and tabs are on the page, as in the mock-ups. The fold
   // preference is left alone for the sections that keep one.
-  // No server yet, or Keşfet open: the servers' own page takes the rooms'
+  // No server yet, Keşfet or a server's settings open: the servers' own page takes the rooms'
   // place, full width.
-  const showGuildHome = workspaceSection === "lobbies" && ((guilds.isEmpty && !isViewing) || isDiscovering || isBrowsingAll);
+  const showGuildHome = workspaceSection === "lobbies" && ((guilds.isEmpty && !isViewing) || isDiscovering || isBrowsingAll || isEditingGuild);
   const hasNoSidebar =
     workspaceSection === "minigames" || workspaceSection === "free-games" || showGuildHome;
 
@@ -1618,7 +1618,7 @@ function WorkspaceShell({
           )}
 
           {showGuildHome ? (
-            <GuildHome empty={guilds.isEmpty} />
+            <GuildHome empty={guilds.isEmpty} currentUserId={currentUserId} accountRole={currentUserRole} />
           ) : (
           <WorkspaceMainPanel
             guildLobbies={guildRooms}
@@ -1818,7 +1818,6 @@ function WorkspaceShell({
 
       <GuildCreateDialog />
       <GuildJoinDialog />
-      <GuildSettingsDialog currentUserId={currentUserId} accountRole={currentUserRole} />
 
       <LobbyPasswordPromptModal
         pending={pendingPasswordLobby}
